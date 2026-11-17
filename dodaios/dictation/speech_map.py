@@ -47,6 +47,10 @@ _ENERGY_PEAK_SHARE = 0.06
 _ENERGY_FLOOR_FACTOR = 3.0
 #: Below this loudness (about -52 dBFS) nothing was recorded but the room.
 _ENERGY_ABSOLUTE_MIN = 0.0025
+#: A moment between two words is at most this share as loud as the speech
+#: around it, measured over this many frames (about a second) on both sides.
+_DIP_SHARE = 0.25
+_DIP_CONTEXT_FRAMES = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +251,69 @@ class SpeechMapper:
             run += 1
         return (run * _FRAME + self._pending.size) / SAMPLE_RATE
 
+    def pause_around(self, at: int) -> float:
+        """How long the speaker is silent around sample ``at``, so far."""
+        frames = len(self._live)
+        frame = min(max(0, at // _FRAME), frames)
+        first = frame
+        while first > 0 and not self._live[first - 1]:
+            first -= 1
+        last = frame
+        while last < frames and not self._live[last]:
+            last += 1
+        quiet = (last - first) * _FRAME
+        if last == frames:
+            quiet += self._pending.size  # audio the detector has not judged yet
+        return quiet / SAMPLE_RATE
+
+    def quiet_near(self, at: int, *, within_s: float, min_quiet_s: float) -> int | None:
+        """The middle of the gap in the speech nearest to sample ``at``.
+
+        A recognizer's own times for where a sentence ends are approximate. A
+        cut placed in the nearest real gap falls between two words; one placed
+        on the time itself may fall inside a word. ``None`` when no gap of at
+        least ``min_quiet_s`` has its middle within ``within_s`` of ``at``.
+        """
+        frames = len(self._live)
+        if not frames:
+            return None
+        centre = at / _FRAME
+        reach = within_s * SAMPLE_RATE / _FRAME
+        needed = max(1, round(min_quiet_s * SAMPLE_RATE / _FRAME))
+        first = max(0, int(centre - reach) - needed)
+        last = min(frames, int(centre + reach) + needed + 1)
+        best: tuple[float, int] | None = None
+        index = first
+        while index < last:
+            if self._live[index]:
+                index += 1
+                continue
+            run_start = index
+            while index < frames and not self._live[index]:
+                index += 1
+            if index - run_start < needed:
+                continue
+            middle = (run_start + index) / 2
+            distance = abs(middle - centre)
+            if distance <= reach and (best is None or distance < best[0]):
+                best = (distance, int(middle * _FRAME))
+        if best is not None:
+            return min(best[1], self._total_samples)
+        # No gap long enough to count as silence. Somebody who runs one
+        # sentence into the next still drops the voice between them: the
+        # quietest moment near ``at`` is that place, when it is clearly
+        # quieter than the speech around it.
+        low = max(0, int(centre - reach))
+        high = min(len(self._levels), int(centre + reach) + 1)
+        if high - low < 3:
+            return None
+        around = self._levels[max(0, low - _DIP_CONTEXT_FRAMES) : high + _DIP_CONTEXT_FRAMES]
+        loud = float(np.percentile(np.asarray(around, dtype=np.float32), 75))
+        quietest = min(range(low, high), key=lambda frame: self._levels[frame])
+        if loud <= 0.0 or self._levels[quietest] > loud * _DIP_SHARE:
+            return None
+        return min(int((quietest + 0.5) * _FRAME), self._total_samples)
+
     def speech_between(self, start: int, end: int) -> float:
         """Seconds judged speech between two sample offsets."""
         first = max(0, start // _FRAME)
@@ -326,6 +393,50 @@ def condense(
     )[0]
 
 
+def condensed_ranges(
+    speech: SpeechMap,
+    *,
+    max_pause_s: float = 1.2,
+    shortened_pause_s: float = 0.5,
+) -> list[tuple[int, int]]:
+    """The stretches of a recording its condensed clip is made of, in order.
+
+    Sample offsets into the recording, laid end to end exactly as
+    :func:`condense_marked` joins them. With them a time in the clip can be
+    traced back to where it was in the recording (:func:`recording_offset`).
+    """
+    longest = max(0, int(max_pause_s * SAMPLE_RATE))
+    half = max(0, int(shortened_pause_s * SAMPLE_RATE)) // 2
+    ranges: list[tuple[int, int]] = []
+    previous_end: int | None = None
+    for start, end in speech.spans:
+        if previous_end is not None:
+            if start - previous_end <= longest:
+                ranges.append((previous_end, start))
+            else:
+                ranges.append((previous_end, previous_end + half))
+                ranges.append((start - half, start))
+        ranges.append((start, end))
+        previous_end = end
+    return [(a, b) for a, b in ranges if b > a]
+
+
+def recording_offset(ranges: list[tuple[int, int]], clip_s: float) -> int | None:
+    """Where ``clip_s`` seconds into a condensed clip was in the recording.
+
+    ``None`` for a time outside the clip (in the padding behind it).
+    """
+    remaining = int(clip_s * SAMPLE_RATE)
+    if remaining < 0:
+        return None
+    for start, end in ranges:
+        length = end - start
+        if remaining <= length:
+            return start + remaining
+        remaining -= length
+    return None
+
+
 def condense_marked(
     pcm: bytes,
     speech: SpeechMap,
@@ -379,5 +490,7 @@ __all__ = [
     "SpeechMapper",
     "condense",
     "condense_marked",
+    "condensed_ranges",
+    "recording_offset",
     "map_speech",
 ]

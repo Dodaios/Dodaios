@@ -75,3 +75,87 @@ def test_never_touches_a_normal_or_higher_class(monkeypatch: pytest.MonkeyPatch)
 def test_failed_set_is_reported_as_nothing_done(monkeypatch: pytest.MonkeyPatch) -> None:
     kernel32 = _FakeKernel32(current_class=0x00004000, set_ok=False)
     assert _run_with(monkeypatch, kernel32) is None
+
+
+# ---------------------------------------------------------------------------
+# ``prefer_child_process``: a helper somebody waits on runs ahead of builds
+# ---------------------------------------------------------------------------
+
+
+class _ChildKernel32:
+    """Capability fake for the three Win32 calls the preference makes."""
+
+    def __init__(self, handle: int = 77, set_ok: bool = True) -> None:
+        self.handle = handle
+        self.set_ok = set_ok
+        self.opened: list[tuple[int, int]] = []
+        self.set_calls: list[int] = []
+        self.closed = 0
+        # A function object, so the call under test can set ``restype`` on it
+        # the way it does on the real foreign function.
+        self.OpenProcess = lambda access, _inherit, pid: self._open(access, pid)  # noqa: N815
+
+    def _open(self, access: int, pid: int) -> int:
+        self.opened.append((access, pid))
+        return self.handle
+
+    def SetPriorityClass(self, _handle: object, new_class: int) -> int:  # noqa: N802
+        self.set_calls.append(new_class)
+        return 1 if self.set_ok else 0
+
+    def CloseHandle(self, _handle: object) -> int:  # noqa: N802
+        self.closed += 1
+        return 1
+
+
+class _ChildCtypes:
+    c_void_p = staticmethod(lambda value=None: value)
+
+    def __init__(self, kernel32: _ChildKernel32) -> None:
+        self.windll = type("windll", (), {"kernel32": kernel32})()
+
+
+def test_a_child_is_put_one_class_above_normal(monkeypatch: pytest.MonkeyPatch) -> None:
+    kernel32 = _ChildKernel32()
+    monkeypatch.setattr(process_utils.sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "ctypes", _ChildCtypes(kernel32))
+
+    assert process_utils.prefer_child_process(4242) is True
+
+    assert kernel32.opened == [(0x0200, 4242)]  # PROCESS_SET_INFORMATION only
+    assert kernel32.set_calls == [0x00008000]  # ABOVE_NORMAL, never HIGH
+    assert kernel32.closed == 1
+
+
+def test_a_child_that_cannot_be_opened_is_left_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    kernel32 = _ChildKernel32(handle=0)
+    monkeypatch.setattr(process_utils.sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "ctypes", _ChildCtypes(kernel32))
+
+    assert process_utils.prefer_child_process(4242) is False
+    assert kernel32.set_calls == []
+    assert kernel32.closed == 0
+
+
+def test_preferring_a_child_is_a_quiet_noop_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    for platform in ("linux", "darwin"):
+        monkeypatch.setattr(process_utils.sys, "platform", platform)
+        assert process_utils.prefer_child_process(4242) is False
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="priority classes are a Windows concept")
+def test_a_real_child_really_runs_one_class_above_normal() -> None:
+    import subprocess
+
+    import psutil
+
+    child = subprocess.Popen(  # noqa: S603 — our own interpreter, a fixed script
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        creationflags=process_utils.NO_WINDOW_CREATIONFLAGS,
+    )
+    try:
+        assert process_utils.prefer_child_process(child.pid) is True
+        assert psutil.Process(child.pid).nice() == psutil.ABOVE_NORMAL_PRIORITY_CLASS
+    finally:
+        child.kill()
+        child.wait(timeout=10)

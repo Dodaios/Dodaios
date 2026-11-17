@@ -1,15 +1,25 @@
 """One dictation from the first sample to the recognized words.
 
-A take records everything, and recognizes it once:
+A take records everything, and no text exists before the stop:
 
-* **Nothing is recognized twice.** There is no live preview that a later pass
-  corrects. Each stretch of the recording goes to a recognizer exactly once.
-* **Pauses are where it is cut.** A short dictation is one request. A long one
-  is cut at the speaker's own pauses into pieces of about half a minute of
-  speech, and each piece is recognized while the person is still speaking.
-  After the stop only the last piece is left, so the wait does not grow with
-  the length. Silence does not count towards a piece: however long somebody
-  thinks, a piece is cut only once it holds enough speech to be worth reading.
+* **No text is shown and later corrected.** There is no live preview. What a
+  recognizer returned for a stretch of the recording is either the text of
+  that stretch or it is thrown away unseen.
+* **It is read while the person speaks.** An engine on this computer reads
+  the open piece again and again: at every pause, and at the next gap between
+  two words when somebody talks on without one. From such a reading the part
+  up to a break the recognizer marked itself is kept as final, once the
+  reading has heard enough speech behind that break and the part holds
+  enough of it (:data:`KEEP_MIN_S`). The next piece begins in the gap after
+  it. The end of a sentence is the preferred break. What is behind the break
+  is read again with what follows.
+* **After the stop only the rest is left.** A reading the speaker added
+  nothing to is the text of the last piece. Otherwise what was said since
+  the last kept part is read once more, so the wait does not grow with the
+  length of the dictation.
+* **A paid service is asked once.** It is never sent audio whose reading may
+  be thrown away. Its recordings are one request up to about half a minute
+  of speech and are cut at a long pause beyond that.
 * **Silence is never sent.** A piece without speech makes no request, silence
   around the words is cut off and a long pause is shortened
   (:mod:`dodaios.dictation.speech_map`). That is what keeps a recognizer from
@@ -28,12 +38,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from dodaios.dictation.speech_map import SAMPLE_RATE, SpeechMapper, condense_marked
+from dodaios.dictation.speech_map import (
+    SAMPLE_RATE,
+    SpeechMapper,
+    condense_marked,
+    condensed_ranges,
+    recording_offset,
+)
 
 log = logging.getLogger("dodaios.dictation.take")
 
@@ -56,6 +73,69 @@ PIECE_MAX_S = 100.0
 #: piece starts with a little room tone and not with the whole pause.
 _CUT_BACK_S = 0.5
 
+#: A reading that ends in a pause this long may stay as its piece's text
+#: when the text ends a sentence: shorter than the pause between two
+#: sentences, longer than a breath inside one.
+AHEAD_PAUSE_S = 0.3
+#: The pause that starts a reading of the open piece, by how much speech is
+#: new since the last one. With little new speech it is the moment the voice
+#: has clearly stopped: somebody who lets go of the key a quarter of a second
+#: after the last word then finds the text already there. Somebody who talks
+#: on without stopping is read at the next short gap between two words, and
+#: in the end without any: what the last word of such a reading lost does not
+#: matter, because only its earlier part is ever kept.
+_AHEAD_LADDER: tuple[tuple[float, float], ...] = (
+    (0.6, 0.15),
+    (5.0, 0.12),
+    (10.0, 0.0),
+)
+#: Silence this long lies between two words, not inside one.
+_WORD_GAP_S = 0.09
+#: A reading that took longer than this came from an engine too slow to read
+#: ahead with: one second, plus this share of the clip's length. Such a
+#: reading is still running when the person stops, and the stop would wait
+#: for it. Whisper on a free graphics card needs about 0.2 s plus 2 % of the
+#: clip, and three times that on a machine whose processor is busy; on a
+#: processor alone it needs half the clip's length. Simulated on real
+#: dictations, reading ahead still halved the wait at three times the normal
+#: reading time and made single dictations slower at six times.
+_AHEAD_SLOW_BASE_S = 1.0
+_AHEAD_SLOW_SHARE = 0.12
+#: How long a slow engine is not read ahead with. Every dictation's last
+#: reading measures it again, and a fast one lifts this at once.
+_AHEAD_SLOW_FOR_S = 300.0
+#: Recognizer id -> the time until which it counts as too slow to read ahead.
+_slow_until: dict[str, float] = {}
+#: The least speech a kept part of the recording holds. Less is read again
+#: with what follows: a recognizer spells names and technical words better
+#: the more of the dictation it hears around them. Measured on real
+#: dictations against a stronger model, parts from 12 s on read as well as
+#: the whole recording in one piece; parts from 5 or 8 s on read a little
+#: worse and saved only a few more milliseconds.
+KEEP_MIN_S = 12.0
+#: How much speech a reading must have heard behind a place for its text up
+#: to that place to be final: a little behind the end of a sentence, more
+#: behind a break inside one.
+_AFTER_SENTENCE_S = 0.5
+_AFTER_BREAK_S = 2.0
+#: The end of a sentence is the better place to cut. A break inside a
+#: sentence is taken instead only when it lies this much speech further on.
+_PREFER_SENTENCE_S = 6.0
+#: Less speech than this after a kept piece is not read by itself. A word or
+#: a breath alone is what a recognizer misreads or invents text for, so it is
+#: read together with the piece before it.
+_TAIL_ALONE_MIN_S = 1.0
+#: Up to this much "speech" behind a reading is a click, not a word. Anything
+#: more was said, however short, and the reading is not the whole text.
+_NOTHING_AFTER_S = 0.07
+#: How far from the time a recognizer gives for the end of a sentence the
+#: gap between the two sentences may lie, and how long that gap has to be.
+_SENTENCE_GAP_WITHIN_S = 0.45
+_SENTENCE_GAP_MIN_S = 0.09
+#: What a sentence ends with, and what may stand behind that mark.
+_SENTENCE_END = (".", "!", "?", "。", "！", "？")
+_CLOSING_MARKS = "\"'»“”’)]"
+
 #: A pause between two sentences at least this long starts a new paragraph.
 PARAGRAPH_PAUSE_S = 2.0
 #: How far a long pause may lie outside the gap between two recognized
@@ -71,6 +151,10 @@ _MIN_CLIP_S = 1.25
 #: A piece with less speech than this is too short for a recognizer to tell
 #: the language from; it is told the language recent speech was in.
 SHORT_FOR_DETECTION_S = 6.0
+
+#: A recognizer this sure of the language of a long enough clip is believed
+#: for the rest of the take.
+_SURE_OF_LANGUAGE = 0.8
 
 #: Failures a second attempt can survive: a dropped connection, a service or
 #: engine that was busy for a moment. A wrong key or an unusable recording is
@@ -123,6 +207,9 @@ class TakeResult:
     wait_after_stop_ms: int = 0
     audio_sent_s: float = 0.0
     detector: str = ""
+    #: Readings started at a pause, and how many of them became the text.
+    reads_ahead: int = 0
+    reads_ahead_kept: int = 0
 
     def audit(self) -> tuple[str, ...]:
         """Facts about how the take was read, for the history. No content."""
@@ -130,6 +217,8 @@ class TakeResult:
             f"pieces:{self.pieces}",
             f"pieces_read_early:{self.pieces_read_early}",
             f"wait_after_stop_ms:{self.wait_after_stop_ms}",
+            f"reads_ahead:{self.reads_ahead}",
+            f"reads_ahead_kept:{self.reads_ahead_kept}",
             f"speech_ms:{round(self.speech_s * 1000)}",
             f"audio_sent_ms:{round(self.audio_sent_s * 1000)}",
             f"speech_detector:{self.detector or 'none'}",
@@ -146,6 +235,20 @@ class _Piece:
     language: str = ""
     read: bool = False
     lost: bool = False
+    #: Read at a pause, before anybody knew whether the piece ends there.
+    ahead: bool = False
+    #: Set once such a reading has its answer, whatever the answer is.
+    settled: asyncio.Event | None = None
+    #: A reading made at a pause that became this piece's text.
+    kept: bool = False
+    #: What a reading made at a pause returned, and how its clip maps onto
+    #: the recording: needed to keep its finished sentences only.
+    transcript: Any = None
+    ranges: tuple[tuple[int, int], ...] = ()
+    #: Whether such a reading ends between two words, not inside one.
+    in_gap: bool = False
+    #: Whether it was looked at again once the speaker carried on.
+    judged: bool = False
 
 
 def _time_limit_s(recognizer: Recognizer, audio_s: float, *, has_stand_in: bool) -> float:
@@ -270,6 +373,39 @@ def _paragraphs_at_pauses(text: str, transcript: Any, pauses: Sequence[float]) -
     return break_before_sentences(text, breaks) if breaks else text
 
 
+_WORD_RE = re.compile(r"\S+")
+
+
+def _first_words(text: str, count: int) -> str:
+    """The first ``count`` words of ``text``, its line breaks included."""
+    end = 0
+    for number, match in enumerate(_WORD_RE.finditer(text), start=1):
+        end = match.end()
+        if number == count:
+            break
+    return text[:end]
+
+
+def _ends_sentence(text: str) -> bool:
+    """Whether recognized text stops where a sentence does.
+
+    Three dots are a recognizer's mark for a speaker who broke off, so they
+    do not count.
+    """
+    tail = text.rstrip().rstrip(_CLOSING_MARKS).rstrip()
+    if not tail or tail.endswith(("...", "…")):
+        return False
+    return tail.endswith(_SENTENCE_END)
+
+
+def _reported_confidence(transcript: Any) -> float:
+    """How sure the recognizer says it is of the language, 0.0 when unsaid."""
+    try:
+        return float(getattr(transcript, "confidence", 0.0) or 0.0)
+    except (TypeError, ValueError):  # a figure that is not a number is no figure
+        return 0.0
+
+
 def _language_tag(value: Any) -> str:
     """``"en-US"`` / ``"EN_us"`` -> ``"en"``; nothing usable -> ``""``."""
     tag = str(value or "").strip().lower().replace("_", "-")
@@ -287,6 +423,7 @@ class Take:
         *,
         language: str = "auto",
         language_hint: str = "",
+        read_ahead: bool = True,
     ) -> None:
         # ``None`` means "not known yet": the recording starts at once and the
         # caller hands the recognizers over with ``set_recognizers`` while it
@@ -320,6 +457,20 @@ class Take:
         self._models: list[str] = []
         self._languages: list[str] = []
         self._audio_sent_s = 0.0
+        #: Whether the open piece is read at the speaker's pauses. Off for a
+        #: finished recording: nobody is still speaking, so there is no wait
+        #: such a reading could shorten.
+        self._read_ahead = read_ahead
+        #: The newest reading made at a pause, in flight or answered.
+        self._ahead: _Piece | None = None
+        #: Seconds of speech the recording held when that reading was cut.
+        self._ahead_mark = 0.0
+        self._reads_ahead = 0
+        self._reads_ahead_kept = 0
+        #: The language this take was heard in, once enough speech said so.
+        self._take_language = ""
+        #: The recognizer a piece is with right now.
+        self._reading: Recognizer | None = None
 
     # -- recording ---------------------------------------------------------- #
 
@@ -383,6 +534,13 @@ class Take:
         self._audio.extend(data)
         self._mapper.feed(data)
         self._maybe_cut()
+        try:
+            self._maybe_read_ahead()
+        except Exception:  # noqa: BLE001 - reading ahead is a help, never a gate
+            # The recording goes on and is read at the stop, as it would be
+            # without any reading ahead.
+            self._read_ahead = False
+            log.warning("dictation: reading ahead failed and is off for this take", exc_info=True)
 
     def _maybe_cut(self) -> None:
         # Speech decides, not the clock: a piece of silence has nothing to
@@ -399,6 +557,15 @@ class Take:
                 needed = pause_needed
         cut_at: int | None = None
         if needed is not None and pause >= needed:
+            ahead = self._ahead
+            if ahead is not None and self._mapper.speech_so_far_s <= self._ahead_mark:
+                # This pause is already being read, or was. The answer is the
+                # piece, with or without a sentence end; nothing is read twice.
+                if ahead.settled is not None and not ahead.settled.is_set():
+                    return
+                if ahead.read and not ahead.lost:
+                    self._keep(ahead)
+                    return
             # Inside the pause, so both pieces keep some room tone.
             cut_at = total - int(min(pause / 2, _CUT_BACK_S) * SAMPLE_RATE)
         elif speech_s >= PIECE_MAX_S:
@@ -412,11 +579,234 @@ class Take:
         self._pieces.append(piece)
         self._piece_start = end
         self._speech_before_piece = self._mapper.speech_so_far_s
+        # A reading made at a pause belonged to the piece that just closed.
+        self._ahead = None
+        self._ahead_mark = self._speech_before_piece
+        self._enqueue(piece)
+
+    def _enqueue(self, piece: _Piece) -> None:
         if self._worker is None:
             self._worker = asyncio.get_running_loop().create_task(
                 self._read_pieces(), name="dictation-read"
             )
         self._queue.put_nowait(piece)
+
+    # -- reading at a pause -------------------------------------------------- #
+
+    def _lead(self) -> Recognizer | None:
+        """The recognizer the next piece goes to first."""
+        for recognizer in self._recognizers:
+            if recognizer.id not in self._set_aside:
+                return recognizer
+        return self._recognizers[0] if self._recognizers else None
+
+    def _maybe_read_ahead(self) -> None:
+        """Read the open piece up to the pause the speaker is making.
+
+        One such reading at a time, and only when there is speech it has not
+        seen. Only an engine on this computer is asked: it is idle anyway. A
+        service is never sent audio whose reading may be thrown away. Its
+        pieces are cut at long pauses alone, as before: cutting them earlier
+        without the recognizer's own breaks cost one word in seventy on the
+        recordings this was measured with.
+        """
+        if not self._read_ahead or self._closed or not self._recognizers_known.is_set():
+            return
+        ahead = self._ahead
+        if ahead is not None and ahead.settled is not None and not ahead.settled.is_set():
+            return
+        pause = self._mapper.silence_run_s()
+        speech_now = self._mapper.speech_so_far_s
+        if (
+            ahead is not None
+            and not ahead.judged
+            and ahead.read
+            and not ahead.lost
+            and speech_now > self._ahead_mark
+        ):
+            # The speaker carried on, so the pause that reading ended in is
+            # over and its length is known: long enough, and the reading
+            # stays as the text of everything before it.
+            ahead.judged = True
+            if self._keepable(ahead):
+                self._keep(ahead)
+        new_speech = speech_now - self._ahead_mark
+        needed: float | None = None
+        for held, pause_needed in _AHEAD_LADDER:
+            if new_speech >= held:
+                needed = pause_needed
+        if needed is None or pause < needed:
+            return
+        lead = self._lead()
+        if lead is None or not lead.on_device:
+            return
+        if _slow_until.get(lead.id, 0.0) > time.perf_counter():
+            return
+        end = self._mapper.total_samples - int(min(pause / 2, _CUT_BACK_S) * SAMPLE_RATE)
+        if end <= self._piece_start:
+            return
+        piece = _Piece(
+            index=len(self._pieces),
+            start=self._piece_start,
+            end=end,
+            early=True,
+            ahead=True,
+            settled=asyncio.Event(),
+            in_gap=pause >= _WORD_GAP_S,
+        )
+        self._ahead = piece
+        self._ahead_mark = speech_now
+        self._reads_ahead += 1
+        self._enqueue(piece)
+
+    def _keepable(self, piece: _Piece) -> bool:
+        """Whether a reading made at a pause may stay as its piece's text."""
+        return (
+            piece.read
+            and not piece.lost
+            and piece.in_gap
+            and self._mapper.pause_around(piece.end) >= AHEAD_PAUSE_S
+            and self._mapper.speech_between(piece.start, piece.end) >= KEEP_MIN_S
+            and _ends_sentence(piece.text)
+        )
+
+    def _keep(self, piece: _Piece) -> None:
+        """Make a reading made at a pause the text of its piece."""
+        piece.index = len(self._pieces)
+        piece.kept = True
+        piece.transcript = None
+        piece.ranges = ()
+        self._pieces.append(piece)
+        self._piece_start = piece.end
+        # Speech that came after the pause belongs to the piece that opens now.
+        self._speech_before_piece = self._mapper.speech_so_far_s - self._mapper.speech_between(
+            piece.end, self._mapper.total_samples
+        )
+        self._ahead = None
+        self._ahead_mark = self._speech_before_piece
+        self._reads_ahead_kept += 1
+
+    def _ahead_settled(self, piece: _Piece) -> None:
+        if piece.settled is not None:
+            piece.settled.set()
+        if self._closed or piece is not self._ahead:
+            return  # the stop decides about it, or a cut went past it
+        if self._keepable(piece):
+            self._keep(piece)
+        elif piece.lost:
+            # Nobody read it. The next pause may try again with what follows.
+            self._ahead = None
+        else:
+            self._keep_finished(piece)
+
+    def _keep_finished(self, piece: _Piece) -> bool:
+        """Keep the earlier part of a reading that does not end a sentence.
+
+        The speaker paused inside a sentence, carried on before the answer
+        came, or never paused at all. The text up to a break the recognizer
+        marked itself is still final when the reading heard enough speech
+        behind that break. The end of a sentence is preferred; a break inside
+        one is taken when no sentence ended for a while. The cut is put into
+        the gap between two words found in the recording itself, and the next
+        piece begins there.
+        """
+        if not piece.read or piece.lost or piece.transcript is None or not piece.ranges:
+            return False
+        timed: list[tuple[float, float, str]] = []
+        for segment in getattr(piece.transcript, "segments", None) or ():
+            start = _segment_field(segment, "start")
+            end = _segment_field(segment, "end")
+            said = (
+                segment.get("text") if isinstance(segment, dict) else getattr(segment, "text", "")
+            )
+            if start is None or end is None:
+                return False
+            timed.append((start, end, str(said or "")))
+        if len(timed) < 2:
+            return False
+        words = [len(text.split()) for _start, _end, text in timed]
+        if sum(words) != len(piece.text.split()):
+            return False  # the text is no longer the segments' text, word for word
+        ranges = list(piece.ranges)
+        total = self._mapper.total_samples
+        sentence: tuple[int, int] | None = None
+        other: tuple[int, int] | None = None
+        # At least the last segment stays: it is what is still being said.
+        for keep in range(len(timed) - 1, 0, -1):
+            between = (timed[keep - 1][1] + timed[keep][0]) / 2
+            offset = recording_offset(ranges, between)
+            if offset is None:
+                continue
+            cut = self._mapper.quiet_near(
+                piece.start + offset,
+                within_s=_SENTENCE_GAP_WITHIN_S,
+                min_quiet_s=_SENTENCE_GAP_MIN_S,
+            )
+            if cut is None or not piece.start < cut < piece.end:
+                continue
+            if self._mapper.speech_between(piece.start, cut) < KEEP_MIN_S:
+                break  # an earlier break holds even less
+            if self._mapper.speech_between(cut, total) < _TAIL_ALONE_MIN_S:
+                continue
+            heard_behind = self._mapper.speech_between(cut, piece.end)
+            ends = _ends_sentence("".join(text for _s, _e, text in timed[:keep]))
+            if ends and heard_behind >= _AFTER_SENTENCE_S:
+                sentence = (keep, cut)
+                break
+            if other is None and heard_behind >= _AFTER_BREAK_S:
+                other = (keep, cut)
+        chosen = sentence
+        if other is not None and (
+            sentence is None
+            or self._mapper.speech_between(sentence[1], other[1]) > _PREFER_SENTENCE_S
+        ):
+            chosen = other
+        if chosen is None:
+            return False
+        keep, cut = chosen
+        text = _first_words(piece.text, sum(words[:keep])).rstrip()
+        if not text:
+            return False
+        piece.end = cut
+        piece.text = text
+        self._keep(piece)
+        return True
+
+    async def _settle_ahead(self, total: int) -> None:
+        """At the stop: keep the reading made at the last pause, or drop it.
+
+        A reading still on its way is waited for rather than raced: an engine
+        on this computer reads one clip at a time, and its answer is usually
+        the whole remaining text.
+        """
+        ahead, self._ahead = self._ahead, None
+        if ahead is None or ahead.settled is None:
+            return
+        await ahead.settled.wait()
+        if self._cancelled or not ahead.read or ahead.lost or ahead.start != self._piece_start:
+            return
+        after = self._mapper.speech_between(ahead.end, total)
+        if ahead.in_gap and after < _NOTHING_AFTER_S:
+            # Nothing was said after it: the reading is the piece.
+            ahead.end = total
+            self._keep(ahead)
+        elif after >= _TAIL_ALONE_MIN_S and self._keepable(ahead):
+            self._keep(ahead)
+        else:
+            self._keep_finished(ahead)
+
+    def _rejoin_short_tail(self, total: int) -> None:
+        """Give a few last sounds back to the kept piece before them."""
+        if not self._pieces:
+            return
+        last = self._pieces[-1]
+        if not last.kept or last.end != self._piece_start:
+            return
+        tail = self._mapper.speech_between(self._piece_start, total)
+        if _NOTHING_AFTER_S <= tail < _TAIL_ALONE_MIN_S:
+            self._pieces.pop()
+            self._piece_start = last.start
+            self._reads_ahead_kept -= 1
 
     # -- recognition -------------------------------------------------------- #
 
@@ -425,18 +815,38 @@ class Take:
             piece = await self._queue.get()
             if piece is None:
                 return
+            if self._cancelled:
+                if piece.settled is not None:
+                    piece.settled.set()
+                continue
             try:
                 await self._read_piece(piece)
             except asyncio.CancelledError:
+                if piece.settled is not None:
+                    piece.settled.set()
                 raise
             except Exception as exc:  # noqa: BLE001 - one piece never ends the take
                 piece.lost = True
                 self._note_failure("unknown", f"{type(exc).__name__}: {exc}")
                 log.warning("dictation piece %d could not be read", piece.index, exc_info=True)
+            if piece.ahead:
+                try:
+                    self._ahead_settled(piece)
+                except Exception:  # noqa: BLE001 - the stop reads the piece instead
+                    if piece.settled is not None:
+                        piece.settled.set()
+                    if self._ahead is piece:
+                        self._ahead = None
+                    log.warning("dictation: a reading ahead could not be used", exc_info=True)
 
     def _language_for(self, speech_s: float) -> str:
         if self._language != "auto":
             return self._language
+        if self._take_language:
+            # Enough of this take was already heard to know its language.
+            # Finding it out again costs the recognizer a second pass over
+            # the audio on every reading.
+            return self._take_language
         # Later pieces follow what the take has already been heard in.
         heard = next((p.language for p in reversed(self._pieces) if p.language), "")
         known = heard or self._language_hint
@@ -465,7 +875,9 @@ class Take:
         language = self._language_for(speech.speech_s)
         order = [r for r in self._recognizers if r.id not in self._set_aside]
         order += [r for r in self._recognizers if r.id in self._set_aside]
-        attempts = list(order)
+        # A reading made at a pause may be thrown away, so it asks the first
+        # recognizer only: the stand-in is for speech that would be lost.
+        attempts = order[:1] if piece.ahead else list(order)
         retried = False
         position = 0
         while position < len(attempts):
@@ -476,6 +888,7 @@ class Take:
             started = time.perf_counter()
             self._calls += 1
             timed_out = False
+            self._reading = recognizer
             try:
                 transcript = await asyncio.wait_for(
                     _transcribe(recognizer.provider, clip, language), timeout=limit
@@ -504,17 +917,51 @@ class Take:
                 )
                 piece.language = _language_tag(getattr(transcript, "language", ""))
                 piece.read = True
+                if recognizer.on_device:
+                    if elapsed > _AHEAD_SLOW_BASE_S + _AHEAD_SLOW_SHARE * clip_s:
+                        if recognizer.id not in _slow_until:
+                            log.info(
+                                "dictation: %s needed %.1fs for %.1fs of audio; it is not "
+                                "read ahead with for now.",
+                                recognizer.id,
+                                elapsed,
+                                clip_s,
+                            )
+                        _slow_until[recognizer.id] = time.perf_counter() + _AHEAD_SLOW_FOR_S
+                    else:
+                        _slow_until.pop(recognizer.id, None)
+                if piece.ahead:
+                    piece.transcript = transcript
+                    piece.ranges = tuple(condensed_ranges(speech))
                 self._remember(recognizer, transcript)
+                if (
+                    language == "auto"
+                    and piece.language
+                    and speech.speech_s >= SHORT_FOR_DETECTION_S
+                    and _reported_confidence(transcript) >= _SURE_OF_LANGUAGE
+                ):
+                    self._take_language = piece.language
                 log.info(
-                    "dictation piece %d: %.1fs of speech read by %s in %.2fs (%d chars).",
+                    "dictation piece %d: %.1fs of speech read by %s in %.2fs (%d chars%s).",
                     piece.index,
                     speech.speech_s,
                     recognizer.id,
                     elapsed,
                     len(piece.text),
+                    ", at a pause" if piece.ahead else "",
                 )
                 return
+            finally:
+                self._reading = None
             self._latency_s += time.perf_counter() - started
+            if piece.ahead and not timed_out:
+                # Nobody waits for this reading and no speech is lost with it:
+                # the same audio is read again at the next pause or the stop.
+                # An engine that was only still starting must stay the first
+                # choice for that, so nothing is set aside or reported.
+                piece.lost = True
+                log.info("dictation: a reading at a pause was not made (%s).", detail)
+                return
             self._note_failure(reason, detail)
             if recognizer.id not in self._set_aside:
                 self._set_aside.append(recognizer.id)
@@ -523,6 +970,7 @@ class Take:
             # out its whole time limit is not asked to do so twice.
             retry = (
                 not has_stand_in
+                and not piece.ahead
                 and not retried
                 and not timed_out
                 and reason in _RETRY_REASONS
@@ -534,7 +982,11 @@ class Take:
                 detail,
                 "; the next recognizer takes it."
                 if has_stand_in
-                else ("; trying once more." if retry else "."),
+                else (
+                    "; trying once more."
+                    if retry
+                    else ("; it is read again at the stop." if piece.ahead else ".")
+                ),
             )
             if retry:
                 retried = True
@@ -577,6 +1029,15 @@ class Take:
         # A take that learns its recognizers only now has none.
         self._recognizers_known.set()
         total = self._mapper.total_samples
+        if not self._cancelled:
+            try:
+                await self._settle_ahead(total)
+                if not self._cancelled:
+                    self._rejoin_short_tail(total)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - what is left is read now instead
+                log.warning("dictation: the last reading ahead could not be used", exc_info=True)
         if total > self._piece_start and not self._cancelled:
             self._close_piece(total, early=False)
         if self._worker is not None and not self._cancelled:
@@ -613,6 +1074,8 @@ class Take:
             wait_after_stop_ms=round((time.perf_counter() - stopped) * 1000),
             audio_sent_s=self._audio_sent_s,
             detector=speech.detector,
+            reads_ahead=self._reads_ahead,
+            reads_ahead_kept=self._reads_ahead_kept,
         )
 
     def _joined_text(self) -> str:
@@ -623,11 +1086,18 @@ class Take:
         for piece in self._pieces:
             if not piece.text:
                 continue
+            words = piece.text.strip()
             if out:
+                out = out.rstrip()
+                if words[:1].islower() and out.endswith(".") and not out.endswith(".."):
+                    # The recognizer closed the piece before with a full stop
+                    # and wrote this one as the rest of the sentence: the
+                    # speaker only took a breath there.
+                    out = out[:-1] + ","
                 gap = _gap_around(spans, previous_end)
-                ends_sentence = out.rstrip().endswith((".", "!", "?"))
+                ends_sentence = out.endswith((".", "!", "?"))
                 out += "\n\n" if gap >= PARAGRAPH_PAUSE_S and ends_sentence else " "
-            out += piece.text.strip()
+            out += words
             previous_end = piece.end
         return out.strip()
 
@@ -635,7 +1105,18 @@ class Take:
         """Stop reading. What was recorded stays available as :attr:`audio`."""
         self._closed = True
         self._cancelled = True
-        for task in (self._worker, self._warm_task):
+        ahead = self._ahead
+        worker = self._worker
+        reading = self._reading
+        if worker is not None and not worker.done() and reading is not None and reading.on_device:
+            # An engine on this computer cannot be interrupted: cutting its
+            # call off costs the engine itself, and the next dictation waits
+            # for a new one. It finishes the clip it has and reads no more.
+            self._queue.put_nowait(None)
+            worker = None
+        elif ahead is not None and ahead.settled is not None:
+            ahead.settled.set()
+        for task in (worker, self._warm_task):
             if task is not None and not task.done():
                 task.cancel()
 
@@ -704,7 +1185,7 @@ async def read_recording(
     language_hint: str = "",
 ) -> TakeResult:
     """Read a finished recording the way a live take is read."""
-    take = Take(recognizers, language=language, language_hint=language_hint)
+    take = Take(recognizers, language=language, language_hint=language_hint, read_ahead=False)
     # Fed in the microphone's block size so the pieces fall where they would
     # have fallen live.
     block = 3200
@@ -716,6 +1197,8 @@ async def read_recording(
 
 
 __all__ = [
+    "AHEAD_PAUSE_S",
+    "KEEP_MIN_S",
     "MIN_SPEECH_S",
     "PIECE_MAX_S",
     "PIECE_MIN_S",
