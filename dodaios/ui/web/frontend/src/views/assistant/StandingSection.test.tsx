@@ -196,7 +196,8 @@ describe("StandingTaskPage", () => {
   const meta = () =>
     standingTask("s-meta", {
       title: "Meta ads campaign", goal: "Keep cost per purchase under 20 EUR.", how: "Check Ads Manager.",
-      notes: "Baseline CPA 14.90 EUR.", last_run_ms: Date.now() - 2 * HOUR, next_run_ms: Date.now() + HOUR,
+      // Two hours ago, but never before midnight: the page says "today" for it.
+      notes: "Baseline CPA 14.90 EUR.", last_run_ms: Math.max(new Date().setHours(0, 0, 0, 0), Date.now() - 2 * HOUR), next_run_ms: Date.now() + HOUR,
       last_outcome: "reported", last_summary: "CPA rose to 18.40 EUR.", runs: 2,
     });
   const runs = {

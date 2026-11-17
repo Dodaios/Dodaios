@@ -19,7 +19,10 @@ page and says nothing. ``frame-check`` asks the site first, so the panel can
 say so and offer the user's own browser instead. ``view`` names a detached
 window, as for ``/api/window/zoom``; omitted, the main window is used.
 
-Every native call is thread-hopped off the event loop.
+Every native call is thread-hopped off the event loop. ``place`` has threads
+of its own: the page sends a hide the moment another section replaces the IDE,
+exactly when that section's requests fill the shared pool, and the browser
+window must not wait on screen behind them.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urlparse
 
@@ -37,6 +41,9 @@ from pydantic import BaseModel, Field
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ide-browser", tags=["ide-browser"])
+
+# Two, so one placement stuck on a frozen browser cannot hold back the next.
+_PLACE_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ide-browser-place")
 
 
 class LaunchBody(BaseModel):
@@ -122,15 +129,17 @@ async def ide_browser_place(body: PlaceBody, request: Request) -> dict[str, Any]
     """Keep the browser window on the panel's rectangle, or hide it with the panel."""
     from dodaios.ui.browser_embed import get_embed
 
-    host = await asyncio.to_thread(_host, request, body.view)
-    if not host:
-        return _unavailable("no_desktop_shell")
     rect = body.rect.model_dump() if body.rect is not None else None
     embed = get_embed()
+
+    def place() -> dict[str, Any]:
+        host = _host(request, body.view)
+        if not host:
+            return _unavailable("no_desktop_shell")
+        return embed.place(body.owner, host, rect, body.dpr, body.visible)
+
     try:
-        return await asyncio.to_thread(
-            embed.place, body.owner, host, rect, body.dpr, body.visible,
-        )
+        return await asyncio.get_running_loop().run_in_executor(_PLACE_POOL, place)
     except Exception as exc:  # noqa: BLE001 - reported to the page, logged here
         log.warning("Browser panel place failed: %s", exc, exc_info=True)
         return {**embed.status(), "ok": False, "reason": "place_failed"}

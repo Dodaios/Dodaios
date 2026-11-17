@@ -1,4 +1,4 @@
-import { lazy, Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useAgentChatStore } from "@/store/agentChat";
@@ -46,6 +46,14 @@ export function HomeView() {
     return element;
   }, []);
   const home = useRef<HTMLDivElement>(null);
+  /* Whether the element is in the page yet. The conversation is drawn into it
+   * only from then on: drawn into an element that is not in the page, it has
+   * no height, so its first move to the end went nowhere and the next look
+   * at the view found it at the top and stopped following. The page opened
+   * at the first message after every restart and every return from another
+   * section (2026-11-16). The flag is set before the first paint, so nothing
+   * is seen without the conversation. */
+  const [placed, setPlaced] = useState(false);
   /* Only the one conversation with the assistant is lent: an agent's own chat
    * reads another store, and the chat beside its browser is two columns. */
   const lendable = showPanel;
@@ -53,6 +61,7 @@ export function HomeView() {
   // Into its column once; from then on only the window moves it, and back.
   useLayoutEffect(() => {
     if (home.current) home.current.appendChild(conversation);
+    setPlaced(true);
     return () => conversation.remove();
   }, [conversation]);
   useLayoutEffect(() => {
@@ -74,7 +83,7 @@ export function HomeView() {
   return (
     <div className="flex h-full min-h-0" data-testid="home-view">
       <div ref={home} className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-testid="home-conversation-column">
-        {createPortal(<AssistantChat />, conversation)}
+        {placed && createPortal(<AssistantChat />, conversation)}
       </div>
       {showPanel && (
         <div data-testid="assistant-panel-frame" className="hidden lg:flex">

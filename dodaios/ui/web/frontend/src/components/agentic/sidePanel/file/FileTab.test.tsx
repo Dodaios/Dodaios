@@ -88,6 +88,32 @@ describe("the side panel's File tab", () => {
   });
 });
 
+describe("files the File tab shows as themselves", () => {
+  it("plays a video from the granted path", async () => {
+    fetchMock.mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/Users/me/Downloads/demo.mp4", kind: "file" }));
+    act(() => useSideFileStore.getState().show({ path: "C:\\Users\\me\\Downloads\\demo.mp4", folder: "", diff: null }));
+    const { container } = render(<FileTab />);
+    await waitFor(() => expect(container.querySelector("video")).toBeTruthy());
+    expect(container.querySelector("video")?.getAttribute("src")).toContain("demo.mp4");
+    // A video is never read as text.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers to open a file it cannot read on the computer", async () => {
+    fetchMock
+      .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/setup.exe", kind: "file" }))
+      .mockResolvedValueOnce(answer(textFile(null, { binary: true })))
+      .mockResolvedValueOnce(answer({ opened: true }));
+    act(() => useSideFileStore.getState().show({ path: "C:/demo/setup.exe", folder: "", diff: null }));
+    render(<FileTab />);
+    fireEvent.click(await screen.findByRole("button", { name: /open/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(url).toBe("/api/settings/open-path");
+    expect(JSON.parse(String(init.body))).toEqual({ path: "C:/demo/setup.exe" });
+  });
+});
+
 describe("absoluteFilePath", () => {
   it("keeps an absolute path and joins a relative one to the thread's folder", () => {
     expect(absoluteFilePath("C:\\demo\\a.py", "C:\\Repo")).toBe("C:\\demo\\a.py");
@@ -95,6 +121,7 @@ describe("absoluteFilePath", () => {
     expect(absoluteFilePath("src/a.py", "C:\\Repo\\")).toBe("C:\\Repo\\src\\a.py");
     expect(absoluteFilePath("./src/a.py", "/home/me/repo")).toBe("/home/me/repo/src/a.py");
     expect(absoluteFilePath("a.py", "")).toBe("a.py");
+    expect(absoluteFilePath("~/Downloads/a.md", "C:\\Repo")).toBe("~/Downloads/a.md");
   });
 });
 

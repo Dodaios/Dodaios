@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from types import SimpleNamespace
 from typing import Any
 
@@ -21,6 +20,9 @@ FABLE_SENTENCE = (
     "https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue."
 )
 RESET = 1794870000  # 2026-11-16T23:00:00Z = 17 Nov 00:00 in Berlin
+#: The moment of the recording, three hours before RESET. The module's clock is
+#: pinned here so RESET stays in the future however late the suite runs.
+NOW = RESET - 3 * 3600
 CLAUDE_LIMIT_STREAM = [
     {"type": "system", "subtype": "init", "model": "claude-fable-5-2", "session_id": "cd14"},
     {
@@ -70,6 +72,7 @@ CLAUDE_LIMIT_STREAM = [
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch: pytest.MonkeyPatch) -> None:
     mf.reset()
+    monkeypatch.setattr(mf, "time", SimpleNamespace(time=lambda: NOW))
     monkeypatch.setattr(mf, "enabled", lambda: True)
     monkeypatch.setattr(mf, "_configured_chains", lambda: {})
     yield
@@ -144,7 +147,7 @@ def test_codex_limit_codes_and_reset_times_count() -> None:
         st,
     )
     assert st.limit.usage_limit
-    assert st.limit.resets_at is not None and st.limit.resets_at > time.time() + 7000
+    assert st.limit.resets_at is not None and st.limit.resets_at > NOW + 7000
 
 
 def test_clock_resets_name_the_next_such_time() -> None:

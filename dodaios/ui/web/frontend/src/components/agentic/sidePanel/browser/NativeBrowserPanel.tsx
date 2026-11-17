@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
@@ -15,6 +15,7 @@ import {
   type NativeBrowserChoice,
   type NativeBrowserStatus,
 } from "./nativeBrowserApi";
+import { SidePanelOnScreen } from "../sidePanelOnScreen";
 import { useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { useNativePlacement } from "./useNativePlacement";
 
@@ -65,7 +66,8 @@ export function NativeBrowserPanel({
 
   const state = launching ? "launching" : status.state;
   // Resend the rectangle whenever the backend took a new window.
-  const visible = useNativePlacement(body, owner, `${state}:${status.browser}:${status.profile}`);
+  const onScreen = useContext(SidePanelOnScreen);
+  const visible = useNativePlacement(body, owner, `${state}:${status.browser}:${status.profile}`, onScreen);
 
   const options = useMemo(() => status.browsers.flatMap((browser) => browser.profiles.map((profile) => ({
     value: choiceValue({ browser: browser.id, profile: profile.directory }),
