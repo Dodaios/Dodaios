@@ -67,7 +67,7 @@ export type HubPageKey = "language" | "voice" | "behavior";
 export const HUB_PAGES: Record<HubPageKey, readonly string[]> = {
   language: ["languages", "app", "overlay-taskbar", "music"],
   voice: ["voice", "wake-word"],
-  behavior: ["system-prompt", "approvals", "self-build"],
+  behavior: ["system-prompt", "agent-briefs", "approvals", "self-build"],
 };
 
 /** The slice a bare "settings" link opens. */

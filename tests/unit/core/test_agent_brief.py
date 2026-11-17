@@ -31,6 +31,12 @@ def test_workspace_prompt_field_carries_the_rule():
     assert "read-only" in WorkspaceOrchestrationTool.description
 
 
+def test_coding_session_prompt_field_carries_the_rule():
+    from dodaios.society.coding_threads import CodingThreadTool
+
+    assert AGENT_BRIEF_RULE in CodingThreadTool.schema["properties"]["prompt"]["description"]
+
+
 def test_society_task_field_carries_the_rule():
     task = DelegateToAgentTool.schema["properties"]["task"]["description"]
     assert AGENT_BRIEF_RULE in task

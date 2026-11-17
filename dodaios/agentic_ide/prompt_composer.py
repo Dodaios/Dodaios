@@ -823,12 +823,24 @@ async def _compose_once(
             attachments=attachments,
             conversation=conversation,
             tree=tree,
+            wishes=_brief_wishes(),
         ),
         on_first_delta=lambda: notify(
             STAGE_DRAFTING,
             _variant(_DRAFTING_PHRASES, base_instruction or said).format(name=terminal_name),
         ),
     )
+
+
+def _brief_wishes() -> str:
+    """The person's standing brief wishes, ``""`` when none or unreadable."""
+    try:
+        from dodaios.core.brief_wishes import read_wishes
+
+        return read_wishes()
+    except Exception:  # noqa: BLE001 - wishes never break a composition
+        logger.opt(exception=True).info("Agentic IDE: brief wishes unavailable")
+        return ""
 
 
 def _strip_wrapper(text: str) -> str:

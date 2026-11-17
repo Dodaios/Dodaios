@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.core.brief_wishes import wishes_rule
 from dodaios.cu.direct import COMPUTER_CONTROL_RULES
 from dodaios.live.coordination import (
     ON_SCREEN_RULE,
@@ -118,6 +119,7 @@ class LiveConfig(BaseModel):
                 + ON_SCREEN_RULE
                 + TEAM_TALK_RULE
                 + AGENT_BRIEF_RULE
+                + wishes_rule()
                 + " "
                 + (
                     COMPUTER_CONTROL_RULES + " Use computer for operating the desktop. "

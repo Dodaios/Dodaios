@@ -19,7 +19,7 @@ const UNLISTED_IDS = ["socials"];
 
 /** The General page's groups (SettingsView SECTIONS). */
 const GENERAL_SECTIONS = [
-  "languages", "app", "voice", "wake-word", "system-prompt", "approvals",
+  "languages", "app", "voice", "wake-word", "system-prompt", "agent-briefs", "approvals",
   "self-build", "music", "overlay-taskbar",
 ];
 
@@ -101,6 +101,7 @@ describe("pageForTarget finds the slice that shows a search hit", () => {
     ["audio-devices", "voice"],
     ["wake-word", "voice"],
     ["system-prompt", "behavior"],
+    ["agent-briefs", "behavior"],
     ["approvals", "behavior"],
     ["self-build", "behavior"],
   ])("%s is on the %s page", (target, page) => {

@@ -4640,7 +4640,7 @@ async def run_cli_turn(
     if identity and session.surface == "jarvis" and not user_text.lstrip().startswith("/"):
         # The assistant's own chat: the reply's shape and where a question goes
         # are said beside the message, not only in the system prompt
-        # (``REPLY_SHAPE_LINE``, ``BRIEF_LINE``, ``QUESTION_CARD_LINE``).
+        # (``REPLY_SHAPE_LINE``, ``brief_line()``, ``QUESTION_CARD_LINE``).
         from dodaios.agent_chat.secret_requests import SECRET_NOUN
 
         if SECRET_NOUN.search(user_text):
@@ -4650,7 +4650,8 @@ async def run_cli_turn(
             user_text += dodaios_harness.FIRST_LINE
         user_text += (
             dodaios_harness.REPLY_SHAPE_LINE
-            + dodaios_harness.BRIEF_LINE
+            # With the person's standing brief wishes, read fresh per message.
+            + dodaios_harness.brief_line()
             + dodaios_harness.QUESTION_CARD_LINE
         )
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):

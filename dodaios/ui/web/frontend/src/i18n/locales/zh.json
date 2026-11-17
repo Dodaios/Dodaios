@@ -3528,6 +3528,24 @@
       "reset_done": "已恢复默认系统提示词",
       "applies_next_turn": "在助手的下一条消息中生效，无需重启。"
     },
+    "agent_briefs": {
+      "title": "智能体任务说明",
+      "description": "你的助手如何为编码智能体编写任务说明。你也可以直接在聊天中告诉它，例如“每个 PR 我都要亲自批准”。",
+      "default_badge": "默认",
+      "custom_badge": "你的要求",
+      "default_label": "没有要求时：",
+      "default_text": "你的智能体会把工作做完。它们自行检查工作，测试和 CI 通过后自己推送并合并。",
+      "limits_label": "始终保留：",
+      "limits_text": "不以你的名义发布或发送任何内容，不付款，不用你的真实凭据运行不可信的代码，除非你明确要求这样做。",
+      "editor_label": "你的要求，每行一条",
+      "placeholder": "例如：\n每个 PR 我都要亲自批准\n始终附带测试\n用英文写提示词",
+      "chars": "{count} / {max} 个字符",
+      "chat_hint": "从下一份任务说明起生效，无需重启。",
+      "save": "保存要求",
+      "saved": "你对智能体任务说明的要求已保存",
+      "reset": "恢复默认",
+      "reset_done": "智能体任务说明已恢复默认"
+    },
     "quick_switch": {
       "title": "快速切换器",
       "description": "一个覆盖在所有内容之上的搜索框：输入某个版块的名称并按 Enter 即可跳转。Dodaios 窗口在前台时可用。",

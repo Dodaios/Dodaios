@@ -19,6 +19,7 @@ const SEARCH_GROUPS = [
   { id: "languages", keys: ["language", "languages_group_title"] },
   { id: "app", keys: ["app_settings_group_title", "autostart", "appearance", "look", "background_agents"] },
   { id: "system-prompt", keys: ["system_prompt"] },
+  { id: "agent-briefs", keys: ["agent_briefs"] },
   { id: "approvals", keys: ["approvals"] },
   { id: "self-build", keys: ["self_build"] },
   { id: "wake-word", keys: ["wake_word"] },

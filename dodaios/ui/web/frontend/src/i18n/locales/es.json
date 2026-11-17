@@ -3528,6 +3528,24 @@
       "reset_done": "Restablecido al prompt del sistema predeterminado",
       "applies_next_turn": "Se aplica en el próximo mensaje de tu asistente — sin reiniciar."
     },
+    "agent_briefs": {
+      "title": "Encargos a agentes",
+      "description": "Cómo tu asistente escribe los encargos para tus agentes de código. También puedes decírselo en el chat, por ejemplo «Quiero aprobar yo cada PR».",
+      "default_badge": "Predeterminado",
+      "custom_badge": "Tus deseos",
+      "default_label": "Sin deseos:",
+      "default_text": "Tus agentes terminan el trabajo. Revisan su propio trabajo y, cuando los tests y la CI están en verde, hacen push y merge ellos mismos.",
+      "limits_label": "Siempre se mantiene:",
+      "limits_text": "No se publica ni se envía nada en tu nombre, no hay pagos y no se ejecuta código no fiable con tus credenciales reales, salvo que pidas exactamente eso.",
+      "editor_label": "Tus deseos, uno por línea",
+      "placeholder": "Por ejemplo:\nQuiero aprobar yo cada PR\nSiempre con tests\nEscribe los prompts en inglés",
+      "chars": "{count} / {max} caracteres",
+      "chat_hint": "Se aplica desde el próximo encargo, sin reiniciar.",
+      "save": "Guardar deseos",
+      "saved": "Tus deseos para los encargos se han guardado",
+      "reset": "Volver al predeterminado",
+      "reset_done": "Los encargos vuelven a usar el predeterminado"
+    },
     "quick_switch": {
       "title": "Cambio rápido",
       "description": "Una búsqueda sobre todo: escribe el nombre de una sección y pulsa Enter para ir allí. Funciona mientras la ventana de Dodaios está delante.",

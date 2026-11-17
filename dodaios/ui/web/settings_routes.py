@@ -2750,6 +2750,64 @@ def delete_agent_instructions(request: Request) -> dict[str, object]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Agent brief wishes: how the person wants Dodaios to brief its agents ("I
+# approve every PR myself", "always with tests"). Without any, a brief lets the
+# agent finish: it checks its own work and, with tests and CI green, pushes and
+# merges. Set here from Settings or by the assistant (agent-briefs-set) when the
+# person says it in the chat. No restart: every brief reads them fresh.
+# ---------------------------------------------------------------------------
+
+
+class AgentBriefsBody(BaseModel):
+    # The whole list, one wish per line, in the person's words. Empty clears it.
+    wishes: str = Field(default="", max_length=8_000)
+
+
+def _agent_briefs_payload() -> dict[str, object]:
+    from dodaios.core.agent_brief import REAL_LIMITS, SHIP_DEFAULT
+    from dodaios.core.brief_wishes import MAX_WISHES_CHARS, read_wishes
+
+    wishes = read_wishes()
+    return {
+        "wishes": wishes,
+        "is_custom": bool(wishes),
+        "default": SHIP_DEFAULT,
+        "limits": REAL_LIMITS,
+        "char_count": len(wishes),
+        "max_chars": MAX_WISHES_CHARS,
+    }
+
+
+@router.get("/agent-briefs")
+def get_agent_briefs() -> dict[str, object]:
+    """The person's standing wishes for agent briefs, the default and the limits that stay."""
+    return _agent_briefs_payload()
+
+
+@router.put("/agent-briefs")
+def put_agent_briefs(body: AgentBriefsBody) -> dict[str, object]:
+    """Replace the whole list of wishes; an empty list goes back to the default."""
+    from dodaios.core.brief_wishes import save_wishes
+
+    try:
+        save_wishes(body.wishes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not save: {exc}") from exc
+    return {"ok": True, "restart_required": False, **_agent_briefs_payload()}
+
+
+@router.delete("/agent-briefs")
+def delete_agent_briefs() -> dict[str, object]:
+    """Back to the default: remove every wish."""
+    from dodaios.core.brief_wishes import reset_wishes
+
+    removed = reset_wishes()
+    return {"ok": True, "removed": removed, "restart_required": False, **_agent_briefs_payload()}
+
+
 async def _running_mission_summaries(
     manager: object, ids: list[str]
 ) -> list[dict[str, str]]:
