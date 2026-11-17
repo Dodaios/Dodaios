@@ -151,7 +151,8 @@ export function FileTab() {
           : loaded.state === "media" && workspaceId
             ? <MediaViewer kind={loaded.kind} workspaceId={workspaceId} path={loaded.path} onOpenExternally={() => void openLocalPath(absolute)} />
           : loaded.state === "ready"
-            ? <div className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5">
+            // Long lines wrap inside the panel, so the whole file reads without scrolling sideways.
+            ? <div data-testid="side-file-text" className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5 [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]">
               <CodeBlock language={language} code={loaded.text} chrome={false} />
             </div>
             : <Notice message={t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
