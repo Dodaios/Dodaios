@@ -39,7 +39,8 @@ def supports_app_menu(version: str) -> bool:
 def _installed_pywebview() -> str:
     try:
         return importlib.metadata.version("pywebview")
-    except importlib.metadata.PackageNotFoundError:  # not installed: menu item stays off
+    except importlib.metadata.PackageNotFoundError:
+        log.debug("pywebview not installed; no app-menu items")
         return ""
 
 
