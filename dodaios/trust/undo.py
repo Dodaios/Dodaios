@@ -9,7 +9,7 @@ The function reads the call's arguments and the tool's output and returns an
 ``None`` when this particular call cannot be undone. The ``ToolExecutor``
 hands every successful call to :meth:`UndoLedger.record`, which keeps the
 inverse for a few minutes and tells its listeners (the chat posts an
-``undo_available`` notice; the front end shows an undo toast for six seconds).
+``undo_available`` notice; the front end shows no pop-up for it, by choice).
 ``POST /api/trust/undo/{id}`` runs the inverse through the same executor, so
 an undo is audited and gated like any other call.
 """
@@ -35,8 +35,7 @@ Listener = Callable[[dict[str, Any]], None]
 #: ``entry`` is the ledger row, so the runner can stamp ``undo_of`` on the call.
 Runner = Callable[[str, dict[str, Any], dict[str, Any]], Awaitable[Any]]
 
-#: How long an inverse stays runnable after the action. The toast shows for six
-#: seconds; the window is longer so a click just before it fades still lands.
+#: How long an inverse stays runnable after the action.
 UNDO_WINDOW_MS: Final[int] = 5 * 60 * 1000
 _KEEP: Final[int] = 50
 

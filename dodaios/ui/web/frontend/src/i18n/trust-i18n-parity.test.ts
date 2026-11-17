@@ -1,6 +1,6 @@
 /**
  * The Trust and privacy strings exist in every locale with the same keys and
- * the same placeholders: the startup-bundle part (`trust.nav`, `trust.undo.*`,
+ * the same placeholders: the startup-bundle part (`trust.nav`,
  * `trust.card.*` in the main files) and the lazy chunk (`locales/trust/*`,
  * which carries `trust.page.*` and `privacy.*`). Every key the views and the
  * card ask for is defined; template keys are listed by what they expand to.
@@ -43,7 +43,6 @@ const FILES = [
   join(SRC, "components", "trust", "PrivacyOverview.tsx"),
   join(SRC, "components", "trust", "SelfChanges.tsx"),
   join(SRC, "components", "trust", "CredentialsPanel.tsx"),
-  join(SRC, "lib", "undoToast.ts"),
   join(SRC, "components", "agentchat", "actionCard", "ApprovalActionCard.tsx"),
 ];
 const TEMPLATES: Record<string, string[]> = {
@@ -74,7 +73,7 @@ describe("trust and privacy locale parity", () => {
   const chunk = chunkBlock(chunkEn);
   const all = { ...main, ...chunk };
 
-  it("defines every key the views, the card and the undo toast ask for", () => {
+  it("defines every key the views, and the card ask for", () => {
     const missing = [...usedKeys()].filter((key) => !(key in all) && !key.endsWith("."));
     expect(missing).toEqual([]);
   });

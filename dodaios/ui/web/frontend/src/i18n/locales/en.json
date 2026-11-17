@@ -11529,13 +11529,6 @@
   },
   "trust": {
     "nav": "Trust and privacy",
-    "undo": {
-      "toast": "Done: {what}",
-      "toast_plain": "Done.",
-      "button": "Undo",
-      "done": "Undone.",
-      "failed": "Could not undo."
-    },
     "card": {
       "always_asks": "This always asks; no rule skips it.",
       "limit": {

@@ -1732,8 +1732,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         return rule ? noteApprovalRule(base, str(p.approval_id), rule, turnId) : base;
       }
       if (kind === "undo_available") {
-        // A reversible action's undo offer is a toast (store/agentChat.ts →
-        // lib/undoToast.ts), never a row: it is gone again in seconds.
+        // A reversible action's undo offer shows nowhere: a "Done: …" pop-up
+        // after every calendar entry or archived mail was noise.
         return base;
       }
       if (kind === "coding_thread") {

@@ -29,16 +29,6 @@ export interface TrustRules {
   hard_limits: string[];
 }
 
-export interface UndoEntry {
-  id: string;
-  tool: string;
-  label: string;
-  state: "ready" | "running" | "undone" | "failed" | "expired";
-  error?: string;
-  created_ms: number;
-  expires_ms: number;
-}
-
 export interface ConnectedAccount {
   id: string;
   label: string;
@@ -99,13 +89,6 @@ export const revokeAgentRule = (agentId: string, pattern: string) =>
     `/api/trust/agent-rules/${encodeURIComponent(agentId)}?pattern=${encodeURIComponent(pattern)}`,
     { method: "DELETE" },
   );
-
-export async function runUndo(id: string): Promise<UndoEntry> {
-  const body = await request<{ ok: boolean; entry: UndoEntry }>(`/api/trust/undo/${encodeURIComponent(id)}`, {
-    method: "POST",
-  });
-  return body.entry;
-}
 
 export const fetchPrivacyOverview = () => request<PrivacyOverview>("/api/trust/privacy");
 
