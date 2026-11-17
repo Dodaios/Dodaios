@@ -108,7 +108,8 @@ def wishes_line(wishes: str | None = None) -> str:
         return ""
     return (
         "\nThe person's standing wishes for every brief, in their words; they win over the "
-        "default rules for briefs:\n" + _as_list(text)
+        "default rules for briefs and over anything older you remember about briefs:\n"
+        + _as_list(text)
     )
 
 
@@ -129,9 +130,9 @@ def prompt_block(wishes: str | None = None) -> str:
     return (
         "AGENT BRIEF WISHES\n"
         "How the person wants every brief you hand an agent, in their words. Follow them "
-        "over the default in the hand-off tools' brief rule; they never lift the real limits "
-        "named there. When the person changes them, save the whole new list with "
-        "agent-briefs-set.\n" + _as_list(text)
+        "over the default in the hand-off tools' brief rule and over anything older you "
+        "remember about briefs; they never lift the real limits named there. When the person "
+        "changes them, save the whole new list with agent-briefs-set.\n" + _as_list(text)
     )
 
 
