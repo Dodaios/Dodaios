@@ -62,7 +62,7 @@ ASSUME_CONFIDENCE: Final[float] = 0.7
 #: sheet, page), an artifact, a report. Undoing one is cheap; making it for the
 #: wrong audience wastes the whole work, so rule 3 does not swallow its questions.
 DELIVERABLE_TOOLS: Final[frozenset[str]] = frozenset(
-    {"node", "create_artifact", "living_page", "write_report", "whiteboard"}
+    {"node", "create_artifact", "living_page", "write_report", "whiteboard", "clip"}
 )
 
 _WORD: Final[re.Pattern[str]] = re.compile(r"\w+", re.UNICODE)

@@ -1957,6 +1957,8 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             "node",
             # Whiteboards (2026-11-14): actions on a whiteboard node's scene. Never spawns.
             "whiteboard",
+            # Clips (2026-11-17): timeline actions on a clip node. Never spawns.
+            "clip",
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",

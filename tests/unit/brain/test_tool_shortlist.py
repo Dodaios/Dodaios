@@ -540,8 +540,8 @@ def test_the_node_tools_are_direct_and_sit_after_the_frozen_prefix() -> None:
     from dodaios.brain.tool_shortlist import DEFAULT_DIRECT, LEAD_DIRECT
 
     # Appended at the very end: every schema before them keeps its cached place.
-    assert DEFAULT_DIRECT[-3:] == ("write_report", "node", "whiteboard")
-    assert LEAD_DIRECT[-2:] == ("node", "whiteboard")
+    assert DEFAULT_DIRECT[-4:] == ("write_report", "node", "whiteboard", "clip")
+    assert LEAD_DIRECT[-3:] == ("node", "whiteboard", "clip")
     assert len(set(DEFAULT_DIRECT)) == len(DEFAULT_DIRECT)
 
 
