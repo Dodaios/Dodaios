@@ -1,11 +1,11 @@
 import { createContext, memo, startTransition, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
+import { ASIDE_ASKED, STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
 import { isModelFallback, MODEL_FALLBACK_EXHAUSTED_KIND, modelFallbackText } from "@/components/agentchat/modelFallback";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
@@ -13,6 +13,7 @@ import { fill, useI18nStore, useT } from "@/i18n";
 import { localeForUiLanguage, useRunLocale } from "@/components/runs/format";
 import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/actionCard/ApprovalActionCard";
 import { robustCopy } from "@/lib/clipboard";
+import { dismissAside } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { PetMark } from "@/components/pets/PetMark";
@@ -1144,6 +1145,47 @@ function ErrorLine({ text }: { text: string }) {
   return <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{text}</p>;
 }
 
+/** The thread the timeline shows, for the cards that act on it (a side question's Close). */
+export const ThreadSessionId = createContext<string | null>(null);
+
+/** A side question longer unanswered than this lost its answer (the app restarted meanwhile). */
+const ASIDE_LOST_MS = 6 * 60_000;
+
+/**
+ * A side question (`/btw`) and its answer. The agent answered it from a copy
+ * of the conversation while its work went on; none of it reaches the agent.
+ */
+function AsideCard({ item }: { item: NoticeItem }) {
+  const t = useT();
+  const sessionId = useContext(ThreadSessionId);
+  const question = String(item.data.question ?? item.text);
+  const answer = String(item.data.answer ?? "");
+  const error = String(item.data.error ?? "");
+  const lost = !item.resolved && Date.now() - item.tsMs > ASIDE_LOST_MS;
+  return <div className="rounded-lg border border-border bg-secondary/40 px-4 py-3" data-testid="thread-aside">
+    <div className="flex items-start gap-2">
+      <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
+        <span className="text-info" data-testid="command-word">/btw</span> {question}
+      </p>
+      {sessionId && <button type="button" aria-label={t("ide_threads.aside_close")} title={t("ide_threads.aside_close")}
+        data-testid="thread-aside-close" onClick={() => { void dismissAside(sessionId, String(item.data.aside_id ?? "")).catch(() => undefined); }}
+        className="-me-1 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <X className="h-3.5 w-3.5" />
+      </button>}
+    </div>
+    <div className="mt-2 border-t border-border pt-2" data-testid="thread-aside-answer">
+      {item.resolved === "done" && answer
+        ? <div className={PROSE}><ChatMarkdown text={answer} /></div>
+        : item.resolved || lost
+          ? <p className="text-sm text-muted-foreground">{error || t("ide_threads.aside_lost")}</p>
+          : <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />{t("ide_threads.aside_thinking")}
+          </p>}
+    </div>
+    <p className="mt-2 text-xs text-faint-foreground">{t("ide_threads.aside_label")}</p>
+  </div>;
+}
+
 /** One item of the conversation, drawn by its kind. */
 function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone" | "plans">) {
   if (item.type === "user") return <UserBubble item={item} />;
@@ -1151,6 +1193,7 @@ function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTur
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     if (isModelFallback(item)) return <ModelFallbackLine item={item} />;
+    if (item.kind === ASIDE_ASKED) return <AsideCard item={item} />;
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
   }
   return <div className="rounded-xl border border-border px-3 py-2 text-sm">
@@ -1272,7 +1315,9 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       {/* "Select all" outside a text field selects this conversation (lib/selectAllScope). */}
       <div data-select-all className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} plans={plans} />)}
+        <ThreadSessionId.Provider value={sessionId}>
+          {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} plans={plans} />)}
+        </ThreadSessionId.Provider>
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}

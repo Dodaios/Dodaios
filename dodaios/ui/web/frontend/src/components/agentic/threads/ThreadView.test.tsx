@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   editQueuedMessage: vi.fn(),
   fetchAgentChatQueue: vi.fn(),
   fetchTypeahead: vi.fn(),
+  dismissAside: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -87,6 +88,7 @@ beforeEach(() => {
   api.sendAgentChatMessage.mockReset().mockResolvedValue({ turn_id: "t1" });
   api.patchAgentChatSession.mockReset().mockResolvedValue(sessionRow());
   api.searchAgentChatSessions.mockReset().mockResolvedValue([]);
+  api.dismissAside.mockReset().mockResolvedValue(undefined);
   api.fetchTypeahead.mockReset().mockResolvedValue({ trigger: "/", items: [], truncated: false });
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
@@ -234,6 +236,38 @@ describe("ThreadView", () => {
     fireEvent.change(box, { target: { value: "/goal ship the release now" } });
     const backdrop = await screen.findByTestId("thread-composer-magic");
     expect(within(backdrop).getByTestId("command-word").textContent).toBe("/goal");
+  });
+
+  it("shows a side question (/btw) as one card that its answer fills, and closes it", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    act(() => {
+      useThreadChatStore.getState().ingest({ seq: 1, ts_ms: Date.now(), kind: "notice",
+        payload: { kind: "aside_asked", aside_id: "a1", text: "why two parsers?", question: "why two parsers?" } });
+    });
+    const card = await screen.findByTestId("thread-aside");
+    expect(within(card).getByTestId("command-word").textContent).toBe("/btw");
+    expect(card.textContent).toContain("why two parsers?");
+    expect(within(card).getByTestId("thread-aside-answer").textContent).toContain("Answering beside the work");
+    // Never a message of the conversation.
+    expect(screen.queryByTestId("thread-user-message")).toBeNull();
+
+    act(() => {
+      useThreadChatStore.getState().ingest({ seq: 2, ts_ms: Date.now(), kind: "notice",
+        payload: { kind: "aside_answered", aside_id: "a1", status: "done", answer: "One reads tabs, one spaces." } });
+    });
+    await waitFor(() => expect(within(screen.getByTestId("thread-aside")).getByTestId("thread-aside-answer").textContent)
+      .toContain("One reads tabs, one spaces."));
+    expect(screen.getAllByTestId("thread-aside")).toHaveLength(1);
+
+    fireEvent.click(screen.getByTestId("thread-aside-close"));
+    expect(api.dismissAside).toHaveBeenCalledWith("s1", "a1");
+    act(() => {
+      useThreadChatStore.getState().ingest({ seq: 3, ts_ms: Date.now(), kind: "notice", payload: { kind: "aside_dismissed", aside_id: "a1" } });
+    });
+    await waitFor(() => expect(screen.queryByTestId("thread-aside")).toBeNull());
   });
 
   it("says a message reaches a Claude turn that only waits for its background tasks", async () => {

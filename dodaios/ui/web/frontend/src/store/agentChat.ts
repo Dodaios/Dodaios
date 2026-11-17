@@ -1372,11 +1372,12 @@ export function createAgentChatStore(
           const sent = await sendAgentChatMessage(sid, content, attachments, toolChoices, delivery);
           // A message steered into the running turn, answered beside it or
           // waiting in a queue is drawn there, never as a message of its own.
-          if (outgoing && (sent.ritual || sent.steered || sent.queued || sent.side_thread)) dropOutgoing(outgoing.id);
+          if (outgoing && (sent.ritual || sent.steered || sent.queued || sent.side_thread || sent.aside)) dropOutgoing(outgoing.id);
           else if (outgoing) setTimeout(() => dropOutgoing(outgoing.id), OUTBOX_GIVE_UP_MS);
-          if (sent.ritual) {
-            // The message was a ritual's phrase: its card is the answer and no
-            // turn is on the way, so nothing here pretends one is.
+          if (sent.ritual || sent.aside) {
+            // The message was a ritual's phrase or a side question (/btw): its
+            // card is the answer and no turn is on the way, so nothing here
+            // pretends one is.
             if (surface === "jarvis") writeDraft(DRAFT_KEY, st.draft);
             return isVisible() ? "sent" as const : "stale" as const;
           }

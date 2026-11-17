@@ -190,6 +190,11 @@ def suggest(
             rows = jarvis_skills()
         elif runner in _CLAUDE_SHAPED:
             rows = cli_commands(runner, folder)
+            if surface in ("", "agent"):
+                # Print mode has no ``/btw``; Dodaios answers it (``aside``).
+                from dodaios.agent_chat import aside
+
+                rows = [aside.suggestion()] + [r for r in rows if r.value != aside.COMMAND]
         else:
             rows = claude_slash(folder)
         if society:

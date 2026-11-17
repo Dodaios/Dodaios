@@ -453,6 +453,18 @@ export type TimelineItem = UserItem | TurnItem | ErrorItem | NoticeItem | Intern
 export const SIDE_THREAD_STARTED = "side_thread_started";
 export const SIDE_THREAD_FINISHED = "side_thread_finished";
 
+/**
+ * A side question (`/btw <question>` in a Claude Code thread): answered at
+ * once from a copy of the conversation while the agent keeps working, and
+ * never sent to the agent. One card: opened by `aside_asked`, patched in
+ * place by `aside_answered` (`resolved`: done | failed, `data.answer` or
+ * `data.error`), removed by `aside_dismissed`. The kinds are `ASKED` /
+ * `ANSWERED` / `DISMISSED` in `dodaios/agent_chat/aside.py`.
+ */
+export const ASIDE_ASKED = "aside_asked";
+export const ASIDE_ANSWERED = "aside_answered";
+export const ASIDE_DISMISSED = "aside_dismissed";
+
 /** A side thread's line; null for every other item. */
 export function sideThreadOf(item: TimelineItem): { id: string; running: boolean; item: NoticeItem } | null {
   if (item.type !== "notice" || item.kind !== SIDE_THREAD_STARTED) return null;
@@ -1779,6 +1791,18 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           // When it ended: its answer stands in the conversation at that moment.
           items: replaceAt(base.items, index, { ...line, status, resolved: status, data: { ...line.data, ...outcome, finished_ms: ev.ts_ms } }),
         };
+      }
+      if (kind === ASIDE_ANSWERED || kind === ASIDE_DISMISSED) {
+        const asideId = str(p.aside_id);
+        const index = base.items.findIndex(
+          (item) => item.type === "notice" && item.kind === ASIDE_ASKED && str(item.data.aside_id) === asideId,
+        );
+        if (index < 0) return base;
+        if (kind === ASIDE_DISMISSED) return { ...base, items: base.items.filter((_, i) => i !== index) };
+        const card = base.items[index] as NoticeItem;
+        const status = str(p.status) || "done";
+        const { kind: _kind, ...outcome } = p as Record<string, unknown>;
+        return { ...base, items: replaceAt(base.items, index, { ...card, status, resolved: status, data: { ...card.data, ...outcome } }) };
       }
       if (kind === "browser_takeover_done") {
         // The owner handed the browser back (or the ask lapsed): the card says so, no row of its own.
