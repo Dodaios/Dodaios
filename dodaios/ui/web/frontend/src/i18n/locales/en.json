@@ -9306,40 +9306,58 @@
     },
     "agents": {
       "search": {
-        "label": "Search terminals",
-        "placeholder": "Search terminals or describe a task…",
+        "label": "Search agents",
+        "placeholder": "Search agents or describe a task…",
         "hint": "Find names, keywords or related tasks. Runs on this device.",
         "clear": "Clear search",
         "loading": "Finding related tasks — downloading the local model on first use…",
         "searching": "Finding related tasks…",
         "error": "Related tasks are unavailable right now. Word search still works. Try again to include related tasks.",
-        "empty": "No matching terminals.",
-        "results": "{count} matching terminals · best match first",
+        "empty": "No matching agents.",
+        "results": "{count} matches · best match first",
         "retry": "Try again"
       },
       "aria": "Agents in this workspace",
       "count_one": "{n} agent",
       "count_other": "{n} agents",
-      "no_workspace": "Select a workspace to see its agents.",
-      "empty": "No agents running in this workspace.",
-      "empty_folder": "No agents running in this folder.",
+      "no_project": "Open a project to see its agents.",
       "loading": "Loading agents…",
       "scope": {
         "aria": "Show agents from",
-        "workspace": "This space",
-        "folder": "Whole folder"
+        "project": "This project",
+        "all": "All projects"
       },
       "columns": {
-        "done": "Done",
-        "working": "Working",
-        "reviewed": "Reviewed"
+        "building": "Building",
+        "checks": "Checks",
+        "review": "In review",
+        "ready": "Ready"
       },
       "column_empty": {
-        "done": "Nothing new has finished.",
-        "working": "No agent is working right now.",
-        "reviewed": "Click a finished agent to move it here."
+        "building": "No agent is building.",
+        "checks": "No checks are running.",
+        "review": "Nothing waits for a review.",
+        "ready": "Nothing is ready to merge."
       },
-      "last_output": "Last output {time} ago",
+      "status": {
+        "working": "Working",
+        "needs_answer": "Needs your answer",
+        "needs_approval": "Needs your approval",
+        "new_reply": "New reply",
+        "idle": "Idle",
+        "draft": "Draft",
+        "checks_running": "Checks running",
+        "checks_failed": "Checks failed",
+        "conflicts": "Merge conflict",
+        "changes_requested": "Changes requested",
+        "awaiting_review": "Awaiting review",
+        "mergeable": "Mergeable",
+        "queued": "In merge queue",
+        "merged": "Merged",
+        "closed": "Closed"
+      },
+      "finished": "Finished",
+      "show_older": "Show {count} older",
       "runtime_note": "Agents keep running when you close the app.",
       "stop_all": "Stop all agents",
       "stop_confirm": "Stop every agent in every workspace? Their conversations stay saved.",

@@ -8,13 +8,13 @@ import { useWorkspacePanesStore } from "@/store/workspacePanes";
 /**
  * Which finished agents the user has already looked at.
  *
- * The Agents tab sorts every coding agent into Done, Working and Reviewed. A
- * finished agent moves from Done to Reviewed the moment its pane is clicked —
- * in the grid or on its card — and back to Done when it finishes a NEW job
+ * On the Agents board a terminal agent that finished a job stands out until
+ * someone looks at it. The look is the moment its pane is clicked — in the
+ * grid or on its card — and it stands out again when it finishes a NEW job
  * (its settled-since stamp is then newer than the review). Kept per pane
  * lifetime id (`history_id`, stable across renames and restarts) with the
  * moment of the look, in localStorage so a reload or an app restart does not
- * put everything back under Done. Storage may be blocked; then the reviews
+ * mark everything as new again. Storage may be blocked; then the reviews
  * last for this session only.
  */
 const STORAGE_KEY = "jarvis.agenticIde.paneReviews.v1";

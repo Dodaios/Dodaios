@@ -9306,40 +9306,58 @@
     },
     "agents": {
       "search": {
-        "label": "Procurar terminais",
-        "placeholder": "Procura terminais ou descreve uma tarefa…",
+        "label": "Procurar agentes",
+        "placeholder": "Procura agentes ou descreve uma tarefa…",
         "hint": "Encontra nomes, palavras-chave ou tarefas relacionadas. Corre neste dispositivo.",
         "clear": "Limpar pesquisa",
         "loading": "A procurar tarefas relacionadas — a transferir o modelo local na primeira utilização…",
         "searching": "A procurar tarefas relacionadas…",
         "error": "As tarefas relacionadas não estão disponíveis de momento. A pesquisa por palavras continua a funcionar. Tenta novamente para incluir tarefas relacionadas.",
-        "empty": "Nenhum terminal corresponde.",
-        "results": "{count} terminais correspondentes · melhor correspondência primeiro",
+        "empty": "Nenhum agente corresponde.",
+        "results": "{count} correspondências · a melhor primeiro",
         "retry": "Tentar novamente"
       },
       "aria": "Agentes neste workspace",
       "count_one": "{n} agente",
       "count_other": "{n} agentes",
-      "no_workspace": "Seleciona um workspace para ver os agentes.",
-      "empty": "Nenhum agente em execução neste workspace.",
-      "empty_folder": "Nenhum agente em execução nesta pasta.",
+      "no_project": "Abre um projeto para ver os seus agentes.",
       "loading": "Carregando agentes…",
       "scope": {
         "aria": "Mostrar agentes de",
-        "workspace": "Este espaço",
-        "folder": "Pasta inteira"
+        "project": "Este projeto",
+        "all": "Todos os projetos"
       },
       "columns": {
-        "done": "Concluídos",
-        "working": "A trabalhar",
-        "reviewed": "Revistos"
+        "building": "Em construção",
+        "checks": "Verificações",
+        "review": "Em revisão",
+        "ready": "Pronto"
       },
       "column_empty": {
-        "done": "Nada de novo terminou.",
-        "working": "Nenhum agente está a trabalhar de momento.",
-        "reviewed": "Clica num agente concluído para o mover para aqui."
+        "building": "Nenhum agente está a construir.",
+        "checks": "Não há verificações a correr.",
+        "review": "Nada espera uma revisão.",
+        "ready": "Nada está pronto para fundir."
       },
-      "last_output": "Última saída há {time}",
+      "status": {
+        "working": "A trabalhar",
+        "needs_answer": "Precisa da tua resposta",
+        "needs_approval": "Precisa da tua aprovação",
+        "new_reply": "Nova resposta",
+        "idle": "Em repouso",
+        "draft": "Rascunho",
+        "checks_running": "Verificações a correr",
+        "checks_failed": "Verificações falhadas",
+        "conflicts": "Conflito de fusão",
+        "changes_requested": "Alterações pedidas",
+        "awaiting_review": "A aguardar revisão",
+        "mergeable": "Pode ser fundido",
+        "queued": "Na fila de fusão",
+        "merged": "Fundido",
+        "closed": "Fechado"
+      },
+      "finished": "Concluídos",
+      "show_older": "Mostrar {count} mais antigos",
       "runtime_note": "Os agentes continuam a correr quando fechas a aplicação.",
       "stop_all": "Parar todos os agentes",
       "stop_confirm": "Parar todos os agentes em todos os workspaces? As conversas ficam guardadas.",

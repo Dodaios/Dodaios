@@ -1,5 +1,5 @@
 import { translate } from "@/i18n";
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import { requestConnect, spreadDelay } from "@/lib/connectBudget";
 import type { CiStatus, PullRequestState } from "./sidePanel/git/gitOverviewApi";
 
@@ -211,28 +211,37 @@ function paneOf(board: Board, pane: string): PaneGitHub {
   return pending ? { status: null, pending } : IDLE;
 }
 
-export function useSessionGitHubPane(workspaceId?: string, pane?: string): PaneGitHub {
-  const subscribe = useCallback((listener: () => void) => {
-    if (!workspaceId) return () => {};
-    let entry = entries.get(workspaceId);
-    if (!entry) {
-      entry = start(workspaceId);
-      entries.set(workspaceId, entry);
-    } else {
-      // A pane that joins a running workspace may reuse a closed pane's name;
-      // the backend tells them apart, so it is asked at once rather than in
-      // twenty seconds.
-      entry.refresh();
+/**
+ * Follow one workspace's (or thread's) answers until the returned function is
+ * called. The first listener starts the reads; the last one to leave stops them.
+ */
+function listen(workspaceId: string, listener: () => void, askNow = true): () => void {
+  let entry = entries.get(workspaceId);
+  if (!entry) {
+    entry = start(workspaceId);
+    entries.set(workspaceId, entry);
+  } else if (askNow) {
+    // A pane that joins a running workspace may reuse a closed pane's name;
+    // the backend tells them apart, so it is asked at once rather than in
+    // twenty seconds.
+    entry.refresh();
+  }
+  const joined = entry;
+  joined.listeners.add(listener);
+  return () => {
+    joined.listeners.delete(listener);
+    if (!joined.listeners.size) {
+      joined.stop();
+      if (entries.get(workspaceId) === joined) entries.delete(workspaceId);
     }
-    entry.listeners.add(listener);
-    return () => {
-      entry.listeners.delete(listener);
-      if (!entry.listeners.size) {
-        entry.stop();
-        entries.delete(workspaceId);
-      }
-    };
-  }, [workspaceId]);
+  };
+}
+
+export function useSessionGitHubPane(workspaceId?: string, pane?: string): PaneGitHub {
+  const subscribe = useCallback(
+    (listener: () => void) => (workspaceId ? listen(workspaceId, listener) : () => {}),
+    [workspaceId],
+  );
   // Before the first subscription, what this window saw last already paints.
   const snapshot = useCallback(
     () => workspaceId ? entries.get(workspaceId)?.board ?? remembered.get(workspaceId) ?? UNKNOWN : null,
@@ -254,4 +263,75 @@ export function resetSessionGitHubForTests() {
 /** The GitHub state of the branches an IDE thread's coding agent worked on. */
 export function useThreadGitHub(sessionId?: string): PaneGitHub {
   return useSessionGitHubPane(sessionId ? `${THREAD_PREFIX}${sessionId}` : undefined, THREAD_ENTRY);
+}
+
+/** One answer the Agents board reads: a workspace's pane, or a thread. */
+export interface GitHubTarget {
+  /** The workspace's id, or `thread:<session id>`. */
+  key: string;
+  /** The pane's name, or {@link THREAD_ENTRY}. */
+  pane: string;
+  /**
+   * Nothing about it can change by itself (its pull requests are merged and
+   * its agent rests): what this window read last is shown and not read again.
+   */
+  quiet?: boolean;
+}
+
+export interface GitHubReading extends PaneGitHub {
+  /** The backend has answered about this target, also when the answer is "no branch". */
+  answered: boolean;
+  /** This window's clock when that answer was read; null before any. */
+  readAt: number | null;
+}
+
+export const threadGitHubTarget = (sessionId: string, quiet = false): GitHubTarget => ({
+  key: `${THREAD_PREFIX}${sessionId}`, pane: THREAD_ENTRY, quiet,
+});
+
+/** Stands between the parts of a key; no workspace id or pane name holds a line break. */
+const BREAK = "\n";
+
+export const gitHubTargetId = (target: Pick<GitHubTarget, "key" | "pane">) => `${target.key}${BREAK}${target.pane}`;
+
+/**
+ * What this window last read about a target, without following it. The board
+ * asks this first, to tell which threads still need following at all.
+ */
+export function peekGitHubReading(target: Pick<GitHubTarget, "key" | "pane">): GitHubReading {
+  const board = entries.get(target.key)?.board ?? remembered.get(target.key) ?? UNKNOWN;
+  return { ...paneOf(board, target.pane), answered: target.pane in board.panes, readAt: board.readAt };
+}
+
+/**
+ * The GitHub state of many panes and threads at once, keyed by
+ * {@link gitHubTargetId}. It shares the reads the pane headers and the thread
+ * list already run, and a target that joins or leaves does not restart the
+ * others.
+ */
+export function useGitHubReadings(targets: readonly GitHubTarget[]): Map<string, GitHubReading> {
+  const [, redraw] = useReducer((count: number) => count + 1, 0);
+  const followed = useRef(new Map<string, () => void>());
+  const wanted = [...new Set(targets.filter((target) => !target.quiet).map((target) => target.key))].sort().join(BREAK);
+
+  useEffect(() => {
+    const keys = new Set(wanted ? wanted.split(BREAK) : []);
+    for (const [key, leave] of followed.current) {
+      if (keys.has(key)) continue;
+      leave();
+      followed.current.delete(key);
+    }
+    for (const key of keys) {
+      if (!followed.current.has(key)) followed.current.set(key, listen(key, redraw, false));
+    }
+  }, [wanted]);
+  useEffect(() => {
+    const all = followed.current;
+    return () => {
+      all.forEach((leave) => leave());
+      all.clear();
+    };
+  }, []);
+
+  return new Map(targets.map((target) => [gitHubTargetId(target), peekGitHubReading(target)]));
 }

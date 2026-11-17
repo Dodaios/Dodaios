@@ -10,7 +10,7 @@ import { PULL_REQUEST_TONE } from "../pullRequestTone";
 type PullRequestState = Exclude<SessionGitHubStatus["state"], "branch">;
 
 /** GitHub's own symbol and colour for each pull request state. */
-const LOOK: Record<PullRequestState, { icon: GitHubIconName; tone: string; label: string }> = {
+export const PULL_REQUEST_LOOK: Record<PullRequestState, { icon: GitHubIconName; tone: string; label: string }> = {
   open: { icon: "git-pull-request", tone: PULL_REQUEST_TONE.open, label: "ide_threads.pr_state_open" },
   draft: { icon: "git-pull-request-draft", tone: PULL_REQUEST_TONE.draft, label: "ide_threads.pr_state_draft" },
   queued: { icon: "git-merge-queue", tone: PULL_REQUEST_TONE.queued, label: "ide_threads.pr_state_queued" },
@@ -69,7 +69,7 @@ export function pullRequestsOf(status: SessionGitHubStatus | null): ThreadPullRe
   const seen = new Set<number>();
   const out: ThreadPullRequest[] = [];
   for (const row of [status, ...(status.others ?? [])]) {
-    if (!row.owned || !row.published || row.number === null || row.state === "branch" || !(row.state in LOOK)) continue;
+    if (!row.owned || !row.published || row.number === null || row.state === "branch" || !(row.state in PULL_REQUEST_LOOK)) continue;
     if (seen.has(row.number)) continue;
     seen.add(row.number);
     out.push({
@@ -84,7 +84,7 @@ export function pullRequestsOf(status: SessionGitHubStatus | null): ThreadPullRe
 /** One pull request in the card: its title, then state, repository and size. */
 function PullRequestRow({ request, onOpen }: { request: ThreadPullRequest; onOpen: (url: string) => void }) {
   const t = useT();
-  const look = LOOK[request.state];
+  const look = PULL_REQUEST_LOOK[request.state];
   const sized = request.additions > 0 || request.deletions > 0;
   return <button type="button" role="menuitem" disabled={!request.url}
     data-testid={`thread-pr-card-row-${request.number}`}
@@ -133,7 +133,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
   }, [position]);
 
   if (requests.length === 0) return null;
-  const lead = LOOK[requests[0].state];
+  const lead = PULL_REQUEST_LOOK[requests[0].state];
 
   const show = () => {
     clearTimeout(timer.current);
@@ -152,7 +152,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
   };
 
   return <>
-    <span ref={anchor} role="img" aria-label={requests.map((request) => `#${request.number} · ${t(LOOK[request.state].label)}`).join(", ")}
+    <span ref={anchor} role="img" aria-label={requests.map((request) => `#${request.number} · ${t(PULL_REQUEST_LOOK[request.state].label)}`).join(", ")}
       data-testid={`thread-prs-${sessionId}`} onMouseEnter={show} onMouseLeave={hide}
       className={cn("flex shrink-0 items-center gap-1 text-sm font-medium tabular-nums", lead.tone)}>
       <GitHubIcon name={lead.icon} width={16} height={16} className="shrink-0" />

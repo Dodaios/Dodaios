@@ -9306,40 +9306,58 @@
     },
     "agents": {
       "search": {
-        "label": "搜索终端",
-        "placeholder": "搜索终端或描述一个任务…",
+        "label": "搜索智能体",
+        "placeholder": "搜索智能体或描述任务…",
         "hint": "查找名称、关键词或相关任务。在本设备上运行。",
         "clear": "清除搜索",
         "loading": "正在查找相关任务——首次使用时会下载本地模型…",
         "searching": "正在查找相关任务…",
         "error": "相关任务暂时不可用。关键词搜索仍然可用。重试以包含相关任务。",
-        "empty": "没有匹配的终端。",
-        "results": "{count} 个匹配的终端 · 最佳匹配在前",
+        "empty": "没有匹配的智能体。",
+        "results": "{count} 个匹配 · 最佳匹配优先",
         "retry": "重试"
       },
       "aria": "此工作区中的智能体",
       "count_one": "{n} 个智能体",
       "count_other": "{n} 个智能体",
-      "no_workspace": "选择一个工作区以查看其智能体。",
-      "empty": "此工作区中没有正在运行的智能体。",
-      "empty_folder": "此文件夹中没有正在运行的智能体。",
+      "no_project": "打开一个项目即可查看其中的智能体。",
       "loading": "正在加载智能体…",
       "scope": {
-        "aria": "显示智能体的范围",
-        "workspace": "此空间",
-        "folder": "整个文件夹"
+        "aria": "显示以下范围的智能体",
+        "project": "此项目",
+        "all": "所有项目"
       },
       "columns": {
-        "done": "已完成",
-        "working": "工作中",
-        "reviewed": "已查看"
+        "building": "构建中",
+        "checks": "检查",
+        "review": "评审中",
+        "ready": "就绪"
       },
       "column_empty": {
-        "done": "没有新完成的内容。",
-        "working": "目前没有智能体在工作。",
-        "reviewed": "点击一个已完成的智能体，把它移到这里。"
+        "building": "没有智能体在构建。",
+        "checks": "没有正在运行的检查。",
+        "review": "没有等待评审的内容。",
+        "ready": "没有可合并的内容。"
       },
-      "last_output": "上次输出于 {time}前",
+      "status": {
+        "working": "工作中",
+        "needs_answer": "需要你的回答",
+        "needs_approval": "需要你的批准",
+        "new_reply": "新回复",
+        "idle": "空闲",
+        "draft": "草稿",
+        "checks_running": "检查运行中",
+        "checks_failed": "检查失败",
+        "conflicts": "合并冲突",
+        "changes_requested": "要求修改",
+        "awaiting_review": "等待评审",
+        "mergeable": "可合并",
+        "queued": "在合并队列中",
+        "merged": "已合并",
+        "closed": "已关闭"
+      },
+      "finished": "已完成",
+      "show_older": "显示较早的 {count} 个",
       "runtime_note": "关闭应用后，智能体会继续运行。",
       "stop_all": "停止所有智能体",
       "stop_confirm": "要停止所有工作区中的所有智能体吗？它们的会话会保留。",

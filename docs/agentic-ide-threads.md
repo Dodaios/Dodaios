@@ -143,6 +143,28 @@ news since it was last opened.
   last one.
 - Changes, files, git and more terminals live in the IDE's side panel, as in
   the grid layout.
+- **Agents board:** the side panel's Agents tab shows every thread and every
+  terminal agent of the project as a card: the coding agent's mark, the goal,
+  the branch or the pull requests the work lives in, and a footer with the
+  state and the time of the last activity. Nobody moves a card. Its column
+  follows from the work:
+
+  | Column | What stands there |
+  |--------|-------------------|
+  | Building | no pull request yet, or a draft |
+  | Checks | a pull request whose checks run or fail, or that has a merge conflict |
+  | In review | a pull request with green checks that waits for a review |
+  | Ready | a pull request that can merge, or is in the merge queue |
+
+  Work whose pull requests are all merged or closed folds into **Finished**
+  at the foot. A card that works again, or asks the person, comes back to the
+  columns. In a column, the agent that asks comes first, then the ones at
+  work, then the newest. A click on a card opens its thread or brings its
+  terminal forward. A click on a pull request opens it. A thread at rest can
+  be archived from its card. The board starts with the 40 newest threads;
+  "Show older" lists the rest. A switch picks the project in view or all
+  projects. GitHub is not asked again about a resting thread whose pull
+  requests are finished.
 
 ## Questions, approvals and plans
 

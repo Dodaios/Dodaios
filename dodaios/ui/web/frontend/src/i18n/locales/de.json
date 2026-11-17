@@ -9306,40 +9306,58 @@
     },
     "agents": {
       "search": {
-        "label": "Terminals suchen",
-        "placeholder": "Terminal suchen oder Aufgabe beschreiben…",
+        "label": "Agenten suchen",
+        "placeholder": "Agenten suchen oder Aufgabe beschreiben…",
         "hint": "Findet Namen, Stichwörter und ähnliche Aufgaben. Läuft auf diesem Gerät.",
         "clear": "Suche löschen",
         "loading": "Ähnliche Aufgaben werden gesucht — beim ersten Mal wird das lokale Modell heruntergeladen…",
         "searching": "Ähnliche Aufgaben werden gesucht…",
         "error": "Ähnliche Aufgaben lassen sich gerade nicht ermitteln. Die Wortsuche funktioniert weiterhin. Versuche es erneut, um ähnliche Aufgaben einzubeziehen.",
-        "empty": "Keine passenden Terminals.",
-        "results": "{count} passende Terminals · bester Treffer zuerst",
+        "empty": "Keine passenden Agenten.",
+        "results": "{count} Treffer · bester Treffer zuerst",
         "retry": "Erneut versuchen"
       },
       "aria": "Agents in diesem Workspace",
       "count_one": "{n} Agent",
       "count_other": "{n} Agents",
-      "no_workspace": "Wähle einen Workspace, um seine Agents zu sehen.",
-      "empty": "In diesem Workspace laufen keine Agents.",
-      "empty_folder": "In diesem Ordner laufen keine Agents.",
+      "no_project": "Öffne ein Projekt, um seine Agenten zu sehen.",
       "loading": "Agents werden geladen…",
       "scope": {
-        "aria": "Agents anzeigen aus",
-        "workspace": "Dieser Space",
-        "folder": "Ganzer Ordner"
+        "aria": "Agenten anzeigen aus",
+        "project": "Dieses Projekt",
+        "all": "Alle Projekte"
       },
       "columns": {
-        "done": "Fertig",
-        "working": "Arbeitet",
-        "reviewed": "Angesehen"
+        "building": "In Arbeit",
+        "checks": "Prüfungen",
+        "review": "Im Review",
+        "ready": "Bereit"
       },
       "column_empty": {
-        "done": "Nichts Neues ist fertig geworden.",
-        "working": "Gerade arbeitet kein Agent.",
-        "reviewed": "Klicke einen fertigen Agent an, um ihn hierher zu verschieben."
+        "building": "Kein Agent arbeitet gerade.",
+        "checks": "Es laufen keine Prüfungen.",
+        "review": "Nichts wartet auf ein Review.",
+        "ready": "Nichts ist bereit zum Mergen."
       },
-      "last_output": "Letzte Ausgabe vor {time}",
+      "status": {
+        "working": "Arbeitet",
+        "needs_answer": "Braucht deine Antwort",
+        "needs_approval": "Braucht deine Freigabe",
+        "new_reply": "Neue Antwort",
+        "idle": "Ruht",
+        "draft": "Entwurf",
+        "checks_running": "Prüfungen laufen",
+        "checks_failed": "Prüfungen fehlgeschlagen",
+        "conflicts": "Merge-Konflikt",
+        "changes_requested": "Änderungen gewünscht",
+        "awaiting_review": "Wartet auf Review",
+        "mergeable": "Bereit zum Mergen",
+        "queued": "In der Merge-Warteschlange",
+        "merged": "Gemergt",
+        "closed": "Geschlossen"
+      },
+      "finished": "Abgeschlossen",
+      "show_older": "{count} ältere anzeigen",
       "runtime_note": "Agents laufen weiter, wenn du die App schließt.",
       "stop_all": "Alle Agents stoppen",
       "stop_confirm": "Jeden Agent in allen Workspaces stoppen? Ihre Unterhaltungen bleiben gespeichert.",
