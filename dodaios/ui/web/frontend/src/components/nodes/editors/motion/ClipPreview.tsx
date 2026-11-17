@@ -1,24 +1,26 @@
 /**
- * The clip itself, drawn by the server from the unsaved spec, as the editor's
- * live preview.
+ * The clip itself, drawn by the server from the unsaved spec, as the video
+ * editor's live preview.
  *
- * The page is the very film the stage shows (`POST /api/nodes/{id}/preview`),
- * so what the person sees while editing is what they get. It is steered with
- * the film's own messages (`dodaios/nodes/kinds/motion.py`):
+ * The page is the very film the stage shows and the export renders
+ * (`POST /api/nodes/{id}/preview`), so what the person sees while editing is
+ * what they get. The editor shows it bare (`dodaios-film-view`: no controls
+ * of its own, the safe-zone guide on request) and steers it with the film's
+ * own messages (`dodaios/nodes/kinds/motion.py`):
  *
- * * While the clip stands, the page is in the bridge's EDIT mode: it shows
- *   the picked scene settled, and its texts can be clicked and written into
- *   right there. Each such edit comes back as `dodaios-node-edit`; the editor
- *   applies it to the spec (one undo step) and answers whether it was taken.
- * * "Play" switches the page to view mode and asks it to play from a scene
- *   (`dodaios-film-seek`); the page reports where it is
- *   (`dodaios-film-time`), so the timeline's playhead follows.
+ * * standing, the page shows the exact frame at the playhead; scrubbing moves
+ *   it (`dodaios-film-seek` without play);
+ * * "Play" plays from the playhead; the page reports where it is
+ *   (`dodaios-film-time`), so the timeline's playhead follows;
+ * * in text mode the page is in the bridge's EDIT mode: the card under the
+ *   playhead stands settled and its texts can be written into right there
+ *   (`dodaios-node-edit`, applied as one undo step);
+ * * a click on a text or picture layer picks it (`dodaios-film-pick`), a drag
+ *   moves it (`dodaios-film-move` with its new centre).
  *
  * A page drawn again would blank the frame for a moment on every change, so
  * there are two frames: the new page loads in the hidden one and takes over
- * once it said it is ready and was put on the right scene. The page opens on
- * the picked scene by itself (`data-film-scene`), never playing from the
- * start first.
+ * once it said it is ready and was put on the right frame.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -31,6 +33,9 @@ import { preparePreviewHtml, useNodePreview } from "../PreviewFrame";
 
 export const FILM_SEEK_MESSAGE = "dodaios-film-seek";
 export const FILM_TIME_MESSAGE = "dodaios-film-time";
+export const FILM_VIEW_MESSAGE = "dodaios-film-view";
+export const FILM_PICK_MESSAGE = "dodaios-film-pick";
+export const FILM_MOVE_MESSAGE = "dodaios-film-move";
 
 export interface FilmTime {
   t: number;
@@ -42,17 +47,25 @@ export interface ClipPreviewProps {
   nodeId: string;
   title: string;
   spec: unknown;
-  /** The picked scene: where the standing clip is shown. */
-  selected: number;
-  /** When each scene starts, in seconds. */
-  starts: readonly number[];
-  /** Play from `selected`; false stands the clip on it, ready to be written into. */
+  /** The playhead, in seconds: the frame the standing clip shows. */
+  at: number;
+  /** The scene under the playhead (where a fresh page opens). */
+  scene: number;
+  /** Play from `at`; false stands the clip on it. */
   playing: boolean;
   /** Changes whenever "Play" is pressed, so pressing it again restarts. */
   playToken: number;
+  /** The card's texts are fields to write into (the bridge's edit mode). */
+  editText: boolean;
+  /** The platforms' safe zone drawn over the frame. */
+  guides: boolean;
   /** A text written in the page: apply it, return whether it was taken. */
   onEdit: (path: string, value: string | boolean, as: string) => boolean;
   onTime: (time: FilmTime) => void;
+  /** A layer picked in the frame ("" for the background). */
+  onPick?: (id: string) => void;
+  /** A layer dragged to a new centre (percent of the frame). */
+  onMoveLayer?: (id: string, x: number, y: number) => void;
   className?: string;
 }
 
@@ -77,17 +90,21 @@ export function ClipPreview({
   nodeId,
   title,
   spec,
-  selected,
-  starts,
+  at,
+  scene,
   playing,
   playToken,
+  editText,
+  guides,
   onEdit,
   onTime,
+  onPick,
+  onMoveLayer,
   className,
 }: ClipPreviewProps) {
   const t = useT();
   const theme = useThemeValue();
-  const preview = useNodePreview(nodeId, spec, { delayMs: 300 });
+  const preview = useNodePreview(nodeId, spec, { delayMs: 250 });
   const frames = [useRef<HTMLIFrameElement>(null), useRef<HTMLIFrameElement>(null)];
   const [slots, setSlots] = useState<[Slot, Slot]>([
     { doc: "", serial: 0 },
@@ -96,8 +113,8 @@ export function ClipPreview({
   const [active, setActive] = useState<0 | 1>(0);
   const [shown, setShown] = useState(false);
   // The newest state, for the message handler (registered once).
-  const live = useRef({ selected, starts, playing, active, onEdit, onTime, loading: -1 as -1 | 0 | 1 });
-  live.current = { ...live.current, selected, starts, playing, active, onEdit, onTime };
+  const live = useRef({ at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, loading: -1 as -1 | 0 | 1 });
+  live.current = { ...live.current, at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer };
 
   const post = useCallback((slot: 0 | 1, message: Record<string, unknown>) => {
     try {
@@ -108,13 +125,13 @@ export function ClipPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Put the page in `slot` where the editor stands: playing, or settled on the picked scene. */
+  /** Put the page in `slot` where the editor stands: playing, or on the playhead's frame. */
   const steer = useCallback(
     (slot: 0 | 1, play: boolean) => {
       const now = live.current;
-      const at = now.starts[now.selected] ?? 0;
-      post(slot, { type: NODE_MODE_MESSAGE, mode: play ? "view" : "edit" });
-      post(slot, { type: FILM_SEEK_MESSAGE, t: at, play });
+      post(slot, { type: FILM_VIEW_MESSAGE, bare: true, guides: now.guides && !play });
+      post(slot, { type: NODE_MODE_MESSAGE, mode: now.editText && !play ? "edit" : "view" });
+      post(slot, { type: FILM_SEEK_MESSAGE, t: now.at, play });
     },
     [post],
   );
@@ -122,7 +139,7 @@ export function ClipPreview({
   // A new page goes into the hidden frame.
   useEffect(() => {
     if (preview.html === null) return;
-    const doc = preparePreviewHtml(withScene(preview.html, live.current.selected), theme);
+    const doc = preparePreviewHtml(withScene(preview.html, live.current.scene), theme);
     setSlots((now) => {
       const target = (live.current.loading === -1 ? 1 - live.current.active : live.current.loading) as 0 | 1;
       live.current.loading = target;
@@ -140,11 +157,14 @@ export function ClipPreview({
       if (!message) return;
       const now = live.current;
       if (message.type === NODE_READY_MESSAGE) {
+        // A fresh page while the clip plays keeps playing from where it is.
         steer(slot as 0 | 1, now.playing);
         if (slot === now.loading) {
           live.current.loading = -1;
           setActive(slot as 0 | 1);
           setShown(true);
+          // The page it replaces falls silent.
+          post((1 - slot) as 0 | 1, { type: FILM_SEEK_MESSAGE, t: now.at, play: false });
         }
         return;
       }
@@ -159,8 +179,14 @@ export function ClipPreview({
         post(slot as 0 | 1, { type: NODE_EDIT_STATE_MESSAGE, id, state: taken ? "saved" : "failed" });
       } else if (message.type === FILM_TIME_MESSAGE) {
         const time = Number(message.t);
-        const scene = Number(message.scene);
-        if (Number.isFinite(time) && Number.isInteger(scene)) now.onTime({ t: time, scene, playing: message.playing === true });
+        const index = Number(message.scene);
+        if (Number.isFinite(time) && Number.isInteger(index)) now.onTime({ t: time, scene: index, playing: message.playing === true });
+      } else if (message.type === FILM_PICK_MESSAGE) {
+        now.onPick?.(typeof message.id === "string" ? message.id.slice(0, 40) : "");
+      } else if (message.type === FILM_MOVE_MESSAGE) {
+        const x = Number(message.x);
+        const y = Number(message.y);
+        if (typeof message.id === "string" && Number.isFinite(x) && Number.isFinite(y)) now.onMoveLayer?.(message.id.slice(0, 40), x, y);
       }
     };
     window.addEventListener("message", onMessage);
@@ -168,14 +194,26 @@ export function ClipPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steer, post]);
 
-  // Picking another scene, or Play and Stop, steer the page on screen.
+  // Play and Stop, text mode and the guide steer the page on screen at once.
   useEffect(() => {
     if (shown) steer(active, playing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, playing, playToken]);
+  }, [playing, playToken, editText, guides]);
+
+  // Scrubbing: the standing page follows the playhead, at most once a frame.
+  const pending = useRef(0);
+  useEffect(() => {
+    if (!shown || playing) return;
+    if (pending.current) cancelAnimationFrame(pending.current);
+    pending.current = requestAnimationFrame(() => {
+      pending.current = 0;
+      post(live.current.active, { type: FILM_SEEK_MESSAGE, t: live.current.at, play: false });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [at]);
 
   return (
-    <div className={cn("relative min-h-0 overflow-hidden bg-muted/30", className)} data-testid="motion-preview">
+    <div className={cn("relative min-h-0 overflow-hidden bg-black/90", className)} data-testid="motion-preview">
       {slots.map((slot, index) => (
         <iframe
           key={index}
@@ -185,6 +223,7 @@ export function ClipPreview({
           tabIndex={index === active ? 0 : -1}
           srcDoc={slot.doc}
           sandbox="allow-scripts"
+          allow="autoplay"
           data-testid={`motion-preview-frame-${index}`}
           data-active={index === active && shown ? "true" : "false"}
           className={cn(

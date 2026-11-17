@@ -19,6 +19,10 @@ import {
   Type,
   Heading1,
   ZoomIn,
+  Film,
+  MoveRight,
+  Moon,
+  Droplets,
 } from "lucide-react";
 
 import type { SceneKind, Transition } from "./motionModel";
@@ -36,6 +40,7 @@ export const SCENE_ICONS: Record<SceneKind, Icon> = {
   quote: Quote,
   image: ImageIcon,
   end: Flag,
+  video: Film,
 };
 
 export const TRANSITION_ICONS: Record<Transition, Icon> = {
@@ -43,6 +48,9 @@ export const TRANSITION_ICONS: Record<Transition, Icon> = {
   slide: ArrowRightLeft,
   zoom: ZoomIn,
   cut: Scissors,
+  wipe: MoveRight,
+  dip: Moon,
+  blur: Droplets,
 };
 
 export function kindKey(kind: SceneKind): string {

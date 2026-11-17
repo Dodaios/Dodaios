@@ -837,6 +837,17 @@ MEDIA_CSS: Final[str] = """
 .cap-clean .cap-line{font-weight:700}
 .cap-boxed .cap-line{text-shadow:none;font-weight:700;padding:.2em .5em;border-radius:.25em;
   background:rgba(10,10,10,.8);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.film.is-bare .film-bar,.film.is-bare .f-replay{display:none!important}
+.film.is-bare .film-view{padding:10px}
+.film.is-bare .film-fit{cursor:default}
+.film.is-bare .layer{pointer-events:auto;cursor:move}
+.film.is-bare .layers{pointer-events:none}
+/* The safe zone of the platforms' own buttons and captions (editor only). */
+.stage.show-guides::after{content:"";position:absolute;z-index:9;pointer-events:none;
+  inset:5% 5% 5% 5%;border:2px dashed rgba(255,255,255,.55);border-radius:6px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
+.stage.show-guides[data-format="tall"]::after{inset:7% 12% 20% 6%}
+.stage.show-guides[data-format="portrait"]::after{inset:6% 8% 14% 6%}
 .film.is-export .film-view{padding:0}
 .film.is-export .film-fit{border-radius:0;box-shadow:none;cursor:default}
 .film.is-export .film-bar,.film.is-export .f-replay{display:none!important}
@@ -995,7 +1006,7 @@ function ready(t){
     waits.push(new Promise(function(done){
       var finish=function(){
         if(el.requestVideoFrameCallback){el.requestVideoFrameCallback(function(){done();});
-          setTimeout(done,250);}else done();};
+          setTimeout(done,20);}else done();};
       var want=source(P,t);
       if(el.readyState>=2&&!el.seeking&&Math.abs(el.currentTime-want)<.02){done();return;}
       var timer=setTimeout(done,4000);

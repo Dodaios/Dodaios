@@ -28,21 +28,26 @@ export const SCENE_KINDS = [
   "image",
   "end",
 ] as const;
-export type SceneKind = (typeof SCENE_KINDS)[number];
+/** A card the "Add scene" menu offers, or a piece of a video from the library. */
+export type CardKind = (typeof SCENE_KINDS)[number];
+export type SceneKind = CardKind | "video";
 
-export const TRANSITIONS = ["fade", "slide", "zoom", "cut"] as const;
+export const TRANSITIONS = ["cut", "fade", "slide", "zoom", "wipe", "dip", "blur"] as const;
 export type Transition = (typeof TRANSITIONS)[number];
 
-export const FORMATS = ["wide", "square", "tall"] as const;
+export const FORMATS = ["tall", "wide", "square", "portrait"] as const;
 export type ClipFormat = (typeof FORMATS)[number];
 
 export const THEMES = ["dark", "light"] as const;
 export type ClipTheme = (typeof THEMES)[number];
 
 /** The width : height of each format's stage (`FORMATS` in motion.py). */
-export const FORMAT_RATIO: Record<ClipFormat, number> = { wide: 16 / 9, square: 1, tall: 9 / 16 };
+export const FORMAT_RATIO: Record<ClipFormat, number> = { wide: 16 / 9, square: 1, tall: 9 / 16, portrait: 4 / 5 };
 
-export const MAX_SCENES = 40;
+export const MAX_SCENES = 200;
+/** A video piece's length on the timeline (`motion_media.MIN/MAX_ITEM_SECONDS`). */
+export const MIN_PIECE_SECONDS = 0.1;
+export const MAX_PIECE_SECONDS = 3600;
 export const MIN_SECONDS = 1.5;
 export const MAX_SECONDS = 20;
 export const MAX_BULLETS = 5;
@@ -82,10 +87,61 @@ export interface Step {
 /** A chart in the shared chart grammar (`report_blocks.parse_chart`), kept as JSON. */
 export type ChartJson = Record<string, unknown>;
 
-export interface Scene {
+/** A key of a picture's motion: values at `t` seconds into its piece. */
+export interface MotionKey {
+  t: number;
+  zoom?: number;
+  x?: number;
+  y?: number;
+  rotate?: number;
+  opacity?: number;
+}
+
+export interface Crop {
+  l: number;
+  t: number;
+  r: number;
+  b: number;
+}
+
+export interface ColorAdjust {
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  warmth?: number;
+}
+
+/** How a video or picture is framed, coloured and moved (`motion_media.visual`). */
+export interface Look {
+  fit?: "cover" | "contain";
+  zoom?: number;
+  x?: number;
+  y?: number;
+  rotate?: number;
+  opacity?: number;
+  crop?: Crop;
+  filter?: string;
+  color?: ColorAdjust;
+  keys?: MotionKey[];
+}
+
+/** Where a piece of a video or sound starts in its source, how fast and loud it runs. */
+export interface Timing {
+  in?: number;
+  speed?: number;
+  volume?: number;
+  muted?: boolean;
+  fade_in?: number;
+  fade_out?: number;
+}
+
+export interface Scene extends Look, Timing {
+  id?: string;
   type: SceneKind;
   seconds: number;
   transition: Transition;
+  /** A video scene's library file. */
+  media?: string;
   kicker?: string;
   title?: string;
   text?: string;
@@ -106,6 +162,68 @@ export interface Scene {
 export type SceneField = Exclude<keyof Scene, "type" | "seconds" | "transition">;
 export type TextField = "kicker" | "title" | "text" | "value" | "unit" | "label" | "detail" | "quote" | "by" | "caption";
 
+export interface MediaEntry {
+  kind: "video" | "audio" | "image";
+  name: string;
+  file: string;
+  seconds: number;
+  width: number;
+  height: number;
+  audio: boolean;
+}
+
+export type TrackKind = "text" | "overlay" | "audio";
+
+/**
+ * An item on a track. `color` is a text's colour (a CSS colour) on a text
+ * track and the colour sliders (`ColorAdjust`) on an overlay.
+ */
+export interface TrackItem extends Omit<Look, "color">, Timing {
+  color?: string | ColorAdjust;
+  id: string;
+  start: number;
+  seconds: number;
+  // text
+  text?: string;
+  style?: string;
+  size?: number;
+  align?: string;
+  bg?: string;
+  font?: string;
+  anim?: string;
+  out?: string;
+  // overlay
+  media?: string;
+  w?: number;
+  radius?: number;
+  // audio
+  duck?: boolean;
+}
+
+export interface Track {
+  id: string;
+  kind: TrackKind;
+  name?: string;
+  muted?: boolean;
+  hidden?: boolean;
+  locked?: boolean;
+  items: TrackItem[];
+}
+
+export interface CaptionLine {
+  start: number;
+  end: number;
+  text: string;
+  words?: [number, number][];
+}
+
+export interface Captions {
+  style: "clean" | "bold" | "karaoke" | "boxed" | "none";
+  position: "bottom" | "middle" | "top";
+  size: "s" | "m" | "l";
+  items: CaptionLine[];
+}
+
 export interface MotionSpec {
   format: ClipFormat;
   theme: ClipTheme;
@@ -113,6 +231,11 @@ export interface MotionSpec {
   accent: string;
   loop: boolean;
   scenes: Scene[];
+  /** The clip's library: every imported file by its id. */
+  media?: Record<string, MediaEntry>;
+  /** Layers above the main track; later tracks draw on top. */
+  tracks?: Track[];
+  captions?: Captions;
 }
 
 /** The fields each scene type keeps (`_FIELDS`); anything else is dropped by the server. */
@@ -127,7 +250,29 @@ export const FIELDS: Record<SceneKind, readonly SceneField[]> = {
   image: ["image", "caption"],
   chart: ["kicker", "title", "chart"],
   end: ["kicker", "title", "text"],
+  video: [],
 };
+
+/** The look and timing fields a video scene keeps (`motion_media.visual` / `timing`). */
+const PIECE_FIELDS = [
+  "media",
+  "in",
+  "speed",
+  "volume",
+  "muted",
+  "fade_in",
+  "fade_out",
+  "fit",
+  "zoom",
+  "x",
+  "y",
+  "rotate",
+  "opacity",
+  "crop",
+  "filter",
+  "color",
+  "keys",
+] as const;
 
 // --- reading -------------------------------------------------------------------
 
@@ -149,14 +294,35 @@ export function clampSeconds(value: number): number {
   return Math.round(Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, value)) * 10) / 10;
 }
 
+/** A video piece's length kept in bounds, to the millisecond. */
+export function clampPieceSeconds(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.round(Math.min(MAX_PIECE_SECONDS, Math.max(MIN_PIECE_SECONDS, value)) * 1000) / 1000;
+}
+
 function readScene(raw: unknown): Scene | null {
   if (!isRecord(raw)) return null;
+  if (raw.type === "video") {
+    const piece: Scene = {
+      type: "video",
+      seconds: 0,
+      transition: pick(raw.transition, TRANSITIONS, "cut"),
+    };
+    if (typeof raw.id === "string") piece.id = raw.id;
+    for (const field of PIECE_FIELDS) {
+      if (raw[field] !== undefined) (piece as unknown as Record<string, unknown>)[field] = raw[field];
+    }
+    const length = typeof raw.seconds === "number" ? raw.seconds : 5;
+    piece.seconds = clampPieceSeconds(length);
+    return piece;
+  }
   const type = pick(raw.type, SCENE_KINDS, "text");
   const scene: Scene = {
     type,
     seconds: 0,
     transition: pick(raw.transition, TRANSITIONS, "fade"),
   };
+  if (typeof raw.id === "string") scene.id = raw.id;
   for (const field of FIELDS[type]) {
     const value = raw[field];
     if (field === "bullets" && Array.isArray(value)) scene.bullets = value.map(text);
@@ -186,13 +352,29 @@ export function readMotionSpec(raw: unknown): MotionSpec {
     .map(readScene)
     .filter((scene): scene is Scene => scene !== null)
     .slice(0, MAX_SCENES);
-  return {
+  const out: MotionSpec = {
     format: pick(spec.format, FORMATS, "wide"),
     theme: pick(spec.theme, THEMES, "dark"),
     accent: typeof spec.accent === "string" ? spec.accent : "",
     loop: spec.loop === true,
     scenes,
   };
+  if (isRecord(spec.media)) out.media = spec.media as unknown as Record<string, MediaEntry>;
+  if (Array.isArray(spec.tracks))
+    out.tracks = (spec.tracks as unknown[]).filter(isRecord).map((track) => ({
+      ...(track as unknown as Track),
+      items: Array.isArray(track.items) ? ((track.items as unknown[]).filter(isRecord) as unknown as TrackItem[]) : [],
+    }));
+  if (isRecord(spec.captions) && Array.isArray(spec.captions.items)) {
+    const c = spec.captions;
+    out.captions = {
+      style: pick(c.style, ["clean", "bold", "karaoke", "boxed", "none"] as const, "karaoke"),
+      position: pick(c.position, ["bottom", "middle", "top"] as const, "bottom"),
+      size: pick(c.size, ["s", "m", "l"] as const, "m"),
+      items: (c.items as unknown[]).filter(isRecord) as unknown as CaptionLine[],
+    };
+  }
+  return out;
 }
 
 // --- time ----------------------------------------------------------------------
@@ -215,7 +397,7 @@ export function defaultSeconds(scene: Scene): number {
 
 /** The clip's whole length in seconds, to one decimal (`_total`). */
 export function totalSeconds(spec: MotionSpec): number {
-  return Math.round(spec.scenes.reduce((sum, scene) => sum + scene.seconds, 0) * 10) / 10;
+  return Math.round(spec.scenes.reduce((sum, scene) => sum + scene.seconds, 0) * 1000) / 1000;
 }
 
 /** When each scene starts on the clip's clock. */
@@ -272,7 +454,8 @@ export function sceneProblem(scene: Scene): SceneField | null {
 }
 
 /** The first text a scene shows: what its block on the timeline is named by. */
-export function sceneSummary(scene: Scene): string {
+export function sceneSummary(scene: Scene, media?: Record<string, MediaEntry>): string {
+  if (scene.type === "video") return (scene.media && media?.[scene.media]?.name) || "";
   for (const field of ["title", "text", "quote", "value", "caption", "label"] as const) {
     const value = scene[field];
     if (typeof value === "string" && value.trim()) {
@@ -462,7 +645,7 @@ export function dropIndex(from: number, slot: number): number {
 
 export function setSeconds(draft: MotionSpec, index: number, seconds: number): void {
   const scene = draft.scenes[index];
-  if (scene) scene.seconds = clampSeconds(seconds);
+  if (scene) scene.seconds = scene.type === "video" ? clampPieceSeconds(seconds) : clampSeconds(seconds);
 }
 
 /** Copy the draft's plain data (a draft proxy cannot be cloned directly). */

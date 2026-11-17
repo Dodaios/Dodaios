@@ -1206,7 +1206,7 @@ restartB.addEventListener("click",function(){seek(0);play();});
 replay.addEventListener("click",function(){seek(0);play();});
 loopB.addEventListener("click",function(){loop=!loop;sync();});
 fit.addEventListener("click",function(e){
-  if(editing||e.target.closest&&e.target.closest("button"))return;toggle();});
+  if(bare||editing||e.target.closest&&e.target.closest("button"))return;toggle();});
 var drag=false,resume=false;
 function where(e){var r=scrub.getBoundingClientRect();
   return r.width?clamp((e.clientX-r.left)/r.width)*total:0;}
@@ -1257,9 +1257,39 @@ function report(force){
     playing:playing,total:total},"*");}catch(e){}}
 addEventListener("message",function(e){
   if(!up||e.source!==up)return;
-  var m=e.data;if(!m||typeof m!=="object"||m.type!=="dodaios-film-seek")return;
+  var m=e.data;if(!m||typeof m!=="object")return;
+  if(m.type==="dodaios-film-view"){
+    // The video editor shows the film bare: its own controls are the editor's.
+    bare=m.bare===true;root.classList.toggle("is-bare",bare);
+    stage.classList.toggle("show-guides",m.guides===true);size();return;}
+  if(m.type!=="dodaios-film-seek")return;
   var x=Number(m.t);steered=true;pause();
   if(isFinite(x))seek(x);if(m.play===true)play();report(true);});
+// In the bare editor view a text or picture layer is picked with a click and
+// moved by dragging; the editor gets its id and its new centre in percent.
+var bare=false,grab=null;
+stage.addEventListener("pointerdown",function(e){
+  if(!bare||playing||!up)return;
+  var el=e.target.closest&&e.target.closest(".layer");
+  try{up.postMessage({type:"dodaios-film-pick",id:el?el.getAttribute("data-id"):""},"*");}
+  catch(x){}
+  if(!el)return;
+  var r=stage.getBoundingClientRect();
+  grab={el:el,r:r,x0:e.clientX,y0:e.clientY,l:parseFloat(el.style.left)||50,
+    t:parseFloat(el.style.top)||50,moved:false};
+  try{stage.setPointerCapture(e.pointerId);}catch(x){}
+  e.preventDefault();});
+stage.addEventListener("pointermove",function(e){
+  if(!grab)return;
+  var dx=(e.clientX-grab.x0)/grab.r.width*100,dy=(e.clientY-grab.y0)/grab.r.height*100;
+  if(!grab.moved&&Math.abs(dx)+Math.abs(dy)<.6)return;grab.moved=true;
+  grab.el.style.left=(grab.l+dx).toFixed(2)+"%";grab.el.style.top=(grab.t+dy).toFixed(2)+"%";});
+function letGo(){
+  if(!grab)return;var g=grab;grab=null;if(!g.moved)return;
+  try{up.postMessage({type:"dodaios-film-move",id:g.el.getAttribute("data-id"),
+    x:Math.round(parseFloat(g.el.style.left)*100)/100,
+    y:Math.round(parseFloat(g.el.style.top)*100)/100},"*");}catch(x){}}
+stage.addEventListener("pointerup",letGo);stage.addEventListener("pointercancel",letGo);
 var q=null;try{q=new URLSearchParams(location.search);}catch(e){}
 var at=q&&q.get("t")!==null?parseFloat(q.get("t")):NaN;
 var still=(q&&q.get("autoplay")==="0")||

@@ -1,62 +1,113 @@
 /**
- * The clip editor: a short film of scenes, edited on its timeline.
+ * The clip editor: a video editor for a Clips node.
  *
- * Three parts in the common editor frame:
+ * Four parts in the common editor frame:
  *
- * * the PREVIEW, the real film drawn by the server from the unsaved spec. It
- *   stands on the picked scene, settled, and its texts can be written into
- *   right there; "Play" plays it from that scene (`ClipPreview`);
- * * the TIMELINE under it: every scene as a block as long as it runs, picked,
- *   dragged to reorder, its edge dragged to change its length, the
- *   transitions between them, the total length (`Timeline`);
- * * the INSPECTOR beside it: the picked scene's type and fields, its length
- *   and transition, chart and picture (`SceneInspector`).
- *
- * The toolbar holds what is the whole clip's: add a scene, play, the format,
- * the background, the accent colour and looping.
+ * * the BIN on the left: the clip's library (import, drag onto the
+ *   timeline), text styles, the animated cards, captions (`MediaBin`);
+ * * the PREVIEW, the real clip drawn by the server from the unsaved spec,
+ *   standing on the playhead's exact frame or playing (`ClipPreview`), with
+ *   the transport under it;
+ * * the TIMELINE: every track as a row, the main track magnetic, split, trim,
+ *   move, snap, zoom (`TrackTimeline`);
+ * * the INSPECTOR on the right: the picked piece, or the clip's settings
+ *   (`ClipInspector`, `SceneInspector` for a card).
  *
  * Every change goes through `useNodeSpecEditor`, so undo and redo cover all
- * three parts alike and the work saves itself. A blank scene saves like any
- * other (a new clip is one); only a chart that would not draw holds the save
- * (the server would refuse it), and the save state says which scene.
+ * of it, the work saves itself, and what the assistant changes meanwhile (it
+ * edits the same spec with the `clip` tool) arrives as an undoable step.
+ *
+ * Keys (while focus is in the editor, not in a field): Space play/pause,
+ * J/K/L back/stop/play, arrows a frame (Shift: a second), Home/End, S or
+ * Ctrl+B split, Delete, Shift+Delete ripple delete, Ctrl+C/X/V/D, Ctrl+A,
+ * Escape, +/- zoom, N snapping.
  */
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Moon, Play, Plus, Repeat, Square, Sun } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  ChevronFirst,
+  ChevronLast,
+  Clapperboard,
+  Grid2x2,
+  Magnet,
+  Pause,
+  PencilLine,
+  Play,
+  Scissors,
+  StepBack,
+  StepForward,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+} from "lucide-react";
 
-import { fill, useT } from "@/i18n";
+import { fill, useT, useUiLanguage } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { ChartEditor } from "../charts/ChartEditor";
 import type { ChartJson } from "../charts/chartModel";
-import { ColorPicker, KIT_COLORS, Popover, Select, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
+import { ColorPicker, KIT_COLORS, Popover, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
 import { EditorShell } from "../EditorShell";
 import type { NodeEditorProps } from "../types";
 import { useNodeSpecEditor } from "../useNodeSpecEditor";
-import { ClipPreview, type FilmTime } from "./ClipPreview";
+import { fetchCaptions, fetchSilences, uploadMedia } from "./clipApi";
+import { CaptionInspector, ItemInspector, ProjectInspector, VideoPieceInspector } from "./ClipInspector";
 import {
-  FORMATS,
+  FRAME,
+  addItem,
+  captionKey,
+  clipDuration,
+  copySelection,
+  deleteSelection,
+  ensureIds,
+  findItem,
+  insertPiece,
+  itemKey,
+  moveCaption,
+  moveItem,
+  ms,
+  parseKey,
+  pasteBoard,
+  pieceFromMedia,
+  removeSilences,
+  sceneAtTime,
+  sceneIndex,
+  sceneKey,
+  sortCaptions,
+  splitAt,
+  trimItemEnd,
+  trimItemStart,
+  trimSceneEnd,
+  trimSceneStart,
+  allIds,
+  freshId,
+  type ClipBoard,
+  type SelKey,
+} from "./clipModel";
+import { ClipPreview, type FilmTime } from "./ClipPreview";
+import { ExportPanel, type ExportJob } from "./ExportPanel";
+import { MediaBin, type BinTab, type Upload } from "./MediaBin";
+import {
   MAX_SCENES,
   convertScene,
-  duplicateScene,
-  insertScene,
+  formatClock,
   moveScene,
   newScene,
   pointerParts,
   readAtPointer,
   readMotionSpec,
   readNumber,
-  removeScene,
   sceneProblem,
   sceneStarts,
   setAtPointer,
-  setSeconds,
-  type ClipFormat,
+  type CardKind,
   type MotionSpec,
   type Scene,
   type SceneKind,
   type SceneSamples,
-  type Transition,
+  type TrackItem,
 } from "./motionModel";
 import { SceneInspector, fieldLabelKey } from "./SceneInspector";
-import { AddSceneItems, Timeline } from "./Timeline";
+import { HEAD, TrackTimeline, type RowKind } from "./TrackTimeline";
 
 /** The film's named accents (`shell.NAMED_COLORS`) and the kit colour each stands for. */
 const NAMED_ACCENTS: readonly [string, string][] = [
@@ -88,11 +139,31 @@ export function hexToAccent(hex: string): string {
   return named ? named[0] : hex;
 }
 
+/** A clock with hundredths, for the transport: 0:03.40. */
+function preciseClock(seconds: number): string {
+  const whole = Math.floor(seconds + 1e-6);
+  const hundredths = Math.floor((seconds - whole) * 100 + 1e-6);
+  return `${formatClock(whole)}.${String(hundredths).padStart(2, "0")}`;
+}
+
+function isTyping(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable || !!el.closest?.('[role="listbox"][data-combobox-panel]');
+}
+
 export default function MotionEditor({ node, initial, onDone }: NodeEditorProps) {
   const t = useT();
-  // The spec in the editor's shape, read once; a revision from the server is
-  // already normalized and has the same shape.
-  const start = useMemo(() => ({ ...initial, spec: readMotionSpec(initial.spec) }), [initial]);
+  const language = useUiLanguage();
+  const nodeId = node.id ?? "";
+  // The spec in the editor's shape, read once, with an id on every piece so a
+  // pick can name it; a revision from the server has the same shape.
+  const start = useMemo(() => {
+    const spec = readMotionSpec(initial.spec);
+    ensureIds(spec);
+    return { ...initial, spec };
+  }, [initial]);
   const prepare = useCallback(
     (spec: MotionSpec) => {
       const index = spec.scenes.findIndex((scene) => sceneProblem(scene) !== null);
@@ -107,26 +178,64 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     },
     [t],
   );
-  const editor = useNodeSpecEditor<MotionSpec>(node.id ?? "", start, { prepare });
+  const editor = useNodeSpecEditor<MotionSpec>(nodeId, start, { prepare });
   const spec = editor.spec;
-  const count = spec.scenes.length;
-
-  const [picked, setPicked] = useState(0);
-  const selected = Math.max(0, Math.min(count - 1, picked));
-  const scene: Scene | undefined = spec.scenes[selected];
+  const duration = clipDuration(spec);
   const starts = useMemo(() => sceneStarts(spec), [spec]);
+  const v = (key: string) => t(`nodes.editor.motion.video.${key}`);
+  const label = (key: string) => t(`nodes.editor.motion.video.history.${key}`);
+
+  /* ------------------------------------------------------------ state */
+
+  const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playToken, setPlayToken] = useState(0);
-  const [playhead, setPlayhead] = useState<{ t: number; scene: number } | null>(null);
+  const [selection, setSelection] = useState<Set<SelKey>>(new Set());
+  const [pps, setPps] = useState(48);
+  const [snapping, setSnapping] = useState(true);
+  const [guides, setGuides] = useState(false);
+  const [editText, setEditText] = useState(false);
+  const [tab, setTab] = useState<BinTab>("media");
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [captionsBusy, setCaptionsBusy] = useState(false);
+  const [captionsError, setCaptionsError] = useState("");
+  const [silenceBusy, setSilenceBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [exportJob, setExportJob] = useState<ExportJob | null>(null);
   const [chartOpen, setChartOpen] = useState(false);
-  // A Play only ends once the page said it is playing: the first report after
-  // the switch may still describe the standing film.
+  const board = useRef<ClipBoard | null>(null);
   const sawPlaying = useRef(false);
-  // The preview draws the last spec the server can draw: while a chart would
-  // not draw, the film stays as it was and the save state says why (the
-  // server's own sentence is written for the assistant, not the person).
+  const timelineBox = useRef<HTMLDivElement>(null);
+  // The preview draws the last spec the server can draw.
   const drawable = useRef(spec);
   if (spec.scenes.every((each) => sceneProblem(each) === null)) drawable.current = spec;
+
+  // Picks that no longer exist (an undo, the assistant's edit) fall away.
+  useEffect(() => {
+    setSelection((now) => {
+      const kept = new Set(
+        [...now].filter((key) => {
+          const { kind, id } = parseKey(key);
+          if (kind === "scene") return sceneIndex(spec, id) >= 0;
+          if (kind === "item") return findItem(spec, id) !== null;
+          return Number(id) < (spec.captions?.items.length ?? 0);
+        }),
+      );
+      return kept.size === now.size ? now : kept;
+    });
+  }, [spec]);
+
+  // A fresh clip opens fitted to the timeline's width once.
+  const fitted = useRef(false);
+  const fit = useCallback(() => {
+    const width = (timelineBox.current?.clientWidth ?? 900) - HEAD - 24;
+    setPps(Math.max(2, Math.min(400, width / Math.max(4, clipDuration(editor.spec) * 1.05))));
+  }, [editor.spec]);
+  useEffect(() => {
+    if (fitted.current) return;
+    fitted.current = true;
+    fit();
+  }, [fit]);
 
   const samples: SceneSamples = useMemo(
     () => ({
@@ -142,79 +251,259 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     }),
     [t],
   );
-  const label = (key: string) => t(`nodes.editor.motion.history.${key}`);
 
-  /* ------------------------------------------------------------ actions */
+  /* ------------------------------------------------------------ transport */
 
-  const stop = useCallback(() => {
-    setPlaying(false);
-    setPlayhead(null);
-  }, []);
-
-  const play = useCallback(
-    (from: number) => {
-      sawPlaying.current = false;
-      setPicked(from);
-      setPlaying(true);
-      setPlayToken((n) => n + 1);
+  const seek = useCallback(
+    (time: number) => {
+      setPlaying(false);
+      setPlayhead(ms(Math.max(0, Math.min(clipDuration(editor.spec), time))));
     },
-    [],
+    [editor.spec],
+  );
+  const play = useCallback(() => {
+    sawPlaying.current = false;
+    if (playhead >= duration - 0.05) setPlayhead(0);
+    setEditText(false);
+    setPlaying(true);
+    setPlayToken((n) => n + 1);
+  }, [playhead, duration]);
+  const stop = useCallback(() => setPlaying(false), []);
+  const toggle = useCallback(() => (playing ? stop() : play()), [playing, play, stop]);
+
+  const onTime = useCallback(
+    (time: FilmTime) => {
+      if (!playing) return;
+      if (time.playing) {
+        sawPlaying.current = true;
+        setPlayhead(time.t);
+        return;
+      }
+      if (!sawPlaying.current) return;
+      setPlayhead(time.t);
+      setPlaying(false);
+    },
+    [playing],
   );
 
-  const add = (kind: SceneKind) => {
-    const at = count === 0 ? 0 : selected + 1;
-    editor.apply((draft) => void insertScene(draft, at, newScene(kind, samples)), { label: label("add") });
-    setPicked(at);
-    stop();
+  /* ------------------------------------------------------------ changes */
+
+  const apply = editor.apply;
+  const select = (keys: SelKey[], mode: "replace" | "toggle" = "replace") =>
+    setSelection((now) => {
+      if (mode === "replace") return new Set(keys);
+      const next = new Set(now);
+      for (const key of keys) {
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+      }
+      return next;
+    });
+
+  const split = () => {
+    let made: SelKey[] = [];
+    apply((draft) => void (made = splitAt(draft, selection, playhead)), { label: label("split") });
+    if (made.length) select(made);
   };
-  const duplicate = (index: number) => {
-    editor.apply((draft) => void duplicateScene(draft, index), { label: label("duplicate") });
-    setPicked(index + 1);
+  const remove = (ripple: boolean) => {
+    if (!selection.size) return;
+    apply((draft) => deleteSelection(draft, selection, ripple), { label: label(ripple ? "ripple" : "delete") });
+    select([]);
   };
-  const remove = (index: number) => {
-    editor.apply((draft) => void removeScene(draft, index), { label: label("delete") });
-    setPicked(Math.min(index, count - 2));
-    stop();
+  const copy = () => {
+    if (selection.size) board.current = copySelection(spec, selection);
   };
-  const move = (from: number, to: number) => {
-    editor.apply((draft) => void moveScene(draft, from, to), { label: label("move") });
-    setPicked(Math.max(0, Math.min(count - 1, to)));
+  const paste = () => {
+    const clip = board.current;
+    if (!clip) return;
+    let keys: SelKey[] = [];
+    apply((draft) => void (keys = pasteBoard(draft, clip, playhead)), { label: label("paste") });
+    select(keys);
   };
-  const changeScene = (index: number) => (change: (scene: Scene) => void, stepLabel: string, coalesce?: string) =>
-    editor.apply(
+  const duplicate = () => {
+    if (!selection.size) return;
+    const clip = copySelection(spec, selection);
+    let keys: SelKey[] = [];
+    // A copy goes right after the original: the end of the latest picked thing.
+    let end = 0;
+    for (const key of selection) {
+      const { kind, id } = parseKey(key);
+      if (kind === "item") {
+        const found = findItem(spec, id);
+        if (found) end = Math.max(end, found.item.start + found.item.seconds);
+      } else if (kind === "caption") end = Math.max(end, spec.captions?.items[Number(id)]?.end ?? 0);
+      else {
+        const index = sceneIndex(spec, id);
+        if (index >= 0) end = Math.max(end, starts[index] + spec.scenes[index].seconds - 0.01);
+      }
+    }
+    apply((draft) => void (keys = pasteBoard(draft, clip, end)), { label: label("duplicate") });
+    select(keys);
+  };
+  const selectAll = () => {
+    const keys: SelKey[] = [];
+    for (const scene of spec.scenes) if (scene.id) keys.push(sceneKey(scene.id));
+    for (const track of spec.tracks ?? []) for (const item of track.items) keys.push(itemKey(item.id));
+    (spec.captions?.items ?? []).forEach((_, n) => keys.push(captionKey(n)));
+    select(keys);
+  };
+  const zoom = (factor: number) => setPps((now) => Math.max(2, Math.min(400, now * factor)));
+
+  /** Put a library file onto the timeline. */
+  const placeMedia = (mediaId: string, at: number, row: RowKind, trackId?: string) => {
+    const entry = spec.media?.[mediaId];
+    if (!entry) return;
+    let key: SelKey | null = null;
+    apply(
       (draft) => {
-        const target = draft.scenes[index];
-        if (target) change(target);
+        ensureIds(draft);
+        const taken = allIds(draft);
+        if (entry.kind === "audio" || row === "audio") {
+          const remaining = clipDuration(draft) - at;
+          const music = entry.kind === "audio";
+          const length = music && remaining > 1 ? Math.min(entry.seconds, remaining) : entry.seconds || 5;
+          const item: Omit<TrackItem, "id"> = { start: at, seconds: ms(length), media: mediaId };
+          if (music) Object.assign(item, { volume: 0.3, duck: true, fade_in: 0.5, fade_out: 1.5 });
+          key = itemKey(addItem(draft, "audio", item, row === "audio" ? trackId : undefined));
+        } else if (row === "main" || row === "captions") {
+          const piece = pieceFromMedia(freshId(taken, "v"), mediaId, entry);
+          const index = row === "main" ? Math.min(draft.scenes.length, sceneAtTime(draft, at) + (at > 0 ? 1 : 0)) : draft.scenes.length;
+          if (insertPiece(draft, index, piece)) key = sceneKey(piece.id!);
+        } else {
+          const seconds = entry.kind === "video" ? entry.seconds : 4;
+          key = itemKey(addItem(draft, "overlay", { start: at, seconds: ms(seconds), media: mediaId, x: 50, y: 50, w: 40, anim: "pop", out: "fade" }, row === "overlay" ? trackId : undefined));
+        }
       },
-      { label: stepLabel, coalesce },
+      { label: label("place") },
     );
-  const onSeconds = (index: number, seconds: number, final: boolean) => {
-    editor.apply((draft) => setSeconds(draft, index, seconds), { label: label("seconds"), coalesce: `length-${index}` });
-    if (final) editor.breakCoalesce();
-  };
-  const onTransition = (index: number, transition: Transition) =>
-    changeScene(index)((draft) => {
-      draft.transition = transition;
-    }, label("transition"));
-  const convert = (kind: SceneKind) => {
-    const current = spec.scenes[selected];
-    if (!current || current.type === kind) return;
-    const next = convertScene(current, kind, samples);
-    editor.apply(
-      (draft) => {
-        draft.scenes[selected] = next;
-      },
-      { label: label("type") },
-    );
-    if (kind === "chart" && current.type !== "chart") setChartOpen(true);
+    if (key) select([key]);
   };
 
-  /** A text written straight into the preview's page. */
+  /** "+" on a library file: video and pictures after the piece under the playhead, sound at the playhead. */
+  const addMedia = (mediaId: string) => {
+    const entry = spec.media?.[mediaId];
+    if (!entry) return;
+    if (entry.kind === "audio") placeMedia(mediaId, playhead, "audio");
+    else placeMedia(mediaId, playhead, "main");
+  };
+
+  const importFiles = async (files: File[]) => {
+    setTab("media");
+    for (const file of files) {
+      setUploads((now) => [...now, { name: file.name, share: 0 }]);
+      try {
+        const done = await uploadMedia(nodeId, file, (share) => setUploads((now) => now.map((u) => (u.name === file.name ? { ...u, share } : u))));
+        setUploads((now) => now.filter((u) => u.name !== file.name));
+        apply(
+          (draft) => {
+            draft.media = { ...(draft.media ?? {}), [done.id]: done.entry };
+            ensureIds(draft);
+            // A new clip's first videos go straight onto the main track, in order.
+            const main = draft.scenes;
+            const fresh = main.length === 1 && main[0].type === "title" && !main[0].title && !main[0].text;
+            const onlyMedia = main.every((scene) => scene.type === "video");
+            if (done.entry.kind !== "audio" && (fresh || (onlyMedia && main.length < MAX_SCENES && files.length > 1))) {
+              insertPiece(draft, draft.scenes.length, pieceFromMedia(freshId(allIds(draft), "v"), done.id, done.entry));
+            }
+          },
+          { label: label("import") },
+        );
+      } catch (err) {
+        const reason = err instanceof Error && err.message ? err.message : v("bin.uploadFailed");
+        setUploads((now) => now.map((u) => (u.name === file.name ? { ...u, error: reason } : u)));
+        window.setTimeout(() => setUploads((now) => now.filter((u) => u.name !== file.name)), 8000);
+      }
+    }
+  };
+
+  const addText = (style: string) => {
+    const big = style === "title";
+    let key: SelKey = "";
+    apply(
+      (draft) => {
+        const id = addItem(draft, "text", {
+          start: playhead,
+          seconds: big ? 2.5 : 3,
+          text: t(`nodes.editor.motion.video.samples.${style}`),
+          style,
+          x: 50,
+          y: style === "caption" || style === "label" ? 78 : big ? 40 : 50,
+          bg: style === "label" ? "pill" : "shadow",
+          anim: big ? "pop" : "rise",
+          out: "fade",
+        });
+        key = itemKey(id);
+      },
+      { label: label("text") },
+    );
+    select([key]);
+  };
+
+  const addCard = (kind: CardKind) => {
+    const scene = newScene(kind, samples);
+    let key: SelKey = "";
+    apply(
+      (draft) => {
+        ensureIds(draft);
+        scene.id = freshId(allIds(draft), "s");
+        const index = Math.min(draft.scenes.length, sceneAtTime(draft, playhead) + 1);
+        draft.scenes.splice(index, 0, scene);
+        key = sceneKey(scene.id);
+      },
+      { label: label("card") },
+    );
+    select([key]);
+  };
+
+  const makeCaptions = async () => {
+    setCaptionsBusy(true);
+    setCaptionsError("");
+    try {
+      const items = await fetchCaptions(nodeId, spec, language);
+      if (!items.length) {
+        setCaptionsError(v("bin.noSpeech"));
+        return;
+      }
+      apply(
+        (draft) => {
+          draft.captions = {
+            style: draft.captions?.style ?? "karaoke",
+            position: draft.captions?.position ?? "bottom",
+            size: draft.captions?.size ?? "m",
+            items,
+          };
+        },
+        { label: label("captions") },
+      );
+    } catch (err) {
+      setCaptionsError(err instanceof Error && err.message ? err.message : v("bin.captionsFailed"));
+    } finally {
+      setCaptionsBusy(false);
+    }
+  };
+
+  const cutSilences = async (scene: Scene) => {
+    if (!scene.media || !scene.id) return;
+    setSilenceBusy(true);
+    setNotice("");
+    try {
+      const from = scene.in ?? 0;
+      const silences = await fetchSilences(nodeId, scene.media, from, from + scene.seconds * (scene.speed ?? 1));
+      let removed = 0;
+      if (silences.length) apply((draft) => void (removed = removeSilences(draft, scene.id!, silences)), { label: label("silences") });
+      setNotice(removed ? fill(v("inspector.silencesRemoved"), { n: removed }) : v("inspector.noSilences"));
+    } catch (err) {
+      setNotice(err instanceof Error && err.message ? err.message : v("inspector.silencesFailed"));
+    } finally {
+      setSilenceBusy(false);
+    }
+  };
+
+  /** A text written straight into the preview's page (text mode). */
   const onEdit = useCallback(
     (path: string, value: string | boolean, as: string): boolean => {
       const parts = pointerParts(path);
       if (!parts || parts[0] !== "scenes") return false;
-      const index = Number(parts[1]);
       const before = readAtPointer(editor.spec, path);
       if (before === undefined) return false;
       let next: unknown = value;
@@ -224,203 +513,400 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
         next = Math.max(-1e12, Math.min(1e12, Math.round(number * 1e4) / 1e4));
       }
       if (Object.is(before, next)) return true;
-      editor.apply((draft) => void setAtPointer(draft, path, next), { label: label("text") });
-      if (Number.isInteger(index)) setPicked(index);
+      editor.apply((draft) => void setAtPointer(draft, path, next), { label: t("nodes.editor.motion.history.text") });
       return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [editor.spec, editor.apply],
   );
 
-  const onTime = useCallback(
-    (time: FilmTime) => {
-      if (!playing) return;
-      if (time.playing) {
-        sawPlaying.current = true;
-        setPlayhead({ t: time.t, scene: time.scene });
-        return;
-      }
-      if (!sawPlaying.current) return;
-      // The film ended or was paused in the page: stand on the scene it reached.
-      setPicked(time.scene);
+  /* ------------------------------------------------------------ keys */
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (isTyping(event.target)) return;
+    const mod = event.ctrlKey || event.metaKey;
+    const key = event.key;
+    const handled = () => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    if (key === " ") {
+      handled();
+      toggle();
+    } else if (!mod && (key === "k" || key === "K")) {
+      handled();
       stop();
-    },
-    [playing, stop],
+    } else if (!mod && (key === "l" || key === "L")) {
+      handled();
+      play();
+    } else if (!mod && (key === "j" || key === "J")) {
+      handled();
+      seek(playhead - 1);
+    } else if (key === "ArrowLeft" || key === "ArrowRight") {
+      if (event.altKey) return;
+      handled();
+      seek(playhead + (key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 1 : FRAME));
+    } else if (key === "Home") {
+      handled();
+      seek(0);
+    } else if (key === "End") {
+      handled();
+      seek(duration);
+    } else if ((!mod && (key === "s" || key === "S")) || (mod && (key === "b" || key === "B"))) {
+      handled();
+      split();
+    } else if (key === "Delete" || key === "Backspace") {
+      handled();
+      remove(event.shiftKey);
+    } else if (mod && (key === "c" || key === "C")) {
+      handled();
+      copy();
+    } else if (mod && (key === "x" || key === "X")) {
+      handled();
+      copy();
+      remove(false);
+    } else if (mod && (key === "v" || key === "V")) {
+      handled();
+      paste();
+    } else if (mod && (key === "d" || key === "D")) {
+      handled();
+      duplicate();
+    } else if (mod && (key === "a" || key === "A")) {
+      handled();
+      selectAll();
+    } else if (key === "Escape") {
+      if (selection.size) {
+        handled();
+        select([]);
+      }
+    } else if (!mod && (key === "+" || key === "=")) {
+      handled();
+      zoom(1.25);
+    } else if (!mod && key === "-") {
+      handled();
+      zoom(0.8);
+    } else if (!mod && (key === "n" || key === "N")) {
+      handled();
+      setSnapping((on) => !on);
+    }
+  };
+
+  /* ------------------------------------------------------------ inspector */
+
+  const picked = selection.size === 1 ? parseKey([...selection][0]) : null;
+  let side: React.ReactNode;
+  if (selection.size > 1) {
+    side = (
+      <div className="flex flex-col gap-3" data-testid="clip-inspector-many">
+        <h2 className="text-sm font-semibold">{fill(v("inspector.many"), { n: selection.size })}</h2>
+        <p className="text-xs text-muted-foreground">{v("inspector.manyHint")}</p>
+        <div className="flex gap-2">
+          <button type="button" className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted" onClick={() => remove(false)}>
+            {v("toolbar.delete")}
+          </button>
+          <button type="button" className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted" onClick={() => remove(true)}>
+            {v("toolbar.ripple")}
+          </button>
+        </div>
+      </div>
+    );
+  } else if (picked?.kind === "scene") {
+    const index = sceneIndex(spec, picked.id);
+    const scene = spec.scenes[index];
+    const changeScene = (change: (draft: Scene) => void, stepLabel: string, coalesce?: string) =>
+      apply(
+        (draft) => {
+          const target = draft.scenes[index];
+          if (target) change(target);
+        },
+        { label: stepLabel, coalesce },
+      );
+    if (scene && scene.type === "video") {
+      side = (
+        <VideoPieceInspector
+          key={scene.id}
+          scene={scene}
+          index={index}
+          entry={scene.media ? spec.media?.[scene.media] : undefined}
+          spec={spec}
+          local={playhead - starts[index]}
+          change={changeScene}
+          onRemoveSilences={() => void cutSilences(scene)}
+          busy={silenceBusy}
+          onSplit={split}
+          onRemove={() => remove(false)}
+        />
+      );
+    } else if (scene) {
+      side = (
+        <SceneInspector
+          key={scene.id}
+          scene={scene}
+          index={index}
+          count={spec.scenes.length}
+          change={changeScene}
+          onConvert={(kind: SceneKind) => {
+            if (kind === "video" || scene.type === kind) return;
+            const next = convertScene(scene, kind, samples);
+            next.id = scene.id;
+            apply((draft) => void (draft.scenes[index] = next), { label: t("nodes.editor.motion.history.type") });
+            if (kind === "chart") setChartOpen(true);
+          }}
+          onDuplicate={duplicate}
+          onRemove={() => remove(false)}
+          onMove={(to) => apply((draft) => void moveScene(draft, index, to), { label: t("nodes.editor.motion.history.move") })}
+          onEditChart={() => setChartOpen(true)}
+          canDuplicate={spec.scenes.length < MAX_SCENES}
+        />
+      );
+    }
+  } else if (picked?.kind === "item") {
+    const found = findItem(spec, picked.id);
+    if (found) {
+      const changeItem = (change: (draft: TrackItem) => void, stepLabel: string, coalesce?: string) =>
+        apply(
+          (draft) => {
+            const target = findItem(draft, picked.id);
+            if (target) change(target.item);
+          },
+          { label: stepLabel, coalesce },
+        );
+      side = (
+        <ItemInspector
+          key={found.item.id}
+          item={found.item}
+          track={found.track}
+          entry={found.item.media ? spec.media?.[found.item.media] : undefined}
+          local={playhead - found.item.start}
+          change={changeItem}
+          onStart={(at) => apply((draft) => moveItem(draft, picked.id, at), { label: label("move") })}
+          onSplit={split}
+          onRemove={() => remove(false)}
+        />
+      );
+    }
+  } else if (picked?.kind === "caption") {
+    side = (
+      <CaptionInspector
+        spec={spec}
+        index={Number(picked.id)}
+        changeSpec={(change, stepLabel, coalesce) => apply(change, { label: stepLabel, coalesce })}
+        onRemove={() => remove(false)}
+      />
+    );
+  }
+  const accentControl = (
+    <ColorPicker
+      label={t("nodes.editor.motion.toolbar.accent")}
+      value={accentToHex(spec.accent)}
+      palette={NAMED_ACCENTS.map(([, hex]) => hex)}
+      onChange={(hex) => apply((draft) => void (draft.accent = hexToAccent(hex)), { label: t("nodes.editor.motion.history.accent") })}
+    />
   );
-
-  const saveChart = (chart: ChartJson) => {
-    setChartOpen(false);
-    changeScene(selected)((draft) => {
-      draft.chart = chart as unknown as Record<string, unknown>;
-    }, label("chart"));
-  };
-
-  /** Space plays and stops while a scene block has focus. */
-  const onBodyKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== " " || !(event.target as HTMLElement).closest?.('[role="option"]')) return;
-    event.preventDefault();
-    if (playing) stop();
-    else play(selected);
-  };
+  if (!side)
+    side = (
+      <ProjectInspector spec={spec} duration={duration} changeSpec={(change, stepLabel) => apply(change, { label: stepLabel })} accentControl={accentControl} />
+    );
 
   /* ------------------------------------------------------------ toolbar */
 
   const toolbar = (
     <>
-      <ToolbarGroup label={t("nodes.editor.motion.toolbar.scenes")}>
-        <Popover
-          label={t("nodes.editor.motion.add")}
-          role="menu"
-          trigger={
-            <ToolbarButton
-              label={t("nodes.editor.motion.add")}
-              icon={<Plus aria-hidden />}
-              showLabel
-              disabled={count >= MAX_SCENES}
-              data-testid="motion-add"
-            />
-          }
-        >
-          <AddSceneItems onAdd={add} />
-        </Popover>
-        {playing ? (
-          <ToolbarButton label={t("nodes.editor.motion.toolbar.stop")} icon={<Square aria-hidden />} showLabel onClick={stop} data-testid="motion-stop" />
-        ) : (
-          <ToolbarButton
-            label={t("nodes.editor.motion.toolbar.play")}
-            icon={<Play aria-hidden />}
-            showLabel
-            shortcut={t("nodes.editor.motion.toolbar.space")}
-            onClick={() => play(selected)}
-            data-testid="motion-play"
-          />
-        )}
+      <ToolbarGroup label={v("toolbar.clip")}>
+        <span className="flex items-center gap-1.5 px-1 text-sm font-medium">
+          <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden />
+          {fill(v("toolbar.length"), { clock: formatClock(duration) })}
+        </span>
       </ToolbarGroup>
       <ToolbarSeparator />
-      <ToolbarGroup label={t("nodes.editor.motion.toolbar.clip")}>
-        <Select
-          label={t("nodes.editor.motion.toolbar.format")}
-          value={spec.format}
-          options={FORMATS.map((format) => ({ value: format, label: t(`nodes.editor.motion.formats.${format}`) }))}
-          onChange={(value) =>
-            editor.apply(
-              (draft) => {
-                draft.format = value as ClipFormat;
-              },
-              { label: label("format") },
-            )
-          }
-          className="w-36"
-          testId="motion-format"
-        />
-        <ToolbarButton
-          label={spec.theme === "dark" ? t("nodes.editor.motion.toolbar.toLight") : t("nodes.editor.motion.toolbar.toDark")}
-          icon={spec.theme === "dark" ? <Moon aria-hidden /> : <Sun aria-hidden />}
-          onClick={() =>
-            editor.apply(
-              (draft) => {
-                draft.theme = draft.theme === "dark" ? "light" : "dark";
-              },
-              { label: label("theme") },
-            )
-          }
-          data-testid="motion-theme"
-        />
-        <ColorPicker
-          label={t("nodes.editor.motion.toolbar.accent")}
-          value={accentToHex(spec.accent)}
-          palette={NAMED_ACCENTS.map(([, hex]) => hex)}
-          onChange={(hex) =>
-            editor.apply(
-              (draft) => {
-                draft.accent = hexToAccent(hex);
-              },
-              { label: label("accent") },
-            )
-          }
-        />
-        <ToolbarButton
-          label={t("nodes.editor.motion.toolbar.loop")}
-          icon={<Repeat aria-hidden />}
-          active={spec.loop}
-          onClick={() =>
-            editor.apply(
-              (draft) => {
-                draft.loop = !draft.loop;
-              },
-              { label: label("loop") },
-            )
-          }
-          data-testid="motion-loop"
-        />
-      </ToolbarGroup>
+      <Popover
+        label={v("export.title")}
+        trigger={
+          <ToolbarButton
+            label={exportJob?.status.state === "running" ? fill(v("export.progress"), { n: Math.round(exportJob.status.progress * 100) }) : v("export.title")}
+            icon={<Maximize2 aria-hidden />}
+            showLabel
+            data-testid="clip-export"
+          />
+        }
+      >
+        <ExportPanel nodeId={nodeId} spec={spec} job={exportJob} onJob={setExportJob} />
+      </Popover>
     </>
   );
 
+  const scene = spec.scenes[sceneAtTime(spec, playhead)];
   const chart = scene?.type === "chart" ? (scene.chart as unknown as ChartJson | undefined) : undefined;
+  const pickedScene = picked?.kind === "scene" ? spec.scenes[sceneIndex(spec, picked.id)] : undefined;
 
   return (
-    <EditorShell
-      editor={editor}
-      title={node.title}
-      onDone={onDone}
-      toolbar={toolbar}
-      bodyClassName="flex flex-col overflow-hidden"
-      side={
-        scene ? (
-          <SceneInspector
-            key={selected}
-            scene={scene}
-            index={selected}
-            count={count}
-            change={changeScene(selected)}
-            onConvert={convert}
-            onDuplicate={() => duplicate(selected)}
-            onRemove={() => remove(selected)}
-            onMove={(to) => move(selected, to)}
-            onEditChart={() => setChartOpen(true)}
-            canDuplicate={count < MAX_SCENES}
-          />
-        ) : null
-      }
-    >
-      <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onBodyKeyDown}>
-        <ClipPreview
-          nodeId={node.id ?? ""}
-          title={node.title}
-          spec={drawable.current}
-          selected={selected}
-          starts={starts}
-          playing={playing}
-          playToken={playToken}
-          onEdit={onEdit}
-          onTime={onTime}
-          className="min-h-[200px] flex-1"
-        />
-        <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground">
-          {playing ? t("nodes.editor.motion.preview.playing") : t("nodes.editor.motion.preview.hint")}
-        </p>
-        <Timeline
+    <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} bodyClassName="flex overflow-hidden" side={side}>
+      <div className="flex min-h-0 min-w-0 flex-1" onKeyDown={onKeyDown} tabIndex={-1} data-testid="clip-editor">
+        <MediaBin
+          nodeId={nodeId}
           spec={spec}
-          selected={selected}
-          onSelect={(index) => {
-            setPicked(index);
-            if (playing) stop();
-          }}
-          onMove={move}
-          onSeconds={onSeconds}
-          onTransition={onTransition}
-          onAdd={add}
-          onDuplicate={duplicate}
-          onRemove={remove}
-          playhead={playing ? playhead : null}
+          tab={tab}
+          onTab={setTab}
+          uploads={uploads}
+          onFiles={(files) => void importFiles(files)}
+          onAddMedia={addMedia}
+          onAddText={addText}
+          onAddCard={addCard}
+          onCaptions={() => void makeCaptions()}
+          captionsBusy={captionsBusy}
+          captionsError={captionsError}
+          changeSpec={(change, stepLabel, coalesce) => apply(change, { label: stepLabel, coalesce })}
         />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ClipPreview
+            nodeId={nodeId}
+            title={node.title}
+            spec={drawable.current}
+            at={playhead}
+            scene={sceneAtTime(spec, playhead)}
+            playing={playing}
+            playToken={playToken}
+            editText={editText}
+            guides={guides}
+            onEdit={onEdit}
+            onTime={onTime}
+            onPick={(id) => {
+              if (!id) return;
+              select([itemKey(id)]);
+            }}
+            onMoveLayer={(id, x, y) =>
+              apply(
+                (draft) => {
+                  const found = findItem(draft, id);
+                  if (found) {
+                    found.item.x = Math.round(x * 100) / 100;
+                    found.item.y = Math.round(y * 100) / 100;
+                  }
+                },
+                { label: label("place") },
+              )
+            }
+            className="min-h-[180px] flex-1"
+          />
+          {/* The transport. */}
+          <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-1" role="toolbar" aria-label={v("toolbar.transport")}>
+            <ToolbarButton label={v("toolbar.start")} icon={<ChevronFirst aria-hidden />} onClick={() => seek(0)} shortcut="Home" />
+            <ToolbarButton label={v("toolbar.frameBack")} icon={<StepBack aria-hidden />} onClick={() => seek(playhead - FRAME)} shortcut="←" />
+            <ToolbarButton
+              label={playing ? v("toolbar.pause") : v("toolbar.play")}
+              icon={playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+              onClick={toggle}
+              shortcut={t("nodes.editor.motion.toolbar.space")}
+              data-testid={playing ? "motion-stop" : "motion-play"}
+            />
+            <ToolbarButton label={v("toolbar.frameForward")} icon={<StepForward aria-hidden />} onClick={() => seek(playhead + FRAME)} shortcut="→" />
+            <ToolbarButton label={v("toolbar.end")} icon={<ChevronLast aria-hidden />} onClick={() => seek(duration)} shortcut="End" />
+            <span className="ml-2 font-mono text-xs tabular-nums text-muted-foreground" data-testid="clip-clock">
+              {preciseClock(playhead)} / {preciseClock(duration)}
+            </span>
+            <div className="flex-1" />
+            {notice && <span className="mr-2 max-w-[22rem] truncate text-xs text-muted-foreground" role="status">{notice}</span>}
+            <ToolbarButton label={v("toolbar.editText")} icon={<PencilLine aria-hidden />} active={editText} onClick={() => setEditText((on) => !on)} data-testid="clip-edit-text" />
+            <ToolbarButton label={v("toolbar.guides")} icon={<Grid2x2 aria-hidden />} active={guides} onClick={() => setGuides((on) => !on)} data-testid="clip-guides" />
+          </div>
+          {/* The timeline's own tools. */}
+          <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-1" role="toolbar" aria-label={v("toolbar.timeline")}>
+            <ToolbarButton label={v("toolbar.split")} icon={<Scissors aria-hidden />} onClick={split} shortcut="S" data-testid="clip-split" />
+            <ToolbarButton label={v("toolbar.delete")} icon={<Trash2 aria-hidden />} onClick={() => remove(false)} disabled={!selection.size} shortcut="Del" data-testid="clip-delete" />
+            <ToolbarButton
+              label={v("toolbar.ripple")}
+              icon={<Trash2 className="text-warning" aria-hidden />}
+              onClick={() => remove(true)}
+              disabled={!selection.size}
+              shortcut="Shift+Del"
+              data-testid="clip-ripple"
+            />
+            <ToolbarSeparator />
+            <ToolbarButton label={v("toolbar.snap")} icon={<Magnet aria-hidden />} active={snapping} onClick={() => setSnapping((on) => !on)} shortcut="N" data-testid="clip-snap" />
+            <div className="flex-1" />
+            <span className="mr-2 hidden text-[11px] text-muted-foreground lg:inline">{v("toolbar.keys")}</span>
+            <ToolbarButton label={v("toolbar.zoomOut")} icon={<ZoomOut aria-hidden />} onClick={() => zoom(0.8)} shortcut="-" />
+            <ToolbarButton label={v("toolbar.fit")} icon={<Maximize2 aria-hidden />} onClick={fit} data-testid="clip-fit" />
+            <ToolbarButton label={v("toolbar.zoomIn")} icon={<ZoomIn aria-hidden />} onClick={() => zoom(1.25)} shortcut="+" />
+          </div>
+          <div ref={timelineBox} className={cn("flex h-[38%] min-h-[190px] shrink-0 flex-col")}>
+            <TrackTimeline
+              nodeId={nodeId}
+              spec={spec}
+              playhead={playhead}
+              playing={playing}
+              selection={selection}
+              pps={pps}
+              snapping={snapping}
+              onSelect={select}
+              onSeek={seek}
+              onZoom={(next) => setPps(Math.max(2, Math.min(400, next)))}
+              onMoveScene={(from, to) => apply((draft) => void moveScene(draft, from, to), { label: label("move") })}
+              onTrimScene={(index, edge, value) =>
+                apply((draft) => (edge === "start" ? trimSceneStart(draft, index, value) : trimSceneEnd(draft, index, value)), { label: label("trim") })
+              }
+              onMoveItem={(id, at, trackId) => apply((draft) => moveItem(draft, id, at, trackId || undefined), { label: label("move") })}
+              onTrimItem={(id, edge, at) => apply((draft) => (edge === "start" ? trimItemStart(draft, id, at) : trimItemEnd(draft, id, at)), { label: label("trim") })}
+              onMoveCaption={(index, at) =>
+                apply(
+                  (draft) => {
+                    moveCaption(draft, index, at);
+                    sortCaptions(draft);
+                  },
+                  { label: label("move") },
+                )
+              }
+              onTrimCaption={(index, edge, at) =>
+                apply(
+                  (draft) => {
+                    const line = draft.captions?.items[index];
+                    if (!line) return;
+                    if (edge === "start") line.start = ms(Math.min(at, line.end - 0.2));
+                    else line.end = ms(Math.max(at, line.start + 0.2));
+                    delete line.words;
+                  },
+                  { label: label("trim") },
+                )
+              }
+              onTransition={(index, transition) =>
+                apply(
+                  (draft) => {
+                    if (draft.scenes[index]) draft.scenes[index].transition = transition;
+                  },
+                  { label: t("nodes.editor.motion.history.transition") },
+                )
+              }
+              onDropMedia={placeMedia}
+              onTrackFlag={(trackId, flag) =>
+                apply(
+                  (draft) => {
+                    const track = draft.tracks?.find((each) => each.id === trackId);
+                    if (!track) return;
+                    if (track[flag]) delete track[flag];
+                    else track[flag] = true;
+                  },
+                  { label: label("track") },
+                )
+              }
+            />
+          </div>
+        </div>
       </div>
       <ChartEditor
         open={chartOpen}
-        value={chart ?? null}
+        value={(pickedScene?.type === "chart" ? (pickedScene.chart as unknown as ChartJson) : chart) ?? null}
         heading={t("nodes.editor.motion.inspector.editChart")}
-        onSave={(next) => saveChart(next)}
+        onSave={(next) => {
+          setChartOpen(false);
+          const index = pickedScene ? sceneIndex(spec, pickedScene.id ?? "") : sceneAtTime(spec, playhead);
+          apply(
+            (draft) => {
+              const target = draft.scenes[index];
+              if (target) target.chart = next as unknown as Record<string, unknown>;
+            },
+            { label: t("nodes.editor.motion.history.chart") },
+          );
+        }}
         onCancel={() => setChartOpen(false)}
       />
     </EditorShell>

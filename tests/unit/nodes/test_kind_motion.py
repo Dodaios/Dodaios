@@ -711,7 +711,7 @@ def test_the_film_stands_while_it_is_edited() -> None:
     # Play is off, every move lands on a settled scene, the stage click is inert.
     assert "if(playing||editing)return;" in script
     assert "if(editing)t=settled(index(t));" in script
-    assert "if(editing||e.target.closest" in script
+    assert "if(bare||editing||e.target.closest" in script
     # A saved text is split, counted and sized again in the page, not redrawn.
     assert '"node-field-saved"' in script
     for name in ("split(el,v)", "recount(el,v)", "restat(el,v)", "refit(box)"):

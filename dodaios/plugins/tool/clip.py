@@ -117,9 +117,9 @@ Example: {"do":"split","id":"v1","at":3.2} {"do":"add_text","text":"3 MISTAKES",
 
 Making a clip people finish watching (do all of it, not some):
 1. Read, then transcribe the footage. Know what is said before cutting.
-2. Cut the dead air: silences (apply: true), then filler words ("um", "uh", "like", the fillers of the spoken language, \
-a sentence started twice): find their times in the transcript, split around them and \
-delete the piece. Keep the best take of a repeated line.
+2. Cut the dead air: silences (apply: true), then filler words ("um", "uh", "like", \
+the fillers of the spoken language, a sentence started twice): find their times in the \
+transcript, split around them and delete the piece. Keep the best take of a repeated line.
 3. Hook in the first 1.5-2 s: start on the strongest line (move it first if needed) and \
 put a bold text layer of 2-5 words on it (style title, anim pop, y 25-35).
 4. Pacing: a visual change every 2-4 s: a cut, a zoom key (1.0 -> 1.08 over the piece, \
