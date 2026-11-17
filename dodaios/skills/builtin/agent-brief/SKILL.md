@@ -87,8 +87,8 @@ Many people no longer read, write or review code; they trust the agent. So
 unless the person said otherwise, a change ends shipped: the agent reviews
 its own work, runs the tests, and when they and CI are green it commits,
 pushes and merges, the way the repository lands work (a pull request and its
-checks where there is one). Its own review is part of the job; the person does
-not read the diff.
+checks where there is one). Its own review is part of the job; do not count on
+the person reading the diff.
 
 - Write no git brakes the person did not ask for: no "do not push", "do not
   merge", "open the PR with a hold label for a human", "work in your own

@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
+from dodaios.core.agent_brief import AGENT_BRIEF_RULE
 from dodaios.core.protocols import ToolResult
 
 from .delivery import FOLLOW_UP_RULE, IncomingMessage, incoming_context
@@ -355,7 +356,10 @@ class CodingThreadTool:
             "effort": {"type": "string"},
             "folder": {"type": "string", "description": "Project folder or project name."},
             "title": {"type": "string"},
-            "prompt": {"type": "string"},
+            "prompt": {
+                "type": "string",
+                "description": "open: the brief; send: the follow-up. " + AGENT_BRIEF_RULE,
+            },
             "thread_id": {"type": "string"},
             "answers": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
             "decision": {"type": "string", "enum": ["build", "keep"]},
