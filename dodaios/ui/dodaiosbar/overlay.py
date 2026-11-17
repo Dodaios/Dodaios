@@ -35,7 +35,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from dodaios.ui.dodaiosbar import interaction, renderer
+from dodaios.ui.dodaiosbar import interaction, renderer, win_layered
 
 log = logging.getLogger("dodaios.ui.dodaiosbar")
 
@@ -873,7 +873,9 @@ class JarvisBarOverlay:
                 )
         except Exception:  # noqa: BLE001 — sizing is cosmetic; 1.0 is the degrade
             log.debug("jarvisbar display-scale probe failed", exc_info=True)
-        self._renderer = renderer.JarvisBarRenderer(accent=self._accent)
+        self._renderer = renderer.JarvisBarRenderer(
+            accent=self._accent, solid=sys.platform == "win32"
+        )
         root.title("JarvisBar")
         # Give the bar the Jarvis mascot icon on every OS. Tk otherwise inherits
         # the interpreter's process icon (pythonw.exe → Python logo on Windows,
@@ -903,10 +905,24 @@ class JarvisBarOverlay:
                 log.warning("macOS -transparent unsupported — bar will show its key colour")
                 root.configure(bg=COLOR_KEY_HEX)
         else:
-            try:
-                root.wm_attributes("-transparentcolor", COLOR_KEY_HEX)
-            except tk.TclError:
-                log.warning("transparentcolor unsupported — bar will show its key colour")
+            # Windows: true per-pixel alpha (UpdateLayeredWindow), so the rim
+            # and the round ends blend with the desktop instead of showing the
+            # colour key's stair steps. It replaces Tk's -transparentcolor and
+            # -alpha, which must then never be set on this window. Linux, and
+            # Windows if the layered window cannot be set up, keep the key.
+            self._layered = None
+            if win_layered.LayeredWindow.supported():
+                try:
+                    root.update_idletasks()
+                    self._layered = win_layered.LayeredWindow(root)
+                except Exception:  # noqa: BLE001 — fall back to the colour key
+                    log.debug("jarvisbar layered window unavailable", exc_info=True)
+                    self._layered = None
+            if self._layered is None:
+                try:
+                    root.wm_attributes("-transparentcolor", COLOR_KEY_HEX)
+                except tk.TclError:
+                    log.warning("transparentcolor unsupported — bar will show its key colour")
             root.configure(bg=COLOR_KEY_HEX)
             # The colour key only ever applies to the window WE own. Once this
             # Tk loop stops pumping — which any long GIL-holding stretch on
@@ -921,10 +937,13 @@ class JarvisBarOverlay:
         # Window-level alpha ON TOP of the color key: the magenta stays fully
         # keyed out (verified — no bleed) while the pill itself goes
         # semi-transparent, so the desktop shows through it (glass look).
-        try:
-            root.wm_attributes("-alpha", self._opacity)
-        except tk.TclError:
-            log.debug("window -alpha unsupported", exc_info=True)
+        # The layered window carries the same opacity in every frame instead.
+        self._layered_opacity = self._opacity
+        if getattr(self, "_layered", None) is None:
+            try:
+                root.wm_attributes("-alpha", self._opacity)
+            except tk.TclError:
+                log.debug("window -alpha unsupported", exc_info=True)
 
         self._resolve_position(root)
         root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
@@ -1259,6 +1278,13 @@ class JarvisBarOverlay:
         """Best-effort color-key + opacity application on the Tk thread."""
         if self._root is None:
             return
+        layered = getattr(self, "_layered", None)
+        if layered is not None:
+            # Per-pixel alpha: the opacity rides on the bitmap itself. Tk's
+            # -alpha / -transparentcolor would take the window away from it.
+            self._layered_opacity = opacity
+            layered.set_opacity(opacity)
+            return
         if sys.platform != "darwin":
             # The color key is a Windows layered-window concept (BUG-030
             # re-assert); macOS transparency is the immutable "-transparent"
@@ -1279,6 +1305,10 @@ class JarvisBarOverlay:
 
     def _refresh_prepared_frame(self) -> None:
         """Resubmit the hidden pre-render to Tk before reveal becomes visible."""
+        layered = getattr(self, "_layered", None)
+        if layered is not None:
+            layered.set_opacity(getattr(self, "_layered_opacity", self._opacity))
+            return
         if self._canvas is None or self._image_id is None or self._photo is None:
             return
         try:
@@ -1472,7 +1502,9 @@ class JarvisBarOverlay:
                 # actual loudness — thin and lively, exactly like it reacts to
                 # your mic. No synthetic floor (that made the bars look
                 # uniformly blocky).
-                img = self._renderer.render(
+                layered = getattr(self, "_layered", None)
+                draw = self._renderer.render if layered is None else self._renderer.render_rgba
+                img = draw(
                     t,
                     effective_mode,
                     level,
@@ -1493,6 +1525,14 @@ class JarvisBarOverlay:
                     connect_look=connect_look,
                     language=getattr(self, "_language", "en"),
                 )
+                if layered is not None and layered.present(
+                    img, getattr(self, "_layered_opacity", self._opacity)
+                ):
+                    return
+                if layered is not None:
+                    # The layered window refused this frame: show it through
+                    # the canvas so the bar never freezes on a stale picture.
+                    img = renderer.design.to_keyed_rgb(img, renderer.COLOR_KEY_RGB)
                 if getattr(self, "_mac_transparent", False):
                     # macOS: no color key — carry real per-pixel alpha instead.
                     img = renderer.key_to_alpha(img)

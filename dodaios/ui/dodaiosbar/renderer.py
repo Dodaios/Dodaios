@@ -307,11 +307,17 @@ class JarvisBarRenderer:
     """Frames for one surface. Keeps the easing state between frames, so each
     surface owns exactly one renderer."""
 
-    def __init__(self, accent: str = "#e7c46e", *, pixel_ratio: float = 1.0) -> None:
+    def __init__(
+        self, accent: str = "#e7c46e", *, pixel_ratio: float = 1.0, solid: bool = False
+    ) -> None:
         # The bar is black and white; ``accent`` stays accepted for callers
         # that still pass the theme colour.
         del accent
         self.pixel_ratio = max(1.0, float(pixel_ratio or 1.0))
+        #: Draw the resting pill opaque. The Windows bar always looked that
+        #: way (its colour key could not show a half-clear fill) and keeps
+        #: that look now that its window carries real alpha.
+        self.solid = bool(solid)
         self._painter = design.BarPainter()
 
     @property
@@ -383,6 +389,7 @@ class JarvisBarRenderer:
             scale=design_scale(),
             pixel_ratio=self.pixel_ratio if pixel_ratio is None else max(1.0, pixel_ratio),
             flourish=flourish,
+            solid=self.solid,
         )
 
     def render(self, t: float, mode: str, ext_level: float | None = None, **kwargs) -> Image.Image:
