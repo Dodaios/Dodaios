@@ -3501,7 +3501,7 @@ class AgentChatService:
     # ------------------------------------------------------------ undo
 
     def _on_undo_recorded(self, entry: dict[str, Any]) -> None:
-        """The undo ledger kept an inverse: tell the chat it came from (an undo toast)."""
+        """The undo ledger kept an inverse: tell the chat it came from (a quiet notice)."""
         session_id = str(entry.get("session_id") or "")
         if not session_id or self.store.get_session(session_id) is None:
             return

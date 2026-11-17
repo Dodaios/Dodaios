@@ -52,7 +52,6 @@ import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { HISTORY_CHANGED, reuseHistoryRows } from "@/lib/historyRequests";
-import { offerUndo } from "@/lib/undoToast";
 import { outboxEntry, recordedEntries, type OutboxEntry } from "@/components/agentchat/outbox";
 import { bestModelId } from "@/lib/modelRanking";
 
@@ -1537,7 +1536,6 @@ export function createAgentChatStore(
 
       ingest: (event) => {
         const st = get();
-        offerUndo(event);
         const tl = reduceEvent(st.timeline, event);
         const patch: Partial<AgentChatStore> = {};
         if (tl !== st.timeline) patch.timeline = tl;

@@ -11529,13 +11529,6 @@
   },
   "trust": {
     "nav": "信任与隐私",
-    "undo": {
-      "toast": "已完成：{what}",
-      "toast_plain": "已完成。",
-      "button": "撤销",
-      "done": "已撤销。",
-      "failed": "无法撤销。"
-    },
     "card": {
       "always_asks": "此操作始终需要确认；任何规则都不能跳过。",
       "limit": {

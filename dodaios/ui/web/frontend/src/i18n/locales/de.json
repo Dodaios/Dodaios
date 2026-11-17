@@ -11529,13 +11529,6 @@
   },
   "trust": {
     "nav": "Vertrauen und Privatsphäre",
-    "undo": {
-      "toast": "Erledigt: {what}",
-      "toast_plain": "Erledigt.",
-      "button": "Rückgängig",
-      "done": "Rückgängig gemacht.",
-      "failed": "Konnte nicht rückgängig gemacht werden."
-    },
     "card": {
       "always_asks": "Hier wird immer gefragt; keine Regel überspringt das.",
       "limit": {
