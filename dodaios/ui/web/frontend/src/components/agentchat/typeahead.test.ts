@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  sentCommandSpan,
   activeToken,
   applyPick,
   filterItems,
@@ -164,5 +165,20 @@ describe("groupRuns / isStaticTrigger", () => {
     expect(isStaticTrigger("/")).toBe(true);
     expect(isStaticTrigger("$")).toBe(true);
     expect(isStaticTrigger("@")).toBe(false);
+  });
+});
+
+describe("sentCommandSpan", () => {
+  it("finds the slash command a sent message opens with", () => {
+    expect(sentCommandSpan("/goal ship the release")).toEqual({ start: 0, end: 5 });
+    expect(sentCommandSpan("  /compact")).toEqual({ start: 2, end: 10 });
+    expect(sentCommandSpan("/github:issue 12")).toEqual({ start: 0, end: 13 });
+  });
+
+  it("leaves paths, mid-sentence slashes and a bare slash alone", () => {
+    expect(sentCommandSpan("/usr/bin/env is missing")).toBeNull();
+    expect(sentCommandSpan("please run /goal")).toBeNull();
+    expect(sentCommandSpan("/ alone")).toBeNull();
+    expect(sentCommandSpan("")).toBeNull();
   });
 });
