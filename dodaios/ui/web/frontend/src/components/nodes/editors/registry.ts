@@ -12,7 +12,6 @@ export const NODE_EDITORS: Record<EditableType, () => Promise<NodeEditorModule>>
   docs: () => import("./docs/index"),
   slides: () => import("./slides/index"),
   sheets: () => import("./sheets/index"),
-  design: () => import("./design/index"),
   data: () => import("./data/index"),
   motion: () => import("./motion/index"),
 };

@@ -45,16 +45,6 @@ const SheetsTypeIcon = defineIcon(
   </>,
 );
 
-/** A picture: a sun over a hill inside a frame. */
-const DesignTypeIcon = defineIcon(
-  "NodeDesignIcon",
-  <>
-    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-    <circle cx="9" cy="9.75" r="1.75" />
-    <path d="m3.75 17.5 4.75-4.5 3.5 3.25 3-2.75 5.25 4.75" />
-  </>,
-);
-
 /** Three bars of uneven height, standing on a line. */
 const DataTypeIcon = defineIcon(
   "NodeDataIcon",
@@ -100,7 +90,6 @@ const ICON_BY_TYPE: Record<CardType, LucideIcon> = {
   docs: DocsTypeIcon,
   slides: SlidesTypeIcon,
   sheets: SheetsTypeIcon,
-  design: DesignTypeIcon,
   data: DataTypeIcon,
   whiteboard: WhiteboardTypeIcon,
   motion: MotionTypeIcon,

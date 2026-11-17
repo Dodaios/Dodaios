@@ -143,7 +143,7 @@ describe("NewNodeDialog", () => {
   it("lets the reader choose the type inside, and keeps what was typed", () => {
     const { onType } = renderDialog("sheets");
     const types = within(screen.getByTestId("new-node-types")).getAllByRole("radio");
-    expect(types).toHaveLength(7);
+    expect(types).toHaveLength(6);
     expect(screen.getByTestId("new-node-type-sheets").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("new-node-type-docs").getAttribute("aria-checked")).toBe("false");
 

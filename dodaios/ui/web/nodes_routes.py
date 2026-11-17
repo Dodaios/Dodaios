@@ -89,7 +89,6 @@ DEFAULT_TITLES: Final[dict[str, str]] = {
     "docs": "Untitled document",
     "slides": "Untitled deck",
     "sheets": "Untitled sheet",
-    "design": "Untitled design",
     "data": "Untitled dashboard",
     "whiteboard": "Untitled whiteboard",
     "motion": "Untitled animation",

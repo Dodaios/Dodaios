@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "Für Texte, die bleiben: Notizen, Briefings, Berichte, Pläne.",
         "slides": "Für eine Geschichte Seite für Seite: ein Pitch, ein Briefing, ein Rückblick.",
         "sheets": "Für Zeilen und Spalten: Listen, Budgets, Vergleiche, Übersichten.",
-        "design": "Für eine gestaltete Seite: ein One-Pager, ein Plakat, eine Einladung.",
         "data": "Analysen aus deinen Daten: Dateien, Apps, Konten, Portfolios. Auf Wunsch immer aktuell.",
         "whiteboard": "Zum Denken mit Notizzetteln: Ideen, Gruppen, ein Plan an der Wand.",
         "motion": "Für einen kurzen Film: ein Vorspann, eine animierte Erklärung."
@@ -11837,7 +11835,6 @@
         "docs": "z. B. Ein einseitiges Briefing für den Website-Relaunch mit Zielen, Umfang und offenen Fragen",
         "slides": "z. B. Zehn Folien zum letzten Quartal für das Teammeeting am Montag",
         "sheets": "z. B. Unsere Abos mit Monatskosten, Verlängerungsdatum und Zuständigen",
-        "design": "z. B. Eine Einladung zum Sommerfest am 12. Juli, warm und schlicht",
         "data": "z. B. Wert und Entwicklung meines Portfolios, je Position und über die Zeit",
         "whiteboard": "z. B. Ideen für den Produktstart, nach Kanal gruppiert",
         "motion": "z. B. Ein 20-Sekunden-Vorspann für das Produktvideo mit unseren drei Kernaussagen"
@@ -11857,11 +11854,6 @@
           "a": "Ein Budget für dieses Jahr nach Monaten",
           "b": "Ein Vergleich von drei Anbietern",
           "c": "Eine Übersicht offener Aufgaben"
-        },
-        "design": {
-          "a": "Ein One-Pager über unser Produkt",
-          "b": "Ein Plakat für eine Veranstaltung",
-          "c": "Eine Speisekarte für ein Abendessen"
         },
         "data": {
           "a": "Mein Portfolio: Wert, Positionen und Entwicklung",
@@ -11889,7 +11881,6 @@
         "docs": "Unbenanntes Dokument",
         "slides": "Unbenannte Präsentation",
         "sheets": "Unbenannte Tabelle",
-        "design": "Unbenanntes Visual",
         "data": "Unbenannte Analyse",
         "whiteboard": "Unbenanntes Whiteboard",
         "motion": "Unbenannter Clip"

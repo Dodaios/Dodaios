@@ -1,19 +1,18 @@
 # Nodes
 
 A node is something the assistant makes for a person and then looks after: a
-document, a deck of slides, a sheet, a designed page, a dashboard, a
+document, a deck of slides, a sheet, a dashboard, a
 whiteboard, a short animation. The person sees it as a card in the Nodes
 section of the app and as a card in the chat. The assistant can change it
 later, take a change back, and keep it current from the person's apps.
 
-## The seven types
+## The six types
 
 | Type | Name in the app | What it holds |
 |------|-----------------|---------------|
 | `docs` | Docs | A written document: a report, a plan, a brief, notes. |
 | `slides` | Slides | A deck of slides to present. |
 | `sheets` | Sheets | Rows and columns: a list or a table to keep. |
-| `design` | Visuals | A freely designed page: a poster, a one-pager, an invitation. |
 | `data` | Analytics | A dashboard: current figures and charts. |
 | `whiteboard` | Whiteboard | An infinite canvas: shapes, notes, arrows, drawings, pictures, a diagram. |
 | `motion` | Clips | A short animation. |
@@ -69,7 +68,7 @@ a complete new spec, or a list of small edits by path
 | `insert` | Puts `value` into a list before the index. `-` appends. |
 | `remove` | Takes the key or the list item away. |
 | `move` | Puts the list item at the path at index `to` of the same list. |
-| `replace` | In the text at the path, puts `value` where `find` stands. `find` must occur exactly once (or pass `"all": true`). For an edit to a long text: a document's Markdown, a design's CSS. |
+| `replace` | In the text at the path, puts `value` where `find` stands. `find` must occur exactly once (or pass `"all": true`). For an edit to a long text: a document's Markdown. |
 | `append` | Adds `value` to the end of the text at the path, or to the end of the list there. |
 
 A path looks like `/slides/2/title`. After the edits the type's `normalize`
@@ -414,62 +413,6 @@ the frontend tests that each fixture keeps its text untouched and means the
 same when it is written again. `tests/unit/nodes/test_kind_docs.py` tests
 that the page drawn from the editor's text holds every block of the original.
 
-## Visuals
-
-A visual (`design`) is one freely designed page: a poster, an invitation, a
-one-pager. Its spec is the markup and the style sheet the assistant wrote
-(`html`, `css`), cleaned by `normalize` to an allowlist of elements and
-attributes (`dodaios/nodes/kinds/design.py`), and how it is shown: `fit`
-`page` (a scrolling page as wide as the window) or `canvas` (an artboard of
-`width` x `height` px, scaled to the window), a `background`, and two
-optional keys:
-
-* `accent`: a colour that replaces the theme's `--accent` on this design,
-  with its `--accent-soft` and, for a hex, an `--accent-ink` that keeps its
-  contrast. A design built on `var(--accent)` changes colour in one step.
-* `theme`: `light` or `dark` keeps the design in that theme whatever the
-  app shows (a dark poster stays dark). Left out, it follows the app.
-
-Both are written only when set, so a spec from before them is unchanged.
-
-**The Visuals editor** (`frontend/src/components/nodes/editors/design/`).
-A design has no block grammar, so the editor's blocks are the markup's own
-elements, addressed by their path of child indexes from `<main
-class="design">` (`designDoc.ts`):
-
-* The preview in the middle is the real page, drawn by the server from the
-  unsaved spec (`POST /api/nodes/{id}/preview`). A small script put into the
-  frame (`picker.ts`) outlines the block under the pointer, selects a block
-  on a click and lets a double-click type into a text in place (Enter or
-  leaving it keeps the words, Esc puts them back, Shift+Enter breaks the
-  line, Cmd/Ctrl+B and I mark words). Typed markup comes back with its inline
-  marks only, so typing never changes the structure. A drawing (`<svg>`) is
-  selected as a whole, and so is a text with inline marks. The frame talks in
-  messages tagged `dodaios-design` (`select`, `text`, `scroll`, `key` from
-  the frame; `state`, `select` to it); the editor checks every field.
-* The blocks list on the left is the same elements as a tree. The arrow keys
-  travel it (Right opens, Left closes or goes out), Alt+Up/Down moves a
-  block, Cmd/Ctrl+D duplicates, Delete removes, Enter goes to its text. A row
-  is dragged onto the edge of another to go before or after it, onto the
-  middle of a box to go inside it.
-* "Add block" puts a heading, text, button, picture, list, quote, card,
-  tags, figures, callout, divider or space after the selected block (or
-  inside a design's single wrapper). New blocks use the kit's classes and the
-  theme's tokens, so they take the design's type and colours.
-* The inspector edits the selected block: its words (a new line is a line
-  break), a link's address, a picture (replaced from a file, scaled down to
-  fit the 400,000 characters a design may embed) and its description, and
-  its look as the element's own inline style: text colour, background (theme
-  tokens first, so it reads in both themes, or any hex), size, weight,
-  alignment, padding, corners; fill, line and line width for a drawing.
-  With nothing selected it edits the page: shown as page or artboard, the
-  artboard's size (presets or width and height), ground, accent, theme and
-  the style sheet itself.
-
-A design with no block at all saves: a new one is a blank page (no markup,
-only a page margin in its style sheet, `STARTER_CSS`), and the person may
-delete every block. The blank preview says to add one from the toolbar.
-
 ## Analytics
 
 An analysis (`data`) is a dashboard: a summary, the named `sources`, and up
@@ -794,15 +737,17 @@ everything older runs left behind. `dodaios/nodes/library.py` builds the list:
 | A typed node | Its own type | `node` |
 | A living page (`__living-page__` run) | `sheets` | `living` |
 | A report page (`__report__` run) | `docs` | `report` |
-| Any other HTML page a run wrote | `design` | `page` |
-| A picture or an SVG | `design` | `file` |
+| Any other HTML page a run wrote | `docs` | `page` |
+| A picture or an SVG | `docs` | `file` |
 | A PDF | `docs` | `file` |
-| A running run that still builds its page | `design` | `build` |
+| A running run that still builds its page | `docs` | `build` |
 | A run that left no page, picture or PDF | `output` | `run` |
 
 Only a card with the origin `node` has a spec and can be renamed, copied or
 reverted. The other cards are files; they are opened, and deleted through
-`/api/outputs`.
+`/api/outputs`. A node of a type the app no longer has (the old `design`
+type, "Visuals") does not read as a node; its run is listed like any other
+run, so its page stays in the library as a `docs` page.
 
 The list comes from the two listings the outputs routes already serve: the
 run list and the file listing of a run. So the library shows a file only if

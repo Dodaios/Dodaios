@@ -2,7 +2,7 @@
  * The Nodes library's data model: what `/api/nodes` hands out.
  *
  * A node is a thing the person keeps and looks at: a document, a deck, a
- * sheet, a designed page, a dashboard, a whiteboard, a short film. The seven
+ * sheet, a dashboard, a whiteboard, a short film. The six
  * types below are the ones the assistant builds from a typed spec
  * (`dodaios/nodes` on the backend); everything older that a run left behind
  * (a worker-built page, a picture, a PDF, a report, a living page) is adopted
@@ -13,12 +13,11 @@
  * the RUN GRAPH.)
  */
 
-/** The seven node types, in the order the library offers them. */
+/** The six node types, in the order the library offers them. */
 export const NODE_TYPES = [
   "docs",
   "slides",
   "sheets",
-  "design",
   "data",
   "whiteboard",
   "motion",
@@ -71,14 +70,6 @@ export interface SheetsPreview {
   count: number;
 }
 
-export interface DesignPreview {
-  /** A CSS color, or "". */
-  background: string;
-  fit: "page" | "canvas";
-  width: number;
-  height: number;
-}
-
 export interface DataPreview {
   metrics: { label: string; value: string }[];
   /** The first chart's first series, scaled into 0..1. */
@@ -111,7 +102,6 @@ export interface NodePreviewByType {
   docs: DocsPreview;
   slides: SlidesPreview;
   sheets: SheetsPreview;
-  design: DesignPreview;
   data: DataPreview;
   whiteboard: WhiteboardPreview;
   motion: MotionPreview;

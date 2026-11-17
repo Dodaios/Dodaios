@@ -56,24 +56,6 @@ const SCENES: Record<NodeType, ReactNode> = {
       <Bar x={84} y={23} w={14} o={0.55} />
     </>
   ),
-  /* Shapes laid over each other: a circle, a tilted square, a dot. */
-  design: (
-    <>
-      <rect
-        x={58}
-        y={12}
-        width={34}
-        height={34}
-        rx={8}
-        fill="currentColor"
-        opacity={0.3}
-        transform="rotate(12 75 29)"
-      />
-      <circle cx={46} cy={38} r={20} fill="currentColor" opacity={0.55} />
-      <circle cx={94} cy={54} r={6} fill="currentColor" opacity={0.9} />
-      <path d="M16 20c8-10 18-10 22-2" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" opacity={0.7} />
-    </>
-  ),
   /* Bars rising, and the trend line over them. */
   data: (
     <>

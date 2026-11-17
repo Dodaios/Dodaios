@@ -1,7 +1,7 @@
 """The node types, and the one error every node operation raises.
 
 A node is a thing the person keeps and looks at: a document, a deck, a sheet,
-a designed page, a dashboard, a whiteboard, a short animation. Each type has
+a dashboard, a whiteboard, a short animation. Each type has
 its own content grammar (its ``spec``) and its own renderer in
 :mod:`dodaios.nodes.kinds`; this module only names them, so every other module
 can agree on the list without importing a renderer.
@@ -16,20 +16,18 @@ NODE_TYPES: Final[tuple[str, ...]] = (
     "docs",
     "slides",
     "sheets",
-    "design",
     "data",
     "whiteboard",
     "motion",
 )
 
-#: What the app calls each type on its shelf. Three differ from the type's own
-#: name: a person says "Analytics", "Visuals" and "Clips", and the model has to
-#: know which type that is.
+#: What the app calls each type on its shelf. Two differ from the type's own
+#: name: a person says "Analytics" and "Clips", and the model has to know which
+#: type that is.
 DISPLAY_NAMES: Final[dict[str, str]] = {
     "docs": "Docs",
     "slides": "Slides",
     "sheets": "Sheets",
-    "design": "Visuals",
     "data": "Analytics",
     "whiteboard": "Whiteboard",
     "motion": "Clips",
@@ -47,11 +45,7 @@ _ALIASES: Final[dict[str, str]] = {
     "sheet": "sheets",
     "spreadsheet": "sheets",
     "table": "sheets",
-    "designs": "design",
-    "page": "design",
-    "poster": "design",
-    "visual": "design",
-    "visuals": "design",
+    "page": "docs",
     "dashboard": "data",
     "analytics": "data",
     "analysis": "data",

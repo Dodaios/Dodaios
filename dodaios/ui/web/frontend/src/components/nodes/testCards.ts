@@ -24,7 +24,7 @@ const REPORT_SLUG_INFIX = "__report__";
 export function nodeCard(over: Partial<NodeCard> & Pick<NodeCard, "key" | "slug">): NodeCard {
   return {
     id: null,
-    type: "design",
+    type: "docs",
     origin: "page",
     title: over.slug,
     path: null,
@@ -80,12 +80,12 @@ function fileCards(run: OutputSummary, files: ArtifactSummary[]): NodeCard[] {
     const name = file.path.split("/").pop() ?? file.path;
     const page = kind === "page";
     const [type, origin]: [NodeCard["type"], NodeCard["origin"]] = !page
-      ? [kind === "document" ? "docs" : "design", "file"]
+      ? ["docs", "file"]
       : living
         ? ["sheets", "living"]
         : report
           ? ["docs", "report"]
-          : ["design", "page"];
+          : ["docs", "page"];
     cards.push(
       nodeCard({
         key: `${run.slug}::${file.path}`,

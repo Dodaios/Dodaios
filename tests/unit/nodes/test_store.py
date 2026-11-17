@@ -131,7 +131,7 @@ def test_create_names_the_file_after_the_title(store: NodeStore) -> None:
 
 def test_create_refuses_what_it_cannot_keep(store: NodeStore) -> None:
     assert _refused(store.create, type="poem", title="A", spec={}) == (
-        "'type' must be one of: docs, slides, sheets, design, data, whiteboard, motion."
+        "'type' must be one of: docs, slides, sheets, data, whiteboard, motion."
     )
     assert _refused(store.create, type="docs", title="  ", spec={}) == "'title' must name the node."
     for not_an_object in ([1, 2], "text", 7):

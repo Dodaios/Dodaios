@@ -1,8 +1,8 @@
 """Nodes: the typed things the assistant makes for a person and keeps current.
 
 A node is something the person keeps and looks at: a document, a deck of
-slides, a sheet, a designed page, a dashboard, a whiteboard, a short film.
-Seven types (:data:`~dodaios.nodes.types.NODE_TYPES`), one idea:
+slides, a sheet, a dashboard, a whiteboard, a short film.
+Six types (:data:`~dodaios.nodes.types.NODE_TYPES`), one idea:
 
 * The CONTENT is a ``spec``: plain JSON in the type's own grammar, written by
   the assistant through the ``node`` tool (``dodaios.plugins.tool.node``).

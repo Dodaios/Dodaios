@@ -77,7 +77,7 @@ const SHEET = card("sheet", {
 });
 const LOGO = card("logo", {
   title: "Logo sketch",
-  type: "design",
+  type: "docs",
   origin: "file",
   path: "logo-sketch.png",
   visual_kind: "image",
@@ -263,7 +263,7 @@ describe("NodesLibrary", () => {
 
     fireEvent.click(screen.getByTestId("nodes-filter"));
     const panel = screen.getByTestId("nodes-filter-panel");
-    expect(within(panel).getAllByRole("menuitemradio")).toHaveLength(8 + 3);
+    expect(within(panel).getAllByRole("menuitemradio")).toHaveLength(7 + 3);
     expect(screen.getByTestId("nodes-filter-type-all").getAttribute("aria-checked")).toBe("true");
 
     fireEvent.click(screen.getByTestId("nodes-filter-type-sheets"));
@@ -411,7 +411,7 @@ describe("NodesLibrary", () => {
   it("asks before deleting when Delete is pressed on a card, and not at all for one still being built", async () => {
     const wip = card("build:wip", {
       title: "Sales by region",
-      type: "design",
+      type: "docs",
       origin: "build",
       path: null,
       visual_kind: null,
@@ -592,7 +592,6 @@ describe("NodesLibrary", () => {
       "nodes-new-blank-docs",
       "nodes-new-blank-slides",
       "nodes-new-blank-sheets",
-      "nodes-new-blank-design",
       "nodes-new-blank-data",
       "nodes-new-blank-whiteboard",
       "nodes-new-blank-motion",
