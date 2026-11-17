@@ -799,18 +799,22 @@ def _in_known_project(folder: Path) -> bool:
     return False
 
 
-def _ensure_project(folder: str) -> None:
-    """Make sure the IDE's thread sidebar shows the folder (threads live under projects)."""
+def _ensure_project(folder: str) -> Any:
+    """Make sure the IDE's thread sidebar shows the folder (threads live under projects).
+
+    Returns the project the folder's threads are listed under: the one that
+    already holds the folder, or the one made for it now.
+    """
     from dodaios.agentic_ide import library
 
     target = Path(folder)
     for project in library.list_projects():
         try:
             if target == Path(project.path) or target.is_relative_to(Path(project.path)):
-                return
+                return project
         except (OSError, ValueError):  # an unreadable project path is simply not a match
             continue
-    library.ensure_project(target)
+    return library.ensure_project(target)
 
 
 # -------------------------------------------------------------- coordinator

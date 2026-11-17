@@ -377,7 +377,21 @@ async def test_a_folder_names_the_place_and_becomes_a_project(rig: Rig, tmp_path
 
     assert result["status"] == "created", result
     assert rig.threads()[0].cwd == str(fresh.resolve())
-    assert any(p.path == str(fresh.resolve()) for p in library.list_projects())
+    [project] = [p for p in library.list_projects() if p.path == str(fresh.resolve())]
+    # The receipt names the project the thread is listed under: an empty name
+    # reads as "this folder is in no project yet" and gets reported that way.
+    assert result["project"] == "Brand new" and result["project_id"] == project.id
+
+
+async def test_a_folder_inside_a_project_is_reported_under_that_project(rig: Rig, tmp_path):
+    inside = tmp_path / "Website" / "docs"
+    inside.mkdir(parents=True)
+
+    result = await create(rig, folder=str(inside))
+
+    assert result["status"] == "created", result
+    assert result["project"] == "Website"
+    assert not any(p.path == str(inside.resolve()) for p in library.list_projects())
 
 
 async def test_an_unknown_project_asks_and_opens_nothing(rig: Rig):

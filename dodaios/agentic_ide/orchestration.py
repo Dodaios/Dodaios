@@ -1027,8 +1027,12 @@ class WorkspaceOrchestrator:
         rows = [row for row, _ in wanted]
         name = str(args.get("name") or "").strip()
         prompt = str(args.get("prompt") or "").strip()
-        # The thread list is grouped by project: the folder must be one.
-        await asyncio.to_thread(_ensure_project, folder)
+        # The thread list is grouped by project: the folder must be one. The
+        # receipt names it, so a bare folder (a project made a moment ago) does
+        # not read as "in no project" to the one who asked.
+        listed = await asyncio.to_thread(_ensure_project, folder)
+        if not place["project_id"] and listed is not None:
+            place = {**place, "project": listed.name, "project_id": listed.id}
         created: list[dict[str, Any]] = []
         creation_error = ""
         seen: dict[str, int] = {}
