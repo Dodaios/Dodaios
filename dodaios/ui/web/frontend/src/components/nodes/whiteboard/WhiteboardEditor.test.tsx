@@ -79,6 +79,8 @@ vi.mock("@excalidraw/excalidraw", async () => {
         setActiveTool: vi.fn(),
         toggleSidebar: vi.fn(),
         setToast: vi.fn(),
+        onPointerDown: vi.fn(() => () => undefined),
+        onPointerUp: vi.fn(() => () => undefined),
       };
       pkg.state.api = api;
       (props.excalidrawAPI as (api: unknown) => void)(api);
@@ -127,6 +129,7 @@ vi.mock("@excalidraw/excalidraw", async () => {
       return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     },
     loadFromBlob: vi.fn(),
+    viewportCoordsToSceneCoords: ({ clientX, clientY }: { clientX: number; clientY: number }) => ({ x: clientX, y: clientY }),
   };
 });
 

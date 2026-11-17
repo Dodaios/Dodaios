@@ -12077,7 +12077,12 @@
         "laser": "激光笔",
         "more": "更多工具",
         "mermaid": "Mermaid 图表",
-        "library": "素材库"
+        "library": "素材库",
+        "lock": "绘制后保留工具",
+        "unlock": "绘制后回到选择",
+        "lasso": "套索选择",
+        "bucket": "油漆桶",
+        "shape": "画成形状"
       },
       "inspector": {
         "stroke": "描边",
@@ -12118,7 +12123,9 @@
         "ungroup": "取消编组",
         "duplicate": "复制",
         "lock": "锁定",
-        "delete": "删除"
+        "delete": "删除",
+        "bucket_color": "填充颜色",
+        "bucket_hint": "点击形状即可填充。"
       },
       "menu": {
         "label": "菜单",

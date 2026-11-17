@@ -125,8 +125,10 @@ layout. Several boards are several nodes; "New whiteboard" makes another.
 **The canvas.** The editor is the engine; its own toolbars are hidden and the
 board draws its own controls in the app's look
 (`dodaios/ui/web/frontend/src/components/nodes/whiteboard/canvas/`): a tool
-dock at the bottom (select, move, frame, shapes, arrow, line, pen, text,
-sticky note, picture, eraser; N adds a sticky note), an inspector on the
+dock at the bottom (tool lock, select, move, frame, shapes, arrow, line,
+pen, text, sticky note, picture, eraser, laser pointer; N adds a sticky
+note; under "more": lasso select (W), paint bucket (B), draw to shape
+(Shift+X), Mermaid, library), an inspector on the
 right for the selection (colour, fill, stroke, corners, clean or sketched
 lines, font, size, alignment, opacity, layers, duplicate, lock, delete), a
 menu (export, save and open a file, find, grid, shortcuts, background,
@@ -136,6 +138,17 @@ the app's dotted stage; a board with a background colour of its own shows
 that colour instead. The view glides: a mouse wheel notch or a zoom button
 moves it over a few frames, a trackpad's own stream is followed at once,
 and Ctrl or Cmd with the wheel zooms around the pointer.
+
+The editor package does not ship a lasso, a paint bucket or draw to shape,
+so the board has its own (`canvas/boardTools.ts`, `canvas/ToolOverlay.tsx`):
+the lasso selects what its loop fully encloses (a group whole, Shift adds),
+the bucket fills the topmost closed shape under the click with the colour
+the inspector shows, and in draw to shape a finished pen stroke that reads
+as a rectangle, an ellipse or a diamond becomes that shape, a straight one
+an arrow (a scribble stays a drawing; one step to undo). The laser pointer's
+trail and pointer are the brand's gold. Left out on purpose: the web embed
+(the board loads nothing from the web) and the editor's AI tools (the
+assistant draws instead).
 
 **Watching the assistant draw.** The open board asks every one and a half
 seconds whether the node changed. When the assistant drew something, its

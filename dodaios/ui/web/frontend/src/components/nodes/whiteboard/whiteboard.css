@@ -101,3 +101,43 @@
 .excalidraw .library-menu [data-testid="lib-dropdown--remove"] {
   display: none;
 }
+
+/* ---- The laser pointer, in the brand's gold --------------------------------- */
+
+/* The editor draws the laser's trail as one SVG path filled "red" (eraser
+   trails are grey and stay as they are). The board's laser is gold with a
+   soft glow, and its pointer is a gold dot instead of the editor's red one. */
+.SVGLayer path[fill="red"] {
+  fill: #e8b931;
+  filter: drop-shadow(0 0 3px rgb(232 185 49 / 0.95)) drop-shadow(0 0 10px rgb(212 167 44 / 0.55));
+}
+
+.dodaios-board[data-tool="laser"] canvas.interactive {
+  cursor:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='%23e8b931' fill-opacity='0.22'/><circle cx='10' cy='10' r='4' fill='%23e8b931' stroke='white' stroke-width='1.5'/></svg>")
+      10 10,
+    crosshair !important;
+}
+
+/* ---- The lasso's loop -------------------------------------------------------- */
+
+.board-lasso {
+  fill: hsl(var(--accent) / 0.08);
+  stroke: hsl(var(--accent));
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+  animation: board-lasso-march 0.6s linear infinite;
+}
+
+@keyframes board-lasso-march {
+  to {
+    stroke-dashoffset: -9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-lasso {
+    animation: none;
+  }
+}
