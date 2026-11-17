@@ -116,9 +116,26 @@ describe("switchLayout", () => {
     for (const from of LAYOUTS) {
       for (const to of LAYOUTS.filter((layout) => layout !== from)) {
         const next = switchLayout({ ...blankSlide(from, t), image: "data:image/png;base64,AA==", notes: "n" }, to, t);
-        for (const key of Object.keys(next)) expect([...LAYOUT_FIELDS[to], "layout", "notes"]).toContain(key);
+        // A free canvas keeps the layout's words as text boxes.
+        const kept = to === "blank" ? ["layout", "notes", "elements"] : ["layout", "notes"];
+        for (const key of Object.keys(next)) expect([...LAYOUT_FIELDS[to], ...kept]).toContain(key);
       }
     }
+  });
+});
+
+describe("a free canvas", () => {
+  it("turns a layout's words into text boxes and keeps the elements already there", () => {
+    const slide = switchLayout(
+      { layout: "bullets", title: "Plan", bullets: ["One", "Two"], elements: [{ type: "shape", shape: "star", x: 1, y: 2, w: 3, h: 4 }] },
+      "blank",
+      t,
+    );
+    expect(slide.layout).toBe("blank");
+    const texts = (slide.elements ?? []).filter((e) => e.type === "text") as { text?: string; list?: string }[];
+    expect(texts.map((e) => e.text)).toEqual(["Plan", "One\nTwo"]);
+    expect(texts[1].list).toBe("bullet");
+    expect(slide.elements?.some((e) => e.type === "shape")).toBe(true);
   });
 });
 

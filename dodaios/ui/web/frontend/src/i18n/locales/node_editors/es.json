@@ -972,7 +972,8 @@
           "stat_value": "Una cifra sin valor se omite en la diapositiva.",
           "table": "Las columnas que solo tienen números se alinean a la derecha en la diapositiva.",
           "bar_rows": "Una diapositiva muestra las primeras 10 barras de un gráfico de barras.",
-          "image_bleed": "Sin título, la imagen llena toda la diapositiva."
+          "image_bleed": "Sin título, la imagen llena toda la diapositiva.",
+          "blank": "Una diapositiva en blanco muestra solo lo que pongas: añade cuadros de texto, formas, líneas, imágenes, tablas y gráficos desde la barra."
         },
         "step": {
           "type": "Escritura",
@@ -1029,7 +1030,8 @@
           "show_slide": "Mostrar diapositiva",
           "footer": "Pie",
           "design": "Diseño",
-          "font": "Fuentes"
+          "font": "Fuentes",
+          "replace": "Reemplazar"
         },
         "sample": {
           "deck_title": "Título de la presentación",
@@ -1070,7 +1072,11 @@
         },
         "view": {
           "grid": "Mostrar cuadrícula",
-          "snap": "Ajustar a guías"
+          "snap": "Ajustar a guías",
+          "zoom_in": "Acercar",
+          "zoom_out": "Alejar",
+          "zoom_fit": "Ajustar a la ventana",
+          "fit": "Ajustar"
         },
         "design": {
           "label": "Diseño",
@@ -1311,6 +1317,27 @@
           "copy": "Copiar",
           "paste": "Pegar",
           "select_all": "Seleccionar todo"
+        },
+        "find": {
+          "label": "Buscar y reemplazar",
+          "find": "Buscar",
+          "replace_with": "Reemplazar por",
+          "match_case": "Distinguir mayúsculas",
+          "count": "{n} encontrados en {slides} diapositivas",
+          "hint": "Busca en todos los textos de todas las diapositivas, notas incluidas.",
+          "replace_all": "Reemplazar todo"
+        },
+        "keys": {
+          "label": "Atajos de teclado",
+          "select": "Seleccionar",
+          "select_how": "Clic · ⇧ clic · arrastrar un marco",
+          "write": "Escribir en un texto",
+          "write_how": "Doble clic · Intro",
+          "nudge": "Mover (10 px con ⇧)",
+          "bold_italic": "Negrita · cursiva al escribir",
+          "free_move": "Mover sin ajuste",
+          "undo": "Deshacer · rehacer",
+          "present": "Al presentar"
         }
       }
     }

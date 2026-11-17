@@ -22,6 +22,7 @@ import {
 
 import {
   cssColor,
+  hexLuminance,
   PATH_SHAPES,
   type Background,
   type ChartElement,
@@ -134,9 +135,19 @@ export function textContent(text: string, kind: string | undefined): string {
     .join("<br>");
 }
 
+/** The text colour that reads on a shape's own fill, when the fill says it (`shape_ink`). */
+export function shapeInk(fill: string): string {
+  if (!fill) return "";
+  if (fill.toLowerCase() === "transparent") return "var(--ink)";
+  const light = hexLuminance(fill);
+  if (light === null) return "";
+  return light > 0.4 ? "#111111" : "#ffffff";
+}
+
 function innerStyle(element: TextElement | ShapeElement, shape: boolean): Style {
   const style: Style = { fontSize: px(element.size ?? (shape ? 24 : 28)) };
   if (element.color) style.color = cssColor(element.color);
+  else if (shape && shapeInk(element.fill ?? "")) style.color = shapeInk(element.fill ?? "");
   const align = element.align ?? (shape ? "center" : "left");
   if (align !== "left") style.textAlign = align;
   if (element.line !== undefined) style.lineHeight = fmt(element.line);

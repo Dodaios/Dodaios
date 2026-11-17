@@ -491,7 +491,7 @@ export function readDeckExtras(raw: Record<string, unknown>): DeckExtras {
 
 // --- tone ------------------------------------------------------------------------
 
-function hexLuminance(value: string): number | null {
+export function hexLuminance(value: string): number | null {
   const text = PLAIN[value.toLowerCase()] ?? value;
   const found = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$/.exec(text) ?? /^#([0-9a-fA-F]{4})$/.exec(text);
   if (!found) return null;

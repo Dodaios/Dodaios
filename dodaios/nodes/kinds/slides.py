@@ -772,8 +772,15 @@ def _tokens(opening: str) -> str:
 #: kit, not copied, so the two can never drift apart. Dark is ``screen`` only,
 #: like the kit's: a printed deck is always on white.
 _FORCED_THEME_CSS: Final[dict[str, str]] = {
-    "light": f'.dk[data-theme="light"]{{{_tokens(":root{")}}}',
-    "dark": ('@media screen{.dk[data-theme="dark"]{' + _tokens(':root[data-theme="dark"]{') + "}}"),
+    "light": (
+        f'.dk[data-theme="light"]{{{_tokens(":root{")}}}'
+        '.dk[data-theme="light"] .el-shape{color:white}'
+    ),
+    "dark": (
+        '@media screen{.dk[data-theme="dark"]{'
+        + _tokens(':root[data-theme="dark"]{')
+        + '}.dk[data-theme="dark"] .el-shape{color:black}}'
+    ),
 }
 
 #: A slide of a fixed tone (``"tone"``, or a dark background) carries that tone's tokens.

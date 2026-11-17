@@ -1,5 +1,5 @@
 /**
- * The eleven slide layouts as a grid of small pictures, for adding a slide
+ * The slide layouts as a grid of small pictures, for adding a slide
  * and for switching one. Each picture sketches where the layout puts its
  * title, its text and its main element, so the choice reads at a glance;
  * the name sits under it and is the button's accessible name.
@@ -148,6 +148,16 @@ export function LayoutGlyph({ layout, className }: { layout: Layout; className?:
               {line(x, 21, 9, 1.2)}
             </g>
           ))}
+        </>
+      );
+      break;
+    case "blank":
+      body = (
+        <>
+          <rect x={6} y={5} width={36} height={17} rx={1.5} fill="none" stroke="currentColor" strokeWidth={0.6} strokeDasharray="1.6 1.2" opacity={0.6} />
+          {accent(10, 9, 9, 6)}
+          {line(23, 10, 15, 1.4)}
+          {line(23, 13.5, 11, 1.4)}
         </>
       );
       break;

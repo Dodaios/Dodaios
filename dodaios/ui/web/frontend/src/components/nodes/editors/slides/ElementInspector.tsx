@@ -450,11 +450,13 @@ export function ElementInspector({
           testId="slides-el-list"
         />
       </Row>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <NumberField label={L("el.line_height")} showLabel value={first.line ?? 1.25} min={0.8} max={3} step={0.05} decimals={2} onChange={(v) => set("line", v ?? undefined)} />
         <NumberField label={L("el.spacing")} showLabel value={first.spacing ?? 0} min={-0.1} max={0.5} step={0.01} decimals={2} suffix="em" onChange={(v) => set("spacing", v || undefined)} />
-        <NumberField label={L("el.padding")} showLabel value={first.padding ?? (first.type === "shape" || first.fill || first.stroke ? 16 : 0)} min={0} max={120} suffix="px" onChange={(v) => set("padding", v ?? undefined)} />
       </div>
+      <Row label={L("el.padding")}>
+        <NumberField label={L("el.padding")} value={first.padding ?? (first.type === "shape" || first.fill || first.stroke ? 16 : 0)} min={0} max={120} suffix="px" className="w-24" onChange={(v) => set("padding", v ?? undefined)} />
+      </Row>
     </Section>
   ) : null;
 

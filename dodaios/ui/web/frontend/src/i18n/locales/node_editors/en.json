@@ -972,7 +972,8 @@
           "stat_value": "A figure without a value is left out of the slide.",
           "table": "Columns that hold only numbers are aligned right on the slide.",
           "bar_rows": "A slide shows the first 10 bars of a bar chart.",
-          "image_bleed": "Without a title, the picture fills the whole slide."
+          "image_bleed": "Without a title, the picture fills the whole slide.",
+          "blank": "A blank slide holds only what you put on it: add text boxes, shapes, lines, pictures, tables and charts from the toolbar."
         },
         "step": {
           "type": "Typing",
@@ -1029,7 +1030,8 @@
           "show_slide": "Show slide",
           "footer": "Footer",
           "design": "Design",
-          "font": "Fonts"
+          "font": "Fonts",
+          "replace": "Replace"
         },
         "sample": {
           "deck_title": "Deck title",
@@ -1070,7 +1072,11 @@
         },
         "view": {
           "grid": "Show grid",
-          "snap": "Snap to guides"
+          "snap": "Snap to guides",
+          "zoom_in": "Zoom in",
+          "zoom_out": "Zoom out",
+          "zoom_fit": "Fit the slide to the window",
+          "fit": "Fit"
         },
         "design": {
           "label": "Design",
@@ -1311,6 +1317,27 @@
           "copy": "Copy",
           "paste": "Paste",
           "select_all": "Select all"
+        },
+        "find": {
+          "label": "Find and replace",
+          "find": "Find",
+          "replace_with": "Replace with",
+          "match_case": "Match upper and lower case",
+          "count": "{n} found on {slides} slides",
+          "hint": "Searches every text of every slide, the notes included.",
+          "replace_all": "Replace all"
+        },
+        "keys": {
+          "label": "Keyboard shortcuts",
+          "select": "Select",
+          "select_how": "Click · ⇧ click · drag a frame",
+          "write": "Write into a text",
+          "write_how": "Double-click · Enter",
+          "nudge": "Nudge (10 px with ⇧)",
+          "bold_italic": "Bold · italic while writing",
+          "free_move": "Move without snapping",
+          "undo": "Undo · redo",
+          "present": "Presenting"
         }
       }
     }

@@ -34,6 +34,10 @@ import {
   Copy,
   Grid3x3,
   ImagePlus,
+  Keyboard,
+  Search,
+  ZoomIn,
+  ZoomOut,
   Loader2,
   Lock,
   Magnet,
@@ -103,6 +107,7 @@ import {
   type SlideElement,
 } from "./elementModel";
 import { ElementEditingProvider, ElementFiguresProvider, type ElementEditing } from "./elements";
+import { findInDeck, replaceAll } from "./findReplace";
 import { FormatBar } from "./FormatBar";
 import { MOD } from "./keys";
 import { firstImage, imageForSlide, ImageTooLargeError, ImageTypeError } from "./images";
@@ -722,6 +727,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
 
   // --- view -----------------------------------------------------------------------------------
   const [grid, setGrid] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const [snap, setSnap] = useState(true);
   const [menu, setMenu] = useState<{ x: number; y: number; index: number | null } | null>(null);
 
@@ -1037,6 +1043,23 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
       <ToolbarGroup label={L("toolbar.view")}>
         <ToolbarButton label={L("view.grid")} icon={<Grid3x3 aria-hidden />} aria-pressed={grid} onClick={() => setGrid((on) => !on)} className={cn(grid && "bg-secondary text-foreground")} data-testid="slides-grid" />
         <ToolbarButton label={L("view.snap")} icon={<Magnet aria-hidden />} aria-pressed={snap} onClick={() => setSnap((on) => !on)} className={cn(snap && "bg-secondary text-foreground")} data-testid="slides-snap" />
+        <ToolbarButton label={L("view.zoom_out")} icon={<ZoomOut aria-hidden />} disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))} data-testid="slides-zoom-out" />
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          title={L("view.zoom_fit")}
+          className="h-8 min-w-[3.25rem] rounded-md px-1 text-xs tabular-nums text-muted-foreground hover:bg-secondary hover:text-foreground"
+          data-testid="slides-zoom"
+        >
+          {zoom === 1 ? L("view.fit") : `${Math.round(zoom * 100)}%`}
+        </button>
+        <ToolbarButton label={L("view.zoom_in")} icon={<ZoomIn aria-hidden />} disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} data-testid="slides-zoom-in" />
+        <Popover label={L("find.label")} trigger={<ToolbarButton label={L("find.label")} icon={<Search aria-hidden />} data-testid="slides-find" />}>
+          <FindReplace deck={deck} onReplace={(query, replacement, matchCase) => act(L("step.replace"), (draft) => void replaceAll(draft, query, replacement, matchCase))} onShow={(index) => setSelected(index)} />
+        </Popover>
+        <Popover label={L("keys.label")} trigger={<ToolbarButton label={L("keys.label")} icon={<Keyboard aria-hidden />} data-testid="slides-keys" />}>
+          <ShortcutList />
+        </Popover>
       </ToolbarGroup>
       <ToolbarSeparator />
       <ToolbarButton
@@ -1165,7 +1188,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
                   onPickBackground={() => pickImage({ kind: "background" })}
                 />
               )}
-              <CanvasArea>
+              <CanvasArea zoom={zoom}>
                 {(width) =>
                   css && slide ? (
                     <ElementEditingProvider value={elementEditing}>
@@ -1363,8 +1386,8 @@ function listOf(slide: Slide | undefined, path: FieldPath): string[] | undefined
   return Array.isArray(value) ? (value as string[]) : undefined;
 }
 
-/** The middle of the editor: the largest 16:9 box that fits, with a margin. */
-function CanvasArea({ children }: { children: (width: number) => ReactNode }) {
+/** The middle of the editor: the largest 16:9 box that fits, with a margin, times the zoom. */
+function CanvasArea({ zoom = 1, children }: { zoom?: number; children: (width: number) => ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -1378,10 +1401,16 @@ function CanvasArea({ children }: { children: (width: number) => ReactNode }) {
     return () => observer.disconnect();
   }, []);
   const pad = size.width < 640 ? 16 : 40;
-  const width = Math.max(160, Math.floor(Math.min(size.width - 2 * pad, ((size.height - 2 * pad) * 16) / 9)));
+  const fit = Math.max(160, Math.floor(Math.min(size.width - 2 * pad, ((size.height - 2 * pad) * 16) / 9)));
+  const width = Math.round(fit * zoom);
   return (
-    <div ref={box} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-      {size.width > 0 ? children(width) : children(960)}
+    <div ref={box} className={cn("min-h-0 flex-1", zoom > 1 ? "overflow-auto" : "overflow-hidden")}>
+      <div
+        className="flex min-h-full items-center justify-center"
+        style={{ minWidth: zoom > 1 ? width + 2 * pad : undefined, minHeight: zoom > 1 ? (width * 9) / 16 + 2 * pad : undefined }}
+      >
+        {size.width > 0 ? children(width) : children(960)}
+      </div>
     </div>
   );
 }
@@ -1430,4 +1459,88 @@ function accentSwatch(accent: string | undefined): string {
   if (!accent) return DEFAULT_ACCENT;
   if (accent.startsWith("#")) return accent;
   return SWATCH_COLORS[accent] ?? DEFAULT_ACCENT;
+}
+
+/** Find a text anywhere in the deck and replace it everywhere. */
+function FindReplace({
+  deck,
+  onReplace,
+  onShow,
+}: {
+  deck: Deck;
+  onReplace: (query: string, replacement: string, matchCase: boolean) => void;
+  onShow: (index: number) => void;
+}) {
+  const t = useT();
+  const L = (key: string) => t(`nodes.editor.slides.${key}`);
+  const [query, setQuery] = useState("");
+  const [replacement, setReplacement] = useState("");
+  const [matchCase, setMatchCase] = useState(false);
+  const found = useMemo(() => findInDeck(deck, query, matchCase), [deck, query, matchCase]);
+  const field = "h-8 w-full rounded-md border border-border-strong bg-input px-2 text-sm focus-visible:border-accent focus-visible:outline-none";
+  return (
+    <div className="flex w-72 flex-col gap-2 p-2" data-testid="slides-find-panel">
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={L("find.find")} aria-label={L("find.find")} className={field} data-testid="slides-find-query" />
+      <input value={replacement} onChange={(event) => setReplacement(event.target.value)} placeholder={L("find.replace_with")} aria-label={L("find.replace_with")} className={field} data-testid="slides-find-replacement" />
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" checked={matchCase} onChange={(event) => setMatchCase(event.target.checked)} />
+        {L("find.match_case")}
+      </label>
+      <p className="text-xs text-muted-foreground" data-testid="slides-find-count">
+        {query ? fill(L("find.count"), { n: found.count, slides: found.slides.length }) : L("find.hint")}
+      </p>
+      {found.slides.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {found.slides.slice(0, 20).map((index) => (
+            <button key={index} type="button" onClick={() => onShow(index)} className="h-6 min-w-6 rounded bg-secondary px-1.5 text-xs tabular-nums hover:bg-secondary/70">
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={!found.count}
+        onClick={() => onReplace(query, replacement, matchCase)}
+        className="h-8 rounded-md bg-accent px-3 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-40"
+        data-testid="slides-find-replace-all"
+      >
+        {L("find.replace_all")}
+      </button>
+    </div>
+  );
+}
+
+/** The editor's keys at a glance. */
+function ShortcutList() {
+  const t = useT();
+  const L = (key: string) => t(`nodes.editor.slides.${key}`);
+  const rows: [string, string][] = [
+    [L("keys.select"), L("keys.select_how")],
+    [L("keys.write"), L("keys.write_how")],
+    [L("keys.nudge"), "← ↑ → ↓"],
+    [`${L("menu.copy")} · ${L("menu.cut")} · ${L("menu.paste")}`, `${MOD}C · ${MOD}X · ${MOD}V`],
+    [L("el.duplicate"), `${MOD}D`],
+    [L("el.delete"), "Del"],
+    [L("menu.select_all"), `${MOD}A`],
+    [`${L("el.order.forward")} · ${L("el.order.backward")}`, `${MOD}] · ${MOD}[`],
+    [`${L("el.order.front")} · ${L("el.order.back")}`, `${MOD}⇧] · ${MOD}⇧[`],
+    [L("keys.bold_italic"), `${MOD}B · ${MOD}I`],
+    [L("keys.free_move"), "Alt"],
+    [L("keys.undo"), `${MOD}Z · ${MOD}Y`],
+    [L("keys.present"), "← → · N · P · B · W · Esc"],
+  ];
+  return (
+    <div className="w-[22rem] p-2" data-testid="slides-keys-panel">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">{L("keys.label")}</p>
+      <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-xs">
+        {rows.map(([what, keys]) => (
+          <div key={what} className="contents">
+            <dt className="text-foreground">{what}</dt>
+            <dd className="text-right font-mono text-muted-foreground">{keys}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 }

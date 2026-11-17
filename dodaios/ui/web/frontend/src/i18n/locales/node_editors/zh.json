@@ -972,7 +972,8 @@
           "stat_value": "没有数值的数据不会显示在幻灯片上。",
           "table": "只含数字的列在幻灯片上右对齐。",
           "bar_rows": "幻灯片只显示条形图的前 10 条。",
-          "image_bleed": "没有标题时，图片铺满整张幻灯片。"
+          "image_bleed": "没有标题时，图片铺满整张幻灯片。",
+          "blank": "空白幻灯片只显示你放上去的内容：从工具栏添加文本框、形状、线条、图片、表格和图表。"
         },
         "step": {
           "type": "输入",
@@ -1029,7 +1030,8 @@
           "show_slide": "显示幻灯片",
           "footer": "页脚",
           "design": "设计",
-          "font": "字体"
+          "font": "字体",
+          "replace": "替换"
         },
         "sample": {
           "deck_title": "演示文稿标题",
@@ -1070,7 +1072,11 @@
         },
         "view": {
           "grid": "显示网格",
-          "snap": "对齐参考线"
+          "snap": "对齐参考线",
+          "zoom_in": "放大",
+          "zoom_out": "缩小",
+          "zoom_fit": "适应窗口",
+          "fit": "适应"
         },
         "design": {
           "label": "设计",
@@ -1311,6 +1317,27 @@
           "copy": "复制",
           "paste": "粘贴",
           "select_all": "全选"
+        },
+        "find": {
+          "label": "查找和替换",
+          "find": "查找",
+          "replace_with": "替换为",
+          "match_case": "区分大小写",
+          "count": "在 {slides} 张幻灯片中找到 {n} 处",
+          "hint": "搜索每张幻灯片的所有文字，包括备注。",
+          "replace_all": "全部替换"
+        },
+        "keys": {
+          "label": "键盘快捷键",
+          "select": "选择",
+          "select_how": "单击 · ⇧ 单击 · 拖出选框",
+          "write": "编辑文字",
+          "write_how": "双击 · Enter",
+          "nudge": "微移（按 ⇧ 为 10 px）",
+          "bold_italic": "编辑时加粗 · 斜体",
+          "free_move": "移动时不吸附",
+          "undo": "撤销 · 重做",
+          "present": "放映"
         }
       }
     }

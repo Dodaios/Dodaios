@@ -972,7 +972,8 @@
           "stat_value": "Eine Kennzahl ohne Wert wird auf der Folie weggelassen.",
           "table": "Spalten mit nur Zahlen werden auf der Folie rechtsbündig gesetzt.",
           "bar_rows": "Eine Folie zeigt die ersten 10 Balken eines Balkendiagramms.",
-          "image_bleed": "Ohne Titel füllt das Bild die ganze Folie."
+          "image_bleed": "Ohne Titel füllt das Bild die ganze Folie.",
+          "blank": "Eine leere Folie zeigt nur, was du darauf legst: Textfelder, Formen, Linien, Bilder, Tabellen und Diagramme fügst du über die Werkzeugleiste ein."
         },
         "step": {
           "type": "Tippen",
@@ -1029,7 +1030,8 @@
           "show_slide": "Folie einblenden",
           "footer": "Fußzeile",
           "design": "Design",
-          "font": "Schriften"
+          "font": "Schriften",
+          "replace": "Ersetzen"
         },
         "sample": {
           "deck_title": "Titel des Decks",
@@ -1070,7 +1072,11 @@
         },
         "view": {
           "grid": "Raster zeigen",
-          "snap": "An Hilfslinien ausrichten"
+          "snap": "An Hilfslinien ausrichten",
+          "zoom_in": "Vergrößern",
+          "zoom_out": "Verkleinern",
+          "zoom_fit": "Folie ans Fenster anpassen",
+          "fit": "Passend"
         },
         "design": {
           "label": "Design",
@@ -1311,6 +1317,27 @@
           "copy": "Kopieren",
           "paste": "Einfügen",
           "select_all": "Alles auswählen"
+        },
+        "find": {
+          "label": "Suchen und ersetzen",
+          "find": "Suchen",
+          "replace_with": "Ersetzen durch",
+          "match_case": "Groß- und Kleinschreibung beachten",
+          "count": "{n} Treffer auf {slides} Folien",
+          "hint": "Durchsucht jeden Text jeder Folie, auch die Notizen.",
+          "replace_all": "Alle ersetzen"
+        },
+        "keys": {
+          "label": "Tastenkürzel",
+          "select": "Auswählen",
+          "select_how": "Klick · ⇧-Klick · Rahmen ziehen",
+          "write": "In einen Text schreiben",
+          "write_how": "Doppelklick · Enter",
+          "nudge": "Verschieben (10 px mit ⇧)",
+          "bold_italic": "Fett · kursiv beim Schreiben",
+          "free_move": "Ohne Einrasten verschieben",
+          "undo": "Rückgängig · wiederholen",
+          "present": "Präsentieren"
         }
       }
     }

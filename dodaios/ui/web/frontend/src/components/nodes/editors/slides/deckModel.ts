@@ -13,7 +13,7 @@
  * those slides do not render again.
  */
 
-import { firstText, readDeckExtras, readSlideExtras, type DeckExtras, type SlideExtras } from "./elementModel";
+import { firstText, newId, readDeckExtras, readSlideExtras, type DeckExtras, type SlideElement, type SlideExtras } from "./elementModel";
 
 export const LAYOUTS = [
   "title",
@@ -561,7 +561,34 @@ export function switchLayout(slide: Slide, layout: Layout, t: Translate): Slide 
   for (const key of ["background", "tone", "transition", "hidden", "footer", "elements"] as const) {
     if (slide[key] !== undefined) (next as unknown as Record<string, unknown>)[key] = slide[key];
   }
+  // A free canvas keeps the layout's words as text boxes, to be moved and styled.
+  if (layout === "blank") next.elements = [...asTextBoxes(slide), ...(next.elements ?? [])];
+  if (next.elements && !next.elements.length) delete next.elements;
   return next;
+}
+
+/** The words of a layout as free text boxes: the title on top, the rest under it. */
+function asTextBoxes(slide: Slide): SlideElement[] {
+  const boxes: SlideElement[] = [];
+  const head = slide.title || slide.quote || "";
+  if (slide.kicker) boxes.push({ type: "text", id: newId(), x: 96, y: 56, w: 1088, h: 40, text: slide.kicker, size: 20, color: "muted" });
+  if (head) boxes.push({ type: "text", id: newId(), x: 96, y: 100, w: 1088, h: 120, text: head, size: 48, bold: true });
+  const points = itemsOf(slide).map(itemLine).filter(Boolean);
+  const body = points.length ? points.join("\n") : slide.subtitle || slide.text || slide.by || slide.caption || "";
+  if (body) {
+    boxes.push({
+      type: "text",
+      id: newId(),
+      x: 96,
+      y: 248,
+      w: 1088,
+      h: 380,
+      text: body.slice(0, 2_000),
+      size: 28,
+      ...(points.length > 1 ? { list: "bullet" as const } : {}),
+    });
+  }
+  return boxes;
 }
 
 // --- structural changes (on a draft) ------------------------------------------------

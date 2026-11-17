@@ -972,7 +972,8 @@
           "stat_value": "Um número sem valor fica de fora do slide.",
           "table": "Colunas só com números ficam alinhadas à direita no slide.",
           "bar_rows": "Um slide mostra as 10 primeiras barras de um gráfico de barras.",
-          "image_bleed": "Sem título, a imagem ocupa o slide inteiro."
+          "image_bleed": "Sem título, a imagem ocupa o slide inteiro.",
+          "blank": "Um slide em branco mostra só o que você colocar: adicione caixas de texto, formas, linhas, imagens, tabelas e gráficos pela barra."
         },
         "step": {
           "type": "Digitação",
@@ -1029,7 +1030,8 @@
           "show_slide": "Mostrar slide",
           "footer": "Rodapé",
           "design": "Design",
-          "font": "Fontes"
+          "font": "Fontes",
+          "replace": "Substituir"
         },
         "sample": {
           "deck_title": "Título da apresentação",
@@ -1070,7 +1072,11 @@
         },
         "view": {
           "grid": "Mostrar grade",
-          "snap": "Ajustar às guias"
+          "snap": "Ajustar às guias",
+          "zoom_in": "Ampliar",
+          "zoom_out": "Reduzir",
+          "zoom_fit": "Ajustar à janela",
+          "fit": "Ajustar"
         },
         "design": {
           "label": "Design",
@@ -1311,6 +1317,27 @@
           "copy": "Copiar",
           "paste": "Colar",
           "select_all": "Selecionar tudo"
+        },
+        "find": {
+          "label": "Localizar e substituir",
+          "find": "Localizar",
+          "replace_with": "Substituir por",
+          "match_case": "Diferenciar maiúsculas",
+          "count": "{n} encontrados em {slides} slides",
+          "hint": "Procura em todos os textos de todos os slides, notas incluídas.",
+          "replace_all": "Substituir tudo"
+        },
+        "keys": {
+          "label": "Atalhos de teclado",
+          "select": "Selecionar",
+          "select_how": "Clique · ⇧ clique · arrastar moldura",
+          "write": "Escrever num texto",
+          "write_how": "Clique duplo · Enter",
+          "nudge": "Mover (10 px com ⇧)",
+          "bold_italic": "Negrito · itálico ao escrever",
+          "free_move": "Mover sem ajuste",
+          "undo": "Desfazer · refazer",
+          "present": "Apresentando"
         }
       }
     }

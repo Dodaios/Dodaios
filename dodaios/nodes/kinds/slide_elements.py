@@ -731,6 +731,8 @@ def _text_inner_style(element: dict[str, Any], shape: bool) -> str:
     parts = [f"font-size:{_px(element.get('size', 24 if shape else 28))}"]
     if element.get("color"):
         parts.append(f"color:{css_color(element['color'])}")
+    elif shape and shape_ink(element.get("fill", "")):
+        parts.append(f"color:{shape_ink(element.get('fill', ''))}")
     align = element.get("align", "center" if shape else "left")
     if align != "left":
         parts.append(f"text-align:{align}")
@@ -739,6 +741,23 @@ def _text_inner_style(element: dict[str, Any], shape: bool) -> str:
     if element.get("spacing"):
         parts.append(f"letter-spacing:{_fmt(element['spacing'])}em")
     return ";".join(parts)
+
+
+def shape_ink(fill: str) -> str:
+    """The text colour that reads on a shape's own fill, when the fill says it.
+
+    A hex fill gets black or white by its lightness; a transparent shape the
+    slide's ink. A fill of the kit's (the accent, a series colour) is left to
+    the stylesheet, which knows the theme it is drawn in.
+    """
+    if not fill:
+        return ""
+    if fill.lower() == "transparent":
+        return "var(--ink)"
+    light = _hex_luminance(fill)
+    if light is None:
+        return ""
+    return "#111111" if light > 0.4 else "#ffffff"
 
 
 def _text_inner_classes(element: dict[str, Any]) -> str:
@@ -1034,7 +1053,10 @@ ELEMENT_CSS: Final[str] = """
 .el-t.is-s{text-decoration:line-through}
 .el-t.is-u.is-s{text-decoration:underline line-through}
 .el-t.is-c{text-transform:uppercase;letter-spacing:.06em}
-.el-shape{color:var(--bg)}
+.el-shape{color:white}
+:root[data-theme="dark"] .el-shape{color:black}
+.sl[data-tone="dark"] .el-shape{color:black}
+.sl[data-tone="light"] .el-shape{color:white}
 .el-shape .el-t{z-index:1}
 .el-shape.is-callout .el-t{top:-12%}
 .el-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
