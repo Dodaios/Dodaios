@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 400,
+  "count": 401,
   "forks": 140,
-  "placed": 81,
-  "stated": 101,
-  "generatedAt": "2026-11-17T18:25:14.893Z",
+  "placed": 82,
+  "stated": 102,
+  "generatedAt": "2026-11-17T20:00:56.264Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -242,6 +242,13 @@
       "lon": 28.488,
       "label": "Moldova",
       "country": "Moldova",
+      "count": 1
+    },
+    {
+      "lat": 39.63,
+      "lon": -79.956,
+      "label": "Morgantown",
+      "country": "United States",
       "count": 1
     },
     {
