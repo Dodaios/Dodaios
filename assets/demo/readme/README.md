@@ -5,7 +5,7 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `dodaios-demo.mp4` | at the top, in GitHub's video player from its upload of this file (see below); the caption links to the file | Claude Code builds a change in the Agentic IDE's chat; the assistant makes a slide of it from what it remembers about a colleague, then hands the next task to a chat of its own in the IDE and reports back. 62 s, 1920 x 1080, 60 frames a second, H.264, no sound |
+| `dodaios-demo.mp4` | at the top, in GitHub's video player from its upload of this file (see below); the caption links to the file | A question to the assistant, which answers from its memory; it starts a Claude Code agent, followed at work in the Agentic IDE, and reports back. 42 s, 1920 x 1080, 60 frames a second, H.264, no sound |
 | `hero.webp` | not in the README since 17 November 2026 (kept for the history) | The clip that stood at the top on 16 November 2026: one request crosses the chat, two coding agents, a confirmation and a slide. 28 s, 1120 x 630, 60 frames a second |
 | `assistant.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
 | `agents.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
@@ -60,37 +60,34 @@ and the assistant is called Nova.
 
 ### The video at the top (`dodaios-demo.mp4`), 17 November 2026
 
-The maintainer wanted a real video at the top that opens in the Agentic
-IDE's chat and then moves between the IDE, the assistant and what the
-assistant makes. A first version that day (T1 and T2 in the Grid, a slide,
-a permanent deletion, the memory) opened on the assistant's chat, and the
-README showed one still of its slide; he found that it showed too little.
-This one is 62 seconds of one take:
+The maintainer wanted the video to start as an ordinary chat with the
+assistant and then show the assistant starting a coding agent, followed in
+the Agentic IDE. Two versions came before it that day: T1 and T2 in the
+Grid, a slide, a deletion and the memory, with a still of the slide as the
+picture at the top; then 62 seconds that opened in the IDE's chat, which
+played at the top for a few hours. This one is 42 seconds of one take:
 
-1. The Agentic IDE's chat in trailhead, "What should we build in
-   trailhead?" (the first frame). "Add a --json flag to the plan command,
-   with tests." Claude Code builds it and reports.
-2. Dodaios, the assistant Nova: "I just added --json to trailhead in the
-   IDE. Make the release note for Sam." Nova remembers what Sam from
-   accounting wants (one slide, plain words, the test count at the bottom)
-   and makes the slide, which is opened large.
-3. "Now have the IDE bump trailhead to 0.4 and add a changelog entry." Nova
-   opens a chat of its own in the Agentic IDE; the video switches there and
-   watches Claude Code do it.
-4. Back in Dodaios: Nova reports what the agent did and what it checked
-   itself.
+1. Dodaios, the assistant Nova: "What do you remember about Sam?" Nova
+   answers from its memory (Sam from accounting wants each release note as
+   one slide).
+2. "Have Claude Code add a --json flag to trailhead's plan command, with
+   tests." Nova starts a Claude Code agent: a chat of its own in the
+   Agentic IDE.
+3. The video switches to the IDE and follows that chat until it is done.
+4. Back in Dodaios: Nova's report, with what it checked itself (the tests,
+   both outputs, the commit).
 
-The IDE chat started by the person ran on Claude Fable 5.2, the one Nova
-started on Claude Opus 5.5, and Nova on both, all through Claude Code.
+From the Claude Code transcripts: the agent ran on Claude Opus 5.5, Nova on
+Claude Fable 5.2 and Claude Opus 5.5.
 
 GitHub plays a video in a README only from its own upload store
 (`github.com/user-attachments/...`, checked against the `media-src` of
 github.com's Content Security Policy, which allows neither
 raw.githubusercontent.com nor release assets), and only a file dropped into
-a comment or an editor on github.com gets there. The maintainer uploaded
-`dodaios-demo.mp4` in a comment on #1819; the README has that upload URL on
-a line of its own, which GitHub shows as its player. A new video takes a new
-upload: the URL changes with the file.
+a comment or an editor on github.com gets there. The maintainer uploads
+`dodaios-demo.mp4` in a comment on #1826; the README has that
+upload URL on a line of its own, which GitHub shows as its player. A new
+video takes a new upload: the URL changes with the file.
 
 How it was made, in a Linux container running as root:
 
@@ -100,19 +97,20 @@ How it was made, in a Linux container running as root:
   container's plugins.
 - `clip-video-setup.cjs` does the first run and the warm-up, with
   `DEMO_WARMUP=0,1,2,3` (answer length, the profile, Sam's wish, a deck and
-  a reminder), then once more with `DEMO_PARTS=warmup` and two requests of
-  its own in `DEMO_WARMUP_TEXTS` (a status doc, the next reminder): the
-  start of the chat in the video is the end of that conversation.
+  a reminder), then once more with `DEMO_PARTS=warmup` and one request of
+  its own in `DEMO_WARMUP_TEXTS` (a status doc): the start of the chat in
+  the video is the end of that conversation.
 - `clip-video-take.cjs` films the take (window 1280 x 720 at device scale
   1.5, `DEMO_WINDOW=1280x720 DEMO_SCALE=1.5`, and
   `DEMO_SCRUB=<instance home>=/home/alex`).
 - `clip-video-cut.cjs <take> video <out.mp4>` with `clip-video-edit.cjs`
-  makes the master (CRF 14); the file in this folder is the master again
-  with `-crf 24 -tune animation -preset slow`, 3.9 MB.
+  (`CUT_ANSWER=4.5 CUT_SAID=3.8`) makes the master (CRF 14); the file in
+  this folder is the master again with
+  `-crf 24 -tune animation -preset slow`, 2.5 MB.
 
-The second take was used. In the first, the take script took Claude Code's
-finished answer for the end of its turn while the turn was still open; it
-now also waits for the stop button to go.
+The second take of this version was used. The first asked "What's on my
+plate this week?", and Nova offered to connect a calendar with a card that
+then waited in the chat.
 
 ### The one clip at the top (`hero.webp`), evening of 16 November 2026
 

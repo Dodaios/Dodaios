@@ -1,8 +1,7 @@
-// The cut of the video at the top of the README: Claude Code builds a change
-// in the Agentic IDE's chat; the assistant turns it into a slide for a
-// colleague (opened large) and hands the next task to a chat of its own in the
-// IDE, which is watched at work; back to the assistant for its report.
-// clip-video-cut.cjs turns it into the video.
+// The cut of the video at the top of the README: a short exchange with the
+// assistant, then the assistant starts a coding agent whose chat is followed
+// in the Agentic IDE, and the assistant reports back. clip-video-cut.cjs
+// turns it into the video.
 //
 // The rules are the ones of every README clip: the take in its own order,
 // nothing laid over it. A wait for a model is left out (the picture before it
@@ -43,46 +42,39 @@ module.exports = {
     const b = builder(footage);
     const need = (mark, stretch) => { const v = b.at(mark, stretch); if (v === null) throw new Error(`the take has no "${mark}" in "${stretch}"`); return v; };
     const sent = (name) => need(name + '-sent', name);
-    // A stretch of work: its first seconds as filmed, the wait left out, its
-    // end from `mark` on.
-    const work = (stretch, mark, { live = 5, after = 3.5, what = '' } = {}) => {
-      const end = need(mark, stretch);
-      if (end - 1.2 - live < 2.5) { b.part(stretch, 0, end + after, { what: what + ', at work, then done' }); return; }
-      b.part(stretch, 0, live, { what: what + ', at work' });
-      b.skip(what + ' works', end - 1.2 - live);
-      b.part(stretch, end - 1.2, end + after, { dissolve: true, what: what + ', done' });
-    };
 
-    // 1. The Agentic IDE's chat in trailhead: Claude Code builds the change.
-    b.typing('ide-ask', 'ide-ask', { lead: num('CUT_LEAD', 0.9), to: sent('ide-ask') + 1.0 });
-    {
-      const end = need('ide-done', 'ide-work');
-      const files = b.at('ide-files', 'ide-work');
-      const live = num('CUT_LIVE', 5);
-      if (files !== null && files > live + 3 && files < end - 4) {
-        b.part('ide-work', 0, live, { what: 'Claude Code at work' });
-        b.skip('Claude Code works', files - 1.2 - live);
-        b.part('ide-work', files - 1.2, files + 2.5, { dissolve: true, what: 'the changed files' });
-        b.skip('Claude Code finishes', end - 1.2 - files - 2.5);
-        b.part('ide-work', end - 1.2, end + num('CUT_DONE', 3.5), { dissolve: true, what: 'Claude Code is done' });
-      } else work('ide-work', 'ide-done', { live, after: num('CUT_DONE', 3.5), what: 'Claude Code' });
-    }
+    // 1. An ordinary question to the assistant, and its answer.
+    b.typing('chat-ask', 'chat-ask', { lead: num('CUT_LEAD', 0.8), to: sent('chat-ask') + 0.6 });
+    const answer = need('chat-said', 'chat-wait');
+    b.skip('the assistant answers', answer);
+    b.part('chat-wait', answer - 0.3, answer + num('CUT_ANSWER', 3.5), { dissolve: true, what: "the assistant's answer" });
 
-    // 2. The assistant: a slide for Sam, from what it remembers about Sam.
-    b.part('to-chat', 0, b.len('to-chat'), { what: 'to the assistant' });
-    b.typing('sam-ask', 'sam-ask', { lead: 0.6, to: sent('sam-ask') + 0.6 });
-    const card = need('card', 'sam-wait');
-    b.skip('the assistant makes the slide', card);
-    b.part('sam-wait', card - 0.3, card + num('CUT_CARD', 2.2), { dissolve: true, what: 'the card of the slide comes in' });
-    b.part('sam-deck', 0, b.len('sam-deck'), { what: 'the slide, large; back to the chat' });
-
-    // 3. The assistant hands the next task to a chat of its own in the IDE.
+    // 2. The assistant is asked to have Claude Code make a change.
     b.typing('hand-ask', 'hand-ask', { lead: 0.6, to: sent('hand-ask') + 0.6 });
     const said = need('said', 'hand-wait');
-    b.skip('the assistant opens a chat in the IDE', said);
+    b.skip('the assistant starts the agent', said);
     b.part('hand-wait', said - 0.3, said + num('CUT_SAID', 3.2), { dissolve: true, what: "the assistant's answer" });
-    b.part('to-ide', 0, b.len('to-ide'), { what: 'to the IDE, the chat the assistant started' });
-    work('hand-work', 'hand-done', { live: num('CUT_LIVE2', 4), after: num('CUT_DONE2', 3.5), what: "the assistant's chat in the IDE" });
+
+    // 3. The Agentic IDE: the agent's chat at work, then done.
+    b.part('to-ide', 0, b.len('to-ide'), { what: "to the IDE, the agent's chat" });
+    {
+      const end = need('hand-done', 'hand-work');
+      const files = b.at('ide-files', 'hand-work');
+      const live = num('CUT_LIVE', 6);
+      if (files !== null && files > live + 3 && files < end - 4) {
+        b.part('hand-work', 0, live, { what: 'the agent at work' });
+        b.skip('the agent works', files - 1.2 - live);
+        b.part('hand-work', files - 1.2, files + 2.5, { dissolve: true, what: 'the changed files' });
+        b.skip('the agent finishes', end - 1.2 - files - 2.5);
+        b.part('hand-work', end - 1.2, end + num('CUT_DONE', 3.5), { dissolve: true, what: 'the agent is done' });
+      } else if (end - 1.2 - live < 2.5) {
+        b.part('hand-work', 0, end + num('CUT_DONE', 3.5), { what: 'the agent at work, then done' });
+      } else {
+        b.part('hand-work', 0, live, { what: 'the agent at work' });
+        b.skip('the agent works', end - 1.2 - live);
+        b.part('hand-work', end - 1.2, end + num('CUT_DONE', 3.5), { dissolve: true, what: 'the agent is done' });
+      }
+    }
 
     // 4. Back to the assistant: its report.
     b.part('back', 0, b.len('back'), { what: 'back to the assistant' });
