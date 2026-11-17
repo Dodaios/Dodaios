@@ -5,8 +5,7 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `dodaios-demo.mp4` | at the top: the poster links to it, and the README shows it in GitHub's video player once it is uploaded there (see below) | Claude Code builds a change in the Agentic IDE's chat; the assistant makes a slide of it from what it remembers about a colleague, then hands the next task to a chat of its own in the IDE and reports back. 62 s, 1920 x 1080, 60 frames a second, H.264, no sound |
-| `dodaios-demo-poster.webp` | at the top, until the video is uploaded to GitHub | One still of that video: the request typed in the Agentic IDE's chat |
+| `dodaios-demo.mp4` | at the top, in GitHub's video player from its upload of this file (see below); the caption links to the file | Claude Code builds a change in the Agentic IDE's chat; the assistant makes a slide of it from what it remembers about a colleague, then hands the next task to a chat of its own in the IDE and reports back. 62 s, 1920 x 1080, 60 frames a second, H.264, no sound |
 | `hero.webp` | not in the README since 17 November 2026 (kept for the history) | The clip that stood at the top on 16 November 2026: one request crosses the chat, two coding agents, a confirmation and a slide. 28 s, 1120 x 630, 60 frames a second |
 | `assistant.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
 | `agents.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
@@ -88,11 +87,10 @@ GitHub plays a video in a README only from its own upload store
 (`github.com/user-attachments/...`, checked against the `media-src` of
 github.com's Content Security Policy, which allows neither
 raw.githubusercontent.com nor release assets), and only a file dropped into
-a comment or an editor on github.com gets there. Until the maintainer has
-uploaded `dodaios-demo.mp4`, the README shows `dodaios-demo-poster.webp`
-(the first seconds: the request typed in the IDE's chat) and links it to the
-file. After the upload, the `<p>` with the poster becomes the bare upload
-URL on a line of its own.
+a comment or an editor on github.com gets there. The maintainer uploaded
+`dodaios-demo.mp4` in a comment on #1819; the README has that upload URL on
+a line of its own, which GitHub shows as its player. A new video takes a new
+upload: the URL changes with the file.
 
 How it was made, in a Linux container running as root:
 

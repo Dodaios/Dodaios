@@ -57,9 +57,7 @@ a voice-driven, locally running operating system for AI agents that makes one
 assistant the conductor of your models, your coding agents and your own
 computer.
 
-<p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo-poster.webp" alt="A 62-second recording of Dodaios. It opens in the Agentic IDE's chat, in the trailhead project, under the question What should we build in trailhead? The person types: Add a --json flag to the plan command, with tests. Claude Code works in the chat and reports that the plan command now prints the plan as JSON, that all 9 tests pass, and which files it changed. The person switches to Dodaios and types to the assistant, Nova: I just added --json to trailhead in the IDE. Make the release note for Sam. Nova remembers that Sam wants one slide in plain words with the test count at the bottom; a one-slide deck arrives and, opened large, reads: Hike estimates other programs can read, with 9 of 9 tests passed at the bottom. Back in the chat the person types: Now have the IDE bump trailhead to 0.4 and add a changelog entry. Nova opens a chat of its own in the Agentic IDE; the person switches there and watches Claude Code bump the version, write the changelog and commit. Back in Dodaios, Nova reports what the agent did and what it checked itself: trailhead is at 0.4.0, the changelog entry is in place and 9 tests pass." width="100%" /></a>
-</p>
+https://github.com/user-attachments/assets/ece0b07a-0a93-4f40-8fbd-f86630d05347
 
 <p align="center">
   <sub>A real recording at 60 frames a second, played at the speed it was filmed; the waits for the models are cut out. It was recorded with Claude Fable 5.2 and Claude Opus 5.5 through Claude Code. The code changes, test runs, slide and commits are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch the video</b></a> (MP4, 62 s, 3.9 MB)</sub>
