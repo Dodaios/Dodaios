@@ -43,7 +43,7 @@ Dodaios 是一个安装在本地的开源 Python 程序，可以作为桌面应�
 
 长期的工作靠这些来承接：记忆（关于你、你身边的人，以及助手自己的人设）、长期任务、工作流、技能，以及需要你主动开启的生活事务管理。助手还会制作自己的产出，比如文档、幻灯片、表格和仪表盘，并且能提议并构建它还缺少的技能、例行任务和智能体。信任层设有硬性限制：在“Bypass permissions”（跳过权限确认）模式之外，转账、处理凭据、永久删除，以及第一次联系某个新的人，总是需要你确认。简而言之，Dodaios 是一个用语音驱动、在本地运行的 AI 智能体操作系统，它让一个助手成为你的模型、你的编程智能体和你自己电脑的指挥。
 
-https://github.com/user-attachments/assets/ece0b07a-0a93-4f40-8fbd-f86630d05347
+https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
 <p align="center">
   <sub>A real recording at 60 frames a second, played at the speed it was filmed; the waits for the models are cut out. It was recorded with Claude Fable 5.2 and Claude Opus 5.5 through Claude Code. The code change, test runs and commit are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch the video</b></a> (MP4, 42 s, 2.5 MB)</sub>

@@ -85,7 +85,7 @@ GitHub plays a video in a README only from its own upload store
 github.com's Content Security Policy, which allows neither
 raw.githubusercontent.com nor release assets), and only a file dropped into
 a comment or an editor on github.com gets there. The maintainer uploads
-`dodaios-demo.mp4` in a comment on a pull request; the README has that
+`dodaios-demo.mp4` in a comment on #1826; the README has that
 upload URL on a line of its own, which GitHub shows as its player. A new
 video takes a new upload: the URL changes with the file.
 

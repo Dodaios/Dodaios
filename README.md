@@ -57,7 +57,7 @@ a voice-driven, locally running operating system for AI agents that makes one
 assistant the conductor of your models, your coding agents and your own
 computer.
 
-https://github.com/user-attachments/assets/ece0b07a-0a93-4f40-8fbd-f86630d05347
+https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
 <p align="center">
   <sub>A real recording at 60 frames a second, played at the speed it was filmed; the waits for the models are cut out. It was recorded with Claude Fable 5.2 and Claude Opus 5.5 through Claude Code. The code change, test runs and commit are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch the video</b></a> (MP4, 42 s, 2.5 MB)</sub>
