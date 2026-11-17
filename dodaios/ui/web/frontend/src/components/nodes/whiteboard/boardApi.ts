@@ -92,6 +92,15 @@ export async function fetchScene(nodeId: string, signal?: AbortSignal): Promise<
   return { ...data, scene: normalizeScene(data.scene) };
 }
 
+/**
+ * The node's update time (seconds), without its content: the open board asks
+ * every moment whether the assistant drew something.
+ */
+export async function fetchBoardUpdatedAt(nodeId: string, signal?: AbortSignal): Promise<number> {
+  const data = await readJson<{ updated_at?: unknown }>(await fetch(boardUrl(nodeId, "?spec=0"), { signal }));
+  return typeof data.updated_at === "number" ? data.updated_at : 0;
+}
+
 /** The browser drops a `keepalive` request whose body is larger than this. */
 const KEEPALIVE_MAX_BYTES = 60_000;
 

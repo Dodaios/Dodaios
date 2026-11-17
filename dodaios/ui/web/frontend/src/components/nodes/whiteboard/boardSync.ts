@@ -184,6 +184,14 @@ export class BoardSync {
     this.applyServerScene(read.scene);
   }
 
+  /**
+   * Work again after `dispose` (React mounts a component's effects twice in
+   * development, so the board's cleanup runs once before it is really left).
+   */
+  revive(): void {
+    this.disposed = false;
+  }
+
   /** Stop: nothing is saved or drawn in after this (call `flush` first). */
   dispose(): void {
     this.disposed = true;
