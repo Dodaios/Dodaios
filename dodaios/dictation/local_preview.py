@@ -309,11 +309,18 @@ def _spawn_worker_model(model_name: str, *, compute: str | None = None) -> _Work
         reader.join(timeout=3.0)
         return None
     reader.join(timeout=3.0)
+    # Raised only now: the model load before it is long, heavy work that must
+    # not run ahead of the window. From here on the worker sleeps until
+    # somebody waits for a clip.
+    from dodaios.core.process_utils import prefer_child_process
+
+    preferred = prefer_child_process(proc.pid)
     log.info(
-        "Dictation worker startup: spawn=%.0f ms, ready=%.0f ms, stages=%s.",
+        "Dictation worker startup: spawn=%.0f ms, ready=%.0f ms, stages=%s%s.",
         spawned_ms,
         (time.perf_counter() - started) * 1000.0,
         message.get("timings", {}),
+        ", runs ahead of ordinary work" if preferred else "",
     )
     return _WorkerModel(
         proc,

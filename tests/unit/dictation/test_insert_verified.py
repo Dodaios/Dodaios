@@ -235,7 +235,49 @@ def test_native_modifier_snapshot_refuses_modified_paste(monkeypatch, held_vk):
         ctypes, "WinDLL", lambda *a, **kw: SimpleNamespace(GetAsyncKeyState=key_state),
         raising=False,
     )
+    monkeypatch.setattr(insert_mod, "MODIFIER_RELEASE_WAIT_S", 0.05)
     assert "modifier" in insert_mod._input_block_reason(TARGET)
+
+
+def test_a_modifier_on_its_way_up_is_waited_for(monkeypatch):
+    """The text of a hold dictation can be ready before the last finger has
+    left the key that ended it. That is no reason to keep the text back."""
+    import ctypes
+
+    asked = {"count": 0}
+
+    def key_state(vk):
+        asked["count"] += 1
+        # Down for the first two looks at the keyboard, then released.
+        return 0x8000 if vk == 0x5B and asked["count"] <= 10 else 0
+
+    monkeypatch.setattr(insert_mod, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(insert_mod, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(insert_mod, "_foreground_target", lambda: TARGET)
+    monkeypatch.setattr(
+        ctypes, "WinDLL", lambda *a, **kw: SimpleNamespace(GetAsyncKeyState=key_state),
+        raising=False,
+    )
+    assert insert_mod._input_block_reason(TARGET) == ""
+
+
+def test_a_window_that_changed_while_a_key_came_up_still_stops_the_paste(monkeypatch):
+    import ctypes
+
+    looks = {"count": 0}
+
+    def foreground():
+        looks["count"] += 1
+        return TARGET if looks["count"] == 1 else (124, 9002)
+
+    monkeypatch.setattr(insert_mod, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(insert_mod, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(insert_mod, "_foreground_target", foreground)
+    monkeypatch.setattr(
+        ctypes, "WinDLL", lambda *a, **kw: SimpleNamespace(GetAsyncKeyState=lambda vk: 0),
+        raising=False,
+    )
+    assert "window changed" in insert_mod._input_block_reason(TARGET)
 
 
 def test_foreground_change_prevents_keyboard_probe_and_paste(monkeypatch):

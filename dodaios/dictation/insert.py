@@ -763,6 +763,11 @@ def _insert_text(
 # clipboard watchers can both consume the same offer without another event.
 PASTE_READ_WAIT_S: float = 0.35
 
+#: How long a paste waits for a modifier key that is still down. Long enough
+#: for the fingers of somebody who just let go of the dictation key, short
+#: enough that a key really being held is refused without a noticeable wait.
+MODIFIER_RELEASE_WAIT_S: float = 0.4
+
 
 def _clipboard_offer_factory():
     """The delayed-rendering clipboard offer, or ``None`` off Windows."""
@@ -822,12 +827,29 @@ def _input_block_reason(target: tuple[int, int] | None) -> str:
         user32 = ctypes.WinDLL("user32", use_last_error=True)
         user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
         user32.GetAsyncKeyState.restype = wintypes.SHORT
+
+        def held() -> bool:
+            return any(
+                user32.GetAsyncKeyState(vk) & 0x8000 for vk in (0x10, 0x11, 0x12, 0x5B, 0x5C)
+            )
+
+        # The key that ended a hold dictation is one of these, and the text can
+        # be ready before the last finger has left it. That is a key on its
+        # way up, not somebody holding one: it is given a moment.
+        deadline = time.monotonic() + MODIFIER_RELEASE_WAIT_S
+        while held() and time.monotonic() < deadline:
+            time.sleep(0.015)
         # SendInput does not reset held keys. Never manufacture key-up events
         # for the user's keys: retain the transcript for a deliberate paste.
-        if any(user32.GetAsyncKeyState(vk) & 0x8000 for vk in (0x10, 0x11, 0x12, 0x5B, 0x5C)):
+        if held():
             return (
                 "A modifier key is still held. Release it and paste the text "
                 "from your clipboard."
+            )
+        if target is not None and _foreground_target() != target:
+            return (
+                "The focused window changed. The text is on your clipboard; "
+                "paste it where you want it."
             )
     except Exception:  # noqa: BLE001 - optional keyboard-state probe
         log.debug("could not inspect modifier keys before dictation paste", exc_info=True)

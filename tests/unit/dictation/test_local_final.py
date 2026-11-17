@@ -528,6 +528,21 @@ def test_a_short_clip_never_moves_the_decode_width(
     assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, FINAL_BEAM_SIZE]
 
 
+def test_a_few_seconds_of_audio_say_nothing_about_the_card(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    """A dictation is read at the pauses of the speaker, so most clips are a
+    few seconds long. The fixed cost of a call dominates them: 1.3 s of audio
+    that took 0.27 s must not count as a busy card."""
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+
+    asyncio.run(stt.transcribe_pcm(_pcm(3.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(3.0), language="de"))
+
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, FINAL_BEAM_SIZE]
+
+
 def test_a_busy_card_hands_dictations_to_the_cloud_behind_it(
     _clocked: tuple[_Clock, _TimedWorker],
 ) -> None:

@@ -20,7 +20,9 @@ from dodaios.dictation.speech_map import (
     SpeechMap,
     SpeechMapper,
     condense,
+    condensed_ranges,
     map_speech,
+    recording_offset,
 )
 
 #: The detector judges 32 ms at a time, so an edge is exact to about one frame.
@@ -384,3 +386,82 @@ def test_condense_of_a_mapped_recording(speech_by_loudness: None) -> None:
     for start, end in speech.spans:
         assert _cut(recording, start, end) in out
     assert condense(_silence(2.0), map_speech(_silence(2.0))) == b""
+
+
+# --------------------------------------------------------------------------
+# From a time in the clip back to the recording
+# --------------------------------------------------------------------------
+
+
+def test_the_ranges_of_a_clip_are_what_condense_joins(speech_by_loudness: None) -> None:
+    recording = (
+        _silence(1.0) + _loud(1.0) + _silence(0.6) + _loud(1.0) + _silence(3.0) + _loud(1.0)
+    )
+    speech = map_speech(recording)
+
+    ranges = condensed_ranges(speech)
+
+    assert b"".join(_cut(recording, start, end) for start, end in ranges) == condense(
+        recording, speech
+    )
+
+
+def test_a_time_in_the_clip_is_traced_back_over_a_shortened_pause(
+    speech_by_loudness: None,
+) -> None:
+    recording = _silence(1.0) + _loud(1.0) + _silence(3.0) + _loud(1.0) + _silence(1.0)
+    speech = map_speech(recording)
+    ranges = condensed_ranges(speech)
+    (first_start, first_end), (second_start, _second_end) = speech.spans
+
+    # The clip starts where the first speech starts.
+    assert recording_offset(ranges, 0.0) == first_start
+    assert recording_offset(ranges, 0.5) == first_start + _samples(0.5)
+    # Behind the pause, which the clip holds only half a second of.
+    first_s = (first_end - first_start) / SAMPLE_RATE
+    assert recording_offset(ranges, first_s + 0.5 + 0.25) == second_start + _samples(0.25)
+    # A time behind the clip is nowhere in the recording.
+    assert recording_offset(ranges, 60.0) is None
+    assert recording_offset(ranges, -1.0) is None
+
+
+def test_the_gap_nearest_to_a_time_is_found(speech_by_loudness: None) -> None:
+    mapper = SpeechMapper()
+    mapper.feed(_loud(2.0) + _silence(0.2) + _loud(2.0))
+
+    cut = mapper.quiet_near(_samples(2.3), within_s=0.45, min_quiet_s=0.09)
+
+    assert cut is not None
+    assert _samples(2.0) <= cut <= _samples(2.2) + 512
+
+
+def test_no_gap_near_a_time_is_no_place_to_cut(speech_by_loudness: None) -> None:
+    mapper = SpeechMapper()
+    mapper.feed(_loud(2.0) + _silence(0.2) + _loud(2.0))
+
+    assert mapper.quiet_near(_samples(1.0), within_s=0.45, min_quiet_s=0.09) is None
+    assert SpeechMapper().quiet_near(0, within_s=0.45, min_quiet_s=0.09) is None
+
+
+def test_a_drop_of_the_voice_counts_where_there_is_no_silence(speech_by_loudness: None) -> None:
+    """Somebody who runs one sentence into the next still gets quieter there."""
+    t = np.arange(_samples(0.1)) / SAMPLE_RATE
+    murmur = (np.sin(2 * np.pi * 220 * t) * 1200).astype(np.int16).tobytes()
+    mapper = SpeechMapper()
+    mapper.feed(_loud(2.0) + murmur + _loud(2.0))
+
+    cut = mapper.quiet_near(_samples(2.2), within_s=0.45, min_quiet_s=0.09)
+
+    assert cut is not None
+    assert _samples(1.95) <= cut <= _samples(2.15)
+
+
+def test_the_pause_around_a_place_is_measured_to_both_sides(speech_by_loudness: None) -> None:
+    mapper = SpeechMapper()
+    mapper.feed(_loud(1.0) + _silence(0.5) + _loud(1.0) + _silence(0.3))
+
+    assert mapper.pause_around(_samples(1.2)) == pytest.approx(0.5, abs=2 * _FRAME_S)
+    # Inside speech there is no pause.
+    assert mapper.pause_around(_samples(0.5)) == 0.0
+    # At the end it is the silence so far.
+    assert mapper.pause_around(_samples(2.7)) == pytest.approx(0.3, abs=2 * _FRAME_S)

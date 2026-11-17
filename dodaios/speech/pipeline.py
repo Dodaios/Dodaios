@@ -12384,8 +12384,8 @@ class SpeechPipeline:
             )
             log.info(
                 "🎙️ dictation ended (%d chars, %.1fs recorded, %.1fs of speech, "
-                "%.1fs elapsed, text %.1fs after the stop, target=%s, read by %s "
-                "in %d piece(s)%s%s%s).",
+                "%.1fs elapsed, text %.2fs after the stop, target=%s, read by %s "
+                "in %d piece(s), %d of %d reading(s) ahead kept%s%s%s).",
                 len(final_text),
                 result.duration_s,
                 result.speech_s,
@@ -12394,6 +12394,8 @@ class SpeechPipeline:
                 target,
                 ", ".join(result.recognizers) or "nothing",
                 result.pieces,
+                result.reads_ahead_kept,
+                result.reads_ahead,
                 ", hung up" if hung_up else "",
                 f", capture: {capture_error}" if capture_error else "",
                 (

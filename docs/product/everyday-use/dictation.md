@@ -34,8 +34,10 @@ transcript stays on the clipboard and in the history on the **Dictation** tab.
    shows the recording and transcription state. Pause as long as you like: a
    pause never ends the recording.
 3. The text appears once, complete, shortly after you stop. No words are shown
-   while you speak. A long dictation is read in the background while you are
-   still speaking, so the wait after the stop stays short.
+   while you speak. With a recognizer on this computer the dictation is read
+   in the background while you are still speaking, so the wait after the stop
+   does not grow with its length. A cloud provider reads a dictation of up to
+   about half a minute in one request after the stop.
 4. Check the result at the cursor. If a notice says the text was copied to the
    clipboard, paste it manually into the same field.
 5. Open **Voice > Dictation** to review the text and, when it did not simply

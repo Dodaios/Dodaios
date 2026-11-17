@@ -91,9 +91,13 @@ UNCONTENDED_GREEDY_RTF = 0.06
 #: dictation a slow one — live logs 2026-10-27.)
 _BUSY_RECHECK_S = 60.0
 
-#: Audio shorter than this never moves the decode width: a one-word clip is
-#: dominated by fixed per-call overhead and says nothing about the card.
-_MIN_RTF_SAMPLE_S = 1.0
+#: Audio shorter than this never moves the decode width: a short clip is
+#: dominated by the fixed cost of a call (about 0.15 s on a free card, more
+#: on a busy processor) and says nothing about the card. A dictation is read
+#: at the speaker's pauses, so short clips are the common case, and at one
+#: second a 1.3 s clip that took 0.27 s counted as a busy card and sent the
+#: next minute of dictations to the cloud.
+_MIN_RTF_SAMPLE_S = 4.0
 
 #: Free accelerator memory the spawn asks for by default — the turbo weights
 #: plus a CUDA context, with a little headroom.
