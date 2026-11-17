@@ -368,7 +368,8 @@ def test_typeahead_route_resolves_the_seat_and_reads_the_folder(
         ).json()
         assert seen == [("claude-api", "agent")]
         assert body["trigger"] == "/"
-        assert [i["value"] for i in body["items"]] == ["deploy"]
+        # ``/btw`` is Dodaios' own side question (``aside``), listed first.
+        assert [i["value"] for i in body["items"]] == ["btw", "deploy"]
 
         # A folder that does not exist is a 400, not a walk of nothing.
         res = client.get(

@@ -767,6 +767,22 @@ export interface SentMessage {
    * the answer: no turn was started for the message.
    */
   ritual?: string;
+  /**
+   * The id of the side question (`/btw`) the message asked. Its card is the
+   * answer; the agent's work goes on and no turn was started.
+   */
+  aside?: string;
+}
+
+/** Close a side question's card; one still being answered is stopped. */
+export async function dismissAside(sessionId: string, asideId: string): Promise<void> {
+  await json<{ dismissed: boolean }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/asides/${encodeURIComponent(asideId)}`,
+      { method: "DELETE" },
+    ),
+    "aside-failed",
+  );
 }
 
 export async function sendAgentChatMessage(

@@ -735,3 +735,36 @@ def test_an_assistants_chat_turns_off_claude_codes_silent_turn_reminder(
     for plan in (plan_claude, runner_cli.plan_glm):
         assert plan(**args, identity=identity).env[runner_cli.SILENT_TURN_REMINDER_ENV] == "0"
         assert runner_cli.SILENT_TURN_REMINDER_ENV not in plan(**args).env
+
+
+@pytest.mark.parametrize(
+    ("message", "noted"),
+    [("/context", False), ("  /goal ship the release", False), ("Fix /usr/bin paths", True),
+     ("/usr/bin/env is missing", True)],
+)
+async def test_a_slash_command_stays_the_first_word_of_the_message(
+    tmp_path, monkeypatch, message, noted
+):
+    """The effort note goes in front of a message, never in front of a command:
+    Claude Code runs "/context" only as the message's first word."""
+    prompts: list[str] = []
+
+    def planner(**kwargs):
+        prompts.append(kwargs["prompt"])
+        raise runner_cli.CliUnavailable("stop before process launch")
+
+    monkeypatch.setattr(runner_cli, "warm_claude_capabilities", lambda: None)
+    monkeypatch.setitem(runner_cli._PLANNERS, "claude-cli", planner)
+    handle = SimpleNamespace(
+        session=SimpleNamespace(
+            session_id="t1",
+            cwd=str(tmp_path),
+            provider="claude-api",
+            model="",
+            effort="high",
+            permission_mode="default",
+        )
+    )
+    await runner_cli._run_cli_once(handle, message, "claude-cli", None)
+    assert ("<jarvis_turn_settings>" in prompts[0]) is noted
+    assert prompts[0].endswith(message)

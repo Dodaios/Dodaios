@@ -98,7 +98,9 @@ news since it was last opened.
   takes after its name. A thread that has not run a turn asks the CLI for the
   list (about a second, no model call, no session kept, no hook run); a turn
   refreshes it as it runs. The message goes to the CLI as typed, so the
-  command runs there and its answer is the turn's answer. The list is plain,
+  command runs there and its answer is the turn's answer. Nothing is put in
+  front of a message that opens with a command (not even the effort note),
+  because the CLI runs a command only as the message's first word. The list is plain,
   like the CLI's own: one line per entry, no icons, files by their whole path.
   In the text box a command the seat knows, a known `$skill` and a picked
   `@file` are drawn in blue; a name the seat does not know stays plain, which
@@ -110,6 +112,19 @@ news since it was last opened.
   answers it at once; the wait for the tasks goes on. Every other coding
   agent, and a message with tool picks, queues it as the next turn; after
   Stop the queue waits.
+- **Side questions (`/btw`):** on Claude Code and GLM, `/btw <question>`
+  asks the agent something without stopping or steering its work, at any
+  time. Print mode has no `/btw`, so Dodaios answers it
+  (`dodaios/agent_chat/aside.py`): a copy of the conversation
+  (`--resume --fork-session --no-session-persistence --max-turns 1`) answers
+  once from what the conversation holds so far and is not saved. The copy
+  runs the thread's own command line (model, system prompt, tools, MCP
+  servers), so it reads the conversation from the prompt cache the thread
+  already warmed; only its permission mode is `default`, and every tool call
+  it tries is refused. The question and its answer are one card in the
+  thread, marked as not part of the conversation, with a Close button; the
+  agent never sees either. A question that needs tools says so and should be
+  sent as a normal message. Other coding agents get `/btw` as plain text.
 - **Under the composer:** a strip that says where the agent works — the
   current checkout or a fresh git worktree for a new thread — and on which
   branch (the base of the worktree, or the branch to switch the checkout to).

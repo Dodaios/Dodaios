@@ -2151,6 +2151,11 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
         )
         if ritual_id:
             return {"turn_id": "", "session_id": session_id, "ritual": ritual_id}
+        # "/btw <question>" in a Claude Code thread: answered beside the work
+        # from a copy of the conversation; the running turn is not touched.
+        aside_id = await _ask_aside(svc, session_id, body.text, has_files=bool(body.attachments))
+        if aside_id:
+            return {"turn_id": "", "session_id": session_id, "aside": aside_id}
         # A coding thread whose running CLI takes a message mid-turn is steered:
         # the text goes into the turn like typing into a terminal.
         # The person may ask for the other way: wait for the agent to finish.
@@ -2198,6 +2203,38 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
     if queue_id:
         return {"turn_id": "", "session_id": session_id, "queued": True, "queue_id": queue_id}
     return {"turn_id": turn_id, "session_id": session_id}
+
+
+async def _ask_aside(svc: Any, session_id: str, text: str, *, has_files: bool) -> str:
+    """Start a ``/btw`` side question; ``""`` when the message is not one."""
+    from dodaios.agent_chat import aside
+    from dodaios.agent_chat.service import session_runner
+
+    question = aside.parse(text)
+    if question is None:
+        return ""
+    session = svc.store.get_session(session_id)
+    if session is None:
+        raise NoSuchSession(session_id)
+    if not aside.takes(session, session_runner(session)):
+        return ""
+    if has_files:
+        raise ValueError("A side question takes text only; send the files as a normal message.")
+    return await aside.ask(svc, session_id, question, runner=session_runner(session))
+
+
+@router.delete(
+    "/sessions/{session_id}/asides/{aside_id}",
+    summary="Close a side question's card (and stop it if it is still being answered)",
+)
+async def dismiss_aside(session_id: str, aside_id: str, request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat import aside
+
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    await aside.dismiss(svc, session_id, aside_id)
+    return {"dismissed": True, "session_id": session_id, "aside_id": aside_id}
 
 
 #: Warm-ups in flight, by chat session (one at a time; kept so they finish).
