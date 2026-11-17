@@ -5,11 +5,11 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `hero.webp` | at the top | One request to the assistant hands a code change to a coding agent; its thread opens in the Agentic IDE, the tests pass, and the assistant reports. 16 s, 1120 x 630, 60 frames a second |
-| `dodaios-demo.mp4` | linked under the clip at the top, as a download | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub shows no player for it on the file's page, and `raw.githubusercontent.com` sends it as a download |
-| `assistant.webp` | The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
-| `agents.webp` | Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
-| `nodes.webp` | Docs, decks, sheets and whiteboards | A slide deck made from one sentence, and its title changed by hand. 14 s, 1120 x 630, 60 frames a second |
+| `hero.webp` | at the top, the only clip in the README | One request crosses the chat, two coding agents side by side in the Agentic IDE, a confirmation for a permanent deletion, and a slide the assistant made. 28 s, 1120 x 630, 60 frames a second |
+| `dodaios-demo.mp4` | linked under the clip at the top, as a download | The same recording as a video, 1920 x 1080, 60 frames a second, without sound |
+| `assistant.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
+| `agents.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
+| `nodes.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: Docs, decks, sheets and whiteboards | A slide deck made from one sentence, and its title changed by hand. 14 s, 1120 x 630, 60 frames a second |
 | `telegram.webp` | Away from your desk | Not recorded yet: a real conversation with the assistant through Telegram ([The Telegram clip](#the-telegram-clip)). The phone-app clip that stood here until 16 November 2026 looked like a native app and was taken out |
 | `voice.webp` | Your voice, in every app | Not recorded yet: it needs a real voice and microphone ([The voice clip](#the-voice-clip)) |
 | `dodaios-demo.gif` | nowhere since 15 November 2026 | The clip that stood at the top before. The project page on PyPI of every release up to 5.3.3 still shows it from this path. Delete it once a newer release is on PyPI |
@@ -57,6 +57,32 @@ and the assistant is called Nova.
   is small (about 1000 to 1200 points wide) and the frames are 1920 x 1080.
 
 ## The clips
+
+### The one clip at the top (`hero.webp`, `dodaios-demo.mp4`), evening of 16 November 2026
+
+The maintainer cut the README down to one sentence, his definition of
+Dodaios, one clip and the install. The clip shows one request crossing the
+parts of the definition in a single take of 28 seconds: "Add --csv to ledger
+list with two agents (code, tests), put a release note on a slide, and delete
+ledger's old-exports folder for good." Nova (Claude Opus 5.5) starts two
+Claude Code agents (Claude Sonnet 5); their threads open side by side in the
+Agentic IDE and finish (12 tests pass); back in the chat the trust layer asks
+before the permanent deletion and the person allows it once; the slide arrives
+and opens; Nova reports. The chat is set to "Auto-accept edits" before the
+take: in a new chat's Bypass permissions nothing asks, not even a permanent
+deletion. An un-filmed warm-up tells Nova that the folder is backed up, or it
+moves it to the trash or asks a question first.
+
+The call signs of the Grid's terminals (T1, T2) are not in the clip: Claude
+Code in a Grid terminal stops at its own warning about bypass mode when the
+instance runs as root, so the take uses chat threads.
+
+Scripts: `clip-reel-setup.cjs` (first run and warm-up), `clip-reel-probe.cjs`,
+`clip-reel-take.cjs`, `clip-reel-cut.cjs` with `clip-reel-edit.cjs`,
+`clip-reel-measure.cjs`, all on `clip-reel-common.cjs`. The WebP needed
+`--quality 44` to stay under 5 MB at 1120 px and 60 frames a second.
+
+### The clips of the afternoon of 16 November 2026
 
 All were filmed on 16 November 2026 from `main` (5.5.0), on Linux, in
 throwaway instances started by `demo-instance.sh` that were stopped

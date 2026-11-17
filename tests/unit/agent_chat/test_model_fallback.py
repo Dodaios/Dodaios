@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from types import SimpleNamespace
 from typing import Any
 
@@ -21,27 +20,9 @@ FABLE_SENTENCE = (
     "https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue."
 )
 RESET = 1794870000  # 2026-11-16T23:00:00Z = 17 Nov 00:00 in Berlin
-#: The clock these tests run at: the evening before RESET. The recorded reset
-#: lies in the past on any later day, and a past reset counts as no limit.
+#: The moment of the recording, three hours before RESET. The module's clock is
+#: pinned here so RESET stays in the future however late the suite runs.
 NOW = RESET - 3 * 3600
-
-
-class _FrozenTime:
-    """``time`` for ``model_fallback`` with the wall clock pinned to NOW."""
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(time, name)
-
-    @staticmethod
-    def time() -> float:
-        return float(NOW)
-
-
-@pytest.fixture(autouse=True)
-def _clock_before_the_reset(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(mf, "time", _FrozenTime())
-
-
 CLAUDE_LIMIT_STREAM = [
     {"type": "system", "subtype": "init", "model": "claude-fable-5-2", "session_id": "cd14"},
     {
@@ -91,6 +72,7 @@ CLAUDE_LIMIT_STREAM = [
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch: pytest.MonkeyPatch) -> None:
     mf.reset()
+    monkeypatch.setattr(mf, "time", SimpleNamespace(time=lambda: NOW))
     monkeypatch.setattr(mf, "enabled", lambda: True)
     monkeypatch.setattr(mf, "_configured_chains", lambda: {})
     yield

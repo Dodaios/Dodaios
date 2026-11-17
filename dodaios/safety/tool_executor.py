@@ -310,9 +310,13 @@ class ToolExecutor:
             log.warning("stop-hold check failed for an unattended call: %s", exc)
             return None
 
-    async def _refuse_stopped(self, tool: Tool, tid: UUID, hold: StopHold) -> ToolResult:
+    async def _refuse_stopped(
+        self, tool: Tool, tid: UUID, hold: StopHold, call_id: str = ""
+    ) -> ToolResult:
         reason = f"stop-hold: {hold.kind} ({hold.reason or 'stopped by the owner'})"
-        await self._bus.publish(ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason))
+        await self._bus.publish(
+            ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason, call_id=call_id)
+        )
         log.info("stop-hold: %s refused, %s", tool.name, reason)
         return ToolResult(
             success=False,
@@ -335,6 +339,7 @@ class ToolExecutor:
         tid: UUID,
         risk_tier: str,
         config_snapshot: dict[str, Any] | None,
+        call_id: str = "",
     ) -> ToolResult:
         """The honest dead end: this action needed a human and had none.
 
@@ -350,6 +355,7 @@ class ToolExecutor:
             trace_id=tid,
             tool_name=tool.name,
             reason=reason,
+            call_id=call_id,
         ))
         log.info(
             "approval-unavailable: %s (tier=%s) needed a confirmation and this "
@@ -631,7 +637,10 @@ class ToolExecutor:
 
             if not allows_read(tool, args):
                 await self._bus.publish(ActionDenied(
-                    trace_id=tid, tool_name=tool.name, reason="Plan mode permits reads only",
+                    trace_id=tid,
+                    call_id=trail["id"],
+                    tool_name=tool.name,
+                    reason="Plan mode permits reads only",
                 ))
                 return ToolResult(False, None, "Plan mode permits reads only")
 
@@ -647,7 +656,7 @@ class ToolExecutor:
         origin_kind = unattended_origin(config_snapshot)
         stop = self._owner_stop(origin_kind, config_snapshot)
         if stop is not None:
-            return await self._refuse_stopped(tool, tid, stop)
+            return await self._refuse_stopped(tool, tid, stop, trail["id"])
 
         # 1. Evaluate
         try:
@@ -655,7 +664,7 @@ class ToolExecutor:
         except ActionBlocked as exc:
             trail["blocked"] = True
             await self._bus.publish(ActionDenied(
-                trace_id=tid,
+                trace_id=tid, call_id=trail["id"],
                 tool_name=tool.name,
                 reason=f"blacklist: {exc.pattern}",
             ))
@@ -685,7 +694,9 @@ class ToolExecutor:
         if trust.blocked:
             trail["blocked"] = True
             reason = trust.block_reason()
-            await self._bus.publish(ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason))
+            await self._bus.publish(ActionDenied(
+                trace_id=tid, call_id=trail["id"], tool_name=tool.name, reason=reason,
+            ))
             return ToolResult(
                 success=False,
                 output={"outcome": "outbound_blocked", "checks": trust.to_dict()["checks"]},
@@ -805,7 +816,7 @@ class ToolExecutor:
         # rationale is redacted and capped so no raw secret reaches the bus.
         try:
             await self._bus.publish(ActionProposed(
-                trace_id=tid,
+                trace_id=tid, call_id=trail["id"],
                 tool_name=tool.name,
                 args=args,
                 risk_tier=decision.tier,
@@ -926,7 +937,7 @@ class ToolExecutor:
                     if approval_ticket is not None:
                         approval_ticket.close()
                     return await self._approval_unavailable(
-                        tool, tid, decision.tier, config_snapshot,
+                        tool, tid, decision.tier, config_snapshot, trail["id"],
                     )
                 approved, who_or_reason = decided
                 if approval_ticket is not None:
@@ -941,7 +952,7 @@ class ToolExecutor:
                         approval_ticket.close()
             if not approved:
                 await self._bus.publish(ActionDenied(
-                    trace_id=tid,
+                    trace_id=tid, call_id=trail["id"],
                     tool_name=tool.name,
                     reason=who_or_reason,
                 ))
@@ -970,14 +981,19 @@ class ToolExecutor:
                 self._evaluator.evaluate(tool, new_args)
             except ActionBlocked as exc:
                 await self._bus.publish(ActionDenied(
-                    trace_id=tid, tool_name=tool.name, reason=f"blacklist: {exc.pattern}",
+                    trace_id=tid,
+                    call_id=trail["id"],
+                    tool_name=tool.name,
+                    reason=f"blacklist: {exc.pattern}",
                 ))
                 return ToolResult(success=False, output=None, error=str(exc))
             edited_trust = before_execute(tool.name, new_args)
             if edited_trust.blocked:
                 reason = edited_trust.block_reason()
                 await self._bus.publish(
-                    ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason)
+                    ActionDenied(
+                        trace_id=tid, call_id=trail["id"], tool_name=tool.name, reason=reason
+                    )
                 )
                 return ToolResult(
                     success=False,
@@ -991,7 +1007,7 @@ class ToolExecutor:
 
         if cancel_token is not None and cancel_token.is_cancelled():
             await self._bus.publish(ActionDenied(
-                trace_id=tid,
+                trace_id=tid, call_id=trail["id"],
                 tool_name=tool.name,
                 reason=f"cancelled: {cancel_token.reason or 'requested'}",
             ))
@@ -1004,7 +1020,7 @@ class ToolExecutor:
         # A stop that arrived while the call waited for its approval wins.
         stop = self._owner_stop(origin_kind, config_snapshot)
         if stop is not None:
-            return await self._refuse_stopped(tool, tid, stop)
+            return await self._refuse_stopped(tool, tid, stop, trail["id"])
 
         # 4. Execute
         ctx = ExecutionContext(
@@ -1022,7 +1038,7 @@ class ToolExecutor:
         except Exception as exc:  # noqa: BLE001
             duration_ms = int((time.perf_counter() - t_start) * 1000)
             await self._bus.publish(ActionExecuted(
-                trace_id=tid,
+                trace_id=tid, call_id=trail["id"],
                 tool_name=tool.name,
                 success=False,
                 duration_ms=duration_ms,
@@ -1039,7 +1055,7 @@ class ToolExecutor:
         result = self._attach_receipt(tool, args, result, config_snapshot, trail)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
-            trace_id=tid,
+            trace_id=tid, call_id=trail["id"],
             tool_name=tool.name,
             success=result.success,
             duration_ms=duration_ms,

@@ -704,6 +704,11 @@ class UiDesignChanged(Event):
 @dataclass(frozen=True, slots=True)
 class ActionProposed(Event):
     tool_name: str = ""
+    # One id per executed call (the ToolExecutor's per-call trail id), shared
+    # by its ActionProposed and its ActionExecuted / ActionDenied. Parallel
+    # calls of the same tool finish in any order; this pairs each result with
+    # its own call. ``""`` from publishers that do not set it.
+    call_id: str = ""
     args: dict[str, Any] = field(default_factory=dict)
     risk_tier: RiskTier = "safe"
     # Session-Decision-Log: the brain's natural-language rationale emitted
@@ -759,11 +764,13 @@ class ActionApproved(Event):
 class ActionDenied(Event):
     tool_name: str = ""
     reason: str = ""
+    call_id: str = ""  # see ActionProposed.call_id
 
 
 @dataclass(frozen=True, slots=True)
 class ActionExecuted(Event):
     tool_name: str = ""
+    call_id: str = ""  # see ActionProposed.call_id
     success: bool = False
     duration_ms: int = 0
     error: str | None = None
