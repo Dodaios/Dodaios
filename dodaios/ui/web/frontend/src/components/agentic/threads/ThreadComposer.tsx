@@ -367,13 +367,6 @@ export function ThreadComposer({
   // Claude Code and GLM take a waiting message into the running turn on Send
   // now; every other agent has that turn stopped for it.
   const steers = STEERABLE_RUNNERS.has(provider?.runner ?? "");
-  // "ultrathink" / "ultracode" change how Claude Code runs the turn: the
-  // words show in its rainbow, drawn by a backdrop under a see-through text.
-  const magic = MAGIC_WORD_RUNNERS.has(provider?.runner ?? "") && hasMagicWord(value);
-  // The backdrop scrolls with the textarea, also when it first appears on a scrolled box.
-  useLayoutEffect(() => {
-    if (magicRef.current && textareaRef.current) magicRef.current.scrollTop = textareaRef.current.scrollTop;
-  }, [magic, value]);
 
   // A coding thread only runs on a coding agent: an API row left in the draft
   // from elsewhere moves to the first connected CLI.
@@ -459,6 +452,17 @@ export function ThreadComposer({
     cwd: draft.cwd,
     triggers,
   });
+  // "ultrathink" / "ultracode" change how Claude Code runs the turn: the
+  // words show in its rainbow. A slash command the agent knows (and a known
+  // $skill or a picked @file) shows in the command blue. Both are drawn by a
+  // backdrop under a see-through text.
+  const magicRunner = MAGIC_WORD_RUNNERS.has(provider?.runner ?? "");
+  const commands = useMemo(() => typeahead.tokenSpans(value), [typeahead.tokenSpans, value]);
+  const ink = (magicRunner && hasMagicWord(value)) || commands.length > 0;
+  // The backdrop scrolls with the textarea, also when it first appears on a scrolled box.
+  useLayoutEffect(() => {
+    if (magicRef.current && textareaRef.current) magicRef.current.scrollTop = textareaRef.current.scrollTop;
+  }, [ink, value]);
 
   /** Sends `text`; false when it did not reach the agent. `sent` learns the thread a first message creates. */
   const dispatch = useCallback(async (text: string, attachments: ChatAttachment[], sent?: SentMessage, delivery?: SendDelivery) => {
@@ -615,9 +619,9 @@ export function ThreadComposer({
           onRemove={files.remove} previews={files.previews} look="thumbnail" />
       </div>}
       <div className="relative">
-      {magic && <div ref={magicRef} aria-hidden data-testid="thread-composer-magic"
+      {ink && <div ref={magicRef} aria-hidden data-testid="thread-composer-magic"
         className="pointer-events-none absolute inset-0 overflow-y-auto whitespace-pre-wrap break-words px-4 pb-2 pt-4 text-base leading-6 text-foreground sm:px-5">
-        <MagicWordText text={value} />{"​"}
+        <MagicWordText text={value} magic={magicRunner} commands={commands} />{"​"}
       </div>}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
@@ -631,7 +635,7 @@ export function ThreadComposer({
         onPaste={files.onPaste}
         onScroll={(event) => { if (magicRef.current) magicRef.current.scrollTop = event.currentTarget.scrollTop; }}
         className={cn("block max-h-[40vh] min-h-[84px] w-full resize-none bg-transparent px-4 pb-2 pt-4 text-base leading-6 text-foreground outline-none placeholder:text-faint-foreground sm:px-5",
-          magic && "relative text-transparent caret-foreground")} />
+          ink && "relative text-transparent caret-foreground")} />
       </div>
       <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
         {/* The pickers keep their width: a narrow column (side by side) scrolls the row instead of stacking them. */}
