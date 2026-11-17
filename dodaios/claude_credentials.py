@@ -136,19 +136,42 @@ def _parse_oauth_data(data: Any) -> tuple[str, str | None, float | None, bool] |
     return token, sub_type, expires_s, refresh_present
 
 
+_KEYCHAIN_SERVICE = "Claude Code-credentials"
+
+
+def _keychain_service_from(raw_dir: str) -> str:
+    import hashlib
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFC", raw_dir)
+    return f"{_KEYCHAIN_SERVICE}-{hashlib.sha256(normalized.encode()).hexdigest()[:8]}"
+
+
 def keychain_service_for(config_dir: Path) -> str:
     """The macOS Keychain item Claude Code keeps THIS config dir's login in.
 
-    The default ``~/.claude`` uses the bare service name; a directory reached
-    through ``CLAUDE_CONFIG_DIR`` gets the first 8 hex digits of the SHA-256 of
-    its path as a suffix (verified 2026-11-16 against Claude Code's own items).
-    """
-    import hashlib
+    Claude Code's rule, mirrored: the bare service name only while no
+    ``CLAUDE_CONFIG_DIR`` is set; as soon as one is, the name gets the first 8
+    hex digits of the SHA-256 of that value (NFC-normalized) as a suffix, even
+    when it points at ``~/.claude`` (verified 2026-11-16 against Claude Code's
+    own items). ``CLAUDE_SECURESTORAGE_CONFIG_DIR``, when set, overrides both.
 
-    if Path(config_dir).expanduser() == Path.home() / ".claude":
-        return "Claude Code-credentials"
-    digest = hashlib.sha256(str(config_dir).encode()).hexdigest()[:8]
-    return f"Claude Code-credentials-{digest}"
+    Added seats are spawned with ``CLAUDE_CONFIG_DIR=str(config_dir)``; the
+    built-in seat inherits this process's own variable, so its raw value is
+    hashed as given (a trailing slash changes the name).
+    """
+    storage = os.environ.get("CLAUDE_SECURESTORAGE_CONFIG_DIR")
+    if storage is not None:
+        return _keychain_service_from(storage) if storage else _KEYCHAIN_SERVICE
+    directory = Path(config_dir).expanduser()
+    inherited = os.environ.get("CLAUDE_CONFIG_DIR", "")
+    if not inherited.strip():
+        if directory == Path.home() / ".claude":
+            return _KEYCHAIN_SERVICE
+        return _keychain_service_from(str(config_dir))
+    if Path(inherited.strip()).expanduser() == directory:
+        return _keychain_service_from(inherited)
+    return _keychain_service_from(str(config_dir))
 
 
 def _keychain_item_exists(service: str) -> bool:
@@ -226,8 +249,10 @@ _ORG_TYPE_TO_TIER = {
 
 
 def _tier_from_identity(config_dir: Path) -> str | None:
+    from dodaios.claude_auth import claude_account_file
+
     try:
-        data = json.loads((Path(config_dir) / ".claude.json").read_text(encoding="utf-8"))
+        data = json.loads(claude_account_file(Path(config_dir)).read_text(encoding="utf-8"))
     except (OSError, ValueError):  # no identity file: tier unknown, login counts
         return None
     account = data.get("oauthAccount") if isinstance(data, dict) else None

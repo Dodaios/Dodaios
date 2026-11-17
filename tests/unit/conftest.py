@@ -76,6 +76,20 @@ def _polish_pass_holds_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(polish, "resolve_polish_chain", lambda cfg: ())
 
 
+@pytest.fixture(autouse=True)
+def _no_real_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never ask the developer's real macOS Keychain for a Claude login.
+
+    On a Mac every ``claude_login_in`` without a credentials file probes the
+    Keychain through ``/usr/bin/security``. A test that wants an item patches
+    the probe in its own body, after this fixture.
+    """
+    from dodaios import claude_credentials
+
+    monkeypatch.setattr(claude_credentials, "_keychain_item_exists", lambda _service: False)
+    monkeypatch.setattr(claude_credentials, "_keychain_secret", lambda _service: None)
+
+
 @pytest.fixture
 def speech_by_loudness(monkeypatch: pytest.MonkeyPatch) -> None:
     """Let the dictation's speech map judge by loudness instead of its model.

@@ -924,11 +924,10 @@ def _claude_keychain_bearer(config_dir: Path) -> str | None:
 
 
 def _claude_account_file(config_dir: Path) -> Path:
-    """Without CLAUDE_CONFIG_DIR, Claude Code keeps its account file beside ~/.claude."""
-    inside = config_dir / ".claude.json"
-    if not inside.exists() and config_dir == Path.home() / ".claude":
-        return Path.home() / ".claude.json"
-    return inside
+    """The seat's account file: for ``~/.claude`` the fresher of the two candidates."""
+    from dodaios.claude_auth import claude_account_file
+
+    return claude_account_file(config_dir)
 
 
 def _claude_usage(account: AgentAccount) -> AccountUsage:

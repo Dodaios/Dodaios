@@ -411,7 +411,8 @@ def preferred_seat(platform: str, account_id: str | None) -> str | None:
     which the watch has already moved to the next subscription — is the
     answer, but only when it is a signed-in SUBSCRIPTION: a turn is never
     rerouted onto a login that bills per token. ``None`` means "keep yours".
-    No network, no spawn; the file reads happen only for a spent seat.
+    No network; the file reads happen only for a spent seat (on macOS that
+    read also asks ``/usr/bin/security`` whether the seat's Keychain item exists).
     """
     from dodaios import agent_accounts
 
