@@ -1,7 +1,8 @@
-import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, startTransition, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
+import { ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
 import { STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
@@ -1245,7 +1246,12 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
     return () => observer.disconnect();
   }, []);
 
-  return <ThreadFolder.Provider value={folder}><div className="relative min-h-0 flex-1">
+  // A file or folder the answers name opens beside the conversation.
+  const openPath = useCallback((path: string) => {
+    void import("./openPathBeside").then((module) => module.openPathBeside(path, folder));
+  }, [folder]);
+
+  return <ThreadFolder.Provider value={folder}><ChatPathOpener.Provider value={openPath}><div className="relative min-h-0 flex-1">
     <div ref={scroller} data-testid="thread-timeline"
       onScroll={(event) => {
         const box = event.currentTarget;
@@ -1268,5 +1274,5 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="absolute left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground shadow-float hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ArrowDown className="h-4 w-4" />
     </button>}
-  </div></ThreadFolder.Provider>;
+  </div></ChatPathOpener.Provider></ThreadFolder.Provider>;
 }

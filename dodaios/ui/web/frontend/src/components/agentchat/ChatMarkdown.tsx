@@ -15,6 +15,7 @@ import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
 import { CodeBlock } from "@/components/docs/CodeBlock";
 import { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
+import { ChatPathOpener, pathInCode } from "./chatPaths";
 
 export { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
 export type { MediaKind } from "./MediaPreview";
@@ -98,16 +99,26 @@ function onChatLinkClick(event: { preventDefault(): void }, href: string, label 
   else if (action.type === "external") void openExternalUrl(action.url);
 }
 
+/** A local link opens beside the conversation when a thread offers that, else on the computer. */
+function openLocal(event: { preventDefault(): void }, href: string, label: string, openBeside: ((path: string) => void) | null) {
+  const local = openBeside ? localPathFromChatHref(href) : null;
+  if (!local || !openBeside) return onChatLinkClick(event, href, label);
+  event.preventDefault();
+  openBeside(local);
+}
+
 // Stable component identities are essential: changing these on each streamed
 // token would unmount videos, reset playback and discard image error state.
 const MARKDOWN_COMPONENTS: Components = {
-  img: ({ src = "", alt = translate("chat_media.image_fallback") }) => {
+  img: function ChatImage({ src = "", alt = translate("chat_media.image_fallback") }) {
+    const openBeside = useContext(ChatPathOpener);
     const local = localPathFromChatHref(src);
-    if (local) return <a href={src} title={local} onClick={event => onChatLinkClick(event, src, alt || local)}>{alt || local}</a>;
+    if (local) return <a href={src} title={local} onClick={event => openLocal(event, src, alt || local, openBeside)}>{alt || local}</a>;
     return <MediaPreview src={src} label={alt || translate("chat_media.image_fallback")} kind={mediaKind(src) ?? "image"} />;
   },
   a: function MediaLink({ href = "", children }) {
     const imageKeys = useContext(ImageKeysContext);
+    const openBeside = useContext(ChatPathOpener);
     const kind = mediaKind(href);
     const label = Children.toArray(children).filter(child => typeof child === "string").join("") || kind || "media";
     if (kind && !imageKeys.has(assetKey(href))) return <MediaPreview src={href} label={label} kind={kind} />;
@@ -125,7 +136,20 @@ const MARKDOWN_COMPONENTS: Components = {
     // A web page: its site's logo and a short name; the full address is on the hover card.
     const web = local ? null : webLinkInfo(href, Children.toArray(children).every(child => typeof child === "string") ? label : null);
     if (web) return <WebLink info={web} onOpen={event => onChatLinkClick(event, href, label)}>{children}</WebLink>;
-    return <a href={href} title={local || undefined} onClick={event => onChatLinkClick(event, href, label)}>{children}</a>;
+    return <a href={href} title={local || undefined} onClick={event => openLocal(event, href, label, openBeside)}>{children}</a>;
+  },
+  // A file or folder the answer names in code (`todo.md`, `C:\…\clip.mp4`)
+  // opens beside the conversation, where a thread offers that.
+  code: function ChatCode({ node: _node, className, children, ...props }) {
+    const openBeside = useContext(ChatPathOpener);
+    const text = Children.toArray(children).every(child => typeof child === "string") ? Children.toArray(children).join("") : "";
+    const path = openBeside && !className && text ? pathInCode(text) : null;
+    if (!path) return <code className={className} {...props}>{children}</code>;
+    return <a href={`#jarvis-local=${encodeURIComponent(path)}`} title={translate("thread_turn.open_beside")} data-testid="chat-path-link"
+      className="cursor-pointer no-underline hover:underline"
+      onClick={event => { event.preventDefault(); openBeside?.(path); }}>
+      <code {...props}>{children}</code>
+    </a>;
   },
   pre: ({ children, node: _node, ...props }) => {
     const fence = readFence(children);
