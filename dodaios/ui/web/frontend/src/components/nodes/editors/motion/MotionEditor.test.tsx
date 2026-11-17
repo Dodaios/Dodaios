@@ -1,7 +1,6 @@
 /**
- * The clip editor as a whole: scene actions through the toolbar and the
- * inspector, one shared undo history, texts written in the preview, and a
- * save that takes a blank scene and waits only for a chart that would not draw.
+ * The clip editor as a whole: the bin, the timeline's keys, the inspector,
+ * one shared undo history, and the preview steered and answered.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -118,7 +117,6 @@ const BLANK = {
   scenes: [{ type: "title", seconds: 4, transition: "fade" }],
 };
 
-const blocks = () => screen.getAllByRole("option");
 
 /** Wait for the preview page and let it say it is ready: it becomes the page on screen. */
 async function previewReady(): Promise<HTMLIFrameElement> {
@@ -137,192 +135,140 @@ async function previewReady(): Promise<HTMLIFrameElement> {
   return frame;
 }
 
+const SAVE_WAIT = { timeout: 4000 };
+const lastSave = () => saves[saves.length - 1]?.spec as Record<string, any> | undefined; // eslint-disable-line @typescript-eslint/no-explicit-any
+const editorKeys = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(screen.getByTestId("clip-editor"), { key, ...init });
+
 describe("MotionEditor", () => {
-  it("adds a scene after the picked one, and undo and redo take it back and forth", () => {
+  it("adds a card from the bin after the piece under the playhead, and undo takes it back", () => {
     open();
-    expect(blocks()).toHaveLength(3);
-    fireEvent.click(screen.getByTestId("motion-add"));
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(3);
+    fireEvent.click(screen.getByTestId("clip-tab-cards"));
     fireEvent.click(screen.getByTestId("motion-add-stat"));
-    expect(blocks()).toHaveLength(4);
-    // After the picked first scene, and picked itself.
-    expect(blocks()[1].getAttribute("aria-selected")).toBe("true");
-    expect(blocks()[1].textContent).toContain("nodes.editor.motion.kinds.stat");
-    expect(screen.getByTestId("motion-field-value")).toBeTruthy();
-
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(4);
+    // After the first scene (the playhead stands at 0), and it is picked.
+    expect(screen.getByTestId("clip-scene-1").getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByTestId("node-editor-undo"));
-    expect(blocks()).toHaveLength(3);
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(3);
     fireEvent.click(screen.getByTestId("node-editor-redo"));
-    expect(blocks()).toHaveLength(4);
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(4);
   });
 
-  it("duplicates and deletes the picked scene from the inspector", () => {
+  it("splits at the playhead with S, deletes the pick with Delete, and saves", async () => {
     open();
-    fireEvent.pointerDown(blocks()[1], { button: 0, pointerId: 1, clientX: 0 });
-    fireEvent.click(screen.getByTestId("motion-duplicate"));
-    expect(blocks().map((block) => block.textContent?.includes("Revenue"))).toEqual([false, true, true, false]);
-    expect(blocks()[2].getAttribute("aria-selected")).toBe("true");
-    fireEvent.click(screen.getByTestId("motion-delete"));
-    fireEvent.click(screen.getByTestId("motion-delete"));
-    expect(blocks()).toHaveLength(2);
-    // A clip keeps one scene: the last one cannot be deleted.
-    fireEvent.click(screen.getByTestId("motion-delete"));
-    expect(blocks()).toHaveLength(1);
-    expect((screen.getByTestId("motion-delete") as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("makes a typing run one undo step and saves it with the version it came from", async () => {
-    open();
-    const field = screen.getByTestId("motion-field-title") as HTMLInputElement;
-    fireEvent.change(field, { target: { value: "Hello!" } });
-    fireEvent.change(field, { target: { value: "Hello there" } });
-    expect(blocks()[0].textContent).toContain("Hello there");
-    await waitFor(() => expect(saves.length).toBe(1), { timeout: 3000 });
+    editorKeys("ArrowRight", { shiftKey: true });
+    editorKeys("ArrowRight", { shiftKey: true });
+    expect(screen.getByTestId("clip-clock").textContent).toContain("0:02.00");
+    editorKeys("s");
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(4);
+    // The right half is picked; Delete takes it away and the track closes up.
+    editorKeys("Delete");
+    expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(3);
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), SAVE_WAIT);
+    await waitFor(() => expect((lastSave()?.scenes as { seconds: number }[])[0].seconds).toBe(2), SAVE_WAIT);
     expect(saves[0].base_version).toBe(3);
-    expect((saves[0].spec.scenes as { title: string }[])[0].title).toBe("Hello there");
-
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
-    expect((screen.getByTestId("motion-field-title") as HTMLInputElement).value).toBe("Hello");
   });
 
-  it("saves a scene whose every word was deleted, without marking it", async () => {
+  it("adds a text layer at the playhead and edits it in the inspector", async () => {
     open();
-    fireEvent.change(screen.getByTestId("motion-field-title"), { target: { value: "" } });
-    await waitFor(() => expect(saves.length).toBe(1), { timeout: 3000 });
-    expect((saves[0].spec.scenes as { title: string }[])[0].title).toBe("");
-    expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).not.toBe("held");
-    expect(blocks()[0].getAttribute("aria-invalid")).toBeNull();
-    expect(screen.getByTestId("motion-field-title").getAttribute("aria-invalid")).toBeNull();
+    fireEvent.click(screen.getByTestId("clip-tab-text"));
+    fireEvent.click(screen.getByTestId("clip-add-text-title"));
+    expect(screen.getByTestId("clip-inspector-text")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("clip-text"), { target: { value: "Watch this" } });
+    await waitFor(() => expect(lastSave()?.tracks?.[0]?.items?.[0]?.text).toBe("Watch this"), SAVE_WAIT);
+    expect(lastSave()?.tracks?.[0]).toMatchObject({ kind: "text" });
+    expect(lastSave()?.tracks?.[0]?.items?.[0]).toMatchObject({ start: 0, style: "title", anim: "pop" });
   });
 
-  it("opens a new clip blank, and saves it again after its words are written and deleted", async () => {
-    open(BLANK);
-    expect(blocks()).toHaveLength(1);
-    expect(blocks()[0].getAttribute("aria-invalid")).toBeNull();
-    for (const field of ["kicker", "title", "text"]) {
-      expect((screen.getByTestId(`motion-field-${field}`) as HTMLInputElement).value).toBe("");
-    }
-    // Nothing changed, nothing to save.
-    expect(saves).toEqual([]);
-
-    const title = screen.getByTestId("motion-field-title");
-    fireEvent.change(title, { target: { value: "Q" } });
-    await waitFor(() => expect(saves.length).toBe(1), { timeout: 3000 });
-    fireEvent.change(title, { target: { value: "" } });
-    await waitFor(() => expect(saves.length).toBe(2), { timeout: 3000 });
-    expect((saves[1].spec.scenes as { title: string }[])[0].title).toBe("");
-    expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).not.toBe("held");
-  });
-
-  it("takes a text written in the preview as one step, and answers the page", async () => {
-    open();
-    const frame = await previewReady();
-    const answers: unknown[] = [];
-    const post = vi.spyOn(frame.contentWindow as Window, "postMessage").mockImplementation((message: unknown) => {
-      answers.push(message);
-    });
-
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { type: "dodaios-node-edit", id: 7, path: "/scenes/1/items/0/value", value: "1.250,5", as: "number" },
-          source: frame.contentWindow,
-        }),
-      );
-    });
-    expect(answers).toContainEqual({ type: "dodaios-node-edit-state", id: 7, state: "saved" });
-    // The edited scene is picked, and its inspector shows the new number.
-    expect(blocks()[1].getAttribute("aria-selected")).toBe("true");
-    expect((screen.getByTestId("motion-bar-value-0") as HTMLInputElement).value).toBe("1250.5");
-
-    await act(async () => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { type: "dodaios-node-edit", id: 8, path: "/scenes/1/items/1/value", value: "lots", as: "number" },
-          source: frame.contentWindow,
-        }),
-      );
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { type: "dodaios-node-edit", id: 9, path: "/scenes/0/kicker", value: "Q3", as: "text" },
-          source: frame.contentWindow,
-        }),
-      );
-    });
-    // Not a number, and a place the spec has no value at: both refused.
-    expect(answers).toContainEqual({ type: "dodaios-node-edit-state", id: 8, state: "failed" });
-    expect(answers).toContainEqual({ type: "dodaios-node-edit-state", id: 9, state: "failed" });
-
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
-    expect((screen.getByTestId("motion-bar-value-0") as HTMLInputElement).value).toBe("420");
-    post.mockRestore();
-  });
-
-  it("stands the preview on the picked scene and plays it from there", async () => {
+  it("shows the preview bare, plays from the playhead and follows the page's clock", async () => {
     open();
     const frame = await previewReady();
     const sent: Record<string, unknown>[] = [];
     vi.spyOn(frame.contentWindow as Window, "postMessage").mockImplementation((message: unknown) => {
       sent.push(message as Record<string, unknown>);
     });
-    // The page itself opened on the picked scene (no play from the start first).
-    expect(frame.getAttribute("srcdoc")).toContain('data-film-scene="0"');
-
-    fireEvent.pointerDown(blocks()[2], { button: 0, pointerId: 1, clientX: 0 });
-    expect(sent).toContainEqual({ type: "dodaios-node-mode", mode: "edit" });
-    expect(sent).toContainEqual({ type: "dodaios-film-seek", t: 8, play: false });
-
     fireEvent.click(screen.getByTestId("motion-play"));
-    expect(sent).toContainEqual({ type: "dodaios-node-mode", mode: "view" });
-    expect(sent).toContainEqual({ type: "dodaios-film-seek", t: 8, play: true });
-
+    expect(sent).toContainEqual({ type: "dodaios-film-view", bare: true, guides: false });
+    expect(sent).toContainEqual({ type: "dodaios-film-seek", t: 0, play: true });
     const report = (data: Record<string, unknown>) =>
       act(async () => {
         window.dispatchEvent(new MessageEvent("message", { data: { type: "dodaios-film-time", ...data }, source: frame.contentWindow }));
       });
     // A report from before the page started playing does not end the play.
-    await report({ t: 9, scene: 2, playing: false });
+    await report({ t: 0, scene: 0, playing: false });
     expect(screen.getByTestId("motion-stop")).toBeTruthy();
-    await report({ t: 9.5, scene: 2, playing: true });
-    expect(screen.getByTestId("motion-playhead")).toBeTruthy();
-    // The film ended: the editor stands on the scene it reached.
+    await report({ t: 2.5, scene: 0, playing: true });
+    expect(screen.getByTestId("clip-clock").textContent).toContain("0:02.50");
     await report({ t: 11, scene: 2, playing: false });
     expect(screen.getByTestId("motion-play")).toBeTruthy();
-    expect(screen.queryByTestId("motion-playhead")).toBeNull();
+    // The safe-zone guide is the page's own.
+    fireEvent.click(screen.getByTestId("clip-guides"));
+    expect(sent).toContainEqual({ type: "dodaios-film-view", bare: true, guides: true });
   });
 
-  it("changes the whole clip's look from the toolbar, each an undo step", () => {
+  it("takes a text written in the preview (text mode) as one step, and answers the page", async () => {
     open();
-    fireEvent.click(screen.getByTestId("motion-loop"));
-    expect(screen.getByTestId("motion-loop").getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByTestId("motion-theme"));
-    expect(screen.getByTestId("motion-theme").getAttribute("aria-label")).toBe("nodes.editor.motion.toolbar.toDark");
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
-    expect(screen.getByTestId("motion-loop").getAttribute("aria-pressed")).toBe("false");
+    const frame = await previewReady();
+    const answers: Record<string, unknown>[] = [];
+    vi.spyOn(frame.contentWindow as Window, "postMessage").mockImplementation((message: unknown) => {
+      answers.push(message as Record<string, unknown>);
+    });
+    fireEvent.click(screen.getByTestId("clip-edit-text"));
+    expect(answers).toContainEqual({ type: "dodaios-node-mode", mode: "edit" });
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "dodaios-node-edit", id: 7, path: "/scenes/0/title", value: "Hi there" },
+          source: frame.contentWindow,
+        }),
+      );
+    });
+    expect(answers).toContainEqual({ type: "dodaios-node-edit-state", id: 7, state: "saved" });
+    await waitFor(() => expect(lastSave()?.scenes?.[0]?.title).toBe("Hi there"), SAVE_WAIT);
   });
 
-  it("changes a scene's length from the inspector and fits it back to its content", () => {
-    open();
-    const fit = screen.getByTestId("motion-fit") as HTMLButtonElement;
-    // The opening title runs its default 4 s: nothing to fit.
-    expect(fit.disabled).toBe(true);
-    const handle = screen.getByTestId("motion-length-0");
-    fireEvent.keyDown(handle, { key: "ArrowRight", shiftKey: true });
-    expect(handle.getAttribute("aria-valuenow")).toBe("4.5");
-    fireEvent.click(screen.getByTestId("motion-fit"));
-    expect(screen.getByTestId("motion-length-0").getAttribute("aria-valuenow")).toBe("4");
+  it("moves a layer dragged in the preview and picks what was clicked", async () => {
+    open({
+      ...SPEC,
+      tracks: [{ id: "tr1", kind: "text", items: [{ id: "t1", start: 0, seconds: 3, text: "Hook", style: "title", x: 50, y: 50 }] }],
+    });
+    const frame = await previewReady();
+    await act(async () => {
+      window.dispatchEvent(new MessageEvent("message", { data: { type: "dodaios-film-pick", id: "t1" }, source: frame.contentWindow }));
+    });
+    expect(screen.getByTestId("clip-inspector-text")).toBeTruthy();
+    await act(async () => {
+      window.dispatchEvent(new MessageEvent("message", { data: { type: "dodaios-film-move", id: "t1", x: 30.5, y: 20 }, source: frame.contentWindow }));
+    });
+    await waitFor(() => expect(lastSave()?.tracks?.[0]?.items?.[0]).toMatchObject({ x: 30.5, y: 20 }), SAVE_WAIT);
   });
 
-  it("edits a list: points of a bar scene are added, moved and removed", () => {
+  it("sets the format from a platform preset in the clip's settings", async () => {
     open();
-    fireEvent.pointerDown(blocks()[1], { button: 0, pointerId: 1, clientX: 0 });
-    fireEvent.click(screen.getByText("nodes.editor.motion.inspector.addBar"));
-    expect(screen.getByTestId("motion-bar-label-2")).toBeTruthy();
-    fireEvent.change(screen.getByTestId("motion-bar-label-2"), { target: { value: "East" } });
-    fireEvent.click(screen.getAllByLabelText("nodes.editor.motion.inspector.moveUp")[2]);
-    expect((screen.getByTestId("motion-bar-label-1") as HTMLInputElement).value).toBe("East");
-    fireEvent.click(screen.getAllByLabelText("nodes.editor.motion.inspector.remove")[0]);
-    expect((screen.getByTestId("motion-bar-label-0") as HTMLInputElement).value).toBe("East");
+    fireEvent.click(screen.getByTestId("clip-preset-shorts"));
+    await waitFor(() => expect(lastSave()?.format).toBe("tall"), SAVE_WAIT);
+    fireEvent.click(screen.getByTestId("clip-preset-feed"));
+    await waitFor(() => expect(lastSave()?.format).toBe("portrait"), SAVE_WAIT);
+  });
+
+  it("copies and pastes the pick at the playhead with Ctrl+C / Ctrl+V", () => {
+    open();
+    fireEvent.pointerDown(screen.getByTestId("clip-scene-2"), { button: 0, pointerId: 1, clientX: 0 });
+    fireEvent.pointerUp(screen.getByTestId("clip-scene-2"), { button: 0, pointerId: 1, clientX: 0 });
+    editorKeys("c", { ctrlKey: true });
+    editorKeys("Home");
+    editorKeys("v", { ctrlKey: true });
+    const scenes = screen.getAllByTestId(/^clip-scene-/);
+    expect(scenes).toHaveLength(4);
+    expect(scenes[1].getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("opens a new clip blank and saves the first card typed into it", async () => {
+    open(BLANK);
+    fireEvent.pointerDown(screen.getByTestId("clip-scene-0"), { button: 0, pointerId: 1, clientX: 0 });
+    fireEvent.pointerUp(screen.getByTestId("clip-scene-0"), { button: 0, pointerId: 1, clientX: 0 });
+    fireEvent.change(screen.getByTestId("motion-field-title"), { target: { value: "Launch" } });
+    await waitFor(() => expect(lastSave()?.scenes?.[0]?.title).toBe("Launch"), SAVE_WAIT);
   });
 });
 

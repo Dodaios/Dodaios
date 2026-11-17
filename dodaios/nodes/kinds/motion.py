@@ -56,6 +56,7 @@ from typing import Any, Final
 from dodaios.artifacts.design_guide import THEME_CSS
 from dodaios.artifacts.report_blocks import parse_chart, render_chart
 from dodaios.nodes import shell
+from dodaios.nodes.kinds import motion_media as mm
 from dodaios.nodes.shell import attr, esc
 from dodaios.nodes.types import NodeError
 
@@ -65,6 +66,7 @@ FORMATS: Final[dict[str, tuple[int, int, float, int]]] = {
     "wide": (1280, 720, 1.0, 104),
     "square": (1000, 1000, 0.86, 80),
     "tall": (720, 1280, 0.74, 56),
+    "portrait": (880, 1100, 0.8, 72),
 }
 THEMES: Final[tuple[str, ...]] = ("dark", "light")
 SCENE_TYPES: Final[tuple[str, ...]] = (
@@ -78,10 +80,13 @@ SCENE_TYPES: Final[tuple[str, ...]] = (
     "image",
     "chart",
     "end",
+    "video",
 )
-TRANSITIONS: Final[tuple[str, ...]] = ("fade", "slide", "zoom", "cut")
+TRANSITIONS: Final[tuple[str, ...]] = ("fade", "slide", "zoom", "cut", "wipe", "dip", "blur")
 
-MAX_SCENES: Final[int] = 40
+#: The main track holds cards and video pieces; cutting a long take into its
+#: spoken parts makes many pieces, so the bound is generous.
+MAX_SCENES: Final[int] = 200
 MIN_SECONDS: Final[float] = 1.5
 MAX_SECONDS: Final[float] = 20.0
 MAX_BULLETS: Final[int] = 5
@@ -100,6 +105,7 @@ _FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "image": ("image", "caption"),
     "chart": ("kicker", "title", "chart"),
     "end": ("kicker", "title", "text"),
+    "video": (),
 }
 
 #: The values that have a form of their own, and how to say it to the model.
@@ -272,13 +278,47 @@ def _default_seconds(scene: dict[str, Any]) -> float:
     return 4.0
 
 
-def _scene(raw: Any, index: int) -> dict[str, Any]:
+def _video_scene(
+    raw: dict[str, Any], where: str, media: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """A piece of a video (or a still from the library) on the main track."""
+    key = mm._known(media, raw.get("media"), ("video", "image"), where)
+    entry = media[key]
+    scene: dict[str, Any] = {"type": "video", "media": key}
+    if entry["kind"] == "video":
+        scene.update(mm.timing(raw, entry))
+        natural = mm.natural_seconds(raw, entry, 5.0)
+    else:
+        natural = 4.0
+    seconds = shell.bounded(raw.get("seconds"), mm.MIN_ITEM_SECONDS, mm.MAX_ITEM_SECONDS, natural)
+    scene["seconds"] = round(seconds, 3)
+    scene.update(mm.visual(raw, seconds))
+    scene["transition"] = shell.pick(raw.get("transition"), TRANSITIONS, "cut")
+    return scene
+
+
+def _scene(
+    raw: Any,
+    index: int,
+    media: dict[str, dict[str, Any]] | None = None,
+    ids: mm.Ids | None = None,
+) -> dict[str, Any]:
     """One scene, cleaned: its type, the fields that type uses, its length."""
     where = f"Scene {index + 1}"
     if isinstance(raw, str):
         raw = {"text": raw}
     if not isinstance(raw, dict):
         raise NodeError(f"{where} must be an object with a 'type' and that type's texts.")
+    ids = ids if ids is not None else mm.Ids()
+    media = media or {}
+    kind = shell.pick(raw.get("type"), SCENE_TYPES, "")
+    if kind == "video" or (not kind and raw.get("media") and not raw.get("image")):
+        scene = _video_scene(raw, where, media)
+        return {"id": ids.take(raw.get("id"), "v"), **scene}
+    if kind == "image" and raw.get("media") and not raw.get("image"):
+        # A picture from the library as a scene of its own: framed like a video piece.
+        scene = _video_scene({**raw, "type": "video"}, where, media)
+        return {"id": ids.take(raw.get("id"), "v"), **scene}
     found: dict[str, Any] = {
         "kicker": shell.clean(raw.get("kicker"), 60),
         "title": shell.clean(raw.get("title"), 120),
@@ -300,7 +340,6 @@ def _scene(raw: Any, index: int) -> dict[str, Any]:
         "caption": shell.clean(raw.get("caption"), 140),
         "chart": _chart(raw.get("chart")),
     }
-    kind = shell.pick(raw.get("type"), SCENE_TYPES, "")
     if not kind:
         kind = next((name for field, name in _INFER if found[field]), "")
     if not kind:
@@ -320,6 +359,10 @@ def _scene(raw: Any, index: int) -> dict[str, Any]:
         if field in _FIELDS[kind] and not found[field] and not _blank(raw.get(field)):
             raise NodeError(f"{where} ('{kind}') needs {hint}.")
     scene: dict[str, Any] = {"type": kind}
+    # A card keeps the id it was given (the editor and the clip tool give every
+    # scene one); a film written only of cards needs none.
+    if raw.get("id"):
+        scene = {"id": ids.take(raw.get("id"), "s"), **scene}
     scene.update({field: found[field] for field in _FIELDS[kind] if found[field]})
     seconds = shell.bounded(raw.get("seconds"), MIN_SECONDS, MAX_SECONDS, _default_seconds(scene))
     scene["seconds"] = round(seconds, 1)
@@ -337,13 +380,26 @@ def normalize(spec: Any) -> dict[str, Any]:
     if not isinstance(raw_scenes, (list, tuple)) or not raw_scenes:
         raise NodeError(_SPEC_HINT)
     loop = spec.get("loop")
-    return {
+    media = mm.normalize_media(spec.get("media"))
+    # Ids the spec already gives are kept, so a new item never takes one of them.
+    ids = mm.Ids(mm.given_ids(spec))
+    scenes = [_scene(raw, index, media, ids) for index, raw in enumerate(raw_scenes[:MAX_SCENES])]
+    out: dict[str, Any] = {
         "format": shell.pick(spec.get("format"), tuple(FORMATS), "wide"),
         "theme": shell.pick(spec.get("theme"), THEMES, "dark"),
         "accent": _accent(spec.get("accent")),
         "loop": loop is True or str(loop).strip().lower() == "true",
-        "scenes": [_scene(raw, index) for index, raw in enumerate(raw_scenes[:MAX_SCENES])],
+        "scenes": scenes,
     }
+    if media:
+        out["media"] = media
+    tracks = mm.normalize_tracks(spec.get("tracks"), media, ids)
+    if tracks:
+        out["tracks"] = tracks
+    captions = mm.normalize_captions(spec.get("captions"))
+    if captions is not None and captions["items"]:
+        out["captions"] = captions
+    return out
 
 
 # --- the film's parts ----------------------------------------------------------
@@ -758,7 +814,15 @@ def _chart_scene(scene: dict[str, Any], at: float, base: str, language: str) -> 
 
 
 def _scene_html(
-    scene: dict[str, Any], index: int, count: int, film_format: str, language: str = "en"
+    scene: dict[str, Any],
+    index: int,
+    count: int,
+    film_format: str,
+    language: str = "en",
+    *,
+    media: dict[str, dict[str, Any]] | None = None,
+    node_id: str = "",
+    start: float = 0.0,
 ) -> str:
     kind = scene["type"]
     # The room inside the stage's padding, in the units the type sizes are
@@ -785,11 +849,13 @@ def _scene_html(
         inner = _steps_scene(scene, at, base, row=film_format == "wide")
     elif kind == "chart":
         inner = _chart_scene(scene, at, base, language)
+    elif kind == "video":
+        inner = mm.video_scene_html(scene, media or {}, node_id, (width, height), start)
     else:
         inner = _image_scene(scene, at, base)
     state = " is-on" if index == 0 else ""
     return (
-        f'<section class="scene s-{kind}{state}" data-sec="{scene["seconds"]:.1f}" '
+        f'<section class="scene s-{kind}{state}" data-sec="{float(scene["seconds"]):.3f}" '
         f'data-tr="{scene["transition"]}" aria-label="{index + 1} / {count}">{inner}</section>'
     )
 
@@ -1047,6 +1113,9 @@ each(stage.querySelectorAll(".scene"),function(el){
     tr:el.getAttribute("data-tr")||"fade",items:[],on:null};
   build(sc);scenes.push(sc);total+=sc.sec;});
 if(!scenes.length)return;
+// The tracks above the main one may run on after its last scene.
+total=Math.max(total,+stage.getAttribute("data-total")||0);
+var clip=window.DodaiosClip?window.DodaiosClip(stage,d):null;
 var N=scenes.length;
 function clamp(x){return x<0?0:x>1?1:x;}
 function ease(x,e){x=clamp(x);if(e==="lin")return x;var q=1-x;
@@ -1061,10 +1130,12 @@ function put(it,p){
   if(it.p===p)return;it.p=p;it.el.style.setProperty("--p",p.toFixed(4));
   if(it.c)it.el.textContent=counted(it.c,p);}
 function pose(el,tr,v,dir){
-  var tf="";
+  var tf="",cp="",fl="",o=v;
   if(tr==="slide")tf="translate3d("+((1-v)*dir*56).toFixed(2)+"px,0,0)";
   else if(tr==="zoom")tf="scale("+(1-(1-v)*dir*.04).toFixed(4)+")";
-  el.style.opacity=v.toFixed(4);el.style.transform=tf;}
+  else if(tr==="wipe"){o=1;if(dir>0)cp="inset(0 "+((1-v)*100).toFixed(2)+"% 0 0)";}
+  else if(tr==="blur"&&v<1)fl="blur("+((1-v)*22).toFixed(2)+"px)";
+  el.style.opacity=o.toFixed(4);el.style.transform=tf;el.style.clipPath=cp;el.style.filter=fl;}
 function index(t){var i=0;for(var n=1;n<N;n++){if(scenes[n].at<=t)i=n;}return i;}
 function draw(t){
   var i=index(t),cur=scenes[i],lt=Math.min(t-cur.at,cur.sec),cut=cur.tr==="cut";
@@ -1074,12 +1145,15 @@ function draw(t){
     if(s.on!==on){s.on=on;s.el.classList.toggle("is-on",on);}
     if(!on)return;
     if(n===i){
-      pose(s.el,s.tr,cut?1:ease((lt-(i?IN_AT:0))/IN,""),1);
+      var vin=s.tr==="wipe"?ease(lt/OUT,"cub"):s.tr==="dip"?ease((lt-OUT)/IN,""):
+        ease((lt-(i?IN_AT:0))/IN,"");
+      pose(s.el,s.tr,cut?1:vin,1);
       s.items.forEach(function(it){put(it,ease((lt-it.s)/it.d,it.e));});
     }else{
-      pose(s.el,cur.tr,1-out*out,-1);
+      pose(s.el,cur.tr,cur.tr==="wipe"?1:cur.tr==="dip"?1-out:1-out*out,-1);
       s.items.forEach(function(it){put(it,1);});
-    }});}
+    }});
+  if(clip)clip.draw(t,playing===true);}
 var t=0,playing=false,raf=0,last=0,idle=0,loop=root.getAttribute("data-loop")==="1";
 var editing=false;
 var playB=bar.querySelector(".f-play"),restartB=bar.querySelector(".f-restart"),
@@ -1111,7 +1185,8 @@ function play(){
   if(playing||editing)return;if(t>=total)t=0;
   playing=true;last=performance.now();draw(t);sync();wake();raf=requestAnimationFrame(frame);}
 function pause(){
-  if(!playing)return;playing=false;if(raf){cancelAnimationFrame(raf);raf=0;}sync();wake();}
+  if(!playing)return;playing=false;if(raf){cancelAnimationFrame(raf);raf=0;}
+  if(clip)clip.draw(t,false);sync();wake();}
 function toggle(){if(playing)pause();else play();}
 function seek(x){
   // While the film is edited, every move lands on a scene's settled frame.
@@ -1131,7 +1206,7 @@ restartB.addEventListener("click",function(){seek(0);play();});
 replay.addEventListener("click",function(){seek(0);play();});
 loopB.addEventListener("click",function(){loop=!loop;sync();});
 fit.addEventListener("click",function(e){
-  if(editing||e.target.closest&&e.target.closest("button"))return;toggle();});
+  if(bare||editing||e.target.closest&&e.target.closest("button"))return;toggle();});
 var drag=false,resume=false;
 function where(e){var r=scrub.getBoundingClientRect();
   return r.width?clamp((e.clientX-r.left)/r.width)*total:0;}
@@ -1145,6 +1220,13 @@ function drop(){
   if(resume&&t<total)play();}
 scrub.addEventListener("pointerup",drop);scrub.addEventListener("pointercancel",drop);
 d.addEventListener("keydown",function(e){
+  if(bare){
+    // In the video editor the keys are the editor's: passed on, not acted on.
+    if(e.target&&e.target.closest&&e.target.closest("[data-at],[contenteditable]"))return;
+    e.preventDefault();
+    try{up.postMessage({type:"dodaios-film-key",key:e.key,shift:e.shiftKey,
+      ctrl:e.ctrlKey||e.metaKey,alt:e.altKey},"*");}catch(x){}
+    return;}
   if(e.altKey||e.ctrlKey||e.metaKey)return;
   var k=e.key;
   if(k===" "||k==="Spacebar"){
@@ -1176,15 +1258,45 @@ var steered=false,toldAt=0,toldScene=-1,toldPlaying=null;
 function report(force){
   if(!steered)return;
   var i=index(t),now=Date.now();
-  if(!force&&i===toldScene&&playing===toldPlaying&&now-toldAt<200)return;
+  if(!force&&i===toldScene&&playing===toldPlaying&&now-toldAt<90)return;
   toldAt=now;toldScene=i;toldPlaying=playing;
   try{up.postMessage({type:"dodaios-film-time",t:Math.round(t*100)/100,scene:i,
     playing:playing,total:total},"*");}catch(e){}}
 addEventListener("message",function(e){
   if(!up||e.source!==up)return;
-  var m=e.data;if(!m||typeof m!=="object"||m.type!=="dodaios-film-seek")return;
+  var m=e.data;if(!m||typeof m!=="object")return;
+  if(m.type==="dodaios-film-view"){
+    // The video editor shows the film bare: its own controls are the editor's.
+    bare=m.bare===true;root.classList.toggle("is-bare",bare);
+    stage.classList.toggle("show-guides",m.guides===true);size();return;}
+  if(m.type!=="dodaios-film-seek")return;
   var x=Number(m.t);steered=true;pause();
   if(isFinite(x))seek(x);if(m.play===true)play();report(true);});
+// In the bare editor view a text or picture layer is picked with a click and
+// moved by dragging; the editor gets its id and its new centre in percent.
+var bare=false,grab=null;
+stage.addEventListener("pointerdown",function(e){
+  if(!bare||playing||!up)return;
+  var el=e.target.closest&&e.target.closest(".layer");
+  try{up.postMessage({type:"dodaios-film-pick",id:el?el.getAttribute("data-id"):""},"*");}
+  catch(x){}
+  if(!el)return;
+  var r=stage.getBoundingClientRect();
+  grab={el:el,r:r,x0:e.clientX,y0:e.clientY,l:parseFloat(el.style.left)||50,
+    t:parseFloat(el.style.top)||50,moved:false};
+  try{stage.setPointerCapture(e.pointerId);}catch(x){}
+  e.preventDefault();});
+stage.addEventListener("pointermove",function(e){
+  if(!grab)return;
+  var dx=(e.clientX-grab.x0)/grab.r.width*100,dy=(e.clientY-grab.y0)/grab.r.height*100;
+  if(!grab.moved&&Math.abs(dx)+Math.abs(dy)<.6)return;grab.moved=true;
+  grab.el.style.left=(grab.l+dx).toFixed(2)+"%";grab.el.style.top=(grab.t+dy).toFixed(2)+"%";});
+function letGo(){
+  if(!grab)return;var g=grab;grab=null;if(!g.moved)return;
+  try{up.postMessage({type:"dodaios-film-move",id:g.el.getAttribute("data-id"),
+    x:Math.round(parseFloat(g.el.style.left)*100)/100,
+    y:Math.round(parseFloat(g.el.style.top)*100)/100},"*");}catch(x){}}
+stage.addEventListener("pointerup",letGo);stage.addEventListener("pointercancel",letGo);
 var q=null;try{q=new URLSearchParams(location.search);}catch(e){}
 var at=q&&q.get("t")!==null?parseFloat(q.get("t")):NaN;
 var still=(q&&q.get("autoplay")==="0")||
@@ -1192,7 +1304,14 @@ var still=(q&&q.get("autoplay")==="0")||
 // An editor's preview opens standing on the scene being edited, settled, instead
 // of playing from the start (data-film-scene on <html>, a scene's index).
 var held=parseInt(d.documentElement.getAttribute("data-film-scene"),10);
-if(!isNaN(at))seek(at);
+// The export draws the film frame by frame: no controls, no clock of its own.
+if(q&&q.get("export")==="1"){
+  root.classList.add("is-export");size();
+  window.__clipTotal=total;
+  window.__clipFrame=function(x){
+    pause();seek(+x||0);return clip?clip.ready(t):Promise.resolve();};}
+if(q&&q.get("export")==="1")seek(0);
+else if(!isNaN(at))seek(at);
 else if(!isNaN(held))seek(settled(Math.max(0,Math.min(N-1,held))));
 else if(still)seek(settled(0));else{draw(0);sync();play();}
 // --- edit mode -------------------------------------------------------------
@@ -1358,22 +1477,40 @@ def render(node: Any) -> str:
     scenes = spec["scenes"]
     width, height, factor, pad = FORMATS[spec["format"]]
     accent = shell.color(spec["accent"], "var(--accent)")
-    total = _total(scenes)
-    ticks, elapsed = [], 0.0
-    for scene in scenes[:-1]:
+    total = max(mm.duration(spec), 0.1)
+    ticks, elapsed, starts = [], 0.0, []
+    for scene in scenes:
+        starts.append(elapsed)
         elapsed += float(scene["seconds"])
-        ticks.append(f'<i class="f-tick" style="left:{elapsed / total * 100:.3f}%"></i>')
+        if elapsed < total - 1e-6:
+            ticks.append(f'<i class="f-tick" style="left:{elapsed / total * 100:.3f}%"></i>')
     language = str(getattr(node, "language", "") or "en")
+    node_id = str(getattr(node, "id", "") or "")
+    media = spec.get("media") or {}
     frames = "".join(
-        _scene_html(scene, index, len(scenes), spec["format"], language)
+        _scene_html(
+            scene,
+            index,
+            len(scenes),
+            spec["format"],
+            language,
+            media=media,
+            node_id=node_id,
+            start=starts[index],
+        )
         for index, scene in enumerate(scenes)
-    )
+    ) + mm.layers_html(spec, node_id, (width, height), accent)
+    voice = json.dumps([[round(a, 3), round(b, 3)] for a, b in mm.voice_spans(spec)])
     body = (
         f'<div class="film" data-loop="{1 if spec["loop"] else 0}">'
         '<div class="film-view">'
         f'<div class="film-fit" data-tone="{spec["theme"]}" '
-        f'style="--fa:{attr(accent)};--fa-ink:{attr(_ink_on(accent))}">'
-        f'<div class="stage" data-w="{width}" data-h="{height}" '
+        f'style="--fa:{attr(accent)};--fa-ink:{attr(_ink_on(accent))}'
+        # The spoken word lights up gold unless the clip chose its own accent.
+        + (f";--cap-hi:{attr(accent)}" if spec["accent"] else "")
+        + '">'
+        f'<div class="stage" data-w="{width}" data-h="{height}" data-format="{spec["format"]}" '
+        f'data-total="{total:.3f}" data-voice="{attr(voice)}" '
         f'style="width:{width}px;height:{height}px;--k:{factor};--pad:{pad}px">{frames}</div>'
         '<button type="button" class="f-replay" aria-label="Replay" hidden>'
         f"{_icon('restart')}</button>"
@@ -1395,8 +1532,8 @@ def render(node: Any) -> str:
     return shell.document(
         node,
         body=body,
-        css=_TONES_CSS + _FILM_CSS,
-        js=_FILM_JS,
+        css=_TONES_CSS + _FILM_CSS + mm.MEDIA_CSS,
+        js=mm.MEDIA_JS + _FILM_JS,
         body_class="fill",
         kit_js=False,
     )
@@ -1424,7 +1561,7 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": title[:60],
         "subtitle": subtitle[:80],
-        "seconds": _total(scenes) if scenes else 0.0,
+        "seconds": mm.duration(spec) if scenes else 0.0,
         "dark": spec.get("theme", "dark") != "light",
         "accent": shell.color(spec.get("accent")),
         "format": shell.pick(spec.get("format"), tuple(FORMATS), "wide"),
@@ -1470,9 +1607,9 @@ GUIDE: Final[str] = (
     '(default) | "light", "accent": color, "loop": bool, "scenes": [scene, ...]}\n'
     "- accent: ONE color for the whole film: blue, orange, green, amber, violet, pink, "
     "or a hex.\n"
-    '- scenes: 1 to 40, played in order. Each has "type", that type\'s fields, optional '
+    '- scenes: 1 to 200, played in order. Each has "type", that type\'s fields, optional '
     '"seconds" (1.5 to 20; by default as long as its content needs) and "transition": '
-    "fade (default) | slide | zoom | cut.\n"
+    "fade (default) | slide | zoom | cut | wipe | dip | blur.\n"
     "Scene types and the fields they keep (anything else is dropped):\n"
     "- title: kicker, title, text. The opening; the title's words rise in one by one.\n"
     "- text: kicker, text. One statement set large, revealed line by line.\n"
@@ -1489,6 +1626,8 @@ GUIDE: Final[str] = (
     '[labels], "series": [{"name", "data": [numbers]}], "unit", "stacked"}. Drawn left '
     "to right; for a few named values bars move better.\n"
     "- end: kicker, title, text. The closing card.\n"
+    "- video: a piece of a video or photo from the clip's library. Videos, sound, text "
+    "layers and captions are edited with the clip tool (its guide has the actions).\n"
     'Without "type" the fields decide (bullets -> bullets, value -> stat, items -> bars).\n'
     "Writing a film: one thought per scene. 5 to 9 scenes and 20 to 45 seconds are "
     "plenty. Open with a title, close with an end card, vary the types in between. "

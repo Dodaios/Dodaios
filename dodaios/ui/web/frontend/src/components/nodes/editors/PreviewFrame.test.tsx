@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 
-import { PREVIEW_CSP, PreviewFrame, preparePreviewHtml, useNodePreview } from "./PreviewFrame";
+import { PREVIEW_CSP, PreviewFrame, preparePreviewHtml, previewCsp, useNodePreview } from "./PreviewFrame";
 
 afterEach(() => {
   cleanup();
@@ -10,10 +10,22 @@ afterEach(() => {
 
 const PAGE = '<!doctype html><html lang="en"><head><title>x</title></head><body><main>Hi</main></body></html>';
 
+describe("previewCsp", () => {
+  it("opens one way in: a clip's library files on the app's own origin", () => {
+    const csp = previewCsp("http://127.0.0.1:8765");
+    expect(csp).toContain("media-src data: blob: http://127.0.0.1:8765/clip-media/;");
+    expect(csp).toContain("img-src data: blob: http://127.0.0.1:8765/clip-media/;");
+    expect(csp).toContain("connect-src 'none'");
+    // An origin that is not a plain web origin leaves the policy shut.
+    expect(previewCsp("null")).toBe(PREVIEW_CSP);
+    expect(previewCsp("http://x; script-src *")).toBe(PREVIEW_CSP);
+  });
+});
+
 describe("preparePreviewHtml", () => {
   it("puts the network-shut policy first in <head>, stamps the theme and adds the editor's script", () => {
     const html = preparePreviewHtml(PAGE, "dark", "window.x = 1; '</script>'");
-    expect(html).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`);
+    expect(html).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${previewCsp()}">`);
     expect(html).toContain('<html lang="en" data-theme="dark">');
     expect(html).toContain("<script>window.x = 1; '<\\/script>'</script></body>");
     expect(PREVIEW_CSP).toContain("connect-src 'none'");

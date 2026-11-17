@@ -826,6 +826,18 @@ def _look_frame_request(path: str, method: str) -> bool:
     return method in {"GET", "HEAD"} and path.startswith("/looks-frame/")
 
 
+def _clip_media_request(path: str, method: str) -> bool:
+    """A read of a clip's library file (``clip_routes.py``, docs/clips-editor.md).
+
+    The clip page plays its videos inside a sandboxed frame with an opaque
+    origin, so those loads arrive with ``Origin: null`` (or none) and no
+    credential. Each file is named by a random id, every response may run
+    nothing, and only GET and HEAD pass; every other route keeps refusing the
+    frame.
+    """
+    return method in {"GET", "HEAD"} and path.startswith("/clip-media/")
+
+
 def _mission_inner_auth_socket(path: str) -> bool:
     if path == "/api/missions/ws":
         return True
@@ -1201,7 +1213,9 @@ class SurfaceSecurity:
             # the extension never receives the general app control credential.
             await self.app(scope, receive, send)
             return
-        if kind == "http" and _look_frame_request(path, method):
+        if kind == "http" and (
+            _look_frame_request(path, method) or _clip_media_request(path, method)
+        ):
             await self.app(scope, receive, send)
             return
         if not self.origin_is_trusted(scope):

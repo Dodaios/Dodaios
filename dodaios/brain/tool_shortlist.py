@@ -109,6 +109,7 @@ DEFAULT_DIRECT: Final[tuple[str, ...]] = (
     "write_report",
     "node",
     "whiteboard",
+    "clip",
 )
 
 #: Hand-off tools the lead reaches through ``delegate`` instead of seeing next

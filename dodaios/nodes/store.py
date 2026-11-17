@@ -509,6 +509,11 @@ class NodeStore:
             # The copy's scene names the same pictures; draw its page with them.
             board_files.copy_all(source, target)
             copy = self._write(target, copy)
+        if node.type == "motion" and source is not None and target is not None:
+            # The copy's clip plays the same files: its own copy of the library.
+            from dodaios.nodes.clip.media import copy_library
+
+            copy_library(source, target)
         return copy
 
     def delete(self, node_id: str) -> bool:

@@ -23,9 +23,22 @@ export const PREVIEW_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; " +
   "font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; base-uri 'none';";
 
+/**
+ * The policy with one way in: a clip's library files (`/clip-media/`) on the
+ * app's own origin. The page still reaches no API route and sends nothing out.
+ */
+export function previewCsp(origin: string = typeof window !== "undefined" ? window.location.origin : ""): string {
+  if (!/^https?:\/\/[^\s;'"]+$/.test(origin)) return PREVIEW_CSP;
+  const media = `${origin}/clip-media/`;
+  return PREVIEW_CSP.replace("img-src data: blob:;", `img-src data: blob: ${media};`).replace(
+    "media-src data: blob:;",
+    `media-src data: blob: ${media};`,
+  );
+}
+
 /** `html` with the policy, the theme and an optional script of the editor's own. */
 export function preparePreviewHtml(html: string, theme: string, script?: string): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${previewCsp()}">`;
   const extra = script ? `<script>${script.replace(/<\/script/gi, "<\\/script")}</script>` : "";
   let out = html;
   // The policy must come before anything it governs: first thing in <head>.

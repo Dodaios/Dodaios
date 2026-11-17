@@ -70,7 +70,10 @@ TYPE_LINES: Final[dict[str, str]] = {
         "a board of notes, shapes and arrows: a diagram, a map of ideas "
         "(make and edit it with the whiteboard tool)"
     ),
-    "motion": 'a short animation (the app says "Clips")',
+    "motion": (
+        'a video clip or a short animation (the app says "Clips"): videos, cuts, text, '
+        "music and captions are edited with the clip tool"
+    ),
 }
 
 
@@ -190,7 +193,7 @@ class NodeTool:
         "section and as a card in the chat. Types: docs (a document), slides (a deck), "
         "sheets (rows and columns), data (analyses "
         "of the person's data; Analytics), whiteboard (a canvas: use the whiteboard "
-        "tool), motion (a short animation; Clips). Call 'guide' with the type before "
+        "tool), motion (a video: clip tool; Clips). Call 'guide' with the type before "
         "your first create of it; the spec follows that grammar. Change one with "
         "'update' and 'changes' (edits by path), not a full resend. To keep one current "
         "from the person's apps, give 'track' (on create, or with 'keep_current'); "

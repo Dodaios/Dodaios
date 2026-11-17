@@ -41,6 +41,7 @@ from dodaios.missions.standalone_run import marker_label as standalone_marker_la
 from dodaios.missions.standalone_run import read_marker as read_standalone_marker
 from dodaios.missions.state_machine import MissionState, is_terminal
 from dodaios.missions.stream_evidence import clean_request_body
+from dodaios.nodes.model import SLUG_INFIX as NODE_SLUG_INFIX
 from dodaios.platform import detect_platform
 from dodaios.ui.web.artifact_view import (
     ARTIFACT_PAGE_CSP,
@@ -1182,6 +1183,12 @@ async def serve_artifact_page(slug: str, path: str, request: Request) -> FileRes
         # A report written before the current page look is laid out again from
         # its own Markdown the first time it is opened; nothing else is touched.
         await asyncio.to_thread(restyle_if_dated, target)
+    policy = ARTIFACT_PAGE_CSP
+    if NODE_SLUG_INFIX in slug:
+        # A clip's page plays its videos from this server's /clip-media/.
+        from dodaios.ui.web.clip_routes import clip_page_csp
+
+        policy = clip_page_csp(request)
     return FileResponse(
         target,
         media_type="text/html",
@@ -1189,7 +1196,7 @@ async def serve_artifact_page(slug: str, path: str, request: Request) -> FileRes
         content_disposition_type="inline",
         headers={
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": ARTIFACT_PAGE_CSP,
+            "Content-Security-Policy": policy,
             # A page is edited by revision, not cached across versions: the
             # same filename can hold a newer page a minute later.
             "Cache-Control": "no-store",

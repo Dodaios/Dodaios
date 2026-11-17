@@ -127,7 +127,12 @@ def test_a_preview_is_the_page_of_the_unsaved_spec_served_like_the_node_page(
     answer = client.post(f"/api/nodes/{node.id}/preview", json={"spec": _spec("Draft only.")})
     assert answer.status_code == 200
     assert answer.headers["content-type"].startswith("text/html")
-    assert answer.headers["content-security-policy"] == ARTIFACT_PAGE_CSP
+    # The node page's policy, widened only by the server's own clip media address.
+    policy = answer.headers["content-security-policy"]
+    assert policy == ARTIFACT_PAGE_CSP.replace(
+        "img-src data: blob:;", "img-src data: blob: http://testserver/clip-media/;"
+    ).replace("media-src data: blob:;", "media-src data: blob: http://testserver/clip-media/;")
+    assert "connect-src 'none'" in policy and "sandbox allow-scripts" in policy
     assert answer.headers["cache-control"] == "no-store"
     assert answer.headers["x-content-type-options"] == "nosniff"
     assert "Draft only." in answer.text and "<style" in answer.text

@@ -70,6 +70,23 @@ def comments_prompt(node: Node, comments: list[NodeComment]) -> str:
         at = f" {' '.join(place)}" if place else ""
         lines.append(f"{number}.{at}: {comment.text.strip()}")
     listed = "\n".join(lines)
+    if node.type == "motion":
+        # A clip is a video: its cuts, layers and captions are the clip tool's actions.
+        return (
+            f'The person left {len(comments)} comment(s) on the clip "{node.title}" '
+            f"(node id {node.id}). Change the clip as they say:\n\n"
+            f"{listed}\n\n"
+            f'Call the clip tool with operation "guide" if you have not this conversation, then '
+            f'"read" with clip "{node.id}", then "edit" with the actions that carry out every '
+            'comment (use "transcribe", "captions" or "silences" when a comment needs them). '
+            'Look at the result with "look" and fix what is weak. Keep what the comments do '
+            "not touch. Never create a second node, and do not send, change, book or delete "
+            "anything outside this clip.\n"
+            "The person sees the change in the clip, not in a chat. So when every comment is "
+            f"worked in, reply with exactly {NOTHING} and nothing else. Only when a comment "
+            "could not be carried out, reply with one short sentence in the person's language "
+            "that says which one and why."
+        )
     return (
         f'The person left {len(comments)} comment(s) on the node "{node.title}" '
         f"(node id {node.id}, type {node.type}). Change the node as they say:\n\n"

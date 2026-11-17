@@ -412,7 +412,11 @@ async def preview_spec(node_id: str, request: Request) -> HTMLResponse:
         page = await asyncio.to_thread(get_store().preview, node_id, body.spec)
     except NodeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return HTMLResponse(page, headers=dict(_PAGE_HEADERS))
+    from dodaios.ui.web.clip_routes import clip_page_csp
+
+    headers = dict(_PAGE_HEADERS)
+    headers["Content-Security-Policy"] = clip_page_csp(request)
+    return HTMLResponse(page, headers=headers)
 
 
 @router.post("/{node_id}/revert")

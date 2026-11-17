@@ -102,6 +102,9 @@ ROUTER_TOOLS = frozenset({
     # Whiteboards (2026-11-14): actions on a whiteboard node's scene (add,
     # connect, layout, diagram, Mermaid). A direct monitor write, never a spawn.
     "whiteboard",
+    # Clips (2026-11-17): timeline actions on a clip node (cut, captions,
+    # silences, look, export). A direct monitor write, never a spawn.
+    "clip",
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",
