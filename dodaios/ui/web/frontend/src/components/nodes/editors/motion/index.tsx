@@ -41,7 +41,7 @@ import {
   Maximize2,
 } from "lucide-react";
 
-import { fill, useT, useUiLanguage } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ChartEditor } from "../charts/ChartEditor";
 import type { ChartJson } from "../charts/chartModel";
@@ -155,7 +155,6 @@ function isTyping(target: EventTarget | null): boolean {
 
 export default function MotionEditor({ node, initial, onDone }: NodeEditorProps) {
   const t = useT();
-  const language = useUiLanguage();
   const nodeId = node.id ?? "";
   // The spec in the editor's shape, read once, with an id on every piece so a
   // pick can name it; a revision from the server has the same shape.
@@ -476,7 +475,8 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     setCaptionsBusy(true);
     setCaptionsError("");
     try {
-      const items = await fetchCaptions(nodeId, spec, language);
+      // The spoken language is heard, not taken from the app's own language.
+      const items = await fetchCaptions(nodeId, spec);
       if (!items.length) {
         setCaptionsError(v("bin.noSpeech"));
         return;
@@ -872,7 +872,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
             <ToolbarSeparator />
             <ToolbarButton label={v("toolbar.snap")} icon={<Magnet aria-hidden />} active={snapping} onClick={() => setSnapping((on) => !on)} shortcut="N" data-testid="clip-snap" />
             <div className="flex-1" />
-            <span className="mr-2 hidden text-[11px] text-muted-foreground lg:inline">{v("toolbar.keys")}</span>
+            <span className="mr-2 hidden text-[11px] text-muted-foreground 2xl:inline">{v("toolbar.keys")}</span>
             <ToolbarButton label={v("toolbar.zoomOut")} icon={<ZoomOut aria-hidden />} onClick={() => zoom(0.8)} shortcut="-" />
             <ToolbarButton label={v("toolbar.fit")} icon={<Maximize2 aria-hidden />} onClick={fit} data-testid="clip-fit" />
             <ToolbarButton label={v("toolbar.zoomIn")} icon={<ZoomIn aria-hidden />} onClick={() => zoom(1.25)} shortcut="+" />

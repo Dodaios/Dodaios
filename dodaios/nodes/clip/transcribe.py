@@ -124,6 +124,44 @@ def transcribe_samples(samples: Any, language: str | None = None) -> dict[str, A
     }
 
 
+#: The language heard in a file, by its path, size and change time.
+_heard: dict[tuple[str, int, float], str] = {}
+#: How much of a file the language is judged on.
+_DETECT_S: Final[float] = 30.0
+
+
+def spoken_language(path: Path) -> str | None:
+    """The language spoken in ``path``, judged once on its first half minute.
+
+    A piece of a cut is often only a few seconds long, and on so little speech
+    the recognizer guesses the language wrong (an English sentence of three
+    seconds came back as German words). So the language is judged on the file
+    the piece comes from and kept per file; ``None`` when nothing could be
+    judged, which leaves the guess to the recognizer again.
+    """
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    key = (str(path), stat.st_size, stat.st_mtime)
+    if key in _heard:
+        return _heard[key] or None
+    samples = read_audio(path, 0.0, _DETECT_S, rate=_RATE, channels=1)
+    mono = samples[0] if getattr(samples, "ndim", 1) == 2 else samples
+    found = ""
+    if mono.shape[0] >= _RATE:
+        with _lock:
+            model = _recognizer()
+            try:
+                language, probability, _ = model.detect_language(mono)
+                if probability >= 0.5:
+                    found = str(language)
+            except Exception as exc:  # noqa: BLE001 — an older engine without it: guess per piece
+                log.debug("clip transcribe: language not judged: %s", exc)
+    _heard[key] = found
+    return found or None
+
+
 def transcribe_file(
     path: Path, start: float = 0.0, end: float | None = None, language: str | None = None
 ) -> dict[str, Any]:
@@ -133,7 +171,7 @@ def transcribe_file(
     :class:`TranscribeError` when no recognizer can be loaded.
     """
     samples = read_audio(Path(path), start, end, rate=_RATE, channels=1)
-    found = transcribe_samples(samples, language)
+    found = transcribe_samples(samples, language or spoken_language(Path(path)))
     for word in found["words"]:
         word["s"] = round(word["s"] + start, 3)
         word["e"] = round(word["e"] + start, 3)
