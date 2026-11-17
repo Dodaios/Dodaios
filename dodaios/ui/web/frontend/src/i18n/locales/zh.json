@@ -9470,7 +9470,8 @@
       "too_large": "此文件太大，无法在此显示。",
       "unavailable": "无法读取此文件，它可能已被移动或删除。",
       "no_workspace": "打开一个项目即可在此阅读文件。",
-      "show_change": "显示更改"
+      "show_change": "显示更改",
+      "change_truncated": "还有 {count} 行未显示。"
     }
   },
   "appshots": {

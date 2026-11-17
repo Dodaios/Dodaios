@@ -5,13 +5,15 @@ import { CodeBlock } from "@/components/docs/CodeBlock";
 import { MediaViewer, Notice, OpenExternallyButton } from "@/components/agentic/editor/FileViewers";
 import { viewKindOf, type ViewKind } from "@/components/agentic/editor/fileKinds";
 import { loadTextFile, openOutsideFile } from "@/components/agentic/editor/editorApi";
-import { DiffView } from "@/components/agentic/threads/ThreadDiff";
-import { useT } from "@/i18n";
+import { DiffView } from "@/components/agentic/sidePanel/explorer/DiffView";
+import { DiffStat } from "@/components/agentic/threads/ThreadDiff";
+import { fill, useT } from "@/i18n";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { cn } from "@/lib/utils";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
+import { editHunks } from "./editHunks";
 
 /** Highlighting a very long file would stall the panel; past this it reads as plain text. */
 const HIGHLIGHT_MAX_CHARS = 200_000;
@@ -43,7 +45,8 @@ type Loaded =
 /**
  * The side panel's File tab: the file a thread's work log pointed at, read
  * from disk as it is now, beside the conversation. When the click came from
- * an edit, "Change" shows what that edit did.
+ * an edit, the tab opens on "Change": what that edit did, drawn the way the
+ * Changes view draws a file, with the file's line numbers.
  *
  * The file is read through the code editor's own route. A path outside the
  * workspace is granted first, the same way a modifier-click on a terminal
@@ -60,8 +63,9 @@ export function FileTab() {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [reload, setReload] = useState(0);
 
-  // A new click shows the file itself first.
-  useEffect(() => { setView("file"); }, [nonce]);
+  // A click on an edit shows what it changed; any other click shows the file.
+  const clickedEdit = Boolean(file?.diff?.length);
+  useEffect(() => { setView(clickedEdit ? "change" : "file"); }, [nonce, clickedEdit]);
 
   const absolute = file ? absoluteFilePath(file.path, file.folder) : "";
   useEffect(() => {
@@ -101,6 +105,9 @@ export function FileTab() {
   const name = cut < 0 ? clean : clean.slice(cut + 1);
   const folder = cut < 0 ? "" : clean.slice(0, cut + 1);
   const hasChange = Boolean(file.diff?.length);
+  const changes = file.diff ?? [];
+  const added = changes.reduce((sum, change) => sum + change.added, 0);
+  const removed = changes.reduce((sum, change) => sum + change.removed, 0);
   const shown = view === "change" && hasChange ? "change" : "file";
   const language = loaded.state === "ready" && loaded.text.length <= HIGHLIGHT_MAX_CHARS ? fileLanguage(name) : "";
   const tabButton = (id: "file" | "change", label: string) => <button type="button" role="tab" aria-selected={shown === id}
@@ -116,6 +123,7 @@ export function FileTab() {
         {folder && <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground"><bdi dir="ltr">{folder}</bdi></span>}
         <span className="min-w-0 max-w-full shrink-0 truncate font-medium text-foreground" data-testid="side-file-name">{name}</span>
       </span>
+      {shown === "change" && <DiffStat added={added} removed={removed} />}
       {hasChange && <div role="tablist" aria-label={t("ide_side_panel.file.views")} className="flex shrink-0 items-center gap-0.5">
         {tabButton("file", t("ide_side_panel.file.view_file"))}
         {tabButton("change", t("ide_side_panel.file.view_change"))}
@@ -128,7 +136,16 @@ export function FileTab() {
     </header>
     <div className="min-h-0 flex-1 overflow-auto scrollbar-jarvis" data-testid="side-file-body" data-view={shown}>
       {shown === "change"
-        ? <DiffView files={file.diff ?? []} className="p-3 [&_pre]:max-h-none" />
+        ? <div data-testid="side-file-change">
+          {changes.map((change, index) => <div key={`${change.path}:${index}`}>
+            {/* One edit names one file; a patch over several names each above its lines. */}
+            {changes.length > 1 && <div className="border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">{change.path}</div>}
+            <DiffView hunks={editHunks(change, changes.length === 1 && loaded.state === "ready" ? loaded.text : null)} />
+            {change.truncated > 0 && <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+              {fill(t("ide_side_panel.file.change_truncated"), { count: String(change.truncated) })}
+            </p>}
+          </div>)}
+        </div>
         : loaded.state === "loading"
           ? <div className="flex h-full items-center justify-center"><Loader2 aria-label={t("ide_side_panel.file.loading")} className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           : loaded.state === "media" && workspaceId

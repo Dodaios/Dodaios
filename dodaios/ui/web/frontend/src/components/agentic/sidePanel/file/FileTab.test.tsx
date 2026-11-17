@@ -57,22 +57,28 @@ describe("the side panel's File tab", () => {
     expect(screen.queryByRole("tab")).toBeNull();
   });
 
-  it("switches between the file and the change the click came from", async () => {
+  it("opens a clicked edit on its change, numbered like the Changes view, and switches to the file", async () => {
     fetchMock
       .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/app.py", kind: "file" }))
-      .mockResolvedValueOnce(answer(textFile("print('new')\n")));
+      .mockResolvedValueOnce(answer(textFile("import os\nprint('new')\n")));
     act(() => useSideFileStore.getState().show({ path: "C:/demo/app.py", folder: "", diff }));
     render(<FileTab />);
-    await waitFor(() => expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("file"));
-    fireEvent.click(screen.getByRole("tab", { name: "Change" }));
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");
-    expect(screen.getByText("print('new')")).toBeTruthy();
+    // Once the file is read, the added line carries its number in the file.
+    await waitFor(() => expect(screen.getByText("@@ -2,0 +2,1 @@")).toBeTruthy());
+    const row = screen.getByText("print('new')").closest("[data-kind]");
+    expect(row?.getAttribute("data-kind")).toBe("add");
+    expect(row?.textContent).toContain("2");
+    fireEvent.click(screen.getByRole("tab", { name: "File" }));
+    expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("file");
   });
 
   it("says when the file cannot be read and still offers the change", async () => {
     fetchMock.mockResolvedValueOnce(answer({ detail: "That file is unavailable." }, 404));
     act(() => useSideFileStore.getState().show({ path: "C:/demo/gone.py", folder: "", diff }));
     render(<FileTab />);
+    expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");
+    fireEvent.click(screen.getByRole("tab", { name: "File" }));
     await waitFor(() => expect(screen.getByText(/This file cannot be read/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Show the change" }));
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");

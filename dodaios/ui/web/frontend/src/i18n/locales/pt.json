@@ -9470,7 +9470,8 @@
       "too_large": "Este arquivo é grande demais para ser exibido aqui.",
       "unavailable": "Não é possível ler este arquivo. Ele pode ter sido movido ou excluído.",
       "no_workspace": "Abra um projeto para ler arquivos aqui.",
-      "show_change": "Mostrar a alteração"
+      "show_change": "Mostrar a alteração",
+      "change_truncated": "Mais {count} linhas não são mostradas."
     }
   },
   "appshots": {
