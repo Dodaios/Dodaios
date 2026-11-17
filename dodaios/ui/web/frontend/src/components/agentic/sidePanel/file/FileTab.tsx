@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { FileCode2, Loader2, RefreshCw } from "lucide-react";
 
 import { CodeBlock } from "@/components/docs/CodeBlock";
-import { Notice } from "@/components/agentic/editor/FileViewers";
+import { MediaViewer, Notice, OpenExternallyButton } from "@/components/agentic/editor/FileViewers";
+import { viewKindOf, type ViewKind } from "@/components/agentic/editor/fileKinds";
 import { loadTextFile, openOutsideFile } from "@/components/agentic/editor/editorApi";
 import { DiffView } from "@/components/agentic/threads/ThreadDiff";
 import { useT } from "@/i18n";
+import { openLocalPath } from "@/lib/openLocalPath";
 import { cn } from "@/lib/utils";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
@@ -34,6 +36,8 @@ export function fileLanguage(path: string): string {
 type Loaded =
   | { state: "loading" }
   | { state: "ready"; text: string }
+  /** A picture, PDF, sound or video, shown as itself from the granted path. */
+  | { state: "media"; kind: Exclude<ViewKind, "document">; path: string }
   | { state: "binary" | "too_large" | "unavailable" | "no_workspace" };
 
 /**
@@ -69,6 +73,11 @@ export function FileTab() {
       try {
         const granted = await openOutsideFile(workspaceId, absolute);
         if (granted.kind !== "file") throw new Error("not a file");
+        const media = viewKindOf(granted.path.toLowerCase());
+        if (media && media !== "document") {
+          if (!cancelled) setLoaded({ state: "media", kind: media, path: granted.path });
+          return;
+        }
         const text = await loadTextFile(workspaceId, granted.path);
         if (cancelled) return;
         if (text.binary) setLoaded({ state: "binary" });
@@ -122,11 +131,15 @@ export function FileTab() {
         ? <DiffView files={file.diff ?? []} className="p-3 [&_pre]:max-h-none" />
         : loaded.state === "loading"
           ? <div className="flex h-full items-center justify-center"><Loader2 aria-label={t("ide_side_panel.file.loading")} className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          : loaded.state === "media" && workspaceId
+            ? <MediaViewer kind={loaded.kind} workspaceId={workspaceId} path={loaded.path} onOpenExternally={() => void openLocalPath(absolute)} />
           : loaded.state === "ready"
             ? <div className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5">
               <CodeBlock language={language} code={loaded.text} chrome={false} />
             </div>
-            : <Notice message={t(`ide_side_panel.file.${loaded.state}`)}>
+            : <Notice message={t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
+              {/* A file this panel cannot read (a program, an archive) opens on the computer. */}
+              {loaded.state === "binary" && <OpenExternallyButton onClick={() => void openLocalPath(absolute)} />}
               {hasChange && <button type="button" onClick={() => setView("change")}
                 className="rounded-md border border-border px-3 py-1 text-sm text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {t("ide_side_panel.file.show_change")}

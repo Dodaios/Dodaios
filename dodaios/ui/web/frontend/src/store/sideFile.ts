@@ -34,10 +34,11 @@ export const useSideFileStore = create<SideFileState>((set, get) => ({
   },
 }));
 
-/** The path a thread file reads from: absolute as named, else joined to the thread's folder. */
+/** The path a thread file reads from: absolute (or under `~`) as named, else joined to the thread's folder. */
 export function absoluteFilePath(path: string, folder: string): string {
   const clean = path.trim();
-  if (/^(?:[a-z]:[\\/]|[\\/])/i.test(clean) || !folder) return clean;
+  // `~/Downloads/x` is in the home folder, where the server reads it from.
+  if (/^(?:[a-z]:[\\/]|[\\/]|~(?:[\\/]|$))/i.test(clean) || !folder) return clean;
   const separator = folder.includes("\\") && !folder.includes("/") ? "\\" : "/";
   const relative = clean.replace(/^\.[\\/]/, "").split(/[\\/]/).join(separator);
   return `${folder.replace(/[\\/]+$/, "")}${separator}${relative}`;
