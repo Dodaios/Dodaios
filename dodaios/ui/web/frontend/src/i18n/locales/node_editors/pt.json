@@ -791,7 +791,9 @@
       "slides": {
         "toolbar": {
           "slides": "Slides",
-          "look": "Aparência"
+          "look": "Aparência",
+          "insert": "Inserir",
+          "view": "Exibir"
         },
         "add": {
           "button": "Novo slide",
@@ -828,7 +830,17 @@
           "next": "Próximo slide",
           "notes": "Notas do apresentador (N)",
           "end": "Encerrar apresentação (Esc)",
-          "position": "{n} / {total}"
+          "position": "{n} / {total}",
+          "more": "Mais formas de apresentar",
+          "from_current": "Deste slide",
+          "from_start": "Do início",
+          "presenter_view": "Modo do apresentador",
+          "presenter": "Modo do apresentador (P)",
+          "elapsed": "Decorrido",
+          "reset_timer": "Reiniciar o cronômetro",
+          "clock": "Hora",
+          "up_next": "A seguir",
+          "end_of_deck": "Fim da apresentação."
         },
         "canvas": {
           "label": "Slide {n} de {total}",
@@ -867,7 +879,8 @@
           "table": "Tabela",
           "image": "Imagem",
           "steps": "Etapas",
-          "closing": "Encerramento"
+          "closing": "Encerramento",
+          "blank": "Em branco"
         },
         "section": {
           "text": "Texto",
@@ -952,7 +965,8 @@
           "too_large": "Não é possível reduzir esta imagem o suficiente para um slide. Tente uma menor.",
           "wrong_type": "Só imagens PNG, JPEG, GIF, WebP e AVIF podem ir em um slide.",
           "failed": "Não foi possível ler a imagem.",
-          "working": "Preparando a imagem…"
+          "working": "Preparando a imagem…",
+          "fit_fill": "Esticar"
         },
         "hint": {
           "stat_value": "Um número sem valor fica de fora do slide.",
@@ -989,7 +1003,33 @@
           "add_table_row": "Adicionar linha da tabela",
           "remove_table_row": "Remover linha da tabela",
           "add_table_column": "Adicionar coluna da tabela",
-          "remove_table_column": "Remover coluna da tabela"
+          "remove_table_column": "Remover coluna da tabela",
+          "format": "Formatar",
+          "move_element": "Mover",
+          "resize": "Redimensionar",
+          "rotate": "Girar",
+          "align": "Alinhar",
+          "order": "Alterar ordem",
+          "add_text": "Adicionar caixa de texto",
+          "add_shape": "Adicionar forma",
+          "add_line": "Adicionar linha",
+          "add_image": "Adicionar imagem",
+          "add_table": "Adicionar tabela",
+          "add_chart": "Adicionar gráfico",
+          "delete_element": "Excluir",
+          "duplicate_element": "Duplicar",
+          "paste": "Colar",
+          "anim": "Animação",
+          "link": "Link",
+          "background": "Fundo",
+          "background_all": "Fundo para todos os slides",
+          "tone": "Cores do texto",
+          "transition": "Transição",
+          "hide_slide": "Ocultar slide",
+          "show_slide": "Mostrar slide",
+          "footer": "Rodapé",
+          "design": "Design",
+          "font": "Fontes"
         },
         "sample": {
           "deck_title": "Título da apresentação",
@@ -1015,6 +1055,262 @@
           "table_row1": "Primeiro",
           "table_row2": "Segundo",
           "table_new_col": "Coluna {n}"
+        },
+        "insert": {
+          "text": "Caixa de texto",
+          "shape": "Forma",
+          "line": "Linha ou seta",
+          "line_line": "Linha",
+          "line_arrow": "Seta",
+          "line_double": "Seta dupla",
+          "line_dashed": "Linha tracejada",
+          "image": "Imagem",
+          "table": "Tabela",
+          "chart": "Gráfico"
+        },
+        "view": {
+          "grid": "Mostrar grade",
+          "snap": "Ajustar às guias"
+        },
+        "design": {
+          "label": "Design",
+          "presets": "Visuais prontos",
+          "font": "Fontes",
+          "transition": "Transição",
+          "footer": "Rodapés",
+          "background": "Fundo de todos os slides",
+          "preset": {
+            "clean": "Limpo",
+            "midnight": "Meia-noite",
+            "editorial": "Editorial",
+            "ocean": "Oceano",
+            "sunset": "Pôr do sol",
+            "forest": "Floresta",
+            "terminal": "Terminal",
+            "bold": "Ousado",
+            "paper": "Papel"
+          }
+        },
+        "deckfont": {
+          "sans": "Sem serifa (padrão)",
+          "serif": "Serifada",
+          "editorial": "Títulos serifados, texto sem serifa",
+          "mono": "Monoespaçada",
+          "rounded": "Arredondada",
+          "condensed": "Títulos condensados",
+          "geometric": "Geométrica",
+          "classic": "Clássica"
+        },
+        "font": {
+          "sans": "Fonte do tema",
+          "serif": "Serifada",
+          "mono": "Monoespaçada",
+          "rounded": "Arredondada",
+          "condensed": "Condensada",
+          "geometric": "Geométrica",
+          "classic": "Clássica",
+          "arial": "Arial",
+          "helvetica": "Helvetica",
+          "verdana": "Verdana",
+          "trebuchet": "Trebuchet",
+          "tahoma": "Tahoma",
+          "segoe": "Segoe UI",
+          "georgia": "Georgia",
+          "times": "Times New Roman",
+          "palatino": "Palatino",
+          "courier": "Courier New",
+          "impact": "Impact"
+        },
+        "shape": {
+          "rect": "Retângulo",
+          "rounded": "Retângulo arredondado",
+          "ellipse": "Elipse",
+          "triangle": "Triângulo",
+          "diamond": "Losango",
+          "pentagon": "Pentágono",
+          "hexagon": "Hexágono",
+          "star": "Estrela",
+          "arrow": "Seta em bloco",
+          "chevron": "Divisa",
+          "parallelogram": "Paralelogramo",
+          "trapezoid": "Trapézio",
+          "callout": "Balão de fala",
+          "plus": "Mais"
+        },
+        "el": {
+          "kind": {
+            "text": "Caixa de texto",
+            "shape": "Forma",
+            "line": "Linha",
+            "image": "Imagem",
+            "table": "Tabela",
+            "chart": "Gráfico"
+          },
+          "many": "{n} elementos",
+          "duplicate": "Duplicar",
+          "delete": "Excluir",
+          "lock": "Travar posição",
+          "unlock": "Destravar",
+          "section": {
+            "position": "Posição e tamanho",
+            "arrange": "Organizar",
+            "text": "Texto",
+            "shape": "Forma",
+            "fill": "Preenchimento e contorno",
+            "image": "Imagem",
+            "line": "Linha",
+            "table": "Tabela",
+            "look": "Aparência",
+            "motion": "Animação e link"
+          },
+          "x1": "Início X",
+          "y1": "Início Y",
+          "x2": "Fim X",
+          "y2": "Fim Y",
+          "width": "Largura",
+          "height": "Altura",
+          "rotate": "Rotação",
+          "order": {
+            "front": "Trazer para a frente",
+            "forward": "Avançar",
+            "backward": "Recuar",
+            "back": "Enviar para trás"
+          },
+          "align": {
+            "to_slide": "Alinhar no slide",
+            "to_selection": "Alinhar entre si",
+            "left": "Alinhar à esquerda",
+            "center": "Centralizar na horizontal",
+            "right": "Alinhar à direita",
+            "top": "Alinhar em cima",
+            "middle": "Centralizar na vertical",
+            "bottom": "Alinhar embaixo",
+            "text_left": "Esquerda",
+            "text_center": "Centralizado",
+            "text_right": "Direita",
+            "text_justify": "Justificado"
+          },
+          "spread": {
+            "x": "Distribuir na horizontal",
+            "y": "Distribuir na vertical"
+          },
+          "font": "Fonte",
+          "size": "Tamanho",
+          "smaller": "Texto menor",
+          "bigger": "Texto maior",
+          "bold": "Negrito",
+          "italic": "Itálico",
+          "underline": "Sublinhado",
+          "strike": "Tachado",
+          "caps": "Maiúsculas",
+          "text_color": "Cor do texto",
+          "align_text": "Alinhamento",
+          "valign": "Posição vertical",
+          "valign_top": "Topo",
+          "valign_middle": "Meio",
+          "valign_bottom": "Base",
+          "list": "Lista",
+          "list_none": "Sem lista",
+          "list_bullet": "Lista com marcadores",
+          "list_number": "Lista numerada",
+          "line_height": "Espaçamento",
+          "spacing": "Espaçamento de letras",
+          "padding": "Margem interna",
+          "fill": "Preenchimento",
+          "no_fill": "Sem preenchimento",
+          "outline": "Contorno",
+          "outline_width": "Espessura do contorno",
+          "dash": "Estilo da linha",
+          "dash_solid": "Contínua",
+          "dash_dash": "Tracejada",
+          "dash_dot": "Pontilhada",
+          "radius": "Raio do canto",
+          "shadow": "Sombra",
+          "opacity": "Opacidade",
+          "alt": "Descrição para leitores de tela",
+          "line_color": "Cor da linha",
+          "line_width": "Espessura da linha",
+          "start": "Início",
+          "end": "Fim",
+          "end_none": "Simples",
+          "end_arrow": "Ponta de seta",
+          "end_dot": "Ponto",
+          "table": {
+            "add_row": "Adicionar linha",
+            "remove_row": "Remover última linha",
+            "add_column": "Adicionar coluna",
+            "remove_column": "Remover última coluna",
+            "head": "A primeira linha é o cabeçalho",
+            "head_fill": "Cor do cabeçalho",
+            "lines": "Cor das linhas"
+          },
+          "anim": "Animação",
+          "anim_on": "Começa",
+          "anim_enter": "Com o slide",
+          "anim_click": "Ao clicar",
+          "link": "Link (https://…)"
+        },
+        "anim": {
+          "none": "Nenhuma",
+          "fade": "Esmaecer",
+          "rise": "Subir",
+          "slide": "Deslizar",
+          "zoom": "Zoom",
+          "pop": "Pop",
+          "wipe": "Revelar"
+        },
+        "bg": {
+          "title": "Fundo",
+          "kind": "Tipo de fundo",
+          "none": "Nenhum",
+          "color": "Cor",
+          "gradient": "Gradiente",
+          "image": "Imagem",
+          "from_to": "Cores e ângulo",
+          "from": "De",
+          "to": "Até",
+          "angle": "Ângulo",
+          "dim": "Escurecer",
+          "inherited": "Este slide usa o fundo da apresentação.",
+          "apply_all": "Usar em todos os slides"
+        },
+        "tone": {
+          "label": "Cores do texto",
+          "auto": "Como a apresentação",
+          "light": "Texto escuro no claro",
+          "dark": "Texto claro no escuro"
+        },
+        "slide": {
+          "section": "Slide",
+          "hidden": "Ao apresentar",
+          "is_hidden": "Oculto",
+          "is_shown": "Visível",
+          "hide": "Ocultar slide",
+          "show": "Mostrar slide",
+          "footer": "Rodapé",
+          "footer_on": "Visível",
+          "footer_off": "Oculto"
+        },
+        "transition": {
+          "label": "Transição",
+          "deck": "Como a apresentação",
+          "default": "Sutil (padrão)",
+          "none": "Nenhuma",
+          "fade": "Esmaecer",
+          "slide": "Deslizar",
+          "rise": "Subir",
+          "zoom": "Zoom"
+        },
+        "format": {
+          "label": "Formatar",
+          "hint": "Clique duplo para escrever · arraste para selecionar vários"
+        },
+        "menu": {
+          "label": "Ações do elemento",
+          "cut": "Recortar",
+          "copy": "Copiar",
+          "paste": "Colar",
+          "select_all": "Selecionar tudo"
         }
       }
     }

@@ -13,6 +13,8 @@
  * those slides do not render again.
  */
 
+import { firstText, readDeckExtras, readSlideExtras, type DeckExtras, type SlideExtras } from "./elementModel";
+
 export const LAYOUTS = [
   "title",
   "section",
@@ -25,6 +27,7 @@ export const LAYOUTS = [
   "image",
   "steps",
   "closing",
+  "blank",
 ] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
@@ -96,7 +99,7 @@ export type DeckChart = Record<string, unknown> & {
   series?: { name?: string; data: (number | null)[] }[];
 };
 
-export interface Slide {
+export interface Slide extends SlideExtras {
   layout: Layout;
   kicker?: string;
   title?: string;
@@ -117,7 +120,7 @@ export interface Slide {
   notes?: string;
 }
 
-export interface Deck {
+export interface Deck extends DeckExtras {
   theme: DeckTheme;
   accent?: string;
   slides: Slide[];
@@ -136,6 +139,7 @@ export const LAYOUT_FIELDS: Record<Layout, readonly (keyof Slide)[]> = {
   image: ["kicker", "title", "image", "caption", "fit"],
   steps: ["kicker", "title", "steps"],
   closing: ["kicker", "title", "subtitle", "bullets"],
+  blank: [],
 };
 
 export function isLayout(value: unknown): value is Layout {
@@ -241,9 +245,10 @@ export function readDeck(spec: unknown): Deck {
       slide.chart = item.chart as DeckChart;
     }
     if (item.fit === "contain") slide.fit = "contain";
+    Object.assign(slide, readSlideExtras(item));
     slides.push(slide);
   }
-  const deck: Deck = { theme, slides };
+  const deck: Deck = { theme, ...readDeckExtras(raw), slides };
   if (typeof raw.accent === "string" && raw.accent) deck.accent = raw.accent;
   return deck;
 }
@@ -329,6 +334,8 @@ export function blankSlide(layout: Layout, t: Translate): Slide {
       };
     case "closing":
       return { layout, title: t(`${K}closing_title`), subtitle: t(`${K}closing_subtitle`) };
+    case "blank":
+      return { layout };
   }
 }
 
@@ -550,6 +557,10 @@ export function switchLayout(slide: Slide, layout: Layout, t: Translate): Slide 
     }
   }
   if (slide.notes) next.notes = slide.notes;
+  // The slide's own look and its free elements stay whatever its layout is.
+  for (const key of ["background", "tone", "transition", "hidden", "footer", "elements"] as const) {
+    if (slide[key] !== undefined) (next as unknown as Record<string, unknown>)[key] = slide[key];
+  }
   return next;
 }
 
@@ -585,5 +596,7 @@ export function indexAfterMove(index: number, from: number, to: number): number 
 
 /** A short name for a slide, for the strip and for screen readers. */
 export function slideName(slide: Slide): string {
-  return (slide.title || slide.quote || slide.caption || slide.kicker || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const own = slide.title || slide.quote || slide.caption || slide.kicker || "";
+  const words = own || firstText(slide.elements);
+  return (own ? own : words).replace(/\s+/g, " ").trim().slice(0, 80);
 }

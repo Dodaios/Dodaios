@@ -791,7 +791,9 @@
       "slides": {
         "toolbar": {
           "slides": "幻灯片",
-          "look": "外观"
+          "look": "外观",
+          "insert": "插入",
+          "view": "视图"
         },
         "add": {
           "button": "新建幻灯片",
@@ -828,7 +830,17 @@
           "next": "下一张",
           "notes": "演讲者备注（N）",
           "end": "结束演示（Esc）",
-          "position": "{n} / {total}"
+          "position": "{n} / {total}",
+          "more": "更多放映方式",
+          "from_current": "从当前幻灯片",
+          "from_start": "从头开始",
+          "presenter_view": "演讲者视图",
+          "presenter": "演讲者视图 (P)",
+          "elapsed": "已用时间",
+          "reset_timer": "重新计时",
+          "clock": "时间",
+          "up_next": "下一张",
+          "end_of_deck": "演示文稿结束。"
         },
         "canvas": {
           "label": "第 {n} 张，共 {total} 张",
@@ -867,7 +879,8 @@
           "table": "表格",
           "image": "图片",
           "steps": "步骤",
-          "closing": "结尾"
+          "closing": "结尾",
+          "blank": "空白"
         },
         "section": {
           "text": "文字",
@@ -952,7 +965,8 @@
           "too_large": "这张图片无法缩小到适合幻灯片的大小。请换一张更小的。",
           "wrong_type": "幻灯片只支持 PNG、JPEG、GIF、WebP 和 AVIF 图片。",
           "failed": "无法读取图片。",
-          "working": "正在处理图片…"
+          "working": "正在处理图片…",
+          "fit_fill": "拉伸"
         },
         "hint": {
           "stat_value": "没有数值的数据不会显示在幻灯片上。",
@@ -989,7 +1003,33 @@
           "add_table_row": "添加表格行",
           "remove_table_row": "移除表格行",
           "add_table_column": "添加表格列",
-          "remove_table_column": "移除表格列"
+          "remove_table_column": "移除表格列",
+          "format": "设置格式",
+          "move_element": "移动",
+          "resize": "调整大小",
+          "rotate": "旋转",
+          "align": "对齐",
+          "order": "调整层次",
+          "add_text": "添加文本框",
+          "add_shape": "添加形状",
+          "add_line": "添加线条",
+          "add_image": "添加图片",
+          "add_table": "添加表格",
+          "add_chart": "添加图表",
+          "delete_element": "删除",
+          "duplicate_element": "复制一份",
+          "paste": "粘贴",
+          "anim": "动画",
+          "link": "链接",
+          "background": "背景",
+          "background_all": "所有幻灯片的背景",
+          "tone": "文字配色",
+          "transition": "切换效果",
+          "hide_slide": "隐藏幻灯片",
+          "show_slide": "显示幻灯片",
+          "footer": "页脚",
+          "design": "设计",
+          "font": "字体"
         },
         "sample": {
           "deck_title": "演示文稿标题",
@@ -1015,6 +1055,262 @@
           "table_row1": "第一项",
           "table_row2": "第二项",
           "table_new_col": "第 {n} 列"
+        },
+        "insert": {
+          "text": "文本框",
+          "shape": "形状",
+          "line": "线条或箭头",
+          "line_line": "线条",
+          "line_arrow": "箭头",
+          "line_double": "双向箭头",
+          "line_dashed": "虚线",
+          "image": "图片",
+          "table": "表格",
+          "chart": "图表"
+        },
+        "view": {
+          "grid": "显示网格",
+          "snap": "对齐参考线"
+        },
+        "design": {
+          "label": "设计",
+          "presets": "现成样式",
+          "font": "字体",
+          "transition": "切换效果",
+          "footer": "页脚",
+          "background": "所有幻灯片的背景",
+          "preset": {
+            "clean": "简洁",
+            "midnight": "午夜",
+            "editorial": "杂志",
+            "ocean": "海洋",
+            "sunset": "日落",
+            "forest": "森林",
+            "terminal": "终端",
+            "bold": "醒目",
+            "paper": "纸张"
+          }
+        },
+        "deckfont": {
+          "sans": "无衬线（默认）",
+          "serif": "衬线",
+          "editorial": "衬线标题，无衬线正文",
+          "mono": "等宽",
+          "rounded": "圆体",
+          "condensed": "窄体标题",
+          "geometric": "几何",
+          "classic": "古典"
+        },
+        "font": {
+          "sans": "主题字体",
+          "serif": "衬线",
+          "mono": "等宽",
+          "rounded": "圆体",
+          "condensed": "窄体",
+          "geometric": "几何",
+          "classic": "古典",
+          "arial": "Arial",
+          "helvetica": "Helvetica",
+          "verdana": "Verdana",
+          "trebuchet": "Trebuchet",
+          "tahoma": "Tahoma",
+          "segoe": "Segoe UI",
+          "georgia": "Georgia",
+          "times": "Times New Roman",
+          "palatino": "Palatino",
+          "courier": "Courier New",
+          "impact": "Impact"
+        },
+        "shape": {
+          "rect": "矩形",
+          "rounded": "圆角矩形",
+          "ellipse": "椭圆",
+          "triangle": "三角形",
+          "diamond": "菱形",
+          "pentagon": "五边形",
+          "hexagon": "六边形",
+          "star": "星形",
+          "arrow": "箭头形",
+          "chevron": "V 形",
+          "parallelogram": "平行四边形",
+          "trapezoid": "梯形",
+          "callout": "对话气泡",
+          "plus": "加号"
+        },
+        "el": {
+          "kind": {
+            "text": "文本框",
+            "shape": "形状",
+            "line": "线条",
+            "image": "图片",
+            "table": "表格",
+            "chart": "图表"
+          },
+          "many": "{n} 个元素",
+          "duplicate": "复制一份",
+          "delete": "删除",
+          "lock": "锁定位置",
+          "unlock": "解锁",
+          "section": {
+            "position": "位置和大小",
+            "arrange": "排列",
+            "text": "文本",
+            "shape": "形状",
+            "fill": "填充和轮廓",
+            "image": "图片",
+            "line": "线条",
+            "table": "表格",
+            "look": "外观",
+            "motion": "动画和链接"
+          },
+          "x1": "起点 X",
+          "y1": "起点 Y",
+          "x2": "终点 X",
+          "y2": "终点 Y",
+          "width": "宽度",
+          "height": "高度",
+          "rotate": "旋转",
+          "order": {
+            "front": "置于顶层",
+            "forward": "上移一层",
+            "backward": "下移一层",
+            "back": "置于底层"
+          },
+          "align": {
+            "to_slide": "在幻灯片上对齐",
+            "to_selection": "彼此对齐",
+            "left": "左对齐",
+            "center": "水平居中",
+            "right": "右对齐",
+            "top": "顶端对齐",
+            "middle": "垂直居中",
+            "bottom": "底端对齐",
+            "text_left": "左对齐",
+            "text_center": "居中",
+            "text_right": "右对齐",
+            "text_justify": "两端对齐"
+          },
+          "spread": {
+            "x": "水平分布",
+            "y": "垂直分布"
+          },
+          "font": "字体",
+          "size": "字号",
+          "smaller": "缩小字号",
+          "bigger": "放大字号",
+          "bold": "加粗",
+          "italic": "斜体",
+          "underline": "下划线",
+          "strike": "删除线",
+          "caps": "全部大写",
+          "text_color": "文字颜色",
+          "align_text": "对齐",
+          "valign": "垂直位置",
+          "valign_top": "顶部",
+          "valign_middle": "中间",
+          "valign_bottom": "底部",
+          "list": "列表",
+          "list_none": "无列表",
+          "list_bullet": "项目符号列表",
+          "list_number": "编号列表",
+          "line_height": "行距",
+          "spacing": "字距",
+          "padding": "内边距",
+          "fill": "填充",
+          "no_fill": "无填充",
+          "outline": "轮廓",
+          "outline_width": "轮廓粗细",
+          "dash": "线型",
+          "dash_solid": "实线",
+          "dash_dash": "虚线",
+          "dash_dot": "点线",
+          "radius": "圆角半径",
+          "shadow": "阴影",
+          "opacity": "不透明度",
+          "alt": "屏幕阅读器说明",
+          "line_color": "线条颜色",
+          "line_width": "线条粗细",
+          "start": "起点",
+          "end": "终点",
+          "end_none": "无",
+          "end_arrow": "箭头",
+          "end_dot": "圆点",
+          "table": {
+            "add_row": "添加行",
+            "remove_row": "删除最后一行",
+            "add_column": "添加列",
+            "remove_column": "删除最后一列",
+            "head": "首行为表头",
+            "head_fill": "表头颜色",
+            "lines": "线条颜色"
+          },
+          "anim": "动画",
+          "anim_on": "开始方式",
+          "anim_enter": "随幻灯片",
+          "anim_click": "单击时",
+          "link": "链接 (https://…)"
+        },
+        "anim": {
+          "none": "无",
+          "fade": "淡入",
+          "rise": "上升",
+          "slide": "滑入",
+          "zoom": "缩放",
+          "pop": "弹出",
+          "wipe": "擦除"
+        },
+        "bg": {
+          "title": "背景",
+          "kind": "背景类型",
+          "none": "无",
+          "color": "颜色",
+          "gradient": "渐变",
+          "image": "图片",
+          "from_to": "颜色和角度",
+          "from": "起始",
+          "to": "结束",
+          "angle": "角度",
+          "dim": "变暗",
+          "inherited": "此幻灯片使用演示文稿的背景。",
+          "apply_all": "应用到所有幻灯片"
+        },
+        "tone": {
+          "label": "文字配色",
+          "auto": "跟随演示文稿",
+          "light": "浅底深字",
+          "dark": "深底浅字"
+        },
+        "slide": {
+          "section": "幻灯片",
+          "hidden": "放映时",
+          "is_hidden": "已隐藏",
+          "is_shown": "显示",
+          "hide": "隐藏幻灯片",
+          "show": "显示幻灯片",
+          "footer": "页脚",
+          "footer_on": "显示",
+          "footer_off": "隐藏"
+        },
+        "transition": {
+          "label": "切换效果",
+          "deck": "跟随演示文稿",
+          "default": "柔和（默认）",
+          "none": "无",
+          "fade": "淡化",
+          "slide": "推入",
+          "rise": "上升",
+          "zoom": "缩放"
+        },
+        "format": {
+          "label": "格式",
+          "hint": "双击文字即可编辑 · 拖动可多选"
+        },
+        "menu": {
+          "label": "元素操作",
+          "cut": "剪切",
+          "copy": "复制",
+          "paste": "粘贴",
+          "select_all": "全选"
         }
       }
     }

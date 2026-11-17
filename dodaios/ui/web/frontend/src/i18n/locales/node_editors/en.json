@@ -791,7 +791,9 @@
       "slides": {
         "toolbar": {
           "slides": "Slides",
-          "look": "Look"
+          "look": "Look",
+          "insert": "Insert",
+          "view": "View"
         },
         "add": {
           "button": "New slide",
@@ -828,7 +830,17 @@
           "next": "Next slide",
           "notes": "Speaker notes (N)",
           "end": "End presentation (Esc)",
-          "position": "{n} / {total}"
+          "position": "{n} / {total}",
+          "more": "More ways to present",
+          "from_current": "From this slide",
+          "from_start": "From the beginning",
+          "presenter_view": "Presenter view",
+          "presenter": "Presenter view (P)",
+          "elapsed": "Elapsed",
+          "reset_timer": "Restart the timer",
+          "clock": "Time",
+          "up_next": "Next",
+          "end_of_deck": "The end of the deck."
         },
         "canvas": {
           "label": "Slide {n} of {total}",
@@ -867,7 +879,8 @@
           "table": "Table",
           "image": "Picture",
           "steps": "Steps",
-          "closing": "Closing"
+          "closing": "Closing",
+          "blank": "Blank"
         },
         "section": {
           "text": "Text",
@@ -952,7 +965,8 @@
           "too_large": "This picture cannot be made small enough for a slide. Try a smaller one.",
           "wrong_type": "Only PNG, JPEG, GIF, WebP and AVIF pictures can go on a slide.",
           "failed": "The picture could not be read.",
-          "working": "Preparing the picture…"
+          "working": "Preparing the picture…",
+          "fit_fill": "Stretch"
         },
         "hint": {
           "stat_value": "A figure without a value is left out of the slide.",
@@ -989,7 +1003,33 @@
           "add_table_row": "Add table row",
           "remove_table_row": "Remove table row",
           "add_table_column": "Add table column",
-          "remove_table_column": "Remove table column"
+          "remove_table_column": "Remove table column",
+          "format": "Format",
+          "move_element": "Move",
+          "resize": "Resize",
+          "rotate": "Rotate",
+          "align": "Align",
+          "order": "Change order",
+          "add_text": "Add text box",
+          "add_shape": "Add shape",
+          "add_line": "Add line",
+          "add_image": "Add picture",
+          "add_table": "Add table",
+          "add_chart": "Add chart",
+          "delete_element": "Delete",
+          "duplicate_element": "Duplicate",
+          "paste": "Paste",
+          "anim": "Animation",
+          "link": "Link",
+          "background": "Background",
+          "background_all": "Background for every slide",
+          "tone": "Text colours",
+          "transition": "Transition",
+          "hide_slide": "Hide slide",
+          "show_slide": "Show slide",
+          "footer": "Footer",
+          "design": "Design",
+          "font": "Fonts"
         },
         "sample": {
           "deck_title": "Deck title",
@@ -1015,6 +1055,262 @@
           "table_row1": "First",
           "table_row2": "Second",
           "table_new_col": "Column {n}"
+        },
+        "insert": {
+          "text": "Text box",
+          "shape": "Shape",
+          "line": "Line or arrow",
+          "line_line": "Line",
+          "line_arrow": "Arrow",
+          "line_double": "Double arrow",
+          "line_dashed": "Dashed line",
+          "image": "Picture",
+          "table": "Table",
+          "chart": "Chart"
+        },
+        "view": {
+          "grid": "Show grid",
+          "snap": "Snap to guides"
+        },
+        "design": {
+          "label": "Design",
+          "presets": "Ready-made looks",
+          "font": "Fonts",
+          "transition": "Transition",
+          "footer": "Footers",
+          "background": "Background of every slide",
+          "preset": {
+            "clean": "Clean",
+            "midnight": "Midnight",
+            "editorial": "Editorial",
+            "ocean": "Ocean",
+            "sunset": "Sunset",
+            "forest": "Forest",
+            "terminal": "Terminal",
+            "bold": "Bold",
+            "paper": "Paper"
+          }
+        },
+        "deckfont": {
+          "sans": "Sans (default)",
+          "serif": "Serif",
+          "editorial": "Serif headings, sans text",
+          "mono": "Monospace",
+          "rounded": "Rounded",
+          "condensed": "Condensed headings",
+          "geometric": "Geometric",
+          "classic": "Classic"
+        },
+        "font": {
+          "sans": "Theme font",
+          "serif": "Serif",
+          "mono": "Monospace",
+          "rounded": "Rounded",
+          "condensed": "Condensed",
+          "geometric": "Geometric",
+          "classic": "Classic",
+          "arial": "Arial",
+          "helvetica": "Helvetica",
+          "verdana": "Verdana",
+          "trebuchet": "Trebuchet",
+          "tahoma": "Tahoma",
+          "segoe": "Segoe UI",
+          "georgia": "Georgia",
+          "times": "Times New Roman",
+          "palatino": "Palatino",
+          "courier": "Courier New",
+          "impact": "Impact"
+        },
+        "shape": {
+          "rect": "Rectangle",
+          "rounded": "Rounded rectangle",
+          "ellipse": "Ellipse",
+          "triangle": "Triangle",
+          "diamond": "Diamond",
+          "pentagon": "Pentagon",
+          "hexagon": "Hexagon",
+          "star": "Star",
+          "arrow": "Block arrow",
+          "chevron": "Chevron",
+          "parallelogram": "Parallelogram",
+          "trapezoid": "Trapezoid",
+          "callout": "Speech bubble",
+          "plus": "Plus"
+        },
+        "el": {
+          "kind": {
+            "text": "Text box",
+            "shape": "Shape",
+            "line": "Line",
+            "image": "Picture",
+            "table": "Table",
+            "chart": "Chart"
+          },
+          "many": "{n} elements",
+          "duplicate": "Duplicate",
+          "delete": "Delete",
+          "lock": "Lock in place",
+          "unlock": "Unlock",
+          "section": {
+            "position": "Position and size",
+            "arrange": "Arrange",
+            "text": "Text",
+            "shape": "Shape",
+            "fill": "Fill and outline",
+            "image": "Picture",
+            "line": "Line",
+            "table": "Table",
+            "look": "Look",
+            "motion": "Animation and link"
+          },
+          "x1": "Start X",
+          "y1": "Start Y",
+          "x2": "End X",
+          "y2": "End Y",
+          "width": "Width",
+          "height": "Height",
+          "rotate": "Rotation",
+          "order": {
+            "front": "Bring to front",
+            "forward": "Bring forward",
+            "backward": "Send backward",
+            "back": "Send to back"
+          },
+          "align": {
+            "to_slide": "Align on the slide",
+            "to_selection": "Align with each other",
+            "left": "Align left",
+            "center": "Center horizontally",
+            "right": "Align right",
+            "top": "Align top",
+            "middle": "Center vertically",
+            "bottom": "Align bottom",
+            "text_left": "Left",
+            "text_center": "Centred",
+            "text_right": "Right",
+            "text_justify": "Justified"
+          },
+          "spread": {
+            "x": "Spread out horizontally",
+            "y": "Spread out vertically"
+          },
+          "font": "Font",
+          "size": "Size",
+          "smaller": "Smaller text",
+          "bigger": "Larger text",
+          "bold": "Bold",
+          "italic": "Italic",
+          "underline": "Underline",
+          "strike": "Strikethrough",
+          "caps": "All capitals",
+          "text_color": "Text colour",
+          "align_text": "Alignment",
+          "valign": "Vertical position",
+          "valign_top": "Top",
+          "valign_middle": "Middle",
+          "valign_bottom": "Bottom",
+          "list": "List",
+          "list_none": "No list",
+          "list_bullet": "Bulleted list",
+          "list_number": "Numbered list",
+          "line_height": "Line spacing",
+          "spacing": "Letter spacing",
+          "padding": "Inner margin",
+          "fill": "Fill",
+          "no_fill": "No fill",
+          "outline": "Outline",
+          "outline_width": "Outline width",
+          "dash": "Line style",
+          "dash_solid": "Solid",
+          "dash_dash": "Dashed",
+          "dash_dot": "Dotted",
+          "radius": "Corner radius",
+          "shadow": "Shadow",
+          "opacity": "Opacity",
+          "alt": "Description for screen readers",
+          "line_color": "Line colour",
+          "line_width": "Line width",
+          "start": "Start",
+          "end": "End",
+          "end_none": "Plain",
+          "end_arrow": "Arrow head",
+          "end_dot": "Dot",
+          "table": {
+            "add_row": "Add row",
+            "remove_row": "Remove last row",
+            "add_column": "Add column",
+            "remove_column": "Remove last column",
+            "head": "First row is the header",
+            "head_fill": "Header colour",
+            "lines": "Line colour"
+          },
+          "anim": "Animation",
+          "anim_on": "Starts",
+          "anim_enter": "With the slide",
+          "anim_click": "On click",
+          "link": "Link (https://…)"
+        },
+        "anim": {
+          "none": "None",
+          "fade": "Fade in",
+          "rise": "Rise",
+          "slide": "Slide in",
+          "zoom": "Zoom",
+          "pop": "Pop",
+          "wipe": "Wipe"
+        },
+        "bg": {
+          "title": "Background",
+          "kind": "Kind of background",
+          "none": "None",
+          "color": "Colour",
+          "gradient": "Gradient",
+          "image": "Picture",
+          "from_to": "Colours and angle",
+          "from": "From",
+          "to": "To",
+          "angle": "Angle",
+          "dim": "Darken",
+          "inherited": "This slide uses the deck's background.",
+          "apply_all": "Use for every slide"
+        },
+        "tone": {
+          "label": "Text colours",
+          "auto": "As the deck",
+          "light": "Dark text on light",
+          "dark": "Light text on dark"
+        },
+        "slide": {
+          "section": "Slide",
+          "hidden": "When presenting",
+          "is_hidden": "Hidden",
+          "is_shown": "Shown",
+          "hide": "Hide slide",
+          "show": "Show slide",
+          "footer": "Footer",
+          "footer_on": "Shown",
+          "footer_off": "Hidden"
+        },
+        "transition": {
+          "label": "Transition",
+          "deck": "As the deck",
+          "default": "Subtle (default)",
+          "none": "None",
+          "fade": "Fade",
+          "slide": "Slide",
+          "rise": "Rise",
+          "zoom": "Zoom"
+        },
+        "format": {
+          "label": "Format",
+          "hint": "Double-click a text to write · drag to select several"
+        },
+        "menu": {
+          "label": "Element actions",
+          "cut": "Cut",
+          "copy": "Copy",
+          "paste": "Paste",
+          "select_all": "Select all"
         }
       }
     }

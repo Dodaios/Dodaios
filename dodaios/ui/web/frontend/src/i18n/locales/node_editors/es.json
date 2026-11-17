@@ -791,7 +791,9 @@
       "slides": {
         "toolbar": {
           "slides": "Diapositivas",
-          "look": "Aspecto"
+          "look": "Aspecto",
+          "insert": "Insertar",
+          "view": "Vista"
         },
         "add": {
           "button": "Nueva diapositiva",
@@ -828,7 +830,17 @@
           "next": "Diapositiva siguiente",
           "notes": "Notas del orador (N)",
           "end": "Terminar la presentación (Esc)",
-          "position": "{n} / {total}"
+          "position": "{n} / {total}",
+          "more": "Más formas de presentar",
+          "from_current": "Desde esta diapositiva",
+          "from_start": "Desde el principio",
+          "presenter_view": "Vista del presentador",
+          "presenter": "Vista del presentador (P)",
+          "elapsed": "Transcurrido",
+          "reset_timer": "Reiniciar el temporizador",
+          "clock": "Hora",
+          "up_next": "Siguiente",
+          "end_of_deck": "Fin de la presentación."
         },
         "canvas": {
           "label": "Diapositiva {n} de {total}",
@@ -867,7 +879,8 @@
           "table": "Tabla",
           "image": "Imagen",
           "steps": "Pasos",
-          "closing": "Cierre"
+          "closing": "Cierre",
+          "blank": "En blanco"
         },
         "section": {
           "text": "Texto",
@@ -952,7 +965,8 @@
           "too_large": "Esta imagen no se puede reducir lo suficiente para una diapositiva. Prueba con una más pequeña.",
           "wrong_type": "En una diapositiva solo caben imágenes PNG, JPEG, GIF, WebP y AVIF.",
           "failed": "No se pudo leer la imagen.",
-          "working": "Preparando la imagen…"
+          "working": "Preparando la imagen…",
+          "fit_fill": "Estirar"
         },
         "hint": {
           "stat_value": "Una cifra sin valor se omite en la diapositiva.",
@@ -989,7 +1003,33 @@
           "add_table_row": "Añadir fila de tabla",
           "remove_table_row": "Quitar fila de tabla",
           "add_table_column": "Añadir columna de tabla",
-          "remove_table_column": "Quitar columna de tabla"
+          "remove_table_column": "Quitar columna de tabla",
+          "format": "Formato",
+          "move_element": "Mover",
+          "resize": "Cambiar tamaño",
+          "rotate": "Girar",
+          "align": "Alinear",
+          "order": "Cambiar orden",
+          "add_text": "Añadir cuadro de texto",
+          "add_shape": "Añadir forma",
+          "add_line": "Añadir línea",
+          "add_image": "Añadir imagen",
+          "add_table": "Añadir tabla",
+          "add_chart": "Añadir gráfico",
+          "delete_element": "Eliminar",
+          "duplicate_element": "Duplicar",
+          "paste": "Pegar",
+          "anim": "Animación",
+          "link": "Enlace",
+          "background": "Fondo",
+          "background_all": "Fondo para todas las diapositivas",
+          "tone": "Colores del texto",
+          "transition": "Transición",
+          "hide_slide": "Ocultar diapositiva",
+          "show_slide": "Mostrar diapositiva",
+          "footer": "Pie",
+          "design": "Diseño",
+          "font": "Fuentes"
         },
         "sample": {
           "deck_title": "Título de la presentación",
@@ -1015,6 +1055,262 @@
           "table_row1": "Primero",
           "table_row2": "Segundo",
           "table_new_col": "Columna {n}"
+        },
+        "insert": {
+          "text": "Cuadro de texto",
+          "shape": "Forma",
+          "line": "Línea o flecha",
+          "line_line": "Línea",
+          "line_arrow": "Flecha",
+          "line_double": "Flecha doble",
+          "line_dashed": "Línea discontinua",
+          "image": "Imagen",
+          "table": "Tabla",
+          "chart": "Gráfico"
+        },
+        "view": {
+          "grid": "Mostrar cuadrícula",
+          "snap": "Ajustar a guías"
+        },
+        "design": {
+          "label": "Diseño",
+          "presets": "Diseños listos",
+          "font": "Fuentes",
+          "transition": "Transición",
+          "footer": "Pies de diapositiva",
+          "background": "Fondo de todas las diapositivas",
+          "preset": {
+            "clean": "Limpio",
+            "midnight": "Medianoche",
+            "editorial": "Editorial",
+            "ocean": "Océano",
+            "sunset": "Atardecer",
+            "forest": "Bosque",
+            "terminal": "Terminal",
+            "bold": "Audaz",
+            "paper": "Papel"
+          }
+        },
+        "deckfont": {
+          "sans": "Sans (predeterminada)",
+          "serif": "Serif",
+          "editorial": "Títulos serif, texto sans",
+          "mono": "Monoespaciada",
+          "rounded": "Redondeada",
+          "condensed": "Títulos condensados",
+          "geometric": "Geométrica",
+          "classic": "Clásica"
+        },
+        "font": {
+          "sans": "Fuente del tema",
+          "serif": "Serif",
+          "mono": "Monoespaciada",
+          "rounded": "Redondeada",
+          "condensed": "Condensada",
+          "geometric": "Geométrica",
+          "classic": "Clásica",
+          "arial": "Arial",
+          "helvetica": "Helvetica",
+          "verdana": "Verdana",
+          "trebuchet": "Trebuchet",
+          "tahoma": "Tahoma",
+          "segoe": "Segoe UI",
+          "georgia": "Georgia",
+          "times": "Times New Roman",
+          "palatino": "Palatino",
+          "courier": "Courier New",
+          "impact": "Impact"
+        },
+        "shape": {
+          "rect": "Rectángulo",
+          "rounded": "Rectángulo redondeado",
+          "ellipse": "Elipse",
+          "triangle": "Triángulo",
+          "diamond": "Rombo",
+          "pentagon": "Pentágono",
+          "hexagon": "Hexágono",
+          "star": "Estrella",
+          "arrow": "Flecha de bloque",
+          "chevron": "Cheurón",
+          "parallelogram": "Paralelogramo",
+          "trapezoid": "Trapecio",
+          "callout": "Bocadillo",
+          "plus": "Más"
+        },
+        "el": {
+          "kind": {
+            "text": "Cuadro de texto",
+            "shape": "Forma",
+            "line": "Línea",
+            "image": "Imagen",
+            "table": "Tabla",
+            "chart": "Gráfico"
+          },
+          "many": "{n} elementos",
+          "duplicate": "Duplicar",
+          "delete": "Eliminar",
+          "lock": "Bloquear posición",
+          "unlock": "Desbloquear",
+          "section": {
+            "position": "Posición y tamaño",
+            "arrange": "Organizar",
+            "text": "Texto",
+            "shape": "Forma",
+            "fill": "Relleno y contorno",
+            "image": "Imagen",
+            "line": "Línea",
+            "table": "Tabla",
+            "look": "Aspecto",
+            "motion": "Animación y enlace"
+          },
+          "x1": "Inicio X",
+          "y1": "Inicio Y",
+          "x2": "Fin X",
+          "y2": "Fin Y",
+          "width": "Ancho",
+          "height": "Alto",
+          "rotate": "Rotación",
+          "order": {
+            "front": "Traer al frente",
+            "forward": "Traer adelante",
+            "backward": "Enviar atrás",
+            "back": "Enviar al fondo"
+          },
+          "align": {
+            "to_slide": "Alinear en la diapositiva",
+            "to_selection": "Alinear entre sí",
+            "left": "Alinear a la izquierda",
+            "center": "Centrar horizontalmente",
+            "right": "Alinear a la derecha",
+            "top": "Alinear arriba",
+            "middle": "Centrar verticalmente",
+            "bottom": "Alinear abajo",
+            "text_left": "Izquierda",
+            "text_center": "Centrado",
+            "text_right": "Derecha",
+            "text_justify": "Justificado"
+          },
+          "spread": {
+            "x": "Distribuir horizontalmente",
+            "y": "Distribuir verticalmente"
+          },
+          "font": "Fuente",
+          "size": "Tamaño",
+          "smaller": "Texto más pequeño",
+          "bigger": "Texto más grande",
+          "bold": "Negrita",
+          "italic": "Cursiva",
+          "underline": "Subrayado",
+          "strike": "Tachado",
+          "caps": "Mayúsculas",
+          "text_color": "Color del texto",
+          "align_text": "Alineación",
+          "valign": "Posición vertical",
+          "valign_top": "Arriba",
+          "valign_middle": "Centro",
+          "valign_bottom": "Abajo",
+          "list": "Lista",
+          "list_none": "Sin lista",
+          "list_bullet": "Lista con viñetas",
+          "list_number": "Lista numerada",
+          "line_height": "Interlineado",
+          "spacing": "Espaciado",
+          "padding": "Margen interior",
+          "fill": "Relleno",
+          "no_fill": "Sin relleno",
+          "outline": "Contorno",
+          "outline_width": "Grosor del contorno",
+          "dash": "Estilo de línea",
+          "dash_solid": "Continua",
+          "dash_dash": "Discontinua",
+          "dash_dot": "Punteada",
+          "radius": "Radio de esquina",
+          "shadow": "Sombra",
+          "opacity": "Opacidad",
+          "alt": "Descripción para lectores de pantalla",
+          "line_color": "Color de línea",
+          "line_width": "Grosor de línea",
+          "start": "Inicio",
+          "end": "Final",
+          "end_none": "Sin extremo",
+          "end_arrow": "Punta de flecha",
+          "end_dot": "Punto",
+          "table": {
+            "add_row": "Añadir fila",
+            "remove_row": "Quitar última fila",
+            "add_column": "Añadir columna",
+            "remove_column": "Quitar última columna",
+            "head": "La primera fila es el encabezado",
+            "head_fill": "Color del encabezado",
+            "lines": "Color de las líneas"
+          },
+          "anim": "Animación",
+          "anim_on": "Empieza",
+          "anim_enter": "Con la diapositiva",
+          "anim_click": "Al hacer clic",
+          "link": "Enlace (https://…)"
+        },
+        "anim": {
+          "none": "Ninguna",
+          "fade": "Aparecer",
+          "rise": "Subir",
+          "slide": "Deslizar",
+          "zoom": "Zoom",
+          "pop": "Rebote",
+          "wipe": "Barrido"
+        },
+        "bg": {
+          "title": "Fondo",
+          "kind": "Tipo de fondo",
+          "none": "Ninguno",
+          "color": "Color",
+          "gradient": "Degradado",
+          "image": "Imagen",
+          "from_to": "Colores y ángulo",
+          "from": "Desde",
+          "to": "Hasta",
+          "angle": "Ángulo",
+          "dim": "Oscurecer",
+          "inherited": "Esta diapositiva usa el fondo de la presentación.",
+          "apply_all": "Usar en todas las diapositivas"
+        },
+        "tone": {
+          "label": "Colores del texto",
+          "auto": "Como la presentación",
+          "light": "Texto oscuro sobre claro",
+          "dark": "Texto claro sobre oscuro"
+        },
+        "slide": {
+          "section": "Diapositiva",
+          "hidden": "Al presentar",
+          "is_hidden": "Oculta",
+          "is_shown": "Visible",
+          "hide": "Ocultar diapositiva",
+          "show": "Mostrar diapositiva",
+          "footer": "Pie",
+          "footer_on": "Visible",
+          "footer_off": "Oculto"
+        },
+        "transition": {
+          "label": "Transición",
+          "deck": "Como la presentación",
+          "default": "Sutil (predeterminada)",
+          "none": "Ninguna",
+          "fade": "Desvanecer",
+          "slide": "Deslizar",
+          "rise": "Subir",
+          "zoom": "Zoom"
+        },
+        "format": {
+          "label": "Formato",
+          "hint": "Doble clic para escribir · arrastra para elegir varios"
+        },
+        "menu": {
+          "label": "Acciones del elemento",
+          "cut": "Cortar",
+          "copy": "Copiar",
+          "paste": "Pegar",
+          "select_all": "Seleccionar todo"
         }
       }
     }

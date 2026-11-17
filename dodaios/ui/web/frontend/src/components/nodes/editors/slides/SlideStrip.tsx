@@ -13,7 +13,7 @@
  * "Slide 3 moved to position 1" instead of nothing.
  */
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Copy, MoreHorizontal, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Copy, EyeOff, Eye, MoreHorizontal, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 
 import { useT, fill } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,8 @@ export interface SlideStripProps {
   onMove: (from: number, to: number) => void;
   onDuplicate: (index: number) => void;
   onDelete: (index: number) => void;
+  /** Hide the slide from the presentation, or show it again. */
+  onToggleHidden?: (index: number) => void;
   onAdd: (layout: Layout) => void;
   /** Enter on a slide: go to its first field on the canvas. */
   onOpen: (index: number) => void;
@@ -96,6 +98,7 @@ export function SlideStrip({
   onMove,
   onDuplicate,
   onDelete,
+  onToggleHidden,
   onAdd,
   onOpen,
 }: SlideStripProps) {
@@ -283,6 +286,7 @@ export function SlideStrip({
                       on ? "ring-2 ring-[hsl(var(--accent))]" : "ring-1 ring-border group-hover:ring-border-strong",
                     )}
                   >
+                    <div className={cn(slide.hidden && "opacity-40")}>
                     <Thumb
                       slide={slide}
                       index={index}
@@ -293,7 +297,18 @@ export function SlideStrip({
                       section={sections[index] ?? 0}
                       figure={figureOf(index)}
                     />
+                    </div>
                   </div>
+                  {slide.hidden && (
+                    <span
+                      className="absolute bottom-1.5 left-1.5 grid h-5 w-5 place-items-center rounded bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border"
+                      title={t("nodes.editor.slides.slide.is_hidden")}
+                      data-testid={`slides-thumb-hidden-${index}`}
+                    >
+                      <EyeOff className="h-3 w-3" aria-hidden />
+                    </span>
+                  )}
+                  {slide.hidden && <span className="sr-only">{t("nodes.editor.slides.slide.is_hidden")}</span>}
                   {slide.notes && (
                     <span className="sr-only">{t("nodes.editor.slides.strip.has_notes")}</span>
                   )}
@@ -307,6 +322,8 @@ export function SlideStrip({
                     }}
                     onDelete={() => onDelete(index)}
                     onMove={(to) => move(index, to)}
+                    hidden={!!slide.hidden}
+                    onToggleHidden={onToggleHidden ? () => onToggleHidden(index) : undefined}
                   />
                 </div>
               </div>
@@ -361,6 +378,8 @@ function ThumbMenu({
   onDuplicate,
   onDelete,
   onMove,
+  hidden,
+  onToggleHidden,
 }: {
   index: number;
   count: number;
@@ -368,6 +387,8 @@ function ThumbMenu({
   onDuplicate: () => void;
   onDelete: () => void;
   onMove: (to: number) => void;
+  hidden: boolean;
+  onToggleHidden?: () => void;
 }) {
   const t = useT();
   return (
@@ -421,6 +442,17 @@ function ThumbMenu({
                 onMove(index + 1);
               }}
             />
+            {onToggleHidden && (
+              <MenuItem
+                label={hidden ? t("nodes.editor.slides.slide.show") : t("nodes.editor.slides.slide.hide")}
+                icon={hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
+                onClick={() => {
+                  close();
+                  onToggleHidden();
+                }}
+                data-testid={`slides-thumb-hide-${index}`}
+              />
+            )}
             <MenuItem
               label={t("nodes.editor.slides.action.delete")}
               icon={<Trash2 aria-hidden />}

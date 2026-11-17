@@ -87,7 +87,9 @@ _JUDGE_IT: Final[str] = (
     "not in the language the person wanted; a slide or section without one clear point; "
     "a third of a slide empty, or text cramped or cut off; the same layout several times "
     "in a row; a claim or number without a source; text where a picture, chart or real "
-    "example would say more. 'Acceptable' is not the bar: fix every weak point with "
+    "example would say more; a deck that is only text on plain grounds (no picture, "
+    "background, chart, figure or diagram); elements that overlap by accident or sit off "
+    "the margins. 'Acceptable' is not the bar: fix every weak point with "
     "'update', then look again, and answer only when you would present it yourself."
 )
 

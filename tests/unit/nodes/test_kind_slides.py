@@ -140,6 +140,21 @@ def _every_layout(text: str = "Text") -> dict[str, Any]:
             {"layout": "image", "image": PIXEL, "caption": text},
             {"layout": "steps", "title": text, "steps": [{"title": text, "text": text}]},
             {"layout": "closing", "title": text, "subtitle": text, "bullets": [text]},
+            {
+                "layout": "blank",
+                "elements": [
+                    {"type": "text", "x": 96, "y": 80, "w": 640, "h": 120, "text": text},
+                    {"type": "shape", "shape": "star", "x": 800, "y": 80, "w": 200, "h": 200},
+                    {
+                        "type": "table",
+                        "x": 96,
+                        "y": 320,
+                        "w": 640,
+                        "h": 200,
+                        "rows": [[text, text]],
+                    },
+                ],
+            },
         ]
     }
 
@@ -437,9 +452,10 @@ def test_a_layout_that_may_be_blank_keeps_it_while_it_holds_only_its_own_fields(
         "stats",
         "steps",
         "closing",
+        "blank",
         "stats",
     ]
-    assert render(_node(spec)).count('aria-roledescription="slide"') == 8
+    assert render(_node(spec)).count('aria-roledescription="slide"') == 9
 
 
 def test_an_emptied_column_keeps_its_place_beside_the_others() -> None:
@@ -868,7 +884,7 @@ def test_preview_has_exactly_the_card_values() -> None:
     assert preview(normalize(EXAMPLE)) == {
         "title": "Q3 in review",
         "subtitle": "Revenue, retention, next steps",
-        "count": 4,
+        "count": 5,
         "dark": False,
         "accent": "var(--s3)",
     }
@@ -915,8 +931,9 @@ def test_the_guide_is_compact_and_its_example_is_a_valid_deck() -> None:
     spec = normalize(EXAMPLE)
 
     # The grammar grew (pie and donut charts, stacked bars, colours, a picture's fit),
-    # then the way to work (plan, real material, look and revise; 2026-11-14).
-    assert len(GUIDE) <= 3_600
+    # then the way to work (plan, real material, look and revise; 2026-11-14), then
+    # free elements, backgrounds, fonts, transitions and the design rules (2026-11-17).
+    assert len(GUIDE) <= 6_800
     assert "'look'" in GUIDE and "question card" in GUIDE
     assert json.dumps(EXAMPLE, ensure_ascii=False, separators=(",", ":")) in GUIDE
     assert all(f"- {layout}:" in GUIDE for layout in LAYOUTS)
@@ -932,7 +949,7 @@ def test_the_type_is_registered_under_its_names() -> None:
 
     assert kind.type == "slides"
     assert kind.guide == GUIDE
-    assert kind.preview(kind.normalize(EXAMPLE))["count"] == 4
+    assert kind.preview(kind.normalize(EXAMPLE))["count"] == 5
 
 
 # ------------------------------------------------- the editor draws the same slides
@@ -967,7 +984,188 @@ def _markup_deck() -> dict[str, Any]:
         {"layout": "image", "title": "Whole", "image": PIXEL, "fit": "contain"},
         {"layout": "section", "title": "A much longer section title that wraps over two lines"},
         {"layout": "quote", "quote": "x" * 150, "by": "Someone"},
+        # Free elements of every kind and look, backgrounds and tones.
+        {
+            "layout": "blank",
+            "background": {"gradient": {"from": "#0f172a", "to": "#312e81", "angle": 135}},
+            "elements": [
+                {
+                    "type": "text",
+                    "x": 96.5,
+                    "y": 80,
+                    "w": 640,
+                    "h": 140,
+                    "text": "One **bold**\nTwo [link](https://example.org)",
+                    "list": "bullet",
+                    "size": 30,
+                    "font": "serif",
+                    "color": "#ffffff",
+                    "bold": True,
+                    "italic": True,
+                    "underline": True,
+                    "strike": True,
+                    "caps": True,
+                    "align": "right",
+                    "valign": "bottom",
+                    "line": 1.4,
+                    "spacing": 0.02,
+                    "fill": "accent",
+                    "stroke": "white",
+                    "stroke_width": 2,
+                    "dash": "dash",
+                    "radius": 12,
+                    "padding": 20,
+                    "rotate": -4,
+                    "opacity": 80,
+                    "shadow": True,
+                    "anim": "rise",
+                },
+                {
+                    "type": "text",
+                    "x": 96,
+                    "y": 260,
+                    "w": 400,
+                    "h": 100,
+                    "text": "1st\n2nd",
+                    "list": "number",
+                    "anim": "fade",
+                    "click": True,
+                },
+                {
+                    "type": "shape",
+                    "shape": "rounded",
+                    "x": 800,
+                    "y": 80,
+                    "w": 300,
+                    "h": 120,
+                    "text": "Rounded",
+                    "link": "https://example.org",
+                },
+                {
+                    "type": "shape",
+                    "shape": "ellipse",
+                    "x": 800,
+                    "y": 240,
+                    "w": 200,
+                    "h": 120,
+                    "fill": "#ff0000",
+                    "stroke": "black",
+                    "dash": "dot",
+                },
+                {
+                    "type": "shape",
+                    "shape": "rect",
+                    "x": 800,
+                    "y": 400,
+                    "w": 200,
+                    "h": 100,
+                    "radius": 8,
+                    "valign": "top",
+                    "align": "left",
+                    "padding": 4,
+                    "text": "Rect",
+                },
+                {
+                    "type": "shape",
+                    "shape": "hexagon",
+                    "x": 1040,
+                    "y": 240,
+                    "w": 160,
+                    "h": 140,
+                    "fill": "green",
+                    "stroke": "#111",
+                    "stroke_width": 3,
+                    "dash": "dash",
+                },
+                {
+                    "type": "line",
+                    "x1": 100,
+                    "y1": 600,
+                    "x2": 500,
+                    "y2": 640,
+                    "color": "pink",
+                    "width": 6,
+                    "start": "dot",
+                    "end": "arrow",
+                    "dash": "dash",
+                },
+                {
+                    "type": "line",
+                    "x1": 600,
+                    "y1": 650,
+                    "x2": 600,
+                    "y2": 500,
+                    "dash": "dot",
+                    "start": "arrow",
+                    "opacity": 50,
+                },
+                {
+                    "type": "image",
+                    "image": PIXEL,
+                    "x": 540,
+                    "y": 380,
+                    "w": 200,
+                    "h": 120,
+                    "fit": "contain",
+                    "radius": 10,
+                    "stroke": "#fff",
+                    "stroke_width": 3,
+                    "alt": "A pixel",
+                    "anim": "zoom",
+                    "click": True,
+                },
+                {
+                    "type": "table",
+                    "x": 96,
+                    "y": 400,
+                    "w": 400,
+                    "h": 160,
+                    "rows": [["A", "B"], ["1", "2"]],
+                    "size": 16,
+                    "font": "mono",
+                    "color": "#eeeeee",
+                    "fill": "#333333",
+                    "stroke": "#555555",
+                    "align": "center",
+                },
+                {
+                    "type": "table",
+                    "x": 96,
+                    "y": 600,
+                    "w": 300,
+                    "h": 80,
+                    "rows": [["x", "y"]],
+                    "head": False,
+                },
+                {
+                    "type": "chart",
+                    "x": 760,
+                    "y": 520,
+                    "w": 440,
+                    "h": 180,
+                    "chart": {"type": "bar", "x": ["a", "b"], "series": [{"data": [1, 2]}]},
+                },
+            ],
+            "notes": "Elements.",
+        },
+        {
+            "layout": "section",
+            "title": "Light on dark",
+            "tone": "dark",
+            "transition": "zoom",
+            "hidden": True,
+            "footer": False,
+        },
+        {
+            "layout": "bullets",
+            "title": "On a photo",
+            "bullets": ["One"],
+            "background": {"image": PIXEL, "fit": "contain", "dim": 40},
+        },
+        {"layout": "title", "title": "Coloured", "background": {"color": "#fdf2f8"}},
     ]
+    deck["font"] = "editorial"
+    deck["transition"] = "fade"
     return normalize(deck)
 
 
@@ -978,6 +1176,14 @@ def _markup_fixture() -> str:
     slides = []
     for slide, html in zip(spec["slides"], sections, strict=True):
         entry: dict[str, Any] = {"html": html}
+        charts = [e["chart"] for e in slide.get("elements", []) if e["type"] == "chart"]
+        if charts:
+            entry["element_figures"] = {
+                json.dumps(chart, ensure_ascii=False, separators=(",", ":")): render_chart(
+                    parse_chart(json.dumps(chart)) or {}, "en"
+                )
+                for chart in charts
+            }
         if slide["layout"] == "chart":
             parsed = parse_chart(json.dumps(slide["chart"]))
             assert parsed is not None

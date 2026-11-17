@@ -78,8 +78,15 @@ MIN_EVERY_MINUTES: Final[int] = 15
 MAX_EVERY_MINUTES: Final[int] = 7 * 24 * 60
 DEFAULT_EVERY_MINUTES: Final[int] = 180
 
+#: A deck carries its pictures inside its spec (a page has no network): room
+#: for about nine full pictures (``shell.MAX_IMAGE_CHARS`` each), and still
+#: under the body ceiling of a save (``nodes_routes.MAX_SPEC_BODY``).
+SLIDES_SPEC_BYTES: Final[int] = 3_600_000
 #: The spec size of the types that may be larger than :data:`MAX_SPEC_BYTES`.
-SPEC_BYTES_BY_TYPE: Final[dict[str, int]] = {"whiteboard": MAX_SCENE_BYTES}
+SPEC_BYTES_BY_TYPE: Final[dict[str, int]] = {
+    "whiteboard": MAX_SCENE_BYTES,
+    "slides": SLIDES_SPEC_BYTES,
+}
 #: The person's saves from an editor within this many seconds of the previous
 #: one share one history version, up to :data:`SAVE_STRETCH_SECONDS` in all:
 #: "undo that" then goes back a stretch of editing, not one stroke.
