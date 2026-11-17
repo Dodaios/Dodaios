@@ -500,6 +500,8 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
     if surface == "jarvis":
         assert seen["prompt"] == (
             "Was steht heute an?"
+            # How much the task needs is the model's own judgement, said first.
+            + dodaios_harness.EFFORT_LINE
             # ... and to take a task on in a line of its own before the first tool.
             + dodaios_harness.FIRST_LINE
             + shape_line
@@ -510,6 +512,7 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
     else:
         assert card_line not in str(seen["prompt"])
         assert shape_line not in str(seen["prompt"])
+        assert dodaios_harness.EFFORT_LINE not in str(seen["prompt"])
 
 
 async def test_a_slash_command_of_the_lead_goes_out_without_the_question_card_line(monkeypatch):

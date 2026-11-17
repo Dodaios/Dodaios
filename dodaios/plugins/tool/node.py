@@ -77,6 +77,20 @@ TYPE_LINES: Final[dict[str, str]] = {
 }
 
 
+#: How to make a node of any type, added to a type's guide that has no method of
+#: its own (the deck's guide carries its own, longer one). Without it the model
+#: wrote the spec in one call and stopped (maintainer, 2026-11-17: "no AI slop").
+WORK_METHOD: Final[str] = (
+    "\nHow to work (a node is a piece of work, not one call):\n"
+    "1. Know who it is for and what it should achieve; ask on the question card only "
+    "what you cannot tell from their words.\n"
+    "2. Gather real material first: their files, apps, data and sources, with real "
+    "numbers. Nothing invented; leave out what you cannot back.\n"
+    "3. Plan the structure before the spec, then create.\n"
+    "4. Call 'look' and judge it as they will see it; fix what is weak with 'update' "
+    "and look again until you would hand it over yourself."
+)
+
 #: What a create tells the model to do before it answers.
 _CHECK_IT: Final[str] = (
     "Before you answer, call this tool with operation 'look' and this node, and judge "
@@ -200,7 +214,8 @@ class NodeTool:
         "'stop' ends that. 'look' shows it as pictures: look after a create, fix what is "
         "weak. 'get' reads one, 'list' shows all, 'revert' undoes the last change. The "
         "renderer does the design: send content, never HTML. A long "
-        "answer to a question stays a report (write_report)."
+        "answer to a question stays a report (write_report). A node is real work: its "
+        "guide says how."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -359,7 +374,10 @@ class NodeTool:
         wanted = _text(args.get("type"))
         if wanted is None:
             return ToolResult(True, _overview())
-        return ToolResult(True, kind_of(wanted).guide)
+        guide = kind_of(wanted).guide
+        if "How to work" not in guide:
+            guide += WORK_METHOD
+        return ToolResult(True, guide)
 
     async def _find(self, store: NodeStore, args: dict[str, Any], operation: str) -> Node:
         reference = _text(args.get("node"))

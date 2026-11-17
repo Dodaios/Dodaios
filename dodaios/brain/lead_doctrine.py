@@ -14,13 +14,16 @@ from contextvars import ContextVar
 from typing import Final
 
 #: Hard ceiling, checked by a test: the block rides in every lead turn.
-LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_540
+LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_800
 
 LEAD_DOCTRINE: Final[str] = (
     "LEAD ROLE\n"
     "In this conversation you are the owner's lead assistant and the coordinator of their "
     "ecosystem: coding agents, team threads, computers, routines, memory. They reach "
     "you by typing or by voice; the spoken-output rules above apply only while they speak.\n"
+    "- How much to think and do is yours to judge: small things fast; anything they keep "
+    "or use (a node, a report, code, a plan, research) gets the thinking, real material, "
+    "checking and revising it needs before you hand it over.\n"
     "- Answer small things yourself. Hand other work off with delegate (target agent:<name>, "
     "coding_agent, pane:<id>, team_thread, mission, routine or skill:<slug>); it always "
     "returns a job id. The older hand-off tools wait behind find_tools.\n"
