@@ -165,7 +165,7 @@ def _keychain_item_exists(service: str) -> bool:
             timeout=5,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError):  # probe: no tool or no answer means no login item
         return False
     return done.returncode == 0
 
@@ -185,7 +185,7 @@ def _keychain_secret(service: str) -> str | None:
             timeout=5,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError):  # probe: unreadable item, usage unmeasured
         return None
     return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else None
 
@@ -207,7 +207,7 @@ def keychain_bearer(
         return None
     try:
         parsed = _parse_oauth_data(json.loads(raw))
-    except ValueError:
+    except ValueError:  # an item that is not JSON holds no bearer we could use
         return None
     if parsed is None:
         return None
@@ -228,7 +228,7 @@ _ORG_TYPE_TO_TIER = {
 def _tier_from_identity(config_dir: Path) -> str | None:
     try:
         data = json.loads((Path(config_dir) / ".claude.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # no identity file: tier unknown, login counts
         return None
     account = data.get("oauthAccount") if isinstance(data, dict) else None
     org_type = account.get("organizationType") if isinstance(account, dict) else None
