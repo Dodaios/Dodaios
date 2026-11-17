@@ -60,7 +60,7 @@ computer.
 https://github.com/user-attachments/assets/ece0b07a-0a93-4f40-8fbd-f86630d05347
 
 <p align="center">
-  <sub>A real recording at 60 frames a second, played at the speed it was filmed; the waits for the models are cut out. It was recorded with Claude Fable 5.2 and Claude Opus 5.5 through Claude Code. The code changes, test runs, slide and commits are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch the video</b></a> (MP4, 62 s, 3.9 MB)</sub>
+  <sub>A real recording at 60 frames a second, played at the speed it was filmed; the waits for the models are cut out. It was recorded with Claude Fable 5.2 and Claude Opus 5.5 through Claude Code. The code change, test runs and commit are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch the video</b></a> (MP4, 42 s, 2.5 MB)</sub>
 </p>
 
 ## Install
