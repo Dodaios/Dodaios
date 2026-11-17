@@ -441,6 +441,28 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], f: float) -> tuple[in
     return tuple(round(a[i] + (b[i] - a[i]) * f) for i in range(3))  # type: ignore[return-value]
 
 
+def _on_grid(v: float, g: float) -> float:
+    """``v`` moved to the nearest whole output pixel (``g`` drawing pixels each)."""
+    return round(v / g) * g
+
+
+def _stroke(width: float, g: float) -> int:
+    """A stroke ``width`` (drawing pixels) as whole output pixels, at least one."""
+    return int(max(1, round(width / g)) * g)
+
+
+def _centre_for(v: float, w: float, g: float) -> float:
+    """Where to centre a stroke ``w`` wide so both its edges land on the pixel grid.
+
+    An odd number of output pixels is centred on a pixel's middle, an even one
+    on a pixel border; a stroke that straddles a border otherwise turns into
+    two half-grey pixels, which is what made the bar look soft.
+    """
+    if round(w / g) % 2:
+        return math.floor(v / g) * g + g / 2.0
+    return round(v / g) * g
+
+
 # --------------------------------------------------------------------------- #
 # Painter                                                                     #
 # --------------------------------------------------------------------------- #
@@ -502,14 +524,22 @@ class BarPainter:
         scale: float,
         pixel_ratio: float = 1.0,
         flourish: float | None = None,
+        solid: bool = False,
     ) -> Image.Image:
         """One RGBA frame of the whole window (transparent outside the bar).
 
         ``look`` is the rendered look the surface derived from the mode and the
         live audio (``idle`` / ``speak`` / ``think`` / ``connect`` / ``notice``).
         ``flourish`` (0 to 1) plays the "connected" swell instead of resting dots.
+        ``solid`` draws the resting pill without its see-through fill, for a
+        surface whose resting bar has always been opaque.
+
+        Edges that must look sharp sit on whole output pixels: the pill's
+        outline, its one-pixel rim, the row of lines and the control icons.
+        Only round ends and diagonals keep their soft (anti-aliased) edge.
         """
         self._flourish = flourish
+        self._grid = 1.0
         target = layout(state)
         self._target = (target.width, target.height)
         smooth = self._advance(t, (target.width, target.height), level)
@@ -526,19 +556,26 @@ class BarPainter:
         big = Image.new("RGBA", (out_w * ss, out_h * ss), (0, 0, 0, 0))
         draw = ImageDraw.Draw(big)
 
+        g = float(ss)  # drawing pixels per output pixel
+        self._grid = g
         cx = out_w * ss / 2.0
         bottom = out_h * ss - BOTTOM_PAD * u
         pw, ph = cur_w * u, cur_h * u
-        x0, y0, x1, y1 = cx - pw / 2.0, bottom - ph, cx + pw / 2.0, bottom
+        x0, x1 = _on_grid(cx - pw / 2.0, g), _on_grid(cx + pw / 2.0, g)
+        y1 = _on_grid(bottom, g)
+        y0 = min(y1 - g, _on_grid(bottom - ph, g))
+        x1 = max(x1, x0 + g)
         cy = (y0 + y1) / 2.0
-        radius = ph / 2.0
+        radius = (y1 - y0) / 2.0
 
         armed = state.drop_state == "armed"
         resting = target.shape == "rest" and not armed
-        rim_w = max(1.0, (1.5 if armed else 1.0) * u)
+        # The rim is one whole output pixel (two when a drop is armed): a rim
+        # thinner than a pixel only ever shows as a blurred grey line.
+        rim_w = float(_stroke((1.5 if armed else 1.0) * u, g))
         if resting:
-            rim = REST_RIM + (REST_RIM_ALPHA,)
-            fill = FILL + (REST_FILL_ALPHA,)
+            rim = REST_RIM + (255 if solid else REST_RIM_ALPHA,)
+            fill = FILL + (255 if solid else REST_FILL_ALPHA,)
         else:
             rim = (RIM_ACTIVE if armed else RIM) + (255,)
             fill = FILL + (255,)
@@ -564,7 +601,7 @@ class BarPainter:
         if target.shape in ("status", "live"):
             mx = tx0 + EDGE_PAD * u + 2.0 * u
             for mark in target.marks:
-                self._mark(draw, mark, mx + MARK_W * u / 2.0, cy, u, reveal)
+                self._mark(draw, mark, mx + MARK_W * u / 2.0, cy, u, reveal, g)
                 mx += MARK_W * u
             if target.shape == "live":
                 left = tx0 + (MARK_W * len(target.marks)) * u
@@ -623,11 +660,11 @@ class BarPainter:
                     fill=(HOVER_BG if hot else ON_BG) + (255,),
                 )
             colour = _mix(FILL, WHITE if hot else (215, 215, 215), reveal)
-            self._icon(draw, name, mid, cy, u * 0.92, colour, state)
+            self._icon(draw, name, mid, cy, u * 0.92, colour, state, g)
 
         label = control_label(hovered_control, state) if reveal >= 0.95 else ""
         if label and tip_x is not None:
-            self._tip(draw, label, tip_x, y0 - TIP_GAP * u, u, big.width)
+            self._tip(draw, label, tip_x, y0 - TIP_GAP * u, u, big.width, g)
         return self._finish(big, out_w, out_h)
 
     @staticmethod
@@ -636,18 +673,24 @@ class BarPainter:
 
     # -- label above the bar ---------------------------------------------------
     @staticmethod
-    def _tip(draw, text: str, cx: float, bottom: float, u: float, max_x: float) -> None:
+    def _tip(
+        draw, text: str, cx: float, bottom: float, u: float, max_x: float, g: float = 1.0
+    ) -> None:
         font = _font(max(6, round(TIP_FONT * u)))
         x0b, y0b, x1b, y1b = draw.textbbox((0, 0), text, font=font)
         tw, th = x1b - x0b, y1b - y0b
-        h = TIP_H * u
-        w = tw + TIP_PAD * 2 * u
-        left = min(max(1.0, cx - w / 2.0), max_x - 1.0 - w)
+        h = _on_grid(TIP_H * u, g)
+        w = _on_grid(tw + TIP_PAD * 2 * u, g)
+        left = _on_grid(min(max(1.0, cx - w / 2.0), max_x - 1.0 - w), g)
         right = left + w
+        bottom = _on_grid(bottom, g)
         top = bottom - h
+        rim = _stroke(u, g)
         draw.rounded_rectangle((left, top, right, bottom), radius=h / 2, fill=RIM + (255,))
         draw.rounded_rectangle(
-            (left + u, top + u, right - u, bottom - u), radius=h / 2 - u, fill=FILL + (255,)
+            (left + rim, top + rim, right - rim, bottom - rim),
+            radius=h / 2 - rim,
+            fill=FILL + (255,),
         )
         draw.text(
             (left + TIP_PAD * u - x0b, top + (h - th) / 2 - y0b),
@@ -703,7 +746,15 @@ class BarPainter:
         if row > room > 0:
             shrink = room / row
             th, gap, row = th * shrink, gap * shrink, room
-        start = cx - row / 2.0
+        # Whole output pixels: every line equally thick and equally spaced, so
+        # the row reads as sharp strokes rather than grey smudges.
+        g = getattr(self, "_grid", 1.0)
+        th = float(_stroke(th, g))
+        pitch = max(th + g, _on_grid(th + gap, g))
+        if room > 0 and th + (n - 1) * pitch > room + g:
+            pitch = max(th + g, math.floor((room - th) / (n - 1) / g) * g)
+        row = th + (n - 1) * pitch
+        start = _on_grid(cx - row / 2.0, g)
         if look == "speak":
             voice = getattr(self, "_voice_lengths", None)
             lengths = voice if voice and len(voice) == n else bar_heights(level, t, count=n)
@@ -722,7 +773,7 @@ class BarPainter:
             colours = [WHITE if hot else GREY] * n
         for i in range(n):
             length = th + (max(th, max_len) - th) * lengths[i]
-            bx = start + i * (th + gap)
+            bx = start + i * pitch
             colour = _mix(FILL, colours[i], reveal)
             draw.rounded_rectangle(
                 (bx, cy - length / 2.0, bx + th, cy + length / 2.0),
@@ -731,32 +782,37 @@ class BarPainter:
             )
 
     # -- status marks ------------------------------------------------------------
-    def _mark(self, draw, mark: str, cx: float, cy: float, u: float, reveal: float) -> None:
+    def _mark(
+        self, draw, mark: str, cx: float, cy: float, u: float, reveal: float, g: float = 1.0
+    ) -> None:
         colour = _mix(FILL, (225, 225, 225), reveal)
         k = 0.72
         if mark == "mic_off":
-            _mic(draw, cx, cy, u * k, colour, slashed=True)
+            _mic(draw, cx, cy, u * k, colour, slashed=True, g=g)
         elif mark == "speaker_off":
-            _speaker(draw, cx, cy, u * k, colour, slashed=True)
+            _speaker(draw, cx, cy, u * k, colour, slashed=True, g=g)
         elif mark in ("prompt", "prompt_paused"):
-            _sparkle(draw, cx, cy, u * k, colour, slashed=mark == "prompt_paused")
+            _sparkle(draw, cx, cy, u * k, colour, slashed=mark == "prompt_paused", g=g)
 
     # -- control icons -------------------------------------------------------------
     @staticmethod
-    def _icon(draw, name: str, cx: float, cy: float, u: float, colour, state: BarState) -> None:
+    def _icon(
+        draw, name: str, cx: float, cy: float, u: float, colour, state: BarState, g: float = 1.0
+    ) -> None:
         if name == "mic":
-            _mic(draw, cx, cy, u, colour, slashed=state.muted)
+            _mic(draw, cx, cy, u, colour, slashed=state.muted, g=g)
         elif name == "speaker":
-            _speaker(draw, cx, cy, u, colour, slashed=state.speaker_muted)
+            _speaker(draw, cx, cy, u, colour, slashed=state.speaker_muted, g=g)
         elif name == "close":
+            w = _stroke(1.6 * u, g)
+            cx, cy = _centre_for(cx, w, g), _centre_for(cy, w, g)
             r = 4.2 * u
-            w = max(1, round(1.6 * u))
             draw.line((cx - r, cy - r, cx + r, cy + r), fill=colour, width=w)
             draw.line((cx - r, cy + r, cx + r, cy - r), fill=colour, width=w)
         elif name == "compose":
-            _pencil(draw, cx, cy, u, colour)
+            _pencil(draw, cx, cy, u, colour, g=g)
         elif name == "prompt":
-            _sparkle(draw, cx, cy, u, colour, slashed=state.prompt_mode_paused)
+            _sparkle(draw, cx, cy, u, colour, slashed=state.prompt_mode_paused, g=g)
 
 
 # --------------------------------------------------------------------------- #
@@ -768,10 +824,11 @@ def _slash(draw, cx: float, cy: float, r: float, colour, w: int) -> None:
     draw.line((cx - r, cy - r, cx + r, cy + r), fill=colour, width=w)
 
 
-def _mic(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> None:
-    w = max(1, round(1.5 * u))
-    cap_w, cap_h = 2.6 * u, 4.6 * u
-    top = cy - 6.2 * u
+def _mic(draw, cx: float, cy: float, u: float, colour, *, slashed: bool, g: float = 1.0) -> None:
+    w = _stroke(1.5 * u, g)
+    cx = _centre_for(cx, w, g)
+    cap_w, cap_h = _on_grid(2.6 * u, g), 4.6 * u
+    top = _on_grid(cy - 6.2 * u, g)
     draw.rounded_rectangle(
         (cx - cap_w, top, cx + cap_w, top + 2 * cap_h), radius=cap_w, outline=colour, width=w
     )
@@ -785,9 +842,11 @@ def _mic(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> None
         _slash(draw, cx, cy, 6.6 * u, colour, w)
 
 
-def _speaker(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> None:
-    w = max(1, round(1.5 * u))
-    left = cx - 6.0 * u
+def _speaker(
+    draw, cx: float, cy: float, u: float, colour, *, slashed: bool, g: float = 1.0
+) -> None:
+    w = _stroke(1.5 * u, g)
+    left = _on_grid(cx - 6.0 * u, g)
     body = [
         (left, cy - 2.4 * u),
         (left + 3.2 * u, cy - 2.4 * u),
@@ -806,8 +865,11 @@ def _speaker(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> 
         draw.arc((ox - rr, cy - rr, ox + rr, cy + rr), -50, 50, fill=colour, width=w)
 
 
-def _pencil(draw, cx: float, cy: float, u: float, colour) -> None:
-    w = max(1, round(1.6 * u))
+def _pencil(draw, cx: float, cy: float, u: float, colour, g: float = 1.0) -> None:
+    w = _stroke(1.6 * u, g)
+    # The base line is the one long horizontal stroke: put it on whole pixels.
+    base = _centre_for(cy + 5.6 * u, w, g)
+    cy = base - 5.6 * u
     r = 5.2 * u
     draw.line((cx - r, cy + r, cx + r * 0.75, cy - r * 0.75), fill=colour, width=w * 2)
     draw.polygon(
@@ -821,7 +883,10 @@ def _pencil(draw, cx: float, cy: float, u: float, colour) -> None:
     draw.line((cx - 1.0 * u, cy + r + 0.4 * u, cx + r, cy + r + 0.4 * u), fill=colour, width=w)
 
 
-def _sparkle(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> None:
+def _sparkle(
+    draw, cx: float, cy: float, u: float, colour, *, slashed: bool, g: float = 1.0
+) -> None:
+    cx, cy = _on_grid(cx, g), _on_grid(cy, g)
     r, q = 6.0 * u, 1.5 * u
     draw.polygon(
         [
@@ -837,7 +902,7 @@ def _sparkle(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> 
         fill=colour,
     )
     if slashed:
-        _slash(draw, cx, cy, 6.6 * u, colour, max(1, round(1.5 * u)))
+        _slash(draw, cx, cy, 6.6 * u, colour, _stroke(1.5 * u, g))
 
 
 def to_keyed_rgb(frame: Image.Image, key: tuple[int, int, int]) -> Image.Image:
