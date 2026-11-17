@@ -655,7 +655,9 @@
       "slides": {
         "toolbar": {
           "slides": "Folien",
-          "look": "Aussehen"
+          "look": "Aussehen",
+          "insert": "Einfügen",
+          "view": "Ansicht"
         },
         "add": {
           "button": "Neue Folie",
@@ -692,7 +694,17 @@
           "next": "Nächste Folie",
           "notes": "Sprechernotizen (N)",
           "end": "Präsentation beenden (Esc)",
-          "position": "{n} / {total}"
+          "position": "{n} / {total}",
+          "more": "Weitere Präsentationsarten",
+          "from_current": "Ab dieser Folie",
+          "from_start": "Von Anfang an",
+          "presenter_view": "Referentenansicht",
+          "presenter": "Referentenansicht (P)",
+          "elapsed": "Verstrichen",
+          "reset_timer": "Timer neu starten",
+          "clock": "Uhrzeit",
+          "up_next": "Als Nächstes",
+          "end_of_deck": "Das Ende des Decks."
         },
         "canvas": {
           "label": "Folie {n} von {total}",
@@ -731,7 +743,8 @@
           "table": "Tabelle",
           "image": "Bild",
           "steps": "Schritte",
-          "closing": "Abschluss"
+          "closing": "Abschluss",
+          "blank": "Leer"
         },
         "section": {
           "text": "Text",
@@ -816,13 +829,15 @@
           "too_large": "Dieses Bild lässt sich nicht klein genug für eine Folie machen. Versuch ein kleineres.",
           "wrong_type": "Auf eine Folie passen nur PNG-, JPEG-, GIF-, WebP- und AVIF-Bilder.",
           "failed": "Das Bild konnte nicht gelesen werden.",
-          "working": "Bild wird vorbereitet …"
+          "working": "Bild wird vorbereitet …",
+          "fit_fill": "Strecken"
         },
         "hint": {
           "stat_value": "Eine Kennzahl ohne Wert wird auf der Folie weggelassen.",
           "table": "Spalten mit nur Zahlen werden auf der Folie rechtsbündig gesetzt.",
           "bar_rows": "Eine Folie zeigt die ersten 10 Balken eines Balkendiagramms.",
-          "image_bleed": "Ohne Titel füllt das Bild die ganze Folie."
+          "image_bleed": "Ohne Titel füllt das Bild die ganze Folie.",
+          "blank": "Eine leere Folie zeigt nur, was du darauf legst: Textfelder, Formen, Linien, Bilder, Tabellen und Diagramme fügst du über die Werkzeugleiste ein."
         },
         "step": {
           "type": "Tippen",
@@ -853,7 +868,34 @@
           "add_table_row": "Tabellenzeile hinzufügen",
           "remove_table_row": "Tabellenzeile entfernen",
           "add_table_column": "Tabellenspalte hinzufügen",
-          "remove_table_column": "Tabellenspalte entfernen"
+          "remove_table_column": "Tabellenspalte entfernen",
+          "format": "Formatieren",
+          "move_element": "Verschieben",
+          "resize": "Größe ändern",
+          "rotate": "Drehen",
+          "align": "Ausrichten",
+          "order": "Reihenfolge ändern",
+          "add_text": "Textfeld einfügen",
+          "add_shape": "Form einfügen",
+          "add_line": "Linie einfügen",
+          "add_image": "Bild einfügen",
+          "add_table": "Tabelle einfügen",
+          "add_chart": "Diagramm einfügen",
+          "delete_element": "Löschen",
+          "duplicate_element": "Duplizieren",
+          "paste": "Einfügen",
+          "anim": "Animation",
+          "link": "Link",
+          "background": "Hintergrund",
+          "background_all": "Hintergrund für alle Folien",
+          "tone": "Textfarben",
+          "transition": "Übergang",
+          "hide_slide": "Folie ausblenden",
+          "show_slide": "Folie einblenden",
+          "footer": "Fußzeile",
+          "design": "Design",
+          "font": "Schriften",
+          "replace": "Ersetzen"
         },
         "sample": {
           "deck_title": "Titel des Decks",
@@ -879,6 +921,288 @@
           "table_row1": "Erstens",
           "table_row2": "Zweitens",
           "table_new_col": "Spalte {n}"
+        },
+        "insert": {
+          "text": "Textfeld",
+          "shape": "Form",
+          "line": "Linie oder Pfeil",
+          "line_line": "Linie",
+          "line_arrow": "Pfeil",
+          "line_double": "Doppelpfeil",
+          "line_dashed": "Gestrichelte Linie",
+          "image": "Bild",
+          "table": "Tabelle",
+          "chart": "Diagramm"
+        },
+        "view": {
+          "grid": "Raster zeigen",
+          "snap": "An Hilfslinien ausrichten",
+          "zoom_in": "Vergrößern",
+          "zoom_out": "Verkleinern",
+          "zoom_fit": "Folie ans Fenster anpassen",
+          "fit": "Passend"
+        },
+        "design": {
+          "label": "Design",
+          "presets": "Fertige Designs",
+          "font": "Schriften",
+          "transition": "Übergang",
+          "footer": "Fußzeilen",
+          "background": "Hintergrund aller Folien",
+          "preset": {
+            "clean": "Klar",
+            "midnight": "Mitternacht",
+            "editorial": "Redaktionell",
+            "ocean": "Ozean",
+            "sunset": "Abendrot",
+            "forest": "Wald",
+            "terminal": "Terminal",
+            "bold": "Kräftig",
+            "paper": "Papier"
+          }
+        },
+        "deckfont": {
+          "sans": "Serifenlos (Standard)",
+          "serif": "Serifen",
+          "editorial": "Serifen-Titel, serifenloser Text",
+          "mono": "Monospace",
+          "rounded": "Abgerundet",
+          "condensed": "Schmale Titel",
+          "geometric": "Geometrisch",
+          "classic": "Klassisch"
+        },
+        "font": {
+          "sans": "Design-Schrift",
+          "serif": "Serifen",
+          "mono": "Monospace",
+          "rounded": "Abgerundet",
+          "condensed": "Schmal",
+          "geometric": "Geometrisch",
+          "classic": "Klassisch",
+          "arial": "Arial",
+          "helvetica": "Helvetica",
+          "verdana": "Verdana",
+          "trebuchet": "Trebuchet",
+          "tahoma": "Tahoma",
+          "segoe": "Segoe UI",
+          "georgia": "Georgia",
+          "times": "Times New Roman",
+          "palatino": "Palatino",
+          "courier": "Courier New",
+          "impact": "Impact"
+        },
+        "shape": {
+          "rect": "Rechteck",
+          "rounded": "Abgerundetes Rechteck",
+          "ellipse": "Ellipse",
+          "triangle": "Dreieck",
+          "diamond": "Raute",
+          "pentagon": "Fünfeck",
+          "hexagon": "Sechseck",
+          "star": "Stern",
+          "arrow": "Blockpfeil",
+          "chevron": "Chevron",
+          "parallelogram": "Parallelogramm",
+          "trapezoid": "Trapez",
+          "callout": "Sprechblase",
+          "plus": "Plus"
+        },
+        "el": {
+          "kind": {
+            "text": "Textfeld",
+            "shape": "Form",
+            "line": "Linie",
+            "image": "Bild",
+            "table": "Tabelle",
+            "chart": "Diagramm"
+          },
+          "many": "{n} Elemente",
+          "duplicate": "Duplizieren",
+          "delete": "Löschen",
+          "lock": "Fixieren",
+          "unlock": "Lösen",
+          "section": {
+            "position": "Position und Größe",
+            "arrange": "Anordnen",
+            "text": "Text",
+            "shape": "Form",
+            "fill": "Füllung und Kontur",
+            "image": "Bild",
+            "line": "Linie",
+            "table": "Tabelle",
+            "look": "Aussehen",
+            "motion": "Animation und Link"
+          },
+          "x1": "Start X",
+          "y1": "Start Y",
+          "x2": "Ende X",
+          "y2": "Ende Y",
+          "width": "Breite",
+          "height": "Höhe",
+          "rotate": "Drehung",
+          "order": {
+            "front": "In den Vordergrund",
+            "forward": "Eine Ebene nach vorn",
+            "backward": "Eine Ebene nach hinten",
+            "back": "In den Hintergrund"
+          },
+          "align": {
+            "to_slide": "Auf der Folie ausrichten",
+            "to_selection": "Aneinander ausrichten",
+            "left": "Links ausrichten",
+            "center": "Horizontal zentrieren",
+            "right": "Rechts ausrichten",
+            "top": "Oben ausrichten",
+            "middle": "Vertikal zentrieren",
+            "bottom": "Unten ausrichten",
+            "text_left": "Linksbündig",
+            "text_center": "Zentriert",
+            "text_right": "Rechtsbündig",
+            "text_justify": "Blocksatz"
+          },
+          "spread": {
+            "x": "Horizontal verteilen",
+            "y": "Vertikal verteilen"
+          },
+          "font": "Schrift",
+          "size": "Größe",
+          "smaller": "Kleinere Schrift",
+          "bigger": "Größere Schrift",
+          "bold": "Fett",
+          "italic": "Kursiv",
+          "underline": "Unterstrichen",
+          "strike": "Durchgestrichen",
+          "caps": "Großbuchstaben",
+          "text_color": "Textfarbe",
+          "align_text": "Ausrichtung",
+          "valign": "Vertikale Lage",
+          "valign_top": "Oben",
+          "valign_middle": "Mitte",
+          "valign_bottom": "Unten",
+          "list": "Liste",
+          "list_none": "Keine Liste",
+          "list_bullet": "Aufzählung",
+          "list_number": "Nummerierte Liste",
+          "line_height": "Zeilenabstand",
+          "spacing": "Zeichenabstand",
+          "padding": "Innenabstand",
+          "fill": "Füllung",
+          "no_fill": "Keine Füllung",
+          "outline": "Kontur",
+          "outline_width": "Konturstärke",
+          "dash": "Linienart",
+          "dash_solid": "Durchgehend",
+          "dash_dash": "Gestrichelt",
+          "dash_dot": "Gepunktet",
+          "radius": "Eckenradius",
+          "shadow": "Schatten",
+          "opacity": "Deckkraft",
+          "alt": "Beschreibung für Screenreader",
+          "line_color": "Linienfarbe",
+          "line_width": "Linienstärke",
+          "start": "Anfang",
+          "end": "Ende",
+          "end_none": "Ohne",
+          "end_arrow": "Pfeilspitze",
+          "end_dot": "Punkt",
+          "table": {
+            "add_row": "Zeile hinzufügen",
+            "remove_row": "Letzte Zeile entfernen",
+            "add_column": "Spalte hinzufügen",
+            "remove_column": "Letzte Spalte entfernen",
+            "head": "Erste Zeile ist Kopfzeile",
+            "head_fill": "Kopfzeilenfarbe",
+            "lines": "Linienfarbe"
+          },
+          "anim": "Animation",
+          "anim_on": "Startet",
+          "anim_enter": "Mit der Folie",
+          "anim_click": "Bei Klick",
+          "link": "Link (https://…)",
+          "link_invalid": "Ein Link beginnt mit https://, http:// oder mailto:."
+        },
+        "anim": {
+          "none": "Keine",
+          "fade": "Einblenden",
+          "rise": "Aufsteigen",
+          "slide": "Hereingleiten",
+          "zoom": "Zoomen",
+          "pop": "Aufploppen",
+          "wipe": "Wischen"
+        },
+        "bg": {
+          "title": "Hintergrund",
+          "kind": "Art des Hintergrunds",
+          "none": "Keiner",
+          "color": "Farbe",
+          "gradient": "Verlauf",
+          "image": "Bild",
+          "from_to": "Farben und Winkel",
+          "from": "Von",
+          "to": "Bis",
+          "angle": "Winkel",
+          "dim": "Abdunkeln",
+          "inherited": "Diese Folie nutzt den Hintergrund des Decks.",
+          "apply_all": "Für alle Folien übernehmen"
+        },
+        "tone": {
+          "label": "Textfarben",
+          "auto": "Wie das Deck",
+          "light": "Dunkler Text auf hell",
+          "dark": "Heller Text auf dunkel"
+        },
+        "slide": {
+          "section": "Folie",
+          "hidden": "Beim Präsentieren",
+          "is_hidden": "Ausgeblendet",
+          "is_shown": "Sichtbar",
+          "hide": "Folie ausblenden",
+          "show": "Folie einblenden",
+          "footer": "Fußzeile",
+          "footer_on": "Sichtbar",
+          "footer_off": "Ausgeblendet"
+        },
+        "transition": {
+          "label": "Übergang",
+          "deck": "Wie das Deck",
+          "default": "Dezent (Standard)",
+          "none": "Keiner",
+          "fade": "Überblenden",
+          "slide": "Schieben",
+          "rise": "Aufsteigen",
+          "zoom": "Zoomen"
+        },
+        "format": {
+          "label": "Format",
+          "hint": "Doppelklick zum Schreiben · Ziehen wählt mehrere aus"
+        },
+        "menu": {
+          "label": "Aktionen für Elemente",
+          "cut": "Ausschneiden",
+          "copy": "Kopieren",
+          "paste": "Einfügen",
+          "select_all": "Alles auswählen"
+        },
+        "find": {
+          "label": "Suchen und ersetzen",
+          "find": "Suchen",
+          "replace_with": "Ersetzen durch",
+          "match_case": "Groß- und Kleinschreibung beachten",
+          "count": "{n} Treffer auf {slides} Folien",
+          "hint": "Durchsucht jeden Text jeder Folie, auch die Notizen.",
+          "replace_all": "Alle ersetzen"
+        },
+        "keys": {
+          "label": "Tastenkürzel",
+          "select": "Auswählen",
+          "select_how": "Klick · ⇧-Klick · Rahmen ziehen",
+          "write": "In einen Text schreiben",
+          "write_how": "Doppelklick · Enter",
+          "nudge": "Verschieben (10 px mit ⇧)",
+          "bold_italic": "Fett · kursiv beim Schreiben",
+          "free_move": "Ohne Einrasten verschieben",
+          "undo": "Rückgängig · wiederholen",
+          "present": "Präsentieren"
         }
       }
     }

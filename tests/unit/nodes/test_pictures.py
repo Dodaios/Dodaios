@@ -76,3 +76,25 @@ def test_every_image_in_a_spec_is_embedded_and_the_spec_is_not_changed(tmp_path:
     assert embedded["slides"][1]["image"] == "data:image/png;base64,AAAA"
     assert len(problems) == 1 and "gone.png" in problems[0]
     assert spec["slides"][0]["image"] == str(shot)
+
+
+def test_a_deck_s_element_and_background_pictures_are_embedded(tmp_path: Path) -> None:
+    shot = _picture(tmp_path / "shot.png", (300, 200))
+    spec = {
+        "background": {"image": str(shot)},
+        "slides": [
+            {
+                "layout": "blank",
+                "background": str(shot),
+                "elements": [{"type": "image", "image": str(shot)}],
+            },
+            {"layout": "title", "title": "x", "background": "#123456"},
+        ],
+    }
+    embedded, problems = pictures.embed_pictures(spec)
+    assert not problems
+    assert embedded["background"]["image"].startswith("data:image/")
+    assert embedded["slides"][0]["background"].startswith("data:image/")
+    assert embedded["slides"][0]["elements"][0]["image"].startswith("data:image/")
+    # A colour is no path: it stays.
+    assert embedded["slides"][1]["background"] == "#123456"

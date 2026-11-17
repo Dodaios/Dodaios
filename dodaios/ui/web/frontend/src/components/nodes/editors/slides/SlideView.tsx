@@ -24,7 +24,13 @@ import {
 } from "react";
 
 import type { Slide } from "./deckModel";
+import { firstText, slideLook, type DeckExtras } from "./elementModel";
+import { BackgroundLayer, ElementsLayer } from "./elements";
 import { clean, esc, inlineHtml } from "./inline";
+
+/** The deck's own look (font, background, transition, footer) every slide reads. */
+const DeckLookContext = createContext<DeckExtras>({});
+export const DeckLookProvider = DeckLookContext.Provider;
 
 /** A place inside a slide: `["bullets", 2]`, `["stats", 0, "value"]`. */
 export type FieldPath = readonly (string | number)[];
@@ -628,7 +634,12 @@ export function sectionNumber(slides: readonly Slide[], index: number): number {
 
 /** `_slide_label`: what a screen reader calls the slide. */
 export function slideLabel(slide: Slide, index: number): string {
-  const name = slide.title || slide.quote || slide.caption || "";
+  const name =
+    slide.title ||
+    slide.quote ||
+    slide.caption ||
+    firstText(slide.elements) ||
+    "";
   return name ? `Slide ${index + 1}: ${clean(name, 80)}` : `Slide ${index + 1}`;
 }
 
@@ -669,12 +680,16 @@ function SlideBody({ slide, section, figure }: { slide: Slide; section: number; 
       return <StepsSlide slide={slide} />;
     case "closing":
       return <ClosingSlide slide={slide} />;
+    case "blank":
+      return null;
   }
 }
 
 /** The `<section class="sl …">` of one slide, with its footer. */
 export const SlideView = memo(function SlideView({ slide, index, deckTitle, section, figure = null, label }: SlideViewProps) {
   const shown = useShown();
+  const deck = useContext(DeckLookContext);
+  const look = slideLook(slide, deck);
   const layout = slide.layout;
   let classes = `sl l-${layout}`;
   let footer = layout !== "title";
@@ -684,9 +699,18 @@ export const SlideView = memo(function SlideView({ slide, index, deckTitle, sect
   } else if (layout === "closing" && !slide.bullets?.length) {
     classes += " is-bare";
   }
+  if (look.font) classes += ` f-${look.font}`;
+  footer = footer && look.footer;
   return (
-    <section className={classes} aria-roledescription="slide" aria-label={label ?? slideLabel(slide, index)}>
+    <section
+      className={classes}
+      data-tone={look.tone || undefined}
+      aria-roledescription="slide"
+      aria-label={label ?? slideLabel(slide, index)}
+    >
+      <BackgroundLayer background={look.background} />
       <SlideBody slide={slide} section={section} figure={figure} />
+      <ElementsLayer elements={slide.elements} />
       {footer && (
         <footer className="sl-foot">
           <span>{deckTitle}</span>

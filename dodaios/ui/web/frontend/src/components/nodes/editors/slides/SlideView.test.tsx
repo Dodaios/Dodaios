@@ -14,8 +14,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import fixture from "./__fixtures__/slides_markup.json";
 import { readDeck, type Slide } from "./deckModel";
+import { readDeckExtras } from "./elementModel";
+import { ElementFiguresProvider } from "./elements";
 import { esc, inlineHtml, linesHtml } from "./inline";
-import { sectionNumber, SlideEditingProvider, SlideView, type SlideEditing } from "./SlideView";
+import { DeckLookProvider, sectionNumber, SlideEditingProvider, SlideView, type SlideEditing } from "./SlideView";
 
 /** A tree as a string that ignores attribute order and the style attribute's spacing. */
 function canonical(node: Node): string {
@@ -39,23 +41,29 @@ afterEach(() => cleanup());
 
 describe("SlideView draws the page's markup", () => {
   const deck = readDeck(fixture.spec);
-  const entries = fixture.slides as { html: string; figure?: string }[];
+  const entries = fixture.slides as { html: string; figure?: string; element_figures?: Record<string, string> }[];
+  const look = readDeckExtras(fixture.spec as unknown as Record<string, unknown>);
 
   it("has a fixture slide for every slide of the deck", () => {
     expect(deck.slides.length).toBe(entries.length);
-    expect(new Set(deck.slides.map((s) => s.layout)).size).toBe(11);
+    expect(new Set(deck.slides.map((s) => s.layout)).size).toBe(12);
   });
 
   deck.slides.forEach((slide, index) => {
     it(`slide ${index + 1} (${slide.layout})`, () => {
+      const figures = entries[index].element_figures ?? {};
       const html = renderToStaticMarkup(
-        <SlideView
-          slide={slide}
-          index={index}
-          deckTitle={fixture.title}
-          section={sectionNumber(deck.slides, index)}
-          figure={entries[index].figure ?? null}
-        />,
+        <DeckLookProvider value={look}>
+          <ElementFiguresProvider value={{ chartFigure: (chart) => figures[JSON.stringify(chart)] ?? null }}>
+            <SlideView
+              slide={slide}
+              index={index}
+              deckTitle={fixture.title}
+              section={sectionNumber(deck.slides, index)}
+              figure={entries[index].figure ?? null}
+            />
+          </ElementFiguresProvider>
+        </DeckLookProvider>,
       );
       expect(tree(html)).toBe(tree(entries[index].html));
     });

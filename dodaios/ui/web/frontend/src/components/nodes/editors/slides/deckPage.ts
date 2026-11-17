@@ -36,8 +36,11 @@ export function stylesOf(html: string): string {
     .join("\n");
 }
 
-/** The smallest deck the server accepts: only its stylesheet is wanted. */
-const STYLE_PROBE = { slides: [{ layout: "title", title: "·" }] };
+/**
+ * The smallest deck the server accepts: only its stylesheet is wanted. Its
+ * slide has a tone, so the rules of a slide drawn light or dark come with it.
+ */
+const STYLE_PROBE = { slides: [{ layout: "title", title: "·", tone: "dark" }] };
 
 let stylesheet: Promise<string> | null = null;
 
@@ -111,6 +114,43 @@ export function loadChartFigure(nodeId: string, chart: DeckChart, title: string 
       },
       (error: unknown) => {
         // A chart the server refuses (422) has no figure; anything else may pass.
+        if (error && typeof error === "object" && (error as { status?: number }).status === 422) return "";
+        throw error;
+      },
+    )
+    .then((html) => {
+      remember(key, html);
+      return html;
+    })
+    .finally(() => pending.delete(key));
+  pending.set(key, request);
+  return request;
+}
+
+/** The key of a free chart element's figure (it does not depend on a slide title). */
+export function elementChartKey(chart: Record<string, unknown>): string {
+  return chartKey(chart as DeckChart, "\u0000element");
+}
+
+/**
+ * A chart element's figure as the page draws it (the inner HTML of
+ * `.el-chart`). Like `loadChartFigure`: "" when the server cannot draw it,
+ * a rejection only when the server cannot be reached.
+ */
+export function loadElementFigure(nodeId: string, chart: Record<string, unknown>): Promise<string> {
+  const key = elementChartKey(chart);
+  const known = figures.get(key);
+  if (known !== undefined) return Promise.resolve(known);
+  const running = pending.get(key);
+  if (running) return running;
+  const spec = { slides: [{ layout: "blank", elements: [{ type: "chart", x: 0, y: 0, w: 720, h: 400, chart }] }] };
+  const request = fetchNodePreview(nodeId, spec)
+    .then(
+      (html) => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        return doc.querySelector(".el-chart")?.innerHTML ?? "";
+      },
+      (error: unknown) => {
         if (error && typeof error === "object" && (error as { status?: number }).status === 422) return "";
         throw error;
       },

@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Slide } from "./deckModel";
-import { cachedFigure, chartKey, loadChartFigure } from "./deckPage";
+import { cachedFigure, chartKey, elementChartKey, loadChartFigure, loadElementFigure } from "./deckPage";
 
 const SETTLE_MS = 250;
 const RETRY_MS = 4_000;
@@ -59,4 +59,39 @@ export function useChartFigures(nodeId: string, slides: readonly Slide[]): (inde
     }
     return last.current.get(index) ?? null;
   };
+}
+
+/**
+ * The drawn figures of every chart element of the deck, fetched as they
+ * change; until a new figure is there, a chart keeps showing nothing new
+ * (the editor draws its last figure under the same key).
+ */
+export function useElementFigures(nodeId: string, slides: readonly Slide[]): (chart: Record<string, unknown>) => string | null {
+  const [, setTick] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const charts = slides.flatMap((slide) => (slide.elements ?? []).filter((e) => e.type === "chart").map((e) => (e as { chart: Record<string, unknown> }).chart));
+  const wanted = charts.map(elementChartKey).join("\n");
+
+  useEffect(() => {
+    let live = true;
+    const missing = charts.filter((chart) => cachedFigure(elementChartKey(chart)) === undefined);
+    if (!missing.length) return;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      void Promise.allSettled(missing.map((chart) => loadElementFigure(nodeId, chart))).then((results) => {
+        if (!live) return;
+        setTick((tick) => tick + 1);
+        if (results.some((result) => result.status === "rejected")) retry = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+      });
+    }, SETTLE_MS);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      if (retry !== undefined) clearTimeout(retry);
+    };
+    // `wanted` stands for the charts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId, wanted, attempt]);
+
+  return (chart: Record<string, unknown>) => cachedFigure(elementChartKey(chart)) ?? null;
 }

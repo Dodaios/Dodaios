@@ -13,6 +13,19 @@
  * those slides do not render again.
  */
 
+import {
+  firstText,
+  MAX_ELEMENTS,
+  MAX_TABLE_ROWS,
+  newId,
+  readDeckExtras,
+  readSlideExtras,
+  type DeckExtras,
+  type Rect,
+  type SlideElement,
+  type SlideExtras,
+} from "./elementModel";
+
 export const LAYOUTS = [
   "title",
   "section",
@@ -25,6 +38,7 @@ export const LAYOUTS = [
   "image",
   "steps",
   "closing",
+  "blank",
 ] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
@@ -96,7 +110,7 @@ export type DeckChart = Record<string, unknown> & {
   series?: { name?: string; data: (number | null)[] }[];
 };
 
-export interface Slide {
+export interface Slide extends SlideExtras {
   layout: Layout;
   kicker?: string;
   title?: string;
@@ -117,7 +131,7 @@ export interface Slide {
   notes?: string;
 }
 
-export interface Deck {
+export interface Deck extends DeckExtras {
   theme: DeckTheme;
   accent?: string;
   slides: Slide[];
@@ -136,6 +150,7 @@ export const LAYOUT_FIELDS: Record<Layout, readonly (keyof Slide)[]> = {
   image: ["kicker", "title", "image", "caption", "fit"],
   steps: ["kicker", "title", "steps"],
   closing: ["kicker", "title", "subtitle", "bullets"],
+  blank: [],
 };
 
 export function isLayout(value: unknown): value is Layout {
@@ -241,9 +256,10 @@ export function readDeck(spec: unknown): Deck {
       slide.chart = item.chart as DeckChart;
     }
     if (item.fit === "contain") slide.fit = "contain";
+    Object.assign(slide, readSlideExtras(item));
     slides.push(slide);
   }
-  const deck: Deck = { theme, slides };
+  const deck: Deck = { theme, ...readDeckExtras(raw), slides };
   if (typeof raw.accent === "string" && raw.accent) deck.accent = raw.accent;
   return deck;
 }
@@ -329,6 +345,8 @@ export function blankSlide(layout: Layout, t: Translate): Slide {
       };
     case "closing":
       return { layout, title: t(`${K}closing_title`), subtitle: t(`${K}closing_subtitle`) };
+    case "blank":
+      return { layout };
   }
 }
 
@@ -550,7 +568,54 @@ export function switchLayout(slide: Slide, layout: Layout, t: Translate): Slide 
     }
   }
   if (slide.notes) next.notes = slide.notes;
+  // The slide's own look and its free elements stay whatever its layout is.
+  for (const key of ["background", "tone", "transition", "hidden", "footer", "elements"] as const) {
+    if (slide[key] !== undefined) (next as unknown as Record<string, unknown>)[key] = slide[key];
+  }
+  // A free canvas keeps the layout's content as elements, to be moved and styled;
+  // the elements already there stay on top, and the slide's limit holds.
+  if (layout === "blank") {
+    const own = next.elements ?? [];
+    next.elements = [...asElements(slide).slice(0, Math.max(0, MAX_ELEMENTS - own.length)), ...own];
+  }
+  if (next.elements && !next.elements.length) delete next.elements;
   return next;
+}
+
+/** A layout's content as free elements: the words as text boxes, its picture, chart or table as such. */
+function asElements(slide: Slide): SlideElement[] {
+  const boxes: SlideElement[] = [];
+  const media: Rect = { x: 96, y: 248, w: 1088, h: 400 };
+  if (slide.image) {
+    boxes.push({ type: "image", id: newId(), image: slide.image, ...(slide.title ? { x: 640, y: 0, w: 640, h: 720 } : { x: 0, y: 0, w: 1280, h: 720 }), ...(slide.fit === "contain" ? { fit: "contain" as const } : {}) });
+  }
+  if (slide.chart) boxes.push({ type: "chart", id: newId(), ...media, chart: slide.chart as Record<string, unknown> });
+  if (slide.table?.columns.length) {
+    boxes.push({ type: "table", id: newId(), ...media, rows: [slide.table.columns, ...slide.table.rows].slice(0, MAX_TABLE_ROWS) });
+  }
+  const covered = boxes.length > 0;
+  const head = slide.title || slide.quote || "";
+  if (slide.kicker) boxes.push({ type: "text", id: newId(), x: 96, y: 56, w: 1088, h: 40, text: slide.kicker, size: 20, color: "muted" });
+  if (head) boxes.push({ type: "text", id: newId(), x: 96, y: 100, w: 1088, h: 120, text: head, size: 48, bold: true });
+  const points = itemsOf(slide).map(itemLine).filter(Boolean);
+  const body = points.length ? points.join("\n") : slide.subtitle || slide.text || slide.by || slide.caption || "";
+  if (body && covered) {
+    // Beside a picture, chart or table the words go under the title, small.
+    boxes.push({ type: "text", id: newId(), x: 96, y: 652, w: 1088, h: 48, text: body.slice(0, 2_000), size: 20, color: "muted" });
+  } else if (body) {
+    boxes.push({
+      type: "text",
+      id: newId(),
+      x: 96,
+      y: 248,
+      w: 1088,
+      h: 380,
+      text: body.slice(0, 2_000),
+      size: 28,
+      ...(points.length > 1 ? { list: "bullet" as const } : {}),
+    });
+  }
+  return boxes;
 }
 
 // --- structural changes (on a draft) ------------------------------------------------
@@ -585,5 +650,7 @@ export function indexAfterMove(index: number, from: number, to: number): number 
 
 /** A short name for a slide, for the strip and for screen readers. */
 export function slideName(slide: Slide): string {
-  return (slide.title || slide.quote || slide.caption || slide.kicker || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const own = slide.title || slide.quote || slide.caption || slide.kicker || "";
+  const words = own || firstText(slide.elements);
+  return (own ? own : words).replace(/\s+/g, " ").trim().slice(0, 80);
 }

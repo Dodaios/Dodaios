@@ -40,6 +40,17 @@ from typing import Any, Final
 from dodaios.artifacts.design_guide import THEME_CSS
 from dodaios.artifacts.report_blocks import parse_chart, render_chart
 from dodaios.nodes.bridge import TITLE_PATH
+from dodaios.nodes.kinds.slide_elements import (
+    DECK_FONTS,
+    ELEMENT_CSS,
+    FONT_CSS,
+    auto_tone,
+    background_html,
+    elements_html,
+    read_deck_extras,
+    read_slide_extras,
+    tone_css,
+)
 from dodaios.nodes.shell import (
     MAX_IMAGE_CHARS,
     as_list,
@@ -71,6 +82,7 @@ LAYOUTS: Final[tuple[str, ...]] = (
     "image",
     "steps",
     "closing",
+    "blank",
 )
 
 MAX_SLIDES: Final[int] = 60
@@ -116,6 +128,7 @@ _FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "image": ("kicker", "title", "image", "caption"),
     "steps": ("kicker", "title", "steps"),
     "closing": ("kicker", "title", "subtitle", "bullets"),
+    "blank": (),
 }
 
 #: The field a layout cannot do without. A slide that asks for a layout but
@@ -133,6 +146,7 @@ _CORE: Final[dict[str, tuple[str, ...]]] = {
     "image": ("image",),
     "steps": ("steps",),
     "closing": ("title",),
+    "blank": (),
 }
 
 #: Layouts a slide keeps while it holds nothing of them yet (the blank opening
@@ -142,7 +156,7 @@ _CORE: Final[dict[str, tuple[str, ...]]] = {
 #: column, so those keep their content instead: an emptied column or table
 #: cell keeps its place (``_columns``, ``_table``).
 _BLANK_LAYOUTS: Final[frozenset[str]] = frozenset(
-    {"title", "section", "bullets", "quote", "stats", "steps", "closing"}
+    {"title", "section", "bullets", "quote", "stats", "steps", "closing", "blank"}
 )
 
 #: Layouts named after their one structured field, most specific first: this
@@ -185,6 +199,10 @@ _LAYOUT_ALIASES: Final[dict[str, str]] = {
     "end": "closing",
     "thanks": "closing",
     "summary": "closing",
+    "free": "blank",
+    "empty": "blank",
+    "canvas": "blank",
+    "custom": "blank",
 }
 
 _CONTROL_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -458,6 +476,9 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
     asked = _LAYOUT_ALIASES.get(asked, asked)
     if asked not in LAYOUTS:
         asked = ""
+    extras = read_slide_extras(raw, where)
+    if asked == "blank":
+        return _finish({"layout": "blank"}, raw, extras)
     shown = _FIELDS[asked] if asked else _ALL_FIELDS
     found: dict[str, Any] = {}
     for key in _ALL_FIELDS:
@@ -477,6 +498,9 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
     # but fits no layout (a picture slide with only its caption yet).
     if not layout and asked and any(found.get(key) for key in _FIELDS[asked]):
         layout = asked
+    # A slide of free elements only (or only a background) is a blank one.
+    if not layout and (extras.get("elements") or extras.get("background")):
+        layout = "blank"
     if not layout:
         return None
     slide: dict[str, Any] = {"layout": layout}
@@ -487,6 +511,12 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
         slide["bullets"] = _texts(slide["bullets"], MAX_CLOSING_BULLETS, CLOSING_BULLET_CHARS)
     if layout == "image" and pick(_text(raw.get("fit"), 12), IMAGE_FITS, "cover") == "contain":
         slide["fit"] = "contain"
+    return _finish(slide, raw, extras)
+
+
+def _finish(slide: dict[str, Any], raw: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
+    """The slide with what every layout may carry: its own look, elements and notes."""
+    slide.update(extras)
     notes = _block(raw.get("notes"), NOTE_CHARS)
     if notes:
         slide["notes"] = notes
@@ -530,6 +560,7 @@ def normalize(spec: Any) -> dict[str, Any]:
     accent = _accent(spec.get("accent"))
     if accent:
         deck["accent"] = accent
+    deck.update(read_deck_extras(spec))
     deck["slides"] = slides
     return deck
 
@@ -565,12 +596,14 @@ def starter(title: str, language: str) -> dict[str, Any]:
 
 EXAMPLE: Final[dict[str, Any]] = {
     "accent": "green",
+    "font": "editorial",
     "slides": [
         {
             "layout": "title",
             "kicker": "Board update",
             "title": "Q3 in review",
             "subtitle": "Revenue, retention, next steps",
+            "background": {"gradient": {"from": "#0b3d2e", "to": "#0f172a", "angle": 135}},
         },
         {
             "layout": "stats",
@@ -578,6 +611,20 @@ EXAMPLE: Final[dict[str, Any]] = {
             "stats": [
                 {"value": "€4.2M", "label": "Revenue", "detail": "+18% on Q2"},
                 {"value": "94%", "label": "Retention"},
+            ],
+            "elements": [
+                {
+                    "type": "shape",
+                    "shape": "callout",
+                    "x": 900,
+                    "y": 150,
+                    "w": 280,
+                    "h": 120,
+                    "text": "Best quarter yet",
+                    "size": 22,
+                    "bold": True,
+                    "anim": "pop",
+                }
             ],
         },
         {
@@ -592,15 +639,57 @@ EXAMPLE: Final[dict[str, Any]] = {
             },
             "notes": "Pause on September.",
         },
+        {
+            "layout": "blank",
+            "elements": [
+                {
+                    "type": "text",
+                    "x": 96,
+                    "y": 72,
+                    "w": 1088,
+                    "h": 80,
+                    "text": "How an order flows",
+                    "size": 44,
+                    "bold": True,
+                },
+                {
+                    "type": "shape",
+                    "shape": "rounded",
+                    "x": 96,
+                    "y": 300,
+                    "w": 300,
+                    "h": 140,
+                    "text": "Order",
+                    "anim": "rise",
+                },
+                {"type": "line", "x1": 410, "y1": 370, "x2": 570, "y2": 370, "end": "arrow"},
+                {
+                    "type": "shape",
+                    "shape": "rounded",
+                    "x": 584,
+                    "y": 300,
+                    "w": 300,
+                    "h": 140,
+                    "text": "Packed in 2 h",
+                    "anim": "rise",
+                },
+            ],
+        },
         {"layout": "closing", "title": "Next: the mobile app", "bullets": ["Beta on 1 Dec"]},
     ],
 }
 
 GUIDE: Final[str] = (
-    'Type "slides": a deck, played as a 16:9 presentation (keys, overview, notes).\n'
-    'Spec: {"theme": "auto" | "light" | "dark" ("auto" follows the app), "accent": blue, '
-    'orange, green, amber, violet, pink or a hex, "slides": [1-60 slides]}.\n'
-    'A slide: {"layout": …, its fields, "notes": speaker notes}; other fields are dropped.\n'
+    'Type "slides": a deck, played as a 16:9 presentation (keys, overview, notes, '
+    "transitions, animations). The person edits it like a presentation program.\n"
+    'Spec: {"theme": "auto" | "light" | "dark", "accent": blue, orange, green, amber, violet, '
+    'pink or a hex, "font": sans | serif | editorial (serif titles) | mono | rounded | '
+    'condensed | geometric | classic, "transition": none | fade | slide | rise | zoom, '
+    '"background": every slide\'s (see below), "footer": false hides the footers, '
+    '"slides": [1-60 slides]}.\n'
+    'A slide: {"layout": …, its fields, "notes": speaker notes, and optionally "background", '
+    '"tone": "light" | "dark" (its text colours), "transition", "hidden": true (skipped when '
+    'presenting), "footer": false, "elements": [free elements]}; other fields are dropped.\n'
     "- title: kicker, title, subtitle. Opens the deck.\n"
     "- section: kicker, title, subtitle. A chapter divider.\n"
     "- bullets: kicker, title, text, bullets (up to 6, 160 chars each).\n"
@@ -613,19 +702,46 @@ GUIDE: Final[str] = (
     "donut: one series; bars: up to 10 rows.\n"
     '- table: kicker, title, caption, table: {"columns": [up to 8], "rows": [up to 10 lists '
     "of short cells]}.\n"
-    "- image: kicker, title, caption, image (the absolute path of a PNG, JPEG or WebP "
-    "file on this computer, e.g. a screenshot; or a data:image URI; never a web address), "
+    "- image: kicker, title, caption, image (a picture), "
     'fit: "contain" shows all of it (screenshots), default crops; no title: full-bleed.\n'
     "- steps: kicker, title, steps: up to 6 of {title, text}, numbered.\n"
     "- closing: kicker, title, subtitle, bullets (up to 4, 100 chars). Ends the deck.\n"
-    'Without "layout" it follows from the fields (stats, chart, table, image, steps, columns, '
-    "quote, else bullets; only a title: opens or divides the deck). Undrawable content is "
-    "refused with the reason.\n"
+    "- blank: no fields: a free canvas for elements.\n"
+    "A picture: the absolute path of a PNG, JPEG or WebP file on this computer (a "
+    "screenshot), or a data:image URI; never a web address.\n"
+    'background: {"color": "#0f172a"} or {"gradient": {"from", "to", "angle"}} or {"image": a '
+    'picture, "fit": "contain", "dim": 0-90 (% dark veil so text reads on a photo)}. A dark '
+    "background turns the slide's text light by itself.\n"
+    "elements (any slide, over its layout, the last on top; the slide is 1280 x 720 px, 0,0 "
+    "top left; up to 40 per slide):\n"
+    "- text: x, y, w, h, text (lines; **bold**, *italic*, [link](https://…)), size (px, "
+    "default 28), font (sans, serif, mono, rounded, condensed, geometric, classic, arial, "
+    "georgia, impact…), color, bold, italic, underline, caps, align left|center|right|justify, "
+    'valign top|middle|bottom, list "bullet"|"number" (a line per item), line (height), fill, '
+    "stroke, stroke_width, radius, padding.\n"
+    "- shape: x, y, w, h, shape rect|rounded|ellipse|triangle|diamond|pentagon|hexagon|star|"
+    "arrow|chevron|parallelogram|trapezoid|callout|plus, fill (default the accent), stroke, "
+    "dash, and a centred text with the text fields.\n"
+    "- line: x1, y1, x2, y2, color, width, dash dash|dot, start/end arrow|dot.\n"
+    "- image: x, y, w, h, image, fit cover|contain|fill, radius, stroke.\n"
+    '- table: x, y, w, h, rows: [[cells]] (the first is the header; "head": false for none), '
+    "size, fill (header colour).\n"
+    "- chart: x, y, w, h, chart (the grammar above).\n"
+    "Each: rotate, opacity (0-100), shadow: true, link, anim fade|rise|slide|zoom|pop|wipe "
+    '(comes in with the slide, in order; "click": true waits for a click).\n'
+    "Colours: hex, rgb(), or blue, orange, green, amber, violet, pink, accent, ink, muted, "
+    "white, black, transparent.\n"
     "Limits: title 110 chars (best under 60), subtitle 180, text 280, kicker 60, caption 140, "
     "notes 1200; longer is clipped. Bullets, text, captions and notes take **bold**, "
-    "*italic*, `code`, [links](https://…).\n"
+    "*italic*, `code`, [links](https://…). Undrawable content is refused with the reason.\n"
     "Write a keynote: one idea per slide, a title that states the point, few words, real "
     "numbers with units, the detail in the notes.\n"
+    "Design it like a designer, not a template filler: a look (font, accent, theme) that fits "
+    "the audience; a picture or gradient behind the opening and the dividers; real pictures, "
+    "charts and figures over bullets; elements that explain (an arrow onto the number that "
+    "matters, a labelled diagram of boxes and arrows, a callout), never decoration; 64 px "
+    "margins, things aligned to each other, high contrast, at most two fonts; an animation "
+    "only where it paces the story.\n"
     "How to work (a deck is a piece of work, not one call):\n"
     "1. Know who it is for, what it should achieve, how long the talk is and in which "
     "language. Take it from the person's words; ask on the question card what you cannot "
@@ -656,9 +772,36 @@ def _tokens(opening: str) -> str:
 #: kit, not copied, so the two can never drift apart. Dark is ``screen`` only,
 #: like the kit's: a printed deck is always on white.
 _FORCED_THEME_CSS: Final[dict[str, str]] = {
-    "light": f'.dk[data-theme="light"]{{{_tokens(":root{")}}}',
-    "dark": ('@media screen{.dk[data-theme="dark"]{' + _tokens(':root[data-theme="dark"]{') + "}}"),
+    "light": (
+        f'.dk[data-theme="light"]{{{_tokens(":root{")}}}'
+        '.dk[data-theme="light"] .el-shape{color:white}'
+    ),
+    "dark": (
+        '@media screen{.dk[data-theme="dark"]{'
+        + _tokens(':root[data-theme="dark"]{')
+        + '}.dk[data-theme="dark"] .el-shape{color:black}}'
+    ),
 }
+
+#: A slide of a fixed tone (``"tone"``, or a dark background) carries that tone's tokens.
+_TONE_CSS: Final[str] = tone_css(_tokens(":root{"), _tokens(':root[data-theme="dark"]{'))
+
+
+def slide_look(slide: dict[str, Any], deck: dict[str, Any]) -> dict[str, Any]:
+    """How one slide is drawn besides its layout: background, tone, font, motion, footer.
+
+    The slide's own setting wins over the deck's; a background without a tone
+    picks the tone that keeps text readable on it (``auto_tone``).
+    """
+    background = slide.get("background") or deck.get("background") or {}
+    return {
+        "background": background,
+        "tone": slide.get("tone") or auto_tone(background),
+        "font": deck.get("font", "") if deck.get("font") in DECK_FONTS else "",
+        "transition": slide.get("transition") or deck.get("transition") or "",
+        "footer": deck.get("footer", True) is not False and slide.get("footer", True) is not False,
+    }
+
 
 _CSS: Final[str] = """
 .dk{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg-2);
@@ -925,17 +1068,28 @@ function layout(){
   root.style.setProperty("--k",k.toFixed(5));
   root.style.setProperty("--fx",Math.round((w-sw)/2)+"px");
   root.style.setProperty("--fy",Math.round((h-720*k)/2)+"px");}
+/* Elements that wait for a click (data-click), in order; hidden slides are skipped. */
+function builds(c){return Array.prototype.slice.call(c.querySelectorAll(".el[data-click]"));}
+function pending(c){var b=builds(c);for(var j=0;j<b.length;j++){
+  if(!b[j].classList.contains("is-built"))return b[j];}return null;}
+function seen(i,dir){while(i>=0&&i<n&&cells[i].classList.contains("is-hidden"))i+=dir;return i;}
+function forward(){var b=over?null:pending(cells[cur]);
+  if(b){b.classList.add("is-built");show(cur,true);return;}
+  var to=seen(cur+1,1);if(to<n)show(to);}
+function back(){var to=seen(cur-1,-1);if(to>=0)show(to);}
 function show(i,keep){
   i=Math.max(0,Math.min(n-1,i));
   if(i!==cur){
-    root.setAttribute("data-dir",i<cur?"back":"fwd");void root.offsetWidth;
+    var dir=i<cur?"back":"fwd";
+    root.setAttribute("data-dir",dir);void root.offsetWidth;
+    builds(cells[i]).forEach(function(e){e.classList.toggle("is-built",dir==="back");});
     cells.forEach(function(c,j){c.classList.toggle("was-current",j===cur);
       c.classList.toggle("is-current",j===i);});
     cur=i;}
   curEl.textContent=String(i+1);
   fill.style.width=((i+1)/n*100).toFixed(3)+"%";
-  btn.prev.setAttribute("aria-disabled",i===0?"true":"false");
-  btn.next.setAttribute("aria-disabled",i===n-1?"true":"false");
+  btn.prev.setAttribute("aria-disabled",seen(i-1,-1)<0?"true":"false");
+  btn.next.setAttribute("aria-disabled",seen(i+1,1)>=n&&!pending(cells[i])?"true":"false");
   var has=false;
   noteEls.forEach(function(e){var on=Number(e.getAttribute("data-i"))===i;
     e.hidden=!on;if(on)has=true;});
@@ -963,7 +1117,7 @@ root.addEventListener("click",function(e){
   var t=e.target;if(!t||!t.closest)return;
   var b=t.closest("[data-act]");
   if(b){var a=b.getAttribute("data-act");
-    if(a==="prev")show(cur-1);else if(a==="next")show(cur+1);
+    if(a==="prev")back();else if(a==="next")forward();
     else if(a==="overview")overview(!over);else if(a==="notes")showNotes(notes.hidden);
     return;}
   var p=t.closest(".dk-pick");
@@ -973,7 +1127,7 @@ root.addEventListener("click",function(e){
   if(leaving){leaving=false;return;}
   if(window.getSelection&&String(window.getSelection()))return;
   var r=view.getBoundingClientRect(),x=(e.clientX-r.left)/r.width;
-  if(x>2/3)show(cur+1);else if(x<1/3)show(cur-1);});
+  if(x>2/3)forward();else if(x<1/3)back();});
 d.addEventListener("keydown",function(e){
   if(e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey)return;
   var k=e.key,tag=e.target&&e.target.tagName;
@@ -988,9 +1142,10 @@ d.addEventListener("keydown",function(e){
     else if(k==="Home")to=0;else if(k==="End")to=n-1;else return;
     to=Math.max(0,Math.min(n-1,to));pickOf(to).focus();e.preventDefault();return;}
   if(k===" "&&held)return;
-  if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||(k===" "&&!e.shiftKey))show(cur+1);
-  else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||(k===" "&&e.shiftKey))show(cur-1);
-  else if(k==="Home")show(0);else if(k==="End")show(n-1);else return;
+  if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||(k===" "&&!e.shiftKey))forward();
+  else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||(k===" "&&e.shiftKey))back();
+  else if(k==="Home")show(seen(0,1)%n);
+  else if(k==="End"){var e=seen(n-1,-1);show(e<0?n-1:e);}else return;
   e.preventDefault();});
 var leaving=false;
 d.addEventListener("pointerdown",function(){
@@ -1082,13 +1237,15 @@ view.addEventListener("touchstart",function(e){
 view.addEventListener("touchend",function(e){
   if(sx===null||over)return;
   var t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;
-  if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.5)show(cur+(dx<0?1:-1));
+  if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.5){if(dx<0)forward();else back();}
 },{passive:true});
 function fromHash(){var v=parseInt(String(location.hash).replace("#",""),10);
   return v>=1?Math.min(n,v)-1:-1;}
 var q=null;try{q=new URLSearchParams(location.search);}catch(e){}
+/* A picture of one slide (look, share) shows it whole: every element, no motion. */
+if(q&&q.get("slide"))root.classList.add("is-still");
 fit();layout();
-var first=fromHash();show(first<0?0:first,true);
+var first=fromHash();show(first<0?seen(0,1)%n:first,true);
 if(q&&q.get("notes")==="1")showNotes(true);
 if(q&&q.get("overview")==="1")overview(true);
 addEventListener("hashchange",function(){var v=fromHash();if(v>=0)show(v,true);});
@@ -1408,6 +1565,11 @@ def _closing_slide(slide: dict[str, Any], deck: _Deck) -> str:
     return hero + f'<ul class="sl-body sl-next" data-fit="{fit}" style="--n:{per_row}">{items}</ul>'
 
 
+def _blank_slide(slide: dict[str, Any], deck: _Deck) -> str:
+    del slide, deck
+    return ""
+
+
 _SLIDES: Final[dict[str, Callable[[dict[str, Any], _Deck], str]]] = {
     "title": _title_slide,
     "section": _section_slide,
@@ -1420,11 +1582,21 @@ _SLIDES: Final[dict[str, Callable[[dict[str, Any], _Deck], str]]] = {
     "image": _image_slide,
     "steps": _steps_slide,
     "closing": _closing_slide,
+    "blank": _blank_slide,
 }
 
 
 def _slide_label(slide: dict[str, Any], index: int) -> str:
     name = slide.get("title") or slide.get("quote") or slide.get("caption") or ""
+    if not name:
+        name = next(
+            (
+                element.get("text", "").split("\n")[0]
+                for element in slide.get("elements", [])
+                if element.get("text")
+            ),
+            "",
+        )
     return f"Slide {index + 1}: {clean(name, 80)}" if name else f"Slide {index + 1}"
 
 
@@ -1473,12 +1645,16 @@ def render(node: Any) -> str:
         deck.index = index
         if layout == "section":
             deck.section += 1
+        look = slide_look(slide, spec)
         classes = f"sl l-{layout}"
         footer = layout != "title"
         if layout == "image" and not slide.get("title"):
             classes, footer = "sl l-bleed", False
         elif layout == "closing" and not slide.get("bullets"):
             classes += " is-bare"
+        if look["font"]:
+            classes += f" f-{look['font']}"
+        footer = footer and look["footer"]
         foot = (
             f'<footer class="sl-foot"><span>{esc(deck_title)}</span>'
             f"<span>{index + 1}</span></footer>"
@@ -1486,10 +1662,17 @@ def render(node: Any) -> str:
             else ""
         )
         label = _slide_label(slide, index)
+        cell = "dk-cell" + (" is-current" if index == 0 else "")
+        if slide.get("hidden"):
+            cell += " is-hidden"
+        moves = f' data-tr="{look["transition"]}"' if look["transition"] else ""
+        tone = f' data-tone="{look["tone"]}"' if look["tone"] else ""
+        layer = elements_html(slide.get("elements", []), deck.language, deck.mark)
         cells += (
-            f'<li class="dk-cell{" is-current" if index == 0 else ""}" data-i="{index}">'
-            f'<div class="dk-frame"><section class="{classes}" aria-roledescription="slide" '
-            f'aria-label="{attr(label)}">{_SLIDES[layout](slide, deck)}{foot}</section></div>'
+            f'<li class="{cell}" data-i="{index}"{moves}>'
+            f'<div class="dk-frame"><section class="{classes}"{tone} aria-roledescription="slide" '
+            f'aria-label="{attr(label)}">{background_html(look["background"])}'
+            f"{_SLIDES[layout](slide, deck)}{layer}{foot}</section></div>"
             f'<button type="button" class="dk-pick" aria-label="{attr(label)}"></button>'
             f'<span class="dk-no" aria-hidden="true">{index + 1}</span></li>'
         )
@@ -1527,7 +1710,10 @@ def render(node: Any) -> str:
         + _button("notes", "Speaker notes", "N", toggle=True)
         + "</div></nav></div>"
     )
-    css = _CSS + _FORCED_THEME_CSS.get(theme, "")
+    # A slide of its own tone carries that tone's tokens; only then is the block needed.
+    toned = any(slide_look(slide, spec)["tone"] for slide in slides)
+    css = _CSS + ELEMENT_CSS + FONT_CSS + (_TONE_CSS if toned else "")
+    css += _FORCED_THEME_CSS.get(theme, "")
     return document(node, body=body, css=css, js=_JS, body_class="fill")
 
 

@@ -67,6 +67,11 @@ export interface NodeSpecEditorOptions<S> {
    * "held"); the local spec is never touched.
    */
   prepare?: (spec: S) => S | { error: string };
+  /**
+   * Reads a revision the server sends (the assistant's, or "take theirs")
+   * into the editor's shape, as the editor read its first spec.
+   */
+  adopt?: (spec: unknown) => S;
   /** Quiet time after a change before it is saved. Default 700 ms. */
   saveDelayMs?: number;
   /** Undo steps kept. Default 200. */
@@ -163,6 +168,8 @@ export function useNodeSpecEditor<S>(
   const delay = options.saveDelayMs ?? DEFAULT_SAVE_DELAY_MS;
   const prepareRef = useRef(options.prepare);
   prepareRef.current = options.prepare;
+  const adoptRef = useRef(options.adopt);
+  adoptRef.current = options.adopt;
   const labels = useRef({ remote: "", theirs: "" });
   labels.current = {
     remote: t("nodes.editor.history.remote").replace("{assistant}", () => assistant || "Dodaios"),
@@ -308,7 +315,8 @@ export function useNodeSpecEditor<S>(
     (theirs: SavedSpec, label: string) => {
       baseRef.current = theirs;
       ownRevisions.current.add(theirs.updated_at);
-      const next = commit(breakRun(historyRef.current), theirs.spec as S, { label }, Date.now(), depth);
+      const spec = adoptRef.current ? adoptRef.current(theirs.spec) : (theirs.spec as S);
+      const next = commit(breakRun(historyRef.current), spec, { label }, Date.now(), depth);
       savedPresentRef.current = next.present;
       historyRef.current = next;
       clearTimer();

@@ -685,7 +685,8 @@ export function SlideInspector({
           )}
         </Popover>
       </Section>
-      <Section title={L("section.text")}>
+      {slide.layout === "blank" && <p className="text-xs text-muted-foreground">{L("hint.blank")}</p>}
+      {fields.length > 0 && <Section title={L("section.text")}>
         {lineField("kicker")}
         {lineField("title", true)}
         {lineField("subtitle", true)}
@@ -693,7 +694,7 @@ export function SlideInspector({
         {lineField("by")}
         {lineField("text", true)}
         {lineField("caption", true)}
-      </Section>
+      </Section>}
       {bulletsSection}
       {columnsSection}
       {statsSection}

@@ -483,11 +483,11 @@ A deck (`slides`) is a list of slides, each a layout and that layout's
 fields (`dodaios/nodes/kinds/slides.py`, the grammar is in its `GUIDE`): an
 opening (`title`), a chapter divider (`section`), points (`bullets`),
 `columns`, a `quote`, figures (`stats`), a `chart`, a `table`, a picture
-(`image`), numbered `steps` and a `closing` slide. Every slide may carry
-speaker notes; the deck has a theme (`auto`, `light`, `dark`) and an accent
-colour. The page is a 16:9 player with an overview and the notes.
+(`image`), numbered `steps`, a `closing` slide and an empty canvas
+(`blank`). Every slide may carry speaker notes. The page is a 16:9 player
+with an overview, the notes, transitions and animations.
 
-Two things the grammar holds besides the layouts:
+Two things the layouts hold besides their texts:
 
 * A chart slide's `chart` is the shared chart grammar, so it may be a pie or
   a donut, stack its columns or bars (`"stacked": true`) and name its
@@ -498,52 +498,114 @@ Two things the grammar holds besides the layouts:
 A slide that names its layout but lacks the layout's main field still takes
 the layout its fields fit (a `chart` slide without a chart becomes a
 section). A layout that can be drawn blank (`title`, `section`, `bullets`,
-`quote`, `stats`, `steps`, `closing`) keeps its place and layout even when
-every text was deleted: a new deck is one blank title slide, and an emptied
-deck saves. An emptied column or table grid keeps its place too.
+`quote`, `stats`, `steps`, `closing`, `blank`) keeps its place and layout
+even when every text was deleted: a new deck is one blank title slide, and
+an emptied deck saves. An emptied column or table grid keeps its place too.
+A slide of only elements or only a background is a `blank` one.
+
+**Free elements and the look** (`dodaios/nodes/kinds/slide_elements.py`).
+On top of its layout every slide may carry up to 40 `elements`, placed on
+the slide's logical 1280 x 720 px canvas and drawn in order (the last on
+top):
+
+| Element | What it holds |
+|---------|---------------|
+| `text` | A text box: lines with inline marks, size, one of 18 font families, colour, bold, italic, underline, strike, capitals, alignment, vertical position, a bulleted or numbered list (a line per item), line height, letter spacing, fill, outline, corners, inner margin. |
+| `shape` | A rectangle, rounded rectangle, ellipse, triangle, diamond, pentagon, hexagon, star, block arrow, chevron, parallelogram, trapezoid, speech bubble or plus, with fill and outline, and a centred text with the text box's settings. |
+| `line` | A line from `x1, y1` to `x2, y2`: colour, width, dashes, an arrow head or a dot at either end. |
+| `image` | A picture in a box: cropped, shown whole or stretched, with corners and an outline. |
+| `table` | Rows of short cells, the first the header unless `"head": false`, with size, font and colours. |
+| `chart` | A chart in the shared chart grammar, in a box. |
+
+Every element may be rotated, made transparent, cast a shadow, carry a link,
+be locked in place, and come in with an animation (`fade`, `rise`, `slide`,
+`zoom`, `pop`, `wipe`): with its slide, one after the other, or one per
+click (`"click": true`). A colour is a hex, rgb()/hsl(), one of the kit's
+names, `accent` (the deck's accent), `white`, `black` or `transparent`. A
+font is a class from a fixed list, never a free style.
+
+A slide may also have a `background` (a colour, a gradient, or a picture
+with a dark veil, `dim`), a `tone` (its text drawn light or dark whatever
+the deck's theme is; a dark background picks the light tone by itself), a
+`transition` (`none`, `fade`, `slide`, `rise`, `zoom`), `hidden: true`
+(skipped when presenting, dimmed in the overview) and `footer: false`. The
+deck carries the defaults: `background`, `transition`, a type pairing
+(`font`: `sans`, `serif`, `editorial` with serif titles, `mono`, `rounded`,
+`condensed`, `geometric`, `classic`) and `footer: false` for no footers.
+
+A deck holds its pictures inside its spec, so its spec may be 3.6 MB
+(`SLIDES_SPEC_BYTES`, about nine full pictures) instead of one.
 
 **The deck editor.** "Edit" on a deck opens the native editor
-(`frontend/src/components/nodes/editors/slides/`):
+(`frontend/src/components/nodes/editors/slides/`), built like a presentation
+program:
 
-* The strip shows every slide as a live thumbnail. "New slide" (toolbar or
-  under the strip) adds a slide of a picked layout after the selected one,
-  filled with short sample texts in the person's language, its title
-  selected so typing replaces it. A thumbnail is dragged to a new place; the
-  strip is a listbox, so the arrow keys select, Alt+arrow moves, Cmd/Ctrl+D
-  duplicates, Delete removes and Enter goes to the slide's title. Each
-  thumbnail also has a menu with these actions.
-* The selected slide stands large in the middle and every text on it is
-  typed into directly. A text with inline marks shows its source (`**bold**`)
-  while it is written. Enter in a point adds the next point, Backspace in an
-  empty point removes it. The speaker notes are under the slide.
-* The inspector holds every field of the slide's layout with the server's
-  length limits, the lists (points, columns, figures, steps, the table's rows
-  and columns) with add, move and remove, the picture (chosen, dropped or
-  pasted, made small enough to embed: at most 1920 px and 400,000
-  characters) and how it fills its box, and the chart, opened in the shared
-  chart editor. Changing the layout carries the content over: points become
-  steps, figures or columns; figures or a table become a chart and a chart a
-  table; a subtitle, a text and a quote move into each other. Adding a
-  picture slide, or switching to one, asks for the picture first.
-* The toolbar holds the deck's theme and accent, and "Present", which plays
-  the unsaved deck full screen from the selected slide (arrows, Space, N for
-  the notes, Escape ends on the slide reached).
+* The toolbar adds, duplicates and deletes slides; inserts a text box, a
+  shape (14 kinds), a line or an arrow, a picture, a table or a chart;
+  opens "Design" (nine ready-made looks that set theme, accent, type and
+  background at once, and each of them alone, with the transition every
+  slide takes and the footers); sets the theme and the accent; shows a grid
+  and switches snapping; and presents (from this slide, from the start, or
+  in the presenter view).
+* The strip shows every slide as a live thumbnail. "New slide" adds a slide
+  of a picked layout after the selected one, filled with short sample texts
+  in the person's language. A thumbnail is dragged to a new place; the strip
+  is a listbox (arrows select, Alt+arrow moves, Cmd/Ctrl+D duplicates,
+  Delete removes, Enter goes to the title). Each thumbnail has a menu,
+  including "Hide slide"; a hidden slide is dimmed and marked.
+* The selected slide stands large in the middle. Every text of its layout is
+  typed into directly. A click selects an element (Shift or Cmd/Ctrl adds),
+  a drag moves it, snapping to the slide's edges and middle and to the other
+  elements with guides (Alt moves freely, Shift keeps one axis); eight
+  handles resize it (Shift keeps the proportions, a rotated element resizes
+  along its own axes), the round handle rotates it (Shift: 15° steps), and a
+  line has a handle at each end. A drag on the empty slide selects with a
+  frame. A double click writes into a text box, a shape or a table, opens a
+  chart's editor, or replaces a picture; Cmd/Ctrl+B and +I wrap the selected
+  words in bold or italic marks. A text box left empty goes.
+* The keys on the slide: arrows nudge (Shift: 10 px), Delete removes,
+  Cmd/Ctrl+C, X and V copy, cut and paste (also into another slide),
+  Cmd/Ctrl+D duplicates, Cmd/Ctrl+A selects all, Cmd/Ctrl+] and [ move
+  forward and back (with Shift: to the front, to the back), Enter writes,
+  Escape lets go. A right click opens the same actions. A picture pasted or
+  dropped onto the slide becomes a picture element where it was dropped;
+  pasted text becomes a text box.
+* The format bar above the slide holds what is used most: for text, font,
+  size, bold, italic, underline, colour, alignment and lists, and the fill;
+  for a line its colour; with nothing selected, the slide's layout,
+  background, transition and whether it is hidden.
+* The inspector holds the rest. With elements selected: position, size and
+  rotation in numbers; every text setting; the shape's kind; fill, outline,
+  dashes, corners, shadow and opacity; the picture's fit and description;
+  the line's ends; the table's cells, rows, columns and colours; the chart's
+  editor; the animation and when it starts; the link; and arranging (order,
+  align to the slide or to each other, spread three or more evenly). With
+  nothing selected: every field of the slide's layout (the lists with add,
+  move and remove, the picture, the chart), then its background (with "Use
+  for every slide"), text colours, transition, hidden and footer. Changing
+  the layout carries the content over, and the elements, background and
+  settings stay.
+* "Present" plays the unsaved deck full screen: transitions, animations one
+  click at a time, hidden slides skipped. N shows the notes, P the presenter
+  view (this slide, the next, the notes, a timer and the clock), B and W
+  blank the screen, Escape ends on the slide reached.
 
 Every action is one step of the editor's undo history (typing in one field
-is one step per run, in the inspector or on the slide); undo and redo select
-the slide they change.
+is one step per run, a drag is one step); undo and redo select the slide
+they change.
 
-How the editor draws a slide: in React (`SlideView.tsx`), with the same
-elements and classes as `slides.py`, inside a shadow root that carries the
-page's own stylesheet, taken once from `POST /api/nodes/{id}/preview` (the
-theme tokens move from `:root` to `:host`). The canvas, the thumbnails and
-the presenter are therefore the page's exact look without a request per
-keystroke. A chart's figure is the one exception: it is drawn by the
-server's chart renderer, fetched from the preview route when the chart or
-its slide's title changes. `tests/unit/nodes/test_kind_slides.py` writes the
-page's markup of one slide of every shape to
-`slides/__fixtures__/slides_markup.json` (and fails when it is stale);
-`SlideView.test.tsx` checks the editor draws the same tree.
+How the editor draws a slide: in React (`SlideView.tsx`, `elements.tsx`),
+with the same elements and classes as `slides.py` and `slide_elements.py`,
+inside a shadow root that carries the page's own stylesheet, taken once from
+`POST /api/nodes/{id}/preview` (the theme tokens move from `:root` to
+`:host`). The canvas, the thumbnails and the presenter are therefore the
+page's exact look without a request per keystroke. The charts' figures are
+the one exception: drawn by the server's chart renderer, fetched from the
+preview route when a chart changes. `tests/unit/nodes/test_kind_slides.py`
+writes the page's markup of one slide of every shape, elements and
+backgrounds included, to `slides/__fixtures__/slides_markup.json` (and
+fails when it is stale); `SlideView.test.tsx` checks the editor draws the
+same tree.
 
 ## Comments on a node
 
