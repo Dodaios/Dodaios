@@ -29,17 +29,21 @@ import {
   Hand,
   ImagePlus,
   Keyboard,
+  Lasso,
   Library,
   Lock,
+  LockOpen,
   Maximize,
   Menu,
   Minus,
   MousePointer2,
   MoreHorizontal,
+  PaintBucket,
   Pencil,
   Redo2,
   Search,
   SendToBack,
+  Shapes,
   Square,
   StickyNote,
   Trash2,
@@ -47,7 +51,6 @@ import {
   Undo2,
   Ungroup,
   Workflow,
-  Wand2,
 } from "lucide-react";
 
 import { QuickTooltip } from "@/components/ui/tooltip";
@@ -72,6 +75,8 @@ export interface ChromeState {
   editingText: boolean;
   hasElements: boolean;
   gridOn: boolean;
+  /** The tool stays after drawing (the editor's tool lock, Q). */
+  toolLocked: boolean;
 }
 
 export const TOOLS_THAT_DRAW = new Set(["rectangle", "ellipse", "diamond", "arrow", "line", "freedraw", "text"]);
@@ -183,16 +188,36 @@ export type DockTool =
   | "text"
   | "image"
   | "eraser"
-  | "laser";
+  | "laser"
+  /* The board's own tools (the editor does not ship them). */
+  | "lasso"
+  | "bucket"
+  | "shape";
+
+/** The laser pointer: a pen-like stick with a glowing tip. */
+function LaserIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className={className} aria-hidden>
+      <path d="M4 20 13 11" />
+      <path d="M3 21l1.6-1.6" strokeWidth={2.6} />
+      <circle cx="16.5" cy="7.5" r="2.4" fill="#D4A72C" stroke="#D4A72C" />
+      <path d="M16.5 2.2v1.3M21.8 7.5h-1.3M20.3 3.7l-.9.9M20.3 11.3l-.9-.9M12.7 3.7l.9.9" strokeWidth={1.4} stroke="#D4A72C" />
+    </svg>
+  );
+}
 
 export function BoardDock({
   tool,
+  locked,
+  onLock,
   onTool,
   onNote,
   onMermaid,
   onLibrary,
 }: {
   tool: string;
+  locked: boolean;
+  onLock: () => void;
   onTool: (tool: DockTool) => void;
   onNote: () => void;
   onMermaid: () => void;
@@ -217,6 +242,16 @@ export function BoardDock({
   const size = "h-[18px] w-[18px]";
   return (
     <Panel className="flex items-center gap-0.5 p-1" data-testid="board-dock" role="toolbar" aria-label={t("nodes.whiteboard.tool.label")}>
+      <IconButton
+        label={t(locked ? "nodes.whiteboard.tool.unlock" : "nodes.whiteboard.tool.lock")}
+        shortcut="Q"
+        active={locked}
+        onClick={onLock}
+        testId="board-tool-lock"
+      >
+        {locked ? <Lock className={size} /> : <LockOpen className={size} />}
+      </IconButton>
+      <Divider />
       {item("selection", <MousePointer2 className={size} />, "V")}
       {item("hand", <Hand className={size} />, "H")}
       <Divider />
@@ -235,21 +270,52 @@ export function BoardDock({
       {item("image", <ImagePlus className={size} />, "9")}
       <Divider />
       {item("eraser", <Eraser className={size} />, "E")}
+      {item("laser", <LaserIcon className={size} />, "K")}
       <div className="relative" ref={moreRef}>
-        <IconButton label={t("nodes.whiteboard.tool.more")} active={more || tool === "laser"} onClick={() => setMore((v) => !v)} testId="board-tool-more">
+        <IconButton
+          label={t("nodes.whiteboard.tool.more")}
+          active={more || tool === "lasso" || tool === "bucket" || tool === "shape"}
+          onClick={() => setMore((v) => !v)}
+          testId="board-tool-more"
+        >
           <MoreHorizontal className={size} />
         </IconButton>
         {more ? (
-          <Panel className="absolute bottom-12 right-0 w-56 p-1">
+          <Panel className="absolute bottom-12 right-0 w-64 p-1" data-testid="board-more-menu">
             <MenuItem
-              icon={<Wand2 className="h-4 w-4" />}
-              label={t("nodes.whiteboard.tool.laser")}
-              hint="K"
+              icon={<Lasso className="h-4 w-4" />}
+              label={t("nodes.whiteboard.tool.lasso")}
+              hint="W"
+              active={tool === "lasso"}
+              testId="board-tool-lasso"
               onClick={() => {
                 setMore(false);
-                onTool("laser");
+                onTool("lasso");
               }}
             />
+            <MenuItem
+              icon={<PaintBucket className="h-4 w-4" />}
+              label={t("nodes.whiteboard.tool.bucket")}
+              hint="B"
+              active={tool === "bucket"}
+              testId="board-tool-bucket"
+              onClick={() => {
+                setMore(false);
+                onTool("bucket");
+              }}
+            />
+            <MenuItem
+              icon={<Shapes className="h-4 w-4" />}
+              label={t("nodes.whiteboard.tool.shape")}
+              hint="⇧ X"
+              active={tool === "shape"}
+              testId="board-tool-shape"
+              onClick={() => {
+                setMore(false);
+                onTool("shape");
+              }}
+            />
+            <Divider vertical={false} />
             <MenuItem
               icon={<Workflow className="h-4 w-4" />}
               label={t("nodes.whiteboard.tool.mermaid")}
@@ -279,6 +345,7 @@ function MenuItem({
   hint,
   onClick,
   danger,
+  active,
   testId,
 }: {
   icon: ReactNode;
@@ -286,16 +353,19 @@ function MenuItem({
   hint?: string;
   onClick: () => void;
   danger?: boolean;
+  active?: boolean;
   testId?: string;
 }) {
   return (
     <button
       type="button"
       data-testid={testId}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "flex h-8 w-full items-center gap-2.5 rounded-lg px-2 text-left text-sm transition-colors hover:bg-secondary",
         danger ? "text-destructive" : "text-foreground",
+        active && "bg-secondary",
       )}
     >
       <span className={danger ? "text-destructive" : "text-muted-foreground"}>{icon}</span>
@@ -589,6 +659,21 @@ export function BoardInspector({
   onCommand: (command: "duplicate" | "delete" | "front" | "back" | "group" | "ungroup" | "lock") => void;
 }) {
   const t = useT();
+  if (state.tool === "bucket") {
+    return (
+      <Panel className="w-[244px] space-y-2 p-3" data-testid="board-inspector">
+        <Section title={t("nodes.whiteboard.inspector.bucket_color")}>
+          <ColorRow
+            colors={FILLS.filter((color) => color !== "transparent")}
+            value={state.sample.backgroundColor}
+            customLabel={t("nodes.whiteboard.inspector.custom")}
+            onChange={(backgroundColor) => onStyle({ backgroundColor, fillStyle: "solid" })}
+          />
+        </Section>
+        <p className="text-xs text-muted-foreground">{t("nodes.whiteboard.inspector.bucket_hint")}</p>
+      </Panel>
+    );
+  }
   const kinds = state.selected.length > 0 ? state.selected : TOOLS_THAT_DRAW.has(state.tool) ? [state.tool] : [];
   if (kinds.length === 0) return null;
   const v = state.sample;

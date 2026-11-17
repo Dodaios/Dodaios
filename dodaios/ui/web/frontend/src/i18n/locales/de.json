@@ -12077,7 +12077,12 @@
         "laser": "Laserpointer",
         "more": "Weitere Werkzeuge",
         "mermaid": "Mermaid-Diagramm",
-        "library": "Bibliothek"
+        "library": "Bibliothek",
+        "lock": "Werkzeug nach dem Zeichnen behalten",
+        "unlock": "Nach dem Zeichnen zurück zu Auswählen",
+        "lasso": "Lassoauswahl",
+        "bucket": "Farbeimer",
+        "shape": "Zu Form zeichnen"
       },
       "inspector": {
         "stroke": "Kontur",
@@ -12118,7 +12123,9 @@
         "ungroup": "Gruppe lösen",
         "duplicate": "Duplizieren",
         "lock": "Sperren",
-        "delete": "Löschen"
+        "delete": "Löschen",
+        "bucket_color": "Füllen mit",
+        "bucket_hint": "Klicke auf eine Form, um sie zu füllen."
       },
       "menu": {
         "label": "Menü",

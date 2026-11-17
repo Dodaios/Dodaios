@@ -40,6 +40,7 @@ import {
   newElementWith,
   reconcileElements,
   restoreElements,
+  viewportCoordsToSceneCoords,
 } from "@excalidraw/excalidraw";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { RemoteExcalidrawElement } from "@excalidraw/excalidraw/data/reconcile";
@@ -85,6 +86,8 @@ import {
 import { CANVAS_OFFSETS, LiveBuild, freshAssistantIds } from "./canvas/liveBuild";
 import { applyStyle, sendEditorKey, type StylePatch } from "./canvas/styleOps";
 import { SmoothViewport } from "./canvas/viewport";
+import { ToolOverlay, type OverlayTool } from "./canvas/ToolOverlay";
+import { fillTarget, lassoPick, recognizeStroke, strokePoints, type Point, type ToolElement } from "./canvas/boardTools";
 
 /** The editor's language for each UI language of the app. */
 const EDITOR_LANGUAGE: Record<UiLanguage, string> = {
@@ -343,6 +346,7 @@ function readChrome(elements: readonly OrderedExcalidrawElement[], appState: App
     editingText: Boolean(editing),
     hasElements: live.length > 0,
     gridOn: Boolean(appState.gridModeEnabled),
+    toolLocked: Boolean(appState.activeTool.locked),
   };
 }
 
@@ -383,10 +387,18 @@ function BoardCanvas({
     editingText: false,
     hasElements: read.scene.elements.some((element) => !element.isDeleted),
     gridOn: Boolean(read.scene.appState.gridModeEnabled),
+    toolLocked: false,
   });
   const chromeSeen = useRef("");
   const [background, setBackground] = useState(() => toEditorBackground(read.scene.appState.viewBackgroundColor));
   const [drawing, setDrawing] = useState(false);
+  /** The board's own tool over the canvas (lasso, bucket), or none. */
+  const [mode, setMode] = useState<OverlayTool | null>(null);
+  /** Draw to shape: each finished pen stroke becomes the shape it looks like. */
+  const [autoShape, setAutoShape] = useState(false);
+  const toolState = useRef({ mode: null as OverlayTool | null, autoShape: false });
+  toolState.current = { mode, autoShape };
+  const strokesBefore = useRef<Set<string>>(new Set());
   const [width, setWidth] = useState(1200);
 
   const [viewport] = useState(
@@ -475,6 +487,17 @@ function BoardCanvas({
   const onApi = useCallback(
     (editor: ExcalidrawImperativeAPI) => {
       api.current = editor;
+      // Draw to shape: a stroke the board has not seen yet when the pen
+      // comes up is the one just drawn (the known ones are noted when the
+      // mode starts and after every stroke).
+      editor.onPointerUp(() => {
+        if (!toolState.current.autoShape) return;
+        // The editor finishes the stroke just after this event.
+        setTimeout(() => {
+          strokesToShapes(editor, strokesBefore.current);
+          strokesBefore.current = knownStrokes(editor);
+        }, 30);
+      });
       void sync.loadMissingFiles(read.scene.elements);
       const expectElements = opening.all.some((element) => !element.isDeleted && !opening.fresh.has(element.id));
       void settleBoard(editor, () => api.current === editor, expectElements).then(async () => {
@@ -496,6 +519,9 @@ function BoardCanvas({
       if (WEB_TOOLS.has(appState.activeTool.type)) {
         api.current?.setActiveTool({ type: "selection" });
       }
+      const tools = toolState.current;
+      if (tools.autoShape && appState.activeTool.type !== "freedraw") setAutoShape(false);
+      if (tools.mode && appState.activeTool.type !== "selection") setMode(null);
       const next = readChrome(elements, appState);
       const key = chromeKey(next);
       if (key !== chromeSeen.current) {
@@ -673,13 +699,90 @@ function BoardCanvas({
     requestAnimationFrame(() => sendEditorKey(root.current, "edit-text"));
   }, []);
 
+  /** Pick a tool: the editor's own, or one of the board's (lasso, bucket, draw to shape). */
+  const chooseTool = useCallback(
+    (tool: DockTool) => {
+      const editor = api.current;
+      if (!editor) return;
+      viewport.stop();
+      if (tool === "lasso" || tool === "bucket") {
+        editor.setActiveTool({ type: "selection" });
+        if (tool === "bucket") {
+          const state = editor.getAppState();
+          editor.updateScene({
+            appState: {
+              selectedElementIds: {},
+              ...(state.currentItemBackgroundColor === "transparent" ? { currentItemBackgroundColor: BUCKET_COLOR } : {}),
+            } as never,
+          });
+        }
+        setAutoShape(false);
+        setMode(tool);
+        return;
+      }
+      setMode(null);
+      if (tool === "shape") {
+        strokesBefore.current = knownStrokes(editor);
+        setAutoShape(true);
+        editor.setActiveTool({ type: "freedraw" });
+        return;
+      }
+      setAutoShape(false);
+      editor.setActiveTool({ type: tool } as never);
+    },
+    [viewport],
+  );
+
+  /** Keep the tool after drawing, or not (the editor's lock, Q). */
+  const toggleLock = useCallback(() => {
+    const editor = api.current;
+    if (!editor) return;
+    const tool = editor.getAppState().activeTool;
+    editor.setActiveTool({ type: tool.type === "custom" ? "selection" : tool.type, locked: !tool.locked } as never);
+  }, []);
+
+  const toScene = (point: Point): Point => {
+    const state = api.current!.getAppState();
+    return viewportCoordsToSceneCoords({ clientX: point.x, clientY: point.y }, state);
+  };
+
+  const onLasso = useCallback((loop: Point[], add: boolean) => {
+    const editor = api.current;
+    if (!editor) return;
+    const state = editor.getAppState();
+    const picked = lassoPick(editor.getSceneElements() as unknown as ToolElement[], loop.map(toScene));
+    const selected: Record<string, true> = add ? { ...(state.selectedElementIds as Record<string, true>) } : {};
+    for (const id of picked) selected[id] = true;
+    editor.updateScene({ appState: { selectedElementIds: selected } as never });
+    // Like any tool: once used it gives way to the selection, unless locked.
+    if (!state.activeTool.locked) setMode(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onBucket = useCallback((at: Point) => {
+    const editor = api.current;
+    if (!editor) return;
+    const target = fillTarget(editor.getSceneElements() as unknown as ToolElement[], toScene(at));
+    if (!target) return;
+    const chosen = editor.getAppState().currentItemBackgroundColor;
+    const color = chosen && chosen !== "transparent" ? chosen : BUCKET_COLOR;
+    editor.updateScene({
+      elements: editor
+        .getSceneElementsIncludingDeleted()
+        .map((element) => (element.id === target.id ? newElementWith(element, { backgroundColor: color, fillStyle: "solid" }) : element)),
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // The wheel glides; pointer and keys mark the person as busy with the view.
   useEffect(() => {
     const el = root.current;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
       lastMove.current = Date.now();
-      if (!(event.target instanceof HTMLCanvasElement)) return;
+      const over = event.target instanceof Element && event.target.closest("[data-board-overlay]");
+      if (!(event.target instanceof HTMLCanvasElement) && !over) return;
       if (viewport.wheel(event)) {
         event.preventDefault();
         event.stopPropagation();
@@ -702,12 +805,20 @@ function BoardCanvas({
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable)) return;
-      if (event.key.toLowerCase() === "n" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        if (api.current?.getAppState().editingTextElement) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (api.current?.getAppState().editingTextElement) return;
+      const key = event.key.toLowerCase();
+      const own = (action: () => void) => {
         event.preventDefault();
         event.stopPropagation();
-        addNote();
-      }
+        action();
+      };
+      if (key === "n" && !event.shiftKey) own(addNote);
+      else if (key === "b" && !event.shiftKey) own(() => chooseTool("bucket"));
+      else if (key === "w" && !event.shiftKey) own(() => chooseTool("lasso"));
+      else if (key === "x" && event.shiftKey) own(() => chooseTool(toolState.current.autoShape ? "selection" : "shape"));
+      else if (key === "escape" && (toolState.current.mode || toolState.current.autoShape)) own(() => chooseTool("selection"));
+      else if (toolState.current.mode && /^[a-z0-9]$/.test(key)) setMode(null);
     };
     el.addEventListener("wheel", onWheel, { capture: true, passive: false });
     el.addEventListener("pointerdown", onPointer, true);
@@ -721,7 +832,7 @@ function BoardCanvas({
       el.removeEventListener("keydown", onKey, true);
       resize?.disconnect();
     };
-  }, [viewport, addNote]);
+  }, [viewport, addNote, chooseTool]);
 
   const onLinkOpen = useCallback(
     (element: { link: string | null }, event: CustomEvent<{ nativeEvent: MouseEvent | React.PointerEvent<HTMLCanvasElement> }>) => {
@@ -776,7 +887,9 @@ function BoardCanvas({
   }, [fit, t]);
 
   const wide = width >= 900;
-  const showInspector = chrome.selected.length > 0 || TOOLS_THAT_DRAW.has(chrome.tool);
+  const dockTool = mode ?? (autoShape ? "shape" : chrome.tool);
+  const shownChrome: ChromeState = mode === "bucket" ? { ...chrome, tool: "bucket", selected: [] } : chrome;
+  const showInspector = mode === "bucket" || (mode === null && (chrome.selected.length > 0 || TOOLS_THAT_DRAW.has(chrome.tool)));
   inspectorOpen.current = showInspector;
 
   return (
@@ -785,6 +898,7 @@ function BoardCanvas({
       className="dodaios-board h-full w-full"
       data-testid="whiteboard-editor"
       data-theme={theme === "dark" ? "dark" : "light"}
+      data-tool={dockTool}
       onBlur={(event) => {
         // Focus left the board for the app: save what is waiting.
         if (!root.current?.contains(event.relatedTarget as Node | null)) void sync.flush();
@@ -824,6 +938,7 @@ function BoardCanvas({
           tools: { image: true },
         }}
       />
+      {mode ? <ToolOverlay tool={mode} onLasso={onLasso} onBucket={onBucket} /> : null}
       <input
         ref={fileInput}
         type="file"
@@ -889,7 +1004,7 @@ function BoardCanvas({
         {showInspector ? (
           <div className="dodaios-board-inspector absolute right-3 top-[64px] max-h-[calc(100%-160px)] overflow-y-auto rounded-xl">
             <BoardInspector
-              state={chrome}
+              state={shownChrome}
               onStyle={(patch: StylePatch) => {
                 const editor = api.current;
                 if (editor) applyStyle(editor, patch);
@@ -903,13 +1018,12 @@ function BoardCanvas({
             <EmptyHint name={assistant} />
           </div>
         ) : null}
-        <div className="absolute bottom-3 left-1/2 max-w-[calc(100%-24px)] -translate-x-1/2 overflow-x-auto rounded-xl">
+        <div className="absolute bottom-3 left-1/2 max-w-[calc(100%-24px)] -translate-x-1/2 rounded-xl">
           <BoardDock
-            tool={chrome.tool}
-            onTool={(tool: DockTool) => {
-              viewport.stop();
-              api.current?.setActiveTool({ type: tool } as never);
-            }}
+            tool={dockTool}
+            locked={chrome.toolLocked}
+            onLock={toggleLock}
+            onTool={chooseTool}
             onNote={addNote}
             onMermaid={() => api.current?.updateScene({ appState: { openDialog: { name: "ttd", tab: "mermaid" } } })}
             onLibrary={() => api.current?.toggleSidebar({ name: "default", tab: "library" })}
@@ -932,6 +1046,71 @@ function BoardCanvas({
 }
 
 const NOTE_SIZE = 200;
+/** The bucket's colour while none is chosen: a light blue of the palette. */
+const BUCKET_COLOR = "#a5d8ff";
+
+/** The ids of every pen stroke on the board (deleted ones too). */
+function knownStrokes(editor: ExcalidrawImperativeAPI): Set<string> {
+  return new Set(
+    editor
+      .getSceneElementsIncludingDeleted()
+      .filter((element) => element.type === "freedraw")
+      .map((element) => element.id),
+  );
+}
+
+/**
+ * Draw to shape: every pen stroke drawn since `before` that reads as a shape
+ * (see `recognizeStroke`) is replaced by that shape, in the stroke's colour
+ * and width, as one step the person can undo. A stroke that is no shape stays.
+ */
+export function strokesToShapes(editor: ExcalidrawImperativeAPI, before: ReadonlySet<string>): number {
+  const state = editor.getAppState();
+  // A stroke still being drawn is not finished yet.
+  const drawingNow = state.newElement?.id;
+  const all = editor.getSceneElementsIncludingDeleted();
+  const made: ReturnType<typeof convertToExcalidrawElements> = [];
+  const gone = new Set<string>();
+  for (const element of all) {
+    if (element.type !== "freedraw" || element.isDeleted || before.has(element.id) || element.id === drawingNow) continue;
+    const shape = recognizeStroke(strokePoints(element as unknown as ToolElement));
+    if (!shape) continue;
+    const look = {
+      strokeColor: element.strokeColor,
+      strokeWidth: element.strokeWidth,
+      opacity: element.opacity,
+      roughness: state.currentItemRoughness,
+      frameId: element.frameId,
+    };
+    const [made1] =
+      shape.kind === "arrow"
+        ? convertToExcalidrawElements([
+            { type: "arrow", x: shape.x, y: shape.y, width: shape.dx, height: shape.dy, endArrowhead: "arrow", ...look },
+          ] as never)
+        : convertToExcalidrawElements([
+            {
+              type: shape.kind,
+              x: shape.x,
+              y: shape.y,
+              width: shape.width,
+              height: shape.height,
+              backgroundColor: element.backgroundColor,
+              fillStyle: "solid",
+              roundness: shape.kind === "ellipse" ? null : { type: shape.kind === "rectangle" ? 3 : 2 },
+              ...look,
+            },
+          ] as never);
+    if (!made1) continue;
+    made.push(made1);
+    gone.add(element.id);
+  }
+  if (gone.size === 0) return 0;
+  editor.updateScene({
+    elements: [...all.map((element) => (gone.has(element.id) ? newElementWith(element, { isDeleted: true }) : element)), ...made],
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+  return gone.size;
+}
 
 /**
  * The top-left corner of a free square of `size` nearest to `center`, looked

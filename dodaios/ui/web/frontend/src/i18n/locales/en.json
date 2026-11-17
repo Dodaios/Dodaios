@@ -12077,7 +12077,12 @@
         "laser": "Laser pointer",
         "more": "More tools",
         "mermaid": "Mermaid diagram",
-        "library": "Library"
+        "library": "Library",
+        "lock": "Keep the tool after drawing",
+        "unlock": "Back to Select after drawing",
+        "lasso": "Lasso select",
+        "bucket": "Paint bucket",
+        "shape": "Draw to shape"
       },
       "inspector": {
         "stroke": "Stroke",
@@ -12118,7 +12123,9 @@
         "ungroup": "Ungroup",
         "duplicate": "Duplicate",
         "lock": "Lock",
-        "delete": "Delete"
+        "delete": "Delete",
+        "bucket_color": "Paint with",
+        "bucket_hint": "Click a shape to fill it."
       },
       "menu": {
         "label": "Menu",

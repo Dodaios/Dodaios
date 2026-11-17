@@ -12077,7 +12077,12 @@
         "laser": "Ponteiro laser",
         "more": "Mais ferramentas",
         "mermaid": "Diagrama Mermaid",
-        "library": "Biblioteca"
+        "library": "Biblioteca",
+        "lock": "Manter a ferramenta depois de desenhar",
+        "unlock": "Voltar a Selecionar depois de desenhar",
+        "lasso": "Seleção com laço",
+        "bucket": "Balde de tinta",
+        "shape": "Desenhar para forma"
       },
       "inspector": {
         "stroke": "Contorno",
@@ -12118,7 +12123,9 @@
         "ungroup": "Desagrupar",
         "duplicate": "Duplicar",
         "lock": "Bloquear",
-        "delete": "Eliminar"
+        "delete": "Eliminar",
+        "bucket_color": "Pintar com",
+        "bucket_hint": "Clique numa forma para a preencher."
       },
       "menu": {
         "label": "Menu",
