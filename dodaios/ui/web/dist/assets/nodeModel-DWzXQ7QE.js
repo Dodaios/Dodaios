@@ -1,0 +1,1 @@
+const i=["docs","slides","sheets","data","whiteboard","motion"];function s(e){return typeof e=="string"&&i.includes(e)}function t(e,n){return e.type===n&&e.preview!==null?e.preview:null}function r(e){return e.origin==="node"&&e.id!==null}const o="__node__";function u(e){return!!e&&e.includes(o)}export{o as N,u as a,s as b,i as c,r as i,t as p};

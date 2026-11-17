@@ -1,0 +1,1 @@
+.stage-bar-window{container-type:inline-size;container-name:stage-bar}@container stage-bar (max-width: 760px){.stage-bar-window .stage-bar-detail{display:none}}@container stage-bar (max-width: 640px){.stage-bar-window .stage-bar-label{display:none}.stage-bar-window .stage-bar-button{width:2.25rem;padding-inline:0}}
