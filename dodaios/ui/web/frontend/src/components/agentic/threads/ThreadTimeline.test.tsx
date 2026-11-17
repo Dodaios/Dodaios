@@ -399,3 +399,15 @@ describe("model fallback line", () => {
     expect(second.getAttribute("role")).toBe("alert");
   });
 });
+
+describe("a picture sent with a message", () => {
+  it("opens in full on a click", () => {
+    const sent = { type: "user" as const, id: "u1", text: "look at this", tsMs: 1,
+      attachments: [{ name: "shot.png", kind: "image" as const, url: "/api/outputs/shot.png", describedBy: "" }] };
+    render(<ThreadTimeline items={[sent]} sessionId="s1" bottomInset={0} />);
+    expect(screen.queryByTestId("chat-media-viewer")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-sent-picture"));
+    const viewer = screen.getByTestId("chat-media-viewer");
+    expect(viewer.querySelector("img")?.getAttribute("src")).toBe("/api/outputs/shot.png");
+  });
+});
