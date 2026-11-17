@@ -5,7 +5,20 @@ vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@/store/home", () => ({
   useHomeStore: (selector: (s: { agentChatId: string | null }) => unknown) => selector({ agentChatId: null }),
 }));
-vi.mock("@/components/home/AssistantChat", () => ({ AssistantChat: () => <div data-testid="assistant-chat" /> }));
+/** Whether the conversation was in the page when it first laid itself out. */
+const placedAtMount: boolean[] = [];
+vi.mock("@/components/home/AssistantChat", async () => {
+  const { useLayoutEffect, useRef } = await import("react");
+  return {
+    AssistantChat: () => {
+      const ref = useRef<HTMLDivElement>(null);
+      useLayoutEffect(() => {
+        placedAtMount.push(document.body.contains(ref.current));
+      }, []);
+      return <div ref={ref} data-testid="assistant-chat" />;
+    },
+  };
+});
 vi.mock("@/components/home/AssistantPanel", () => ({
   default: () => <aside data-testid="assistant-panel" />,
 }));
@@ -35,6 +48,14 @@ describe("HomeView's conversation and the node window", () => {
     expect(screen.getAllByTestId("assistant-chat")).toEqual([chat]);
     expect(column.contains(chat)).toBe(false);
     beside.remove();
+  });
+
+  it("draws the conversation only once it is in the page, so it can open at its end", () => {
+    placedAtMount.length = 0;
+    render(<HomeView />);
+    // Laid out in an element outside the page, the conversation has no height:
+    // its move to the end goes nowhere and it opens at the first message.
+    expect(placedAtMount).toEqual([true]);
   });
 
   it("has the conversation back and stops offering it once the page is gone", () => {
