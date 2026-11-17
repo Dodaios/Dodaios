@@ -98,7 +98,9 @@ news since it was last opened.
   takes after its name. A thread that has not run a turn asks the CLI for the
   list (about a second, no model call, no session kept, no hook run); a turn
   refreshes it as it runs. The message goes to the CLI as typed, so the
-  command runs there and its answer is the turn's answer. The list is plain,
+  command runs there and its answer is the turn's answer. Nothing is put in
+  front of a message that opens with a command (not even the effort note),
+  because the CLI runs a command only as the message's first word. The list is plain,
   like the CLI's own: one line per entry, no icons, files by their whole path.
   In the text box a command the seat knows, a known `$skill` and a picked
   `@file` are drawn in blue; a name the seat does not know stays plain, which

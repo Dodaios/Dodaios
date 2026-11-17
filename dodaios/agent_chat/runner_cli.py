@@ -1098,6 +1098,19 @@ _VENDOR_SHELL_TOOLS: Final[tuple[str, ...]] = (
 )
 
 
+_COMMAND_START: Final[re.Pattern[str]] = re.compile(r"^\s*/[A-Za-z0-9][\w:.-]*(?:\s|$)")
+
+
+def opens_with_command(prompt: str) -> bool:
+    """Whether a message opens with a slash command (``/context``, ``/goal ship it``).
+
+    A CLI runs a command only when it is the first thing of the message, so
+    nothing may be put in front of such a message. A path (``/usr/bin``) is
+    not a command: its first word has a second slash.
+    """
+    return bool(_COMMAND_START.match(prompt or ""))
+
+
 def identity_turn_flags(runner: str, identity: dodaios_harness.Identity) -> list[str]:
     """The flags that keep an identity turn (lead or society seat) inside the gateway.
 
@@ -5065,9 +5078,14 @@ async def _run_cli_once(
                         if runner == "agy-cli"
                         else effort
                     )
-                    planned_prompt = (
-                        effort_note(session.provider, told_effort, model_ladder) + planned_prompt
-                    )
+                    if not opens_with_command(planned_prompt):
+                        # A slash command runs only as the message's first word:
+                        # with the note in front, Claude Code read "/context"
+                        # as text and answered that it cannot run it.
+                        planned_prompt = (
+                            effort_note(session.provider, told_effort, model_ladder)
+                            + planned_prompt
+                        )
                 if runner in _CLAUDE_CODE_RUNNERS:
                     await asyncio.to_thread(warm_claude_capabilities)
                 custom_kwargs: dict[str, Any] = (
