@@ -169,7 +169,7 @@ names are removed first. A duplicated board gets a copy of its pictures.
 
 **The page** (`dodaios/nodes/board/render.py`) is a read-only drawing of the
 scene as SVG, for the library card, the chat card and a shared file. It
-draws clean lines rather than the editor's hand-drawn look, fits the drawing
+draws clean lines even where an element asks for the hand-drawn look, fits the drawing
 into the window, and pans and zooms. In the dark theme the drawing is
 inverted as the editor does it, and pictures are inverted back. Pictures are
 embedded up to 3 MB per page; the rest are labelled boxes.
@@ -739,13 +739,35 @@ The rules the actions keep:
   is `from:to`.
 - A thing without a position goes to a free place right of the content, and
   things added in one call flow in rows. `near`, `right_of`, `below` and
-  `inside` place it next to an element or in a frame. Nothing new overlaps
-  what is there.
+  `inside` place it next to an element or in a frame. `below` and `above`
+  line up the left edges with the element, `right_of` and `left_of` the
+  tops. Nothing new overlaps what is there.
 - An arrow is bound to the shapes it joins. When a shape moves, its arrows
   are drawn again; when it is deleted, they go too.
-- The board looks the same everywhere: one size per kind of shape, the
-  editor's 20 px grid and colour palette, sticky notes as yellow boxes,
-  groups as frames.
+- The board looks finished: clean lines (roughness 0) and the editor's sans
+  font, boxes with rounded corners, a soft fill under a darker stroke of the
+  same colour. A model that wants the sketchy look asks for `roughness` 1 or
+  `font: hand`.
+- The board looks the same everywhere: one width per kind of shape in a
+  diagram, the editor's 20 px grid and colour palette, sticky notes as
+  yellow boxes, groups as frames. A height follows its own label; boxes in
+  one row of a grid, or in one group, share the row's height. A box whose
+  label has several lines may run wider (300 px of text instead of 240), so
+  a stat card does not become a tall column. Notes or boxes of one kind
+  added in one `add` get one size.
+- A grid of frames is a dashboard: the frames stand in top-aligned rows,
+  40 px apart, the frames of a row stretched to one height, and each frame's
+  contents start at its top-left padding.
+- Every element an action creates carries `customData: {"by": "assistant"}`
+  (merged with what is there), so the editor can show the assistant's new
+  elements arriving.
+- After every `create` and `edit` the result ends with `Check:` lines from
+  `dodaios/nodes/board/check.py`, read from the final board: things that
+  overlap, a label that does not fit its box, an element sticking out of its
+  frame, frames in one row whose tops differ, a box far larger than its
+  label, an arrow through a shape. Each line names the ids and the fix; one
+  line says when all is clear. Only what the call made or changed is
+  checked, not the person's own drawing.
 - An edit runs under the node's lock on the scene as it is stored. Every
   element it changes gets a new version, so the open editor merges it with
   the person's drawing. Each edit is one history version.
@@ -760,6 +782,7 @@ other agents.
 | Diagrams, the older grammar | `dodaios/nodes/board/convert.py` |
 | Mermaid flowcharts | `dodaios/nodes/board/mermaid.py` |
 | Actions and the reading | `dodaios/nodes/board/ops.py` |
+| The self-check | `dodaios/nodes/board/check.py` |
 
 ## The library
 
@@ -863,7 +886,7 @@ All routes are in `dodaios/ui/web/nodes_routes.py`.
 | `PUT /api/nodes/{id}/scene` | Body `{"scene"}`. The editor's save, merged with the stored scene. Answers `{"version", "updated_at", "merged"}`, and `"scene"` (the merged scene) when `merged` is true. |
 | `POST /api/nodes/{id}/files` | Body `{"dataURL", "id"?}`. Keeps a picture for a whiteboard. Without `id` the id is the SHA-1 of the bytes. Answers `{"id", "mimeType"}`. |
 | `GET /api/nodes/{id}/files/{fileId}` | A whiteboard picture's bytes, with the type its bytes have, cached for good and under `Content-Security-Policy: default-src 'none'`. |
-| `POST /api/nodes/{id}/whiteboard` | Body `{"actions": [...]}`: the `whiteboard` tool's actions, for scripts and other agents. All actions or none; saved as one revision. Answers `{"version", "report", "summary"}`: one report line per action, and `{"elements", "bounds"}` of the board. |
+| `POST /api/nodes/{id}/whiteboard` | Body `{"actions": [...]}`: the `whiteboard` tool's actions, for scripts and other agents. All actions or none; saved as one revision. Answers `{"version", "report", "summary", "check"}`: one report line per action, `{"elements", "bounds"}` of the board, and the self-check lines for what the actions made or changed (empty when all is clear). |
 | `DELETE /api/nodes/{id}` | Stops the upkeep, then removes the node, its page and its history. Returns `{"deleted": true}`. |
 
 Errors: `404` for an id that is not a node. `400` with the reason as one

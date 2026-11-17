@@ -52,6 +52,10 @@ FONT_IDS: Final[dict[str, int]] = {
 FONT_HAND: Final[int] = 5
 FONT_NORMAL: Final[int] = 6
 FONT_CODE: Final[int] = 8
+#: The font of everything the assistant writes unless asked otherwise: the
+#: editor's clean sans ("normal"). The hand-drawn one reads as a sketch, not as
+#: a finished board; a model that wants it says ``font: hand``.
+DEFAULT_FONT: Final[int] = FONT_NORMAL
 
 #: What a model may call a font, and the family id it means.
 FONT_NAMES: Final[dict[str, int]] = {
@@ -319,9 +323,11 @@ def container_for_text(kind: str, text_w: float, text_h: float) -> tuple[float, 
 
 # --- elements -----------------------------------------------------------------------
 
-#: Defaults of the editor (``DEFAULT_ELEMENT_PROPS``), except roughness: see style.
+#: Defaults of the editor (``DEFAULT_ELEMENT_PROPS``), except roughness: the
+#: assistant draws clean lines (0) so a board looks finished; a model that wants
+#: the sketchy look asks for ``roughness`` 1 or 2.
 DEFAULT_STROKE_WIDTH: Final[int] = 2
-DEFAULT_ROUGHNESS: Final[int] = 1
+DEFAULT_ROUGHNESS: Final[int] = 0
 ROUND_ADAPTIVE: Final[dict[str, int]] = {"type": 3}
 ROUND_PROPORTIONAL: Final[dict[str, int]] = {"type": 2}
 
@@ -404,7 +410,7 @@ def text(
     y: float,
     now_ms: int,
     font_size: float = DEFAULT_FONT_SIZE,
-    font_family: int = FONT_HAND,
+    font_family: int = DEFAULT_FONT,
     align: str = "left",
     valign: str = "top",
     color: str = BLACK,
@@ -496,7 +502,7 @@ def label_for(
     *,
     now_ms: int,
     font_size: float = DEFAULT_FONT_SIZE,
-    font_family: int = FONT_HAND,
+    font_family: int = DEFAULT_FONT,
     color: str = BLACK,
     align: str = "center",
     element_id: str | None = None,
@@ -1018,6 +1024,7 @@ def number_of(value: Any, field: str) -> float:
 __all__ = [
     "BLACK",
     "BOUND_TEXT_PADDING",
+    "DEFAULT_FONT",
     "DEFAULT_FONT_SIZE",
     "FONT_CODE",
     "FONT_HAND",

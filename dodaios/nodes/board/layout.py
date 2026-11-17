@@ -13,6 +13,7 @@ how it is connected, and this module decides where it sits:
 * ``tree``: a hierarchy, each parent centred over its children.
 * ``mindmap``: a centre with its branches spread to both sides.
 * ``pack``: blocks (a frame, a flow, a grid) in rows of a landscape shape.
+* ``panels``: frames as a dashboard: top-aligned rows, one height per row.
 * ``free_spot``: a place for something new that overlaps nothing, right of
   the content or next to a given element.
 
@@ -41,6 +42,9 @@ GRID_GAP: Final[float] = 20.0
 #: Between blocks (frames, flows) packed into rows, and between the rows.
 BLOCK_GAP: Final[float] = 80.0
 ROW_GAP: Final[float] = 80.0
+#: Between the panels (frames) of a grid layout: closer than loose blocks, so
+#: the panels read as one dashboard; the frame's name has its own room above.
+PANEL_GAP: Final[float] = 40.0
 #: The window a board is packed for, and the zoom at which it is still readable.
 SHEET: Final[tuple[float, float]] = (1440.0, 860.0)
 READABLE_ZOOM: Final[float] = 0.66
@@ -192,17 +196,29 @@ def default_columns(count: int) -> int:
 
 
 def grid(
-    boxes: list[Box], *, columns: int | None = None, gap: float = GRID_GAP
+    boxes: list[Box],
+    *,
+    columns: int | None = None,
+    gap: float = GRID_GAP,
+    stretch: Iterable[str] = (),
 ) -> tuple[float, float]:
-    """``boxes`` in a grid from (0, 0): even gaps, each centred in its cell."""
+    """``boxes`` in a grid from (0, 0): even gaps, each centred in its cell.
+
+    The boxes named in ``stretch`` take the height of their row, so a row of
+    cards with labels of different lengths reads as one even band.
+    """
     if not boxes:
         return 0.0, 0.0
+    stretchable = set(stretch)
     cols = max(1, min(len(boxes), columns or default_columns(len(boxes))))
     rows = [boxes[start : start + cols] for start in range(0, len(boxes), cols)]
     col_w = [max((row[c].w for row in rows if c < len(row)), default=0.0) for c in range(cols)]
     top = 0.0
     for row in rows:
         row_h = max(b.h + b.top for b in row)
+        for b in row:
+            if b.key in stretchable:
+                b.h = row_h - b.top
         left = 0.0
         for c, b in enumerate(row):
             b.x = left + (col_w[c] - b.w) / 2
@@ -534,7 +550,11 @@ def _row_size(row: list[Box], gap: float) -> tuple[float, float]:
 
 
 def pack(
-    blocks: list[Box], *, gap: float = BLOCK_GAP, row_gap: float = ROW_GAP
+    blocks: list[Box],
+    *,
+    gap: float = BLOCK_GAP,
+    row_gap: float = ROW_GAP,
+    stretch: Iterable[str] = (),
 ) -> tuple[float, float]:
     """Place the blocks left to right, wrapped into rows of a landscape shape.
 
@@ -542,7 +562,9 @@ def pack(
     the one whose board is largest when fitted into a landscape window wins,
     every board readable there counts the same, and fewer rows win a tie. So a
     board stays one row for as long as it can be read, and a wider one wraps
-    where that keeps it largest.
+    where that keeps it largest. Blocks in a row share their top edge; the
+    ones named in ``stretch`` also take the height of the row's tallest, so a
+    row of frames reads like the panels of a dashboard.
     """
     if not blocks:
         return 0.0, 0.0
@@ -565,16 +587,48 @@ def pack(
         zoom = min(SHEET[0] / max(board_w, 1.0), SHEET[1] / max(board_h, 1.0), READABLE_ZOOM)
         if zoom > best_zoom + 1e-9:
             best, best_zoom = rows, zoom
+    return _place_rows(best, gap=gap, row_gap=row_gap, stretch=stretch)
+
+
+def _place_rows(
+    rows: list[list[Box]], *, gap: float, row_gap: float, stretch: Iterable[str] = ()
+) -> tuple[float, float]:
+    """Rows of blocks from (0, 0), top-aligned; ``stretch`` ones take the row's height."""
+    stretchable = set(stretch)
     top = 0.0
-    for row in best:
+    for row in rows:
         title_room = max(b.top for b in row)
+        row_h = max(b.h for b in row)
         left = 0.0
         for b in row:
             b.x = left
             b.y = top + title_room
+            if b.key in stretchable:
+                b.h = row_h
             left += b.w + gap
-        top += title_room + max(b.h for b in row) + row_gap
-    return _normalize(blocks)
+        top += title_room + row_h + row_gap
+    return _normalize(box for row in rows for box in row)
+
+
+def panels(
+    blocks: list[Box], *, columns: int | None = None, gap: float = PANEL_GAP
+) -> tuple[float, float]:
+    """Frames (and loose blocks) as the panels of a dashboard.
+
+    Rows of ``columns`` blocks, or the rows :func:`pack` picks; every row
+    top-aligned with ``gap`` between panels and rows (a frame's name has its
+    own room above it), and the frames of a row stretched to one height. A
+    grid of cells would centre blocks of different sizes on each other, so
+    frames would start at ragged heights and a short one would float.
+    """
+    if not blocks:
+        return 0.0, 0.0
+    frames = [b.key for b in blocks if b.top > 0]
+    if columns:
+        cols = max(1, columns)
+        rows = [blocks[start : start + cols] for start in range(0, len(blocks), cols)]
+        return _place_rows(rows, gap=gap, row_gap=gap, stretch=frames)
+    return pack(blocks, gap=gap, row_gap=gap, stretch=frames)
 
 
 def arrange(
@@ -586,15 +640,23 @@ def arrange(
     gap: float | None = None,
     columns: int | None = None,
     root: str | None = None,
+    stretch: Iterable[str] = (),
 ) -> tuple[float, float]:
     """Lay out ``boxes`` by ``kind``; a flow lays out each linked cluster and packs them.
 
-    Returns the size of the result, which starts at (0, 0).
+    A grid of frames is laid out as :func:`panels`; in a grid of plain boxes
+    the ones in ``stretch`` take their row's height. Frames left loose in a
+    flow are packed, top-aligned, each row of them one height. Returns the
+    size of the result, which starts at (0, 0).
     """
     keys = {b.key for b in boxes}
     edges = [(s, e) for s, e in edges if s in keys and e in keys and s != e]
     if kind == "grid":
-        return grid(boxes, columns=columns, gap=gap if gap is not None else GRID_GAP)
+        if any(b.top > 0 for b in boxes):
+            return panels(boxes, columns=columns, gap=gap if gap is not None else PANEL_GAP)
+        return grid(
+            boxes, columns=columns, gap=gap if gap is not None else GRID_GAP, stretch=stretch
+        )
     if kind == "tree":
         return tree(
             boxes,
@@ -627,11 +689,11 @@ def arrange(
         # apart and centre them on each other, so neighbours almost touch and
         # their names stand at different heights. Packed, they are top-aligned
         # a block's gap apart.
-        w, h = pack(loose)
+        w, h = pack(loose, stretch=[b.key for b in loose if b.top > 0])
         blocks.append(Box(key="loose", w=w, h=h))
         members.append(loose)
     elif loose:
-        w, h = grid(loose, columns=columns)
+        w, h = grid(loose, columns=columns, stretch=stretch)
         blocks.append(Box(key="loose", w=w, h=h))
         members.append(loose)
     if direction in ("LR", "RL") and len(blocks) > 1:
@@ -686,15 +748,21 @@ _SIDES: Final[dict[str, tuple[float, float]]] = {
 
 
 def _beside(anchor: Rect, w: float, h: float, side: str, gap: float) -> tuple[float, float]:
+    """The corner of a ``w`` x ``h`` thing on ``side`` of ``anchor``, edges aligned.
+
+    Below or above, the left edges line up; right or left, the tops do. A
+    heading with a diagram below it then starts where the heading starts,
+    the way a page is read, instead of centring a wide block under a short
+    line.
+    """
     ax0, ay0, ax1, ay1 = anchor
-    acx, acy = (ax0 + ax1) / 2, (ay0 + ay1) / 2
     if side == "right":
-        return ax1 + gap, acy - h / 2
+        return ax1 + gap, ay0
     if side == "left":
-        return ax0 - gap - w, acy - h / 2
+        return ax0 - gap - w, ay0
     if side == "below":
-        return acx - w / 2, ay1 + gap
-    return acx - w / 2, ay0 - gap - h
+        return ax0, ay1 + gap
+    return ax0, ay0 - gap - h
 
 
 def free_spot(
@@ -709,8 +777,9 @@ def free_spot(
     """A top-left corner for a ``w`` × ``h`` thing that overlaps nothing in ``occupied``.
 
     With ``anchor``: on its ``side`` (``right``, ``left``, ``below``, ``above``,
-    or ``near`` = the closest free of the four), centred on it, moving further
-    out until free. Without: right of all content, aligned to its top, moving
+    or ``near`` = the closest free of the four), its left edge (below, above)
+    or its top (right, left) aligned with the anchor's, moving further out
+    until free. Without: right of all content, aligned to its top, moving
     down until free. An empty board starts at (0, 0).
     """
     step = GRID
@@ -754,6 +823,7 @@ __all__ = [
     "GRID",
     "GRID_GAP",
     "KINDS",
+    "PANEL_GAP",
     "ROW_GAP",
     "Box",
     "arrange",
@@ -769,6 +839,7 @@ __all__ = [
     "mindmap",
     "overlaps",
     "pack",
+    "panels",
     "snap",
     "tree",
 ]

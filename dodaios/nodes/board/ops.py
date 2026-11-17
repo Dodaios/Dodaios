@@ -110,6 +110,18 @@ _BINDABLE: Final[frozenset[str]] = frozenset(
 _FRIENDLY: Final[dict[str, str]] = {"rectangle": "box", "freedraw": "drawing"}
 
 
+#: What every element an action creates carries in its ``customData``: the
+#: editor shows the assistant's new elements arriving, and a reading can tell
+#: them from the person's strokes.
+ASSISTANT_MARK: Final[dict[str, str]] = {"by": "assistant"}
+
+
+def mark(item: dict[str, Any]) -> None:
+    """Add :data:`ASSISTANT_MARK` to ``item``'s ``customData``, keeping what is there."""
+    custom = item.get("customData")
+    item["customData"] = {**(custom if isinstance(custom, dict) else {}), **ASSISTANT_MARK}
+
+
 class _Problem(ValueError):
     """An action that cannot be done; the message says what to fix."""
 
@@ -270,6 +282,7 @@ class _Board:
                 f"one call makes at most {MAX_NEW_ELEMENTS} elements; split it into several calls"
             )
         for item in items:
+            mark(item)
             for position, existing in enumerate(self.elements):
                 if existing["id"] == item["id"]:
                     if not existing.get("isDeleted"):
@@ -592,19 +605,18 @@ class _Actions:
         if items is not None:
             if not isinstance(items, list) or not items:
                 raise _fail("'items' must be a non-empty list of things to add")
-            made: list[str] = []
+            specs: list[dict[str, Any]] = []
             for position, item in enumerate(items):
                 if not isinstance(item, dict):
                     raise _fail(f"items[{position}] must be an object")
+                specs.append(
+                    {**{k: v for k, v in action.items() if k not in ("items", "do")}, **item}
+                )
+            _even_sizes(specs)
+            made: list[str] = []
+            for position, spec in enumerate(specs):
                 try:
-                    made.append(
-                        self._add_one(
-                            {
-                                **{k: v for k, v in action.items() if k not in ("items", "do")},
-                                **item,
-                            }
-                        )
-                    )
+                    made.append(self._add_one(spec))
                 except _Problem as exc:
                     raise _fail(f"items[{position}]: {exc}") from None
             return f"added {len(made)}: " + ", ".join(made)
@@ -612,14 +624,7 @@ class _Actions:
 
     def _add_one(self, spec: dict[str, Any]) -> str:
         b = self.b
-        raw_kind = spec.get("type") or spec.get("shape") or spec.get("kind")
-        if raw_kind in (None, ""):
-            raw_kind = (
-                "arrow"
-                if spec.get("from") or spec.get("to")
-                else ("freedraw" if spec.get("points") else "box")
-            )
-        kind = cv.kind_of(raw_kind)
+        kind = cv.kind_of(_raw_kind(spec))
         if kind in ("arrow", "line"):
             return self._add_linear(kind, spec)
         style = cv.parse_style(spec)
@@ -1489,8 +1494,12 @@ class _Actions:
         by_key = {u["id"]: u for u in units}
         for box in boxes:
             item = by_key[box.key]
-            x0, y0, _, _ = el.box_of(item)
+            x0, y0, _, y1 = el.box_of(item)
             b.translate([item], lay.snap(ox + box.x) - x0, lay.snap(oy + box.y) - y0)
+            if item.get("type") == "frame" and box.h > y1 - y0 + 0.5:
+                # A grid of frames stretches the frames of a row to one height.
+                item["height"] = el.tidy(box.h)
+                b.reroute_later(item)
         if holder is not None:
             self._shrink_frame(holder)
         if holder is None and len(units) + len(headings) < len(
@@ -1658,6 +1667,51 @@ class _Actions:
         )
         self.b.app["gridModeEnabled"] = on
         return f"grid {'on' if on else 'off'}"
+
+
+def _raw_kind(spec: dict[str, Any]) -> Any:
+    """The type an add names, or the one its fields imply (an arrow, a drawing, a box)."""
+    raw_kind = spec.get("type") or spec.get("shape") or spec.get("kind")
+    if raw_kind in (None, ""):
+        raw_kind = (
+            "arrow"
+            if spec.get("from") or spec.get("to")
+            else ("freedraw" if spec.get("points") else "box")
+        )
+    return raw_kind
+
+
+def _even_sizes(specs: list[dict[str, Any]]) -> None:
+    """Things of one kind added together get one size: the largest their labels need.
+
+    Notes or cards added in one batch then line up as a set instead of a row
+    of different heights. Only things without their own ``w``/``h`` are
+    evened; a spec that cannot be read is left alone for the add itself to
+    report.
+    """
+    sets: dict[tuple[str, float], list[tuple[dict[str, Any], str, dict[str, Any]]]] = {}
+    for spec in specs:
+        if any(spec.get(k) is not None for k in ("w", "width", "h", "height")):
+            continue
+        try:
+            kind = cv.kind_of(_raw_kind(spec))
+            style = cv.parse_style(spec)
+        except ValueError:  # not evened: the add of this spec reports what is wrong
+            continue
+        if kind not in cv.STRETCH_KINDS:
+            continue
+        label = cv._text(spec.get("label", spec.get("text", spec.get("name", ""))))
+        key = (kind, float(style.get("size", cv.LABEL_SIZE)))
+        sets.setdefault(key, []).append((spec, label, style))
+    for (kind, _), members in sets.items():
+        if len(members) < 2:
+            continue
+        width = max(cv.node_size(kind, label, style)[0] for _, label, style in members)
+        height = max(
+            cv.node_size(kind, label, style, width=width)[1] for _, label, style in members
+        )
+        for spec, _, _ in members:
+            spec["w"], spec["h"] = width, height
 
 
 def _kind_name(item: dict[str, Any], board: _Board) -> str:
