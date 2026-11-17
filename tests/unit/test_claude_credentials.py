@@ -212,3 +212,158 @@ def test_config_dirs_deduplicate_env_and_default(
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     dirs = cc.claude_config_dirs()
     assert dirs.count(home / ".claude") == 1
+
+
+# 2026-11-16: on macOS Claude Code keeps the login in the Keychain, not in
+# .credentials.json; every account (even the working default) read as signed
+# out, so the seat switcher had nowhere to move a spent seat.
+def test_keychain_service_name_default_and_added_dirs(tmp_path, monkeypatch) -> None:
+    from dodaios.claude_credentials import keychain_service_for
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", raising=False)
+
+    assert keychain_service_for(Path.home() / ".claude") == "Claude Code-credentials"
+    added = Path("/Users/x/.dodaios-data/agent-accounts/claude/soukrom-95586f")
+    import hashlib
+
+    suffix = hashlib.sha256(str(added).encode()).hexdigest()[:8]
+    assert keychain_service_for(added) == f"Claude Code-credentials-{suffix}"
+
+
+def test_login_in_keychain_counts_as_signed_in(tmp_path) -> None:
+    from dodaios.claude_credentials import claude_login_in
+
+    (tmp_path / ".claude.json").write_text(
+        json.dumps({"oauthAccount": {"organizationType": "claude_max"}}), encoding="utf-8"
+    )
+    seen: list[str] = []
+
+    def probe(service: str) -> bool:
+        seen.append(service)
+        return True
+
+    snap = claude_login_in(tmp_path, keychain_probe=probe)
+    assert snap.status == "valid"
+    assert snap.access_token is None  # the secret is never read, only its presence
+    assert snap.subscription_type == "max"
+    assert seen and seen[0].startswith("Claude Code-credentials")
+
+
+def test_no_file_and_no_keychain_item_stays_absent(tmp_path) -> None:
+    from dodaios.claude_credentials import claude_login_in
+
+    assert claude_login_in(tmp_path, keychain_probe=lambda _s: False).status == "absent"
+
+
+def test_credentials_file_still_wins_over_keychain(tmp_path) -> None:
+    from dodaios.claude_credentials import claude_login_in
+
+    (tmp_path / ".credentials.json").write_text(
+        json.dumps(
+            {"claudeAiOauth": {"accessToken": "sk-ant-oat01-x", "expiresAt": 1,
+                               "refreshToken": "x"}}
+        ),
+        encoding="utf-8",
+    )
+    called: list[str] = []
+    snap = claude_login_in(tmp_path, keychain_probe=lambda s: called.append(s) or True)
+    assert snap.status == "expired" and not called
+
+
+def _keychain_json(token: str, expires_ms: float) -> str:
+    return json.dumps(
+        {"claudeAiOauth": {"accessToken": token, "expiresAt": expires_ms, "refreshToken": "r"}}
+    )
+
+
+def test_keychain_bearer_returns_a_live_token(tmp_path) -> None:
+    """2026-11-17: usage stayed unreadable because only the item's presence was known."""
+    seen: list[str] = []
+    bearer = cc.keychain_bearer(
+        tmp_path,
+        reader=lambda s: seen.append(s) or _keychain_json("sk-ant-oat01-live", 2_000_000_000_000),
+        now_fn=lambda: 1_000_000_000.0,
+    )
+    assert bearer == "sk-ant-oat01-live"
+    assert seen == [cc.keychain_service_for(tmp_path)]
+
+
+def test_keychain_bearer_skips_expired_unreadable_and_non_oauth(tmp_path) -> None:
+    now = lambda: 1_900_000_000.0  # noqa: E731
+    expired = _keychain_json("sk-ant-oat01-old", 1_500_000_000_000)
+    assert cc.keychain_bearer(tmp_path, reader=lambda _s: expired, now_fn=now) is None
+    assert cc.keychain_bearer(tmp_path, reader=lambda _s: None, now_fn=now) is None
+    assert cc.keychain_bearer(tmp_path, reader=lambda _s: "not json", now_fn=now) is None
+    api_key = _keychain_json("sk-ant-api03-x", 2_000_000_000_000)
+    assert cc.keychain_bearer(tmp_path, reader=lambda _s: api_key, now_fn=now) is None
+
+
+def _cc_service(raw: str) -> str:
+    import hashlib
+    import unicodedata
+
+    digest = hashlib.sha256(unicodedata.normalize("NFC", raw).encode()).hexdigest()[:8]
+    return f"Claude Code-credentials-{digest}"
+
+
+def test_keychain_service_hashes_the_default_dir_once_the_variable_is_set(monkeypatch) -> None:
+    """Claude Code drops the bare name as soon as CLAUDE_CONFIG_DIR is set, even
+    for ~/.claude; the bare item may belong to another login."""
+    monkeypatch.delenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", raising=False)
+    default = Path.home() / ".claude"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(default))
+    assert cc.keychain_service_for(default) == _cc_service(str(default))
+
+
+def test_keychain_service_hashes_the_inherited_value_as_given(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", raising=False)
+    raw = str(tmp_path / "profile") + "/"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", raw)
+    assert cc.keychain_service_for(tmp_path / "profile") == _cc_service(raw)
+    # An added seat beside it is still named after its own directory.
+    other = tmp_path / "seat"
+    assert cc.keychain_service_for(other) == _cc_service(str(other))
+
+
+def test_keychain_service_normalizes_to_nfc(monkeypatch) -> None:
+    import unicodedata
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", raising=False)
+    decomposed = Path(unicodedata.normalize("NFD", "/Users/josé/seat"))
+    composed = unicodedata.normalize("NFC", str(decomposed))
+    assert cc.keychain_service_for(decomposed) == _cc_service(composed)
+
+
+def test_keychain_service_follows_the_secure_storage_override(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", "")
+    assert cc.keychain_service_for(tmp_path) == "Claude Code-credentials"
+    monkeypatch.setenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", "/Users/x/store")
+    assert cc.keychain_service_for(tmp_path) == _cc_service("/Users/x/store")
+
+
+def test_keychain_login_reads_its_tier_from_the_fresher_account_file(
+    tmp_path, monkeypatch
+) -> None:
+    """The default seat's identity lives in ~/.claude.json; a stale inner file loses."""
+    import os
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", raising=False)
+    inner = tmp_path / ".claude"
+    inner.mkdir()
+    stale = inner / ".claude.json"
+    stale.write_text(
+        json.dumps({"oauthAccount": {"emailAddress": "old@x", "organizationType": "claude_pro"}}),
+        encoding="utf-8",
+    )
+    os.utime(stale, (1_000_000, 1_000_000))
+    (tmp_path / ".claude.json").write_text(
+        json.dumps({"oauthAccount": {"emailAddress": "new@x", "organizationType": "claude_max"}}),
+        encoding="utf-8",
+    )
+    snap = cc.claude_login_in(inner, keychain_probe=lambda _s: True)
+    assert snap.status == "valid"
+    assert snap.subscription_type == "max"
