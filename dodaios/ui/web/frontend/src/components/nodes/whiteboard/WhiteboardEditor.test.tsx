@@ -10,7 +10,9 @@
  * - a merged answer and a revision someone else made are reconciled into
  *   the editor outside its undo history,
  * - the editor follows the app's theme and language, has no AI tools, no web
- *   embeds and no theme switch of its own, and greets in the app's words,
+ *   embeds and no theme switch of its own; the board's own controls (dock,
+ *   menu, zoom) stand in for the editor's, and an empty board says so,
+ * - what the person draws next is clean (no sketchy lines, the normal font),
  * - a key pressed in the canvas never reaches the app's window shortcuts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,12 +61,24 @@ vi.mock("@excalidraw/excalidraw", async () => {
         getSceneElementsIncludingDeleted: vi.fn(() => pkg.state.elements),
         getSceneElements: vi.fn(() => pkg.state.elements.filter((element) => !element.isDeleted)),
         scrollToContent: vi.fn(),
-        getAppState: vi.fn(() => ({ viewBackgroundColor: "#ffffff", gridModeEnabled: false })),
+        getAppState: vi.fn(() => ({
+          viewBackgroundColor: "#ffffff",
+          gridModeEnabled: false,
+          zoom: { value: 1 },
+          scrollX: 0,
+          scrollY: 0,
+          width: 800,
+          height: 600,
+          selectedElementIds: {},
+          activeTool: { type: "selection" },
+        })),
         updateScene: vi.fn((data: { elements?: Array<Record<string, unknown>> }) => {
           if (data.elements) pkg.state.elements = data.elements;
         }),
         addFiles: vi.fn(),
         setActiveTool: vi.fn(),
+        toggleSidebar: vi.fn(),
+        setToast: vi.fn(),
       };
       pkg.state.api = api;
       (props.excalidrawAPI as (api: unknown) => void)(api);
@@ -100,6 +114,19 @@ vi.mock("@excalidraw/excalidraw", async () => {
     FONT_FAMILY: { Virgil: 1, Helvetica: 2, Cascadia: 3, Excalifont: 5, Nunito: 6 },
     restoreElements: pkg.restoreElements,
     reconcileElements: pkg.reconcileElements,
+    newElementWith: (element: Record<string, unknown>, update: Record<string, unknown>) => ({
+      ...element,
+      ...update,
+      version: Number(element.version ?? 0) + 1,
+    }),
+    convertToExcalidrawElements: (items: Array<Record<string, unknown>>) =>
+      items.map((item, index) => ({ id: `new-${index}`, version: 1, versionNonce: 1, isDeleted: false, ...item })),
+    getCommonBounds: (elements: Array<Record<string, number>>) => {
+      const xs = elements.flatMap((e) => [e.x ?? 0, (e.x ?? 0) + (e.width ?? 0)]);
+      const ys = elements.flatMap((e) => [e.y ?? 0, (e.y ?? 0) + (e.height ?? 0)]);
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    },
+    loadFromBlob: vi.fn(),
   };
 });
 
@@ -159,7 +186,13 @@ function puts(fetchMock: ReturnType<typeof installServer>) {
 function change(elements: Array<Record<string, unknown>>, files: Record<string, unknown> = {}) {
   pkg.state.elements = elements;
   const onChange = pkg.state.props?.onChange as (e: unknown, a: unknown, f: unknown) => void;
-  act(() => onChange(elements, { viewBackgroundColor: "#fff3bf", gridModeEnabled: true, activeTool: { type: "selection" } }, files));
+  act(() =>
+    onChange(
+      elements,
+      { viewBackgroundColor: "#fff3bf", gridModeEnabled: true, activeTool: { type: "selection" }, zoom: { value: 1 }, selectedElementIds: {} },
+      files,
+    ),
+  );
 }
 
 async function openBoard(props: { revision?: number | null } = {}) {
@@ -200,7 +233,16 @@ describe("WhiteboardEditor", () => {
     );
     const initial = pkg.state.props?.initialData as { elements: unknown[]; appState: unknown; scrollToContent: boolean };
     expect(initial.elements).toHaveLength(2);
-    expect(initial.appState).toEqual({ viewBackgroundColor: "#fff3bf", gridModeEnabled: true });
+    expect(initial.appState).toEqual({
+      viewBackgroundColor: "#fff3bf",
+      gridModeEnabled: true,
+      // What the person draws next is clean, in the normal font.
+      currentItemRoughness: 0,
+      currentItemFontFamily: 6,
+      currentItemRoundness: "round",
+      currentItemStrokeWidth: 2,
+      currentItemFontSize: 20,
+    });
     expect(initial.scrollToContent).toBe(true);
 
     // Fetching the picture and reading it into a data URL is slow on a busy CI runner.
@@ -226,7 +268,7 @@ describe("WhiteboardEditor", () => {
     await screen.findByTestId("fake-excalidraw");
   });
 
-  it("follows the app: theme, language, no AI, no web embeds, no theme switch, its own welcome", async () => {
+  it("follows the app: theme, language, no AI, no web embeds, no theme switch, its own controls", async () => {
     installServer({ scene: sceneRead([]) });
     // The app paints dark (outside a theme provider the class on <html> says so).
     document.documentElement.classList.add("dark");
@@ -242,14 +284,17 @@ describe("WhiteboardEditor", () => {
     expect((props.validateEmbeddable as (link: string) => boolean)("https://www.youtube.com/watch?v=x")).toBe(false);
     expect((props.UIOptions as { canvasActions: { toggleTheme: boolean } }).canvasActions.toggleTheme).toBe(false);
     expect(props.name).toBe("Launch plan");
-    expect(screen.getByText("Draw, write and connect. This board saves itself.")).toBeTruthy();
-    // The main menu is our own selection: no social links, no theme switch.
-    const menu = document.querySelector('[data-part="main-menu"]')!;
-    const items = [...menu.querySelectorAll("[data-part]")].map((node) => node.getAttribute("data-part"));
-    expect(items).not.toContain("menu-Socials");
-    expect(items).not.toContain("menu-ToggleTheme");
-    expect(items).not.toContain("menu-LiveCollaborationTrigger");
-    expect(items).toContain("menu-SaveAsImage");
+    // The board's own controls stand in for the editor's.
+    expect(screen.getByTestId("board-dock")).toBeTruthy();
+    expect(screen.getByTestId("board-menu")).toBeTruthy();
+    expect(screen.getByTestId("board-zoom")).toBeTruthy();
+    expect(screen.getByTestId("board-empty")).toBeTruthy();
+    expect(document.querySelector('[data-part="main-menu"]')).toBeNull();
+    // Its menu offers no web service and no theme switch.
+    fireEvent.click(screen.getByTestId("board-menu"));
+    const menu = screen.getByTestId("board-menu-panel");
+    expect(menu.textContent).toContain("Export as picture");
+    expect(menu.textContent).not.toMatch(/theme|collaborat|library/i);
   });
 
   it("saves a change after a short pause, and at once when the window hides", async () => {
@@ -315,10 +360,10 @@ describe("WhiteboardEditor", () => {
     act(() => {
       window.dispatchEvent(new Event("blur"));
     });
-    await waitFor(() => expect(pkg.state.api?.updateScene).toHaveBeenCalledTimes(1));
-    const update = pkg.state.api!.updateScene.mock.calls[0][0] as { elements: Array<{ id: string }>; captureUpdate: string };
-    expect(update.captureUpdate).toBe("NEVER");
-    expect(update.elements.map((e) => e.id).sort()).toEqual(["a", "drawing", "theirs"]);
+    // What is new to the editor lands piece by piece, outside the undo history.
+    await waitFor(() => expect(pkg.state.elements.map((e) => e.id).sort()).toEqual(["a", "drawing", "theirs"]));
+    const updates = pkg.state.api!.updateScene.mock.calls.map(([data]) => data as { elements?: unknown; captureUpdate?: string });
+    expect(updates.filter((u) => u.elements).every((u) => u.captureUpdate === "NEVER")).toBe(true);
     // The server's elements were restored without the local ones.
     expect(pkg.restoreElements).toHaveBeenLastCalledWith(expect.any(Array), null, { refreshDimensions: true, repairBindings: true });
   });
@@ -334,11 +379,10 @@ describe("WhiteboardEditor", () => {
 
     server.scene = sceneRead([el("a", 2), el("assistant", 1)], 200);
     view.rerender(<WhiteboardEditor nodeId="b1" title="Launch plan" revision={200} />);
-    await waitFor(() => expect(pkg.state.api?.updateScene).toHaveBeenCalledTimes(1));
-    const update = pkg.state.api!.updateScene.mock.calls[0][0] as { elements: Array<{ id: string; version: number }>; captureUpdate: string };
-    expect(update.captureUpdate).toBe("NEVER");
-    expect(update.elements.map((e) => e.id).sort()).toEqual(["a", "assistant", "mine"]);
-    expect(update.elements.find((e) => e.id === "a")?.version).toBe(2);
+    await waitFor(() => expect(pkg.state.elements.map((e) => e.id).sort()).toEqual(["a", "assistant", "mine"]));
+    expect(pkg.state.elements.find((e) => e.id === "a")?.version).toBe(2);
+    const updates = pkg.state.api!.updateScene.mock.calls.map(([data]) => data as { elements?: unknown; captureUpdate?: string });
+    expect(updates.filter((u) => u.elements).every((u) => u.captureUpdate === "NEVER")).toBe(true);
   });
 
   it("keeps the canvas's keys away from the app's window shortcuts", async () => {
@@ -385,7 +429,10 @@ describe("opening a board", () => {
     await settleBoard(editor as never, () => true);
     expect(load).toHaveBeenCalledWith('20px "Excalifont"', "Customer signs up");
     expect(editor.updateScene).toHaveBeenCalledWith(expect.objectContaining({ captureUpdate: "NEVER" }));
-    expect(editor.scrollToContent).toHaveBeenCalledWith(undefined, { fitToContent: true, animate: false });
+    expect(editor.scrollToContent).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ fitToViewport: true, animate: false, maxZoom: 1 }),
+    );
     vi.unstubAllGlobals();
   });
 
