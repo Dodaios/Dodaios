@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 393,
+  "count": 394,
   "forks": 137,
-  "placed": 79,
-  "stated": 97,
-  "generatedAt": "2026-11-17T15:03:53.948Z",
+  "placed": 80,
+  "stated": 98,
+  "generatedAt": "2026-11-17T15:16:47.889Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -445,6 +445,13 @@
       "lon": 105.387,
       "label": "Vietnam",
       "country": "Vietnam",
+      "count": 1
+    },
+    {
+      "lat": 57.62,
+      "lon": 39.87,
+      "label": "Yaroslavl",
+      "country": "Russia",
       "count": 1
     }
   ]
