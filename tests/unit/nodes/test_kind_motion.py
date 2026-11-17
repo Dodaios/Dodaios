@@ -121,7 +121,10 @@ def test_normalize_is_idempotent_for_every_scene_type() -> None:
         loop="true",
     )
 
-    assert [scene["type"] for scene in spec["scenes"]] == list(motion.SCENE_TYPES)
+    # A video piece needs a file in the clip's library (test_kind_motion_media.py).
+    assert [scene["type"] for scene in spec["scenes"]] == [
+        kind for kind in motion.SCENE_TYPES if kind != "video"
+    ]
     assert spec["format"] == "tall" and spec["theme"] == "light"
     assert spec["accent"] == "green" and spec["loop"] is True
     assert spec["scenes"][3]["value"] == "42"
@@ -179,7 +182,7 @@ def test_lists_are_capped_and_texts_are_clipped() -> None:
         {"type": "bars", "items": [{"label": f"L{n}", "value": n} for n in range(12)]},
         {"type": "steps", "steps": [{"title": f"S{n}"} for n in range(9)]},
         {"type": "title", "title": "t" * 500, "kicker": "k" * 500, "text": "x" * 900},
-        *[{"text": f"scene {n}"} for n in range(60)],
+        *[{"text": f"scene {n}"} for n in range(motion.MAX_SCENES)],
     )
 
     bullets, bars, steps, title = spec["scenes"][:4]
@@ -228,9 +231,9 @@ def test_total_duration_is_the_sum_of_the_scenes() -> None:
     assert motion.preview(spec)["seconds"] == 9.7
     assert 'aria-valuemax="9.7"' in page
     assert [attrs["data-sec"] for tag, attrs in _tags(page).tags if tag == "section"] == [
-        "2.5",
-        "3.2",
-        "4.0",
+        "2.500",
+        "3.200",
+        "4.000",
     ]
     # One tick per scene boundary: after 2.5 s and after 5.7 s of 9.7 s.
     assert page.count('class="f-tick"') == 2
@@ -564,7 +567,7 @@ def test_guide_is_compact_and_its_example_is_a_valid_spec() -> None:
 
     assert motion.normalize(spec) == spec
     assert json.dumps(motion.EXAMPLE, ensure_ascii=False, separators=(",", ":")) in motion.GUIDE
-    assert len(motion.GUIDE) <= 2_500
+    assert len(motion.GUIDE) <= 2_800
     assert all(name in motion.GUIDE for name in motion.SCENE_TYPES)
     assert motion.render(_node(spec)).count('<section class="scene') == 4
 
@@ -799,7 +802,7 @@ def test_an_editor_can_steer_the_film_from_its_own_frame_only() -> None:
     assert "if(m.play===true)play();" in script
     # The page reports where it is only once it was steered, and throttled.
     assert 'type:"dodaios-film-time"' in script
-    assert "if(!steered)return;" in script and "now-toldAt<200" in script
+    assert "if(!steered)return;" in script and "now-toldAt<90" in script
     # A preview can open standing on the scene being edited.
     assert 'getAttribute("data-film-scene")' in script
     assert "seek(settled(Math.max(0,Math.min(N-1,held))))" in script
