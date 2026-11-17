@@ -339,7 +339,10 @@ class HermesRuntime:
                 )
             )
         output = run_version([binary, "--version"])
-        version = parse_version(output)
+        # An unstamped checkout reports vunknown or vgit.<sha>, followed by
+        # a release date. Only the banner's version token may satisfy the gates.
+        version_match = re.search(r"\bHermes Agent v(\d+\.\d+\.\d+)(?=[+\s-]|$)", output)
+        version = parse_version(version_match.group(1)) if version_match else None
         if version is None:
             return self._detect.put(
                 RuntimeStatus(
