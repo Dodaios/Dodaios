@@ -5,8 +5,8 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `dodaios-demo.mp4` | at the top: the poster links to it, and the README shows it in GitHub's video player once it is uploaded there (see below) | The assistant hands two Claude Code terminals, T1 and T2, their tasks by call sign; they work side by side in the Grid; it makes a slide from what it remembers about a colleague; it asks before a permanent deletion; its memory. 64 s, 1920 x 1080, 60 frames a second, H.264, no sound |
-| `dodaios-demo-poster.webp` | at the top, until the video is uploaded to GitHub | One still of that video: the slide it makes |
+| `dodaios-demo.mp4` | at the top: the poster links to it, and the README shows it in GitHub's video player once it is uploaded there (see below) | Claude Code builds a change in the Agentic IDE's chat; the assistant makes a slide of it from what it remembers about a colleague, then hands the next task to a chat of its own in the IDE and reports back. 62 s, 1920 x 1080, 60 frames a second, H.264, no sound |
+| `dodaios-demo-poster.webp` | at the top, until the video is uploaded to GitHub | One still of that video: the request typed in the Agentic IDE's chat |
 | `hero.webp` | not in the README since 17 November 2026 (kept for the history) | The clip that stood at the top on 16 November 2026: one request crosses the chat, two coding agents, a confirmation and a slide. 28 s, 1120 x 630, 60 frames a second |
 | `assistant.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
 | `agents.webp` | not in the README since the evening of 16 November 2026 (kept for the feature tour and the history); was: Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
@@ -61,57 +61,60 @@ and the assistant is called Nova.
 
 ### The video at the top (`dodaios-demo.mp4`), 17 November 2026
 
-The maintainer wanted a real video at the top instead of an animated
-picture, the way other projects show one in GitHub's own player, and one
-that shows his definition of Dodaios. It is 64 seconds of one take, in four
-parts, each a single request typed in a chat that is already in use:
+The maintainer wanted a real video at the top that opens in the Agentic
+IDE's chat and then moves between the IDE, the assistant and what the
+assistant makes. A first version that day (T1 and T2 in the Grid, a slide,
+a permanent deletion, the memory) opened on the assistant's chat, and the
+README showed one still of its slide; he found that it showed too little.
+This one is 62 seconds of one take:
 
-1. "T1, add a --json flag to trailhead's plan command. T2, write its tests."
-   Nova hands the tasks to two Claude Code terminals by their call signs; in
-   the Agentic IDE's Grid, T1 and T2 work side by side and finish.
-2. "T1 and T2 are done. Make the release note for Sam." Nova remembers what
-   Sam from accounting wants (one slide, plain words, the test count at the
-   bottom) and makes the slide, which is opened large.
-3. "0.4 is out: delete trailhead's build folder for good." The trust layer
-   asks first; Allow once; Nova confirms.
-4. Search, "Memory": what Nova remembers, Sam among it.
+1. The Agentic IDE's chat in trailhead, "What should we build in
+   trailhead?" (the first frame). "Add a --json flag to the plan command,
+   with tests." Claude Code builds it and reports.
+2. Dodaios, the assistant Nova: "I just added --json to trailhead in the
+   IDE. Make the release note for Sam." Nova remembers what Sam from
+   accounting wants (one slide, plain words, the test count at the bottom)
+   and makes the slide, which is opened large.
+3. "Now have the IDE bump trailhead to 0.4 and add a changelog entry." Nova
+   opens a chat of its own in the Agentic IDE; the video switches there and
+   watches Claude Code do it.
+4. Back in Dodaios: Nova reports what the agent did and what it checked
+   itself.
 
-Nova and the terminals ran on Claude Opus 5.5 through Claude Code. The chat
-is set to "Auto-accept edits" before the take (in Bypass permissions nothing
-asks). The un-filmed warm-up opens T1 and T2 idle, tells Nova to remember
-Sam's wish, and says the build folder only holds old files and may go once
-0.4 is out; the start of the video shows the end of that conversation.
+The IDE chat started by the person ran on Claude Fable 5.2, the one Nova
+started on Claude Opus 5.5, and Nova on both, all through Claude Code.
 
 GitHub plays a video in a README only from its own upload store
-(`github.com/user-attachments/...`), which takes a file dropped into a
-comment or an editor on github.com; a video in the repository is not played
-in place. Until the maintainer has uploaded `dodaios-demo.mp4` there, the
-README shows `dodaios-demo-poster.webp` and links it to the file. After the
-upload, the `<p>` with the poster becomes the bare upload URL on a line of
-its own.
+(`github.com/user-attachments/...`, checked against the `media-src` of
+github.com's Content Security Policy, which allows neither
+raw.githubusercontent.com nor release assets), and only a file dropped into
+a comment or an editor on github.com gets there. Until the maintainer has
+uploaded `dodaios-demo.mp4`, the README shows `dodaios-demo-poster.webp`
+(the first seconds: the request typed in the IDE's chat) and links it to the
+file. After the upload, the `<p>` with the poster becomes the bare upload
+URL on a line of its own.
 
 How it was made, in a Linux container running as root:
 
 - `clip-video-start.sh` starts a fresh instance (`demo-instance.sh`) and
   gives its home a Claude Code configuration that skips Claude Code's own
   warning about bypass mode and its LSP plugin offer, and loads none of the
-  container's plugins (that is what stopped the Grid terminals in the clip
-  of 16 November); it adds an old `build/` folder to trailhead.
-- `clip-video-setup.cjs` does the first run and the warm-up. Open the Grid
-  once afterwards: its terminals start when a window first shows them.
+  container's plugins.
+- `clip-video-setup.cjs` does the first run and the warm-up, with
+  `DEMO_WARMUP=0,1,2,3` (answer length, the profile, Sam's wish, a deck and
+  a reminder), then once more with `DEMO_PARTS=warmup` and two requests of
+  its own in `DEMO_WARMUP_TEXTS` (a status doc, the next reminder): the
+  start of the chat in the video is the end of that conversation.
 - `clip-video-take.cjs` films the take (window 1280 x 720 at device scale
   1.5, `DEMO_WINDOW=1280x720 DEMO_SCALE=1.5`, and
-  `DEMO_SCRUB=<instance home>=/home/alex`). `DEMO_FROM=memory` films only
-  the end again in the same instance, and `clip-video-merge.py` joins such a
-  pick-up to its take.
+  `DEMO_SCRUB=<instance home>=/home/alex`).
 - `clip-video-cut.cjs <take> video <out.mp4>` with `clip-video-edit.cjs`
   makes the master (CRF 14); the file in this folder is the master again
-  with `-crf 24 -tune animation -preset slow`, 4.4 MB.
+  with `-crf 24 -tune animation -preset slow`, 3.9 MB.
 
-Seven takes were needed: Nova's turn sometimes stays open while it waits
-for the terminals, and a later request or an approval card then arrives
-mid-turn; the take script now waits for that and answers a card for some
-other command off-camera.
+The second take was used. In the first, the take script took Claude Code's
+finished answer for the end of its turn while the turn was still open; it
+now also waits for the stop button to go.
 
 ### The one clip at the top (`hero.webp`), evening of 16 November 2026
 

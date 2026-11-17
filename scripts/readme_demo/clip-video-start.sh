@@ -11,8 +11,7 @@
 # Claude Code in the Grid's terminals gets a home of its own that skips its
 # warning about bypass mode and its LSP plugin offer, and loads none of the
 # plugins of the Claude Code session that runs this script (with them, the
-# terminals stopped at "MCP servers need authentication"). trailhead gets an
-# old build/ folder, which the video deletes for good.
+# terminals stopped at "MCP servers need authentication").
 set -e
 ROOT="${DEMO_ROOT:-$HOME/demo-video}"
 PORT="${DEMO_PORT:-48100}"
@@ -43,17 +42,6 @@ cat > "$H/.claude.json" <<JSON
   "projects": { "$H/projects/trailhead": { "hasTrustDialogAccepted": true },
                 "$H/projects/ledger": { "hasTrustDialogAccepted": true } } }
 JSON
-
-# An old build folder in trailhead, for the trust layer's permanent deletion.
-B="$H/projects/trailhead/build"
-mkdir -p "$B/lib/trailhead"
-for f in trailhead-0.3.0-py3-none-any.whl trailhead-0.3.0.tar.gz; do head -c 40000 /dev/urandom > "$B/$f"; done
-cp "$H"/projects/trailhead/src/*.py "$B/lib/trailhead/" 2>/dev/null || true
-if ! grep -q "^build/" "$H/projects/trailhead/.gitignore" 2>/dev/null; then
-  echo "build/" >> "$H/projects/trailhead/.gitignore"
-  git -C "$H/projects/trailhead" -c user.name="Alex Rivera" -c user.email=alex@example.com \
-    commit -qam "Ignore build output"
-fi
 
 for _ in $(seq 90); do curl -s -o /dev/null "http://127.0.0.1:$PORT/" && break; sleep 1; done
 echo "started on port $PORT, log in $ROOT.log"

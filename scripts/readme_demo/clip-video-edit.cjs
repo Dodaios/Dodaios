@@ -1,6 +1,7 @@
-// The cut of the video at the top of the README: the assistant hands two
-// Claude Code terminals their tasks by call sign, makes a slide from what it
-// remembers, asks before a permanent deletion, and shows what it remembers.
+// The cut of the video at the top of the README: Claude Code builds a change
+// in the Agentic IDE's chat; the assistant turns it into a slide for a
+// colleague (opened large) and hands the next task to a chat of its own in the
+// IDE, which is watched at work; back to the assistant for its report.
 // clip-video-cut.cjs turns it into the video.
 //
 // The rules are the ones of every README clip: the take in its own order,
@@ -42,65 +43,52 @@ module.exports = {
     const b = builder(footage);
     const need = (mark, stretch) => { const v = b.at(mark, stretch); if (v === null) throw new Error(`the take has no "${mark}" in "${stretch}"`); return v; };
     const sent = (name) => need(name + '-sent', name);
+    // A stretch of work: its first seconds as filmed, the wait left out, its
+    // end from `mark` on.
+    const work = (stretch, mark, { live = 5, after = 3.5, what = '' } = {}) => {
+      const end = need(mark, stretch);
+      if (end - 1.2 - live < 2.5) { b.part(stretch, 0, end + after, { what: what + ', at work, then done' }); return; }
+      b.part(stretch, 0, live, { what: what + ', at work' });
+      b.skip(what + ' works', end - 1.2 - live);
+      b.part(stretch, end - 1.2, end + after, { dissolve: true, what: what + ', done' });
+    };
 
-    // 1. T1 and T2 get their tasks by call sign.
-    b.typing('grid-ask', 'grid-ask', { lead: num('CUT_LEAD', 0.8), to: sent('grid-ask') + 0.7 });
-    const said = need('said', 'grid-said');
-    b.skip('the assistant hands T1 and T2 their tasks', said);
-    b.part('grid-said', said - 0.3, said + num('CUT_SAID', 3.2), { dissolve: true, what: "the assistant's answer" });
-
-    // 2. The Grid: T1 and T2 at work side by side, then both done.
-    const grid = need('grid', 'to-grid');
-    b.part('to-grid', 0, Math.min(grid, num('CUT_IDE', 2.2)), { dissolve: true, what: 'to the IDE' });
-    if (grid > num('CUT_IDE', 2.2) + 1.2) {
-      b.skip('the IDE opens its Grid', grid - 1.0 - num('CUT_IDE', 2.2));
-      b.part('to-grid', grid - 1.0, b.len('to-grid'), { dissolve: true, what: 'the Grid: T1 and T2 at work' });
-    } else b.part('to-grid', Math.min(grid, num('CUT_IDE', 2.2)), b.len('to-grid'), { what: 'the Grid: T1 and T2 at work' });
-    const done = need('both-done', 'grid-work');
-    const live = Math.min(num('CUT_LIVE', 6), done - 2);
-    if (done - 1.2 - live < 3) {
-      b.part('grid-work', 0, done + num('CUT_DONE', 3.5), { what: 'both at work, then both done' });
-    } else {
-      b.part('grid-work', 0, live, { what: 'both at work' });
-      b.skip('T1 and T2 work', done - 1.2 - live);
-      b.part('grid-work', done - 1.2, done + num('CUT_DONE', 3.5), { dissolve: true, what: 'both done' });
+    // 1. The Agentic IDE's chat in trailhead: Claude Code builds the change.
+    b.typing('ide-ask', 'ide-ask', { lead: num('CUT_LEAD', 0.9), to: sent('ide-ask') + 1.0 });
+    {
+      const end = need('ide-done', 'ide-work');
+      const files = b.at('ide-files', 'ide-work');
+      const live = num('CUT_LIVE', 5);
+      if (files !== null && files > live + 3 && files < end - 4) {
+        b.part('ide-work', 0, live, { what: 'Claude Code at work' });
+        b.skip('Claude Code works', files - 1.2 - live);
+        b.part('ide-work', files - 1.2, files + 2.5, { dissolve: true, what: 'the changed files' });
+        b.skip('Claude Code finishes', end - 1.2 - files - 2.5);
+        b.part('ide-work', end - 1.2, end + num('CUT_DONE', 3.5), { dissolve: true, what: 'Claude Code is done' });
+      } else work('ide-work', 'ide-done', { live, after: num('CUT_DONE', 3.5), what: 'Claude Code' });
     }
 
-    // 3. The slide for Sam, from what the assistant remembers about Sam.
-    b.part('to-chat', 0, b.len('to-chat'), { what: 'back to the chat' });
+    // 2. The assistant: a slide for Sam, from what it remembers about Sam.
+    b.part('to-chat', 0, b.len('to-chat'), { what: 'to the assistant' });
     b.typing('sam-ask', 'sam-ask', { lead: 0.6, to: sent('sam-ask') + 0.6 });
     const card = need('card', 'sam-wait');
     b.skip('the assistant makes the slide', card);
     b.part('sam-wait', card - 0.3, card + num('CUT_CARD', 2.2), { dissolve: true, what: 'the card of the slide comes in' });
     b.part('sam-deck', 0, b.len('sam-deck'), { what: 'the slide, large; back to the chat' });
 
-    // 4. A permanent deletion asks first.
-    b.typing('del-ask', 'del-ask', { lead: 0.6, to: sent('del-ask') + 0.6 });
-    // The card comes in del-wait, or in del-wait-2 when another card was
-    // answered first (left out).
-    const cardIn = b.has('del-wait-2') ? 'del-wait-2' : 'del-wait';
-    const approval = need('approval', cardIn);
-    b.skip('the assistant gets to the deletion', approval);
-    b.part(cardIn, approval - 0.3, b.len(cardIn), { dissolve: true, what: 'the confirmation card' });
-    const allowed = need('allowed', 'del-allow');
-    const fin = b.at('done', 'del-allow');
-    if (fin !== null && fin < b.len('del-allow')) {
-      b.part('del-allow', 0, allowed + 0.8, { what: 'the pointer to "Allow once", a click' });
-      b.skip('the assistant deletes the folder', fin - allowed - 0.8);
-      b.part('del-allow', fin - 0.3, fin + num('CUT_FIN', 3.2), { dissolve: true, what: "the assistant's answer" });
-    } else {
-      // A take that stopped after the deletion, with a pick-up of the end
-      // (clip-video-take.cjs with DEMO_FROM=memory, merged by
-      // clip-video-merge.py): the answer as filmed, then the pick-up.
-      b.part('del-allow', 0, allowed + num('CUT_ANSWER', 3.3), { what: 'the click, the deletion, the answer' });
-      b.part('del-end', 0, b.len('del-end'), { dissolve: true, what: 'the answer (pick-up)' });
-    }
+    // 3. The assistant hands the next task to a chat of its own in the IDE.
+    b.typing('hand-ask', 'hand-ask', { lead: 0.6, to: sent('hand-ask') + 0.6 });
+    const said = need('said', 'hand-wait');
+    b.skip('the assistant opens a chat in the IDE', said);
+    b.part('hand-wait', said - 0.3, said + num('CUT_SAID', 3.2), { dissolve: true, what: "the assistant's answer" });
+    b.part('to-ide', 0, b.len('to-ide'), { what: 'to the IDE, the chat the assistant started' });
+    work('hand-work', 'hand-done', { live: num('CUT_LIVE2', 4), after: num('CUT_DONE2', 3.5), what: "the assistant's chat in the IDE" });
 
-    // 5. What the assistant remembers.
-    b.part('memory', 0, b.len('memory'), { what: 'Search, Memory' });
-    const shown = need('memory-shown', 'memory-list');
-    b.skip('the list of memories loads', shown);
-    b.part('memory-list', shown - 0.05, b.len('memory-list'), { dissolve: shown > 0.4, what: 'what the assistant remembers' });
+    // 4. Back to the assistant: its report.
+    b.part('back', 0, b.len('back'), { what: 'back to the assistant' });
+    const report = need('report', 'back-wait');
+    if (report > 0.6) b.skip('the assistant reads the chat', report);
+    b.part('back-wait', Math.max(0, report - 0.3), b.len('back-wait'), { dissolve: report > 0.6, what: "the assistant's report" });
     return { shots: b.shots, leftOut: b.leftOut, max: Number(process.env.CUT_MAX || 120) };
   },
 };
