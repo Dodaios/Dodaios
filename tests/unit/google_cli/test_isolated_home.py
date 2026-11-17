@@ -119,9 +119,10 @@ def test_macos_links_the_login_keychains_into_the_home(tmp_path, monkeypatch):
     dest = tmp_path / "iso"
     assert _iso(real, dest) == str(dest)
     link = dest / "Library" / "Keychains"
-    assert link.is_symlink() and os.readlink(link) == str(real_keychains)
+    # realpath, not readlink: Windows CI reports the link with a \\?\ prefix.
+    assert link.is_symlink() and os.path.realpath(link) == os.path.realpath(real_keychains)
     assert _iso(real, dest) == str(dest)  # a rebuild keeps the same link
-    assert os.readlink(link) == str(real_keychains)
+    assert os.path.realpath(link) == os.path.realpath(real_keychains)
 
 
 def test_a_foreign_keychains_entry_is_left_alone(tmp_path, monkeypatch):
