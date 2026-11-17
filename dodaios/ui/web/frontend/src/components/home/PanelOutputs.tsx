@@ -25,7 +25,7 @@ const LISTING_STALE_MS = 5 * 60_000;
 
 /**
  * What a file is, for its icon: one of the library's own types (Docs, Slides,
- * Sheets, Visuals, Analytics, Whiteboard, Clips), or audio, code or a plain
+ * Sheets, Analytics, Whiteboard, Clips), or audio, code or a plain
  * file for what none of them is.
  */
 export type OutputKind = NodeType | "audio" | "code" | "file";
@@ -39,15 +39,13 @@ const TEXT = /\.(md|txt|rtf|docx?|pages|odt)$/i;
 
 /**
  * The type a file has by its name alone, sorted the way the library adopts a
- * file it did not build from a spec: a page or a picture is a visual, a PDF a
- * doc. A spreadsheet, a deck and a video get their own type.
+ * file it did not build from a spec: a page, a picture and a PDF are docs. A spreadsheet, a deck and a video get their own type.
  */
 export function outputKind(path: string): OutputKind {
   if (SHEET.test(path)) return "sheets";
   if (DECK.test(path)) return "slides";
   const visual = classifyVisual(path);
-  if (visual === "image" || visual === "vector" || visual === "page") return "design";
-  if (visual === "document" || TEXT.test(path)) return "docs";
+  if (visual !== null || TEXT.test(path)) return "docs";
   if (VIDEO.test(path)) return "motion";
   if (AUDIO.test(path)) return "audio";
   return CODE.test(path) ? "code" : "file";

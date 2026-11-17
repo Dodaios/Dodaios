@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "Para textos que se quedan: notas, resúmenes, informes, planes.",
         "slides": "Para contar algo página a página: una propuesta, una puesta al día, un repaso.",
         "sheets": "Para filas y columnas: listas, presupuestos, comparativas, seguimientos.",
-        "design": "Para una página con diseño: un resumen de una página, un cartel, una invitación.",
         "data": "Análisis de tus datos: archivos, apps, cuentas, carteras. Siempre al día si quieres.",
         "whiteboard": "Para pensar con notas: ideas, grupos, un plan en la pared.",
         "motion": "Para una película breve: una cabecera, una explicación animada."
@@ -11837,7 +11835,6 @@
         "docs": "p. ej. Un resumen de una página para el rediseño de la web, con objetivos, alcance y preguntas abiertas",
         "slides": "p. ej. Diez diapositivas sobre el último trimestre para la reunión del lunes",
         "sheets": "p. ej. Nuestras suscripciones con coste mensual, fecha de renovación y responsable",
-        "design": "p. ej. Una invitación a la fiesta de verano del 12 de julio, cálida y sencilla",
         "data": "p. ej. Valor y rendimiento de mi cartera, por posición y en el tiempo",
         "whiteboard": "p. ej. Ideas para el lanzamiento del producto, agrupadas por canal",
         "motion": "p. ej. Una cabecera de 20 segundos para el vídeo del producto con nuestros tres mensajes"
@@ -11857,11 +11854,6 @@
           "a": "Un presupuesto de este año por meses",
           "b": "Una comparativa de tres proveedores",
           "c": "Un seguimiento de tareas pendientes"
-        },
-        "design": {
-          "a": "Un resumen de una página sobre nuestro producto",
-          "b": "Un cartel para un evento",
-          "c": "Un menú para una cena"
         },
         "data": {
           "a": "Mi cartera: valor, posiciones y rendimiento",
@@ -11889,7 +11881,6 @@
         "docs": "Documento sin título",
         "slides": "Presentación sin título",
         "sheets": "Hoja sin título",
-        "design": "Diseño sin título",
         "data": "Análisis sin título",
         "whiteboard": "Pizarra sin título",
         "motion": "Clip sin título"

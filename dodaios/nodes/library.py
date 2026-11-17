@@ -318,9 +318,9 @@ def _file_cards(
             elif is_report:
                 card_type, origin = "docs", "report"
             else:
-                card_type, origin = "design", "page"
+                card_type, origin = "docs", "page"
         else:
-            card_type, origin = ("docs" if kind == "document" else "design"), "file"
+            card_type, origin = "docs", "file"
         cards.append(
             _card(
                 key=f"{slug}::{path}",
@@ -347,7 +347,7 @@ def _build_card(run: Mapping[str, Any]) -> dict[str, Any]:
     slug = _text(run.get("slug"))
     return _card(
         key=f"build:{slug}",
-        type="design",
+        type="docs",
         origin="build",
         title=run_title(run),
         slug=slug,
@@ -423,8 +423,15 @@ def build_library(
     """
     limit = max(1, min(MAX_SCAN_LIMIT, int(scan_limit)))
     cards = [node_card(node, store) for node in nodes]
-    # A typed node's run is already a card; its files are never adopted.
-    others = [run for run in runs if NODE_SLUG_INFIX not in _text(run.get("slug"))]
+    # A typed node's run is already a card; its files are never adopted. A
+    # node run whose node no longer reads (a type the app has retired, such
+    # as the old "design") is adopted like any run, so its page stays findable.
+    listed = {node.slug for node in nodes}
+    others = [
+        run
+        for run in runs
+        if NODE_SLUG_INFIX not in (slug := _text(run.get("slug"))) or slug not in listed
+    ]
     scanned = others[:limit]
     # The outputs listing is an ``async def`` handler that walks a run folder
     # without ever awaiting. On the app's event loop sixty of those walks in

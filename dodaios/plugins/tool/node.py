@@ -62,7 +62,6 @@ TYPE_LINES: Final[dict[str, str]] = {
     "docs": "a written document: a report, a plan, a brief, notes",
     "slides": "a deck of slides to present",
     "sheets": "a sheet of rows and columns: a list or table to keep",
-    "design": 'a freely designed page: a poster, a one-pager (the app says "Visuals")',
     "data": (
         "an analysis of the person's data: figures and charts read from their files, apps "
         'and accounts, kept current if they want (the app says "Analytics")'
@@ -187,7 +186,7 @@ class NodeTool:
     description: str = (
         "Make and look after a NODE: something the person keeps, shown in the Nodes "
         "section and as a card in the chat. Types: docs (a document), slides (a deck), "
-        "sheets (rows and columns), design (a free-form page; Visuals), data (analyses "
+        "sheets (rows and columns), data (analyses "
         "of the person's data; Analytics), whiteboard (a canvas: use the whiteboard "
         "tool), motion (a short animation; Clips). Call 'guide' with the type before "
         "your first create of it; the spec follows that grammar. Change one with "
@@ -195,7 +194,7 @@ class NodeTool:
         "from the person's apps, give 'track' (on create, or with 'keep_current'); "
         "'stop' ends that. 'look' shows it as pictures: look after a create, fix what is "
         "weak. 'get' reads one, 'list' shows all, 'revert' undoes the last change. The "
-        "renderer does the design: send content, never HTML (except type design). A long "
+        "renderer does the design: send content, never HTML. A long "
         "answer to a question stays a report (write_report)."
     )
     schema: dict[str, Any] = {

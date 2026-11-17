@@ -532,7 +532,7 @@ describe("AssistantPanel", () => {
     await waitFor(() => expect(screen.getAllByTestId("assistant-output")).toHaveLength(4));
     const rows = screen.getAllByTestId("assistant-output");
     expect(rows.map((row) => row.textContent)).toEqual(["clip.mp4", "cover.png", "marketing.mjs", "Sales dashboard"]);
-    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["motion", "design", "code", "design"]);
+    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["motion", "docs", "code", "docs"]);
     // A run that still builds is not read.
     expect(vi.mocked(fetch)).not.toHaveBeenCalledWith("/api/outputs/run-live/artifacts");
 
@@ -583,7 +583,7 @@ describe("AssistantPanel", () => {
     const rows = screen.getAllByTestId("assistant-output");
     expect(rows.map((row) => row.textContent)).toEqual(["Nvidia.xlsx", "cover.png", "notes.md"]);
     expect(rows.map((row) => row.getAttribute("data-source"))).toEqual(["chat", "run", "chat"]);
-    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["sheets", "design", "docs"]);
+    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["sheets", "docs", "docs"]);
     expect(rows[0].getAttribute("title")).toBe("/Users/ada/work/Nvidia.xlsx");
 
     fireEvent.click(rows[0]);

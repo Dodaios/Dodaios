@@ -17,13 +17,10 @@ import { artifactPageUrl, visualUrl } from "@/hooks/useVisualArtifacts";
 import { pageVirtualWidth, useBoxSize, useNearViewport } from "@/components/visualization/ArtifactCovers";
 import { cn } from "@/lib/utils";
 
-import { Artboard, Paper, TextBars } from "./kit";
+import { Paper, TextBars } from "./kit";
 
 /** CSS px a framed page may spend on its own vertical scrollbar. */
 const SCROLLBAR_ALLOWANCE = 24;
-/** The sides of an artboard a miniature will lay out, in CSS px. */
-const CANVAS_MIN_SIDE = 160;
-const CANVAS_MAX_SIDE = 4000;
 /** How far a resting pointer scrolls a page, in paper heights, and how fast (screen px/s). */
 const PEEK_TRAVEL = 3;
 const PEEK_SPEED = 40;
@@ -54,41 +51,28 @@ export interface LivePageProps {
   title: string;
   /** Changes when the page's content does, so the frame loads it again. */
   revision: string;
-  /** An artboard's size when the page is one (`fit: "canvas"`); null for a page that flows. */
-  canvas: { width: number; height: number } | null;
-  /** The page's own ground (a CSS color), shown until the page has drawn; "" for the paper. */
-  background: string;
-  /** The pointer rests on the card: a page that flows scrolls itself. */
+  /** The pointer rests on the card: the page scrolls itself. */
   peek?: boolean;
   /** Called when the page has drawn (a cover that waits for it to show). */
   onShown?: () => void;
-}
-
-/** An artboard size a miniature can lay out, or null. */
-export function canvasSize(width: number, height: number): { width: number; height: number } | null {
-  const fits = (side: number) => Number.isFinite(side) && side >= CANVAS_MIN_SIDE && side <= CANVAS_MAX_SIDE;
-  return fits(width) && fits(height) ? { width, height } : null;
 }
 
 /**
  * The page itself, scaled onto the paper. Inert: no pointer, no focus, the
  * same sandbox as the stage (scripts, and nothing else).
  *
- * A page that flows is laid out at a reading width and shows its top; an
- * artboard is laid out at its own size and shown whole, in its proportions.
+ * The page is laid out at a reading width and shows its top.
  *
- * While `peek` holds, a page that flows grows downwards and glides up, so it
- * scrolls past at a slow reading pace. It is only made taller for that
- * moment: a page that sizes its opening to the window keeps its real
- * proportions on the resting card. An artboard is already shown whole.
+ * While `peek` holds, the page grows downwards and glides up, so it scrolls
+ * past at a slow reading pace. It is only made taller for that moment: a
+ * page that sizes its opening to the window keeps its real proportions on
+ * the resting card.
  */
 export const LivePage = memo(function LivePage({
   slug,
   path,
   title,
   revision,
-  canvas,
-  background,
   peek = false,
   onShown,
 }: LivePageProps) {
@@ -106,13 +90,11 @@ export const LivePage = memo(function LivePage({
     onShown?.();
   }, [onShown]);
 
-  const virtualWidth = canvas ? canvas.width : pageVirtualWidth(width);
+  const virtualWidth = pageVirtualWidth(width);
   const scale = width > 0 ? width / virtualWidth : 0;
   const visible = scale > 0 ? height / scale : 0;
-  const virtualHeight = canvas ? canvas.height : visible;
-  const ground = background !== "" ? { backgroundColor: background } : undefined;
 
-  const scrolling = peek && loaded && !reduced && canvas === null;
+  const scrolling = peek && loaded && !reduced;
   // Taller while scrolling and until the page has glided back to its top.
   const [grown, setGrown] = useState(false);
   useEffect(() => {
@@ -152,28 +134,19 @@ export const LivePage = memo(function LivePage({
             loaded ? "opacity-100" : "opacity-0",
           )}
           style={{
-            // A flowing page is laid out a little wider than the paper shows,
-            // so its own scrollbar falls outside instead of striping the edge.
-            width: canvas ? virtualWidth : virtualWidth + SCROLLBAR_ALLOWANCE,
-            height: grown ? visible + travel : virtualHeight,
+            // The page is laid out a little wider than the paper shows, so
+            // its own scrollbar falls outside instead of striping the edge.
+            width: virtualWidth + SCROLLBAR_ALLOWANCE,
+            height: grown ? visible + travel : visible,
             transform: `scale(${scale}) translateY(${scrolling ? -travel : 0}px)`,
             transition: `${glide}, opacity 300ms`,
-            ...ground,
           }}
         />
       )}
     </>
   );
 
-  return canvas ? (
-    <Artboard ratio={canvas.width / canvas.height} paperRef={box} style={ground}>
-      {content}
-    </Artboard>
-  ) : (
-    <Paper paperRef={box} style={ground}>
-      {content}
-    </Paper>
-  );
+  return <Paper paperRef={box}>{content}</Paper>;
 });
 
 /**

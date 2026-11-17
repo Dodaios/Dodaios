@@ -58,7 +58,7 @@ function card(key: string, over: Partial<NodeCard> = {}): NodeCard {
 const BRIEF = card("brief", { id: "n-brief", title: "Website brief" });
 const LOGO = card("logo", {
   title: "Logo sketch",
-  type: "design",
+  type: "docs",
   origin: "file",
   path: "art/logo sketch.png",
   visual_kind: "image",

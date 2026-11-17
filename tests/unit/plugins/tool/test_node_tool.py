@@ -156,7 +156,7 @@ def test_the_description_is_short_and_says_the_rules() -> None:
     assert len(text) < 900
     for name in NODE_TYPES:
         assert name in text
-    for rule in ("'guide'", "'changes'", "'track'", "never HTML (except type design)"):
+    for rule in ("'guide'", "'changes'", "'track'", "never HTML."):
         assert rule in text
 
 

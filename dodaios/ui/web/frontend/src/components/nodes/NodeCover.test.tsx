@@ -67,7 +67,6 @@ const SAMPLES: { [T in CardType]: NodePreviewByType[T] } = {
     numeric: [false, true],
     count: 2,
   },
-  design: { background: "", fit: "canvas", width: 1080, height: 1350 },
   data: {
     metrics: [
       { label: "Revenue", value: "48.2k" },
@@ -91,7 +90,6 @@ const EMPTY: { [T in CardType]: NodePreviewByType[T] } = {
   docs: { heading: "", lines: [], bullets: false },
   slides: { title: "", subtitle: "", count: 0, dark: false, accent: "" },
   sheets: { columns: [], rows: [], numeric: [], count: 0 },
-  design: { background: "", fit: "page", width: 0, height: 0 },
   data: { metrics: [], bars: [], chart: "bar" },
   whiteboard: { notes: [], count: 0 },
   motion: { title: "", subtitle: "", seconds: 0, dark: true, accent: "", format: "wide" },
@@ -100,7 +98,7 @@ const EMPTY: { [T in CardType]: NodePreviewByType[T] } = {
 
 const TYPES = Object.keys(SAMPLES) as CardType[];
 
-/** A text every sample shows on its cover (design shows its page, not text). */
+/** A text every sample shows on its cover. */
 const SHOWN: Partial<Record<CardType, string[]>> = {
   docs: ["Onboarding guide", "Welcome aboard", "Week one"],
   slides: ["Spring menu", "Internal pitch", "12"],
@@ -139,7 +137,7 @@ describe("NodeCover: typed nodes", () => {
     expect(cover.getAttribute("data-node-type")).toBe(type);
     expect(cover.style.getPropertyValue("--node-hue")).toBe(`var(--node-${type})`);
     expect(cover.querySelector("[data-node-paper]")).toBeTruthy();
-    if (type !== "design") expect(cover.querySelector(`[data-node-mini="${type}"]`)).toBeTruthy();
+    expect(cover.querySelector(`[data-node-mini="${type}"]`)).toBeTruthy();
     for (const text of SHOWN[type] ?? []) {
       expect(screen.getByText((_, element) => element?.textContent === text && element.children.length === 0)).toBeTruthy();
     }
@@ -335,22 +333,7 @@ describe("NodeCover: adopted files", () => {
     expect(frame.getAttribute("title")).toBe("Menu");
   });
 
-  it("lays a design canvas out at its own size, scaled into its frame", () => {
-    onScreen(108, 135);
-    renderCover({ type: "design", preview: SAMPLES.design });
-    const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
-    expect(frame.style.width).toBe("1080px");
-    expect(frame.style.height).toBe("1350px");
-    expect(frame.style.transform).toBe("scale(0.1) translateY(0px)");
-    expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
-  });
 
-  it("draws a paper for a design node that has no file yet", () => {
-    onScreen();
-    const { cover } = renderCover({ type: "design", path: null, preview: SAMPLES.design });
-    expect(cover.querySelector("iframe")).toBeNull();
-    expect(cover.querySelector("[data-node-mini='placeholder']")).toBeTruthy();
-  });
 });
 
 describe("NodeCover: a resting pointer", () => {
@@ -392,14 +375,6 @@ describe("NodeCover: a resting pointer", () => {
     expect(frame.style.transform).toMatch(/translateY\(0px\)$/);
   });
 
-  it("shows an artboard whole: there is nothing further down", () => {
-    onScreen(108, 135);
-    render(<NodeCover card={card({ type: "design", preview: SAMPLES.design })} peek />);
-    const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
-    fireEvent.load(frame);
-    expect(frame.getAttribute("data-scrolling")).toBeNull();
-    expect(frame.style.height).toBe("1350px");
-  });
 
   it.each(["docs", "data", "sheets"] as const)(
     "brings the real %s page over the drawing, and takes it away again",

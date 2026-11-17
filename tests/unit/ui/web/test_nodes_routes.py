@@ -276,7 +276,7 @@ def test_create_refuses_a_type_that_does_not_exist(client: TestClient, store: No
     response = client.post("/api/nodes", json={"type": "poem"})
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "'type' must be one of: docs, slides, sheets, design, data, whiteboard, motion."
+        "detail": "'type' must be one of: docs, slides, sheets, data, whiteboard, motion."
     }
     assert client.post("/api/nodes", json={}).status_code == 422
     assert store.list_nodes() == []

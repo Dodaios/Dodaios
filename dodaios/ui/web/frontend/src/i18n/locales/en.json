@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "For writing that stays: notes, briefs, reports, plans.",
         "slides": "For a story told page by page: a pitch, a briefing, a review.",
         "sheets": "For rows and columns: lists, budgets, comparisons, trackers.",
-        "design": "For a designed page: a one-pager, a poster, an invitation.",
         "data": "Analyses from your data: files, apps, accounts, portfolios. Kept up to date if you like.",
         "whiteboard": "For thinking in notes: ideas, clusters, a plan on a wall.",
         "motion": "For a short film: a title sequence, an animated explainer."
@@ -11837,7 +11835,6 @@
         "docs": "e.g. A one-page brief for the website relaunch, with goals, scope and open questions",
         "slides": "e.g. Ten slides on last quarter for Monday's team meeting",
         "sheets": "e.g. Our subscriptions with monthly cost, renewal date and owner",
-        "design": "e.g. An invitation to the summer party on 12 July, warm and simple",
         "data": "e.g. Value and performance of my portfolio, per position and over time",
         "whiteboard": "e.g. Ideas for the product launch, grouped by channel",
         "motion": "e.g. A 20-second opener for the product video with our three claims"
@@ -11857,11 +11854,6 @@
           "a": "A budget for this year by month",
           "b": "A comparison of three suppliers",
           "c": "A tracker for open tasks"
-        },
-        "design": {
-          "a": "A one-pager about our product",
-          "b": "A poster for an event",
-          "c": "A menu for a dinner"
         },
         "data": {
           "a": "My portfolio: value, positions and performance",
@@ -11889,7 +11881,6 @@
         "docs": "Untitled document",
         "slides": "Untitled deck",
         "sheets": "Untitled sheet",
-        "design": "Untitled visual",
         "data": "Untitled analytics",
         "whiteboard": "Untitled whiteboard",
         "motion": "Untitled clip"
