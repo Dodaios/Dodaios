@@ -107,3 +107,16 @@ def test_other_platforms_do_not_run_security(monkeypatch: pytest.MonkeyPatch) ->
     assert present() is False
     delete()
     assert run.calls == []
+
+
+def test_a_hung_security_tool_is_an_oserror_on_disconnect(
+    mac: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """logout_blocking only catches OSError; a hung `security` must not become a 500."""
+
+    def hung(*args: object, **kwargs: object) -> None:
+        raise auth_mod.subprocess.TimeoutExpired(cmd="security", timeout=5)
+
+    monkeypatch.setattr(auth_mod.subprocess, "run", hung)
+    with pytest.raises(OSError):
+        auth_mod._delete_agy_keyring_login()

@@ -157,12 +157,16 @@ def _agy_keyring_login_present() -> bool:
 def _delete_agy_keyring_login() -> None:
     """Remove agy's Credential Manager or Keychain login entry; absent is not an error."""
     if sys.platform == "darwin":
-        done = subprocess.run(
-            _keychain_command("delete-generic-password"),
-            capture_output=True,
-            timeout=5,
-            check=False,
-        )
+        try:
+            done = subprocess.run(
+                _keychain_command("delete-generic-password"),
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            # logout_blocking handles OSError only; a hung tool must not be a 500.
+            raise OSError(f"removing the {_AGY_KEYRING_TARGET} Keychain item timed out") from exc
         if done.returncode not in (0, _KEYCHAIN_ITEM_NOT_FOUND):
             raise OSError(
                 done.returncode, f"could not remove the {_AGY_KEYRING_TARGET} Keychain item"

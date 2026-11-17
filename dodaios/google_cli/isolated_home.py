@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import threading
 from contextlib import suppress
 
@@ -82,6 +83,33 @@ def iso_home_root() -> str:
     return os.path.join(str(DATA_DIR), "agy_cli_home")
 
 
+def real_keychains_dir() -> str:
+    """The user's macOS login keychains, found through the real home."""
+    return os.path.join(os.path.expanduser("~"), "Library", "Keychains")
+
+
+def _link_macos_keychains(dest_root: str) -> None:
+    """Make the login Keychain visible under the redirected HOME (macOS only).
+
+    agy 1.4+ keeps its login in the Keychain, and `security` looks for the
+    default keychain under $HOME/Library/Keychains. With HOME pointed here it
+    finds none (exit 44), so a real turn would run logged out. A symlink to the
+    real folder fixes that; nothing is copied, the secret never leaves the
+    Keychain.
+    """
+    if sys.platform != "darwin":
+        return
+    target = real_keychains_dir()
+    link = os.path.join(dest_root, "Library", "Keychains")
+    if os.path.islink(link) and os.readlink(link) == target:
+        return
+    if os.path.lexists(link):
+        log.warning("isolated CLI home: %s exists and is not our keychain link; left alone", link)
+        return
+    os.makedirs(os.path.dirname(link), exist_ok=True)
+    os.symlink(target, link)
+
+
 def ensure_isolated_home(*, real_dir: str, dest_root: str, model: str) -> str | None:
     """Build/refresh an isolated CLI home so agy/gemini never boot the user's
     per-turn hooks or MCP servers — the actual lag fix.
@@ -99,6 +127,7 @@ def ensure_isolated_home(*, real_dir: str, dest_root: str, model: str) -> str | 
         with _ISO_HOME_LOCK:
             g = os.path.join(dest_root, ".gemini")
             os.makedirs(g, exist_ok=True)
+            _link_macos_keychains(dest_root)
             marker = os.path.join(g, _MTIME_MARKER)
             login_mtime = _latest_login_mtime(real_dir)
             if login_mtime is not None:
