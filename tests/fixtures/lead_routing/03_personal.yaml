@@ -104,6 +104,16 @@
   lang: de
   utterance: "Antworte mir ab jetzt immer auf Deutsch."
   expect: {tool: reply-language-set, args: {language: de}}
+- id: settings-agent-briefs-de
+  category: settings
+  lang: de
+  utterance: "Ab jetzt will ich jeden PR selbst freigeben, bevor ein Agent merged."
+  expect: {tool: agent-briefs-set}
+- id: settings-agent-briefs-en
+  category: settings
+  lang: en
+  utterance: "From now on, write every prompt you give my coding agents in English and always ask for tests."
+  expect: {tool: agent-briefs-set}
 - id: settings-find-action-pt
   category: settings
   lang: pt

@@ -499,6 +499,12 @@
     "language": "de"
    }
   },
+  "settings-agent-briefs-de": {
+   "tool": "agent-briefs-set"
+  },
+  "settings-agent-briefs-en": {
+   "tool": "agent-briefs-set"
+  },
   "settings-find-action-pt": {
    "tool": "find-app-action"
   },

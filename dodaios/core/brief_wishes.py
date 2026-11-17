@@ -48,7 +48,7 @@ def read_wishes() -> str:
     """The stored wishes, ``""`` when there are none or the file cannot be read."""
     try:
         return normalize(wishes_path().read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # no file means no wishes: the default applies
         return ""
     except (OSError, UnicodeDecodeError):
         log.warning("agent brief wishes: file not readable, briefs use the default", exc_info=True)
@@ -79,7 +79,7 @@ def save_wishes(text: str) -> str:
     except BaseException:
         try:
             os.unlink(tmp_name)
-        except OSError:
+        except OSError:  # cleanup only; the original error is re-raised below
             pass
         raise
     return body
@@ -90,7 +90,7 @@ def reset_wishes() -> bool:
     try:
         wishes_path().unlink()
         return True
-    except FileNotFoundError:
+    except FileNotFoundError:  # already the default: nothing to remove
         return False
 
 
