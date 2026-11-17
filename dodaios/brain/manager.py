@@ -11271,10 +11271,10 @@ class BrainManager:
 
             if wants_agent_routine(user_text):
                 self._evidence_directive = (
-                    "MANDATORY THIS TURN: scheduled work. Create the agent with "
-                    "society-create-agent if it does not exist, then call society-create-routine "
-                    "with a self-contained prompt and the schedule; never create-skill. Report "
-                    "the returned next_run."
+                    "MANDATORY THIS TURN: scheduled work. Call society-create-routine for "
+                    "yourself (agent_id jarvis), never for another agent and never create an "
+                    "agent for it, with a self-contained prompt and the schedule; never "
+                    "create-skill. Report the returned next_run."
                 )
                 self._evidence_required_tool = "society-create-routine"
                 self._evidence_required_is_write = True

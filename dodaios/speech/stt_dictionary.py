@@ -1,15 +1,26 @@
-"""User dictionary for speech-to-text — custom vocabulary + misrecognition fixes.
+"""User dictionary for speech-to-text — the words a recognizer must get right.
 
-Dictation-tool-style feature: the user registers words the STT keeps getting wrong
-(proper nouns, brand names, e-mail addresses). An entry is one canonical
-``word`` plus optional ``misheard`` variants:
+The user registers a word the recognizer keeps getting wrong: a product name,
+a person, a brand. From then on the word is written correctly wherever it was
+SAID, however the recognizer spelled it. An entry is one canonical ``word``
+plus optional ``misheard`` variants; a transcript is corrected in three steps:
 
-- ``misheard`` empty → plain vocabulary word. The corrector canonicalizes the
-  casing of exact (case-insensitive) hits and repairs single tokens that
-  SOUND like the word ("Veltrok" → "Veltroc", "Klaude" → "Claude") — never a
-  common word that merely sits one letter away ("grob" stays "grob").
-- ``misheard`` non-empty → explicit replacement pairs ("Gitter" → "GitHub"),
-  word-boundary + case-insensitive, multi-word capable.
+1. **Listed mishearings** are replaced ("Gitter" → "GitHub"): word-boundary,
+   case-insensitive; a gap in a listed phrase also matches a hyphen ("Git
+   Hub" catches "Git-Hub").
+2. **Casing** of the word itself is restored ("github" → "GitHub").
+3. **Sound.** Everything that sounds like the word becomes the word, across
+   word gaps and hyphens: "Dodios", "du Dios", "Doda iOS", "Dodios-Website"
+   and a bare "Dios" are all "Dodaios". See ``sound_match.py`` for the rules
+   and for the one guard that keeps this from rewriting ordinary speech: a
+   match that is not exact needs a token that is no German or English word
+   (``common_words.py``). "grob" stays "grob" next to a registered "Grok".
+
+Step 3 is why a person no longer has to collect spellings. Until 2026-11-17
+it repaired a single token only when it folded to exactly the word's phonetic
+key, so the recognizer's everyday output for a new name — a dropped vowel, a
+name split in two, a name inside a hyphenated compound — passed through
+uncorrected.
 
 The canonical words are also handed to prompt-capable Whisper providers as a
 decoder bias, and Whisper answers silence by reciting that list back
@@ -22,10 +33,11 @@ fivefold "Agentic IDE" on ``text`` into one, which passes for a sentence, while
 the dictation lane transcribes from ``raw_text``, where all five still stand
 (BUG-185, second landing 2026-08-27).
 
-Design constraints (see the plan file and AGENTS.md):
+Design constraints (see AGENTS.md):
 
-- Pure string ops — regex + a bounded edit distance. NO LLM call, NO network:
-  this runs on the voice hot path for every utterance (AP-11 doctrine).
+- Pure string ops — regex, a phonetic key, a bounded edit distance and one
+  word-list lookup. NO LLM call, NO network: this runs on the voice hot path
+  for every utterance (AP-11 doctrine).
 - Provider-agnostic: :class:`DictionaryCorrectingSTT` wraps ANY STTProvider,
   so every provider (local faster-whisper, Groq, OpenRouter, future ones)
   benefits identically (AP-21/22 — never pin a feature to one provider).
@@ -54,6 +66,8 @@ from pathlib import Path
 from typing import Any
 
 from dodaios.core.paths import user_data_dir
+from dodaios.speech.common_words import common_words
+from dodaios.speech.sound_match import SoundMatcher, SoundTarget, phonetic_key
 
 log = logging.getLogger(__name__)
 
@@ -62,44 +76,10 @@ MAX_ENTRIES = 2_000
 MAX_WORD_LEN = 100
 MAX_MISHEARD_PER_ENTRY = 20
 
-# Fuzzy-repair gates (plain vocabulary words only). A token is rewritten
-# toward a dictionary word only when the two SOUND the same: both fold to the
-# same phonetic key (``_phonetic_fold``), or — for long tokens only — the
-# folded forms are one edit apart. A raw edit distance used to be enough,
-# which turned "grob" into "Grok" and "Clause" into "Claude": a person who
-# registers a word wants it fixed when they SAID it, not whenever they say a
-# common word that happens to be spelled nearby (BUG-185).
-_FUZZY_MIN_TOKEN_LEN = 4
-_FUZZY_LONG_TOKEN_LEN = 8
-_FUZZY_LONG_TOKEN_BUDGET = 1
-
-# Spelling variants that sound alike in German and English, applied in order
-# on the casefolded token. Deliberately a short list: every rule makes MORE
-# tokens equal, and the whole point of the fold is to stay strict. The two
-# placeholders protect "sch"/"ch" from the c- and h-rules that follow.
-_FOLD_RULES: tuple[tuple[str, str], ...] = (
-    ("ä", "e"),
-    ("ae", "e"),
-    ("sch", "\x01"),
-    ("ch", "\x02"),
-    ("ph", "f"),
-    ("th", "t"),
-    ("ck", "k"),
-    ("dt", "t"),
-    ("tz", "ts"),
-    ("z", "ts"),
-    ("qu", "kv"),
-    ("x", "ks"),
-    ("c", "k"),
-    ("v", "f"),
-    ("w", "v"),
-    ("y", "i"),
-    ("ie", "i"),
-    ("ei", "ai"),
-    ("ou", "au"),  # English "ou" is German "au": "Cloude" is how STT spells "Claude"
-)
-_FOLD_SILENT_H_RE = re.compile(r"(?<!^)h")
-_FOLD_REPEAT_RE = re.compile(r"(.)\1+")
+#: Languages the shipped word lists cover. A transcript in one of them gets the
+#: generous sound matching; any other gets exact sound matches only, because
+#: every ordinary word of an uncovered language would look invented.
+_COVERED_LANGUAGES = frozenset({"de", "en"})
 
 # Prompt-echo guard. A run of dictionary items is Whisper reciting its bias
 # prompt, never speech, when it is long enough or repeats itself. Where the run
@@ -202,6 +182,12 @@ class DefaultTerm:
     misheard: tuple[str, ...] = ()
     casing: bool = True
     fuzzy: bool = True
+    #: Mishearings that are a real word in some other language, so they are
+    #: only rewritten in a text the word lists cover (German, English). Not a
+    #: listed variant: the Dictionary view does not show them, and an edit to
+    #: the entry does not remove them. "Dios" is what is left of "Dodaios"
+    #: when the recognizer swallows the first syllable — and it is Spanish.
+    covered_misheard: tuple[str, ...] = ()
 
     @property
     def entry_id(self) -> str:
@@ -232,6 +218,7 @@ DEFAULT_TERMS: tuple[DefaultTerm, ...] = (
         "dodaios",
         "Dodaios",
         ("the Dios", "Doda iOS", "Doda ios", "Dodai OS", "Dodaius", "Dodayos"),
+        covered_misheard=("Dios",),
     ),
     DefaultTerm("pypi", "PyPI", ("Pipey", "Pipe-I", "Pai-Pi"), fuzzy=False),
     DefaultTerm("github", "GitHub", ("Git Hub", "Git-Hub")),
@@ -527,59 +514,63 @@ class DictionaryStore:
 # ----------------------------------------------------------------------
 
 
-def _boundary_pattern(phrase: str) -> re.Pattern[str]:
+def _boundary_pattern(phrase: str, *, loose_joins: bool = False) -> re.Pattern[str]:
     """Case-insensitive, word-boundary, whitespace-flexible phrase pattern.
 
     Lookarounds instead of ``\\b`` so phrases with non-word edge characters
     (e-mail addresses, "Claude.md") still anchor at real token boundaries.
+    ``loose_joins`` lets a gap in the phrase also match a hyphen: a listed
+    "Git Hub" catches "Git-Hub". Not the other way round — "Pipe-I" is one
+    garbled word, "the pipe I built" is a sentence.
     """
     parts = [re.escape(tok) for tok in phrase.split()]
-    body = r"\s+".join(parts)
+    body = (r"[\s\-]+" if loose_joins else r"\s+").join(parts)
     return re.compile(rf"(?<!\w){body}(?!\w)", re.IGNORECASE | re.UNICODE)
 
 
-def _edit_distance_within(a: str, b: str, budget: int) -> bool:
-    """Bounded Levenshtein — True iff distance(a, b) <= budget."""
-    if abs(len(a) - len(b)) > budget:
-        return False
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a, start=1):
-        cur = [i]
-        row_min = i
-        for j, cb in enumerate(b, start=1):
-            cost = 0 if ca == cb else 1
-            val = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
-            cur.append(val)
-            row_min = min(row_min, val)
-        if row_min > budget:
-            return False
-        prev = cur
-    return prev[-1] <= budget
+_WORD_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
 
-def _phonetic_fold(token: str) -> str:
-    """Collapse a token to how it sounds, so spelling twins compare equal.
+@dataclass(frozen=True, slots=True)
+class _Rule:
+    """One replacement: ``pattern`` → ``target``.
 
-    "Veltrok"/"Veltroc", "Klaude"/"Claude", "Meier"/"Mayer" and
-    "Anthropik"/"Anthropic" fold to one key each; "grob"/"Grok" and
-    "Clause"/"Claude" do not. Only ever compared with another fold — the
-    result is a key, not a spelling.
+    ``first`` is the phrase's first word, casefolded — a rule whose first word
+    is nowhere in a text cannot match it, which spares a full dictionary a
+    regex pass per entry over every transcript. ``None`` for a phrase that
+    does not start with a word ("@handle"): such a rule always runs.
     """
-    folded = token.casefold()
-    for source, target in _FOLD_RULES:
-        folded = folded.replace(source, target)
-    folded = _FOLD_SILENT_H_RE.sub("", folded)
-    folded = folded.replace("\x01", "sh").replace("\x02", "ch")
-    return _FOLD_REPEAT_RE.sub(r"\1", folded)
+
+    first: str | None
+    pattern: re.Pattern[str]
+    target: str
 
 
-def _sounds_like(token: str, token_fold: str, word: str, word_fold: str) -> bool:
-    """True iff ``token`` may be repaired to ``word`` — they sound the same."""
-    if token_fold == word_fold:
-        return True
-    if len(token) < _FUZZY_LONG_TOKEN_LEN or len(word) < _FUZZY_LONG_TOKEN_LEN:
-        return False
-    return _edit_distance_within(token_fold, word_fold, _FUZZY_LONG_TOKEN_BUDGET)
+def _first_token(phrase: str) -> str | None:
+    match = _WORD_TOKEN_RE.match(phrase.casefold())
+    return match.group(0) if match else None
+
+
+def _apply_rules(rules: list[_Rule], text: str) -> str:
+    if not rules:
+        return text
+    present = set(_WORD_TOKEN_RE.findall(text.casefold()))
+    for rule in rules:
+        if rule.first is not None and rule.first not in present:
+            continue
+        replaced = rule.pattern.sub(lambda _m, target=rule.target: target, text)
+        if replaced != text:
+            text = replaced
+            present = set(_WORD_TOKEN_RE.findall(text.casefold()))
+    return text
+
+
+def _covers(language: str | None) -> bool | None:
+    """Do the word lists cover ``language``? ``None`` when it is not known."""
+    code = (language or "").strip().casefold().replace("_", "-").split("-")[0]
+    if not code.isalpha() or len(code) > 3 or code == "auto":
+        return None  # "", "auto-detected", a provider's free text
+    return code in _COVERED_LANGUAGES
 
 
 def _compile_echo_patterns(
@@ -654,42 +645,65 @@ class TranscriptCorrector:
         """``echo_entries`` are the words a decoder was actually primed with —
         the only ones whose run can be a recited prompt. ``None`` means all of
         ``entries`` (the historical behaviour)."""
-        # Explicit misheard → word replacements, longest source first so an
-        # overlapping shorter rule never shadows a longer phrase.
-        self._replacements: list[tuple[re.Pattern[str], str]] = []
+        # 1) Listed mishearings → word, longest source first so an overlapping
+        #    shorter rule never shadows a longer phrase.
         pairs: list[tuple[str, str]] = []
         for entry in entries:
             for variant in entry.misheard:
                 pairs.append((variant, entry.word))
         pairs.sort(key=lambda p: len(p[0]), reverse=True)
-        for source, target in pairs:
-            self._replacements.append((_boundary_pattern(source), target))
+        self._replacements: list[_Rule] = [
+            _Rule(_first_token(source), _boundary_pattern(source, loose_joins=True), target)
+            for source, target in pairs
+        ]
 
-        # Canonical casing rules for every word (single- and multi-word).
-        self._casing: list[tuple[re.Pattern[str], str]] = [
-            (_boundary_pattern(e.word), e.word)
+        # 2) Canonical casing rules for every word (single- and multi-word).
+        self._casing: list[_Rule] = [
+            _Rule(_first_token(e.word), _boundary_pattern(e.word), e.word)
             for e in sorted(entries, key=lambda e: len(e.word), reverse=True)
             if e.casing
         ]
 
-        # Fuzzy-repair index for SINGLE-token canonical words, keyed by the
-        # first letter of the phonetic fold. Multi-token phrases are excluded —
-        # near-miss repair across token splits is what explicit pairs are for.
-        self._fuzzy_index: dict[str, list[tuple[str, str]]] = {}
-        self._canonical_tokens: set[str] = set()
+        # 3) Sound. The word itself may be matched generously; a listed
+        #    mishearing adds its exact sound ("Genetic" also catches
+        #    "Genetik"). An entry that opted out of sound repair keeps the
+        #    sounds of its listed mishearings.
+        targets: list[SoundTarget] = []
+        protected: set[str] = {t.word.casefold() for t in DEFAULT_TERMS}
         for entry in entries:
-            word = entry.word
-            self._canonical_tokens.add(word.casefold())
-            if not entry.casing or not entry.fuzzy:
+            protected.add(entry.word.casefold())
+            protected.update(tok.casefold() for tok in entry.word.split())
+            if entry.casing and entry.fuzzy and entry.word[:1].isalpha():
+                targets.append(
+                    SoundTarget(entry.word, phonetic_key(entry.word), canonical=True)
+                )
+            for variant in entry.misheard:
+                targets.append(
+                    SoundTarget(entry.word, phonetic_key(variant), canonical=False)
+                )
+        # A shipped word's covered-only mishearings stay with it for as long
+        # as the entry still stands for that word, edited or not — and step
+        # aside for anything the user registered under the same spelling.
+        taken = protected | {v.casefold() for e in entries for v in e.misheard}
+        for entry in entries:
+            term = _DEFAULTS_BY_ID.get(entry.id)
+            if term is None or term.word.casefold() != entry.word.casefold():
                 continue
-            if " " in word or len(word) < _FUZZY_MIN_TOKEN_LEN:
-                continue
-            if not word[0].isalpha():
-                continue
-            fold = _phonetic_fold(word)
-            self._fuzzy_index.setdefault(fold[:1], []).append((word, fold))
+            for variant in term.covered_misheard:
+                if variant.casefold() in taken:
+                    continue
+                targets.append(
+                    SoundTarget(
+                        entry.word, phonetic_key(variant), canonical=False, covered_only=True
+                    )
+                )
+        words = common_words()
+        self._sound = SoundMatcher(
+            targets,
+            is_word=(lambda token: token in words) if words is not None else None,
+            protected=protected,
+        )
 
-        self._token_re = re.compile(r"[^\W\d_][\w''\-]*", re.UNICODE)
         self._echo_run_re, self._echo_item_re = _compile_echo_patterns(
             entries if echo_entries is None else echo_entries
         )
@@ -748,38 +762,28 @@ class TranscriptCorrector:
             out = before.rstrip() if closes else _splice_out_run(before, after)
         return out
 
-    def correct(self, text: str) -> str:
+    def correct(self, text: str, language: str | None = None) -> str:
+        """``text`` with every registered word written the way it was registered.
+
+        ``language`` is the transcript's language when the recognizer reported
+        one. It decides how far the sound matching may go: generous for a
+        language the word lists cover, exact sounds only for any other. With
+        no language given the text itself is judged — it counts as covered
+        when most of its words are German or English ones.
+        """
         if not text or self.rule_count == 0:
             return text
-        # 1) Explicit replacements ("Gitter" → "GitHub").
-        for pattern, target in self._replacements:
-            text = pattern.sub(target, text)
+        # 1) Listed mishearings ("Gitter" → "GitHub").
+        text = _apply_rules(self._replacements, text)
         # 2) Canonical casing ("github" → "GitHub"). sub() is a no-op when the
         #    casing already matches, so this is idempotent.
-        for pattern, target in self._casing:
-            text = pattern.sub(target, text)
-        # 3) Conservative fuzzy repair of single tokens toward vocabulary
-        #    words ("Veltrok" → "Veltroc").
-        if self._fuzzy_index:
-            text = self._token_re.sub(self._fix_token, text)
-        return text
-
-    def _fix_token(self, match: re.Match[str]) -> str:
-        token = match.group(0)
-        folded = token.casefold()
-        if len(token) < _FUZZY_MIN_TOKEN_LEN or folded in self._canonical_tokens:
-            return token
-        token_fold = _phonetic_fold(token)
-        candidates = self._fuzzy_index.get(token_fold[:1])
-        if not candidates:
-            return token
-        best: str | None = None
-        for word, word_fold in candidates:
-            if _sounds_like(token, token_fold, word, word_fold):
-                if best is not None and best != word:
-                    return token  # ambiguous between two entries — leave it
-                best = word
-        return best if best is not None else token
+        text = _apply_rules(self._casing, text)
+        # 3) Everything that sounds like a registered word ("Dodios",
+        #    "du Dios", "Doda iOS" → "Dodaios").
+        covered = _covers(language)
+        if covered is None:
+            covered = self._sound.knows(text)
+        return self._sound.rewrite(text, generous=covered)
 
 
 # ----------------------------------------------------------------------
@@ -937,8 +941,10 @@ class DictionaryCorrectingSTT:
             if not getattr(transcript, "is_partial", False):
                 text = self._strip_echo(corrector, text, "text")
                 raw = self._strip_echo(corrector, raw, "raw_text") if raw else raw
-            corrected = corrector.correct(text)
-            corrected_raw = corrector.correct(raw) if raw else raw
+            language = getattr(transcript, "language", None)
+            language = language if isinstance(language, str) else None
+            corrected = corrector.correct(text, language)
+            corrected_raw = corrector.correct(raw, language) if raw else raw
             original_text = getattr(transcript, "text", "")
             original_raw = getattr(transcript, "raw_text", "") or ""
             if corrected == original_text and corrected_raw == original_raw:

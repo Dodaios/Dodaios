@@ -188,10 +188,10 @@ def test_diagram_elements_frames_arrows_and_sizes() -> None:
     assert_loadable(items)
     index = by_id(items)
     assert ids == {"a": "a", "b": "b", "c": "c", "d": "d", "g": "g"}
-    # One size per kind: the short box is as wide as the long one.
-    assert (
-        index["a"]["width"] == index["b"]["width"] and index["a"]["height"] == index["b"]["height"]
-    )
+    # One width per kind: the short box is as wide as the long one; the height
+    # follows each label, so the short box does not get the long one's room.
+    assert index["a"]["width"] == index["b"]["width"]
+    assert index["a"]["height"] < index["b"]["height"]
     assert index["b"]["frameId"] == index["c"]["frameId"] == "g"
     assert index["b:c"]["frameId"] == "g" and labels(items)["b:c"] == "ask"
     assert index["a:g"]["endBinding"]["elementId"] == "g"

@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "Para textos que se quedan: notas, resúmenes, informes, planes.",
         "slides": "Para contar algo página a página: una propuesta, una puesta al día, un repaso.",
         "sheets": "Para filas y columnas: listas, presupuestos, comparativas, seguimientos.",
-        "design": "Para una página con diseño: un resumen de una página, un cartel, una invitación.",
         "data": "Análisis de tus datos: archivos, apps, cuentas, carteras. Siempre al día si quieres.",
         "whiteboard": "Para pensar con notas: ideas, grupos, un plan en la pared.",
         "motion": "Para una película breve: una cabecera, una explicación animada."
@@ -11837,7 +11835,6 @@
         "docs": "p. ej. Un resumen de una página para el rediseño de la web, con objetivos, alcance y preguntas abiertas",
         "slides": "p. ej. Diez diapositivas sobre el último trimestre para la reunión del lunes",
         "sheets": "p. ej. Nuestras suscripciones con coste mensual, fecha de renovación y responsable",
-        "design": "p. ej. Una invitación a la fiesta de verano del 12 de julio, cálida y sencilla",
         "data": "p. ej. Valor y rendimiento de mi cartera, por posición y en el tiempo",
         "whiteboard": "p. ej. Ideas para el lanzamiento del producto, agrupadas por canal",
         "motion": "p. ej. Una cabecera de 20 segundos para el vídeo del producto con nuestros tres mensajes"
@@ -11857,11 +11854,6 @@
           "a": "Un presupuesto de este año por meses",
           "b": "Una comparativa de tres proveedores",
           "c": "Un seguimiento de tareas pendientes"
-        },
-        "design": {
-          "a": "Un resumen de una página sobre nuestro producto",
-          "b": "Un cartel para un evento",
-          "c": "Un menú para una cena"
         },
         "data": {
           "a": "Mi cartera: valor, posiciones y rendimiento",
@@ -11889,7 +11881,6 @@
         "docs": "Documento sin título",
         "slides": "Presentación sin título",
         "sheets": "Hoja sin título",
-        "design": "Diseño sin título",
         "data": "Análisis sin título",
         "whiteboard": "Pizarra sin título",
         "motion": "Clip sin título"
@@ -12050,12 +12041,97 @@
       "saving": "Guardando…",
       "saved": "Guardado",
       "save_failed": "Aún no se ha guardado. Lo volverá a intentar por sí solo.",
-      "welcome": {
-        "heading": "Dibuja, escribe y conecta. Esta pizarra se guarda sola.",
-        "assistant": "O pide a {assistant} que dibuje algo aquí.",
-        "menu": "Abrir, exportar como imagen, fondo, ayuda",
-        "toolbar": "Elige una herramienta y empieza",
-        "help": "Atajos de teclado"
+      "tool": {
+        "label": "Herramientas",
+        "selection": "Seleccionar",
+        "hand": "Mover la vista",
+        "frame": "Marco",
+        "rectangle": "Rectángulo",
+        "ellipse": "Elipse",
+        "diamond": "Rombo",
+        "arrow": "Flecha",
+        "line": "Línea",
+        "freedraw": "Dibujar",
+        "text": "Texto",
+        "note": "Nota adhesiva",
+        "image": "Imagen",
+        "eraser": "Borrador",
+        "laser": "Puntero láser",
+        "more": "Más herramientas",
+        "mermaid": "Diagrama Mermaid",
+        "library": "Biblioteca"
+      },
+      "inspector": {
+        "stroke": "Trazo",
+        "text_color": "Color del texto",
+        "fill": "Relleno",
+        "custom": "Elegir un color",
+        "width": "Grosor",
+        "thin": "Fino",
+        "regular": "Normal",
+        "bold": "Grueso",
+        "style": "Línea",
+        "solid": "Continua",
+        "dashed": "Discontinua",
+        "dotted": "Punteada",
+        "corners": "Esquinas",
+        "sharp": "Rectas",
+        "round": "Redondeadas",
+        "look": "Estilo",
+        "clean": "Limpio",
+        "sketch": "Boceto",
+        "arrowheads": "Puntas de flecha",
+        "arrow_none": "Sin puntas",
+        "arrow_end": "Flecha al final",
+        "arrow_both": "Flechas en ambos extremos",
+        "font": "Fuente",
+        "sans": "Sans",
+        "hand": "Manuscrita",
+        "mono": "Monoespaciada",
+        "size": "Tamaño",
+        "align": "Alinear",
+        "left": "Izquierda",
+        "center": "Centro",
+        "right": "Derecha",
+        "opacity": "Opacidad",
+        "front": "Traer al frente",
+        "back": "Enviar al fondo",
+        "group": "Agrupar",
+        "ungroup": "Desagrupar",
+        "duplicate": "Duplicar",
+        "lock": "Bloquear",
+        "delete": "Eliminar"
+      },
+      "menu": {
+        "label": "Menú",
+        "export_image": "Exportar como imagen",
+        "save_file": "Guardar en un archivo",
+        "open_file": "Abrir un archivo",
+        "open_failed": "Este archivo no se puede abrir como pizarra.",
+        "find": "Buscar en la pizarra",
+        "grid_on": "Mostrar la cuadrícula",
+        "grid_off": "Ocultar la cuadrícula",
+        "shortcuts": "Atajos de teclado",
+        "background": "Fondo",
+        "background_default": "Punteado (predeterminado)",
+        "clear": "Vaciar la pizarra",
+        "clear_confirm": "¿Quitarlo todo?",
+        "clear_yes": "Vaciar"
+      },
+      "zoom": {
+        "in": "Acercar",
+        "out": "Alejar",
+        "fit": "Ver toda la pizarra",
+        "reset": "Zoom al 100 %"
+      },
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "live": {
+        "drawing": "{assistant} está dibujando"
+      },
+      "empty": {
+        "title": "Una pizarra vacía",
+        "hint": "Elige una herramienta abajo, pulsa N para una nota adhesiva o pide a {assistant} que dibuje algo aquí."
       }
     }
   },

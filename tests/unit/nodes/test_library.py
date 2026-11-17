@@ -354,18 +354,34 @@ def test_older_runs_are_adopted_under_the_closest_type(tmp_path: Path) -> None:
     assert card["created_at"] == 1_700_000_100.0
 
     card = cards[f"mission_aaaaaaaa1111::{files}/dashboard.html"]
-    assert (card["type"], card["origin"], card["visual_kind"]) == ("design", "page", "page")
+    assert (card["type"], card["origin"], card["visual_kind"]) == ("docs", "page", "page")
     assert (card["title"], card["request"], card["status"]) == ("Sales & costs", "", "ready")
     assert card["updated_at"] == 1_700_000_200.0 and card["preview"] is None
 
     card = cards[f"mission_aaaaaaaa1111::{files}/img/chart.png"]
-    assert (card["type"], card["origin"], card["visual_kind"]) == ("design", "file", "image")
+    assert (card["type"], card["origin"], card["visual_kind"]) == ("docs", "file", "image")
     assert (card["title"], card["size"]) == ("chart.png", len(_PNG))
     card = cards[f"mission_aaaaaaaa1111::{files}/logo.SVG"]
-    assert (card["type"], card["origin"], card["visual_kind"]) == ("design", "file", "vector")
+    assert (card["type"], card["origin"], card["visual_kind"]) == ("docs", "file", "vector")
     card = cards[f"mission_aaaaaaaa1111::{files}/paper.pdf"]
     assert (card["type"], card["origin"], card["visual_kind"]) == ("docs", "file", "document")
     assert card["title"] == "paper.pdf"
+
+
+def test_a_node_of_a_retired_type_keeps_its_page_as_a_docs_card(tmp_path: Path) -> None:
+    # The old "design" type (Visuals) is gone; a node of it no longer reads,
+    # and its run is listed like any run, so its page is not lost.
+    store = NodeStore(root=tmp_path)
+    node = store.create(type="docs", title="Poster", spec={})
+    run_dir = tmp_path / node.slug
+    state = json.loads((run_dir / "node.json").read_text(encoding="utf-8"))
+    state["type"] = "design"
+    (run_dir / "node.json").write_text(json.dumps(state), encoding="utf-8")
+
+    cards = _library(tmp_path)["nodes"]
+    assert [card["origin"] for card in cards if card["origin"] == "node"] == []
+    adopted = [card for card in cards if card["slug"] == node.slug]
+    assert adopted and all(card["type"] in ("docs", "output") for card in adopted)
 
 
 def test_a_living_page_without_its_state_is_still_a_card(tmp_path: Path) -> None:
@@ -423,7 +439,7 @@ def test_a_page_still_being_built_is_a_build_card_until_it_lands(tmp_path: Path)
         {
             "key": f"build:{slug}",
             "id": None,
-            "type": "design",
+            "type": "docs",
             "origin": "build",
             "title": "Sales dashboard",
             "slug": slug,

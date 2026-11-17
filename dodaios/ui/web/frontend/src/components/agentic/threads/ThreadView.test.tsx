@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   sendQueuedNow: vi.fn(),
   editQueuedMessage: vi.fn(),
   fetchAgentChatQueue: vi.fn(),
+  fetchTypeahead: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -86,6 +87,7 @@ beforeEach(() => {
   api.sendAgentChatMessage.mockReset().mockResolvedValue({ turn_id: "t1" });
   api.patchAgentChatSession.mockReset().mockResolvedValue(sessionRow());
   api.searchAgentChatSessions.mockReset().mockResolvedValue([]);
+  api.fetchTypeahead.mockReset().mockResolvedValue({ trigger: "/", items: [], truncated: false });
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
@@ -188,6 +190,50 @@ describe("ThreadView", () => {
       useThreadChatStore.getState().ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "ultracode the migration" } });
     });
     await waitFor(() => expect(within(screen.getByTestId("thread-user-message")).getByTestId("magic-word").textContent).toBe("ultracode"));
+  });
+
+  it("draws a slash command the agent knows in blue, in the box and in the sent message", async () => {
+    api.fetchAgentChatCatalog.mockResolvedValue({ ...CATALOG, providers: [{ ...CATALOG.providers[0], typeahead: ["/", "@"] }] });
+    api.fetchTypeahead.mockResolvedValue({ trigger: "/", truncated: false,
+      items: [{ value: "goal", label: "goal", hint: "Set a goal", kind: "command", group: "cli" }] });
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const box = screen.getByTestId("thread-composer-input");
+    // A name the agent does not know stays plain: that is how a typo shows.
+    fireEvent.change(box, { target: { value: "/gaol ship the release" } });
+    await waitFor(() => expect(api.fetchTypeahead).toHaveBeenCalled());
+    expect(screen.queryByTestId("thread-composer-magic")).toBeNull();
+    fireEvent.change(box, { target: { value: "/goal ship the release" } });
+    const backdrop = await screen.findByTestId("thread-composer-magic");
+    // Only the command is blue; the words after it keep the normal colour.
+    expect(within(backdrop).getByTestId("command-word").textContent).toBe("/goal");
+    expect(within(backdrop).getByTestId("command-word").className).toContain("text-info");
+    expect(box.className).toContain("text-transparent");
+
+    act(() => {
+      useThreadChatStore.getState().ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "/goal ship the release" } });
+    });
+    await waitFor(() => expect(within(screen.getByTestId("thread-user-message")).getByTestId("command-word").textContent).toBe("/goal"));
+  });
+
+  it("asks for the command list again when the first read failed", async () => {
+    api.fetchAgentChatCatalog.mockResolvedValue({ ...CATALOG, providers: [{ ...CATALOG.providers[0], typeahead: ["/", "@"] }] });
+    api.fetchTypeahead.mockRejectedValueOnce(new Error("cli starting")).mockResolvedValue({ trigger: "/", truncated: false,
+      items: [{ value: "goal", label: "goal", hint: "Set a goal", kind: "command", group: "cli" }] });
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const box = screen.getByTestId("thread-composer-input");
+    // Pasted whole: the caret never sits in the command, so no list opens.
+    fireEvent.change(box, { target: { value: "/goal ship the release" } });
+    await waitFor(() => expect(api.fetchTypeahead).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("thread-composer-magic")).toBeNull();
+    fireEvent.change(box, { target: { value: "/goal ship the release now" } });
+    const backdrop = await screen.findByTestId("thread-composer-magic");
+    expect(within(backdrop).getByTestId("command-word").textContent).toBe("/goal");
   });
 
   it("says a message reaches a Claude turn that only waits for its background tasks", async () => {

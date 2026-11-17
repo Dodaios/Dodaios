@@ -1,19 +1,18 @@
 # Nodes
 
 A node is something the assistant makes for a person and then looks after: a
-document, a deck of slides, a sheet, a designed page, a dashboard, a
+document, a deck of slides, a sheet, a dashboard, a
 whiteboard, a short animation. The person sees it as a card in the Nodes
 section of the app and as a card in the chat. The assistant can change it
 later, take a change back, and keep it current from the person's apps.
 
-## The seven types
+## The six types
 
 | Type | Name in the app | What it holds |
 |------|-----------------|---------------|
 | `docs` | Docs | A written document: a report, a plan, a brief, notes. |
 | `slides` | Slides | A deck of slides to present. |
 | `sheets` | Sheets | Rows and columns: a list or a table to keep. |
-| `design` | Visuals | A freely designed page: a poster, a one-pager, an invitation. |
 | `data` | Analytics | A dashboard: current figures and charts. |
 | `whiteboard` | Whiteboard | An infinite canvas: shapes, notes, arrows, drawings, pictures, a diagram. |
 | `motion` | Clips | A short animation. |
@@ -69,7 +68,7 @@ a complete new spec, or a list of small edits by path
 | `insert` | Puts `value` into a list before the index. `-` appends. |
 | `remove` | Takes the key or the list item away. |
 | `move` | Puts the list item at the path at index `to` of the same list. |
-| `replace` | In the text at the path, puts `value` where `find` stands. `find` must occur exactly once (or pass `"all": true`). For an edit to a long text: a document's Markdown, a design's CSS. |
+| `replace` | In the text at the path, puts `value` where `find` stands. `find` must occur exactly once (or pass `"all": true`). For an edit to a long text: a document's Markdown. |
 | `append` | Adds `value` to the end of the text at the path, or to the end of the list there. |
 
 A path looks like `/slides/2/title`. After the edits the type's `normalize`
@@ -123,6 +122,29 @@ licence) instead of the page. The assistant draws on the same board with the
 arrow between two things, a frame, a whole diagram, a Mermaid flowchart, a
 layout. Several boards are several nodes; "New whiteboard" makes another.
 
+**The canvas.** The editor is the engine; its own toolbars are hidden and the
+board draws its own controls in the app's look
+(`dodaios/ui/web/frontend/src/components/nodes/whiteboard/canvas/`): a tool
+dock at the bottom (select, move, frame, shapes, arrow, line, pen, text,
+sticky note, picture, eraser; N adds a sticky note), an inspector on the
+right for the selection (colour, fill, stroke, corners, clean or sketched
+lines, font, size, alignment, opacity, layers, duplicate, lock, delete), a
+menu (export, save and open a file, find, grid, shortcuts, background,
+clear), undo and redo, and the zoom. What the person draws is clean by
+default: no sketched lines, the normal font, round corners. The ground is
+the app's dotted stage; a board with a background colour of its own shows
+that colour instead. The view glides: a mouse wheel notch or a zoom button
+moves it over a few frames, a trackpad's own stream is followed at once,
+and Ctrl or Cmd with the wheel zooms around the pointer.
+
+**Watching the assistant draw.** The open board asks every one and a half
+seconds whether the node changed. When the assistant drew something, its
+new pieces land one at a time (frames first, then each box with its label,
+then the arrows, in under three seconds) while the assistant's cursor, with
+its name, moves to each piece. A board opened within a minute and a half of
+the assistant's drawing plays that drawing the same way. The tool marks what
+it draws with `customData: {"by": "assistant"}`.
+
 **The spec is the editor's scene** (`dodaios/nodes/board/scene.py`):
 
 ```json
@@ -169,7 +191,7 @@ names are removed first. A duplicated board gets a copy of its pictures.
 
 **The page** (`dodaios/nodes/board/render.py`) is a read-only drawing of the
 scene as SVG, for the library card, the chat card and a shared file. It
-draws clean lines rather than the editor's hand-drawn look, fits the drawing
+draws clean lines even where an element asks for the hand-drawn look, fits the drawing
 into the window, and pans and zooms. In the dark theme the drawing is
 inverted as the editor does it, and pictures are inverted back. Pictures are
 embedded up to 3 MB per page; the rest are labelled boxes.
@@ -413,62 +435,6 @@ The round trip is tested both ways on shared fixtures (`docs/__fixtures__/`):
 the frontend tests that each fixture keeps its text untouched and means the
 same when it is written again. `tests/unit/nodes/test_kind_docs.py` tests
 that the page drawn from the editor's text holds every block of the original.
-
-## Visuals
-
-A visual (`design`) is one freely designed page: a poster, an invitation, a
-one-pager. Its spec is the markup and the style sheet the assistant wrote
-(`html`, `css`), cleaned by `normalize` to an allowlist of elements and
-attributes (`dodaios/nodes/kinds/design.py`), and how it is shown: `fit`
-`page` (a scrolling page as wide as the window) or `canvas` (an artboard of
-`width` x `height` px, scaled to the window), a `background`, and two
-optional keys:
-
-* `accent`: a colour that replaces the theme's `--accent` on this design,
-  with its `--accent-soft` and, for a hex, an `--accent-ink` that keeps its
-  contrast. A design built on `var(--accent)` changes colour in one step.
-* `theme`: `light` or `dark` keeps the design in that theme whatever the
-  app shows (a dark poster stays dark). Left out, it follows the app.
-
-Both are written only when set, so a spec from before them is unchanged.
-
-**The Visuals editor** (`frontend/src/components/nodes/editors/design/`).
-A design has no block grammar, so the editor's blocks are the markup's own
-elements, addressed by their path of child indexes from `<main
-class="design">` (`designDoc.ts`):
-
-* The preview in the middle is the real page, drawn by the server from the
-  unsaved spec (`POST /api/nodes/{id}/preview`). A small script put into the
-  frame (`picker.ts`) outlines the block under the pointer, selects a block
-  on a click and lets a double-click type into a text in place (Enter or
-  leaving it keeps the words, Esc puts them back, Shift+Enter breaks the
-  line, Cmd/Ctrl+B and I mark words). Typed markup comes back with its inline
-  marks only, so typing never changes the structure. A drawing (`<svg>`) is
-  selected as a whole, and so is a text with inline marks. The frame talks in
-  messages tagged `dodaios-design` (`select`, `text`, `scroll`, `key` from
-  the frame; `state`, `select` to it); the editor checks every field.
-* The blocks list on the left is the same elements as a tree. The arrow keys
-  travel it (Right opens, Left closes or goes out), Alt+Up/Down moves a
-  block, Cmd/Ctrl+D duplicates, Delete removes, Enter goes to its text. A row
-  is dragged onto the edge of another to go before or after it, onto the
-  middle of a box to go inside it.
-* "Add block" puts a heading, text, button, picture, list, quote, card,
-  tags, figures, callout, divider or space after the selected block (or
-  inside a design's single wrapper). New blocks use the kit's classes and the
-  theme's tokens, so they take the design's type and colours.
-* The inspector edits the selected block: its words (a new line is a line
-  break), a link's address, a picture (replaced from a file, scaled down to
-  fit the 400,000 characters a design may embed) and its description, and
-  its look as the element's own inline style: text colour, background (theme
-  tokens first, so it reads in both themes, or any hex), size, weight,
-  alignment, padding, corners; fill, line and line width for a drawing.
-  With nothing selected it edits the page: shown as page or artboard, the
-  artboard's size (presets or width and height), ground, accent, theme and
-  the style sheet itself.
-
-A design with no block at all saves: a new one is a blank page (no markup,
-only a page margin in its style sheet, `STARTER_CSS`), and the person may
-delete every block. The blank preview says to add one from the toolbar.
 
 ## Analytics
 
@@ -739,13 +705,35 @@ The rules the actions keep:
   is `from:to`.
 - A thing without a position goes to a free place right of the content, and
   things added in one call flow in rows. `near`, `right_of`, `below` and
-  `inside` place it next to an element or in a frame. Nothing new overlaps
-  what is there.
+  `inside` place it next to an element or in a frame. `below` and `above`
+  line up the left edges with the element, `right_of` and `left_of` the
+  tops. Nothing new overlaps what is there.
 - An arrow is bound to the shapes it joins. When a shape moves, its arrows
   are drawn again; when it is deleted, they go too.
-- The board looks the same everywhere: one size per kind of shape, the
-  editor's 20 px grid and colour palette, sticky notes as yellow boxes,
-  groups as frames.
+- The board looks finished: clean lines (roughness 0) and the editor's sans
+  font, boxes with rounded corners, a soft fill under a darker stroke of the
+  same colour. A model that wants the sketchy look asks for `roughness` 1 or
+  `font: hand`.
+- The board looks the same everywhere: one width per kind of shape in a
+  diagram, the editor's 20 px grid and colour palette, sticky notes as
+  yellow boxes, groups as frames. A height follows its own label; boxes in
+  one row of a grid, or in one group, share the row's height. A box whose
+  label has several lines may run wider (300 px of text instead of 240), so
+  a stat card does not become a tall column. Notes or boxes of one kind
+  added in one `add` get one size.
+- A grid of frames is a dashboard: the frames stand in top-aligned rows,
+  40 px apart, the frames of a row stretched to one height, and each frame's
+  contents start at its top-left padding.
+- Every element an action creates carries `customData: {"by": "assistant"}`
+  (merged with what is there), so the editor can show the assistant's new
+  elements arriving.
+- After every `create` and `edit` the result ends with `Check:` lines from
+  `dodaios/nodes/board/check.py`, read from the final board: things that
+  overlap, a label that does not fit its box, an element sticking out of its
+  frame, frames in one row whose tops differ, a box far larger than its
+  label, an arrow through a shape. Each line names the ids and the fix; one
+  line says when all is clear. Only what the call made or changed is
+  checked, not the person's own drawing.
 - An edit runs under the node's lock on the scene as it is stored. Every
   element it changes gets a new version, so the open editor merges it with
   the person's drawing. Each edit is one history version.
@@ -760,6 +748,7 @@ other agents.
 | Diagrams, the older grammar | `dodaios/nodes/board/convert.py` |
 | Mermaid flowcharts | `dodaios/nodes/board/mermaid.py` |
 | Actions and the reading | `dodaios/nodes/board/ops.py` |
+| The self-check | `dodaios/nodes/board/check.py` |
 
 ## The library
 
@@ -771,15 +760,17 @@ everything older runs left behind. `dodaios/nodes/library.py` builds the list:
 | A typed node | Its own type | `node` |
 | A living page (`__living-page__` run) | `sheets` | `living` |
 | A report page (`__report__` run) | `docs` | `report` |
-| Any other HTML page a run wrote | `design` | `page` |
-| A picture or an SVG | `design` | `file` |
+| Any other HTML page a run wrote | `docs` | `page` |
+| A picture or an SVG | `docs` | `file` |
 | A PDF | `docs` | `file` |
-| A running run that still builds its page | `design` | `build` |
+| A running run that still builds its page | `docs` | `build` |
 | A run that left no page, picture or PDF | `output` | `run` |
 
 Only a card with the origin `node` has a spec and can be renamed, copied or
 reverted. The other cards are files; they are opened, and deleted through
-`/api/outputs`.
+`/api/outputs`. A node of a type the app no longer has (the old `design`
+type, "Visuals") does not read as a node; its run is listed like any other
+run, so its page stays in the library as a `docs` page.
 
 The list comes from the two listings the outputs routes already serve: the
 run list and the file listing of a run. So the library shows a file only if
@@ -863,7 +854,7 @@ All routes are in `dodaios/ui/web/nodes_routes.py`.
 | `PUT /api/nodes/{id}/scene` | Body `{"scene"}`. The editor's save, merged with the stored scene. Answers `{"version", "updated_at", "merged"}`, and `"scene"` (the merged scene) when `merged` is true. |
 | `POST /api/nodes/{id}/files` | Body `{"dataURL", "id"?}`. Keeps a picture for a whiteboard. Without `id` the id is the SHA-1 of the bytes. Answers `{"id", "mimeType"}`. |
 | `GET /api/nodes/{id}/files/{fileId}` | A whiteboard picture's bytes, with the type its bytes have, cached for good and under `Content-Security-Policy: default-src 'none'`. |
-| `POST /api/nodes/{id}/whiteboard` | Body `{"actions": [...]}`: the `whiteboard` tool's actions, for scripts and other agents. All actions or none; saved as one revision. Answers `{"version", "report", "summary"}`: one report line per action, and `{"elements", "bounds"}` of the board. |
+| `POST /api/nodes/{id}/whiteboard` | Body `{"actions": [...]}`: the `whiteboard` tool's actions, for scripts and other agents. All actions or none; saved as one revision. Answers `{"version", "report", "summary", "check"}`: one report line per action, `{"elements", "bounds"}` of the board, and the self-check lines for what the actions made or changed (empty when all is clear). |
 | `DELETE /api/nodes/{id}` | Stops the upkeep, then removes the node, its page and its history. Returns `{"deleted": true}`. |
 
 Errors: `404` for an id that is not a node. `400` with the reason as one

@@ -62,6 +62,27 @@ def test_a_newer_release_runs_but_is_reported_untested(
     assert status.to_dict()["untested"] is untested
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Hermes Agent vunknown (2026.9.24)",
+        "Hermes Agent vgit.ed2dd0b (2026.9.24)",
+    ],
+)
+def test_hermes_release_date_is_not_a_runtime_version(tmp_path, monkeypatch, line):
+    script = _fake_hermes(tmp_path, line)
+    monkeypatch.setattr(hermes, "_binary", lambda: sys.executable)
+    monkeypatch.setattr(
+        hermes, "run_version", lambda argv: base.run_version([sys.executable, script])
+    )
+    status = hermes.HermesRuntime().detect(refresh=True)
+    assert status.installed
+    assert status.problem_kind == "no_version"
+    assert status.version == ""
+    assert not status.ready
+    assert not status.untested
+
+
 def test_a_runtime_installed_mid_session_is_found_without_a_restart(tmp_path, monkeypatch):
     fresh = tmp_path / "Programs" / "fresh"
     fresh.mkdir(parents=True)

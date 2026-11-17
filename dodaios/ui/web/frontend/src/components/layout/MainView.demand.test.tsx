@@ -4,11 +4,11 @@ import { afterEach, expect, it, vi } from "vitest";
 import { MainView } from "./MainView";
 import { useEventStore } from "@/store/events";
 
-const loads = vi.hoisted(() => ({ agents: 0, settings: 0 }));
+const loads = vi.hoisted(() => ({ memory: 0, settings: 0 }));
 vi.mock("@/views/ChatsSurface", () => ({ ChatsSurface: () => <div>Current chat</div> }));
-vi.mock("@/views/society/SocietyView", () => {
-  loads.agents += 1;
-  return { SocietyView: () => <div>Requested agents</div> };
+vi.mock("@/views/MemoryView", () => {
+  loads.memory += 1;
+  return { MemoryView: () => <div>Requested memory</div> };
 });
 vi.mock("@/views/SettingsHubView", () => {
   loads.settings += 1;
@@ -27,14 +27,14 @@ it("does not execute unused sections or warm API queries while idle, then loads 
   render(<QueryClientProvider client={client}><MainView /></QueryClientProvider>);
   expect(screen.getByText("Current chat")).toBeTruthy();
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-  expect(loads).toEqual({ agents: 0, settings: 0 });
+  expect(loads).toEqual({ memory: 0, settings: 0 });
   expect(prefetch).not.toHaveBeenCalled();
   expect(idle).not.toHaveBeenCalled();
 
   vi.useRealTimers();
-  act(() => useEventStore.getState().setActiveSection("agents"));
-  expect(await screen.findByText("Requested agents")).toBeTruthy();
-  expect(loads.agents).toBe(1);
+  act(() => useEventStore.getState().setActiveSection("memory"));
+  expect(await screen.findByText("Requested memory")).toBeTruthy();
+  expect(loads.memory).toBe(1);
   expect(loads.settings).toBe(0);
   client.clear();
 });

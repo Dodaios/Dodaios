@@ -201,6 +201,24 @@ def _mtime_or_none(path: Path) -> float | None:
         return None
 
 
+def claude_account_file(config_dir: Path) -> Path:
+    """The ``.claude.json`` that describes *config_dir*'s login.
+
+    Same rule as :func:`claude_account_identity`: of the candidates that carry
+    an ``oauthAccount``, the most recently written one wins; with none, the file
+    inside the directory. Usage and tier readers use it so all three agree.
+    """
+    best: tuple[float, Path] | None = None
+    for candidate in _identity_candidates(config_dir):
+        data = _read_json(candidate)
+        if not isinstance((data or {}).get("oauthAccount"), dict):
+            continue
+        mtime = _mtime_or_none(candidate) or 0.0
+        if best is None or mtime > best[0]:
+            best = (mtime, candidate)
+    return best[1] if best is not None else config_dir / ".claude.json"
+
+
 def claude_account_identity(config_dir: Path) -> tuple[str | None, str | None]:
     """``(email, display name)`` of the login kept in *config_dir* — display only.
 

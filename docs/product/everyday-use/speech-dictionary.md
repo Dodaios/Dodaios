@@ -8,7 +8,7 @@ order: 6
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-11-12
+last_reviewed: 2026-11-17
 phase: "-"
 audience: end-user
 tags: [speech-recognition, dictionary, voice, pipeline]
@@ -26,25 +26,49 @@ microphone audio, detect the wake phrase, or change reply pronunciation.
 ## Before You Start
 
 1. Open **Voice > Dictionary**.
-2. Say the term in the failing path and copy the visible wrong transcript.
-3. Use a harmless test phrase. Never save credentials, recovery codes, or
-   private keys as vocabulary.
+2. Add the word the way it must be written. In most cases that is all.
+3. Never save credentials, recovery codes, or private keys as vocabulary.
 
-Rules are shared across all input languages. A broad correction that is safe in
-one language can alter an ordinary word in another.
+Rules are shared across all input languages.
+
+## How a Word Is Found
+
+Speech recognition that does not know a word writes down what it heard, and
+it writes it a different way each time. The Dictionary therefore compares the
+sound, not the spelling. For a saved word **Dodaios** it corrects all of
+these:
+
+| What recognition wrote | Why it counts |
+|---|---|
+| `dodaios` | The word in the wrong capitalization |
+| `Dodayos`, `Doda iOS`, `Dodai-OS` | The same sound, also across a gap or a hyphen |
+| `Dodios`, `Diodios`, `du Dios` | Almost the same sound: only vowels differ |
+| `Odaios` | The end of the word; the beginning was swallowed |
+| `Dodios-Website` | The word inside a hyphenated compound |
+
+An ordinary word is never changed this way. Next to a saved **Notion**, the
+word "nation" stays "nation", because it is a real word. Only a spelling that
+is no German or English word can be taken for your word.
+
+Two limits follow from this:
+
+- **Short words** (fewer than six sounds, for example a four-letter name) are
+  matched by the same sound only. One vowel is the difference between two
+  short names.
+- **Other languages.** The check for ordinary words knows German and English.
+  In a text in another language only the same sound counts.
+
+A name that is not in any word list can sound like one of your words (a
+person called "Leiner" next to a saved **Linear**). Save that name too: a
+saved word is never rewritten.
 
 ## Choose the Right Entry
 
 | What recognition produces | Best entry | Result |
 |---|---|---|
-| Correct letters, wrong capitalization | Add the correct term | Exact matches use your saved capitalization |
-| One close spelling error | Add the correct single word | A conservative near match may be repaired |
-| The same wrong word or phrase | Add the term and fill in **Heard as** | The saved wrong form is replaced predictably |
-| Missing, random, or changing text | Fix audio, provider, or language first | A text rule cannot recover words that never appear |
-
-Near-match repair needs a single word of at least four characters, the same
-first letter, and only a small spelling difference. Ambiguous and multi-word
-cases need an explicit variant.
+| Your word in changing, similar spellings | Add the word | Every spelling that sounds like it becomes the word |
+| A different real word ("Grog" for "Grok") | Add the word and fill in **Heard as** | That word is replaced wherever it appears |
+| Missing or unrelated text | Fix audio, provider, or language first | A text rule cannot recover words that never appear |
 
 ## Add a Name or Term
 
@@ -53,8 +77,8 @@ cases need an explicit variant.
 3. Save and wait about one second.
 4. Start a new utterance in the same path and inspect its transcript.
 
-Compatible providers may also receive the term as a recognition hint. Local
-capitalization and near-match repair are the cross-provider behavior.
+Compatible providers may also receive the term as a recognition hint. The
+correction by sound is local and works with every provider.
 
 ## Fix a Repeated Misrecognition
 
@@ -63,7 +87,9 @@ capitalization and near-match repair are the cross-provider behavior.
 3. Separate known alternatives with commas, save, wait one second, and retest.
 
 Rules ignore capitalization, tolerate different spaces, and replace only whole
-words or phrases. Keep variants specific; commas separate them.
+words or phrases. A gap in a variant also matches a hyphen. A variant also
+catches other spellings with exactly its sound. Keep variants specific; commas
+separate them.
 
 ## Understand Where Corrections Apply
 
@@ -109,7 +135,8 @@ local corrector. Deletion cannot retract data already sent.
 
 The Dictionary does not fix typed text, history, bad audio, the wrong
 microphone, wake detection, reply language, voice, or pronunciation. It cannot
-force provider hints or infer a homophone without a repeatable pattern.
+force provider hints. When recognition writes a different real word instead of
+yours, it needs that word under **Heard as**.
 
 Use [Audio and Wake Word](audio-and-wake-word) for capture or activation
 problems and [Voice Conversations](voice-conversations) for Pipeline and
@@ -119,16 +146,16 @@ Realtime behavior.
 
 1. The microphone, language, and active path produce raw text; wake detection
    happens earlier.
-2. Explicit replacements run first, then capitalization and cautious
-   single-word repair.
+2. Explicit replacements run first, then capitalization, then the match by
+   sound.
 3. Pipeline sends corrected text to the assistant, Realtime uses it locally,
    and Dictation may polish it before insertion.
 4. A fallback can change the provider while local rules remain.
 
 ## Check That It Works
 
-1. Say one harmless phrase and note a repeatable wrong term.
-2. Add the intended form with that exact form under **Heard as**, then save.
+1. Say one harmless phrase and note the wrong term.
+2. Add the intended form and save.
 3. Wait one second, then repeat the phrase in the same path.
 4. Confirm the Pipeline/Realtime transcript or Dictation draft shows the saved
    form. No app restart should be needed for local correction.
@@ -137,8 +164,10 @@ Realtime behavior.
 
 | What you see | Likely cause | What to do |
 |---|---|---|
-| The next transcript is unchanged | The provider produced a different form, or reload has not happened | Wait one second and add the exact new variant |
-| A plain word does not repair the error | The difference is too large, multi-word, or ambiguous | Fill in **Heard as** with the exact source |
+| The next transcript is unchanged | Reload has not happened, or recognition wrote something that does not sound like the word | Wait one second; then add what it wrote under **Heard as** |
+| A real word appears instead of yours | An ordinary word is never changed by sound | Fill in **Heard as** with that word |
+| A short name stays wrong | Short words are matched by the same sound only | Fill in **Heard as** with the wrong spelling |
+| Another person's name turns into your word | The name is in no word list and sounds like your word | Add that name as its own entry |
 | Realtime transcript is fixed but its reply is not | The provider interpreted audio before local correction | Retry in Pipeline when corrected text must drive the answer |
 | An unrelated phrase changes | A variant is too broad or shared across entries | Make it more specific, remove the duplicate mapping, or delete it |
 | Recognition varies every time | Audio, language, or provider behavior is unstable | Check microphone and input language before adding more rules |

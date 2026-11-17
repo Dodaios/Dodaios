@@ -10,7 +10,7 @@ from dodaios.brain.lead_ecosystem import (
     render_ecosystem_map,
     section_read_paths,
 )
-from dodaios.plugins.tool.navigate import KNOWN
+from dodaios.plugins.tool.navigate import KNOWN, RETIRED_SECTIONS
 
 
 @pytest.fixture(scope="module")
@@ -55,14 +55,21 @@ def get_paths() -> frozenset[str]:
 
 def test_every_sidebar_section_is_in_the_map_exactly_once() -> None:
     placed = [section for area in AREAS for section in area.sections]
+    live = set(KNOWN) - set(RETIRED_SECTIONS)
     assert sorted(placed) == sorted(set(placed)), "a section sits in two areas"
-    assert set(placed) == set(KNOWN), (
-        f"missing from the map: {sorted(set(KNOWN) - set(placed))}; "
-        f"not a sidebar section: {sorted(set(placed) - set(KNOWN))}"
+    assert set(placed) == live, (
+        f"missing from the map: {sorted(live - set(placed))}; "
+        f"not a live sidebar section: {sorted(set(placed) - live)}"
     )
     text = render_ecosystem_map()
-    for section in KNOWN:
+    for section in live:
         assert section in text, section
+
+
+def test_the_map_names_no_retired_agent_society() -> None:
+    text = render_ecosystem_map()
+    assert "Dodaios agents" not in text
+    assert "society-create-agent" not in text
 
 
 def test_every_sidebar_section_has_a_lead_read_path() -> None:

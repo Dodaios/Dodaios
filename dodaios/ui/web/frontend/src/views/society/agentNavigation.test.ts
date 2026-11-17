@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import {
   findCard,
@@ -30,36 +31,41 @@ afterEach(() => {
 });
 
 describe("openAgent", () => {
-  it("records the request once and switches to the Agents section", () => {
+  it("lands in the assistant's conversation, never on the retired Agents page", () => {
+    useEventStore.setState({ activeSection: "memory" });
     openAgent("scout", { sessionId: "society:scout", cardRef: "q1", kind: "question" });
-    expect(useEventStore.getState().activeSection).toBe("agents");
-    const taken = takeAgentRequest();
-    expect(taken).toMatchObject({ agentId: "scout", cardRef: "q1", kind: "question" });
+    expect(useEventStore.getState().activeSection).toBe("chats");
     expect(takeAgentRequest()).toBeNull();
   });
 
-  it("gives two requests for the same agent different identities", () => {
-    openAgent("scout");
-    const first = useAgentNavigation.getState().request;
-    openAgent("scout");
-    expect(useAgentNavigation.getState().request?.nonce).not.toBe(first?.nonce);
+  it("opens the chat a card lives in when it is not the conversation itself", () => {
+    const openSession = vi.fn();
+    useAgentChatStore.setState({ activeSessionId: "other", openSession } as never);
+    openAgent("jarvis", { sessionId: "s-7", cardRef: "a1", kind: "approval" });
+    expect(openSession).toHaveBeenCalledWith("s-7");
+    openSession.mockClear();
+    openAgent("jarvis", { sessionId: "society:jarvis" });
+    expect(openSession).not.toHaveBeenCalled();
   });
 
   it("ignores an empty agent id", () => {
+    useEventStore.setState({ activeSection: "memory" });
     openAgent("");
-    expect(useAgentNavigation.getState().request).toBeNull();
-    expect(useEventStore.getState().activeSection).toBe("chats");
+    expect(useEventStore.getState().activeSection).toBe("memory");
   });
 });
 
 describe("on screen", () => {
-  it("counts only while the Agents section shows that agent", () => {
+  it("counts the assistant as on screen while its conversation is in front", () => {
+    expect(isAgentOnScreen("jarvis")).toBe(true);
+    useEventStore.setState({ activeSection: "memory" });
+    expect(isAgentOnScreen("jarvis")).toBe(false);
+  });
+
+  it("never counts another agent: its page is retired", () => {
     setAgentOnScreen({ agentId: "scout" });
-    expect(isAgentOnScreen("scout")).toBe(false); // another section is in front
-    useEventStore.setState({ activeSection: "agents" });
-    expect(isAgentOnScreen("scout")).toBe(true);
-    expect(isAgentOnScreen("brain")).toBe(false);
-    setAgentOnScreen(null);
+    expect(isAgentOnScreen("scout")).toBe(false);
+    useEventStore.getState().setActiveSection("agents");
     expect(isAgentOnScreen("scout")).toBe(false);
   });
 });

@@ -344,13 +344,13 @@ describe("VisualizationView", () => {
     renderView();
 
     // The library card carries the page's title, not the filename, and a page
-    // a worker built sits among the designs.
+    // a worker built sits among the docs.
     const rows = await screen.findAllByTestId("node-card");
     expect(rows).toHaveLength(1);
     expect(rows[0].getAttribute("data-node-key")).toBe(DASH_KEY);
     expect(rows[0].textContent).toContain("Umsatz-Dashboard");
     expect(rows[0].textContent).not.toContain("umsatz-dashboard.html");
-    expect(rows[0].getAttribute("data-node-type")).toBe("design");
+    expect(rows[0].getAttribute("data-node-type")).toBe("docs");
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
     fireEvent.click(rows[0]);
 
@@ -519,8 +519,8 @@ describe("VisualizationView", () => {
 
     const cards = await screen.findAllByTestId("node-card");
     expect(cards).toHaveLength(2);
-    // A PDF is a document, a picture a design.
-    expect(cards.map((card) => card.getAttribute("data-node-type"))).toEqual(["docs", "design"]);
+    // A PDF and a picture are both docs.
+    expect(cards.map((card) => card.getAttribute("data-node-type"))).toEqual(["docs", "docs"]);
     fireEvent.click(cards[0]);
     const frame = await screen.findByTestId("visualization-frame");
     // The browser's PDF viewer is a plugin; a sandboxed frame would stay blank.

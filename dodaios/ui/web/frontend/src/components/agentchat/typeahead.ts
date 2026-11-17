@@ -191,6 +191,19 @@ export function knownTokenSpans(
 }
 
 /**
+ * The slash command a sent message opens with, as a span; null when it has none.
+ *
+ * A sent message is drawn without the seat's list at hand, so the shape
+ * decides: a `/name` as the first word, ended by a space or the message's
+ * end. A path (`/usr/bin`) has a second slash and does not count.
+ */
+export function sentCommandSpan(text: string): TokenSpan | null {
+  const command = /^(\s*)\/[A-Za-z0-9][\w:.-]*(?=\s|$)/.exec(text);
+  if (!command) return null;
+  return { start: command[1].length, end: command[0].length };
+}
+
+/**
  * Catalog rows (`/api/agent-chat/tools`) as `@` rows, in the Add menu's order
  * and with its rules: connectors, not the skills behind them, and nothing
  * disconnected until someone types a name.

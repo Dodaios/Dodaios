@@ -14,7 +14,7 @@ import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadHeader } from "./ThreadHeader";
 import { ThreadMenuItem, ThreadPopover } from "./ThreadPopover";
-import { MagicWords, ThreadTimeline } from "./ThreadTimeline";
+import { MagicWords, SlashCommands, ThreadTimeline } from "./ThreadTimeline";
 import { MAGIC_WORD_RUNNERS } from "@/lib/magicWords";
 import { OpenSubagent, SubagentDock, SubagentHeader } from "./ThreadSubagents";
 import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
@@ -85,8 +85,11 @@ export function ThreadView({ onScreen, column }: {
     ? (activeSession?.session_id === selection.sessionId ? activeSession : sessions.find((row) => row.session_id === selection.sessionId) ?? null)
     : null;
   // Claude Code acts on "ultrathink" / "ultracode": its sent messages show them in the rainbow.
-  const sessionRunner = catalog?.providers.find((row) => row.id === session?.provider)?.runner ?? "";
+  const sessionRow = catalog?.providers.find((row) => row.id === session?.provider);
+  const sessionRunner = sessionRow?.runner ?? "";
   const magicWords = MAGIC_WORD_RUNNERS.has(sessionRunner);
+  // An agent that reads slash commands: a sent "/goal" shows in the command blue.
+  const slashCommands = Boolean(sessionRow?.typeahead?.includes("/"));
   const fallbackProject = visible.find((project) => project.workspaces.some((workspace) => workspace.id === activeWorkspaceId)) ?? visible[0] ?? null;
   const project = visible.find((entry) => entry.id === selection.projectId)
     ?? (session ? visible.find((entry) => entry.id === projectIdFor(session, visible, projectOf)) : undefined)
@@ -339,7 +342,7 @@ export function ThreadView({ onScreen, column }: {
           <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce + (onScreen ? 1 : 0)} strip={strip} onScreen={onScreen} />
         </div>
       </div>
-      : <MagicWords.Provider value={magicWords}><OpenSubagent.Provider value={setOpenAgent}>
+      : <MagicWords.Provider value={magicWords}><SlashCommands.Provider value={slashCommands}><OpenSubagent.Provider value={setOpenAgent}>
         {agent
           ? <ThreadTimeline items={agentItems} sessionId={`agent:${agent.id}`} bottomInset={composerHeight} folder={folder}
             lead={<SubagentHeader entry={agent} path={agentPath} onOpen={setOpenAgent} />} />
@@ -353,7 +356,7 @@ export function ThreadView({ onScreen, column }: {
               tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />
           </div>
         </div>
-      </OpenSubagent.Provider></MagicWords.Provider>}
+      </OpenSubagent.Provider></SlashCommands.Provider></MagicWords.Provider>}
   </div>;
 }
 

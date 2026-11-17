@@ -15,7 +15,6 @@ export const NODE_TYPE_LABEL_KEY: Record<CardType, string> = {
   docs: "nodes.type.docs",
   slides: "nodes.type.slides",
   sheets: "nodes.type.sheets",
-  design: "nodes.type.design",
   data: "nodes.type.data",
   whiteboard: "nodes.type.whiteboard",
   motion: "nodes.type.motion",

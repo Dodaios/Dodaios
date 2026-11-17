@@ -46,6 +46,8 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     the disk fallbacks are what get exercised.
     """
     monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: None)
+    # Never read the developer's real macOS Keychain from a unit test.
+    monkeypatch.setattr(agent_usage, "_claude_keychain_bearer", lambda config_dir: None)
 
 
 def _account(platform: str, config_dir: Path, *, builtin: bool = False) -> AgentAccount:
@@ -160,6 +162,53 @@ def test_claude_without_any_login_says_signed_out_rather_than_zero_percent(
     usage = agent_usage.read_usage(_account("claude", tmp_path))
     assert usage.status == "signed_out"
     assert usage.windows == ()
+
+
+def test_claude_reads_live_usage_with_the_keychain_bearer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2026-11-17: on macOS the login lives only in the Keychain, so no seat was
+    ever measured and automatic switching never moved a spent seat."""
+    from dodaios import claude_credentials
+
+    monkeypatch.setattr(claude_credentials, "_keychain_item_exists", lambda _service: True)
+    monkeypatch.setattr(
+        agent_usage, "_claude_keychain_bearer", lambda config_dir: "sk-ant-oat01-kc"
+    )
+    sent: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        agent_usage,
+        "_http_get_json",
+        lambda url, headers: sent.append(headers) or CLAUDE_LIMITS_PAYLOAD,
+    )
+    usage = agent_usage.read_usage(_account("claude", tmp_path))
+    assert usage.status == "ok"
+    assert usage.source == "live"
+    assert sent and sent[0]["Authorization"] == "Bearer sk-ant-oat01-kc"
+
+
+def test_default_claude_seat_reads_the_account_file_beside_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without CLAUDE_CONFIG_DIR, Claude Code keeps ~/.claude.json, not ~/.claude/.claude.json."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude.json").write_text(
+        json.dumps(
+            {
+                "oauthAccount": {"organizationRateLimitTier": "default_claude_max_20x"},
+                "cachedUsageUtilization": {
+                    "fetchedAtMs": 1786557552405,
+                    "utilization": CLAUDE_LIMITS_PAYLOAD,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    usage = agent_usage.read_usage(_account("claude", tmp_path / ".claude", builtin=True))
+    assert usage.status == "ok"
+    assert usage.source == "cached"
+    assert usage.plan is not None
 
 
 def test_an_unmapped_plan_tier_is_still_shown_readably(tmp_path: Path) -> None:

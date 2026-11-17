@@ -89,7 +89,6 @@ DEFAULT_TITLES: Final[dict[str, str]] = {
     "docs": "Untitled document",
     "slides": "Untitled deck",
     "sheets": "Untitled sheet",
-    "design": "Untitled design",
     "data": "Untitled dashboard",
     "whiteboard": "Untitled whiteboard",
     "motion": "Untitled animation",
@@ -556,23 +555,26 @@ async def run_board_actions(node_id: str, request: Request) -> dict[str, Any]:
     Body ``{actions: [...]}`` (the tool's ``edit`` actions). All actions or
     none: an action that fails is a 400 naming it, and the board stays as it
     was. Saved as an ordinary revision (one history version). Answers
-    ``{version, report, summary}``: one report line per action, and the
-    board's element count and bounds.
+    ``{version, report, summary, check}``: one report line per action, the
+    board's element count and bounds, and the board's self-check of what the
+    actions made or changed (``board.check``; empty when all is clear).
     """
     await _require_board(node_id)
     body = _body(ActionsBody, await _read_json(request, MAX_ACTIONS_BODY))
     store = get_store()
 
-    def run() -> tuple[Node, list[str]]:
+    def run() -> tuple[Node, list[str], list[str]]:
+        from dodaios.nodes.board.check import changed_ids, problems
         from dodaios.nodes.board.ops import apply_actions
 
         with store.locked(node_id):
             _, scene = store.scene_of(node_id)
             new_scene, report = apply_actions(scene, body.actions)
-            return store.update(node_id, spec=new_scene), list(report)
+            node = store.update(node_id, spec=new_scene)
+        return node, list(report), problems(new_scene, changed_ids(scene, new_scene))
 
     try:
-        node, report = await asyncio.to_thread(run)
+        node, report, issues = await asyncio.to_thread(run)
     except ImportError as exc:
         log.warning("whiteboard actions unavailable", exc_info=True)
         raise HTTPException(
@@ -580,7 +582,12 @@ async def run_board_actions(node_id: str, request: Request) -> dict[str, Any]:
         ) from exc
     except NodeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"version": node.version, "report": report, "summary": _summary(node.spec)}
+    return {
+        "version": node.version,
+        "report": report,
+        "summary": _summary(node.spec),
+        "check": issues,
+    }
 
 
 @router.delete("/{node_id}")

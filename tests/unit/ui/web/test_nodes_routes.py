@@ -276,7 +276,7 @@ def test_create_refuses_a_type_that_does_not_exist(client: TestClient, store: No
     response = client.post("/api/nodes", json={"type": "poem"})
     assert response.status_code == 400
     assert response.json() == {
-        "detail": "'type' must be one of: docs, slides, sheets, design, data, whiteboard, motion."
+        "detail": "'type' must be one of: docs, slides, sheets, data, whiteboard, motion."
     }
     assert client.post("/api/nodes", json={}).status_code == 422
     assert store.list_nodes() == []
@@ -695,6 +695,7 @@ def test_actions_run_on_the_board_and_save_one_revision(
         "version": 2,
         "report": ["added new"],
         "summary": {"elements": 1, "bounds": [10, 20, 90, 60]},
+        "check": [],
     }
     assert seen[0][1] == [{"do": "add"}] and seen[0][0]["format"] == "scene"
     run_dir = boards.dir_of(node.id)

@@ -524,3 +524,90 @@ class TestWrapper:
         result = await wrapped.transcribe_pcm(b"")
         assert result.text == "GitHub auf"
         assert result.language == "de"
+
+
+# ----------------------------------------------------------------------
+# Sound — the word is found however the recognizer spelled it
+# ----------------------------------------------------------------------
+
+
+class TestSound:
+    """Reported 2026-11-17: the product name was in the dictionary and still
+    arrived wrong in most dictations, because no listed spelling matched what
+    the recognizer wrote that day. One registered word now covers them all.
+    """
+
+    @pytest.mark.parametrize(
+        ("heard", "meant"),
+        [
+            ("dass Dodios als Vokabel", "dass Dodaios als Vokabel"),  # i18n-allow
+            ("in unser Dios Projekt los", "in unser Dodaios Projekt los"),  # i18n-allow
+            ("wie du Dios die Canvas baut", "wie Dodaios die Canvas baut"),  # i18n-allow
+            ("wirklich um die Dios gehen", "wirklich um Dodaios gehen"),  # i18n-allow
+            ("von Diodios vornimmt", "von Dodaios vornimmt"),  # i18n-allow
+            ("meine Dodios-Website", "meine Dodaios-Website"),
+            ("unsere Dios-Maskottchen", "unsere Dodaios-Maskottchen"),  # i18n-allow
+            ("Hauptagent Odaios chattet", "Hauptagent Dodaios chattet"),
+            ("zum Beispiel CluedCode, Codex", "zum Beispiel Claude Code, Codex"),  # i18n-allow
+        ],
+    )
+    def test_verbatim_dictations_come_out_right(self, heard: str, meant: str) -> None:
+        corrector = TranscriptCorrector(
+            [
+                # The shipped entry: a bare "Dios" is its covered-only mishearing.
+                sd.DictionaryEntry(id="default-dodaios", word="Dodaios"),
+                sd.DictionaryEntry(id="1", word="Claude Code", misheard=("cloud code",)),
+                sd.DictionaryEntry(id="2", word="Claude"),
+            ]
+        )
+        assert corrector.correct(heard, "de") == meant
+
+    def test_ordinary_speech_is_left_alone(self) -> None:
+        c = corrector_for(
+            ("Dodaios", []), ("Notion", []), ("Claude", []), ("Grok", []), ("Linear", [])
+        )
+        for said in (
+            "Die Nation hat ein Lineal und eine Klausel.",  # i18n-allow
+            "Das ist grob gesagt eine Cloud.",  # i18n-allow
+            "Here's the clause about motion.",
+            "Wir reden heute über das Wetter und die Arbeit.",  # i18n-allow
+        ):
+            assert c.correct(said, "de") == said
+
+    def test_a_language_the_word_lists_do_not_cover_gets_exact_sounds_only(self) -> None:
+        c = corrector_for(("Dodaios", []))
+        assert c.correct("hablamos de Dodios y Dodayos", "es") == (
+            "hablamos de Dodios y Dodaios"
+        )
+
+    def test_without_a_language_the_text_itself_is_judged(self) -> None:
+        c = corrector_for(("Dodaios", []))
+        assert c.correct("Ich arbeite heute mit Dodios") == (  # i18n-allow
+            "Ich arbeite heute mit Dodaios"  # i18n-allow
+        )
+        assert c.correct("hablamos mucho de Dodios") == "hablamos mucho de Dodios"
+
+    def test_a_provider_label_that_is_no_language_is_not_trusted(self) -> None:
+        c = corrector_for(("Dodaios", []))
+        for label in ("auto-detected", "auto", "", None):
+            assert c.correct("Ich arbeite heute mit Dodios", label) == (  # i18n-allow
+                "Ich arbeite heute mit Dodaios"  # i18n-allow
+            )
+
+    def test_a_listed_phrase_also_matches_with_a_hyphen(self) -> None:
+        c = corrector_for(("GitHub", ["Git Hub"]))
+        assert c.correct("push to Git-Hub") == "push to GitHub"
+
+    def test_correcting_twice_changes_nothing_more(self) -> None:
+        c = corrector_for(("Dodaios", []), ("Agentic IDE", ["Genetic-ID"]))
+        once = c.correct("wie du Dios die Genetic-ID baut", "de")  # i18n-allow
+        assert c.correct(once, "de") == once
+
+    async def test_the_wrapper_hands_the_transcript_language_on(
+        self, store: DictionaryStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sd, "_RELOAD_CHECK_INTERVAL_S", 0.0)
+        store.add("Vokando")
+        wrapped = DictionaryCorrectingSTT(_FakeSTT("mit Vokandu arbeiten"), store=store)
+        result = await wrapped.transcribe_pcm(b"\x00\x00")
+        assert result.text == "mit Vokando arbeiten"

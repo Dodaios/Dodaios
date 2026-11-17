@@ -173,8 +173,19 @@ def test_render_lists_hands_by_grant_mode():
     )
 
 
-def test_the_rule_block_names_the_tools():
+def test_without_a_team_the_card_names_only_the_terminals():
+    """Named agents are retired: no society rule rides along with the terminals."""
     card = render_lead_card([], [], lead_name="George", terminals=["T1"])
+    assert card == "Coding terminals open in the Agentic IDE right now: T1."
+    assert "society" not in card
+
+
+def test_the_rule_block_names_the_tools():
+    helper = SimpleNamespace(
+        agent_id="helper", name="Helper", title="", description="", tier="specialist",
+        state="active", focus=[], grants=[], denies=[], grant_mode="all", updated_ms=1,
+    )
+    card = render_lead_card([helper], [], lead_name="George", terminals=["T1"])
     assert "delegate_to_agent" in card
     assert "society_status" in card
     assert "message_agent, never gmail" in card

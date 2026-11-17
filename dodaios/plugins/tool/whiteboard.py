@@ -32,7 +32,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
-from dodaios.nodes.board import ops
+from dodaios.nodes.board import check, ops
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import NodeStore
 from dodaios.nodes.types import NodeError
@@ -65,21 +65,31 @@ every id. An id may also be the exact label of one thing.
 
 Position (add, diagram, mermaid; move): leave it out and the board finds a free place right \
 of the content (several adds in one call flow in rows), or say "near"/"right_of"/"left_of"/\
-"below"/"above": ID (optional "gap"), or "inside": FRAME_ID, or exact "x","y" (pixels, \
-y grows downwards). Nothing new overlaps what is there.
+"below"/"above": ID (optional "gap"; below/above line up the left edges, right_of/left_of \
+the tops), or "inside": FRAME_ID, or exact "x","y" (pixels, y grows downwards). Nothing new \
+overlaps what is there.
 
 Style keys (add, update, style, diagram nodes, edges): "color" (palette name: black, gray, \
 red, pink, grape, violet, indigo, blue, cyan, teal, green, lime, yellow, orange, bronze; \
 sets stroke and fill), "fill", "stroke" (palette name, "blue-1" for a shade 0-4, \
 "light blue", hex, or "none"), "fill_style" (solid|hachure|cross-hatch|zigzag), \
 "stroke_width" (thin|bold|extra or px), "stroke_style" (solid|dashed|dotted), "roughness" \
-(0 clean, 1 sketchy, 2 rough), "opacity" (0-100), "font" (hand|normal|code), "size" \
-(s|m|l|xl or px; default m = 20), "align" (left|center|right), "text_color", "rounded" \
-(true|false), "link" (https:// or mailto:), "locked", "angle" (degrees).
+(0 clean = default, 1 sketchy, 2 rough), "opacity" (0-100), "font" (normal = default|hand|\
+code), "size" (s|m|l|xl or px; default m = 20), "align" (left|center|right), "text_color", \
+"rounded" (true|false), "link" (https:// or mailto:), "locked", "angle" (degrees).
 
-Defaults that look good: boxes blue, decisions (diamond) yellow, start/end (ellipse) green, \
-notes yellow sticky boxes, one size per kind, 20 px grid. A colour should mean one thing \
-across a board (a team, a state), not decorate.
+Defaults that look good: clean lines and a sans font (ask for roughness 1 and font hand \
+only for a deliberate sketch), boxes blue, decisions (diamond) yellow, start/end (ellipse) \
+green, notes yellow sticky boxes, one width per kind with heights that follow the text, \
+20 px grid. A colour should mean one thing across a board (a team, a state), not decorate.
+
+Design like a designer: decide the structure first: a title, then 2-6 sections in reading \
+order. One idea per box: the number first, then a few words ("389 stars" over "+44 this \
+week"). Hierarchy through size: title xl, card labels m, notes s. One colour per meaning. \
+Build a dashboard or overview as ONE diagram with "groups" (each a section) and "layout": \
+"grid": sections become top-aligned panels, cards in a row share a height; put it \
+"below" the title. Every create/edit result ends with "Check:" lines; fix every issue \
+they name with one more 'edit' before you answer.
 
 Actions:
 - add: one thing, or "items": [...] for several. "type": box | rect (sharp) | rounded | \
@@ -200,7 +210,8 @@ class WhiteboardTool:
         "frame | align | style | ...}); 'read' lists what is on it with ids; 'list' shows the "
         "boards; 'duplicate' and 'revert' as named. Call 'guide' once before your first "
         "edit: it has every action and its fields. Do not place things by hand unless asked: "
-        "the board lays them out on a grid and never overlaps what is there."
+        "the board lays them out on a grid and never overlaps what is there. A create or "
+        "edit result ends with 'Check:' lines; fix what they name before you answer."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -331,10 +342,12 @@ class WhiteboardTool:
             else "It is in the Nodes section (no card could be posted)"
         )
         lines = "\n".join(report)
+        checked = check.report(scene) if actions else ""
         text = (
             f"Created the whiteboard '{node.title}' (board id {node.id}, version {node.version}). "
             f"{where}; the person can draw on it too."
             + (f"\n{lines}" if lines else "")
+            + (f"\n{checked}" if checked else "")
             + "\nAnswer briefly; do not describe the board element by element."
         )
         return ToolResult(True, jobs.with_job_id(text, job_id, ctx))
@@ -366,22 +379,27 @@ class WhiteboardTool:
             )
         title = _text(args.get("title"))
 
-        def run() -> tuple[Node, list[str]]:
+        def run() -> tuple[Node, list[str], str]:
             # Under the node's lock, on the scene as stored now: a save from the
             # editor cannot land between this read and the write.
             with store.locked(node.id):
                 _, scene = store.scene_of(node.id)
                 new_scene, report = ops.apply_actions(scene, actions)
-                return store.update(node.id, spec=new_scene, title=title), report
+                updated = store.update(node.id, spec=new_scene, title=title)
+            # Only what this call made or changed is checked: the person's own
+            # strokes are theirs.
+            return updated, report, check.report(new_scene, check.changed_ids(scene, new_scene))
 
-        updated, report = await asyncio.to_thread(run)
+        updated, report, checked = await asyncio.to_thread(run)
         if not _called_in_background(ctx):
             await post_card(
                 session_of(ctx), page_card(updated.title, updated.visual_id, node_type=updated.type)
             )
         return ToolResult(
             True,
-            f"Board '{updated.title}' is now version {updated.version}.\n" + "\n".join(report),
+            f"Board '{updated.title}' is now version {updated.version}.\n"
+            + "\n".join(report)
+            + f"\n{checked}",
         )
 
     async def _duplicate(

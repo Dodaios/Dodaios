@@ -75,7 +75,7 @@ const SHEET = card("sheet", {
 });
 const LOGO = card("logo", {
   title: "Logo sketch",
-  type: "design",
+  type: "docs",
   origin: "file",
   path: "logo-sketch.png",
   visual_kind: "image",
@@ -127,7 +127,7 @@ describe("search and type filter", () => {
   });
 
   it("narrows to one type, or leaves the list alone", () => {
-    expect(keys(filterByType(ALL, "design"))).toEqual(["logo"]);
+    expect(keys(filterByType(ALL, "slides"))).toEqual(["deck"]);
     expect(keys(filterByType(ALL, "all"))).toEqual(keys(ALL));
   });
 

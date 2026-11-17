@@ -14,6 +14,9 @@ assets/demo/readme/agents.webp
 assets/demo/readme/voice.webp
 assets/demo/readme/nodes.webp
 assets/demo/readme/dodaios-demo.mp4
+# A still of the video at the top: the README shows it, linked to the MP4,
+# until the video is uploaded to GitHub's player (17 November 2026).
+assets/demo/readme/dodaios-demo-poster.webp
 # The clip that stood at the top until 15 November 2026. The project page on
 # PyPI of every release up to 5.3.3 still shows it from this path. Delete it
 # once a newer release is on PyPI.

@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { BuildingMini, DocumentMini, LivePage, PEEK_RETURN_MS, PictureCover, canvasSize } from "./covers/live";
+import { BuildingMini, DocumentMini, LivePage, PEEK_RETURN_MS, PictureCover } from "./covers/live";
 import {
   DataMini,
   DocsMini,
@@ -44,12 +44,7 @@ function revisionOf(card: NodeCard): string {
 }
 
 /** A page shown as a live miniature, when the card has a file to show. */
-function livePage(
-  card: NodeCard,
-  canvas: { width: number; height: number } | null,
-  background: string,
-  peek: boolean,
-) {
+function livePage(card: NodeCard, peek: boolean) {
   if (card.path === null || card.path === "") return <PlaceholderMini />;
   return (
     <LivePage
@@ -57,8 +52,6 @@ function livePage(
       path={card.path}
       title={card.title}
       revision={revisionOf(card)}
-      canvas={canvas}
-      background={background}
       peek={peek}
     />
   );
@@ -98,8 +91,6 @@ function PeekPage({ card, peek }: { card: NodeCard; peek: boolean }) {
         path={card.path}
         title={card.title}
         revision={revisionOf(card)}
-        canvas={null}
-        background=""
         peek={peek && drawn}
         onShown={onShown}
       />
@@ -112,7 +103,7 @@ function adoptedMiniature(card: NodeCard, peek: boolean) {
   if (card.path === null || card.path === "") return <PlaceholderMini />;
   switch (card.visual_kind) {
     case "page":
-      return livePage(card, null, "", peek);
+      return livePage(card, peek);
     case "image":
     case "vector":
       return <PictureCover key={card.key} slug={card.slug} path={card.path} whole={card.visual_kind === "vector"} />;
@@ -146,12 +137,6 @@ const Miniature = memo(function Miniature({ card, peek }: { card: NodeCard; peek
       return <WhiteboardMini preview={previewOf(card, "whiteboard")} />;
     case "motion":
       return <MotionMini preview={previewOf(card, "motion")} />;
-    case "design": {
-      const preview = previewOf(card, "design");
-      const canvas = preview?.fit === "canvas" ? canvasSize(preview.width, preview.height) : null;
-      const background = typeof preview?.background === "string" ? preview.background.trim() : "";
-      return livePage(card, canvas, background, peek);
-    }
     case "output":
       return <OutputMini preview={previewOf(card, "output")} />;
     default:

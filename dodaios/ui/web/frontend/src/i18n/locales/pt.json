@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "Para textos que ficam: notas, resumos, relatórios, planos.",
         "slides": "Para contar algo página a página: uma proposta, um ponto de situação, um balanço.",
         "sheets": "Para linhas e colunas: listas, orçamentos, comparações, acompanhamentos.",
-        "design": "Para uma página desenhada: um resumo de uma página, um cartaz, um convite.",
         "data": "Análises a partir dos teus dados: ficheiros, apps, contas, carteiras. Sempre atualizadas, se quiseres.",
         "whiteboard": "Para pensar com notas: ideias, grupos, um plano na parede.",
         "motion": "Para um filme curto: um genérico, uma explicação animada."
@@ -11837,7 +11835,6 @@
         "docs": "p. ex. Um resumo de uma página para o novo site, com objetivos, âmbito e questões em aberto",
         "slides": "p. ex. Dez diapositivos sobre o último trimestre para a reunião de segunda-feira",
         "sheets": "p. ex. As nossas subscrições com custo mensal, data de renovação e responsável",
-        "design": "p. ex. Um convite para a festa de verão de 12 de julho, caloroso e simples",
         "data": "p. ex. Valor e desempenho da minha carteira, por posição e ao longo do tempo",
         "whiteboard": "p. ex. Ideias para o lançamento do produto, agrupadas por canal",
         "motion": "p. ex. Um genérico de 20 segundos para o vídeo do produto com as nossas três mensagens"
@@ -11857,11 +11854,6 @@
           "a": "Um orçamento deste ano por meses",
           "b": "Uma comparação de três fornecedores",
           "c": "Um acompanhamento de tarefas em aberto"
-        },
-        "design": {
-          "a": "Um resumo de uma página sobre o nosso produto",
-          "b": "Um cartaz para um evento",
-          "c": "Uma ementa para um jantar"
         },
         "data": {
           "a": "A minha carteira: valor, posições e desempenho",
@@ -11889,7 +11881,6 @@
         "docs": "Documento sem título",
         "slides": "Apresentação sem título",
         "sheets": "Folha sem título",
-        "design": "Design sem título",
         "data": "Análise sem título",
         "whiteboard": "Quadro sem título",
         "motion": "Clipe sem título"
@@ -12050,12 +12041,97 @@
       "saving": "A guardar…",
       "saved": "Guardado",
       "save_failed": "Ainda não foi guardado. Volta a tentar sozinho.",
-      "welcome": {
-        "heading": "Desenhe, escreva e ligue. Este quadro guarda-se sozinho.",
-        "assistant": "Ou peça a {assistant} para desenhar algo aqui.",
-        "menu": "Abrir, exportar como imagem, fundo, ajuda",
-        "toolbar": "Escolha uma ferramenta e comece",
-        "help": "Atalhos de teclado"
+      "tool": {
+        "label": "Ferramentas",
+        "selection": "Selecionar",
+        "hand": "Mover a vista",
+        "frame": "Moldura",
+        "rectangle": "Retângulo",
+        "ellipse": "Elipse",
+        "diamond": "Losango",
+        "arrow": "Seta",
+        "line": "Linha",
+        "freedraw": "Desenhar",
+        "text": "Texto",
+        "note": "Nota adesiva",
+        "image": "Imagem",
+        "eraser": "Borracha",
+        "laser": "Ponteiro laser",
+        "more": "Mais ferramentas",
+        "mermaid": "Diagrama Mermaid",
+        "library": "Biblioteca"
+      },
+      "inspector": {
+        "stroke": "Contorno",
+        "text_color": "Cor do texto",
+        "fill": "Preenchimento",
+        "custom": "Escolher uma cor",
+        "width": "Espessura",
+        "thin": "Fina",
+        "regular": "Normal",
+        "bold": "Grossa",
+        "style": "Linha",
+        "solid": "Contínua",
+        "dashed": "Tracejada",
+        "dotted": "Pontilhada",
+        "corners": "Cantos",
+        "sharp": "Retos",
+        "round": "Arredondados",
+        "look": "Estilo",
+        "clean": "Limpo",
+        "sketch": "Esboço",
+        "arrowheads": "Pontas de seta",
+        "arrow_none": "Sem pontas",
+        "arrow_end": "Seta no fim",
+        "arrow_both": "Setas nas duas pontas",
+        "font": "Tipo de letra",
+        "sans": "Sans",
+        "hand": "Manuscrita",
+        "mono": "Monoespaçada",
+        "size": "Tamanho",
+        "align": "Alinhar",
+        "left": "Esquerda",
+        "center": "Centro",
+        "right": "Direita",
+        "opacity": "Opacidade",
+        "front": "Trazer para a frente",
+        "back": "Enviar para trás",
+        "group": "Agrupar",
+        "ungroup": "Desagrupar",
+        "duplicate": "Duplicar",
+        "lock": "Bloquear",
+        "delete": "Eliminar"
+      },
+      "menu": {
+        "label": "Menu",
+        "export_image": "Exportar como imagem",
+        "save_file": "Guardar num ficheiro",
+        "open_file": "Abrir um ficheiro",
+        "open_failed": "Este ficheiro não pode ser aberto como quadro.",
+        "find": "Procurar no quadro",
+        "grid_on": "Mostrar a grelha",
+        "grid_off": "Ocultar a grelha",
+        "shortcuts": "Atalhos de teclado",
+        "background": "Fundo",
+        "background_default": "Pontilhado (predefinido)",
+        "clear": "Limpar o quadro",
+        "clear_confirm": "Remover tudo?",
+        "clear_yes": "Limpar"
+      },
+      "zoom": {
+        "in": "Aproximar",
+        "out": "Afastar",
+        "fit": "Ver o quadro todo",
+        "reset": "Zoom a 100 %"
+      },
+      "undo": "Anular",
+      "redo": "Refazer",
+      "live": {
+        "drawing": "{assistant} está a desenhar"
+      },
+      "empty": {
+        "title": "Um quadro vazio",
+        "hint": "Escolha uma ferramenta em baixo, prima N para uma nota adesiva ou peça a {assistant} para desenhar algo aqui."
       }
     }
   },

@@ -226,14 +226,18 @@ export function useComposerTypeahead(
   // without the caret ever sitting in it.
   const opensWithSlash = seat.triggers.includes("/") && /^\s*\/\S/.test(value);
   const namesSkill = seat.triggers.includes("$") && /(^|\s)\$\S/.test(value);
+  // While a needed list is still missing, every change of the text asks
+  // again: a first read can fail (the CLI starting up) and must not leave the
+  // command uncoloured for good.
+  const missing = (opensWithSlash && !staticLists[`/|${seatKey}`]) || (namesSkill && !staticLists[`$|${seatKey}`]);
+  const retryOn = missing ? value : null;
   useEffect(() => {
     const wanted = seatRef.current;
     for (const [needed, staticTrigger] of [[opensWithSlash, "/"], [namesSkill, "$"]] as const) {
       if (!needed) continue;
-      // A failed read leaves the word uncoloured; the next keystroke asks again.
       readStatic(wanted, staticTrigger, `${staticTrigger}|${seatKey}`).catch(() => undefined);
     }
-  }, [opensWithSlash, namesSkill, seatKey, readStatic]);
+  }, [opensWithSlash, namesSkill, seatKey, readStatic, retryOn]);
 
   const slashList = staticLists[`/|${seatKey}`];
   const skillList = staticLists[`$|${seatKey}`];

@@ -8,7 +8,7 @@ import { leaves } from "@/lib/tilingLayout";
 
 const mounts = vi.hoisted(() => ({ ide: 0 }));
 vi.mock("@/views/ChatsSurface", () => ({ ChatsSurface: () => <div>Chat view</div> }));
-vi.mock("@/views/society/SocietyView", () => ({ SocietyView: () => <div>Agents view</div> }));
+vi.mock("@/views/BoardView", () => ({ BoardView: () => <div>Board view</div> }));
 vi.mock("@/views/MemoryView", () => ({ MemoryView: () => <div>Wiki view</div> }));
 vi.mock("@/views/AgenticIdeView", async () => {
   const { useEffect } = await import("react");
@@ -38,26 +38,26 @@ afterEach(() => {
 describe("MainView tiling", () => {
   it("shows several sections side by side and follows navigation in the focused tile", async () => {
     render(<MainView />);
-    act(() => useTilingStore.getState().openBeside("agents"));
+    act(() => useTilingStore.getState().openBeside("board"));
 
     expect(screen.getByTestId("tiling-stage")).toBeTruthy();
     expect(await screen.findByText("Chat view")).toBeTruthy();
-    expect(await screen.findByText("Agents view")).toBeTruthy();
+    expect(await screen.findByText("Board view")).toBeTruthy();
     expect(screen.getAllByTestId("tile")).toHaveLength(2);
     // The new tile has focus, so navigating replaces it.
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useEventStore.getState().activeSection).toBe("board");
     act(() => useEventStore.getState().setActiveSection("memory"));
     expect(await screen.findByText("Wiki view")).toBeTruthy();
-    expect(screen.queryByText("Agents view")).toBeNull();
+    expect(screen.queryByText("Board view")).toBeNull();
     expect(screen.getByText("Chat view")).toBeTruthy();
   });
 
   it("focuses the tile that already shows a section instead of opening it twice", () => {
     render(<MainView />);
-    act(() => useTilingStore.getState().openBeside("agents"));
+    act(() => useTilingStore.getState().openBeside("board"));
     act(() => useEventStore.getState().setActiveSection("chats"));
     const tree = useTilingStore.getState().tree;
-    expect(leaves(tree).map((item) => item.section)).toEqual(["chats", "agents"]);
+    expect(leaves(tree).map((item) => item.section)).toEqual(["chats", "board"]);
     expect(leaves(tree)[0].id).toBe(useTilingStore.getState().focusedId);
   });
 
@@ -65,7 +65,7 @@ describe("MainView tiling", () => {
     useEventStore.setState({ activeSection: "agentic-ide" });
     render(<MainView />);
     expect(await screen.findByText("IDE view")).toBeTruthy();
-    act(() => useTilingStore.getState().openBeside("agents"));
+    act(() => useTilingStore.getState().openBeside("board"));
     act(() => useTilingStore.getState().applyPreset("grid-4"));
     act(() => useTilingStore.getState().applyPreset("single"));
     expect(screen.getByText("IDE view")).toBeTruthy();
@@ -74,7 +74,7 @@ describe("MainView tiling", () => {
 
   it("collapses to the classic stage when the second-last tile closes", async () => {
     render(<MainView />);
-    act(() => useTilingStore.getState().openBeside("agents"));
+    act(() => useTilingStore.getState().openBeside("board"));
     const close = screen.getAllByTestId("tile-close")[1];
     fireEvent.click(close);
     expect(useTilingStore.getState().tree).toBeNull();
@@ -84,7 +84,7 @@ describe("MainView tiling", () => {
 
   it("swaps two tiles when one title bar is dropped on the other", async () => {
     render(<MainView />);
-    act(() => useTilingStore.getState().openBeside("agents"));
+    act(() => useTilingStore.getState().openBeside("board"));
     const [first, second] = leaves(useTilingStore.getState().tree);
     const data = new Map<string, string>();
     const dataTransfer = {
@@ -98,6 +98,6 @@ describe("MainView tiling", () => {
     fireEvent.drop(screen.getAllByTestId("tile")[1], { dataTransfer });
     const after = leaves(useTilingStore.getState().tree);
     expect(after.map((item) => item.id)).toEqual([first.id, second.id]);
-    expect(after.map((item) => item.section)).toEqual(["agents", "chats"]);
+    expect(after.map((item) => item.section)).toEqual(["board", "chats"]);
   });
 });

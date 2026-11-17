@@ -11778,7 +11778,6 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Visuals",
       "data": "Analytics",
       "whiteboard": "Whiteboard",
       "motion": "Clips",
@@ -11828,7 +11827,6 @@
         "docs": "Für Texte, die bleiben: Notizen, Briefings, Berichte, Pläne.",
         "slides": "Für eine Geschichte Seite für Seite: ein Pitch, ein Briefing, ein Rückblick.",
         "sheets": "Für Zeilen und Spalten: Listen, Budgets, Vergleiche, Übersichten.",
-        "design": "Für eine gestaltete Seite: ein One-Pager, ein Plakat, eine Einladung.",
         "data": "Analysen aus deinen Daten: Dateien, Apps, Konten, Portfolios. Auf Wunsch immer aktuell.",
         "whiteboard": "Zum Denken mit Notizzetteln: Ideen, Gruppen, ein Plan an der Wand.",
         "motion": "Für einen kurzen Film: ein Vorspann, eine animierte Erklärung."
@@ -11837,7 +11835,6 @@
         "docs": "z. B. Ein einseitiges Briefing für den Website-Relaunch mit Zielen, Umfang und offenen Fragen",
         "slides": "z. B. Zehn Folien zum letzten Quartal für das Teammeeting am Montag",
         "sheets": "z. B. Unsere Abos mit Monatskosten, Verlängerungsdatum und Zuständigen",
-        "design": "z. B. Eine Einladung zum Sommerfest am 12. Juli, warm und schlicht",
         "data": "z. B. Wert und Entwicklung meines Portfolios, je Position und über die Zeit",
         "whiteboard": "z. B. Ideen für den Produktstart, nach Kanal gruppiert",
         "motion": "z. B. Ein 20-Sekunden-Vorspann für das Produktvideo mit unseren drei Kernaussagen"
@@ -11857,11 +11854,6 @@
           "a": "Ein Budget für dieses Jahr nach Monaten",
           "b": "Ein Vergleich von drei Anbietern",
           "c": "Eine Übersicht offener Aufgaben"
-        },
-        "design": {
-          "a": "Ein One-Pager über unser Produkt",
-          "b": "Ein Plakat für eine Veranstaltung",
-          "c": "Eine Speisekarte für ein Abendessen"
         },
         "data": {
           "a": "Mein Portfolio: Wert, Positionen und Entwicklung",
@@ -11889,7 +11881,6 @@
         "docs": "Unbenanntes Dokument",
         "slides": "Unbenannte Präsentation",
         "sheets": "Unbenannte Tabelle",
-        "design": "Unbenanntes Visual",
         "data": "Unbenannte Analyse",
         "whiteboard": "Unbenanntes Whiteboard",
         "motion": "Unbenannter Clip"
@@ -12050,12 +12041,97 @@
       "saving": "Wird gespeichert …",
       "saved": "Gespeichert",
       "save_failed": "Noch nicht gespeichert. Es versucht es von selbst noch einmal.",
-      "welcome": {
-        "heading": "Zeichnen, schreiben, verbinden. Dieses Board speichert sich selbst.",
-        "assistant": "Oder bitte {assistant}, hier etwas zu zeichnen.",
-        "menu": "Öffnen, als Bild exportieren, Hintergrund, Hilfe",
-        "toolbar": "Werkzeug wählen und loslegen",
-        "help": "Tastenkürzel"
+      "tool": {
+        "label": "Werkzeuge",
+        "selection": "Auswählen",
+        "hand": "Ansicht verschieben",
+        "frame": "Rahmen",
+        "rectangle": "Rechteck",
+        "ellipse": "Ellipse",
+        "diamond": "Raute",
+        "arrow": "Pfeil",
+        "line": "Linie",
+        "freedraw": "Zeichnen",
+        "text": "Text",
+        "note": "Haftnotiz",
+        "image": "Bild",
+        "eraser": "Radierer",
+        "laser": "Laserpointer",
+        "more": "Weitere Werkzeuge",
+        "mermaid": "Mermaid-Diagramm",
+        "library": "Bibliothek"
+      },
+      "inspector": {
+        "stroke": "Kontur",
+        "text_color": "Textfarbe",
+        "fill": "Füllung",
+        "custom": "Farbe wählen",
+        "width": "Stärke",
+        "thin": "Dünn",
+        "regular": "Normal",
+        "bold": "Kräftig",
+        "style": "Linie",
+        "solid": "Durchgezogen",
+        "dashed": "Gestrichelt",
+        "dotted": "Gepunktet",
+        "corners": "Ecken",
+        "sharp": "Eckig",
+        "round": "Rund",
+        "look": "Stil",
+        "clean": "Sauber",
+        "sketch": "Skizze",
+        "arrowheads": "Pfeilspitzen",
+        "arrow_none": "Keine Pfeilspitzen",
+        "arrow_end": "Pfeil am Ende",
+        "arrow_both": "Pfeile an beiden Enden",
+        "font": "Schrift",
+        "sans": "Serifenlos",
+        "hand": "Handschrift",
+        "mono": "Monospace",
+        "size": "Größe",
+        "align": "Ausrichtung",
+        "left": "Links",
+        "center": "Mitte",
+        "right": "Rechts",
+        "opacity": "Deckkraft",
+        "front": "Nach vorne",
+        "back": "Nach hinten",
+        "group": "Gruppieren",
+        "ungroup": "Gruppe lösen",
+        "duplicate": "Duplizieren",
+        "lock": "Sperren",
+        "delete": "Löschen"
+      },
+      "menu": {
+        "label": "Menü",
+        "export_image": "Als Bild exportieren",
+        "save_file": "In eine Datei speichern",
+        "open_file": "Datei öffnen",
+        "open_failed": "Diese Datei lässt sich nicht als Board öffnen.",
+        "find": "Auf dem Board suchen",
+        "grid_on": "Raster zeigen",
+        "grid_off": "Raster ausblenden",
+        "shortcuts": "Tastenkürzel",
+        "background": "Hintergrund",
+        "background_default": "Gepunktet (Standard)",
+        "clear": "Board leeren",
+        "clear_confirm": "Alles entfernen?",
+        "clear_yes": "Leeren"
+      },
+      "zoom": {
+        "in": "Vergrößern",
+        "out": "Verkleinern",
+        "fit": "Ganzes Board zeigen",
+        "reset": "Auf 100 % zoomen"
+      },
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "live": {
+        "drawing": "{assistant} zeichnet"
+      },
+      "empty": {
+        "title": "Ein leeres Board",
+        "hint": "Wähle unten ein Werkzeug, drücke N für eine Haftnotiz oder bitte {assistant}, hier etwas zu zeichnen."
       }
     }
   },

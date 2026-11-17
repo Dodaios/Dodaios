@@ -57,11 +57,15 @@ async def test_canonical_id_publishes_navigate(tool: NavigateTool, bus: Recordin
         ("social media", "socials"),
         ("Einstellungen", "settings"),
         ("settings", "settings"),
-        ("agenten", "agents"),
-        ("sub-agents", "agents"),
-        # The retired Automations section: scheduled work lives on agents.
-        ("Aufgaben", "agents"),
-        ("tasks", "agents"),
+        # Named agents are retired (2026-11-11): the agent words land on the
+        # coding agents of the Agentic IDE, never on the hidden Agents page.
+        ("agents", "agentic-ide"),
+        ("agenten", "agentic-ide"),
+        ("sub-agents", "agentic-ide"),
+        # The retired Automations section: scheduled work is the assistant's
+        # routines, beside its conversation.
+        ("Aufgaben", "chats"),
+        ("tasks", "chats"),
         ("notizen", "memory"),
         # The retired Outputs section: its old id and spoken names land on
         # Artifacts, where every run is listed now (2026-08-23).

@@ -86,7 +86,7 @@ describe("presentAttention", () => {
     expect(useEventStore.getState().toasts).toHaveLength(0);
   });
 
-  it("shows an in-app toast whose button opens the agent at the card", () => {
+  it("shows an in-app toast whose button opens the conversation at the card", () => {
     focusApp(true);
     expect(presentAttention(NEEDS)).toBe("toast");
     const [toast] = useEventStore.getState().toasts;
@@ -94,8 +94,8 @@ describe("presentAttention", () => {
     expect(toast.message).toContain("Scout");
     expect(toast.message).toContain("Which database?");
     void toast.action?.onAction();
-    expect(useAgentNavigation.getState().request).toMatchObject({ agentId: "scout", cardRef: "q1", kind: "question" });
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    // The Agents page is retired: the notice lands in the assistant's conversation.
+    expect(useEventStore.getState().activeSection).toBe("chats");
   });
 
   it("uses a desktop notification in the background, silent for finished work", () => {

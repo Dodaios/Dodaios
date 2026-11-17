@@ -1,11 +1,89 @@
 /*
  * The whiteboard editor inside the app. The package's dialogs and popovers are
- * rendered into the document body, so these rules match `.excalidraw`
+ * rendered into the document body, so the rules for them match `.excalidraw`
  * anywhere, not only inside the board.
- *
- * Hidden: the editor's ways out to web services. The app works offline and
- * nothing in it should send a board, or the person, to a website.
  */
+
+/* ---- The board and its ground ------------------------------------------- */
+
+/* The board fills the stage; the editor brings its own scrolling. */
+.dodaios-board {
+  position: relative;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: hsl(var(--background));
+}
+
+/* The dotted ground behind a see-through canvas. Its size and position follow
+   the view (set from the editor's scroll in `WhiteboardEditor`). */
+.dodaios-board-ground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: hsl(var(--background));
+  background-image: radial-gradient(circle, rgb(var(--stage-dot-rgb) / 0.22) 1.1px, transparent 1.3px);
+  background-size: 24px 24px;
+}
+
+.dodaios-board .excalidraw,
+.dodaios-board .excalidraw-container {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+/* ---- The editor's own chrome gives way to the board's ------------------- */
+
+/* Toolbars, menus, properties, zoom, undo, help and the collaborator list are
+   drawn by the board itself (`canvas/BoardChrome.tsx`). The editor's dialogs,
+   context menu, sidebar (library, search), text editing and link popover
+   stay. Both the wide and the narrow (mobile) layouts are covered. */
+.dodaios-board .App-menu_top,
+.dodaios-board .App-toolbar-container,
+.dodaios-board .App-menu__left,
+.dodaios-board .layer-ui__wrapper__top-right,
+.dodaios-board .layer-ui__wrapper__footer,
+.dodaios-board .layer-ui__wrapper__footer-left,
+.dodaios-board .layer-ui__wrapper__footer-right,
+.dodaios-board .footer-center,
+.dodaios-board .App-bottom-bar,
+.dodaios-board .App-mobile-menu,
+.dodaios-board .mobile-misc-tools-container,
+.dodaios-board .default-sidebar-trigger,
+.dodaios-board .UserList__wrapper,
+.dodaios-board .HintViewer,
+.dodaios-board .help-icon {
+  display: none !important;
+}
+
+/* "Scroll back to content" sits where the dock is; fit (Shift+1) does it. */
+.dodaios-board .scroll-back-to-content {
+  display: none !important;
+}
+
+/* ---- The editor's dialogs and menus in the app's look ------------------- */
+
+.excalidraw.excalidraw {
+  --color-primary: hsl(var(--accent));
+  --color-primary-darker: hsl(var(--accent));
+  --color-primary-darkest: hsl(var(--accent));
+  --color-primary-hover: hsl(var(--accent));
+  --ui-font: inherit;
+  --border-radius-md: 0.5rem;
+  --border-radius-lg: 0.75rem;
+  font-family: inherit;
+}
+
+.excalidraw .context-menu,
+.excalidraw .Island {
+  border-radius: 0.75rem;
+}
+
+/* ---- Hidden: the editor's ways out to web services ----------------------- */
+
+/* The app works offline and nothing in it should send a board, or the
+   person, to a website. */
 
 /* The help dialog's links to the project's website, blog and issue tracker.
    The keyboard shortcuts below them stay. */
@@ -22,18 +100,4 @@
    package labels that menu item with this test id. */
 .excalidraw .library-menu [data-testid="lib-dropdown--remove"] {
   display: none;
-}
-
-/* The web embed tool frames videos and pages from the web, which a board does
-   not keep. The package gives the Mermaid item the same test id, so only the
-   one followed by the laser pointer (the embed tool) is hidden. */
-.excalidraw .App-toolbar__extra-tools-dropdown [data-testid="toolbar-embeddable"]:has(+ [data-testid="toolbar-laser"]) {
-  display: none;
-}
-
-/* The board fills the stage; the editor brings its own scrolling. */
-.dodaios-board {
-  position: relative;
-  overflow: hidden;
-  overscroll-behavior: contain;
 }

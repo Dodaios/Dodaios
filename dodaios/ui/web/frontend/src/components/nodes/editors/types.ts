@@ -13,7 +13,7 @@ import type { ComponentType } from "react";
 import type { NodeCard } from "../nodeModel";
 
 /** The node types edited in a native editor (a whiteboard has its own canvas). */
-export const EDITABLE_TYPES = ["docs", "slides", "sheets", "design", "data", "motion"] as const;
+export const EDITABLE_TYPES = ["docs", "slides", "sheets", "data", "motion"] as const;
 
 export type EditableType = (typeof EDITABLE_TYPES)[number];
 

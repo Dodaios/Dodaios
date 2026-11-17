@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from uuid import uuid4
 
 import pytest
 
@@ -15,7 +14,6 @@ from dodaios.brain.turn_planner import TurnReason, plan_turn
 from dodaios.core.bus import EventBus
 from dodaios.core.config import JarvisConfig
 from dodaios.core.protocols import ExecutionContext
-from dodaios.plugins.tool.delegate_to_agent import SocietyStatusTool
 from dodaios.society import runtime as runtime_module
 from dodaios.society.intent import blocks_background_spawn, is_inventory_question
 from dodaios.society.lead_card import society_agent_names
@@ -100,9 +98,9 @@ class RecordingExecutor:
         )
 
 
-async def test_first_turn_loads_saved_team_and_inventory_executes_only_status(
-    tmp_path, monkeypatch
-):
+async def test_first_turn_loads_no_retired_team(tmp_path, monkeypatch):
+    """Named agents are retired (2026-11-11): a saved agent is archived on the
+    next start, so the first turn knows no team to talk about."""
     saved = SocietyRuntime(tmp_path, seed_starter_team=False)
     await saved.ensure_started()
     await saved.roster.create(name="Archive", title="Research librarian")
@@ -110,23 +108,11 @@ async def test_first_turn_loads_saved_team_and_inventory_executes_only_status(
     runtime = SocietyRuntime(tmp_path, seed_starter_team=False)
     monkeypatch.setattr(runtime_module, "_current", None)
     monkeypatch.setattr(factory, "_SOCIETY_FACTORY_REF", [lambda: runtime])
-    assert society_agent_names() == ()
     try:
         await asyncio.gather(factory.prepare_society_context(), factory.prepare_society_context())
-        assert society_agent_names() == ("Archive",)
-        tool = SocietyStatusTool(runtime_resolver=lambda: runtime)
-        manager = BrainManager(
-            config=JarvisConfig(), bus=EventBus(), tools={"society_status": tool}
-        )
-        manager._reply_language = "en"
-        executor = RecordingExecutor()
-        manager._tool_executor = executor
-        text = await manager.generate(
-            "Which agents do you have?", use_history=False, trace_id=uuid4()
-        )
-        assert "Archive" in text
-        assert executor.calls == ["society_status"]
-        assert runtime.scheduler.active_runs("archive") == 0
+        assert society_agent_names() == ()
+        archived = await runtime.roster.get("archive")
+        assert archived is not None and str(archived.state) == "archived"
     finally:
         await runtime.close()
 

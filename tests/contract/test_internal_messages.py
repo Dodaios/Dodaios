@@ -151,7 +151,8 @@ async def test_replay_after_chat_acceptance_does_not_start_another_turn(world):
 async def test_queue_survives_runtime_restart(world, tmp_path):
     rt, svc, _ = world
     rt.set_deliver(None)
-    env = await rt.say(from_agent=rt.lead_id, to_agent="scout", text="recover me")
+    # To the lead: a restart archives every other agent (named agents are retired).
+    env = await rt.say(from_agent="scout", to_agent=rt.lead_id, text="recover me")
     await rt.close()
     restarted = SocietyRuntime(tmp_path, seed_starter_team=False, chat_service=lambda: svc)
     await restarted.ensure_started()
