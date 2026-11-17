@@ -55,6 +55,8 @@ describe("the side panel's File tab", () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain("/text-file?path=C%3A%2Fdemo%2Fapp.py");
     // Without a change from the click there is nothing to switch to.
     expect(screen.queryByRole("tab")).toBeNull();
+    // Long lines wrap in the panel instead of scrolling sideways.
+    expect(screen.getByTestId("side-file-text").className).toContain("[&_pre]:whitespace-pre-wrap");
   });
 
   it("opens a clicked edit on its change, numbered like the Changes view, and switches to the file", async () => {
