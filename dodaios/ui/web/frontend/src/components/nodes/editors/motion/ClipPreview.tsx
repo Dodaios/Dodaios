@@ -36,6 +36,7 @@ export const FILM_TIME_MESSAGE = "dodaios-film-time";
 export const FILM_VIEW_MESSAGE = "dodaios-film-view";
 export const FILM_PICK_MESSAGE = "dodaios-film-pick";
 export const FILM_MOVE_MESSAGE = "dodaios-film-move";
+export const FILM_KEY_MESSAGE = "dodaios-film-key";
 
 export interface FilmTime {
   t: number;
@@ -66,6 +67,8 @@ export interface ClipPreviewProps {
   onPick?: (id: string) => void;
   /** A layer dragged to a new centre (percent of the frame). */
   onMoveLayer?: (id: string, x: number, y: number) => void;
+  /** A key pressed in the bare page, passed on to the editor. */
+  onKey?: (key: string, shift: boolean, ctrl: boolean, alt: boolean) => void;
   className?: string;
 }
 
@@ -100,6 +103,7 @@ export function ClipPreview({
   onTime,
   onPick,
   onMoveLayer,
+  onKey,
   className,
 }: ClipPreviewProps) {
   const t = useT();
@@ -113,8 +117,8 @@ export function ClipPreview({
   const [active, setActive] = useState<0 | 1>(0);
   const [shown, setShown] = useState(false);
   // The newest state, for the message handler (registered once).
-  const live = useRef({ at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, loading: -1 as -1 | 0 | 1 });
-  live.current = { ...live.current, at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer };
+  const live = useRef({ at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, onKey, loading: -1 as -1 | 0 | 1 });
+  live.current = { ...live.current, at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, onKey };
 
   const post = useCallback((slot: 0 | 1, message: Record<string, unknown>) => {
     try {
@@ -183,6 +187,8 @@ export function ClipPreview({
         if (Number.isFinite(time) && Number.isInteger(index)) now.onTime({ t: time, scene: index, playing: message.playing === true });
       } else if (message.type === FILM_PICK_MESSAGE) {
         now.onPick?.(typeof message.id === "string" ? message.id.slice(0, 40) : "");
+      } else if (message.type === FILM_KEY_MESSAGE) {
+        if (typeof message.key === "string") now.onKey?.(message.key.slice(0, 20), message.shift === true, message.ctrl === true, message.alt === true);
       } else if (message.type === FILM_MOVE_MESSAGE) {
         const x = Number(message.x);
         const y = Number(message.y);

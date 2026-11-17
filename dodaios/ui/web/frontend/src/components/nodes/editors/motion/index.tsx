@@ -225,17 +225,22 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     });
   }, [spec]);
 
-  // A fresh clip opens fitted to the timeline's width once.
-  const fitted = useRef(false);
+  // The timeline shows the whole clip, also as it grows or shrinks, until
+  // the person zooms by hand; "Fit" brings that back.
+  const zoomedByHand = useRef(false);
   const fit = useCallback(() => {
+    zoomedByHand.current = false;
     const width = (timelineBox.current?.clientWidth ?? 900) - HEAD - 24;
     setPps(Math.max(2, Math.min(400, width / Math.max(4, clipDuration(editor.spec) * 1.05))));
   }, [editor.spec]);
   useEffect(() => {
-    if (fitted.current) return;
-    fitted.current = true;
-    fit();
-  }, [fit]);
+    if (!zoomedByHand.current) fit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
+  // A clip that got shorter keeps its playhead inside it.
+  useEffect(() => {
+    if (!playing && playhead > duration) setPlayhead(duration);
+  }, [duration, playhead, playing]);
 
   const samples: SceneSamples = useMemo(
     () => ({
@@ -258,6 +263,15 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     (time: number) => {
       setPlaying(false);
       setPlayhead(ms(Math.max(0, Math.min(clipDuration(editor.spec), time))));
+    },
+    [editor.spec],
+  );
+  /** Move the playhead by `delta` seconds from where it is now (key repeat stays exact). */
+  const step = useCallback(
+    (delta: number) => {
+      setPlaying(false);
+      const end = clipDuration(editor.spec);
+      setPlayhead((now) => ms(Math.max(0, Math.min(end, now + delta))));
     },
     [editor.spec],
   );
@@ -347,7 +361,10 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     (spec.captions?.items ?? []).forEach((_, n) => keys.push(captionKey(n)));
     select(keys);
   };
-  const zoom = (factor: number) => setPps((now) => Math.max(2, Math.min(400, now * factor)));
+  const zoom = (factor: number) => {
+    zoomedByHand.current = true;
+    setPps((now) => Math.max(2, Math.min(400, now * factor)));
+  };
 
   /** Put a library file onto the timeline. */
   const placeMedia = (mediaId: string, at: number, row: RowKind, trackId?: string) => {
@@ -522,7 +539,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
 
   /* ------------------------------------------------------------ keys */
 
-  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: Pick<ReactKeyboardEvent<HTMLElement>, "target" | "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey" | "preventDefault" | "stopPropagation">) => {
     if (isTyping(event.target)) return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key;
@@ -541,11 +558,11 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
       play();
     } else if (!mod && (key === "j" || key === "J")) {
       handled();
-      seek(playhead - 1);
+      step(-1);
     } else if (key === "ArrowLeft" || key === "ArrowRight") {
       if (event.altKey) return;
       handled();
-      seek(playhead + (key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 1 : FRAME));
+      step((key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 1 : FRAME));
     } else if (key === "Home") {
       handled();
       seek(0);
@@ -590,6 +607,34 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
       setSnapping((on) => !on);
     }
   };
+
+  // A key pressed while focus rests on the page itself (a field was left, a
+  // button lost focus) still reaches the editor, as long as it is on screen.
+  const keys = useRef(onKeyDown);
+  keys.current = onKeyDown;
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onWindowKey = (event: KeyboardEvent) => {
+      if (event.target !== document.body || event.defaultPrevented) return;
+      keys.current(event as unknown as Parameters<typeof onKeyDown>[0]);
+    };
+    window.addEventListener("keydown", onWindowKey);
+    return () => window.removeEventListener("keydown", onWindowKey);
+  }, []);
+  /** A key pressed inside the preview's page, passed on by it (`dodaios-film-key`). */
+  const onPreviewKey = useCallback((key: string, shift: boolean, ctrl: boolean, alt: boolean) => {
+    root.current?.focus({ preventScroll: true });
+    keys.current({
+      target: root.current,
+      key,
+      shiftKey: shift,
+      ctrlKey: ctrl,
+      metaKey: false,
+      altKey: alt,
+      preventDefault: () => undefined,
+      stopPropagation: () => undefined,
+    } as unknown as Parameters<typeof onKeyDown>[0]);
+  }, []);
 
   /* ------------------------------------------------------------ inspector */
 
@@ -741,7 +786,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
 
   return (
     <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} bodyClassName="flex overflow-hidden" side={side}>
-      <div className="flex min-h-0 min-w-0 flex-1" onKeyDown={onKeyDown} tabIndex={-1} data-testid="clip-editor">
+      <div ref={root} className="flex min-h-0 min-w-0 flex-1 outline-none" onKeyDown={onKeyDown} tabIndex={-1} data-testid="clip-editor">
         <MediaBin
           nodeId={nodeId}
           spec={spec}
@@ -771,9 +816,12 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
             onEdit={onEdit}
             onTime={onTime}
             onPick={(id) => {
+              // The editor keeps the keys: the preview's page only passes them on.
+              root.current?.focus({ preventScroll: true });
               if (!id) return;
               select([itemKey(id)]);
             }}
+            onKey={onPreviewKey}
             onMoveLayer={(id, x, y) =>
               apply(
                 (draft) => {
@@ -791,7 +839,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
           {/* The transport. */}
           <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-1" role="toolbar" aria-label={v("toolbar.transport")}>
             <ToolbarButton label={v("toolbar.start")} icon={<ChevronFirst aria-hidden />} onClick={() => seek(0)} shortcut="Home" />
-            <ToolbarButton label={v("toolbar.frameBack")} icon={<StepBack aria-hidden />} onClick={() => seek(playhead - FRAME)} shortcut="←" />
+            <ToolbarButton label={v("toolbar.frameBack")} icon={<StepBack aria-hidden />} onClick={() => step(-FRAME)} shortcut="←" />
             <ToolbarButton
               label={playing ? v("toolbar.pause") : v("toolbar.play")}
               icon={playing ? <Pause aria-hidden /> : <Play aria-hidden />}
@@ -799,7 +847,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
               shortcut={t("nodes.editor.motion.toolbar.space")}
               data-testid={playing ? "motion-stop" : "motion-play"}
             />
-            <ToolbarButton label={v("toolbar.frameForward")} icon={<StepForward aria-hidden />} onClick={() => seek(playhead + FRAME)} shortcut="→" />
+            <ToolbarButton label={v("toolbar.frameForward")} icon={<StepForward aria-hidden />} onClick={() => step(FRAME)} shortcut="→" />
             <ToolbarButton label={v("toolbar.end")} icon={<ChevronLast aria-hidden />} onClick={() => seek(duration)} shortcut="End" />
             <span className="ml-2 font-mono text-xs tabular-nums text-muted-foreground" data-testid="clip-clock">
               {preciseClock(playhead)} / {preciseClock(duration)}
@@ -840,7 +888,10 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
               snapping={snapping}
               onSelect={select}
               onSeek={seek}
-              onZoom={(next) => setPps(Math.max(2, Math.min(400, next)))}
+              onZoom={(next) => {
+                zoomedByHand.current = true;
+                setPps(Math.max(2, Math.min(400, next)));
+              }}
               onMoveScene={(from, to) => apply((draft) => void moveScene(draft, from, to), { label: label("move") })}
               onTrimScene={(index, edge, value) =>
                 apply((draft) => (edge === "start" ? trimSceneStart(draft, index, value) : trimSceneEnd(draft, index, value)), { label: label("trim") })

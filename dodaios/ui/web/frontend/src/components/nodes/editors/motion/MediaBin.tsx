@@ -206,14 +206,14 @@ function MediaCard({ nodeId, id, entry, onAdd }: { nodeId: string; id: string; e
       title={entry.name}
       data-testid={`clip-media-${id}`}
     >
-      <div className="relative grid aspect-video place-items-center bg-black/60">
+      <div className="relative grid place-items-center overflow-hidden bg-black/60" style={{ aspectRatio: "16 / 9" }}>
         {poster ? <img src={poster} alt="" className="h-full w-full object-cover" draggable={false} /> : <Icon className="h-6 w-6 text-emerald-300" aria-hidden />}
         {entry.kind !== "image" && <span className="absolute bottom-0.5 right-1 rounded bg-black/60 px-1 text-[10px] tabular-nums text-white">{formatClock(entry.seconds)}</span>}
         <button
           type="button"
           onClick={onAdd}
           className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-accent text-accent-foreground opacity-0 shadow transition-opacity focus:opacity-100 group-hover:opacity-100"
-          aria-label={fill(t("nodes.editor.motion.video.bin.add"), { name: entry.name })}
+          aria-label={fill(t("nodes.editor.motion.video.bin.add"), { file: entry.name })}
           data-testid={`clip-media-add-${id}`}
         >
           <Plus className="h-3.5 w-3.5" aria-hidden />

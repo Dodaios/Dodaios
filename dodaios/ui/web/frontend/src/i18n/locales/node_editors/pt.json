@@ -432,7 +432,7 @@
         },
         "video": {
           "timeline": "Linha do tempo",
-          "block": "Trecho {n}: {name}, {seconds} s",
+          "block": "Trecho {n}: {file}, {seconds} s",
           "rows": {
             "captions": "Legendas",
             "text": "Texto {n}",
@@ -482,7 +482,7 @@
             "captionsAgain": "Fazer as legendas de novo",
             "captionsMake": "Fazer legendas",
             "captionsCount": "{n} linhas de legenda",
-            "add": "Adicionar {name} no cursor",
+            "add": "Adicionar {file} no cursor",
             "uploadFailed": "O arquivo não pôde ser importado.",
             "noSpeech": "Nenhuma fala foi ouvida no clipe.",
             "captionsFailed": "As legendas não puderam ser feitas."

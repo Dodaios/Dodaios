@@ -823,16 +823,16 @@ MEDIA_CSS: Final[str] = """
 .stage[data-format="tall"] .cap-top{top:15%}
 .stage[data-format="portrait"] .cap-bottom{bottom:17%}
 .cap-line{margin:0;text-align:center;color:#fff;font-weight:800;line-height:1.18;
-  font-size:calc(var(--cs,46px)*var(--k));text-wrap:balance;
+  font-size:calc(var(--cs,58px)*var(--k));text-wrap:balance;
   text-shadow:0 2px 12px rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.7)}
-.cap-s .cap-line{--cs:36px}.cap-l .cap-line{--cs:60px}
+.cap-s .cap-line{--cs:44px}.cap-l .cap-line{--cs:76px}
 .cap-line:empty{display:none}
 .cap-w{display:inline-block;transition:none}
 .cap-bold .cap-line{text-transform:uppercase;font-weight:900;letter-spacing:.01em;
   -webkit-text-stroke:calc(5px*var(--k)) #000;paint-order:stroke fill}
 .cap-karaoke .cap-line{font-weight:900;-webkit-text-stroke:calc(4px*var(--k)) #000;
   paint-order:stroke fill}
-.cap-karaoke .cap-w.is-now{color:var(--fa);transform:scale(1.08)}
+.cap-karaoke .cap-w.is-now{color:var(--cap-hi,#FFD84D);transform:scale(1.08)}
 .cap-karaoke .cap-w.is-next{opacity:.92}
 .cap-clean .cap-line{font-weight:700}
 .cap-boxed .cap-line{text-shadow:none;font-weight:700;padding:.2em .5em;border-radius:.25em;

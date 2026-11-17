@@ -432,7 +432,7 @@
         },
         "video": {
           "timeline": "Zeitleiste",
-          "block": "Abschnitt {n}: {name}, {seconds} s",
+          "block": "Abschnitt {n}: {file}, {seconds} s",
           "rows": {
             "captions": "Untertitel",
             "text": "Text {n}",
@@ -482,7 +482,7 @@
             "captionsAgain": "Untertitel neu erstellen",
             "captionsMake": "Untertitel erstellen",
             "captionsCount": "{n} Untertitelzeilen",
-            "add": "{name} am Abspielkopf einfügen",
+            "add": "{file} am Abspielkopf einfügen",
             "uploadFailed": "Die Datei konnte nicht importiert werden.",
             "noSpeech": "Im Clip war keine Sprache zu hören.",
             "captionsFailed": "Die Untertitel konnten nicht erstellt werden."

@@ -432,7 +432,7 @@
         },
         "video": {
           "timeline": "时间线",
-          "block": "片段 {n}：{name}，{seconds} 秒",
+          "block": "片段 {n}：{file}，{seconds} 秒",
           "rows": {
             "captions": "字幕",
             "text": "文字 {n}",
@@ -482,7 +482,7 @@
             "captionsAgain": "重新生成字幕",
             "captionsMake": "生成字幕",
             "captionsCount": "{n} 行字幕",
-            "add": "在播放头处添加 {name}",
+            "add": "在播放头处添加 {file}",
             "uploadFailed": "无法导入该文件。",
             "noSpeech": "剪辑中没有听到语音。",
             "captionsFailed": "无法生成字幕。"

@@ -138,9 +138,10 @@ function stepFor(pps: number): number {
 
 function clockLabel(t: number, step: number): string {
   if (step >= 1) return formatClock(t);
+  // Tenths of a second, as a clock writes them: 0:01.5.
   const whole = Math.floor(t + 1e-6);
-  const frames = Math.round((t - whole) * 30);
-  return frames ? `${formatClock(whole)}.${String(frames).padStart(2, "0")}` : formatClock(whole);
+  const tenths = Math.round((t - whole) * 10);
+  return tenths ? `${formatClock(whole)}.${tenths}` : formatClock(whole);
 }
 
 export function TrackTimeline(props: TrackTimelineProps) {
@@ -441,6 +442,7 @@ export function TrackTimeline(props: TrackTimelineProps) {
           width={Math.max(4, seconds * pps)}
           selected={selection.has(key)}
           dragging={!!drag?.active && drag.key === key}
+          pps={pps}
           onPointerDown={(event, kind) =>
             beginDrag(event, {
               key,
@@ -706,6 +708,7 @@ function SceneBlock({
   width,
   selected,
   dragging,
+  pps,
   onPointerDown,
 }: {
   nodeId: string;
@@ -716,6 +719,7 @@ function SceneBlock({
   width: number;
   selected: boolean;
   dragging: boolean;
+  pps: number;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>, kind: DragKind) => void;
 }) {
   const t = useT();
@@ -728,7 +732,7 @@ function SceneBlock({
     <div
       role="option"
       aria-selected={selected}
-      aria-label={fill(t("nodes.editor.motion.video.block"), { n: index + 1, name: label, seconds: scene.seconds.toFixed(1) })}
+      aria-label={fill(t("nodes.editor.motion.video.block"), { n: index + 1, file: label, seconds: scene.seconds.toFixed(1) })}
       className={cn(
         "group absolute top-1.5 bottom-1.5 cursor-grab overflow-hidden rounded-md border text-[11px] text-white",
         scene.type === "video" ? "border-sky-400/50 bg-sky-900/70" : "border-violet-400/50 bg-violet-900/60",
@@ -740,8 +744,15 @@ function SceneBlock({
         left,
         width,
         backgroundImage: strip ? `url("${strip}")` : undefined,
-        backgroundSize: "auto 100%",
-        backgroundRepeat: "repeat-x",
+        // The strip shows the whole source: stretched to the source's length at
+        // this zoom and shifted to where the piece starts in it.
+        ...(entry && entry.kind === "video" && entry.seconds
+          ? {
+              backgroundSize: `${(entry.seconds / (scene.speed ?? 1)) * pps}px 100%`,
+              backgroundPosition: `${-((scene.in ?? 0) / (scene.speed ?? 1)) * pps}px 0`,
+              backgroundRepeat: "no-repeat",
+            }
+          : { backgroundSize: "auto 100%", backgroundRepeat: "repeat-x" }),
       }}
       onPointerDown={(event) => onPointerDown(event, "move")}
       data-testid={`clip-scene-${index}`}

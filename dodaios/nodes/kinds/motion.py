@@ -1220,6 +1220,13 @@ function drop(){
   if(resume&&t<total)play();}
 scrub.addEventListener("pointerup",drop);scrub.addEventListener("pointercancel",drop);
 d.addEventListener("keydown",function(e){
+  if(bare){
+    // In the video editor the keys are the editor's: passed on, not acted on.
+    if(e.target&&e.target.closest&&e.target.closest("[data-at],[contenteditable]"))return;
+    e.preventDefault();
+    try{up.postMessage({type:"dodaios-film-key",key:e.key,shift:e.shiftKey,
+      ctrl:e.ctrlKey||e.metaKey,alt:e.altKey},"*");}catch(x){}
+    return;}
   if(e.altKey||e.ctrlKey||e.metaKey)return;
   var k=e.key;
   if(k===" "||k==="Spacebar"){
@@ -1498,7 +1505,10 @@ def render(node: Any) -> str:
         f'<div class="film" data-loop="{1 if spec["loop"] else 0}">'
         '<div class="film-view">'
         f'<div class="film-fit" data-tone="{spec["theme"]}" '
-        f'style="--fa:{attr(accent)};--fa-ink:{attr(_ink_on(accent))}">'
+        f'style="--fa:{attr(accent)};--fa-ink:{attr(_ink_on(accent))}'
+        # The spoken word lights up gold unless the clip chose its own accent.
+        + (f";--cap-hi:{attr(accent)}" if spec["accent"] else "")
+        + '">'
         f'<div class="stage" data-w="{width}" data-h="{height}" data-format="{spec["format"]}" '
         f'data-total="{total:.3f}" data-voice="{attr(voice)}" '
         f'style="width:{width}px;height:{height}px;--k:{factor};--pad:{pad}px">{frames}</div>'

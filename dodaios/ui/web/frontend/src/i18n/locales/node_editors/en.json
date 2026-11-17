@@ -432,7 +432,7 @@
         },
         "video": {
           "timeline": "Timeline",
-          "block": "Piece {n}: {name}, {seconds} s",
+          "block": "Piece {n}: {file}, {seconds} s",
           "rows": {
             "captions": "Captions",
             "text": "Text {n}",
@@ -482,7 +482,7 @@
             "captionsAgain": "Make the captions again",
             "captionsMake": "Make captions",
             "captionsCount": "{n} caption lines",
-            "add": "Add {name} at the playhead",
+            "add": "Add {file} at the playhead",
             "uploadFailed": "The file could not be imported.",
             "noSpeech": "No speech was heard in the clip.",
             "captionsFailed": "The captions could not be made."

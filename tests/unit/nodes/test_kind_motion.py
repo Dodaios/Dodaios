@@ -451,9 +451,9 @@ def test_the_accent_is_a_token_or_the_specs_own_color() -> None:
     custom = motion.render(_node(_film({"title": "A"}, accent="#FFD400")))
 
     assert 'style="--fa:var(--accent);--fa-ink:var(--bg)"' in default
-    assert 'style="--fa:var(--s3);--fa-ink:var(--bg)"' in named
+    assert 'style="--fa:var(--s3);--fa-ink:var(--bg);--cap-hi:var(--s3)"' in named
     # A light accent takes dark text on it, a dark accent light text.
-    assert 'style="--fa:#FFD400;--fa-ink:#141413"' in custom
+    assert 'style="--fa:#FFD400;--fa-ink:#141413;--cap-hi:#FFD400"' in custom
     assert motion._ink_on("#123") == "#FDFDFC"
 
 

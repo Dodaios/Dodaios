@@ -432,7 +432,7 @@
         },
         "video": {
           "timeline": "Línea de tiempo",
-          "block": "Fragmento {n}: {name}, {seconds} s",
+          "block": "Fragmento {n}: {file}, {seconds} s",
           "rows": {
             "captions": "Subtítulos",
             "text": "Texto {n}",
@@ -482,7 +482,7 @@
             "captionsAgain": "Crear los subtítulos de nuevo",
             "captionsMake": "Crear subtítulos",
             "captionsCount": "{n} líneas de subtítulos",
-            "add": "Añadir {name} en el cabezal",
+            "add": "Añadir {file} en el cabezal",
             "uploadFailed": "No se pudo importar el archivo.",
             "noSpeech": "No se oyó ninguna voz en el clip.",
             "captionsFailed": "No se pudieron crear los subtítulos."
