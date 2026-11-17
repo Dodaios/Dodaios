@@ -190,7 +190,7 @@ def suggest(
             rows = jarvis_skills()
         elif runner in _CLAUDE_SHAPED:
             rows = cli_commands(runner, folder)
-            if surface in ("", "agent"):
+            if surface == "agent":
                 # Print mode has no ``/btw``; Dodaios answers it (``aside``).
                 from dodaios.agent_chat import aside
 
