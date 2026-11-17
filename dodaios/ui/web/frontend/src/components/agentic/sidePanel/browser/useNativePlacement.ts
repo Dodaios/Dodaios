@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { placeNativeBrowser, type PanelPlacement } from "./nativeBrowserApi";
 
@@ -43,14 +43,17 @@ export function overlayCovers(panel: HTMLElement, root: ParentNode = document): 
 /**
  * What to tell the backend about `panel` right now. `covered` passes the popup
  * scan's answer in when it is already known (the scan runs less often).
+ * `onScreen` false (the IDE that holds the panel is not shown) is hidden
+ * whatever the box says.
  */
 export function measurePanel(
   panel: HTMLElement | null,
   owner: string,
   covered?: boolean,
+  onScreen = true,
 ): PanelPlacement {
   const hidden: PanelPlacement = { owner, visible: false, rect: null, dpr: window.devicePixelRatio || 1 };
-  if (!panel || document.visibilityState === "hidden") return hidden;
+  if (!panel || !onScreen || document.visibilityState === "hidden") return hidden;
   const box = panel.getBoundingClientRect();
   // A `hidden` ancestor (another side panel tab, another workspace) gives a 0 box.
   if (box.width < 2 || box.height < 2) return hidden;
@@ -89,16 +92,29 @@ function samePlacement(a: PanelPlacement | null, b: PanelPlacement): boolean {
  * after a click or key press (which is how app menus open). While the panel is
  * hidden it is checked every 250 ms. Only changes are sent, one request at a
  * time, and only the newest placement waits behind it.
+ *
+ * A hide never waits: when `onScreen` turns false (another section replaced
+ * the IDE) it goes out in the same commit, before the new view's own requests
+ * queue up, and it does not wait behind a move still on its way. Measured on
+ * the next frame instead, it sat behind some forty requests of the Dodaios
+ * chat for up to a second, with the browser window left over the chat.
  */
 export function useNativePlacement(
   panel: RefObject<HTMLElement | null>,
   owner: string,
   generation: unknown,
+  onScreen = true,
 ): boolean {
   const [visible, setVisible] = useState(false);
   const sent = useRef<PanelPlacement | null>(null);
-  const inFlight = useRef(false);
+  /** Requests still on their way, the newest one sent, and its number. */
+  const pending = useRef(0);
+  const issued = useRef<{ id: number; placement: PanelPlacement | null }>({ id: 0, placement: null });
   const queued = useRef<PanelPlacement | null>(null);
+  const shownRef = useRef(onScreen);
+  shownRef.current = onScreen;
+  /** Measures and sends at once; set by the effect below while it runs. */
+  const checkNow = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -106,17 +122,26 @@ export function useNativePlacement(
 
     let lastSentAt = 0;
     const send = (placement: PanelPlacement) => {
-      if (inFlight.current) {
+      // The same placement already on its way: once is enough.
+      if (pending.current > 0 && samePlacement(issued.current.placement, placement)) return;
+      // A move waits for the request before it; a hide goes now.
+      if (pending.current > 0 && placement.visible) {
         queued.current = placement;
         return;
       }
-      inFlight.current = true;
+      if (!placement.visible) queued.current = null; // nothing queued may show it again
+      const id = issued.current.id + 1;
+      issued.current = { id, placement };
+      pending.current += 1;
       lastSentAt = Date.now();
       void placeNativeBrowser(placement).then((result) => {
         // Remember it only once the backend took it: a lost hide is sent again.
-        sent.current = result.ok ? placement : null;
+        // An older request that answers after a newer one may also have landed
+        // after it: forget what was sent, so the next check sends it again.
+        sent.current = id === issued.current.id && result.ok ? placement : null;
       }).finally(() => {
-        inFlight.current = false;
+        pending.current -= 1;
+        if (pending.current > 0) return;
         const next = queued.current;
         queued.current = null;
         if (next && !samePlacement(sent.current, next)) send(next);
@@ -133,7 +158,7 @@ export function useNativePlacement(
         coveredAt = now;
         forceScan = false;
       }
-      const placement = measurePanel(panel.current, owner, covered);
+      const placement = measurePanel(panel.current, owner, covered, shownRef.current);
       setVisible(placement.visible);
       // A shown window is confirmed every second; the backend hides it when the
       // confirmations stop (the page reloaded or crashed without cleaning up).
@@ -165,6 +190,9 @@ export function useNativePlacement(
       window.setTimeout(wake, 60);
     };
 
+    checkNow.current = () => {
+      if (!disposed) check();
+    };
     tick();
     window.addEventListener("resize", wake);
     document.addEventListener("visibilitychange", wake);
@@ -172,6 +200,7 @@ export function useNativePlacement(
     document.addEventListener("keydown", soon, true);
     return () => {
       disposed = true;
+      checkNow.current = null;
       if (frame) cancelAnimationFrame(frame);
       window.clearTimeout(idle);
       window.removeEventListener("resize", wake);
@@ -180,6 +209,12 @@ export function useNativePlacement(
       document.removeEventListener("keydown", soon, true);
     };
   }, [panel, owner, generation]);
+
+  // The IDE went off screen: hide in this commit, ahead of the next view's
+  // requests. Coming back on screen, the next frame shows it again.
+  useLayoutEffect(() => {
+    if (!onScreen) checkNow.current?.();
+  }, [onScreen]);
 
   // Leaving the page (tab closed, workspace removed, reload) hides the window.
   useEffect(() => {

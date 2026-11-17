@@ -14,6 +14,7 @@ import { usePaneReviewTracking } from "@/store/paneReviews";
 import { SIDE_PANEL_TABS, sidePanelTab } from "./sidePanelTabs";
 import { SurfaceKbd, SurfaceLauncher, surfaceActionForKey, type SurfaceAction } from "./SurfaceLauncher";
 import { SIDE_PANEL_ID } from "./sidePanelIds";
+import { SidePanelOnScreen } from "./sidePanelOnScreen";
 import { DropPreview, PaneHeader, SplitDividers, paneBox, useDropLabel, useTabDrag, type DragTarget } from "./sidePanelSplit";
 
 const WIDTH_KEY = "jarvis.agenticIde.sidePanelWidth.v1";
@@ -409,6 +410,7 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
       {/* Keyed by tab: Changes and Folder share one component and must not share its state. */}
       {/* Split, every tab sits in its pane; the same element moves between the
           whole area and a pane, so a browser page or a chat never reloads. */}
+      <SidePanelOnScreen.Provider value={onScreen}>
       <div ref={content} id={`${SIDE_PANEL_ID}-content`} role="tabpanel" data-testid="ide-side-panel-content"
         data-split={split ? "true" : undefined} data-panes={split ? placed.leaves.length : undefined}
         className="relative min-h-0 flex-1"
@@ -459,6 +461,7 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
         )}
         {tabDrag.dragging && <DropPreview target={tabDrag.target} label={dropLabel} />}
       </div>
+      </SidePanelOnScreen.Provider>
       {tabDrag.dragging && tabDrag.pointer && (
         <div aria-hidden data-testid="ide-side-panel-drag-ghost"
           className="pointer-events-none fixed z-50 flex flex-col rounded-md border border-border bg-popover px-2 py-1 text-xs text-foreground shadow-float"
