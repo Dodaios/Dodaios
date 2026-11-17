@@ -169,9 +169,9 @@ BRIEF_LINE: Final[str] = (
     "procedure, no prescribed fix. By default the agent finishes: it reviews its own work "
     "and, with tests and CI green, commits, pushes and merges itself; write no git limits "
     "(no push or merge, hold labels, worktree or folder rules) they did not ask for. Name "
-    "the real limits a task touches: nothing posted or sent in their name, no payments, no "
-    "untrusted code run with their real credentials. When they say how agents should be "
-    "briefed from now on, save the whole new list with agent-briefs-set."
+    "the real limits only when the task touches them: nothing posted or sent in their name, "
+    "no payments, no untrusted code run with their real credentials. When they say how "
+    "agents should be briefed from now on, save the whole new list with agent-briefs-set."
 )
 
 

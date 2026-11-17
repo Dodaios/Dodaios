@@ -40,9 +40,9 @@ SHIP_DEFAULT: Final[str] = (
 
 #: The limits that are not about git and hold whenever a task touches them.
 REAL_LIMITS: Final[str] = (
-    "Keep the real limits a task touches unless the person asked for that very step: "
-    "nothing posted or sent in their name, no payments, no untrusted code run with "
-    "their real credentials."
+    "Name the real limits only when a task touches them, and keep them unless the person "
+    "asked for that very step: nothing posted or sent in their name, no payments, no "
+    "untrusted code run with their real credentials."
 )
 
 #: Appended to every tool description / instruction that makes Jarvis write a
