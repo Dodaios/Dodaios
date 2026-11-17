@@ -33,8 +33,9 @@ SUFFIXES: Final[frozenset[str]] = frozenset({".png", ".jpg", ".jpeg", ".webp", "
 MAX_FILE_BYTES: Final[int] = 25 * 1024 * 1024
 #: The longest side a picture is scaled to (a slide is 1280 x 720).
 MAX_SIDE: Final[int] = 1600
-#: Keys whose string value is a picture.
-_PICTURE_KEYS: Final[frozenset[str]] = frozenset({"image"})
+#: Keys whose string value is a picture: a deck's picture, picture element and
+#: background picture (``"background": {"image": …}``, or the bare path).
+_PICTURE_KEYS: Final[frozenset[str]] = frozenset({"image", "background"})
 
 
 def picture_path(value: Any) -> Path | None:
