@@ -1696,7 +1696,7 @@ def _even_sizes(specs: list[dict[str, Any]]) -> None:
         try:
             kind = cv.kind_of(_raw_kind(spec))
             style = cv.parse_style(spec)
-        except ValueError:
+        except ValueError:  # not evened: the add of this spec reports what is wrong
             continue
         if kind not in cv.STRETCH_KINDS:
             continue
