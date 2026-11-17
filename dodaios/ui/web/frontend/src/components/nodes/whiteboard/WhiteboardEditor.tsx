@@ -182,6 +182,26 @@ const FONT_NAMES = new Map<number, string>(Object.entries(FONT_FAMILY).map(([nam
  * measured again, and only then is the view fitted to the whole board (zoomed
  * out as far as it takes, never in past 100 %), clear of the board's own controls.
  */
+/**
+ * Load the fonts the given texts use (with their own letters), so a text is
+ * measured in its real font. Returns how many fonts were asked for.
+ */
+export async function loadBoardFonts(elements: readonly BoardElement[]): Promise<number> {
+  const used = new Map<string, string>();
+  for (const element of elements) {
+    if (element.type !== "text" || element.isDeleted) continue;
+    const text = element as unknown as { fontFamily: number; text: string };
+    const name = FONT_NAMES.get(text.fontFamily);
+    if (name) used.set(name, ((used.get(name) ?? "") + text.text).slice(0, 4000));
+  }
+  if (typeof document !== "undefined" && document.fonts && used.size > 0) {
+    await Promise.allSettled(
+      [...used].map(([name, sample]) => document.fonts.load(`20px "${name}"`, sample || undefined)),
+    );
+  }
+  return used.size;
+}
+
 export async function settleBoard(
   editor: ExcalidrawImperativeAPI,
   alive: () => boolean,
@@ -192,21 +212,9 @@ export async function settleBoard(
     await new Promise((resolve) => setTimeout(resolve, 50));
     if (!alive()) return;
   }
-  const texts = editor
-    .getSceneElements()
-    .filter((element) => element.type === "text") as unknown as { fontFamily: number; text: string }[];
-  const used = new Map<string, string>();
-  for (const text of texts) {
-    const name = FONT_NAMES.get(text.fontFamily);
-    if (name) used.set(name, ((used.get(name) ?? "") + text.text).slice(0, 4000));
-  }
-  if (typeof document !== "undefined" && document.fonts && used.size > 0) {
-    await Promise.allSettled(
-      [...used].map(([name, sample]) => document.fonts.load(`20px "${name}"`, sample || undefined)),
-    );
-  }
+  const used = await loadBoardFonts(editor.getSceneElements() as unknown as readonly BoardElement[]);
   if (!alive()) return;
-  if (used.size > 0) {
+  if (used > 0) {
     editor.updateScene({
       elements: restoreFromServer(editor.getSceneElementsIncludingDeleted() as unknown as readonly BoardElement[]),
       captureUpdate: CaptureUpdateAction.NEVER,
@@ -469,9 +477,13 @@ function BoardCanvas({
       api.current = editor;
       void sync.loadMissingFiles(read.scene.elements);
       const expectElements = opening.all.some((element) => !element.isDeleted && !opening.fresh.has(element.id));
-      void settleBoard(editor, () => api.current === editor, expectElements).then(() => {
+      void settleBoard(editor, () => api.current === editor, expectElements).then(async () => {
         if (api.current !== editor || opening.fresh.size === 0) return;
-        live.start(opening.all as unknown as BoardElement[], opening.fresh);
+        // The pieces to play were read before the fonts were in: measure them
+        // again in their own fonts, or a label is cut at its old width.
+        await loadBoardFonts(read.scene.elements);
+        if (api.current !== editor) return;
+        live.start(restoreFromServer(read.scene.elements) as unknown as BoardElement[], opening.fresh);
       });
     },
     [sync, read, opening, live],
