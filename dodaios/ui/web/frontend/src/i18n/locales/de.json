@@ -9488,7 +9488,8 @@
       "too_large": "Diese Datei ist zu groß, um sie hier anzuzeigen.",
       "unavailable": "Diese Datei lässt sich nicht lesen. Vielleicht wurde sie verschoben oder gelöscht.",
       "no_workspace": "Öffne ein Projekt, um hier Dateien zu lesen.",
-      "show_change": "Änderung anzeigen"
+      "show_change": "Änderung anzeigen",
+      "change_truncated": "{count} weitere Zeilen werden nicht angezeigt."
     }
   },
   "appshots": {
