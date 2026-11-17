@@ -4645,6 +4645,8 @@ async def run_cli_turn(
 
         if SECRET_NOUN.search(user_text):
             user_text += dodaios_harness.SECRET_FIELD_LINE
+        # How much a task needs is the model's to judge, before the lines that shape the reply.
+        user_text += dodaios_harness.EFFORT_LINE
         if not handle.continuation:
             # A turn that carries a running task on has already taken it on.
             user_text += dodaios_harness.FIRST_LINE

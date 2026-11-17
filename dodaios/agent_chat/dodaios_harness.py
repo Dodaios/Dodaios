@@ -150,6 +150,22 @@ REPLY_SHAPE_LINE: Final[str] = (
     "write_report, and the reply gives its gist."
 )
 
+#: Rides on every message of the assistant's own chat, first of the lines. The
+#: lines after it all ask for less (a short message, one line before the first
+#: tool), and a model reads them as "be quick" for the whole turn: the lead
+#: answered a pitch deck with five slides in two minutes, on the same model and
+#: effort that builds a careful one in a coding session (maintainer, 2026-11-17:
+#: "we do not want AI slop"). How long and how hard to think is the model's own
+#: judgement; this line only says that it is, and what a task they keep needs.
+EFFORT_LINE: Final[str] = (
+    "\nHow much to think and do is yours to judge from the task. A quick question or a small "
+    "change gets a quick answer. Anything they will keep or use (a node, a report, code, a "
+    "plan, an analysis, research) is real work: take the time it needs, think it through, "
+    "gather real material, build it, look at the result and revise until you would hand it "
+    "over yourself. The lines below shape only your reply text, never how much you think "
+    "or do."
+)
+
 #: Beside every message of the assistant's own chat, for the same reason as the
 #: two lines around it: the brief rule (``core.agent_brief``) sits in the tool
 #: field and the system prompt, and hundreds of earlier briefs outweighed it
@@ -997,6 +1013,7 @@ __all__ = [
     "CHAT_MESSAGES",
     "BRIEF_LINE",
     "brief_line",
+    "EFFORT_LINE",
     "FIRST_LINE",
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
