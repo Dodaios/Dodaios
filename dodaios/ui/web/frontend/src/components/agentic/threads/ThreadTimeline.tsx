@@ -2,6 +2,8 @@ import { createContext, memo, startTransition, useCallback, useContext, useEffec
 import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
+import { MediaViewerContent } from "@/components/agentchat/MediaPreview";
+import * as Dialog from "@radix-ui/react-dialog";
 import { ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -550,12 +552,26 @@ function clock(ms: number): string {
   return new Date(ms).toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
 }
 
+/** A picture sent with a message: a thumbnail that opens in full on a click. */
+function SentPicture({ src, name }: { src: string; name: string }) {
+  const t = useT();
+  return <Dialog.Root>
+    <Dialog.Trigger asChild>
+      <button type="button" aria-label={fill(t("chat_media.expand"), { file: name })} data-testid="thread-sent-picture"
+        className="block shrink-0 cursor-zoom-in rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <img src={src} alt={name} draggable={false} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
+      </button>
+    </Dialog.Trigger>
+    <MediaViewerContent src={src} label={name} />
+  </Dialog.Root>;
+}
+
 /** The files of one message inside its bubble: pictures as thumbnails, anything else as a chip. */
 function SentFiles({ files }: { files: readonly UserAttachment[] }) {
   if (files.length === 0) return null;
   return <div className="mb-2 flex flex-wrap justify-end gap-2">
     {files.map((file) => file.url && file.kind === "image"
-      ? <img key={file.name} src={file.url} alt={file.name} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
+      ? <SentPicture key={file.name} src={file.url} name={file.name} />
       : <span key={file.name} className="inline-flex max-w-[240px] items-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1 text-xs text-muted-foreground">
         <FileText aria-hidden className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{file.name}</span>
       </span>)}
