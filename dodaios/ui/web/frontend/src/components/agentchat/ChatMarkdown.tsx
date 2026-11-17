@@ -146,7 +146,8 @@ const MARKDOWN_COMPONENTS: Components = {
     const path = openBeside && !className && text ? pathInCode(text) : null;
     if (!path) return <code className={className} {...props}>{children}</code>;
     return <a href={`#jarvis-local=${encodeURIComponent(path)}`} title={translate("thread_turn.open_beside")} data-testid="chat-path-link"
-      className="cursor-pointer no-underline hover:underline"
+      // A quiet dotted line says it opens; it firms up under the pointer.
+      className="cursor-pointer underline decoration-foreground/35 decoration-dotted underline-offset-[3px] hover:decoration-foreground/80 hover:decoration-solid"
       onClick={event => { event.preventDefault(); openBeside?.(path); }}>
       <code {...props}>{children}</code>
     </a>;
