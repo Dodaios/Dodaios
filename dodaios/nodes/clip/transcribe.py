@@ -141,7 +141,7 @@ def spoken_language(path: Path) -> str | None:
     """
     try:
         stat = path.stat()
-    except OSError:
+    except OSError:  # a file gone or unreadable: the recognizer guesses per piece
         return None
     key = (str(path), stat.st_size, stat.st_mtime)
     if key in _heard:

@@ -261,7 +261,7 @@ async def export_state(node_id: str, job: str) -> dict[str, Any]:
         status["slug"] = node.slug
         try:
             status["path"] = path.relative_to(folder).as_posix()
-        except ValueError:
+        except ValueError:  # a file outside the run folder has no relative path to give
             status["path"] = ""
     return status
 

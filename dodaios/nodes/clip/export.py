@@ -255,7 +255,7 @@ def change_speed(samples: Any, speed: float, rate: int = AUDIO_RATE) -> Any:
         while True:
             try:
                 frame = graph.pull()
-            except (av.error.BlockingIOError, av.error.EOFError):
+            except (av.error.BlockingIOError, av.error.EOFError):  # filter drained: done
                 return
             data = frame.to_ndarray().astype(np.float32, copy=False)
             if data.shape[0] == 1:  # the filter hands back interleaved samples
@@ -418,7 +418,7 @@ class _Browser:
         self._process.terminate()
         try:
             self._process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired:  # a browser deaf to terminate is killed instead
             self._process.kill()
         shutil.rmtree(self._profile, ignore_errors=True)
 
@@ -510,7 +510,7 @@ async def _with_page(socket_url: str, work: Any) -> Any:
             pump.cancel()
             try:
                 await pump
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # the reader was cancelled just above
                 pass
             except Exception as exc:  # noqa: BLE001 — the socket closing under the reader
                 log.debug("clip export: DevTools reader ended: %s", exc)
@@ -690,9 +690,10 @@ def start_export(node: Any, node_dir: Path, spec: dict[str, Any], preset: str, f
         try:
             job.file = str(_write(node, node_dir, spec, preset, int(fps), job))
             job.state, job.stage = "done", "done"
-        except ExportCancelled:
+        except ExportCancelled:  # asked for: the job says cancelled, nothing failed
             job.state, job.stage = "cancelled", "cancelled"
-        except ExportError as exc:
+        except ExportError as exc:  # the person's own failure: the job reports it
+            log.info("clip export job %s failed: %s", job.id, exc)
             job.state, job.error = "failed", str(exc)
         except Exception as exc:  # noqa: BLE001 — a job reports its failure, never dies silently
             log.exception("clip export job %s failed", job.id)

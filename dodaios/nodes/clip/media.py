@@ -196,7 +196,7 @@ def _rotation(frame: Any) -> int:
     value = getattr(frame, "rotation", 0) or 0
     try:
         return int(round(float(value))) % 360
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # no readable rotation tag: the picture is upright
         return 0
 
 
