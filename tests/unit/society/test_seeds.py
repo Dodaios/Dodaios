@@ -47,7 +47,8 @@ async def test_runtime_seeds_only_the_lead_by_default(tmp_path: Path):
     team = SocietyRuntime(tmp_path / "team", seed_starter_team=True)
     await team.ensure_started()
     try:
-        assert [a.agent_id for a in await team.roster.list()] == ["jarvis", "scout", "archivist"]
+        # Named agents are retired (2026-11-11): no starter team either.
+        assert [a.agent_id for a in await team.roster.list()] == ["jarvis"]
     finally:
         await team.close()
 

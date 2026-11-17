@@ -44,7 +44,7 @@ describe("SectionNavButtons", () => {
     }
   });
 
-  it.each(["agents", "agentic-ide", "profile"] as const)("leaves a freshly opened %s section for the front page", (section) => {
+  it.each(["memory", "agentic-ide", "profile"] as const)("leaves a freshly opened %s section for the front page", (section) => {
     useEventStore.setState({ activeSection: section });
     render(<SectionNavButtons />);
 
@@ -69,18 +69,18 @@ describe("SectionNavButtons", () => {
 
     // The history is section-driven, not view-driven: whatever put the voice
     // section on screen (sidebar, voice command, deck jump) lands here too.
-    act(() => useEventStore.getState().setActiveSection("agents"));
+    act(() => useEventStore.getState().setActiveSection("profile"));
     act(() => useEventStore.getState().setActiveSection("dictation"));
 
     expect(backButton().disabled).toBe(false);
     fireEvent.click(backButton());
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useEventStore.getState().activeSection).toBe("profile");
   });
 
   it("enables forward only after going back, and only for visited sections", () => {
     render(<SectionNavButtons />);
 
-    act(() => useEventStore.getState().setActiveSection("agents"));
+    act(() => useEventStore.getState().setActiveSection("profile"));
     act(() => useEventStore.getState().setActiveSection("dictation"));
 
     expect(forwardButton().disabled).toBe(true);

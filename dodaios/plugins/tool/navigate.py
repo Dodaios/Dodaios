@@ -112,26 +112,18 @@ _ALIASES: dict[str, str] = {
     "einstellungen": "settings",
     "config": "settings",
     "konfiguration": "settings",
-    # The Agents section is the agent society (the island, the roster, the
-    # cards). The retired "sub-agents" wording still lands there rather than
-    # nowhere, and the society's own names are spoken forms too.
-    "agents": "agents",
-    "agenten": "agents",
-    "sub-agents": "agents",
-    "sub agents": "agents",
-    "subagents": "agents",
-    "subagenten": "agents",
-    "society": "agents",
-    "agent society": "agents",
-    "agenten-gesellschaft": "agents",  # i18n-allow: input vocab
-    "gesellschaft": "agents",  # i18n-allow: input vocab
-    "my agents": "agents",
-    "meine agenten": "agents",  # i18n-allow: input vocab
-    "mis agentes": "agents",  # i18n-allow: input vocab
-    "team": "agents",
-    "island": "agents",
-    "insel": "agents",  # i18n-allow: input vocab
-    "isla": "agents",  # i18n-allow: input vocab
+    # Named agents are retired (2026-11-11): the person's agents are the
+    # coding agents of the Agentic IDE, so the agent words land there. The
+    # society's own words (team, island, society) no longer name a place.
+    "agents": "agentic-ide",
+    "agenten": "agentic-ide",
+    "sub-agents": "agentic-ide",
+    "sub agents": "agentic-ide",
+    "subagents": "agentic-ide",
+    "subagenten": "agentic-ide",
+    "my agents": "agentic-ide",
+    "meine agenten": "agentic-ide",  # i18n-allow: input vocab
+    "mis agentes": "agentic-ide",  # i18n-allow: input vocab
     # The Agentic IDE holds coding TERMINALS, not agents: the spoken forms
     # that say so land on the workspace, never on the society.
     "terminals": "agentic-ide",
@@ -332,11 +324,28 @@ _ALIASES: dict[str, str] = {
 
 # phrase → canonical id, reused by the brain-side navigation-intent matcher
 # (dodaios/brain/navigation_intent.py) so both share one section vocabulary.
-SECTION_PHRASES: dict[str, str] = {**{s: s for s in KNOWN}, **_ALIASES}
+#: Sections that are no longer shown (their id stays, see test_section_id_parity)
+#: -> where a request for them lands instead. The retired Agents page held the
+#: assistant's routines and cards, which now live in its conversation.
+RETIRED_SECTIONS: dict[str, str] = {"agents": "chats"}
+
+SECTION_PHRASES: dict[str, str] = {
+    phrase: RETIRED_SECTIONS.get(section, section)
+    for phrase, section in {**{s: s for s in KNOWN}, **_ALIASES}.items()
+}
 
 
 def _resolve(raw: str) -> str | None:
     """Map a spoken section name/alias to a canonical id, or None if unknown."""
+    found = _resolve_any(raw)
+    if found not in RETIRED_SECTIONS:
+        return found
+    # "agents" is a retired id AND an alias of a live place: the alias wins.
+    alias = _ALIASES.get(" ".join((raw or "").strip().lower().split()))
+    return alias if alias and alias not in RETIRED_SECTIONS else RETIRED_SECTIONS[found]
+
+
+def _resolve_any(raw: str) -> str | None:
     s = " ".join((raw or "").strip().lower().split())
     if not s:
         return None

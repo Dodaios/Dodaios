@@ -185,7 +185,11 @@ async def test_the_seat_prompt_never_names_the_stored_lead(world):
 
 def test_the_lead_card_defaults_to_the_neutral_name():
     assert render_lead_card([], []) == ""  # nothing to lead, no card
-    card = render_lead_card([], [], terminals=["T1"])
+    helper = SimpleNamespace(
+        agent_id="helper", name="Helper", title="", description="", tier="specialist",
+        state="active", focus=[], grants=[], denies=[], grant_mode="all", updated_ms=1,
+    )
+    card = render_lead_card([helper], [], terminals=["T1"])
     assert f"You are {DEFAULT_ASSISTANT_NAME}, the lead" in card and STORED not in card
 
 

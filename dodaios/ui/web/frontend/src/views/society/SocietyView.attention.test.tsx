@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { useEventStore } from "@/store/events";
-import { openAgent, useAgentNavigation } from "./agentNavigation";
+import { useAgentNavigation } from "./agentNavigation";
 import { LAST_AGENT_STORAGE_KEY } from "./lastAgent";
 import { SocietyView } from "./SocietyView";
 
@@ -48,7 +48,7 @@ it("keeps the caption clear of the bell", () => {
 it("opens the requested agent and reveals the card", async () => {
   render(<SocietyView />);
   expect(screen.getByTestId("workspace").textContent).toBe("Lead");
-  act(() => openAgent("scout", { sessionId: "society:scout", cardRef: "q1", kind: "question" }));
+  act(() => useAgentNavigation.setState({ request: { agentId: "scout", sessionId: "society:scout", cardRef: "q1", kind: "question", nonce: 1 } }));
   await waitFor(() => expect(screen.getByTestId("workspace").textContent).toBe("Scout"));
   expect(reveal.calls).toEqual([{ cardRef: "q1", kind: "question" }]);
   expect(useAgentNavigation.getState().request).toBeNull();
@@ -57,7 +57,7 @@ it("opens the requested agent and reveals the card", async () => {
 
 it("drops a request for an agent that is not on the roster", async () => {
   render(<SocietyView />);
-  act(() => openAgent("gone", { cardRef: "x", kind: "approval" }));
+  act(() => useAgentNavigation.setState({ request: { agentId: "gone", cardRef: "x", kind: "approval", nonce: 2 } }));
   await waitFor(() => expect(useAgentNavigation.getState().request).toBeNull());
   expect(screen.getByTestId("workspace").textContent).toBe("Lead");
   expect(reveal.calls).toEqual([]);
