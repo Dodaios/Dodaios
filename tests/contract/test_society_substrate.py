@@ -55,7 +55,10 @@ def test_persistent_group_membership_headless(tmp_path: Path) -> None:
             agent["agent_id"]: agent["session_id"]
             for agent in client.get("/api/society/agents").json()["agents"]
         }
-        assert after == sessions
+        # Named agents are retired (2026-11-11): a start archives every agent
+        # but the lead, so only the lead is listed; the group itself persists.
+        retired = {"scout", "writer"}
+        assert after == {key: value for key, value in sessions.items() if key not in retired}
 
 
 def test_two_agents_exchange_typed_messages_headless(tmp_path: Path) -> None:
