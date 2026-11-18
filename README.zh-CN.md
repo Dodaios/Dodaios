@@ -10,8 +10,8 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the intro, translated (English word for word in README.md; docs/positioning.md) -->
-<p><b>All your coding agents, managed from one chat.</b><br />
-你所有的编程智能体，在一个聊天里统一管理。</p>
+<p><b>Your chief of staff for coding agents.</b><br />
+你的编程智能体幕僚长。</p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="最新版本" /></a>

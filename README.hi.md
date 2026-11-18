@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>आपके सभी कोडिंग एजेंट, एक ही चैट से संभाले हुए।</b></p>
+<p><b>कोडिंग एजेंटों के लिए आपका चीफ़ ऑफ़ स्टाफ़।</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="नई रिलीज़" /></a>
