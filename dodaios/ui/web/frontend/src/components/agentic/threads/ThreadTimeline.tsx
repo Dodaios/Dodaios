@@ -1,5 +1,5 @@
 import { createContext, memo, startTransition, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, Square, SquareTerminal, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { MediaViewerContent } from "@/components/agentchat/MediaPreview";
@@ -15,6 +15,7 @@ import { fill, useI18nStore, useT } from "@/i18n";
 import { localeForUiLanguage, useRunLocale } from "@/components/runs/format";
 import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/actionCard/ApprovalActionCard";
 import { robustCopy } from "@/lib/clipboard";
+import { isReadingAloud, stopReadAloud, toggleReadAloud, useReadAloud } from "@/lib/readAloud";
 import { dismissAside } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
@@ -545,6 +546,28 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     onClick={() => { void robustCopy(text).then(() => { setDone(true); window.setTimeout(() => setDone(false), 1200); }); }}
     className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     {done ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+  </button>;
+}
+
+/**
+ * Reads the answer aloud with the person's own voice; while it reads, the
+ * same button stops it. Leaving the conversation stops it too.
+ */
+function ReadAloudButton({ id, text }: { id: string; text: string }) {
+  const t = useT();
+  const { phase, error } = useReadAloud(id);
+  const active = phase === "loading" || phase === "playing";
+  useEffect(() => () => { if (isReadingAloud(id)) stopReadAloud(); }, [id]);
+  const label = phase === "error" ? fill(t("thread_turn.read_aloud_failed"), { error })
+    : active ? t("thread_turn.stop_reading") : t("thread_turn.read_aloud");
+  return <button type="button" aria-label={label} title={label} aria-pressed={active} data-testid="thread-read-aloud" data-phase={phase ?? "idle"}
+    onClick={() => { void toggleReadAloud(id, text); }}
+    className={cn("rounded p-1 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      phase === "error" ? "text-destructive" : active ? "text-foreground" : "text-muted-foreground")}>
+    {phase === "loading" ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      : phase === "playing" ? <Square className="h-3 w-3 fill-current" />
+        : phase === "error" ? <VolumeX className="h-3.5 w-3.5" />
+          : <Volume2 className="h-3.5 w-3.5" />}
   </button>;
 }
 
@@ -1088,6 +1111,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
         <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
           {ending && <span>{ending}</span>}
           {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
+          {answer && <ReadAloudButton id={turn.id} text={answer} />}
         </div>
       </>}
     </div></CallMedia.Provider>;
@@ -1136,6 +1160,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
             {receipt}
           </span>}
           {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
+          {answer && <ReadAloudButton id={turn.id} text={answer} />}
         </div>
       </>}
   </div></CallMedia.Provider>;
