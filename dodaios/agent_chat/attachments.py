@@ -186,7 +186,10 @@ async def ingest(
     if not await asyncio.to_thread(folder.is_dir):
         raise AttachmentError(f"Not a folder: {folder}")
 
-    references: list[str] = []
+    # (name, reference) for EVERY attached file, in arrival order. A file that is
+    # never analysed (a 60 MB screen recording) still travels, so it must still
+    # come back: an empty answer reads as "nothing usable" in the composer.
+    attached: list[tuple[str, str]] = []
     # (name, bytes, reference) for everything attached — the reference travels
     # with the bytes so a description can never drift onto another file.
     readable: list[tuple[str, bytes, str]] = []
@@ -199,7 +202,7 @@ async def ingest(
         inside = drops.within_workspace(candidate, folder)
         if inside is not None and not always_copy:
             reference = drops.reference(inside, agent=provider)
-            references.append(reference)
+            attached.append((Path(inside).name, reference))
             try:
                 body = await asyncio.to_thread(drops.read_for_analysis, folder / inside)
             except OSError as exc:
@@ -233,18 +236,48 @@ async def ingest(
             raise AttachmentError(str(exc)) from exc
         for item, (_original, source) in zip(stored, to_copy, strict=True):
             reference = drops.reference(item.relative_path, agent=provider)
-            references.append(reference)
+            attached.append((item.name, reference))
             # A file too large to analyse still ships; it goes undescribed.
             body = await asyncio.to_thread(drops.read_for_analysis, source)
             if body is not None:
                 readable.append((item.name, body, reference))
 
-    if not references:
+    if not attached:
         raise AttachmentError("That attachment carried nothing this chat could use.")
 
     if describe_images:
-        return await _analyze(readable)
-    return await _analyze(readable, describe_images=False)
+        analysed = await _analyze(readable)
+    else:
+        analysed = await _analyze(readable, describe_images=False)
+    return _one_per_file(attached, analysed)
+
+
+def _one_per_file(attached: list[tuple[str, str]], analysed: list[Any]) -> list[Any]:
+    """One entry per attached file, in arrival order.
+
+    The analysis only covers files small enough to read, and returns nothing
+    at all when it fails. Every other file gets a plain entry, so it shows in
+    the composer and its reference reaches the turn.
+    """
+    import mimetypes
+
+    from dodaios.agentic_ide import drop_analysis
+
+    by_reference = {item.reference: item for item in analysed}
+    out: list[Any] = []
+    for name, reference in attached:
+        found = by_reference.get(reference)
+        if found is not None:
+            out.append(found)
+            continue
+        mime = mimetypes.guess_type(name)[0] or ""
+        out.append(drop_analysis.DropAnalysis(
+            name=name,
+            reference=reference,
+            kind=drop_analysis.KIND_IMAGE if mime.startswith("image/") else drop_analysis.KIND_OTHER,
+            note="Not read here (too large or not readable); it is attached as a file.",
+        ))
+    return out
 
 
 async def _analyze(
