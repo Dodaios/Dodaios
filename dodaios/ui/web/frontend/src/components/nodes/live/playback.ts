@@ -81,13 +81,36 @@ function blockOf(el: Element, root: Element): Element {
   return at;
 }
 
+const MEDIA = "img, svg, canvas, video, picture";
+
+/** Something to see: text, or a picture. An empty cell or a spacer is not a unit. */
+function hasContent(el: Element): boolean {
+  return (el.textContent ?? "").trim() !== "" || el.matches(MEDIA) || el.querySelector(MEDIA) !== null;
+}
+
+/**
+ * Pinned in place (sticky or fixed, or inside such): a header or a totals row
+ * that stays in view. It changes with the batch but is not written in the
+ * reading order, and scrolling to it would move the view to the end.
+ */
+export function isPinned(el: Element, root: Element): boolean {
+  if (typeof window.getComputedStyle !== "function") return false;
+  for (let at: Element | null = el; at && at !== root; at = at.parentElement) {
+    const position = window.getComputedStyle(at).position;
+    if (position === "sticky" || position === "fixed") return true;
+  }
+  return false;
+}
+
 /** The elements of `root` that a batch of DOM changes added or rewrote, as reading-order blocks. */
 export function changedElements(records: readonly MutationRecord[], root: Element): Element[] {
   const found: Element[] = [];
   const take = (node: Node | null) => {
     const el = node instanceof Element ? node : (node?.parentElement ?? null);
     if (!el || el === root || !root.contains(el) || !el.isConnected) return;
-    found.push(blockOf(el, root));
+    const block = blockOf(el, root);
+    if (!hasContent(block) || isPinned(block, root)) return;
+    found.push(block);
   };
   for (const record of records) {
     if (record.type === "characterData") take(record.target);
@@ -328,7 +351,12 @@ export class LivePlayer {
         }
       }
       const lead = unit.elements[0];
-      if (this.following && lead instanceof HTMLElement && typeof lead.scrollIntoView === "function") {
+      if (
+        this.following &&
+        lead instanceof HTMLElement &&
+        typeof lead.scrollIntoView === "function" &&
+        !isPinned(lead, document.body)
+      ) {
         lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
       }
     }

@@ -16,7 +16,7 @@ function change(over: Record<string, unknown>) {
   const parsed = parseNodeChange({
     node_id: "abc123def456", ref: REF, slug: REF.split("::")[0], node_type: "docs", title: "Notes",
     version: 1, previous_version: 0, updated_at: 1, action: "create", rewrite: false, ops: [],
-    author_kind: "assistant", author_name: "Ada", author_id: "lead", session_id: "chat-1", step: "",
+    author_kind: "assistant", author_name: "Ada", author_id: "agent:ada", session_id: "chat-1", step: "",
     ...over,
   });
   act(() => useNodeLive.getState().receive(parsed!));

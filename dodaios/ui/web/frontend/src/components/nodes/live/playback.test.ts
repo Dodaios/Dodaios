@@ -57,6 +57,24 @@ describe("finding what a batch wrote", () => {
     expect(changedElements(records, root)).toEqual([root.querySelector("#first"), added]);
   });
 
+  it("leaves out what has nothing to see and what is pinned in place", async () => {
+    const root = html("<div id=body></div>");
+    const records: MutationRecord[] = [];
+    const watch = new MutationObserver((r) => records.push(...r));
+    watch.observe(root, { childList: true, subtree: true });
+    const empty = document.createElement("div");
+    const row = document.createElement("div");
+    row.textContent = "Rent";
+    const total = document.createElement("div");
+    total.textContent = "Sum";
+    total.style.position = "sticky";
+    root.append(empty, row, total);
+    await Promise.resolve();
+    records.push(...watch.takeRecords());
+    watch.disconnect();
+    expect(changedElements(records, root)).toEqual([row]);
+  });
+
   it("finds a marked element by its path, or by the nearest marked parent path", () => {
     const root = html('<table><tr data-live-path="/rows/0"><td>a</td></tr><tr data-live-path="/rows/1"><td data-live-path="/rows/1/0">b</td></tr></table>');
     expect(elementForPath(root, "/rows/1/0")?.textContent).toBe("b");

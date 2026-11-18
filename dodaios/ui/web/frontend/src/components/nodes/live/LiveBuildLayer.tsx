@@ -25,7 +25,7 @@ import type { NodeSpecEditor } from "../editors/useNodeSpecEditor";
 import { revealAdapter } from "./adapters";
 import { LivePresence, presenceTint } from "./LivePresence";
 import { changesBetween, presenceActive } from "./liveChanges";
-import { PRESENCE_LINGER_MS, useNodeLive } from "./liveStore";
+import { PRESENCE_LINGER_MS, authorName, useNodeLive } from "./liveStore";
 import {
   LIVE_TIMING,
   LivePlayer,
@@ -231,7 +231,7 @@ export function LiveBuildLayer({
   }, [active, view]);
 
   if (!live || live.author === null) return null;
-  const name = live.author.name || assistantName || "Dodaios";
+  const name = authorName(live.author, assistantName);
   const status = live.step || fill(t("nodes.live.working"), { name });
   const tint = presenceTint(live.author.id, authors ? authors.split("\n") : [], theme === "dark");
   return (

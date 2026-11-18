@@ -118,6 +118,15 @@ interface LiveState {
   suppress: (sessionId: string) => void;
 }
 
+/**
+ * The name on an agent's tag: the assistant by the name the app shows it
+ * under (`assistantName`), any other agent by its own.
+ */
+export function authorName(author: LiveAuthor | null | undefined, assistantName: string): string {
+  if (author && author.id !== "lead" && author.name) return author.name;
+  return assistantName || author?.name || "Dodaios";
+}
+
 /** Is `change` an agent's work, the only kind that plays back? */
 export function isAgentChange(change: Pick<NodeChange, "author">): boolean {
   return change.author.kind === "assistant";

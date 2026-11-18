@@ -32,6 +32,7 @@ import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
 import { useLiveCard } from "@/components/nodes/live/liveCard";
+import { authorName } from "@/components/nodes/live/liveStore";
 import { LazyNodeSkeleton, LazyNodeTypeIcon } from "@/components/nodes/live/lazyParts";
 import { useEventStore } from "@/store/events";
 import { useAgentChatApi } from "./AgentChatStoreContext";
@@ -237,7 +238,7 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       // Still being built: the window shows it in its editor, where the build plays.
       live: building && liveNode ? { nodeId: liveNode.nodeId, nodeType: liveNode.nodeType } : null,
     });
-  const builder = liveNode?.author?.name || assistantName || "Dodaios";
+  const builder = authorName(liveNode?.author, assistantName);
   const status = liveNode?.step || t("nodes.live.card_building").replace("{name}", () => builder);
   // The page as the agent last left it: a new version draws the preview again.
   const version = liveNode && !building ? `&lv=${liveNode.version}` : "";
