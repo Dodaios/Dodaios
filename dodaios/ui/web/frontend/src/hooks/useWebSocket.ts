@@ -46,6 +46,8 @@ import { focusChatComposer, startNewTextChat } from "@/lib/newChat";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 import { onAgentAttention, seedAgentAttention } from "@/components/society/attention/attentionBus";
 import { onNotificationOpened } from "@/lib/notifyOpen";
+import { NODE_CHANGED_EVENT } from "@/components/nodes/live/liveStore";
+import { receiveNodeChange } from "@/components/nodes/live/receive";
 
 let singleton: WSClient | null = null;
 
@@ -408,6 +410,12 @@ export function useWebSocket(): void {
         // Never a toast — the loop does not interrupt (docs/self-build.md).
         if (env.event_name === "SelfBuildChanged") {
           void queryClient.invalidateQueries({ queryKey: ["self-build"] });
+        }
+
+        // A node was created or revised: the open page or editor follows now,
+        // and an agent's work plays back live (docs/node-live-build.md).
+        if (env.event_name === NODE_CHANGED_EVENT) {
+          receiveNodeChange(env.payload, queryClient);
         }
 
         // A new-chat request from outside this window (the backend already raised it): land

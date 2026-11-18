@@ -26,6 +26,8 @@ describe("the node window's store", () => {
       title: "Business plan",
       chat: useAgentChatStore,
       seq: 1,
+      auto: false,
+      live: null,
     });
   });
 

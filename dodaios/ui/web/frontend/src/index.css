@@ -856,6 +856,19 @@ label,
     --info: 212 92% 45%; /* = --accent: one signal hue carries counts and hints too */
     --info-foreground: 0 0% 100%;
 
+    /* --- An agent's presence on a node it is building ---------------------
+       (components/nodes/live, docs/node-live-build.md). Black and white like
+       the rest of the app: near-black ink on paper, the name tag an inverted
+       pill. A second agent at work gets a muted tint of its own, set inline;
+       one agent is always this ink. No hue, no glow. */
+    --presence-ink: 0 0% 9%; /* cursor, frame, tag ground */
+    --presence-on-ink: 0 0% 98%; /* tag text, cursor rim */
+    --presence-frame-alpha: 0.55;
+    --presence-pill-bg: 0 0% 100%;
+    --presence-pill-ink: 0 0% 25%;
+    --presence-skeleton: 0 0% 0% / 0.06; /* a skeleton's blocks */
+    --presence-skeleton-sheen: 0 0% 100% / 0.55; /* its slow shimmer */
+
   }
 
   .dark {
@@ -1046,6 +1059,15 @@ label,
        this" without saying "something is wrong": counts, new items, hints. */
     --info: 212 100% 62%; /* = --accent: one signal hue carries counts and hints too */
     --info-foreground: 0 0% 100%;
+
+    /* An agent's presence: near-white ink on charcoal, the tag a light pill. */
+    --presence-ink: 0 0% 96%;
+    --presence-on-ink: 0 0% 9%;
+    --presence-frame-alpha: 0.6;
+    --presence-pill-bg: 0 0% 11%;
+    --presence-pill-ink: 0 0% 78%;
+    --presence-skeleton: 0 0% 100% / 0.06;
+    --presence-skeleton-sheen: 0 0% 100% / 0.05;
 
   }
 }

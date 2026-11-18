@@ -66,6 +66,14 @@ function restore(place: KeptPlace): void {
 export function moveKeepingPlace(element: HTMLElement, target: HTMLElement): void {
   if (element.parentElement === target) return;
   const places = [...element.querySelectorAll<HTMLElement>(VIEWPORT)].map(placeOf);
+  // A field being typed in keeps its focus and caret through the move: the
+  // node window may open by itself while the person writes in the composer.
+  const active = document.activeElement;
+  const typing = active instanceof HTMLElement && element.contains(active) ? active : null;
+  const caret =
+    typing instanceof HTMLInputElement || typing instanceof HTMLTextAreaElement
+      ? { start: typing.selectionStart, end: typing.selectionEnd }
+      : null;
   const mover = target as HTMLElement & { moveBefore?: (node: Node, before: Node | null) => void };
   let moved = false;
   if (typeof mover.moveBefore === "function" && element.isConnected && target.isConnected) {
@@ -78,4 +86,14 @@ export function moveKeepingPlace(element: HTMLElement, target: HTMLElement): voi
   }
   if (!moved) target.appendChild(element);
   for (const place of places) restore(place);
+  if (typing !== null && document.activeElement !== typing && typing.isConnected) {
+    typing.focus({ preventScroll: true });
+    if (caret && (typing instanceof HTMLInputElement || typing instanceof HTMLTextAreaElement)) {
+      try {
+        typing.setSelectionRange(caret.start, caret.end);
+      } catch {
+        // A field type without a caret keeps the focus only.
+      }
+    }
+  }
 }

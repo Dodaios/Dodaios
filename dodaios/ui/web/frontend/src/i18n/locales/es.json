@@ -3296,7 +3296,8 @@
       "more": "Más",
       "overlay_taskbar": "Overlay y barra de tareas",
       "self_build": "Autoconstrucción",
-      "approvals": "Modos de permiso"
+      "approvals": "Modos de permiso",
+      "node_live": "Nodos mientras se crean"
     },
     "languages_group_title": "Idiomas",
     "sections": {
@@ -3724,6 +3725,11 @@
       "by": "de {author}",
       "saved": "Aspecto cambiado.",
       "failed": "Este aspecto no se inició, así que se muestra el orbe de voz."
+    },
+    "node_live": {
+      "title": "Nodos mientras se crean",
+      "open_title": "Abrir los nodos mientras se crean",
+      "open_description": "Cuando un agente crea un documento, una hoja u otro nodo en la conversación que estás viendo, se abre junto a la conversación y ves cómo se escribe."
     }
   },
   "telephony_view": {
@@ -12215,6 +12221,10 @@
         "title": "Una pizarra vacía",
         "hint": "Elige una herramienta abajo, pulsa N para una nota adhesiva o pide a {assistant} que dibuje algo aquí."
       }
+    },
+    "live": {
+      "working": "{name} está trabajando…",
+      "card_building": "{name} lo está creando…"
     }
   },
   "agent_browser": {

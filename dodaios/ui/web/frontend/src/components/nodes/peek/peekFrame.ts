@@ -24,6 +24,11 @@ export const PEEK_FRAME_CLASS =
   "absolute inset-x-3 bottom-3 top-11 flex overflow-hidden rounded-2xl border border-border-strong bg-background shadow-float outline-none " +
   "sm:inset-x-6 sm:bottom-6 sm:top-14 xl:inset-x-10 xl:bottom-9 xl:top-[68px]";
 
+/** The window sliding in from the right when it opens by itself (components/nodes/live/live.css). */
+export const LIVE_WINDOW_IN_CLASS = "live-window-in";
+/** The request whose window frame was drawn before its chunk: it has slid in already. */
+export const framedFirst = { seq: -1 };
+
 type WindowModule = typeof import("./NodePeekWindow");
 
 let pending: Promise<WindowModule> | null = null;

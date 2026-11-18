@@ -30,7 +30,11 @@ import { cn } from "@/lib/utils";
 import { useNodePeek } from "@/store/nodePeek";
 import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
+import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
+import { useLiveCard } from "@/components/nodes/live/autoOpen";
+import { NodeSkeleton } from "@/components/nodes/live/NodeSkeleton";
+import { useEventStore } from "@/store/events";
 import { useAgentChatApi } from "./AgentChatStoreContext";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
@@ -204,22 +208,51 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
   const isOpen = useNodePeek((s) => page !== null && s.peek?.ref === page.artifact);
   // Edited in the window since: the preview is drawn again from the new page.
   const touched = useNodePeek((s) => (page !== null ? (s.touched[page.artifact] ?? 0) : 0));
+  /* An agent is building it: the card says so until the turn ends, and the
+   * node window opens by itself beside this conversation (live/autoOpen). */
+  const cardRef = useRef<HTMLElement | null>(null);
+  const live = useLiveCard(page !== null && mode !== "hidden" ? page.artifact : null, page?.title ?? "", chat, cardRef);
+  const assistantName = useEventStore((s) => s.assistantName);
   if (!page || mode === "hidden") return null;
   if (mode === "link") {
     return (
-      <div data-message-id={item.id} data-testid="page-link-row" className="flex w-full max-w-[720px] px-1 text-body">
+      <div
+        ref={(el) => {
+          cardRef.current = el;
+        }}
+        data-message-id={item.id}
+        data-testid="page-link-row"
+        className="flex w-full max-w-[720px] px-1 text-body"
+      >
         <PageLink pageRef={page.artifact} label={page.title} />
       </div>
     );
   }
-  const open = () => openPeek(page.artifact, { chat, title: page.title });
+  const liveNode = live.node;
+  const building = live.building && liveNode !== null;
+  const nodeType = page.nodeType ?? liveNode?.nodeType ?? null;
+  const open = () =>
+    openPeek(page.artifact, {
+      chat,
+      title: page.title,
+      // Still being built: the window shows it in its editor, where the build plays.
+      live: building && liveNode ? { nodeId: liveNode.nodeId, nodeType: liveNode.nodeType } : null,
+    });
+  const builder = liveNode?.author?.name || assistantName || "Dodaios";
+  const status = liveNode?.step || t("nodes.live.card_building").replace("{name}", () => builder);
+  // The page as the agent last left it: a new version draws the preview again.
+  const version = liveNode && !building ? `&lv=${liveNode.version}` : "";
   const openLabel = `${t("reports.open")}: ${page.title}`;
   const fileName = page.path.split("/").pop() || "page.html";
   return (
     <article
+      ref={(el) => {
+        cardRef.current = el;
+      }}
       data-message-id={item.id}
       data-testid="page-card"
       data-open={isOpen ? "true" : undefined}
+      data-building={building ? "true" : undefined}
       onPointerEnter={preloadNodePeek}
       onFocus={preloadNodePeek}
       className={cn(
@@ -228,17 +261,30 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       )}
     >
       <button type="button" data-testid="page-card-preview" onClick={open} aria-label={openLabel} className="relative block h-[300px] w-full cursor-pointer overflow-hidden text-left">
-        <PagePreview src={`${artifactPageUrl(page.slug, page.path)}?theme=${theme}${touched ? `&v=${touched}` : ""}`} title={page.title} />
+        {building ? (
+          <div className="absolute inset-0" data-testid="page-card-building">
+            <NodeSkeleton type={nodeType ?? "docs"} />
+          </div>
+        ) : (
+          <PagePreview src={`${artifactPageUrl(page.slug, page.path)}?theme=${theme}${touched ? `&v=${touched}` : ""}${version}`} title={page.title} />
+        )}
       </button>
       <footer className="flex items-center gap-3 border-t border-border px-4 py-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-          <FileChartColumn className="h-5 w-5" aria-hidden />
+          {nodeType ? <NodeTypeIcon type={nodeType} className="h-5 w-5" /> : <FileChartColumn className="h-5 w-5" aria-hidden />}
         </span>
         <button type="button" data-testid="page-card-title" onClick={open} aria-label={openLabel} className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[15px] font-medium text-foreground">{page.title}</span>
-          <span className="block truncate text-sm text-muted-foreground" data-testid="page-card-kind">
-            {page.nodeType ? t(NODE_TYPE_LABEL_KEY[page.nodeType]) : t("reports.page")}
-          </span>
+          {building ? (
+            <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" data-testid="page-card-status" aria-live="polite">
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/60" aria-hidden />
+              <span className="truncate">{status}</span>
+            </span>
+          ) : (
+            <span className="block truncate text-sm text-muted-foreground" data-testid="page-card-kind">
+              {page.nodeType ? t(NODE_TYPE_LABEL_KEY[page.nodeType]) : t("reports.page")}
+            </span>
+          )}
         </button>
         <a
           href={artifactDownloadUrl(page.slug, page.path)}

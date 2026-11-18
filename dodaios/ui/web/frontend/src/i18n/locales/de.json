@@ -3296,7 +3296,8 @@
       "more": "Weiteres",
       "overlay_taskbar": "Overlay & Taskleiste",
       "self_build": "Selbstbau",
-      "approvals": "Berechtigungsmodi"
+      "approvals": "Berechtigungsmodi",
+      "node_live": "Nodes beim Entstehen"
     },
     "languages_group_title": "Sprachen",
     "sections": {
@@ -3724,6 +3725,11 @@
       "by": "von {author}",
       "saved": "Look gewechselt.",
       "failed": "Dieser Look ist nicht gestartet, deshalb ist der Sprach-Orb zu sehen."
+    },
+    "node_live": {
+      "title": "Nodes beim Entstehen",
+      "open_title": "Nodes beim Entstehen öffnen",
+      "open_description": "Wenn ein Agent in der Unterhaltung, die du gerade ansiehst, ein Dokument, eine Tabelle oder einen anderen Node erstellt, öffnet er sich neben der Unterhaltung und du siehst zu, wie er geschrieben wird."
     }
   },
   "telephony_view": {
@@ -12215,6 +12221,10 @@
         "title": "Ein leeres Board",
         "hint": "Wähle unten ein Werkzeug, drücke N für eine Haftnotiz oder bitte {assistant}, hier etwas zu zeichnen."
       }
+    },
+    "live": {
+      "working": "{name} arbeitet…",
+      "card_building": "{name} baut daran…"
     }
   },
   "agent_browser": {

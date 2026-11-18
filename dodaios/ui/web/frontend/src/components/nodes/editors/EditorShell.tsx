@@ -11,12 +11,13 @@
  * node moved on), the frame says so and offers to leave anyway instead of
  * dropping the person's work without a word.
  */
-import { useCallback, useState, type FocusEvent, type ReactNode } from "react";
+import { useCallback, useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { AlertTriangle, Check, CloudOff, Loader2, Redo2, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { LiveBuildLayer } from "../live/LiveBuildLayer";
 import { ToolbarButton, ToolbarGroup, ToolbarSeparator } from "./controls";
 import type { NodeSpecEditor } from "./useNodeSpecEditor";
 
@@ -42,6 +43,7 @@ export interface EditorShellProps {
 
 export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassName, children }: EditorShellProps) {
   const t = useT();
+  const body = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState<"idle" | "saving" | "stuck">("idle");
 
   const done = useCallback(async () => {
@@ -157,7 +159,13 @@ export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassNam
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        <div className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)}>{children}</div>
+        {/* The body, with the agent's presence laid over it while it builds the node. */}
+        <div className="relative flex min-h-0 min-w-0 flex-1">
+          <div ref={body} className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)} data-testid="node-editor-body">
+            {children}
+          </div>
+          <LiveBuildLayer editor={editor} body={body} />
+        </div>
         {side && (
           <aside
             aria-label={t("nodes.editor.inspector")}

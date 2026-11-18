@@ -12,6 +12,7 @@ import { SystemPromptGroup } from "@/views/settings/SystemPromptGroup";
 import { AgentBriefsGroup } from "@/views/settings/AgentBriefsGroup";
 import { SelfBuildGroup } from "@/views/settings/SelfBuildGroup";
 import { ApprovalModesGroup } from "@/views/settings/ApprovalModesGroup";
+import { NodeLiveGroup } from "@/views/settings/NodeLiveGroup";
 import { SettingsGroupBoundary } from "@/views/settings/SettingsGroupBoundary";
 import { settingsInputCls } from "@/views/settings/SettingsBlock";
 import {
@@ -155,6 +156,7 @@ const SECTIONS: readonly { id: string; render: () => React.ReactNode }[] = [
   { id: "system-prompt", render: () => <SystemPromptGroup /> },
   { id: "agent-briefs", render: () => <AgentBriefsGroup /> },
   { id: "approvals", render: () => <ApprovalModesGroup /> },
+  { id: "node-live", render: () => <NodeLiveGroup /> },
   { id: "self-build", render: () => <SelfBuildGroup /> },
   { id: "music", render: () => <MusicGroup /> },
   { id: "overlay-taskbar", render: () => <OverlayTaskbarGroup /> },

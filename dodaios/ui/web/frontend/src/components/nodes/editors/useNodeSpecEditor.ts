@@ -114,10 +114,30 @@ export interface NodeSpecEditor<S> {
   retry: () => void;
   /** The stage's watcher saw the node at `updatedAt` (wired by the stage's context too). */
   receiveRevision: (updatedAt: number) => void;
+  /**
+   * The last revision from the server that was put in place by itself (not by
+   * "take theirs"): what was shown before, what is shown now, and the versions.
+   * The live build (`components/nodes/live`) plays an agent's revision back
+   * from it. Null until the first one.
+   */
+  remote?: RemoteRevision<S> | null;
   /** The editor's shortcuts; put on the editor's root element (EditorShell does). */
   onKeyDown: (event: ReactKeyboardEvent | KeyboardEvent) => void;
   /** Focus left the editor: save now and close the run (EditorShell wires it). */
   onBlur: () => void;
+}
+
+/** A revision from the server that the editor took by itself. */
+export interface RemoteRevision<S> {
+  /** Goes up with every one, so the same spec taken twice is still news. */
+  seq: number;
+  /** The spec the person saw before. */
+  previous: S;
+  /** The spec shown now. */
+  next: S;
+  /** The server version before and now. */
+  fromVersion: number;
+  version: number;
 }
 
 export const DEFAULT_SAVE_DELAY_MS = 700;
@@ -310,15 +330,28 @@ export function useNodeSpecEditor<S>(
     historyRef.current = breakRun(historyRef.current);
   }, []);
 
+  const remoteRef = useRef<RemoteRevision<S> | null>(null);
+
   /** Put the server's version in place as an undoable step. */
   const takeVersion = useCallback(
-    (theirs: SavedSpec, label: string) => {
+    (theirs: SavedSpec, label: string, byItself = false) => {
+      const previous = historyRef.current.present;
+      const fromVersion = baseRef.current.version;
       baseRef.current = theirs;
       ownRevisions.current.add(theirs.updated_at);
       const spec = adoptRef.current ? adoptRef.current(theirs.spec) : (theirs.spec as S);
       const next = commit(breakRun(historyRef.current), spec, { label }, Date.now(), depth);
       savedPresentRef.current = next.present;
       historyRef.current = next;
+      if (byItself) {
+        remoteRef.current = {
+          seq: (remoteRef.current?.seq ?? 0) + 1,
+          previous,
+          next: next.present,
+          fromVersion,
+          version: theirs.version,
+        };
+      }
       clearTimer();
       setState("saved");
       rerender();
@@ -348,7 +381,7 @@ export function useNodeSpecEditor<S>(
           rerender();
           return;
         }
-        takeVersion(theirs, labels.current.remote);
+        takeVersion(theirs, labels.current.remote, true);
       })
       .catch(() => {
         // The next report from the watcher asks again.
@@ -463,6 +496,7 @@ export function useNodeSpecEditor<S>(
     flush,
     retry,
     receiveRevision,
+    remote: remoteRef.current,
     onKeyDown,
     onBlur,
   };

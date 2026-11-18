@@ -19,7 +19,7 @@ const UNLISTED_IDS = ["socials"];
 
 /** The General page's groups (SettingsView SECTIONS). */
 const GENERAL_SECTIONS = [
-  "languages", "app", "voice", "wake-word", "system-prompt", "agent-briefs", "approvals",
+  "languages", "app", "voice", "wake-word", "system-prompt", "agent-briefs", "approvals", "node-live",
   "self-build", "music", "overlay-taskbar",
 ];
 
