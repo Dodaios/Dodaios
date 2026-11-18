@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Один голосовой ассистент, который управляет вашими моделями, вашими агентами для программирования и вашим компьютером.</b></p>
+<p><b>Будьте CEO своих агентов для программирования, а не их нянькой.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Последний релиз" /></a>

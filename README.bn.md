@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>ভয়েসে চলা একটি অ্যাসিস্ট্যান্ট, যে আপনার মডেল, আপনার কোডিং এজেন্ট আর আপনার কম্পিউটারকে নির্দেশ দেয়।</b></p>
+<p><b>আপনার কোডিং এজেন্টদের সিইও হোন, বেবিসিটার নয়।</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="সর্বশেষ রিলিজ" /></a>

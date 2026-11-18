@@ -1,7 +1,7 @@
 # Positioning: what Dodaios stands for
 
 Decided by the maintainer on 15 November 2026; the promise was last changed on
-16 November 2026 (evening). The README, the website and
+18 November 2026. The README, the website and
 every launch text follow this page. What a public text may and may not say is
 in [positioning-claims.md](positioning-claims.md).
 
@@ -17,7 +17,7 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **One voice-driven assistant that directs your models, your coding agents and your computer.**
+> **Be the CEO, not the babysitter of your coding agents.**
 
 Use it word for word, and never alone: the definition always follows.
 
@@ -49,9 +49,11 @@ Use it word for word, and never alone: the definition always follows.
 > computer.
 
 The maintainer wrote the definition himself and settled on it late in the
-evening of 16 November 2026. The one-liner is taken from its last sentence. It
-presents Dodaios as one connected system: one assistant, reached by voice,
-that directs the models, the coding agents and the computer. A few places were
+evening of 16 November 2026. On 18 November 2026 he chose the one-liner above
+it: it names the reader's problem, watching over each coding agent, and the
+role Dodaios gives them instead; the paragraphs and the definition then show
+the system that makes it work.
+A few places in the definition were
 adjusted so that each sentence is true in the code on main: phone calls are a
 preview, the coding agents (not the assistant) reach servers over SSH, life
 admin is opt-in, the self-building loop makes skills, routines and agents, and
@@ -61,13 +63,22 @@ agents" is a figure of speech for what the app coordinates. Do not use it to
 say that Dodaios is an operating system, and do not name another product as
 the comparison.
 
-The README is built on it and kept short: the one-liner, the definition, one
+The README is built on it and kept short: the one-liner, a few short
+paragraphs on the reader's problem, Git, memory and the plans it works with, the definition, one
 recording that shows the definition at work, the install commands, and a few
 lines on plans and keys, data, approvals and what is not finished. Everything
 else is in `docs/`.
 
 Earlier promises:
 
+- Briefly on 18 November 2026: "Stop babysitting terminals. One assistant
+  runs your coding agents for you." The maintainer replaced it the same day
+  with a shorter line about the reader's role.
+- From the evening of 16 November to 18 November 2026: "One voice-driven
+  assistant that directs your models, your coding agents and your computer.",
+  taken from the last sentence of the definition. The maintainer replaced it
+  with a line that names the reader's problem first: watching one terminal per
+  coding agent.
 - Earlier in the evening of 16 November 2026: "Your AI-native office. Talk,
   write, build.", with the definition "Dodaios brings everything together: a
   voice assistant that knows your work, Nodes for docs, slides and sheets, and
