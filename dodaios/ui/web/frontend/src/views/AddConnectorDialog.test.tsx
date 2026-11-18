@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { loadLocaleChunk, setUiLanguage } from "@/i18n";
-import { browseToolRows, type ToolChoice } from "@/components/agentchat/toolChoices";
+import { browseToolRows } from "@/components/agentchat/browseToolRows";
+import { type ToolChoice } from "@/components/agentchat/toolChoices";
 import { AddConnectorDialog, AddPluginTabs } from "@/views/AddConnectorDialog";
 
 /**

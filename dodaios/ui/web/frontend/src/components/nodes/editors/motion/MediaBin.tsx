@@ -16,6 +16,7 @@ import { AudioLines, Captions, Film, Image as ImageIcon, LayoutTemplate, Loader2
 import { Button } from "@/components/ui/button";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import "../../live/live.css";
 import { MenuItem } from "../controls";
 import { mediaUrl, sideFile } from "./clipApi";
 import { TEXT_STYLES, CaptionStyle, type Change } from "./ClipInspector";
@@ -193,6 +194,7 @@ export function MediaBin(props: MediaBinProps) {
 
 function MediaCard({ nodeId, id, entry, onAdd }: { nodeId: string; id: string; entry: MediaEntry; onAdd: () => void }) {
   const t = useT();
+  const [posterReady, setPosterReady] = useState(false);
   const Icon = entry.kind === "video" ? Film : entry.kind === "audio" ? AudioLines : ImageIcon;
   const poster = entry.kind !== "audio" ? mediaUrl(nodeId, sideFile(entry.file, "poster.jpg")) : "";
   return (
@@ -205,9 +207,11 @@ function MediaCard({ nodeId, id, entry, onAdd }: { nodeId: string; id: string; e
       }}
       title={entry.name}
       data-testid={`clip-media-${id}`}
+      data-live-path={`/media/${id}`}
     >
       <div className="relative grid place-items-center overflow-hidden bg-black/60" style={{ aspectRatio: "16 / 9" }}>
-        {poster ? <img src={poster} alt="" className="h-full w-full object-cover" draggable={false} /> : <Icon className="h-6 w-6 text-emerald-300" aria-hidden />}
+        {poster && !posterReady && <span aria-hidden className="live-skeleton live-skeleton-block" style={{ position: "absolute", inset: 0 }} />}
+        {poster ? <img src={poster} alt="" className="h-full w-full object-cover" draggable={false} onLoad={() => setPosterReady(true)} onError={() => setPosterReady(true)} /> : <Icon className="h-6 w-6 text-emerald-300" aria-hidden />}
         {entry.kind !== "image" && <span className="absolute bottom-0.5 right-1 rounded bg-black/60 px-1 text-[10px] tabular-nums text-white">{formatClock(entry.seconds)}</span>}
         <button
           type="button"

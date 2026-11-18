@@ -28,6 +28,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { useThemeValue } from "@/hooks/useTheme";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import "./clipLive.css";
 import { NODE_EDIT_MESSAGE, NODE_EDIT_STATE_MESSAGE, NODE_MODE_MESSAGE, NODE_READY_MESSAGE } from "../../nodeBridge";
 import { preparePreviewHtml, useNodePreview } from "../PreviewFrame";
 
@@ -116,8 +117,12 @@ export function ClipPreview({
   ]);
   const [active, setActive] = useState<0 | 1>(0);
   const [shown, setShown] = useState(false);
+  // The page it replaces stays under the new one while that fades in (a crossfade, no blank frame).
+  const [leaving, setLeaving] = useState<0 | 1 | null>(null);
+  const leaveTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
   // The newest state, for the message handler (registered once).
-  const live = useRef({ at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, onKey, loading: -1 as -1 | 0 | 1 });
+  const live = useRef({ at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, onKey, loading: -1 as -1 | 0 | 1, shownOnce: false });
   live.current = { ...live.current, at, scene, playing, editText, guides, active, onEdit, onTime, onPick, onMoveLayer, onKey };
 
   const post = useCallback((slot: 0 | 1, message: Record<string, unknown>) => {
@@ -165,6 +170,12 @@ export function ClipPreview({
         steer(slot as 0 | 1, now.playing);
         if (slot === now.loading) {
           live.current.loading = -1;
+          if (now.active !== slot && live.current.shownOnce) {
+            setLeaving(now.active);
+            window.clearTimeout(leaveTimer.current);
+            leaveTimer.current = window.setTimeout(() => setLeaving(null), 260);
+          }
+          live.current.shownOnce = true;
           setActive(slot as 0 | 1);
           setShown(true);
           // The page it replaces falls silent.
@@ -234,8 +245,9 @@ export function ClipPreview({
           data-active={index === active && shown ? "true" : "false"}
           className={cn(
             "absolute inset-0 h-full w-full border-0 bg-transparent",
-            index === active && shown ? "visible" : "invisible",
+            index === active && shown ? "visible z-[1]" : index === leaving ? "visible" : "invisible",
           )}
+          style={index === active && leaving !== null ? { animation: "clip-preview-in 220ms ease-out" } : undefined}
         />
       ))}
       {!shown && (

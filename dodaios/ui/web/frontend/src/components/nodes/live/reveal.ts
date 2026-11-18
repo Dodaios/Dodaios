@@ -59,6 +59,15 @@ export interface RevealStep {
   /** The step's own way of arriving instead of the plain fade (`UnitMotion`); for `path`, `selector` and `element` targets. */
   motion?: UnitMotion;
   /**
+   * Type-specific motion when the step is revealed, played with the fade
+   * (a clip growing to its length, a track sliding in). Called as the unit
+   * is revealed, so it can measure the final layout; null plays the fade
+   * alone. Skipped with reduced motion.
+   */
+  enter?: (el: Element) => Keyframe[] | null;
+  /** Called with the step's first element as it is revealed (with reduced motion too). */
+  onReveal?: (el: Element) => void;
+  /**
    * Whether the presence frame grows to include this step (default true).
    * A step outside the written area (a new tab in a tab bar) plays and draws
    * the cursor, but the frame stays on the content.

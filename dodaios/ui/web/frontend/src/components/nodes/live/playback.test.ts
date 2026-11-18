@@ -142,6 +142,31 @@ describe("the player", () => {
     player.destroy();
   });
 
+  it("plays a unit's own motion with its fade and calls its hook as it is revealed", () => {
+    const player = new LivePlayer(host, view, () => false);
+    const [unit] = units(1);
+    const enter = vi.fn(() => [{ opacity: 0 }, { opacity: 1 }] as Keyframe[]);
+    const onReveal = vi.fn();
+    player.play([{ ...unit, enter, onReveal }]);
+    vi.advanceTimersByTime(10);
+    expect(onReveal).toHaveBeenCalledWith(unit.elements[0]);
+    expect(enter).toHaveBeenCalledWith(unit.elements[0]);
+    // hold + fade + the unit's own motion.
+    expect(animate).toHaveBeenCalledTimes(3);
+    player.destroy();
+  });
+
+  it("calls the hook but plays no motion with reduced motion", () => {
+    const player = new LivePlayer(host, view, () => true);
+    const [unit] = units(1);
+    const enter = vi.fn(() => [{ opacity: 0 }] as Keyframe[]);
+    const onReveal = vi.fn();
+    player.play([{ ...unit, enter, onReveal }]);
+    expect(onReveal).toHaveBeenCalledTimes(1);
+    expect(enter).not.toHaveBeenCalled();
+    player.destroy();
+  });
+
   it("shows the batch at once with reduced motion", () => {
     const player = new LivePlayer(host, view, () => true);
     player.play(units(4));

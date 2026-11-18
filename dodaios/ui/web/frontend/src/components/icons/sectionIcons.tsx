@@ -151,13 +151,16 @@ export const PluginIcon = defineIcon(
   <path d="M3.5 10A2.5 2.5 0 0 1 6 7.5h2.6a2.2 2.2 0 1 1 2.8 0H14a2.5 2.5 0 0 1 2.5 2.5v2.6a2.2 2.2 0 1 1 0 2.8V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18Z" />,
 );
 
-/** A quill: written know-how the agent follows. */
+/**
+ * A playbook with a bolt on its cover: written know-how the assistant acts
+ * on. Replaces a quill that read as "writing", and the stock sparkle the Add
+ * menu showed for every skill (maintainer, 2026-11-18).
+ */
 export const SkillIcon = defineIcon(
   "SkillIcon",
   <>
-    <path d="M20 4c-7 .5-11.5 5-12 12l1 1c7-.5 11.5-5 11-13Z" />
-    <path d="M4 20 14 10" />
-    <path d="M12.5 15.5h3.5" />
+    <path d="M5 18.5V5.5A2.5 2.5 0 0 1 7.5 3H19v14.5H7.5A2.5 2.5 0 0 0 5 20a1 1 0 0 0 1 1h13" />
+    <path d="M13 6.5 10 11h4l-3 4.5" />
   </>,
 );
 

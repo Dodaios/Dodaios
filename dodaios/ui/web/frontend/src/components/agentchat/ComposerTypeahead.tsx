@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import { groupRuns, type TypeaheadItem } from "@/components/agentchat/typeahead";
 import { ToolChoiceIcon } from "@/components/agentchat/ToolChoiceChips";
 import { toolIdentityStyle } from "@/components/agentchat/toolIdentity";
+import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
+import { nodeHueStyle } from "@/components/nodes/nodeTheme";
 import { AgentSwatch } from "@/components/society/AgentSwatch";
 import { useSocietyRoster } from "@/components/society/data";
 import { useT } from "@/i18n";
@@ -188,6 +190,17 @@ function Row({ item, trigger, active }: { item: TypeaheadItem; trigger: string; 
   // A plugin or tool of the assistant's catalog, or one of the user's agents:
   // a named thing, shown with its own face and read by its name first.
   const teammate = item.group === "teammates";
+  if (item.nodeType) {
+    return (
+      <span className="col-span-2 flex min-w-0 items-center gap-2" style={nodeHueStyle(item.nodeType)}>
+        <span className="inline-flex shrink-0 text-[hsl(var(--node-hue))]" aria-hidden>
+          <NodeTypeIcon type={item.nodeType} className="h-4 w-4" />
+        </span>
+        <span className="shrink-0 font-medium">{item.label}</span>
+        {item.hint && <span className="min-w-0 truncate text-xs text-muted-foreground">{item.hint}</span>}
+      </span>
+    );
+  }
   if (item.choice || teammate) {
     return (
       <span className="col-span-2 flex min-w-0 items-center gap-2">
@@ -285,6 +298,8 @@ function groupLabel(group: string, t: (key: string) => string): string {
       return t("agent_chat.typeahead_group_agents");
     case "teammates":
       return t("nav.agents");
+    case "nodes":
+      return t("nodes.title");
     case "files":
       return t("agent_chat.typeahead_group_files");
     default:
