@@ -729,7 +729,8 @@ export function SheetGrid(props: SheetGridProps) {
                       role="separator"
                       aria-orientation="vertical"
                       aria-label={labels.resize(column.label)}
-                      className="absolute right-[-3px] top-0 z-10 h-full w-[6px] cursor-col-resize hover:bg-accent/40"
+                      // The last column's handle stays inside the grid: a filled grid would scroll sideways by its overhang.
+                      className={cn("absolute top-0 z-10 h-full w-[6px] cursor-col-resize hover:bg-accent/40", col === cols - 1 ? "right-0" : "right-[-3px]")}
                       onMouseDown={(event) => startResize(event, col)}
                     />
                   </th>
