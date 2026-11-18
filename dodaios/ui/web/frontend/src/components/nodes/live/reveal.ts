@@ -64,11 +64,19 @@ export interface RevealStep {
   enter?: (el: Element) => Keyframe[] | null;
   /** Called with the step's first element as it is revealed (with reduced motion too). */
   onReveal?: (el: Element) => void;
+  /**
+   * Whether the presence frame grows to include this step (default true).
+   * A step outside the written area (a new tab in a tab bar) plays and draws
+   * the cursor, but the frame stays on the content.
+   */
+  framed?: boolean;
 }
 
 export interface RevealAdapter<S = unknown> {
   /** The batch's steps in the order they play. Called once the body shows `next`. */
   steps: (input: RevealInput<S>) => RevealStep[];
+  /** Which corner of the frame the name tag sits on (default: the top-left). */
+  tagCorner?: "top" | "bottom";
 }
 
 /**
