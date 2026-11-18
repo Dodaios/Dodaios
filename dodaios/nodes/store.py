@@ -51,6 +51,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.nodes import live
 from dodaios.nodes.board import files as board_files
 from dodaios.nodes.board.scene import MAX_SCENE_BYTES, is_scene, merge_scene
 from dodaios.nodes.kinds import RENDER_REVISION, kind_of
@@ -386,6 +387,7 @@ class NodeStore:
         write_marker(run_dir, kind=MARKER_KIND, title=clean_title)
         written = self._write(run_dir, node)
         log.info("node %s created (%s)", node_id, type_name)
+        live.changed(written, previous_version=0, action="create")
         return written
 
     def update(
@@ -455,7 +457,13 @@ class NodeStore:
         )
         if new_title != node.title:
             self._relabel(run_dir, new_title)
-        return self._write(run_dir, updated)
+        written = self._write(run_dir, updated)
+        if revised:
+            # A new spec is a rewrite; edits are sent as they were applied; a
+            # new title alone changes no content (no ops, no rewrite).
+            sent = None if spec is not None else (changes if changes is not None else [])
+            live.changed(written, previous_version=node.version, action="update", changes=sent)
+        return written
 
     def revert(self, node_id: str, *, now: float | None = None) -> Node:
         """Put the previous version back (and keep the current one in history)."""
@@ -496,7 +504,9 @@ class NodeStore:
             )
             if title != node.title:
                 self._relabel(run_dir, title)
-            return self._write(run_dir, restored)
+            written = self._write(run_dir, restored)
+            live.changed(written, previous_version=node.version, action="revert")
+            return written
         raise NodeError("This node has no earlier version to go back to.")
 
     def duplicate(self, node_id: str, *, title: str = "", now: float | None = None) -> Node:
@@ -610,7 +620,9 @@ class NodeStore:
             updated_at=stamp,
             extra={**node.extra, "last_save": {"by": "person", "at": stamp, "since": since}},
         )
-        return self._write(run_dir, updated)
+        written = self._write(run_dir, updated)
+        live.changed(written, previous_version=node.version, action="save")
+        return written
 
     def save_scene(self, node_id: str, scene: Any, *, now: float | None = None) -> Node:
         """Save the person's scene from the editor as the whiteboard's spec.

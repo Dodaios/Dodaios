@@ -21,7 +21,13 @@ from dodaios.nodes.store import NodeStore
 from dodaios.nodes.types import NODE_TYPES, NodeError
 from dodaios.orchestrator import jobs
 from dodaios.plugins.tool import node as node_tool
-from dodaios.plugins.tool.node import MAX_GET_CHARS, TYPE_LINES, WORK_METHOD, NodeTool
+from dodaios.plugins.tool.node import (
+    BUILD_IN_STEPS,
+    MAX_GET_CHARS,
+    TYPE_LINES,
+    WORK_METHOD,
+    NodeTool,
+)
 
 REPO = Path(__file__).resolve().parents[4]
 SPEC: dict[str, Any] = {"blocks": [{"text": "First"}, {"text": "Second"}]}
@@ -133,7 +139,8 @@ async def test_guide_lists_the_types_and_hands_out_one_grammar(tmp_path: Path) -
 
     one = await tool.execute({"operation": "guide", "type": "docs"}, _ctx())
     # A type's grammar, and how to work when its guide has no method of its own.
-    assert one.success and one.output == "GUIDE for docs: spec is {blocks: [{text}]}." + WORK_METHOD
+    guide = "GUIDE for docs: spec is {blocks: [{text}]}."
+    assert one.success and one.output == guide + WORK_METHOD + BUILD_IN_STEPS
     # What a person calls a type is understood too.
     alias = await tool.execute({"operation": "guide", "type": "spreadsheet"}, _ctx())
     assert alias.output.startswith("GUIDE for sheets")
