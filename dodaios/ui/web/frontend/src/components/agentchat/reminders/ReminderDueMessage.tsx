@@ -60,16 +60,28 @@ function isReminderNotice(item: TimelineItem | undefined): item is NoticeItem {
 }
 
 /**
- * Reminders told one right after the other are one message: the first notice
- * of a run carries the others (`data.reminder_group`). The same array when
- * there is nothing to fold.
+ * Whether `item` belongs to the message of `last`. A notice the assistant
+ * worded together with the one before it says so (`voice_covered`); a notice
+ * with words of its own is a message of its own (a break told at 13:00 is not
+ * part of what was said at 12:26). Notices from before the words were written
+ * fold when they follow each other, as they always did.
+ */
+function joins(last: NoticeItem, item: NoticeItem): boolean {
+  if (item.data.voice_covered === true) return true;
+  return !item.data.voice && !last.data.voice;
+}
+
+/**
+ * Reminders told together are one message: the first notice of a run carries
+ * the others (`data.reminder_group`). The same array when there is nothing to
+ * fold.
  */
 export function foldReminderNotices(items: TimelineItem[]): TimelineItem[] {
   if (!items.some((item, index) => isReminderNotice(item) && isReminderNotice(items[index + 1]))) return items;
   const out: TimelineItem[] = [];
   for (const item of items) {
     const last = out[out.length - 1];
-    if (isReminderNotice(item) && isReminderNotice(last)) {
+    if (isReminderNotice(item) && isReminderNotice(last) && joins(last, item)) {
       const group = (last.data[GROUP] as NoticeItem[] | undefined) ?? [last];
       out[out.length - 1] = { ...last, data: { ...last.data, [GROUP]: [...group, item] } };
       continue;

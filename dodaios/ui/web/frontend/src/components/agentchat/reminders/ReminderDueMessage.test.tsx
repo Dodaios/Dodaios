@@ -182,6 +182,15 @@ describe("foldReminderNotices", () => {
     expect(((folded[0] as NoticeItem).data.reminder_group as NoticeItem[]).map((item) => item.id)).toEqual(["n1", "n2"]);
   });
 
+  test("a reminder with words of its own is a message of its own; one worded with the one before joins it", () => {
+    const first = { ...own("n1", "m1", "A"), data: { ...own("n1", "m1", "A").data, voice: "Water the plants and call mum." } };
+    const covered = { ...own("n2", "m2", "B"), data: { ...own("n2", "m2", "B").data, voice_covered: true } };
+    const later = { ...own("n3", "m3", "C"), data: { ...own("n3", "m3", "C").data, voice: "Your lunch break starts now." } };
+    const folded = foldReminderNotices([first, covered, later]);
+    expect(folded.map((item) => item.id)).toEqual(["n1", "n3"]);
+    expect(((folded[0] as NoticeItem).data.reminder_group as NoticeItem[]).map((item) => item.id)).toEqual(["n1", "n2"]);
+  });
+
   test("returns the same array when there is nothing to fold", () => {
     const items = [own("n1", "m1", "A"), user];
     expect(foldReminderNotices(items)).toBe(items);
