@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Um assistente comandado por voz que dirige seus modelos, seus agentes de programação e seu computador.</b></p>
+<p><b>Pare de vigiar terminais. Um assistente comanda seus agentes de programação por você.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Última versão" /></a>

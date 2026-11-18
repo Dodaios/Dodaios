@@ -43,6 +43,17 @@
 
 </div>
 
+You have Claude Code in one terminal, Codex in another, and a chat tab where
+you copy plans back and forth. Dodaios puts that in one app. You say what you
+want, by voice or chat, and one assistant takes it from there: it writes the
+brief, starts the right coding agent in its built-in Agentic IDE, follows the
+work and tells you when the agent finishes or needs you. Ask it at any time
+what each agent did.
+
+Open source, and it runs on your computer. It works with the plans and keys
+you already have: a Claude or ChatGPT plan, API keys for Claude, OpenAI or
+Gemini, or local Ollama models.
+
 Dodaios is a locally installed, open-source Python program that runs as a
 desktop app or as a headless server with a browser UI on Windows, macOS and
 Linux. It turns a personal AI assistant into the control center for the work

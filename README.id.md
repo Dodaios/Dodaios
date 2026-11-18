@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Satu asisten yang dikendalikan dengan suara, yang mengarahkan model Anda, agen coding Anda, dan komputer Anda.</b></p>
+<p><b>Berhenti menjaga terminal. Satu asisten menjalankan agen coding Anda untuk Anda.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Rilis terbaru" /></a>

@@ -10,8 +10,8 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition, translated (English word for word in README.md; docs/positioning.md) -->
-<p><b>One voice-driven assistant that directs your models, your coding agents and your computer.</b><br />
-一个用语音驱动的助手，指挥你的模型、你的编程智能体和你的电脑。</p>
+<p><b>Stop babysitting terminals. One assistant runs your coding agents for you.</b><br />
+别再盯着终端了。一个助手替你运行你的编程智能体。</p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="最新版本" /></a>

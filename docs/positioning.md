@@ -62,7 +62,8 @@ agents" is a figure of speech for what the app coordinates. Do not use it to
 say that Dodaios is an operating system, and do not name another product as
 the comparison.
 
-The README is built on it and kept short: the one-liner, the definition, one
+The README is built on it and kept short: the one-liner, a short paragraph
+on the reader's problem and the plans it works with, the definition, one
 recording that shows the definition at work, the install commands, and a few
 lines on plans and keys, data, approvals and what is not finished. Everything
 else is in `docs/`.
