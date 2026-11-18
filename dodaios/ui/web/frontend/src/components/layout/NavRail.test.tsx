@@ -269,9 +269,34 @@ describe("NavRail", () => {
     expect(connect.dataset.ask).toBe("connect");
     expect(connect.dataset.key).toBe("connect:plugin:gmail");
     expect(connect.getAttribute("aria-label")).toBe("Nova needs Gmail · Then I read your unread mail. · Connect");
-    // A secret the same agent asks for stays that agent's own notice.
+    // A secret the same agent asks for is its own notice, with the logo of the service it is for.
     expect(secret.dataset.ask).toBe("credential");
-    expect(secret.getAttribute("aria-label")).toContain("Nova needs a login or a key");
+    expect(secret.dataset.key).toBe("credential:github token");
+    expect(secret.getAttribute("aria-label")).toContain("Nova needs a login or a key · GitHub token");
+    expect(secret.querySelector("img, [data-logo]")).not.toBeNull();
+  });
+
+  test("a login an agent needs shows the service's own logo, or its initial; never a robot", async () => {
+    vi.stubGlobal("fetch", backend({
+      ...QUIET,
+      needs_you: [
+        card("credential", "c1", "Hacker News", "agent-gone"),
+        card("credential", "c2", "X", "viral-marketing"),
+        card("credential", "c3", "Claude Code", "a2", "Scout"),
+        card("credential", "c4", "Acme portal", "a3", "Scout"),
+      ],
+    }));
+    renderRail();
+    await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(4));
+    const [hn, x, claude, acme] = screen.getAllByTestId("rail-notice");
+    // Hacker News's own orange mark.
+    expect(hn.querySelector("img")?.getAttribute("src")).toContain("FF6600");
+    for (const tile of [x, claude]) {
+      expect(tile.querySelector("img, [data-logo]")).not.toBeNull();
+      expect(tile.querySelector('[data-testid="rail-notice-monogram"]')).toBeNull();
+    }
+    expect(acme.querySelector('[data-testid="rail-notice-monogram"]')?.textContent).toBe("A");
+    expect(hn.getAttribute("aria-label")).toContain("An agent needs a login or a key · Hacker News");
   });
 
   test("a click on a service an agent asks for connects it and tells that agent's chat", async () => {
@@ -447,7 +472,7 @@ describe("railNotices", () => {
       [{ id: "gmail", name: "Gmail", status: "needs_reauth", reauthAt: null }],
       t,
     );
-    expect(notices.map((notice) => notice.key)).toEqual(["pane:pane:1", "agent:a1", "plugin:gmail", "provider:openai"]);
+    expect(notices.map((notice) => notice.key)).toEqual(["pane:pane:1", "credential:hacker news", "plugin:gmail", "provider:openai"]);
     expect(notices.map((notice) => notice.tone)).toEqual(["needs", "needs", "trouble", "trouble"]);
     expect(notices[1].title).toBe("Scout needs a login or a key");
     expect(notices[3].title).toBe("OpenAI: login or key rejected");
@@ -469,7 +494,7 @@ describe("railNotices", () => {
       t,
     );
     // A login the assistant needs is done outside the chat; another agent's question is in a chat the person may not see.
-    expect(notices.map((notice) => notice.key)).toEqual(["agent:jarvis", "agent:a1"]);
+    expect(notices.map((notice) => notice.key)).toEqual(["credential:shop login", "agent:a1"]);
     expect(notices.map((notice) => notice.ask)).toEqual(["credential", "question"]);
   });
 
