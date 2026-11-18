@@ -253,6 +253,18 @@ describe("AgentsOverview board", () => {
     const state = cardOf("thread:asks").querySelector('[data-testid="ide-agent-state"]')!;
     expect(state.textContent).toBe("Needs your answer");
     expect(state.getAttribute("data-tone")).toBe("attention");
+    // The ones at work are counted in the head and stand above a line over the resting ones.
+    expect(screen.getByTestId("ide-agents-column-active-building").textContent).toBe("2 working");
+    expect(screen.getByTestId("ide-agents-resting-building").textContent).toBe("Idle · 1");
+    const order = Array.from(column("building").querySelectorAll("li")).map((li) => li.getAttribute("data-item") ?? "line");
+    expect(order).toEqual(["thread:asks", "thread:busy", "line", "thread:idle"]);
+  });
+
+  it("draws no resting line while nothing in a column works", () => {
+    useThreadChatStore.setState({ sessions: [thread("a"), thread("b")] });
+    render(<AgentsOverview />);
+    expect(screen.queryByTestId("ide-agents-resting-building")).toBeNull();
+    expect(screen.queryByTestId("ide-agents-column-active-building")).toBeNull();
   });
 
   it("marks a thread with a reply nobody has read", () => {
