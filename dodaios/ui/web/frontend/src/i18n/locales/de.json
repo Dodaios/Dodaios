@@ -11953,7 +11953,16 @@
       "of_type": "Neu in {0}",
       "type_label": "Typ",
       "menu_label": "Neuer Node",
-      "blank_heading": "Leer beginnen",
+      "chat_heading": "Im Chat bauen lassen",
+      "chip_remove": "{0} entfernen",
+      "ask": {
+        "docs": "Worum soll es in diesem Dokument gehen?",
+        "slides": "Worum soll es in dieser Präsentation gehen?",
+        "sheets": "Was soll in diese Tabelle?",
+        "data": "Was soll diese Analyse zeigen, und aus welchen Daten?",
+        "whiteboard": "Was soll auf dieses Whiteboard?",
+        "motion": "Worum soll es in diesem Clip gehen?"
+      },
       "describe": "{name} beschreiben, was es werden soll…",
       "untitled": {
         "docs": "Unbenanntes Dokument",

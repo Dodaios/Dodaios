@@ -11953,7 +11953,16 @@
       "of_type": "New in {0}",
       "type_label": "Type",
       "menu_label": "New node",
-      "blank_heading": "Start a blank one",
+      "chat_heading": "Build it in the chat",
+      "chip_remove": "Remove {0}",
+      "ask": {
+        "docs": "What should this document be about?",
+        "slides": "What should this presentation be about?",
+        "sheets": "What should go in this sheet?",
+        "data": "What should this analysis show, and from which data?",
+        "whiteboard": "What should go on this whiteboard?",
+        "motion": "What should this clip be about?"
+      },
       "describe": "Describe it to {name}…",
       "untitled": {
         "docs": "Untitled document",

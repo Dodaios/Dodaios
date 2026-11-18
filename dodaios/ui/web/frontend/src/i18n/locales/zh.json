@@ -11953,7 +11953,16 @@
       "of_type": "在 {0} 中新建",
       "type_label": "类型",
       "menu_label": "新建节点",
-      "blank_heading": "从空白开始",
+      "chat_heading": "在聊天中创建",
+      "chip_remove": "移除{0}",
+      "ask": {
+        "docs": "这份文档要写什么？",
+        "slides": "这份演示文稿要讲什么？",
+        "sheets": "这张表格里要放什么？",
+        "data": "这份分析要展示什么，用哪些数据？",
+        "whiteboard": "这块白板上要放什么？",
+        "motion": "这个短片要讲什么？"
+      },
       "describe": "向 {name} 描述你想要的…",
       "untitled": {
         "docs": "未命名文档",

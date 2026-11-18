@@ -45,7 +45,9 @@ import {
   type BrainSection,
 } from "@/components/agentchat/ComposerBrainPicker";
 import type { ToolChoice } from "@/components/agentchat/toolChoices";
-import { captureComposerDraftTarget, readComposerDraft, useComposerDraft, writeComposerDraft } from "./composerDrafts";
+import { NodeRequestChip, nodeRequestMessage } from "@/components/nodes/NodeRequestChip";
+import type { NodeType } from "@/components/nodes/nodeModel";
+import { captureComposerDraftTarget, readComposerDraft, useComposerDraft, writeComposerDraft, type MessageDraft } from "./composerDrafts";
 import { useAppshotClaim } from "@/components/agentchat/useAppshotClaim";
 import { PetMark } from "@/components/pets/PetMark";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
@@ -117,11 +119,16 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   const store = useAgentChatApi();
   const activeSessionId = useAgentChat((s) => s.activeSessionId);
   const messageDraft = useComposerDraft(store, activeSessionId);
-  const { text: value, choices: selectedTools } = messageDraft;
+  const { text: value, choices: selectedTools, nodeType } = messageDraft;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fieldRef = useRef<ComposerChipFieldHandle>(null);
   const setSelectedTools = useCallback((choices: ToolChoice[]) => {
     writeComposerDraft(store, activeSessionId, { ...readComposerDraft(store, activeSessionId), choices });
+  }, [store, activeSessionId]);
+  /** The node-type chip ("Dodaios Slides") in front of the box: set, or taken out. */
+  const setNodeType = useCallback((next: NodeType | undefined) => {
+    const { nodeType: _old, ...rest } = readComposerDraft(store, activeSessionId);
+    writeComposerDraft(store, activeSessionId, next ? { ...rest, nodeType: next } : rest);
   }, [store, activeSessionId]);
   const setValueState = useCallback((next: string | ((current: string) => string)) => {
     const current = readComposerDraft(store, activeSessionId);
@@ -291,6 +298,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     if (await commands.execute(fieldRef.current?.getDraft().text.trim() ?? value.trim())) return;
     const submitted = fieldRef.current?.getDraft() ?? readComposerDraft(store, sessionAtSend);
     const content = submitted.text.trim();
+    // A node asked for from the chat needs the words that say what it is about.
+    const askedType = readComposerDraft(store, sessionAtSend).nodeType;
+    if (askedType && !content) return;
     // A message may be files alone: dropping a screenshot and pressing Enter
     // is a complete gesture, and refusing it would be the composer insisting
     // on a sentence the picture already is.
@@ -304,11 +314,13 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     writeComposerDraft(store, sessionAtSend, { text: "", choices: [] });
     fieldRef.current?.clear();
     setAttachError("");
+    // The chip goes out as the message's first line; the bubble draws it again.
+    const message = askedType ? nodeRequestMessage(askedType, content) : content;
     const result = selected.length ? await send(
-        content,
+        message,
         held.attachments,
         [...new Set(selected.map((row) => row.id))],
-      ) : await send(content, held.attachments);
+      ) : await send(message, held.attachments);
     if (result === "failed" || result === undefined && store.getState().lastError) {
       if (draftTarget.superseded) {
         releaseHeldFiles(held);
@@ -316,10 +328,12 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         return;
       }
       const current = readComposerDraft(store, draftTarget.sessionId);
-      writeComposerDraft(store, draftTarget.sessionId, {
+      const restored: MessageDraft = {
         text: [submitted.text, current.text].filter(Boolean).join("\n"),
         choices: [...selected, ...current.choices.filter((row) => !selected.some((sent) => sent.id === row.id))],
-      });
+      };
+      const chip = askedType ?? current.nodeType;
+      writeComposerDraft(store, draftTarget.sessionId, chip ? { ...restored, nodeType: chip } : restored);
       restoreHeldFiles(store, draftTarget.sessionId ?? "", held);
     } else {
       releaseHeldFiles(held);
@@ -660,7 +674,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
 
   const canSend =
     commands.isCommand || connected &&
-    (Boolean(value.trim()) || files.attachments.length > 0) &&
+    (Boolean(value.trim()) || (!nodeType && files.attachments.length > 0)) &&
     files.analyzing === 0 &&
     (!running || commands.canSteer || canQueue) &&
     (!busy || commands.canSteer || canQueue) &&
@@ -675,7 +689,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     ? t("chats_view.dictation_listening")
     : connected
     // The Dodaios chat stops by word, so the box names the word while a turn runs.
-    ? minimal && live ? t("agent_chat.placeholder_working") : t("agent_chat.placeholder")
+    ? nodeType
+      // "New" in the Nodes library: the box asks what the node should be about.
+      ? t(`nodes.new.ask.${nodeType}`)
+      : minimal && live ? t("agent_chat.placeholder_working") : t("agent_chat.placeholder")
     : wsWarming
       ? t("voice_state.booting")
       : t("voice_state.offline");
@@ -691,6 +708,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     if (!minimal) return;
     const box = fieldWrapRef.current?.querySelector<HTMLElement>('[role="textbox"]');
     const measure = () => {
+      // A node-type chip and its question need the full width: the box goes on top.
+      if (nodeType) return setTall(true);
       if (!value.trim() && !hasAttachments) return setTall(false);
       if (hasAttachments || value.includes("\n")) return setTall(true);
       if (!box) return;
@@ -704,7 +723,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     const ro = new ResizeObserver(measure);
     ro.observe(box);
     return () => ro.disconnect();
-  }, [minimal, value, hasAttachments]);
+  }, [minimal, value, hasAttachments, nodeType]);
 
   const field = (
     <ComposerChipField
@@ -714,9 +733,19 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       autoFocus={autoFocus}
       onSubmit={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
       onDraftChange={(draft) => {
-        writeComposerDraft(store, activeSessionId, { text: draft.text, choices: draft.choices });
+        writeComposerDraft(store, activeSessionId, {
+          ...readComposerDraft(store, activeSessionId),
+          text: draft.text,
+          choices: draft.choices,
+        });
       }}
       onKeyDown={(ev) => {
+        // Backspace in an empty box takes the node-type chip out, as it would a word.
+        if (nodeType && ev.key === "Backspace" && !fieldRef.current?.getDraft().text) {
+          ev.preventDefault();
+          setNodeType(undefined);
+          return true;
+        }
         if (commands.onKeyDown(ev)) return true;
         pasteRescue.onKeyDown(ev);
         if (typeahead.onKeyDown(ev)) return true;
@@ -730,6 +759,21 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       className={cn("scrollbar-jarvis", minimal ? "composer-pill-field min-h-[40px] px-2 py-2 text-base leading-6" : "max-h-[50vh] text-reading")}
     />
   );
+
+  // "New" in the Nodes library: the type's chip stands in front of the box.
+  const fieldWithChip = nodeType ? (
+    <div className="flex min-w-0 flex-1 items-start gap-2">
+      <NodeRequestChip
+        type={nodeType}
+        onRemove={() => {
+          setNodeType(undefined);
+          fieldRef.current?.focus();
+        }}
+        className="mt-1.5"
+      />
+      {field}
+    </div>
+  ) : field;
 
   return (
     <div
@@ -836,7 +880,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             )}
           </div>
           <div ref={fieldWrapRef} className="composer-pill-main">
-            {field}
+            {fieldWithChip}
           </div>
           <div className="composer-pill-trail" data-testid="composer-brain">
             {/* Who answers and how hard it thinks read as one phrase:
@@ -985,7 +1029,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         </div>
       ) : (
       <>
-      {field}
+      {fieldWithChip}
       <div className="flex flex-wrap items-center gap-1">
         {surface === "jarvis" && (
           <ComposerAddMenu
