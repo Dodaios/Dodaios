@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 409,
+  "count": 410,
   "forks": 145,
-  "placed": 85,
-  "stated": 105,
-  "generatedAt": "2026-11-18T11:02:41.647Z",
+  "placed": 86,
+  "stated": 106,
+  "generatedAt": "2026-11-18T12:00:08.085Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -375,6 +375,13 @@
       "lon": 50,
       "label": "Qazvin",
       "country": "Iran",
+      "count": 1
+    },
+    {
+      "lat": 36.092,
+      "lon": 120.328,
+      "label": "Qingdao",
+      "country": "China",
       "count": 1
     },
     {
