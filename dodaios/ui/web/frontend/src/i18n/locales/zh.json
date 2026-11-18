@@ -9381,6 +9381,8 @@
         "review": "评审中",
         "ready": "就绪"
       },
+      "active_count": "{count} 个工作中",
+      "resting": "空闲 · {count}",
       "column_empty": {
         "building": "没有智能体在构建。",
         "checks": "没有正在运行的检查。",

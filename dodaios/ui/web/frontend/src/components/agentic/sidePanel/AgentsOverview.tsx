@@ -27,6 +27,7 @@ import {
   BOARD_COLUMNS,
   boardVerdict,
   gitHubSettled,
+  isActive,
   sortBoardItems,
   type BoardActivity,
   type BoardColumn,
@@ -372,7 +373,9 @@ export function AgentsOverview() {
         data-pane={item.pane?.name} data-workspace={item.pane?.workspace_id}
         className={cn(
           "group relative flex flex-col rounded-lg border bg-card text-left transition-[border-color,background-color] duration-150 motion-reduce:transition-none",
-          selected ? "border-accent bg-accent/[0.06]" : "border-border/70 hover:border-border hover:bg-muted/40",
+          selected ? "border-accent bg-accent/[0.06]"
+            : isActive(item) ? "border-accent/50 bg-accent/[0.03] hover:border-accent/70 hover:bg-accent/[0.06]"
+            : "border-border/70 hover:border-border hover:bg-muted/40",
         )}>
         <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2.5 pt-3">
           <div className="flex min-w-0 items-start gap-2.5">
@@ -541,18 +544,38 @@ export function AgentsOverview() {
             {BOARD_COLUMNS.map((column, index) => {
               const cards = columns[column];
               const name = t(`ide_side_panel.agents.columns.${column}`);
+              // Agents at work stand on top; the resting ones follow under their own line.
+              const active = cards.filter((row) => isActive(row.item));
+              const resting = cards.filter((row) => !isActive(row.item));
               return (
                 <section key={column} data-testid={`ide-agents-column-${column}`} aria-label={name}
                   className={cn(wide && "flex min-h-0 min-w-[208px] flex-1 basis-0 flex-col", wide && index > 0 && "border-l border-border/60")}>
                   <h3 className="flex h-10 shrink-0 items-center gap-2 px-3 text-sm font-medium">
                     <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", COLUMN_DOT[column])} />
                     <span className={cn("min-w-0 flex-1 truncate", TONE_TEXT[column])}>{name}</span>
+                    {active.length > 0 && (
+                      <span data-testid={`ide-agents-column-active-${column}`}
+                        className="flex shrink-0 items-center gap-1 text-xs font-medium tabular-nums text-accent">
+                        <Loader2 aria-hidden className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+                        {fill(t("ide_side_panel.agents.active_count"), { count: String(active.length) })}
+                      </span>
+                    )}
                     <span data-testid={`ide-agents-column-count-${column}`} className="shrink-0 text-xs tabular-nums text-muted-foreground">
                       {cards.length}
                     </span>
                   </h3>
                   {cards.length > 0 ? (
-                    <ul className={cn("space-y-2 px-2 pb-3", wide && "scrollbar-jarvis min-h-0 flex-1 overflow-y-auto")}>{cards.map(card)}</ul>
+                    <ul className={cn("space-y-2 px-2 pb-3", wide && "scrollbar-jarvis min-h-0 flex-1 overflow-y-auto")}>
+                      {active.map(card)}
+                      {active.length > 0 && resting.length > 0 && (
+                        <li aria-hidden data-testid={`ide-agents-resting-${column}`}
+                          className="flex items-center gap-2 px-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <span>{fill(t("ide_side_panel.agents.resting"), { count: String(resting.length) })}</span>
+                          <span className="h-px flex-1 bg-border/60" />
+                        </li>
+                      )}
+                      {resting.map(card)}
+                    </ul>
                   ) : wide && (
                     <p className="px-3 text-xs text-muted-foreground/80">{t(`ide_side_panel.agents.column_empty.${column}`)}</p>
                   )}

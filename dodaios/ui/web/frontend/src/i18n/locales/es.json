@@ -9381,6 +9381,8 @@
         "review": "En revisión",
         "ready": "Listo"
       },
+      "active_count": "{count} trabajando",
+      "resting": "Inactivos · {count}",
       "column_empty": {
         "building": "Ningún agente está construyendo.",
         "checks": "No hay comprobaciones en curso.",

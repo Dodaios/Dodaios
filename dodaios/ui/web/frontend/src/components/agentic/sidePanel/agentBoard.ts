@@ -151,6 +151,11 @@ export function boardVerdict(item: Pick<BoardItem, "activity" | "activityKey" | 
   return { place, label, tone, spin: activity === "working", requests, branch };
 }
 
+/** The agent is doing something or wants the person: it stands above the resting ones. */
+export function isActive(item: Pick<BoardItem, "activity">): boolean {
+  return item.activity !== "idle";
+}
+
 const ACTIVITY_RANK: Record<BoardActivity, number> = { attention: 0, failed: 1, working: 2, idle: 3 };
 
 /** A column's order: what asks for the person first, then work in progress, then the newest. */
