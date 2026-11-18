@@ -24,10 +24,16 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
+  Captions,
   ChevronFirst,
   ChevronLast,
-  Clapperboard,
+  Download,
+  Film,
   Grid2x2,
+  LayoutTemplate,
+  Loader2,
+  SlidersHorizontal,
+  Type,
   Magnet,
   Pause,
   PencilLine,
@@ -45,7 +51,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ChartEditor } from "../charts/ChartEditor";
 import type { ChartJson } from "../charts/chartModel";
-import { ColorPicker, KIT_COLORS, Popover, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
+import { ColorPicker, KIT_COLORS, MenuItem, Popover, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
 import { EditorShell } from "../EditorShell";
 import type { NodeEditorProps } from "../types";
 import { useNodeSpecEditor } from "../useNodeSpecEditor";
@@ -195,6 +201,12 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
   const [guides, setGuides] = useState(false);
   const [editText, setEditText] = useState(false);
   const [tab, setTab] = useState<BinTab>("media");
+  /* The library on the left and the settings on the right open from the
+   * node bar; the clip opens as its picture and its timeline (the
+   * maintainer's request, 2026-11-18). A piece picked on the timeline shows
+   * its settings by itself: that is the one place to change it. */
+  const [binOpen, setBinOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [captionsBusy, setCaptionsBusy] = useState(false);
   const [captionsError, setCaptionsError] = useState("");
@@ -748,35 +760,66 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
       onChange={(hex) => apply((draft) => void (draft.accent = hexToAccent(hex)), { label: t("nodes.editor.motion.history.accent") })}
     />
   );
-  if (!side)
+  if (!side && inspectorOpen)
     side = (
       <ProjectInspector spec={spec} duration={duration} changeSpec={(change, stepLabel) => apply(change, { label: stepLabel })} accentControl={accentControl} />
     );
 
   /* ------------------------------------------------------------ toolbar */
 
+  const openBin = (id: BinTab) => {
+    if (binOpen && tab === id) setBinOpen(false);
+    else {
+      setTab(id);
+      setBinOpen(true);
+    }
+  };
+  const exporting = exportJob?.status.state === "running";
   const toolbar = (
     <>
       <ToolbarGroup label={v("toolbar.clip")}>
-        <span className="flex items-center gap-1.5 px-1 text-sm font-medium">
-          <Clapperboard className="h-4 w-4 text-muted-foreground" aria-hidden />
-          {fill(v("toolbar.length"), { clock: formatClock(duration) })}
-        </span>
+        <ToolbarButton label={v("bin.tabs.media")} icon={<Film aria-hidden />} active={binOpen && tab === "media"} onClick={() => openBin("media")} data-testid="clip-bar-media" />
+        <ToolbarButton label={v("bin.tabs.text")} icon={<Type aria-hidden />} active={binOpen && tab === "text"} onClick={() => openBin("text")} data-testid="clip-bar-text" />
+        <ToolbarButton label={v("bin.tabs.cards")} icon={<LayoutTemplate aria-hidden />} active={binOpen && tab === "cards"} onClick={() => openBin("cards")} data-testid="clip-bar-cards" />
+        <ToolbarButton label={v("bin.tabs.captions")} icon={<Captions aria-hidden />} active={binOpen && tab === "captions"} onClick={() => openBin("captions")} data-testid="clip-bar-captions" />
       </ToolbarGroup>
       <ToolbarSeparator />
       <Popover
         label={v("export.title")}
         trigger={
           <ToolbarButton
-            label={exportJob?.status.state === "running" ? fill(v("export.progress"), { n: Math.round(exportJob.status.progress * 100) }) : v("export.title")}
-            icon={<Maximize2 aria-hidden />}
-            showLabel
+            label={exporting && exportJob ? fill(v("export.progress"), { n: Math.round(exportJob.status.progress * 100) }) : v("export.title")}
+            icon={exporting ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
+            showLabel={exporting}
             data-testid="clip-export"
           />
         }
       >
         <ExportPanel nodeId={nodeId} spec={spec} job={exportJob} onJob={setExportJob} />
       </Popover>
+      <ToolbarButton
+        label={t("nodes.editor.inspector")}
+        icon={<SlidersHorizontal aria-hidden />}
+        active={Boolean(side)}
+        disabled={selection.size > 0}
+        onClick={() => setInspectorOpen((open) => !open)}
+        data-testid="clip-inspector-toggle"
+      />
+    </>
+  );
+  const more = (
+    <>
+      <MenuItem
+        label={v("toolbar.ripple")}
+        icon={<Trash2 aria-hidden />}
+        shortcut="Shift+Del"
+        disabled={!selection.size}
+        onClick={() => remove(true)}
+        data-testid="clip-ripple"
+      />
+      <MenuItem label={v("toolbar.snap")} icon={<Magnet aria-hidden />} shortcut="N" checked={snapping} onClick={() => setSnapping((on) => !on)} data-testid="clip-snap" />
+      <MenuItem label={v("toolbar.editText")} icon={<PencilLine aria-hidden />} checked={editText} onClick={() => setEditText((on) => !on)} data-testid="clip-edit-text" />
+      <MenuItem label={v("toolbar.guides")} icon={<Grid2x2 aria-hidden />} checked={guides} onClick={() => setGuides((on) => !on)} data-testid="clip-guides" />
     </>
   );
 
@@ -785,8 +828,9 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
   const pickedScene = picked?.kind === "scene" ? spec.scenes[sceneIndex(spec, picked.id)] : undefined;
 
   return (
-    <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} bodyClassName="flex overflow-hidden" side={side}>
+    <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} more={more} bodyClassName="flex overflow-hidden" side={side}>
       <div ref={root} className="flex min-h-0 min-w-0 flex-1 outline-none" onKeyDown={onKeyDown} tabIndex={-1} data-testid="clip-editor">
+        {binOpen && (
         <MediaBin
           nodeId={nodeId}
           spec={spec}
@@ -802,6 +846,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
           captionsError={captionsError}
           changeSpec={(change, stepLabel, coalesce) => apply(change, { label: stepLabel, coalesce })}
         />
+        )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ClipPreview
             nodeId={nodeId}
@@ -836,7 +881,7 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
             }
             className="min-h-[180px] flex-1"
           />
-          {/* The transport. */}
+          {/* Playing, cutting and the timeline's zoom: one row. */}
           <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-1" role="toolbar" aria-label={v("toolbar.transport")}>
             <ToolbarButton label={v("toolbar.start")} icon={<ChevronFirst aria-hidden />} onClick={() => seek(0)} shortcut="Home" />
             <ToolbarButton label={v("toolbar.frameBack")} icon={<StepBack aria-hidden />} onClick={() => step(-FRAME)} shortcut="←" />
@@ -854,30 +899,14 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
             </span>
             <div className="flex-1" />
             {notice && <span className="mr-2 max-w-[22rem] truncate text-xs text-muted-foreground" role="status">{notice}</span>}
-            <ToolbarButton label={v("toolbar.editText")} icon={<PencilLine aria-hidden />} active={editText} onClick={() => setEditText((on) => !on)} data-testid="clip-edit-text" />
-            <ToolbarButton label={v("toolbar.guides")} icon={<Grid2x2 aria-hidden />} active={guides} onClick={() => setGuides((on) => !on)} data-testid="clip-guides" />
-          </div>
-          {/* The timeline's own tools. */}
-          <div className="flex shrink-0 items-center gap-1 border-t border-border px-2 py-1" role="toolbar" aria-label={v("toolbar.timeline")}>
             <ToolbarButton label={v("toolbar.split")} icon={<Scissors aria-hidden />} onClick={split} shortcut="S" data-testid="clip-split" />
             <ToolbarButton label={v("toolbar.delete")} icon={<Trash2 aria-hidden />} onClick={() => remove(false)} disabled={!selection.size} shortcut="Del" data-testid="clip-delete" />
-            <ToolbarButton
-              label={v("toolbar.ripple")}
-              icon={<Trash2 className="text-warning" aria-hidden />}
-              onClick={() => remove(true)}
-              disabled={!selection.size}
-              shortcut="Shift+Del"
-              data-testid="clip-ripple"
-            />
             <ToolbarSeparator />
-            <ToolbarButton label={v("toolbar.snap")} icon={<Magnet aria-hidden />} active={snapping} onClick={() => setSnapping((on) => !on)} shortcut="N" data-testid="clip-snap" />
-            <div className="flex-1" />
-            <span className="mr-2 hidden text-[11px] text-muted-foreground 2xl:inline">{v("toolbar.keys")}</span>
             <ToolbarButton label={v("toolbar.zoomOut")} icon={<ZoomOut aria-hidden />} onClick={() => zoom(0.8)} shortcut="-" />
             <ToolbarButton label={v("toolbar.fit")} icon={<Maximize2 aria-hidden />} onClick={fit} data-testid="clip-fit" />
             <ToolbarButton label={v("toolbar.zoomIn")} icon={<ZoomIn aria-hidden />} onClick={() => zoom(1.25)} shortcut="+" />
           </div>
-          <div ref={timelineBox} className={cn("flex h-[38%] min-h-[190px] shrink-0 flex-col")}>
+          <div ref={timelineBox} className={cn("flex h-[38%] min-h-[190px] shrink-0 flex-col pb-14")}>
             <TrackTimeline
               nodeId={nodeId}
               spec={spec}

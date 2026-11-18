@@ -14,6 +14,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { NodeCard } from "../../nodeModel";
 import { resetDeckPageCache } from "./deckPage";
 import SlidesEditor from "./index";
+import { barItem } from "../testBar";
 
 // jsdom has no PointerEvent; a mouse event with a pointer id carries what the strip reads.
 if (typeof window.PointerEvent === "undefined") {
@@ -61,7 +62,7 @@ const SPEC = {
 interface Call {
   url: string;
   method: string;
-  body: { spec: { slides?: { layout: string; chart?: { type: string } }[]; theme?: string } };
+  body: { spec: { slides?: { layout: string; chart?: { type: string } }[]; theme?: string; accent?: string } };
 }
 
 let calls: Call[] = [];
@@ -97,9 +98,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function open() {
+/** The deck as it opens, with the settings beside it opened from the node bar (they start closed). */
+async function open({ inspector = true }: { inspector?: boolean } = {}) {
   const view = render(<SlidesEditor node={NODE} initial={{ spec: SPEC, version: 3, updated_at: 2 }} onDone={() => {}} />);
   await screen.findByTestId("slides-canvas");
+  if (inspector) fireEvent.click(screen.getByTestId("slides-inspector-toggle"));
   return view;
 }
 
@@ -122,7 +125,7 @@ function names(): string[] {
 }
 
 function undoButton(): HTMLButtonElement {
-  return screen.getByTestId("node-editor-undo") as HTMLButtonElement;
+  return barItem("node-editor-undo") as HTMLButtonElement;
 }
 
 describe("SlidesEditor", () => {
@@ -240,15 +243,24 @@ describe("SlidesEditor", () => {
     expect(asked).toContain("line");
   });
 
+  it("opens as its slides alone: the settings and the notes wait in the node bar", async () => {
+    await open({ inspector: false });
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.queryByTestId("slides-notes")).toBeNull();
+    expect(screen.queryByTestId("slides-format-bar")).not.toBeNull();
+    fireEvent.click(screen.getByTestId("slides-inspector-toggle"));
+    expect(screen.getByTestId("slides-field-title")).toBeTruthy();
+  });
+
   it("saves the deck shortly after a change", async () => {
     await open();
-    fireEvent.click(screen.getByTestId("slides-theme"));
-    fireEvent.click(screen.getByTestId("slides-theme-dark"));
-    expect(screen.getByTestId("slides-canvas").getAttribute("data-theme")).toBe("dark");
+    // The deck's look is one place in the bar: Design, its accent among it.
+    fireEvent.click(screen.getByTestId("slides-design-button"));
+    fireEvent.click(screen.getByTestId("slides-accent-violet"));
     await waitFor(
       () => {
         const put = calls.find((call) => call.method === "PUT");
-        expect(put?.body.spec.theme).toBe("dark");
+        expect(put?.body.spec.accent).toBe("violet");
       },
       { timeout: 3000 },
     );
@@ -308,6 +320,7 @@ describe("SlidesEditor", () => {
 
   it("keeps speaker notes per slide", async () => {
     await open();
+    fireEvent.click(barItem("slides-notes-toggle"));
     const notes = screen.getByTestId("slides-notes") as HTMLTextAreaElement;
     fireEvent.change(notes, { target: { value: "Open with the headline." } });
     fireEvent.click(thumbs()[1]);

@@ -136,23 +136,21 @@ afterEach(() => {
 });
 
 describe("a node's native editor on the stage", () => {
-  it("swaps the page for the editor on Edit and brings a fresh page back on Done", async () => {
+  it("opens a typed node straight in its editor, and shows the page again when the editor gives it back", async () => {
     const states = { [DOC.slug]: state("d1", DOC.slug) };
     installFetch({ typed: [DOC], runs: [DOC_RUN], states });
     const { client } = renderView();
     await openCard(DOC.key);
-    const firstFrame = await screen.findByTestId("visualization-frame");
 
-    fireEvent.click(screen.getByTestId("visualization-edit"));
+    // No Edit to press first: the node opens where it is shaped.
     const editor = await screen.findByTestId("editor-stub");
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
     expect(editor.getAttribute("data-node")).toBe("d1");
     expect(editor.getAttribute("data-type")).toBe("docs");
     expect(editor.getAttribute("data-version")).toBe("3");
     expect(JSON.parse(editor.getAttribute("data-spec") ?? "null")).toEqual({ markdown: "# Brief" });
-    // The page's toggles step aside while the editor is open.
+    // The top bar is the name, Share and close: nothing to toggle up there.
     expect(screen.queryByTestId("visualization-edit")).toBeNull();
-    expect(screen.queryByTestId("visualization-comment")).toBeNull();
 
     // The stage's own keys pause: Escape does not close the stage under the editor.
     fireEvent.keyDown(window, { key: "Escape" });
@@ -167,13 +165,14 @@ describe("a node's native editor on the stage", () => {
     await waitFor(() => expect(screen.getByTestId("editor-stub").getAttribute("data-heard")).toBe("1700000500"));
 
     fireEvent.click(screen.getByTestId("editor-stub-done"));
-    const frame = await screen.findByTestId("visualization-frame");
-    expect(frame).not.toBe(firstFrame);
+    await screen.findByTestId("visualization-frame");
     expect(screen.queryByTestId("editor-stub")).toBeNull();
+    // The page's bar leads back to the editor, and takes comments.
     expect(screen.getByTestId("visualization-edit").getAttribute("aria-pressed")).toBe("false");
-    // Comment still works on the page.
     fireEvent.click(screen.getByTestId("visualization-comment"));
     expect(screen.getByTestId("visualization-comment").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByTestId("visualization-edit"));
+    await screen.findByTestId("editor-stub");
   });
 
   it("opens a node started blank straight in its editor", async () => {
@@ -199,8 +198,6 @@ describe("a node's native editor on the stage", () => {
     installFetch({ typed: [DOC], runs: [DOC_RUN], states: {} });
     renderView();
     await openCard(DOC.key);
-    await screen.findByTestId("visualization-frame");
-    fireEvent.click(screen.getByTestId("visualization-edit"));
     await screen.findByTestId("node-editor-failed");
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     await screen.findByTestId("visualization-frame");

@@ -16,7 +16,7 @@
  * - what is saved is the spec the server accepts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { typedNodeCard } from "../../testCards";
 import type { ChartBinding, ChartJson, ChartSource } from "../charts/chartModel";
@@ -65,6 +65,7 @@ vi.mock("../charts/ChartPreview", () => ({
 }));
 
 import SheetsEditor from "./index";
+import { barItem, leave, renderEditor } from "../testBar";
 
 function orders(): SheetsSpec {
   return {
@@ -125,8 +126,8 @@ afterEach(() => {
 
 function open(spec: SheetsSpec = orders()) {
   const onDone = vi.fn();
-  render(<SheetsEditor node={typedNodeCard("node1", { type: "sheets", title: "Orders" })} initial={{ spec, version: 3, updated_at: 100 }} onDone={onDone} />);
-  return { onDone };
+  const { guard } = renderEditor(<SheetsEditor node={typedNodeCard("node1", { type: "sheets", title: "Orders" })} initial={{ spec, version: 3, updated_at: 100 }} onDone={onDone} />);
+  return { onDone, guard };
 }
 
 const field = () => screen.getByTestId("sheet-cell-input") as HTMLTextAreaElement;
@@ -184,7 +185,7 @@ describe("the grid", () => {
     expect(cellText(0, 1)).toBe("7");
     expect(cellText(0, 3)).toBe("€38.50"); // the formula follows
     expect(address()).toBe("B2");
-    expect(screen.getByTestId("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Edit cell");
+    expect(barItem("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Edit cell");
     undoKeys();
     expect(cellText(0, 1)).toBe("4");
     key("y", { ctrlKey: true });
@@ -322,7 +323,7 @@ describe("rows, columns and fill", () => {
     key("ArrowDown", { shiftKey: true });
     key("d", { ctrlKey: true });
     expect([cellText(0, 1), cellText(1, 1), cellText(2, 1)]).toEqual(["4", "4", "4"]);
-    expect(screen.getByTestId("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Fill down");
+    expect(barItem("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Fill down");
   });
 });
 
@@ -332,7 +333,7 @@ describe("sort, filter and number format", () => {
     key("End");
     fireEvent.click(screen.getByTestId("sheet-sort-desc"));
     expect([cellText(0, 0), cellText(1, 0), cellText(2, 0)]).toEqual(["Toner", "Paper", "Pens"]);
-    expect(screen.getByTestId("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Sort by Amount");
+    expect(barItem("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Sort by Amount");
   });
 
   it("filters rows from view without changing the spec", () => {
@@ -344,7 +345,7 @@ describe("sort, filter and number format", () => {
     expect(cellText(0, 0)).toBe("Paper");
     expect(cellText(1, 0)).toBe("Pens");
     expect(screen.getByTestId("sheet-filter-count").textContent).toBe("2 of 3 rows shown");
-    expect((screen.getByTestId("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
+    expect((barItem("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByTestId("sheet-filter-clear"));
     expect(cellText(1, 0)).toBe("Toner");
   });
@@ -361,7 +362,7 @@ describe("sort, filter and number format", () => {
 
 describe("charts and sheets", () => {
   it("inserts a chart from the selection, bound to its columns, and saves it", async () => {
-    open();
+    const { guard } = open();
     key("ArrowDown", { shiftKey: true });
     key("ArrowRight", { shiftKey: true });
     key("ArrowRight", { shiftKey: true });
@@ -374,9 +375,8 @@ describe("charts and sheets", () => {
     ]);
     fireEvent.click(screen.getByTestId("chart-stand-in-save"));
     expect(screen.getByTestId("chart-preview").textContent).toBe("4,2");
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("node-editor-done"));
-    });
+    // Closing the node saves what is left.
+    leave(guard);
     await waitFor(() => expect(saved.length).toBeGreaterThan(0));
     expect(saved.at(-1)?.sheets[0].charts).toEqual([
       { type: "column", title: "Amounts", x: "item", series: [{ column: "qty" }], rows: [1, 2] },
@@ -395,7 +395,7 @@ describe("charts and sheets", () => {
     expect(screen.getByTestId("sheet-tab-1").textContent).toBe("Totals");
     fireEvent.click(screen.getByTestId("sheet-tab-0"));
     expect(screen.getByRole("grid", { name: "Orders" })).toBeTruthy();
-    expect(screen.getByTestId("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Rename sheet");
+    expect(barItem("node-editor-undo").getAttribute("aria-label")).toBe("Undo: Rename sheet");
   });
 
   it("saves the person's work by itself, as a spec the server keeps", async () => {

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUp, Loader2, MessageSquarePlus, MousePointerClick, PencilLine, Plus, Shapes, ShieldCheck, Star } from "lucide-react";
+import { ArrowUp, Loader2, MessageSquarePlus, MousePointerClick, PencilLine, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -15,12 +15,14 @@ import {
   MenuHeading,
   MenuItem,
   MenuSeparator,
-  MoreMenu,
   ShareMenu,
   StageBar,
   TitlePill,
   type StageBarLayout,
 } from "@/components/visualization/ArtifactStageBar";
+import { NodeBar, NodeBarCommonContext, NodeBarEnd, useNodeBarCommon, type NodeBarCommon } from "@/components/nodes/bar/NodeBar";
+import { ToolbarButton } from "@/components/nodes/editors/controls";
+import { LeaveGuardContext, createLeaveGuard, type LeaveGuard } from "@/components/nodes/editors/leaveGuard";
 import {
   parseArtifactUtterance,
   runTitle,
@@ -315,14 +317,14 @@ export function VisualizationView() {
     },
     [ordered, position],
   );
-  /* The typed node on stage, when it is one: what "ask for a change" names. */
-  const stagedNode = useMemo(() => {
+  /* The library's card of what is on stage (what "Chat" names), and the typed
+   * node it is, when it is one (what is edited and commented). */
+  const stagedCard = useMemo(() => {
     if (!activeKey) return null;
     // A node just made from the new-row is on stage before the list has it.
-    const card =
-      allCards.find((c) => c.key === activeKey) ?? (opened?.key === activeKey ? opened : undefined);
-    return card && isTypedNode(card) ? card : null;
+    return allCards.find((c) => c.key === activeKey) ?? (opened?.key === activeKey ? opened : null);
   }, [activeKey, allCards, opened]);
+  const stagedNode = stagedCard !== null && isTypedNode(stagedCard) ? stagedCard : null;
 
   /* Escape goes back to the library, ←/→ walk it — unless a text field has
    * the keys. A framed page keeps its own keys (its events never reach us).
@@ -369,6 +371,7 @@ export function VisualizationView() {
               run={target.run}
               visual={target.visual}
               node={stagedNode}
+              card={stagedCard}
               startEditing={stagedNode !== null && stagedNode.key === startEditingKey}
               onEditingStarted={editingStarted}
               onEditorOpen={setEditorOpen}
@@ -434,6 +437,7 @@ export function Stage({
   run,
   visual: pickedVisual,
   node,
+  card = node,
   startEditing = false,
   onEditingStarted,
   onEditorOpen,
@@ -441,14 +445,17 @@ export function Stage({
   onJumpToRun,
   nav,
   chrome,
+  leaveGuard,
 }: {
   run: OutputSummary | null;
   visual: VisualArtifact | null;
   /** The typed node on stage, or null for anything adopted. */
   node: NodeCard | null;
-  /** The node was just started blank: its page opens in Edit as soon as it can. */
+  /** The library's card of what is on stage, typed or adopted: what "Chat" names. */
+  card?: NodeCard | null;
+  /** The node was just started blank: its editor takes the caret as soon as it can. */
   startEditing?: boolean;
-  /** The page went into Edit for `startEditing`; it is not asked again. */
+  /** The node opened ready for `startEditing`; it is not asked again. */
   onEditingStarted?: () => void;
   /** The node's editor opened or closed (the stage's own keys pause while it is open). */
   onEditorOpen?: (open: boolean) => void;
@@ -459,6 +466,8 @@ export function Stage({
   nav: StageNavigation;
   /** Set where the stage stands in the node window; absent in the section. */
   chrome?: StageChrome;
+  /** Closing asks an open editor to save first; the node window passes its own so its other ways out ask too. */
+  leaveGuard?: LeaveGuard;
 }) {
   const slug = run?.slug ?? pickedVisual?.slug ?? null;
   const listing = useArtifactsForOutput(run !== null ? slug : null);
@@ -487,8 +496,8 @@ export function Stage({
   }, [currentId]);
 
   /* What a click on the node's page does. COMMENT: it drops a pin with a
-   * field; the comments wait there until the toolbar's "Send" hands them all
-   * to the assistant at once, in the background, and it revises the node.
+   * field; the comments wait there until the bar's "Send" hands them all to
+   * the assistant at once, in the background, and it revises the node.
    * EDIT: the page's texts can be typed into, and each change is saved into
    * the node. Only a typed node takes either (its page carries the other half
    * of this, and its content is a spec), and only while its page is shown. */
@@ -496,35 +505,34 @@ export function Stage({
    * picture of the board the library and chat show) takes neither mode. */
   const board = node !== null && isTypedNode(node) && node.type === "whiteboard" ? node : null;
   const canTouch = node !== null && board === null && visual?.kind === "page" && mode === "preview";
-  /* EDIT on a type with a native editor (every type but the whiteboard)
-   * swaps the page for that editor; Done brings the page back, drawn again
-   * from the saved spec. The page's own Edit (typing into its texts) stays
-   * for anything without one. */
+  /* A type with a native editor (every type but the whiteboard) OPENS in it:
+   * the node is shaped where it is shown, from the bar at its bottom, with no
+   * Edit before and no Done after (the maintainer's request, 2026-11-18).
+   * The page comes back for comments, and when the editor could not load
+   * (its message leads back to the page). The page's own Edit (typing into
+   * its texts) stays for a type without a native editor. */
   const editorType: EditableType | null =
     canTouch && node !== null && isTypedNode(node) && isEditableType(node.type) ? node.type : null;
-  const [editing, setEditing] = useState(false);
-  /* A node is edited by clicking into it: a click on one of the page's texts
-   * opens the editor with the caret there, without pressing Edit first. Not
-   * a film: a click on it plays and pauses. */
+  const [editing, setEditing] = useState(true);
+  /* Back on the page after the editor gave up, a click into one of the
+   * page's texts opens the editor again with the caret there. Not a film: a
+   * click on it plays and pauses. */
   const [startAt, setStartAt] = useState<NodeEditorStart | null>(null);
-  useEffect(() => setEditing(false), [currentId]);
+  useEffect(() => setEditing(true), [currentId]);
   useEffect(() => {
     if (!editing) setStartAt(null);
   }, [editing]);
-  useEffect(() => {
-    if (editorType === null) setEditing(false);
-  }, [editorType]);
-  const editorOpen = editing && editorType !== null;
-  useEffect(() => {
-    onEditorOpen?.(editorOpen);
-  }, [editorOpen, onEditorOpen]);
-  useEffect(() => () => onEditorOpen?.(false), [onEditorOpen]);
   const [pageMode, setPageMode] = useState<NodePageMode>("view");
   useEffect(() => setPageMode("view"), [currentId]);
   useEffect(() => {
     if (!canTouch) setPageMode("view");
   }, [canTouch]);
-  // After the resets above, so a node started blank ends up in Edit.
+  const editorOpen = editing && editorType !== null && pageMode !== "comment";
+  useEffect(() => {
+    onEditorOpen?.(editorOpen);
+  }, [editorOpen, onEditorOpen]);
+  useEffect(() => () => onEditorOpen?.(false), [onEditorOpen]);
+  // After the resets above, so a node started blank ends up ready to type into.
   useEffect(() => {
     if (!startEditing) return;
     // A blank board is already open for drawing: nothing to switch on.
@@ -558,7 +566,7 @@ export function Stage({
     setPageMode("view");
     setEditing(true);
   }, []);
-  const tapToEdit = editorType !== null && editorType !== "motion" && pageMode === "view";
+  const tapToEdit = editorType !== null && editorType !== "motion" && pageMode === "view" && !editing;
   // Escape leaves the page's mode first, and the stage only after that. (A
   // field being typed in takes its own Escape inside the page: the key does
   // not reach this window then.)
@@ -577,53 +585,172 @@ export function Stage({
     setMode("files");
   }, []);
 
+  /* Closing the node: an open editor saves first (and stays, saying so, when
+   * it cannot). A guard handed in belongs to a window that routes its own
+   * ways out through it, the stage's close button among them. */
+  const ownGuard = useMemo(createLeaveGuard, []);
+  const guard = leaveGuard ?? ownGuard;
+  const guardedNav = useMemo(
+    () => (leaveGuard ? nav : { ...nav, onBack: () => ownGuard.leave(nav.onBack) }),
+    [leaveGuard, nav, ownGuard],
+  );
+
+  /* The end of every bar: the comment button where the node takes comments,
+   * and "Chat", which starts a request for a change in the conversation (the
+   * one beside the node in the node window). Not for a run that drew no
+   * file: there is nothing to point at. */
+  const chatCard = card ?? node;
+  const onAskChange = chrome?.onAskChange;
+  const common: NodeBarCommon = useMemo(
+    () => ({
+      comment: canTouch ? { on: pageMode === "comment", onToggle: () => toggleMode("comment") } : undefined,
+      onChat:
+        chatCard !== null && visual !== null && mode === "preview"
+          ? () => {
+              if (onAskChange) onAskChange(chatCard);
+              else void askDodaiosToChange(chatCard);
+            }
+          : undefined,
+    }),
+    [canTouch, pageMode, toggleMode, chatCard, visual, mode, onAskChange],
+  );
+
+  return (
+    <NodeBarCommonContext.Provider value={common}>
+      <LeaveGuardContext.Provider value={guard}>
+        <ArtifactToolbar
+          run={run}
+          visual={visual}
+          primary={primary}
+          node={node}
+          onNewBoard={board !== null ? onOpenNode : null}
+          mode={mode}
+          onMode={setMode}
+          onJumpToRun={onJumpToRun}
+          nav={guardedNav}
+          chrome={chrome}
+        />
+        {run && <RunCapacityDecision run={run} />}
+        <div className="relative min-h-0 flex-1" data-testid="visualization-stage">
+          {mode === "preview" && visual && board !== null && <WhiteboardStage node={board} visual={visual} />}
+          {mode === "preview" && visual && board === null && editorOpen && editorType !== null && node?.id && (
+            <Suspense fallback={<EditorWaiting />}>
+              <NodeEditorHost
+                node={node as NodeCard & { id: string }}
+                type={editorType}
+                slug={visual.slug}
+                startAt={startAt}
+                onDone={closeEditor}
+              />
+            </Suspense>
+          )}
+          {mode === "preview" && visual && board === null && !editorOpen && (
+            <ArtifactStage
+              visual={visual}
+              node={node}
+              pageMode={canTouch ? pageMode : "view"}
+              onEditHere={tapToEdit ? editHere : undefined}
+              barItems={
+                canTouch ? (
+                  <PageModeTools
+                    node={node}
+                    pageMode={pageMode}
+                    // The page's own Edit: for a type without a native editor,
+                    // or the way back to the editor after it gave up.
+                    canEdit={editorType === null || !editing}
+                    onToggle={toggleMode}
+                  />
+                ) : null
+              }
+            />
+          )}
+          {mode === "preview" && !visual && run && (
+            <OutputPreview key={run.slug} run={run} onOpenFile={openFile} />
+          )}
+          {mode === "code" && visual && <ArtifactSource slug={visual.slug} path={visual.path} />}
+          {mode === "code" && !visual && run && primary && (
+            <ArtifactSource slug={run.slug} path={primary.path} />
+          )}
+          {mode === "files" && run && <RunFiles run={run} initialPath={filesPath} />}
+          {mode === "run" && run && <RunGraphPanel key={run.slug} run={run} />}
+        </div>
+      </LeaveGuardContext.Provider>
+    </NodeBarCommonContext.Provider>
+  );
+}
+
+/** The editor's chunk is on its way: the same quiet line the editor shows while it reads the node. */
+function EditorWaiting() {
+  const t = useT();
+  return (
+    <div className="flex h-full items-center justify-center gap-2 text-base text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      {t("nodes.editor.loading")}
+    </div>
+  );
+}
+
+/**
+ * The page's own tools in its bar: Edit where the page itself is typed into
+ * (a type without a native editor, or the way back to the editor), and
+ * "Send" for the comments left on it, all at once.
+ */
+function PageModeTools({
+  node,
+  pageMode,
+  canEdit,
+  onToggle,
+}: {
+  node: NodeCard | null;
+  pageMode: NodePageMode;
+  canEdit: boolean;
+  onToggle: (mode: Exclude<NodePageMode, "view">) => void;
+}) {
+  const t = useT();
+  const pushToast = useEventStore((s) => s.pushToast);
+  const waiting = useNodeCommentDraft((s) => s.pending.length);
+  const sending = useNodeCommentDraft((s) => s.sending);
+  const send = useCallback(async () => {
+    if (node === null) return;
+    const sent = await useNodeCommentDraft.getState().sendAll(node);
+    if (!sent) pushToast("error", t("nodes.comment.failed"));
+  }, [node, pushToast, t]);
   return (
     <>
-      <ArtifactToolbar
-        run={run}
-        visual={visual}
-        primary={primary}
-        node={node}
-        pageMode={canTouch && !editorOpen ? { mode: pageMode, onToggle: toggleMode } : null}
-        onNewBoard={board !== null ? onOpenNode : null}
-        mode={mode}
-        onMode={setMode}
-        onJumpToRun={onJumpToRun}
-        nav={nav}
-        chrome={chrome}
-      />
-      {run && <RunCapacityDecision run={run} />}
-      <div className="min-h-0 flex-1" data-testid="visualization-stage">
-        {mode === "preview" && visual && board !== null && <WhiteboardStage node={board} visual={visual} />}
-        {mode === "preview" && visual && board === null && editorOpen && editorType !== null && node?.id && (
-          <Suspense fallback={null}>
-            <NodeEditorHost
-              node={node as NodeCard & { id: string }}
-              type={editorType}
-              slug={visual.slug}
-              startAt={startAt}
-              onDone={closeEditor}
-            />
-          </Suspense>
-        )}
-        {mode === "preview" && visual && board === null && !editorOpen && (
-          <ArtifactStage
-            visual={visual}
-            node={node}
-            pageMode={canTouch ? pageMode : "view"}
-            onEditHere={tapToEdit ? editHere : undefined}
-          />
-        )}
-        {mode === "preview" && !visual && run && (
-          <OutputPreview key={run.slug} run={run} onOpenFile={openFile} />
-        )}
-        {mode === "code" && visual && <ArtifactSource slug={visual.slug} path={visual.path} />}
-        {mode === "code" && !visual && run && primary && (
-          <ArtifactSource slug={run.slug} path={primary.path} />
-        )}
-        {mode === "files" && run && <RunFiles run={run} initialPath={filesPath} />}
-        {mode === "run" && run && <RunGraphPanel key={run.slug} run={run} />}
-      </div>
+      {canEdit && (
+        <ToolbarButton
+          label={t("nodes.edit.toggle")}
+          icon={<PencilLine aria-hidden />}
+          active={pageMode === "edit"}
+          onClick={() => onToggle("edit")}
+          data-testid="visualization-edit"
+        />
+      )}
+      {waiting > 0 && (
+        // The comments left on the page go out together, with one click.
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={sending}
+          data-testid="visualization-comments-send"
+          className={
+            "ml-0.5 inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-foreground px-3 text-sm font-medium " +
+            "text-background transition-colors hover:bg-foreground/85 disabled:opacity-60 " +
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          }
+        >
+          {sending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <ArrowUp className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          )}
+          <span>
+            {waiting === 1
+              ? t("nodes.comment.send_one")
+              : t("nodes.comment.send_many").replace("{0}", String(waiting))}
+          </span>
+        </button>
+      )}
     </>
   );
 }
@@ -641,12 +768,16 @@ function primaryTextFile(files: ArtifactSummary[]): ArtifactSummary | null {
   );
 }
 
+/**
+ * The stage's top bar, kept to what every node needs: the name, which opens
+ * the menu of what is used now and then, "Share", and close. What shapes the
+ * node is in the bar at its bottom (`NodeBar`), never up here.
+ */
 function ArtifactToolbar({
   run,
   visual,
   primary,
   node,
-  pageMode,
   onNewBoard,
   mode,
   onMode,
@@ -659,8 +790,6 @@ function ArtifactToolbar({
   /** The output's primary text file when the run drew no page. */
   primary: ArtifactSummary | null;
   node: NodeCard | null;
-  /** The page's mode and its switches, or null where the page takes neither comments nor edits. */
-  pageMode: { mode: NodePageMode; onToggle: (mode: Exclude<NodePageMode, "view">) => void } | null;
   /** On a whiteboard: opens the blank board "New whiteboard" makes. Null elsewhere. */
   onNewBoard: ((card: NodeCard) => void) | null;
   mode: StageMode;
@@ -680,13 +809,6 @@ function ArtifactToolbar({
   const favoriteKey = visual ? visualId(visual) : run ? `run:${run.slug}` : null;
   const favorite = favoriteKey !== null && favorites.has(favoriteKey);
   const pushToast = useEventStore((s) => s.pushToast);
-  const waiting = useNodeCommentDraft((s) => s.pending.length);
-  const sendingComments = useNodeCommentDraft((s) => s.sending);
-  const sendComments = useCallback(async () => {
-    if (node === null) return;
-    const sent = await useNodeCommentDraft.getState().sendAll(node);
-    if (!sent) pushToast("error", t("nodes.comment.failed"));
-  }, [node, pushToast, t]);
   const undoLastChange = useCallback(() => {
     if (node === null || !isTypedNode(node)) return;
     // The page is drawn again by the stage's watcher once the node went back.
@@ -698,10 +820,15 @@ function ArtifactToolbar({
       },
     );
   }, [node, nodeActions, pushToast, t]);
+  /* "New whiteboard" on a board: a blank board, opened at once. */
+  const newBoardTarget = useRef(onNewBoard);
+  newBoardTarget.current = onNewBoard;
+  const openMadeBoard = useCallback((card: NodeCard) => newBoardTarget.current?.(card), []);
+  const newBoard = useNewWhiteboard(openMadeBoard);
   const capabilities = useOutputsCapabilities();
   const parsed = parseArtifactUtterance(visual?.utterance ?? run?.utterance);
   const slug = visual?.slug ?? run?.slug ?? "";
-  // The file the toolbar's Download / Reveal / Open act on: the artifact, or
+  // The file the menu's Download / Reveal / Open act on: the artifact, or
   // the output's primary file.
   const file: { slug: string; path: string } | null = visual
     ? { slug: visual.slug, path: visual.path }
@@ -767,6 +894,158 @@ function ArtifactToolbar({
     .filter(Boolean)
     .join(" · ");
 
+  const menu = (close: () => void) => (
+    <>
+      <MenuHeading title={title} detail={details} />
+      {shownViews.length > 1 && (
+        <>
+          <MenuSeparator />
+          <div role="group" aria-label={t("visualization.stage_tabs")}>
+            {shownViews.map((view) => (
+              <MenuChoice
+                key={view.id}
+                chosen={mode === view.id}
+                onSelect={() => {
+                  onMode(view.id);
+                  close();
+                }}
+                testId={`visualization-tab-${view.id}`}
+              >
+                {view.label}
+              </MenuChoice>
+            ))}
+          </div>
+        </>
+      )}
+      <MenuSeparator />
+      {onNewBoard && (
+        <MenuItem
+          onSelect={() => {
+            close();
+            void newBoard.create();
+          }}
+          disabled={newBoard.creating}
+          testId="visualization-new-whiteboard"
+        >
+          {t("nodes.whiteboard.new")}
+        </MenuItem>
+      )}
+      {favoriteKey !== null && (
+        <MenuItem
+          onSelect={() => toggleFavorite(favoriteKey)}
+          testId="visualization-favorite"
+          trailing={favorite ? <Star className="h-4 w-4 shrink-0 fill-current text-warning" aria-hidden /> : null}
+        >
+          {t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
+        </MenuItem>
+      )}
+      {node !== null && isTypedNode(node) && (
+        <>
+          <MenuItem
+            onSelect={() => {
+              close();
+              setRenaming(node);
+            }}
+            testId="visualization-rename"
+          >
+            {t("nodes.menu.rename")}
+          </MenuItem>
+          <MenuItem
+            onSelect={() => {
+              close();
+              undoLastChange();
+            }}
+            testId="visualization-revert"
+          >
+            {t("nodes.menu.revert")}
+          </MenuItem>
+        </>
+      )}
+      {mode === "run" && slug && (
+        <MenuItem
+          onSelect={() => {
+            close();
+            void openExternalUrl(`${window.location.origin}${missionMapUrl(slug)}`);
+          }}
+          testId="visualization-open-map"
+        >
+          {t("visualization.open_map_page")}
+        </MenuItem>
+      )}
+      {externalUrl && (
+        <MenuItem
+          onSelect={() => {
+            close();
+            void openExternalUrl(`${window.location.origin}${externalUrl}`);
+          }}
+          testId="visualization-open-external"
+        >
+          {t("visualization.open_external")}
+        </MenuItem>
+      )}
+      {file && (
+        <a
+          href={artifactDownloadUrl(file.slug, file.path)}
+          download
+          role="menuitem"
+          onClick={close}
+          data-testid="visualization-download"
+          className="flex w-full items-center rounded-lg px-2.5 py-2 text-base text-foreground transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
+        >
+          {t("visualization.download")}
+        </a>
+      )}
+      {/* Desktop only: a headless host has no file manager to open. */}
+      {file && capabilities.data?.native_file_actions && (
+        <MenuItem
+          onSelect={() => {
+            close();
+            void onReveal();
+          }}
+          testId="visualization-reveal"
+        >
+          {t("visualization.reveal")}
+        </MenuItem>
+      )}
+      {walkable && (
+        <>
+          <MenuSeparator />
+          <MenuItem
+            onSelect={() => onStep(-1)}
+            disabled={position === 0}
+            testId="visualization-previous"
+            trailing={<Kbd>←</Kbd>}
+          >
+            {t("visualization.previous")}
+          </MenuItem>
+          <MenuItem
+            onSelect={() => onStep(1)}
+            disabled={position >= total - 1}
+            testId="visualization-next"
+            trailing={<Kbd>→</Kbd>}
+          >
+            {t("visualization.next")}
+          </MenuItem>
+          <p className="px-2.5 pb-1 pt-1.5 text-sm tabular-nums text-muted-foreground">
+            {t("visualization.position")
+              .replace("{0}", String(position + 1))
+              .replace("{1}", String(total))}
+          </p>
+        </>
+      )}
+      {/* What used to stand under every page, said where it is looked for. */}
+      {visual?.kind === "page" && (
+        <p
+          className="flex items-start gap-1.5 border-t border-border px-2.5 pb-1 pt-2 text-sm text-muted-foreground"
+          data-testid="visualization-sandbox-note"
+        >
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          {t("visualization.page_sandbox_note")}
+        </p>
+      )}
+    </>
+  );
+
   return (
     <>
     <RenameNodeDialog
@@ -790,269 +1069,25 @@ function ArtifactToolbar({
             status={showStatus && run ? <RunStatusBadge run={run} /> : undefined}
             plain={windowed}
             detail={titleDetail}
+            menu={menu}
           />
           {run && <RunActions run={run} onJumpToRun={onJumpToRun} />}
         </>
       }
       actions={
-        <>
-          {onNewBoard && <NewBoardButton onCreated={onNewBoard} />}
-          {pageMode && (
-            <>
-              <PageModeButton
-                on={pageMode.mode === "edit"}
-                onClick={() => pageMode.onToggle("edit")}
-                testId="visualization-edit"
-                icon={<PencilLine className="h-4 w-4" aria-hidden />}
-                label={t("nodes.edit.toggle")}
-              />
-              <PageModeButton
-                on={pageMode.mode === "comment"}
-                onClick={() => pageMode.onToggle("comment")}
-                testId="visualization-comment"
-                icon={<MessageSquarePlus className="h-4 w-4" aria-hidden />}
-                label={t("nodes.comment.toggle")}
-              />
-            </>
-          )}
-          {pageMode && waiting > 0 && (
-            // The comments left on the page go out together, with one click.
-            <button
-              type="button"
-              onClick={() => void sendComments()}
-              disabled={sendingComments}
-              data-testid="visualization-comments-send"
-              className={
-                "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-base " +
-                "text-background transition-colors hover:bg-foreground/85 disabled:opacity-60 " +
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              }
-            >
-              {sendingComments ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <ArrowUp className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-              )}
-              <span className="stage-bar-label">
-                {waiting === 1
-                  ? t("nodes.comment.send_one")
-                  : t("nodes.comment.send_many").replace("{0}", String(waiting))}
-              </span>
-            </button>
-          )}
-          <ShareMenu
-            target={{
-              slug: file?.slug ?? slug,
-              path: file?.path ?? null,
-              title,
-              page: visual?.kind === "page",
-            }}
-            pageExport={capabilities.data?.page_export === true}
-            theme={theme === "dark" ? "dark" : "light"}
-          />
-          <MoreMenu>
-            {(close) => (
-              <>
-                <MenuHeading title={title} detail={details} />
-                {shownViews.length > 1 && (
-                  <>
-                    <MenuSeparator />
-                    <div role="group" aria-label={t("visualization.stage_tabs")}>
-                      {shownViews.map((view) => (
-                        <MenuChoice
-                          key={view.id}
-                          chosen={mode === view.id}
-                          onSelect={() => {
-                            onMode(view.id);
-                            close();
-                          }}
-                          testId={`visualization-tab-${view.id}`}
-                        >
-                          {view.label}
-                        </MenuChoice>
-                      ))}
-                    </div>
-                  </>
-                )}
-                <MenuSeparator />
-                {favoriteKey !== null && (
-                  <MenuItem
-                    onSelect={() => toggleFavorite(favoriteKey)}
-                    testId="visualization-favorite"
-                    trailing={favorite ? <Star className="h-4 w-4 shrink-0 fill-current text-warning" aria-hidden /> : null}
-                  >
-                    {t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
-                  </MenuItem>
-                )}
-                {node !== null && (
-                  <MenuItem
-                    onSelect={() => {
-                      close();
-                      if (chrome?.onAskChange) chrome.onAskChange(node);
-                      else void askDodaiosToChange(node);
-                    }}
-                    testId="visualization-ask-change"
-                  >
-                    {t("nodes.menu.ask")}
-                  </MenuItem>
-                )}
-                {node !== null && isTypedNode(node) && (
-                  <>
-                    <MenuItem
-                      onSelect={() => {
-                        close();
-                        setRenaming(node);
-                      }}
-                      testId="visualization-rename"
-                    >
-                      {t("nodes.menu.rename")}
-                    </MenuItem>
-                    <MenuItem
-                      onSelect={() => {
-                        close();
-                        undoLastChange();
-                      }}
-                      testId="visualization-revert"
-                    >
-                      {t("nodes.menu.revert")}
-                    </MenuItem>
-                  </>
-                )}
-                {mode === "run" && slug && (
-                  <MenuItem
-                    onSelect={() => {
-                      close();
-                      void openExternalUrl(`${window.location.origin}${missionMapUrl(slug)}`);
-                    }}
-                    testId="visualization-open-map"
-                  >
-                    {t("visualization.open_map_page")}
-                  </MenuItem>
-                )}
-                {externalUrl && (
-                  <MenuItem
-                    onSelect={() => {
-                      close();
-                      void openExternalUrl(`${window.location.origin}${externalUrl}`);
-                    }}
-                    testId="visualization-open-external"
-                  >
-                    {t("visualization.open_external")}
-                  </MenuItem>
-                )}
-                {file && (
-                  <a
-                    href={artifactDownloadUrl(file.slug, file.path)}
-                    download
-                    role="menuitem"
-                    onClick={close}
-                    data-testid="visualization-download"
-                    className="flex w-full items-center rounded-lg px-2.5 py-2 text-base text-foreground transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
-                  >
-                    {t("visualization.download")}
-                  </a>
-                )}
-                {/* Desktop only: a headless host has no file manager to open. */}
-                {file && capabilities.data?.native_file_actions && (
-                  <MenuItem
-                    onSelect={() => {
-                      close();
-                      void onReveal();
-                    }}
-                    testId="visualization-reveal"
-                  >
-                    {t("visualization.reveal")}
-                  </MenuItem>
-                )}
-                {walkable && (
-                  <>
-                    <MenuSeparator />
-                    <MenuItem
-                      onSelect={() => onStep(-1)}
-                      disabled={position === 0}
-                      testId="visualization-previous"
-                      trailing={<Kbd>←</Kbd>}
-                    >
-                      {t("visualization.previous")}
-                    </MenuItem>
-                    <MenuItem
-                      onSelect={() => onStep(1)}
-                      disabled={position >= total - 1}
-                      testId="visualization-next"
-                      trailing={<Kbd>→</Kbd>}
-                    >
-                      {t("visualization.next")}
-                    </MenuItem>
-                    <p className="px-2.5 pb-1 pt-1.5 text-sm tabular-nums text-muted-foreground">
-                      {t("visualization.position")
-                        .replace("{0}", String(position + 1))
-                        .replace("{1}", String(total))}
-                    </p>
-                  </>
-                )}
-              </>
-            )}
-          </MoreMenu>
-        </>
+        <ShareMenu
+          target={{
+            slug: file?.slug ?? slug,
+            path: file?.path ?? null,
+            title,
+            page: visual?.kind === "page",
+          }}
+          pageExport={capabilities.data?.page_export === true}
+          theme={theme === "dark" ? "dark" : "light"}
+        />
       }
     />
     </>
-  );
-}
-
-/** "New whiteboard" in a board's stage bar: a blank board, opened at once. */
-function NewBoardButton({ onCreated }: { onCreated: (card: NodeCard) => void }) {
-  const t = useT();
-  const { create, creating } = useNewWhiteboard(onCreated);
-  return (
-    <button
-      type="button"
-      onClick={() => void create()}
-      disabled={creating}
-      data-testid="visualization-new-whiteboard"
-      className={
-        "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-base " +
-        "text-foreground transition-colors hover:bg-secondary disabled:opacity-60 " +
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      }
-    >
-      {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
-      <span className="stage-bar-label">{t("nodes.whiteboard.new")}</span>
-    </button>
-  );
-}
-
-/** One of the page's two modes in the stage bar: pressed while it is on. */
-function PageModeButton({
-  on,
-  onClick,
-  testId,
-  icon,
-  label,
-}: {
-  on: boolean;
-  onClick: () => void;
-  testId: string;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      data-testid={testId}
-      className={
-        "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
-        "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-        (on
-          ? "border-transparent bg-primary text-primary-foreground"
-          : "border-border/70 text-foreground hover:bg-secondary")
-      }
-    >
-      {icon}
-      <span className="stage-bar-label">{label}</span>
-    </button>
   );
 }
 
@@ -1083,6 +1118,7 @@ function ArtifactStage({
   node = null,
   pageMode = "view",
   onEditHere,
+  barItems,
 }: {
   visual: VisualArtifact;
   /** The typed node this page belongs to, or null for anything adopted. */
@@ -1091,6 +1127,8 @@ function ArtifactStage({
   pageMode?: NodePageMode;
   /** A click into the page's text opens the node's editor there; absent where it does not. */
   onEditHere?: (at: NodeEditHere) => void;
+  /** The page's own tools for its bar (Edit, Send), where it takes them. */
+  barItems?: ReactNode;
 }) {
   const t = useT();
   /* The page follows the APP's theme, not the OS's: the artifact brief has every
@@ -1231,16 +1269,19 @@ function ArtifactStage({
 
   if (visual.kind === "image" || visual.kind === "vector") {
     return (
-      <div className="flex h-full items-center justify-center overflow-auto bg-sidebar p-8">
-        <img
-          src={visual.url}
-          alt={visual.title}
-          data-testid="visualization-image"
-          onError={() => setFailed(true)}
-          // White behind the picture in both themes: a drawing made with dark
-          // strokes on a transparent ground would vanish into a dark stage.
-          className="max-h-full max-w-full rounded-xl border border-border bg-white object-contain shadow-float"
-        />
+      <div className="flex h-full flex-col bg-sidebar">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-8">
+          <img
+            src={visual.url}
+            alt={visual.title}
+            data-testid="visualization-image"
+            onError={() => setFailed(true)}
+            // White behind the picture in both themes: a drawing made with dark
+            // strokes on a transparent ground would vanish into a dark stage.
+            className="max-h-full max-w-full rounded-xl border border-border bg-white object-contain shadow-float"
+          />
+        </div>
+        <PageBar />
       </div>
     );
   }
@@ -1249,6 +1290,55 @@ function ArtifactStage({
     const living = isLivingSlug(visual.slug);
     const typed = isNodeSlug(visual.slug);
     const rewritten = living || typed;
+    const noteState =
+      working > 0
+        ? "working"
+        : pageMode === "edit"
+          ? editState.saving > 0
+            ? "saving"
+            : editState.error
+              ? "edit-failed"
+              : "editing"
+          : pageMode === "comment"
+            ? "commenting"
+            : onEditHere
+              ? "tap-to-edit"
+              : "idle";
+    const note =
+      working > 0 ? (
+        <>
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+          <span className="truncate">
+            {working === 1
+              ? t("nodes.comment.working")
+              : t("nodes.comment.working_many").replace("{0}", String(working))}
+          </span>
+        </>
+      ) : pageMode === "edit" ? (
+        editState.saving > 0 ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+            <span className="truncate">{t("nodes.edit.saving")}</span>
+          </>
+        ) : editState.error ? (
+          <span className="truncate text-destructive">{editState.error}</span>
+        ) : (
+          <>
+            <PencilLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{t("nodes.edit.hint")}</span>
+          </>
+        )
+      ) : pageMode === "comment" ? (
+        <>
+          <MessageSquarePlus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{t("nodes.comment.hint")}</span>
+        </>
+      ) : onEditHere ? (
+        <>
+          <MousePointerClick className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{t("nodes.edit.tap_hint")}</span>
+        </>
+      ) : null;
     return (
       <div className="flex h-full flex-col">
         {living && (
@@ -1275,87 +1365,60 @@ function ArtifactStage({
           sandbox="allow-scripts"
           className="min-h-0 w-full flex-1 border-0 bg-background"
         />
-        <p
-          className="flex shrink-0 items-center gap-1.5 border-t border-border px-4 py-1.5 text-sm text-muted-foreground"
-          data-testid="visualization-page-note"
-          data-state={
-            working > 0
-              ? "working"
-              : pageMode === "edit"
-                ? editState.saving > 0
-                  ? "saving"
-                  : editState.error
-                    ? "edit-failed"
-                    : "editing"
-                : pageMode === "comment"
-                  ? "commenting"
-                  : onEditHere
-                    ? "tap-to-edit"
-                    : "idle"
-          }
-          aria-live="polite"
-        >
-          {working > 0 ? (
-            <>
-              <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
-              {working === 1
-                ? t("nodes.comment.working")
-                : t("nodes.comment.working_many").replace("{0}", String(working))}
-            </>
-          ) : pageMode === "edit" ? (
-            editState.saving > 0 ? (
-              <>
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
-                {t("nodes.edit.saving")}
-              </>
-            ) : editState.error ? (
-              <span className="text-destructive">{editState.error}</span>
-            ) : (
-              <>
-                <PencilLine className="h-3 w-3 shrink-0" aria-hidden />
-                {t("nodes.edit.hint")}
-              </>
-            )
-          ) : pageMode === "comment" ? (
-            <>
-              <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
-              {t("nodes.comment.hint")}
-            </>
-          ) : onEditHere ? (
-            <>
-              <MousePointerClick className="h-3 w-3 shrink-0" aria-hidden />
-              <span className="min-w-0 truncate">{t("nodes.edit.tap_hint")}</span>
-              <span
-                className="ml-auto flex min-w-0 items-center gap-1.5 truncate"
-                title={t("visualization.page_sandbox_note")}
-              >
-                <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
-                <span className="truncate">{t("visualization.page_sandbox_note")}</span>
-              </span>
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
-              {t("visualization.page_sandbox_note")}
-            </>
-          )}
-        </p>
+        <PageBar note={{ state: noteState, content: note }}>{barItems}</PageBar>
       </div>
     );
   }
 
   return (
-    <iframe
-      key={id}
-      src={visual.url}
-      title={visual.title}
-      data-testid="visualization-frame"
-      onError={() => setFailed(true)}
-      className="h-full w-full border-0 bg-white"
-    />
+    <div className="flex h-full flex-col">
+      <iframe
+        key={id}
+        src={visual.url}
+        title={visual.title}
+        data-testid="visualization-frame"
+        onError={() => setFailed(true)}
+        className="min-h-0 w-full flex-1 border-0 bg-white"
+      />
+      <PageBar />
+    </div>
   );
 }
 
+/**
+ * The bar under a page, a picture or a PDF the stage shows itself: the same
+ * pill every editor floats, here in a slim band of its own so it never
+ * covers the page's own controls (a deck's arrows, a sheet's tabs). It holds
+ * what the page's mode says (commenting, the assistant working the comments
+ * in), the page's own tools, and the comment button and "Chat". Nothing
+ * where none of that applies.
+ */
+function PageBar({ note, children }: { note?: { state: string; content: ReactNode }; children?: ReactNode }) {
+  const t = useT();
+  const { comment, onChat } = useNodeBarCommon();
+  const said = note !== undefined && note.content !== null;
+  // The line's state is read by the page's tests and by screen readers, said or not.
+  const noteElement =
+    note === undefined ? null : (
+      <span
+        className={said ? "flex min-w-0 max-w-[22rem] items-center gap-1.5 px-2 text-sm text-muted-foreground" : "sr-only"}
+        data-testid="visualization-page-note"
+        data-state={note.state}
+        aria-live="polite"
+      >
+        {note.content}
+      </span>
+    );
+  const tools = Boolean(children) && children !== false;
+  if (!said && !tools && !comment && !onChat) return noteElement;
+  return (
+    <NodeBar label={t("nodes.bar.label")} docked testId="visualization-page-bar">
+      {noteElement}
+      {children}
+      <NodeBarEnd divider={said || tools} />
+    </NodeBar>
+  );
+}
 /**
  * A whiteboard on stage: its editor, filling the stage. The node's watcher
  * (mounted for every typed node) reports when the node changed, so what the

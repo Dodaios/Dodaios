@@ -12051,7 +12051,8 @@
       "running": "Todavía se está trabajando en ello. Detén primero la ejecución y después elimínalo."
     },
     "ask": {
-      "change_draft": "Cambia el node «{0}» (id {1}): "
+      "change_draft": "Cambia el node «{0}» (id {1}): ",
+      "change_file_draft": "Cambia «{0}» (archivo {1}): "
     },
     "peek": {
       "window": "Nodo",
@@ -12231,6 +12232,11 @@
         "title": "Una pizarra vacía",
         "hint": "Elige una herramienta abajo, pulsa N para una nota adhesiva o pide a {assistant} que dibuje algo aquí."
       }
+    },
+    "bar": {
+      "label": "Herramientas del node",
+      "more": "Más herramientas",
+      "chat": "Chat"
     }
   },
   "agent_browser": {

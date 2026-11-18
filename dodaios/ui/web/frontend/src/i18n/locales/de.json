@@ -12051,7 +12051,8 @@
       "running": "Daran wird noch gearbeitet. Stopp den Durchlauf zuerst, dann kannst du es löschen."
     },
     "ask": {
-      "change_draft": "Ändere den Node „{0}“ (ID {1}): "
+      "change_draft": "Ändere den Node „{0}“ (ID {1}): ",
+      "change_file_draft": "Ändere „{0}“ (Datei {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12231,6 +12232,11 @@
         "title": "Ein leeres Board",
         "hint": "Wähle unten ein Werkzeug, drücke N für eine Haftnotiz oder bitte {assistant}, hier etwas zu zeichnen."
       }
+    },
+    "bar": {
+      "label": "Node-Werkzeuge",
+      "more": "Weitere Werkzeuge",
+      "chat": "Chat"
     }
   },
   "agent_browser": {

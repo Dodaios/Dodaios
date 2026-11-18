@@ -195,7 +195,7 @@
       },
       "region": "{0} 的编辑器",
       "toolbar": "编辑工具",
-      "inspector": "检查器",
+      "inspector": "属性",
       "undo": "撤销",
       "redo": "重做",
       "history": {
@@ -964,7 +964,8 @@
         "notes": {
           "label": "第 {n} 张幻灯片的演讲者备注",
           "placeholder": "你想在这张幻灯片上说的话。演示时只有你能看到。",
-          "none": "这张幻灯片没有备注。"
+          "none": "这张幻灯片没有备注。",
+          "toggle": "演讲者备注"
         },
         "strip": {
           "label": "幻灯片",
@@ -1307,7 +1308,8 @@
             "text_left": "左对齐",
             "text_center": "居中",
             "text_right": "右对齐",
-            "text_justify": "两端对齐"
+            "text_justify": "两端对齐",
+            "label": "对齐"
           },
           "spread": {
             "x": "水平分布",
@@ -1423,7 +1425,8 @@
         },
         "format": {
           "label": "格式",
-          "hint": "双击文字即可编辑 · 拖动可多选"
+          "hint": "双击文字即可编辑 · 拖动可多选",
+          "slide": "幻灯片"
         },
         "menu": {
           "label": "元素操作",
@@ -1452,6 +1455,9 @@
           "free_move": "移动时不吸附",
           "undo": "撤销 · 重做",
           "present": "放映"
+        },
+        "panel": {
+          "close": "关闭"
         }
       }
     }

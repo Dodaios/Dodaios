@@ -56,6 +56,7 @@ import { AlertCircle, Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useT, useUiLanguage, type UiLanguage } from "@/i18n";
+import { useNodeBarCommon } from "../bar/NodeBar";
 import { useThemeValue } from "@/hooks/useTheme";
 import { openExternalUrl } from "@/lib/openExternal";
 import { useEventStore } from "@/store/events";
@@ -368,6 +369,8 @@ function BoardCanvas({
   const t = useT();
   const theme = useThemeValue();
   const language = useUiLanguage();
+  // The dock ends like every node bar: "Chat" asks for a change to the board.
+  const { onChat } = useNodeBarCommon();
   const assistant = useEventStore((s) => s.assistantName) || "Dodaios";
   const assistantName = useRef(assistant);
   assistantName.current = assistant;
@@ -1027,6 +1030,7 @@ function BoardCanvas({
             onNote={addNote}
             onMermaid={() => api.current?.updateScene({ appState: { openDialog: { name: "ttd", tab: "mermaid" } } })}
             onLibrary={() => api.current?.toggleSidebar({ name: "default", tab: "library" })}
+            onChat={onChat}
           />
         </div>
         {wide ? (

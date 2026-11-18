@@ -15,6 +15,7 @@ import { RevisionContext, createRevisionSource } from "../../editorContext";
 import type { NodeEditorStart } from "../../types";
 import DocsEditor from "../index";
 import { linkHref } from "../Toolbar";
+import { barItem } from "../../testBar";
 
 vi.mock("@/i18n", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/i18n")>();
@@ -190,15 +191,15 @@ describe("DocsEditor", () => {
   it("undoes and redoes through the frame's buttons, with the text editor's history", async () => {
     const remote = server("Plain text");
     const { editor } = mount(remote);
-    expect((screen.getByTestId("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
+    expect((barItem("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
     select(editor, "Plain");
     fireEvent.click(screen.getByTestId("docs-bold"));
     await waitFor(() => expect(remote.last()?.markdown).toBe("**Plain** text"), { timeout: 3000 });
-    const undo = screen.getByTestId("node-editor-undo") as HTMLButtonElement;
+    const undo = barItem("node-editor-undo") as HTMLButtonElement;
     expect(undo.disabled).toBe(false);
     fireEvent.click(undo);
     await waitFor(() => expect(remote.last()?.markdown).toBe("Plain text"), { timeout: 3000 });
-    fireEvent.click(screen.getByTestId("node-editor-redo"));
+    fireEvent.click(barItem("node-editor-redo"));
     await waitFor(() => expect(remote.last()?.markdown).toBe("**Plain** text"), { timeout: 3000 });
   });
 
@@ -213,6 +214,8 @@ describe("DocsEditor", () => {
     fireEvent.click(await screen.findByTestId("docs-row-below"));
     fireEvent.click(screen.getByTestId("docs-table-menu"));
     fireEvent.click(await screen.findByTestId("docs-column-right"));
+    // The column's alignment is in the table's menu.
+    fireEvent.click(screen.getByTestId("docs-table-menu"));
     fireEvent.click(screen.getByTestId("docs-align-right"));
     await waitFor(
       () => {

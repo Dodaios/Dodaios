@@ -87,8 +87,17 @@ export async function sendNodeComments(
   );
 }
 
-/** The start of the sentence that asks for a change to `card`. */
+/**
+ * The start of the sentence that asks for a change to `card`: a typed node by
+ * its id (the assistant revises it through the `node` tool), anything else
+ * the library adopted (a worker's page, a picture, a PDF) by its file.
+ */
 export function changeDraftText(card: NodeCard): string {
+  if (card.id === null && card.path !== null) {
+    return translate("nodes.ask.change_file_draft")
+      .replace("{0}", () => card.title)
+      .replace("{1}", () => `${card.slug}/${card.path}`);
+  }
   return translate("nodes.ask.change_draft")
     .replace("{0}", () => card.title)
     .replace("{1}", () => card.id ?? card.key);

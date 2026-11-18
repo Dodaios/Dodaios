@@ -12051,7 +12051,8 @@
       "running": "This is still being worked on. Stop the run first, then delete it."
     },
     "ask": {
-      "change_draft": "Change the node \"{0}\" (id {1}): "
+      "change_draft": "Change the node \"{0}\" (id {1}): ",
+      "change_file_draft": "Change \"{0}\" (file {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12231,6 +12232,11 @@
         "title": "An empty board",
         "hint": "Pick a tool below, press N for a sticky note, or ask {assistant} to draw something here."
       }
+    },
+    "bar": {
+      "label": "Node tools",
+      "more": "More tools",
+      "chat": "Chat"
     }
   },
   "agent_browser": {

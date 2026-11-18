@@ -29,7 +29,7 @@ import { DocSession, MAX_BODY_CHARS, cleanSummary, readSpec, type DocsSpec } fro
 import { docExtensions } from "./extensions";
 import { pictureFiles, pictureFromFile } from "./images";
 import { Outline } from "./Outline";
-import { DocsToolbar } from "./Toolbar";
+import { DocsMore, DocsToolbar } from "./Toolbar";
 import { CalloutView } from "./views/CalloutView";
 import { ChartBlockView } from "./views/ChartBlockView";
 import { MetricsBlockView } from "./views/MetricsBlockView";
@@ -248,11 +248,10 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
           editor={editor}
           linkOpen={linkOpen}
           onLinkOpenChange={setLinkOpen}
-          outlineOpen={outlineOpen}
-          onOutlineToggle={() => setOutlineOpen((open) => !open)}
           onPickPicture={() => fileInput.current?.click()}
         />
       }
+      more={<DocsMore editor={editor} outlineOpen={outlineOpen} onOutlineToggle={() => setOutlineOpen((open) => !open)} />}
       side={outlineOpen ? <Outline editor={editor} /> : undefined}
     >
       <div

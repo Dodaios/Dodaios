@@ -964,7 +964,8 @@
         "notes": {
           "label": "Sprechernotizen für Folie {n}",
           "placeholder": "Was du zu dieser Folie sagen willst. Beim Präsentieren siehst nur du es.",
-          "none": "Keine Notizen zu dieser Folie."
+          "none": "Keine Notizen zu dieser Folie.",
+          "toggle": "Sprechernotizen"
         },
         "strip": {
           "label": "Folien",
@@ -1307,7 +1308,8 @@
             "text_left": "Linksbündig",
             "text_center": "Zentriert",
             "text_right": "Rechtsbündig",
-            "text_justify": "Blocksatz"
+            "text_justify": "Blocksatz",
+            "label": "Ausrichtung"
           },
           "spread": {
             "x": "Horizontal verteilen",
@@ -1423,7 +1425,8 @@
         },
         "format": {
           "label": "Format",
-          "hint": "Doppelklick zum Schreiben · Ziehen wählt mehrere aus"
+          "hint": "Doppelklick zum Schreiben · Ziehen wählt mehrere aus",
+          "slide": "Folie"
         },
         "menu": {
           "label": "Aktionen für Elemente",
@@ -1452,6 +1455,9 @@
           "free_move": "Ohne Einrasten verschieben",
           "undo": "Rückgängig · wiederholen",
           "present": "Präsentieren"
+        },
+        "panel": {
+          "close": "Schließen"
         }
       }
     }

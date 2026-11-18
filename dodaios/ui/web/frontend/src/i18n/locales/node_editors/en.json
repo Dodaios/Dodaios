@@ -195,7 +195,7 @@
       },
       "region": "Editor for {0}",
       "toolbar": "Editing tools",
-      "inspector": "Inspector",
+      "inspector": "Properties",
       "undo": "Undo",
       "redo": "Redo",
       "history": {
@@ -964,7 +964,8 @@
         "notes": {
           "label": "Speaker notes for slide {n}",
           "placeholder": "What you want to say on this slide. Only you see it while presenting.",
-          "none": "No notes for this slide."
+          "none": "No notes for this slide.",
+          "toggle": "Speaker notes"
         },
         "strip": {
           "label": "Slides",
@@ -1307,7 +1308,8 @@
             "text_left": "Left",
             "text_center": "Centred",
             "text_right": "Right",
-            "text_justify": "Justified"
+            "text_justify": "Justified",
+            "label": "Alignment"
           },
           "spread": {
             "x": "Spread out horizontally",
@@ -1423,7 +1425,8 @@
         },
         "format": {
           "label": "Format",
-          "hint": "Double-click a text to write · drag to select several"
+          "hint": "Double-click a text to write · drag to select several",
+          "slide": "Slide"
         },
         "menu": {
           "label": "Element actions",
@@ -1452,6 +1455,9 @@
           "free_move": "Move without snapping",
           "undo": "Undo · redo",
           "present": "Presenting"
+        },
+        "panel": {
+          "close": "Close"
         }
       }
     }
