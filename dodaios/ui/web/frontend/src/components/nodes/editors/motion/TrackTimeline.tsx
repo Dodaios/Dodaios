@@ -437,6 +437,7 @@ export function TrackTimeline(props: TrackTimelineProps) {
           nodeId={nodeId}
           scene={scene}
           index={index}
+          livePath={`/scenes/${index}`}
           media={media}
           left={start * pps}
           width={Math.max(4, seconds * pps)}
@@ -514,7 +515,8 @@ export function TrackTimeline(props: TrackTimelineProps) {
 
   const itemBlocks = (row: Row) => {
     const track = row.track!;
-    return track.items.map((item) => {
+    const trackIndex = (spec.tracks ?? []).indexOf(track);
+    return track.items.map((item, itemIndex) => {
       const key = itemKey(item.id);
       const shown = ghostFor(key, item.start, item.seconds);
       const entry = item.media ? media[item.media] : undefined;
@@ -525,6 +527,7 @@ export function TrackTimeline(props: TrackTimelineProps) {
           nodeId={nodeId}
           kind={track.kind}
           item={item}
+          livePath={`/tracks/${trackIndex}/items/${itemIndex}`}
           entry={entry}
           left={shown.start * pps}
           width={Math.max(4, shown.seconds * pps)}
@@ -577,6 +580,7 @@ export function TrackTimeline(props: TrackTimelineProps) {
           }
           title={line.text}
           data-testid={`clip-caption-${index}`}
+          data-live-path={`/captions/items/${index}`}
         >
           <span className="truncate">{line.text}</span>
           <Edge side="start" onPointerDown={(event) => beginDrag(event, { key, kind: "start", row: "captions", start: line.start, seconds: line.end - line.start, index, shortest: 0.2, longest: line.end })} />
@@ -606,7 +610,13 @@ export function TrackTimeline(props: TrackTimelineProps) {
           </div>
         </div>
         {rows.map((row) => (
-          <div key={row.key} className="relative flex border-b border-border/60" style={{ height: row.height }} data-row={row.kind}>
+          <div
+            key={row.key}
+            className="relative flex border-b border-border/60"
+            style={{ height: row.height }}
+            data-row={row.kind}
+            data-live-path={row.track ? `/tracks/${(spec.tracks ?? []).indexOf(row.track)}` : undefined}
+          >
             <RowHead row={row} onFlag={props.onTrackFlag} />
             <div
               className={cn("relative flex-1", row.kind === "main" ? "bg-background/40" : "", dropAt?.row === row.key && "bg-accent/10")}
@@ -703,6 +713,7 @@ function SceneBlock({
   nodeId,
   scene,
   index,
+  livePath,
   media,
   left,
   width,
@@ -714,6 +725,8 @@ function SceneBlock({
   nodeId: string;
   scene: Scene;
   index: number;
+  /** Where the live build finds this block (`data-live-path`). */
+  livePath: string;
   media: Record<string, MediaEntry>;
   left: number;
   width: number;
@@ -756,6 +769,7 @@ function SceneBlock({
       }}
       onPointerDown={(event) => onPointerDown(event, "move")}
       data-testid={`clip-scene-${index}`}
+      data-live-path={livePath}
     >
       <div className="absolute inset-x-0 top-0 flex items-center gap-1 bg-gradient-to-b from-black/70 to-transparent px-1.5 py-0.5">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />
@@ -773,6 +787,7 @@ function ItemBlock({
   nodeId,
   kind,
   item,
+  livePath,
   entry,
   left,
   width,
@@ -786,6 +801,8 @@ function ItemBlock({
   nodeId: string;
   kind: Track["kind"];
   item: TrackItem;
+  /** Where the live build finds this block (`data-live-path`). */
+  livePath: string;
   entry?: MediaEntry;
   left: number;
   width: number;
@@ -816,6 +833,7 @@ function ItemBlock({
       style={{ left, width }}
       onPointerDown={(event) => onPointerDown(event, "move")}
       data-testid={`clip-item-${item.id}`}
+      data-live-path={livePath}
     >
       {kind === "audio" && entry && <Waveform nodeId={nodeId} entry={entry} item={item} width={width} height={height - 8} />}
       {poster && <img src={poster} alt="" className="absolute left-0 top-0 h-full w-auto opacity-80" draggable={false} />}
