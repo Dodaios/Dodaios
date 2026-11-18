@@ -86,13 +86,21 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
     task = svc._running[session.session_id].task
     await asyncio.wait_for(registered.wait(), 2)
     ready[:5] = [True] * 5
-    await asyncio.sleep(0.02)
+
+    def waiting_noted() -> bool:
+        return any(
+            e["kind"] == "reasoning" and "Waiting for agents" in e["payload"].get("text", "")
+            for e in store.list_events(session.session_id)
+        )
+
+    # Wait for the note itself, not a fixed 20 ms: a Windows timer tick is ~15 ms.
+    for _ in range(400):
+        if waiting_noted():
+            break
+        await asyncio.sleep(0.005)
     assert svc.is_running(session.session_id)
     assert len(prompts) == 1
-    assert any(
-        e["kind"] == "reasoning" and "Waiting for agents" in e["payload"].get("text", "")
-        for e in store.list_events(session.session_id)
-    )  # A reconnected UI can reconstruct the actual wait from persisted events.
+    assert waiting_noted()  # A reconnected UI can reconstruct the actual wait from persisted events.
     # The turn itself says that it only waits, so a chat does not draw it as typing.
 
     def waits() -> list[list[str]]:
