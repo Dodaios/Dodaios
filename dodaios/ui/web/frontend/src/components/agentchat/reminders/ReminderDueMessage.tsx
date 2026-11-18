@@ -4,29 +4,33 @@ import { Check } from "lucide-react";
 import { fill, useT, useUiLanguage } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { markReminderDone, snoozeReminder, type ReminderRow } from "@/lib/remindersApi";
-import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
 import { REPLY_PROSE } from "../LeadReply";
 import type { NoticeItem, TimelineItem } from "../reduce";
 import { dropDueReminder, formatDue, refreshDueReminders, useDueRemindersStore, watchDueReminders } from "./dueReminders";
 import { itemPlace, itemTitle, itemWhen, OWN_SOURCE, reminderItems, sourceName, type ReminderItem } from "./reminderItems";
+import { ChatMarkdown } from "../ChatMarkdown";
 
 /**
  * A reminder or calendar appointment that came due, said by the assistant in
- * its chat: "From your Google Calendar: Dentist", when and where under it,
- * and right below what fits the item. An appointment opens in its calendar or
- * is dismissed (a meeting that already started does not come back later); a
- * reminder is ticked off, or snoozed once "Later" shows the choices.
+ * its chat as a message of its own: "Your break runs until 10:45, then you
+ * have half an hour for mail." The words come with the notice (`voice`,
+ * written by `dodaios/agent_chat/proactive_voice.py` in the person's
+ * language); under them, small, what fits each item while it is still open.
+ * An appointment opens in its calendar or is dismissed; a reminder is ticked
+ * off, or snoozed once "Later" shows the choices.
  *
  * The scheduler (`dodaios/notify/reminders.py`) posts one `reminder_due`
- * notice per item; several told in one go (the day's all-day entries at
- * midnight) are one message. The lead reads the same notice in its history,
- * so the person can simply answer it ("move it to tomorrow").
+ * notice per item; several told in one go are one message (the first notice
+ * carries the words, the rest `voice_covered`). The lead reads the same
+ * notice in its history, so the person can simply answer it ("move it to
+ * tomorrow"). A notice from before the words were written reads as one
+ * plain sentence per item.
  *
- * The buttons show only while the item is still open (`dueReminders`): the
+ * The actions show only while the item is still open (`dueReminders`): the
  * message stays as what was said, and an item ticked off, snoozed or over
- * keeps its words without the buttons.
+ * keeps its words without the actions.
  */
 
 export const REMINDER_DUE_KIND = "reminder_due";
@@ -56,16 +60,28 @@ function isReminderNotice(item: TimelineItem | undefined): item is NoticeItem {
 }
 
 /**
- * Reminders told one right after the other are one message: the first notice
- * of a run carries the others (`data.reminder_group`). The same array when
- * there is nothing to fold.
+ * Whether `item` belongs to the message of `last`. A notice the assistant
+ * worded together with the one before it says so (`voice_covered`); a notice
+ * with words of its own is a message of its own (a break told at 13:00 is not
+ * part of what was said at 12:26). Notices from before the words were written
+ * fold when they follow each other, as they always did.
+ */
+function joins(last: NoticeItem, item: NoticeItem): boolean {
+  if (item.data.voice_covered === true) return true;
+  return !item.data.voice && !last.data.voice;
+}
+
+/**
+ * Reminders told together are one message: the first notice of a run carries
+ * the others (`data.reminder_group`). The same array when there is nothing to
+ * fold.
  */
 export function foldReminderNotices(items: TimelineItem[]): TimelineItem[] {
   if (!items.some((item, index) => isReminderNotice(item) && isReminderNotice(items[index + 1]))) return items;
   const out: TimelineItem[] = [];
   for (const item of items) {
     const last = out[out.length - 1];
-    if (isReminderNotice(item) && isReminderNotice(last)) {
+    if (isReminderNotice(item) && isReminderNotice(last) && joins(last, item)) {
       const group = (last.data[GROUP] as NoticeItem[] | undefined) ?? [last];
       out[out.length - 1] = { ...last, data: { ...last.data, [GROUP]: [...group, item] } };
       continue;
@@ -115,7 +131,11 @@ export function noticeRow(item: NoticeItem): ReminderRow {
 type Settled = { kind: "done" } | { kind: "dismissed" } | { kind: "snoozed"; when: string };
 
 /** What fits one item, while it is still open; what became of it once answered here. */
-function ItemActions({ item, service, open }: { item: ReminderItem; service: string; open: boolean }) {
+function ItemActions({ item, service, open, label }: {
+  item: ReminderItem; service: string; open: boolean;
+  /** The item's name before its actions, when the message tells several. */
+  label?: string;
+}) {
   const t = useT();
   const locale = useUiLanguage();
   const [busy, setBusy] = useState(false);
@@ -127,8 +147,9 @@ function ItemActions({ item, service, open }: { item: ReminderItem; service: str
     const words = settled.kind === "snoozed" ? fill(t("reminders.snoozed_until"), { when: settled.when })
       : t(settled.kind === "done" ? "reminders.settled_done" : "reminders.settled_dismissed");
     return (
-      <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground" data-testid="reminder-settled">
-        <Check aria-hidden className="h-3 w-3" />{words}
+      <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="reminder-settled">
+        {label ? <span className="mr-1 min-w-0 truncate">{label}</span> : null}
+        <Check aria-hidden className="h-3 w-3 shrink-0" />{words}
       </span>
     );
   }
@@ -159,7 +180,8 @@ function ItemActions({ item, service, open }: { item: ReminderItem; service: str
 
   return (
     <>
-      <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="reminder-actions">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-testid="reminder-actions">
+        {label ? <span className="min-w-0 max-w-[16rem] truncate text-muted-foreground" data-testid="reminder-label">{label}</span> : null}
         {appointment ? (
           <>
             {row.url && (
@@ -198,39 +220,19 @@ function ItemActions({ item, service, open }: { item: ReminderItem; service: str
   );
 }
 
-/** One item: its title, when and where it runs, and what fits it. */
-function ItemLines({ item, service, open, lead }: { item: ReminderItem; service: string; open: boolean; lead?: string }) {
-  const t = useT();
-  const locale = useUiLanguage();
-  const when = itemWhen(item.row, locale, t);
-  const place = itemPlace(item.row);
-  const title = (
-    <strong className="font-semibold text-foreground-strong [overflow-wrap:anywhere]" data-testid="reminder-title"
-      title={item.row.busy_only ? t("reminders.busy_hint") : undefined}>
-      {itemTitle(item.row, t)}
-    </strong>
-  );
-  return (
-    <span className="flex flex-col" data-testid="reminder-item" data-kind={item.appointment ? "appointment" : "reminder"}>
-      <span>{lead ? <>{lead} {title}</> : title}</span>
-      {(when || place) && (
-        <span className="text-[13px] leading-5 text-muted-foreground" data-testid="reminder-when">
-          {[when, place].filter(Boolean).join(" · ")}
-        </span>
-      )}
-      <ItemActions item={item} service={service} open={open} />
-    </span>
-  );
-}
-
-/** How the assistant opens the message: whose items they are, in one phrase. */
-function leadWords(items: ReminderItem[], t: (key: string) => string): string {
-  if (items.every((item) => !item.appointment)) return t("reminders.chat_own");
-  const sources = new Set(items.map((item) => item.source));
-  if (sources.size === 1 && items.every((item) => item.appointment)) {
-    return fill(t("reminders.chat_from"), { service: sourceName(items[0].source, t) });
-  }
-  return t("reminders.chat_mixed");
+/**
+ * What a notice from before the assistant wrote its own words says: one
+ * plain sentence per item, its title and when it runs.
+ */
+function plainWords(items: ReminderItem[], locale: string, t: (key: string) => string): string {
+  return items.map((entry) => {
+    const when = itemWhen(entry.row, locale, t);
+    const place = itemPlace(entry.row);
+    const title = itemTitle(entry.row, t);
+    return fill(t(when ? "reminders.say_item" : "reminders.say_title"), {
+      title, when: [when, place].filter(Boolean).join(" · "),
+    });
+  }).join(" ");
 }
 
 /** The message's items: one per thing told, the same item seen twice folded into one. */
@@ -245,6 +247,7 @@ function messageItems(item: NoticeItem, notices: NoticeItem[]): ReminderItem[] {
 
 export function ReminderDueMessage({ item }: { item: NoticeItem }) {
   const t = useT();
+  const locale = useUiLanguage();
   const notices = useMemo(() => (item.data[GROUP] as NoticeItem[] | undefined) ?? [item], [item]);
   const items = useMemo(() => messageItems(item, notices), [item, notices]);
   const openRows = useDueRemindersStore((s) => s.items);
@@ -252,8 +255,9 @@ export function ReminderDueMessage({ item }: { item: NoticeItem }) {
   useEffect(() => watchDueReminders(), []);
   if (!items.length) return null;
   const open = (entry: ReminderItem) => loaded && entry.ids.some((id) => openRows.some((row) => row.id === id));
-  const words = leadWords(items, t);
   const serviceOf = (entry: ReminderItem) => sourceName(entry.source, t);
+  const words = notices.map((notice) => text(notice.data.voice)).find(Boolean) || plainWords(items, locale, t);
+  const several = items.length > 1;
   return (
     <div className="lead-turn" data-testid="reminder-message" data-look="lead" data-message-id={item.id}>
       {/* A desktop notification of a later item in the message lands here too. */}
@@ -262,22 +266,12 @@ export function ReminderDueMessage({ item }: { item: NoticeItem }) {
       <div className="lead-turn-body">
         <div className="lead-bubbles">
           <div className="lead-bubble jarvis-chat-in">
-            <div className={cn(REPLY_PROSE, "flex flex-col gap-2.5")}>
-              {items.length === 1 ? (
-                <ItemLines item={items[0]} service={serviceOf(items[0])} open={open(items[0])} lead={words} />
-              ) : (
-                <>
-                  <span>{words}</span>
-                  {/* `not-prose`: the reading type's list indent and spacing would push the items off the sentence. */}
-                  <ul className="not-prose m-0 flex list-none flex-col gap-2.5 p-0 text-[15px] leading-[25px] text-foreground">
-                    {items.map((entry) => (
-                      <li key={entry.key} className="m-0 p-0">
-                        <ItemLines item={entry} service={serviceOf(entry)} open={open(entry)} />
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
+            <div className={REPLY_PROSE} data-testid="reminder-words"><ChatMarkdown text={words} /></div>
+            <div className="mt-1.5 flex flex-col gap-1 empty:hidden">
+              {items.map((entry) => (
+                <ItemActions key={entry.key} item={entry} service={serviceOf(entry)} open={open(entry)}
+                  label={several ? itemTitle(entry.row, t) : undefined} />
+              ))}
             </div>
           </div>
         </div>

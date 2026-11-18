@@ -3247,17 +3247,22 @@ class WebServer:
 
         # Desktop notifications and the reminder scheduler (dodaios/notify).
         # Only the default app delivers: a second (dev) instance would tell
-        # every reminder twice.
+        # every reminder twice. JARVIS_DEV_REMINDERS=1 lets the dev app tell
+        # its own data dir's reminders in its chat, without desktop
+        # notifications, to try how they read (docs/dev-instance.md).
         try:
             from dodaios.core.instance import current_instance
             from dodaios.notify import wiring as notify_wiring
 
+            owns = current_instance().owns_ambient_duties
+            dev_reminders = not owns and os.environ.get("JARVIS_DEV_REMINDERS") == "1"
             notify_wiring.install(
                 app_state=self.app.state,
                 bus=self.bus,
                 cfg=self.cfg,
                 get_service=lambda: getattr(self.app.state, "agent_chat", None),
-                start_scheduler=current_instance().owns_ambient_duties,
+                start_scheduler=owns or dev_reminders,
+                desktop_reminders=owns,
             )
         except Exception as exc:  # noqa: BLE001 — the app runs without notifications
             logger.opt(exception=exc).warning("notify: not started")

@@ -4847,6 +4847,87 @@ async def tts_preview(body: TtsPreviewBody) -> Response:
     )
 
 
+# One read-aloud request is one stretch of an answer; the client splits a long
+# answer into stretches so the first one plays while the next is synthesised.
+_READ_ALOUD_MAX_CHARS: Final = 4000
+_READ_ALOUD_BCP47: Final = {
+    "de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT", "fr": "fr-FR",
+}
+
+
+class ReadAloudBody(BaseModel):
+    text: str = Field(default="", max_length=_READ_ALOUD_MAX_CHARS)
+    # The answer's language ("de", "en", ...); "" detects it from the text.
+    language: str = Field(default="", max_length=16)
+
+
+def _read_aloud_language(text: str, requested: str, cfg: Any) -> str:
+    """The language to speak: the caller's, else the text's, else the voice's own."""
+    from dodaios.core.turn_language import detect_text_language
+
+    lang = (requested or "").strip().lower().split("-", 1)[0]
+    if lang in _READ_ALOUD_BCP47:
+        return lang
+    detected = detect_text_language(text)
+    if detected in _READ_ALOUD_BCP47:
+        return detected
+    configured = str(getattr(getattr(cfg, "tts", None), "language_code", "") or "")
+    configured = configured.lower().split("-", 1)[0]
+    return configured if configured in _READ_ALOUD_BCP47 else "en"
+
+
+@router.post("/tts/read-aloud")
+async def tts_read_aloud(body: ReadAloudBody, request: Request) -> Response:
+    """Speak a stretch of an answer with the person's own voice settings.
+
+    The read-aloud button under an agent's answer calls this. It builds the
+    TTS the voice pipeline would build (the configured provider, crossed to a
+    family that has a key, with its fallback) and returns ``audio/wav``. The
+    detected language comes back in ``X-Read-Language`` so the next stretch of
+    the same answer keeps the same voice.
+    """
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="There is no text to read aloud.")
+    cfg = _resolve_cfg(request)
+    tts_cfg = getattr(cfg, "tts", None)
+    if tts_cfg is None:
+        raise HTTPException(status_code=503, detail="The voice settings are unavailable.")
+    lang = _read_aloud_language(text, body.language, cfg)
+
+    from dodaios.plugins.tts import build_tts_from_config
+
+    try:
+        tts = build_tts_from_config(tts_cfg)
+    except Exception as exc:  # noqa: BLE001 — never 500 the page
+        raise HTTPException(status_code=409, detail=f"No voice is set up: {exc}") from exc
+
+    pcm = bytearray()
+    sample_rate = 24_000
+    try:
+        async for chunk in tts.synthesize(text, language_code=_READ_ALOUD_BCP47[lang]):
+            pcm += bytes(chunk.pcm)
+            sample_rate = chunk.sample_rate
+    except Exception as exc:  # noqa: BLE001 — never 500 the page
+        raise HTTPException(status_code=502, detail=f"Reading aloud failed: {exc}") from exc
+    finally:
+        aclose = getattr(tts, "aclose", None)
+        if aclose is not None:
+            await aclose()
+
+    if not pcm:
+        raise HTTPException(
+            status_code=502,
+            detail="The voice produced no audio. Check the voice provider in Settings.",
+        )
+    wav = _pcm_to_wav(bytes(pcm), sample_rate=sample_rate, channels=1)
+    return Response(
+        content=wav,
+        media_type="audio/wav",
+        headers={"Cache-Control": "no-store", "X-Read-Language": lang},
+    )
+
+
 @router.post("/stt/switch")
 async def stt_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
     """Switch the active STT provider without restarting the app.

@@ -20,6 +20,8 @@ tests/unit/plugins/tool/test_spawn_worker_ack.py
 #     multilingual intent/result matchers, and the fixtures that pin them ---
 dodaios/voice/instant_ack.py
 tests/unit/voice/test_instant_ack.py
+# The assistant's own proactive messages are worded in the person's language (German here).
+tests/unit/agent_chat/test_proactive_voice.py
 
 # --- Parked results (ADR-0034, 2026-08-18): the closed de/en/es wait-query
 #     vocabulary, the re-anchoring pools, and the fixtures that pin them ---

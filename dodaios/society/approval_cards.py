@@ -17,11 +17,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-__all__ = ["NOTICE_KIND", "close_card", "open_card"]
+__all__ = ["BLOCKED_KIND", "NOTICE_KIND", "close_card", "note_blocked", "open_card"]
 
 log = logging.getLogger(__name__)
 
 NOTICE_KIND: Final[str] = "approval_request"
+#: A card for an action that never runs (``action_policy.Severity.BLOCK``).
+BLOCKED_KIND: Final[str] = "action_blocked"
 
 
 async def open_card(
@@ -34,6 +36,8 @@ async def open_card(
     detail: str = "",
     label: str = "",
     browser: bool = False,
+    severity: str = "ask",
+    kind: str = "",
 ) -> None:
     """Post the card and, when the person is elsewhere, the desktop notification.
 
@@ -41,6 +45,8 @@ async def open_card(
     tool, ``detail`` what the page says about it. ``label`` is the text of the
     control a browser step is about to press: with it the card asks in the
     person's own language ("May I click "Cancel subscription" on ...?").
+    ``severity`` is ``ask`` or ``confirm`` (money and accounts, asked in every
+    mode: the card says so) and ``kind`` what the step does (``buy``, ``send``).
     Posting never fails the work: the browser panel still shows the ask.
     """
     try:
@@ -55,6 +61,8 @@ async def open_card(
                 "detail": detail[:500],
                 "label": label[:160],
                 "browser": browser,
+                "severity": severity,
+                "step_kind": kind,
                 "agent_id": agent.agent_id,
             },
         )
@@ -75,6 +83,30 @@ async def open_card(
             )
     except Exception:  # noqa: BLE001 — a notification is a convenience, never a failure
         log.debug("approval card: notification not sent", exc_info=True)
+
+
+async def note_blocked(runtime: Any, agent: Any, finding: Any, where: str = "") -> None:
+    """Post a card that says an action was refused for good and why (``action_policy``).
+
+    It has no buttons: nothing the person clicks makes a blocked action run.
+    """
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(where).hostname or where or "").removeprefix("www.")
+    try:
+        await runtime.post_chat_notice(
+            agent,
+            {
+                "kind": BLOCKED_KIND,
+                "status": "blocked",
+                "category": str(getattr(finding, "category", "")),
+                "text": str(getattr(finding, "reason", ""))[:500],
+                "where": host[:200],
+                "agent_id": agent.agent_id,
+            },
+        )
+    except Exception:  # noqa: BLE001 — the agent's tool result still says it was blocked
+        log.warning("blocked card: not posted for %s", host, exc_info=True)
 
 
 async def close_card(runtime: Any, agent: Any, approval_id: str, status: str) -> None:

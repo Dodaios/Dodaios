@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +48,8 @@ TASK_KIND: Final[str] = "project"
 GRACE_DAYS: Final[int] = 7
 #: How often the scheduler looks for due reminders.
 TICK_S: Final[float] = 30.0
+#: How long the scheduler waits for the conversation after a start.
+READY_WAIT_S: Final[float] = 180.0
 #: A reminder found more than this late (the app was closed) is marked
 #: delivered without a notice: a week-old "take the pizza out" helps nobody.
 STALE_AFTER: Final[timedelta] = timedelta(days=3)
@@ -424,6 +427,17 @@ def lead_target() -> tuple[Any, str] | None:
         return None
 
 
+def chat_ready() -> bool:
+    """Whether the app's conversations are up (the agent society is running)."""
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        return runtime is not None and runtime.chat_service() is not None
+    except Exception:  # noqa: BLE001 — not up yet; asked again next tick
+        return False
+
+
 async def post_notice(svc: Any, session_id: str, payload: dict[str, Any]) -> str:
     """Post a notice and return its timeline id (``n-<seq>``), or ``""``."""
     await svc.post_notice(session_id, payload)
@@ -481,8 +495,11 @@ class ReminderScheduler:
         notifier: Callable[[], Any | None],
         clock: Callable[[], datetime] = utc_now,
         tick_s: float = TICK_S,
+        ready: Callable[[], bool] = lambda: True,
     ) -> None:
         self._vault = vault
+        self._ready = ready
+        self._born = time.monotonic()
         self._target = target
         self._notifier = notifier
         self._clock = clock
@@ -512,6 +529,11 @@ class ReminderScheduler:
 
     async def tick(self) -> list[str]:
         """Deliver what is due; returns the ids delivered this round."""
+        if not self._ready() and time.monotonic() - self._born < READY_WAIT_S:
+            # Right after a start the conversation is not there yet: an item
+            # claimed now would be marked told without being told. An app that
+            # never brings one up still delivers (the desktop notification).
+            return []
         vault = self._vault()
         if vault is None:
             return []
@@ -522,6 +544,7 @@ class ReminderScheduler:
             log.warning("reminders: could not read due memories", exc_info=True)
             return []
         delivered: list[str] = []
+        todo: list[Any] = []
         for memory in due:
             key = _DELIVERED + memory.id
             if vault.get_meta(key) is not None:
@@ -540,11 +563,16 @@ class ReminderScheduler:
             if due_at is not None and now - due_at > STALE_AFTER:
                 log.info("reminders: %s was due %s; too old to tell", memory.id, memory.due_at)
                 continue
-            await self.deliver(memory)
+            todo.append(memory)
             delivered.append(memory.id)
+        if todo:
+            context = _later_today(vault, {memory.id for memory in todo})
+            # Together: items due in the same minute become one message
+            # (``agent_chat/proactive_voice.py`` folds what arrives at once).
+            await asyncio.gather(*(self.deliver(memory, context) for memory in todo))
         return delivered
 
-    async def deliver(self, memory: Any) -> None:
+    async def deliver(self, memory: Any, context: list[str] | None = None) -> None:
         lang = notification_language(memory.text)
         session_id = ""
         message_id = ""
@@ -565,6 +593,9 @@ class ReminderScheduler:
                         "memory_id": memory.id,
                         "due_at": memory.due_at,
                         "reminder": is_reminder(memory),
+                        # What else is on today, for the assistant's wording;
+                        # never stored (``proactive_voice.CONTEXT_KEY``).
+                        "_voice_context": list(context or []),
                     },
                 )
             except Exception:  # noqa: BLE001 — the desktop notification below still goes out
@@ -583,6 +614,18 @@ class ReminderScheduler:
             # window is in front (the notice is a line among many).
             ignore_focus=True,
         )
+
+
+def _later_today(vault: Any, exclude: set[str]) -> list[str]:
+    """What else is due later today, as facts for the assistant's wording."""
+    try:
+        from dodaios.agent_chat.proactive_voice import later_today
+
+        now = datetime.now(person_zone())
+        return later_today(list_due(vault, days=1), now=now, exclude=exclude)
+    except Exception:  # noqa: BLE001 — the message is worded without the rest of the day
+        log.debug("reminders: rest of the day unreadable", exc_info=True)
+        return []
 
 
 def _notice_fields(memory: Any) -> dict[str, Any]:

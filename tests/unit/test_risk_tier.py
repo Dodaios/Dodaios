@@ -336,3 +336,27 @@ def test_blacklist_survives_whitespace_order_and_chaining(args):
     ev = RiskTierEvaluator(_make_safety(blacklist=["rm -rf /"]))
     with pytest.raises(ActionBlocked):
         ev.evaluate(_ShellStub("run_shell", "monitor"), args)
+
+
+# --- action_policy: the dark web and money (2026-11-18) ---------------------
+
+
+def test_a_dark_web_url_is_blocked_for_every_tool():
+    from types import SimpleNamespace
+
+    evaluator = RiskTierEvaluator(_make_safety())
+    tool = SimpleNamespace(name="society_browser", risk_tier="monitor")
+    with pytest.raises(ActionBlocked) as raised:
+        evaluator.evaluate(tool, {"task": "look", "url": "http://abcdefgh.onion/"})
+    assert "dark_web" in raised.value.pattern
+
+
+def test_a_tor_command_is_blocked_and_a_wipe_is_never_whitelisted():
+    from types import SimpleNamespace
+
+    evaluator = RiskTierEvaluator(_make_safety(whitelist=["run_shell rm *", "rm *"]))
+    shell = SimpleNamespace(name="run_shell", risk_tier="monitor")
+    with pytest.raises(ActionBlocked):
+        evaluator.evaluate(shell, {"command": "tor --SocksPort 9050"})
+    decision = evaluator.evaluate(shell, {"command": "rm -rf ~"})
+    assert decision.tier == "ask" and decision.approved_by is None

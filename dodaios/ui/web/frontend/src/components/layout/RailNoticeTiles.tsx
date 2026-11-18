@@ -1,12 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect, useLayoutEffect, useRef, useState,
+  type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plus, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
+  ArrowUpRight, BellOff, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, ListChecks, ListX, Loader2, Plus, RefreshCw, ShieldCheck,
+  SquareTerminal, UserRound, X,
   type LucideIcon,
 } from "lucide-react";
 
 import { ToolChoiceIcon } from "@/components/agentchat/ToolChoiceChips";
 import { serviceIconRow } from "@/components/agentchat/toolChoices";
+import { toolIdentity } from "@/components/agentchat/toolIdentity";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { openPaneSession } from "@/components/agentic/openPaneSession";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -25,6 +30,7 @@ import { useEventStore } from "@/store/events";
 import {
   NOTICE_GAP_PX, NOTICE_TILE_PX, NOTICES_SHOWN, noticePlaces, type NoticeAsk,
  type NoticeGlyph, type RailNotice } from "./railNotices";
+import { closeNotices, snoozeNotice } from "./railNoticeDismiss";
 import { refreshStatusLight } from "./statusLightStore";
 import { goToStatusRow, openKeys } from "./statusRows";
 
@@ -68,8 +74,12 @@ const ASK_ICON: Partial<Record<NoticeAsk, LucideIcon>> = {
 /** A question and a warning read best as the character itself. */
 const ASK_SIGN: Partial<Record<NoticeAsk, string>> = { question: "?", trouble: "!" };
 
+/**
+ * Signs for a subject with no logo, no face and no name. Plain, standard
+ * symbols only: no robot heads, rockets or sparkles (the person, 2026-11-18).
+ */
 const GLYPH: Record<NoticeGlyph, LucideIcon> = {
-  agent: Bot, terminal: SquareTerminal, mission: Rocket,
+  agent: UserRound, terminal: SquareTerminal, mission: ListChecks,
 };
 
 /** What is asked, on the tile's corner. `busy` turns it into a quiet spinner. */
@@ -91,12 +101,31 @@ function AskBadge({ notice, busy = false, small = false }: { notice: RailNotice;
   );
 }
 
-/** An agent's own face from the roster; a plain sign until the roster has answered. */
-function AgentFace({ agentId, size }: { agentId: string; size: number }) {
+/** A name's first letter, set like the profile's initial: for a subject that has a name but no logo. */
+function Monogram({ name, size }: { name: string; size: number }) {
+  const letter = Array.from(name.trim())[0]?.toUpperCase() ?? "";
+  if (!letter) return <UserRound aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
+  return (
+    <span aria-hidden data-testid="rail-notice-monogram" className="font-semibold leading-none text-foreground"
+      style={{ fontSize: Math.round(size * 0.75) }}>
+      {letter}
+    </span>
+  );
+}
+
+/** An agent's own face from the roster; its initial (or a plain person sign) when the roster has none. */
+function AgentFace({ agentId, name, size }: { agentId: string; name: string; size: number }) {
   const roster = useSocietyRoster();
   const agent = roster.data?.agents.find((candidate) => candidate.agentId === agentId);
-  if (!agent) return <Bot aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
+  if (!agent) return <Monogram name={name} size={size / 1.35} />;
   return <AgentSwatch agent={agent} size={size} />;
+}
+
+/** A service named only by its name: its own logo when the app knows one, else its initial. */
+function ServiceMark({ name, size }: { name: string; size: number }) {
+  const row = serviceIconRow("plugin", name, name);
+  if (!toolIdentity(row).logo) return <Monogram name={name} size={size} />;
+  return <ToolChoiceIcon row={row} size={size} />;
 }
 
 /** Who the notice is about: a logo kept in its own colours, a face, or a plain sign. */
@@ -113,7 +142,9 @@ function SubjectMark({ notice, size }: { notice: RailNotice; size: number }) {
       <AgentMark agent={mark.id} label={subject} variant="plain" className="h-full w-full opacity-100" />
     </span>;
   }
-  if (mark.type === "agent") return <AgentFace agentId={mark.id} size={Math.round(size * 1.35)} />;
+  if (mark.type === "service") return <ServiceMark name={mark.name} size={size} />;
+  // An agent without a name of its own ("An agent") gets no initial: the person sign says it plainly.
+  if (mark.type === "agent") return <AgentFace agentId={mark.id} name={mark.name ?? ""} size={Math.round(size * 1.35)} />;
   const Glyph = GLYPH[mark.glyph];
   return <Glyph aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
 }
@@ -204,7 +235,143 @@ function NoticeWords({ notice, note, go }: { notice: RailNotice; note: string | 
   );
 }
 
-function NoticeTile({ notice }: { notice: RailNotice }) {
+/** Where a notice's menu opens, and which notice it is for. */
+interface NoticeMenuAt {
+  notice: RailNotice;
+  x: number;
+  y: number;
+  go: () => void;
+  returnFocus: HTMLElement | null;
+}
+
+/** Opens a notice's menu (a right-click, Shift+F10 or the menu key on its tile or row). */
+type OpenMenu = (at: NoticeMenuAt) => void;
+
+const MENU_WIDTH = 220;
+const MENU_MARGIN = 8;
+
+function MenuItem({ icon, testId, onClick, children }: { icon: ReactNode; testId: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" role="menuitem" data-testid={testId} onClick={onClick}
+      className={cn(
+        "flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-foreground transition-colors",
+        "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
+        "[&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+      )}>
+      <span aria-hidden className="contents">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </button>
+  );
+}
+
+/**
+ * What can be done to a notice besides its click: the menu a right-click on
+ * its tile (or on its row in the full list) opens. Do what it asks, put it
+ * off for an hour, close it, or close every notice at once. Arrow keys move
+ * between the items; Escape, Tab or a click elsewhere leaves.
+ */
+function NoticeMenu({ at, all, onClose }: { at: NoticeMenuAt; all: RailNotice[]; onClose: () => void }) {
+  const t = useT();
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("resize", onClose);
+    window.addEventListener("blur", onClose);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("resize", onClose);
+      window.removeEventListener("blur", onClose);
+    };
+  }, [onClose]);
+
+  // Focus goes back to the tile when the menu leaves (if the tile is still there).
+  const returnTo = useRef(at.returnFocus);
+  useLayoutEffect(() => () => {
+    const target = returnTo.current;
+    if (target && target.isConnected) target.focus({ preventScroll: true });
+  }, []);
+
+  useLayoutEffect(() => {
+    const node = menuRef.current;
+    if (!node) return;
+    const { width, height } = node.getBoundingClientRect();
+    node.style.left = `${Math.max(MENU_MARGIN, Math.min(at.x, window.innerWidth - width - MENU_MARGIN))}px`;
+    node.style.top = `${Math.max(MENU_MARGIN, Math.min(at.y, window.innerHeight - height - MENU_MARGIN))}px`;
+    node.style.visibility = "visible";
+    node.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+  }, [at.x, at.y]);
+
+  const onMenuKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    if (!items.length) return;
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+      : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
+
+  const run = (action: () => void) => () => {
+    onClose();
+    action();
+  };
+  return createPortal(
+    <div ref={menuRef} role="menu" aria-label={fill(t("rail_notice.menu_label"), { who: at.notice.subject })}
+      data-testid="rail-notice-menu" onKeyDown={onMenuKey} onContextMenu={(event) => event.preventDefault()}
+      style={{ width: MENU_WIDTH, visibility: "hidden" }}
+      className="fixed z-[100] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-float">
+      <MenuItem icon={<ArrowUpRight />} testId="rail-notice-menu-go" onClick={run(at.go)}>{at.notice.action}</MenuItem>
+      <div role="separator" className="mx-1 my-1 h-px bg-border" />
+      <MenuItem icon={<BellOff />} testId="rail-notice-menu-snooze" onClick={run(() => snoozeNotice(at.notice))}>
+        {t("rail_notice.menu_snooze")}
+      </MenuItem>
+      <MenuItem icon={<X />} testId="rail-notice-menu-close" onClick={run(() => closeNotices([at.notice]))}>
+        {t("rail_notice.menu_close")}
+      </MenuItem>
+      {all.length > 1 && (
+        <MenuItem icon={<ListX />} testId="rail-notice-menu-close-all" onClick={run(() => closeNotices(all))}>
+          {fill(t("rail_notice.menu_close_all"), { count: all.length })}
+        </MenuItem>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+function menuAt(event: ReactMouseEvent<HTMLElement>, notice: RailNotice, go: () => void): NoticeMenuAt {
+  event.preventDefault();
+  // Keep the app-wide edit menu (EditContextMenu) from opening on top.
+  event.stopPropagation();
+  const target = event.currentTarget;
+  // A menu opened from the keyboard has no pointer position: it hangs beside the element.
+  const rect = target.getBoundingClientRect();
+  const keyboard = event.clientX === 0 && event.clientY === 0;
+  return {
+    notice, go, returnFocus: target,
+    x: keyboard ? rect.right + 8 : event.clientX,
+    y: keyboard ? rect.top : event.clientY,
+  };
+}
+
+function NoticeTile({ notice, onMenu }: { notice: RailNotice; onMenu: OpenMenu }) {
   const cardRef = useRef<HoverCardHandle | null>(null);
   // A click that leads somewhere closes the card; a sign-in keeps it, to show how far it is.
   const close = () => cardRef.current?.close();
@@ -212,7 +379,12 @@ function NoticeTile({ notice }: { notice: RailNotice }) {
   return (
     <HoverCard ref={cardRef} className="flex" label={notice.title}
       content={<NoticeWords notice={notice} note={note} go={go} />}>
-      <button type="button" onClick={go} data-testid="rail-notice" data-ask={notice.ask} data-tone={notice.tone} data-key={notice.key}
+      <button type="button" onClick={go} data-testid="rail-notice"
+        onContextMenu={(event) => {
+          // The menu stands where the card would; the card makes way for it.
+          close();
+          onMenu(menuAt(event, notice, go));
+        }} data-ask={notice.ask} data-tone={notice.tone} data-key={notice.key}
         aria-busy={busy || undefined} aria-label={[notice.title, note ?? notice.detail, notice.action].filter(Boolean).join(" · ")}
         className={TILE}>
         <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
@@ -225,11 +397,12 @@ function NoticeTile({ notice }: { notice: RailNotice }) {
 }
 
 /** One notice as a line of the full list: its mark, its sentence, and what it is about. */
-function NoticeRow({ notice, onDone }: { notice: RailNotice; onDone: () => void }) {
+function NoticeRow({ notice, onDone, onMenu }: { notice: RailNotice; onDone: () => void; onMenu: OpenMenu }) {
   const { go, busy, note } = useNoticeGo(notice, onDone);
   const second = note ?? notice.detail;
   return (
-    <button type="button" onClick={go} data-testid="rail-notice-row" data-ask={notice.ask} aria-busy={busy || undefined}
+    <button type="button" onClick={go} data-testid="rail-notice-row"
+      onContextMenu={(event) => onMenu(menuAt(event, notice, go))} data-ask={notice.ask} aria-busy={busy || undefined}
       className="group flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-inset ring-border group-hover:bg-muted">
         <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
@@ -252,7 +425,9 @@ function NoticeRow({ notice, onDone }: { notice: RailNotice; onDone: () => void 
  * the rail shows. It stands beside the rail and closes on a click elsewhere,
  * on Escape, or once a row took the person somewhere.
  */
-function NoticesPanel({ anchor, notices, onClose }: { anchor: HTMLElement; notices: RailNotice[]; onClose: () => void }) {
+function NoticesPanel({ anchor, notices, onClose, onMenu }: {
+  anchor: HTMLElement; notices: RailNotice[]; onClose: () => void; onMenu: OpenMenu;
+}) {
   const t = useT();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [place, setPlace] = useState<{ left: number; top: number } | null>(null);
@@ -267,6 +442,8 @@ function NoticesPanel({ anchor, notices, onClose }: { anchor: HTMLElement; notic
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
       if (panelRef.current?.contains(target) || anchor.contains(target)) return;
+      // A notice's own menu, opened from a row of this list, keeps the list open.
+      if (target instanceof Element && target.closest("[data-testid='rail-notice-menu']")) return;
       onClose();
     };
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -284,7 +461,7 @@ function NoticesPanel({ anchor, notices, onClose }: { anchor: HTMLElement; notic
       className="fixed z-[60] max-h-[calc(100vh-16px)] w-80 overflow-y-auto rounded-xl border border-border-strong bg-popover p-2 shadow-float scrollbar-jarvis">
       <h3 className="m-0 px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">{t("rail_notice.title")}</h3>
       <ul className="m-0 flex list-none flex-col gap-px p-0">
-        {notices.map((notice) => <li key={notice.key}><NoticeRow notice={notice} onDone={onClose} /></li>)}
+        {notices.map((notice) => <li key={notice.key}><NoticeRow notice={notice} onDone={onClose} onMenu={onMenu} /></li>)}
       </ul>
     </div>,
     document.body,
@@ -313,7 +490,10 @@ export default function RailNoticeTiles({ notices }: { notices: RailNotice[] }) 
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState<NoticeMenuAt | null>(null);
   const height = useFreeHeight(box);
+  // The notice the menu is for was closed or went away by itself: so does its menu.
+  const menuFor = menu && notices.some((notice) => notice.key === menu.notice.key) ? menu : null;
   if (notices.length === 0) return null;
 
   // Every notice gets a tile while they fit in the rail's free height; only
@@ -327,7 +507,7 @@ export default function RailNoticeTiles({ notices }: { notices: RailNotice[] }) 
     // Takes the rail's free height below the shortcuts; the tiles are counted
     // against it, so they never push the rail into a scroll.
     <div ref={setBox} data-testid="rail-notices-tiles" className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5">
-      {shown.map((notice) => <NoticeTile key={notice.key} notice={notice} />)}
+      {shown.map((notice) => <NoticeTile key={notice.key} notice={notice} onMenu={setMenu} />)}
       {more > 0 && (
         <QuickTooltip side="right" className="flex" content={moreLabel}>
           <button ref={moreRef} type="button" data-testid="rail-notices-more" aria-label={moreLabel} aria-expanded={open}
@@ -337,7 +517,10 @@ export default function RailNoticeTiles({ notices }: { notices: RailNotice[] }) 
           </button>
         </QuickTooltip>
       )}
-      {open && more > 0 && moreRef.current && <NoticesPanel anchor={moreRef.current} notices={notices} onClose={() => setOpen(false)} />}
+      {open && more > 0 && moreRef.current && (
+        <NoticesPanel anchor={moreRef.current} notices={notices} onClose={() => setOpen(false)} onMenu={setMenu} />
+      )}
+      {menuFor && <NoticeMenu at={menuFor} all={notices} onClose={() => setMenu(null)} />}
     </div>
   );
 }

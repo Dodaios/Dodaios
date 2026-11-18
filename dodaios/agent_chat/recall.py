@@ -154,7 +154,7 @@ def report_replay(
 
 def trigger_notice_replay(seq: int, payload: dict[str, Any]) -> str:
     """A card for the notice a trigger decision wrote: its id, the event id, the text."""
-    text = one_line(payload.get("text"), 400)
+    text = one_line(payload.get("voice") or payload.get("text"), 400)
     if not text:
         return ""
     link = str(payload.get("trigger_event_id") or "")
@@ -217,7 +217,10 @@ def reminder_replay(seq: int, payload: dict[str, Any], *, with_id: bool = True) 
     head = "Reminder you posted in the chat"
     if with_id:
         head += f" [{event_id(seq)}]"
-    return f"{head} ({kind}): {title}" + (f" ({detail})" if detail else "")
+    line = f"{head} ({kind}): {title}" + (f" ({detail})" if detail else "")
+    # The words the person read (``proactive_voice``), so a follow-up fits them.
+    said = one_line(payload.get("voice"), 500)
+    return f'{line}. You wrote: "{said}"' if said else line
 
 
 def rendered_notice_chars(events: list[dict[str, Any]], *, spill: bool) -> int:

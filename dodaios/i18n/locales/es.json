@@ -607,6 +607,25 @@
     "call_done_open": "Vale, sigue abierto para ti en la app. Adiós.",
     "call_done_gone": "Esa decisión ya no está abierta. Adiós.",
     "test_title": "Las notificaciones están activadas",
-    "test_body": "Así te avisa Dodaios mientras la app está en segundo plano."
+    "test_body": "Así te avisa Dodaios mientras la app está en segundo plano.",
+    "voice": {
+      "busy": "un hueco bloqueado",
+      "reminder": "Te recuerdo: {title}.",
+      "all_day": "Hoy toca {title}.",
+      "appointment_range": "A las {start} empieza {title}, hasta las {end}.",
+      "appointment_at": "A las {start} empieza {title}.",
+      "appointment": "Ahora toca {title}.",
+      "tidy": "He ordenado lo que recuerdo de ti: {changes}. Puedes revisarlo en Memoria.",
+      "tidy_plain": "He ordenado lo que recuerdo de ti. Puedes revisarlo en Memoria.",
+      "tidy_merged": "uní {n} duplicados",
+      "tidy_resolved": "aclaré {n} contradicciones",
+      "tidy_retired": "quité {n} entradas obsoletas",
+      "tidy_reworded": "reformulé {n} lecciones",
+      "and": " y ",
+      "tidy_merged_one": "uní un duplicado",
+      "tidy_resolved_one": "aclaré una contradicción",
+      "tidy_retired_one": "quité una entrada obsoleta",
+      "tidy_reworded_one": "reformulé una lección"
+    }
   }
 }

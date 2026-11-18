@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { useAgentBrowserOpen } from "@/components/society/cardData";
 import { useBrowserView, type BrowserViewState } from "@/components/society/card/useBrowserView";
 import { BrowserCanvas } from "@/components/society/card/BrowserCanvas";
-import { OPEN_AGENT_BROWSER_EVENT } from "./openEvent";
+import { OPEN_AGENT_BROWSER_EVENT, type OpenAgentBrowserDetail } from "./openEvent";
 import { setAgentBrowserStaged, useAgentBrowserSlot } from "./slot";
 import "./chatBrowser.css";
 
@@ -94,15 +94,18 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
   // "Open the browser" on a takeover card in this chat shows the stage here.
   useEffect(() => {
     const onOpen = (event: Event) => {
-      if ((event as CustomEvent<{ agentId?: string }>).detail?.agentId !== agentId || !open) return;
+      const detail = (event as CustomEvent<Partial<OpenAgentBrowserDetail>>).detail;
+      if (detail?.agentId !== agentId || !open) return;
       event.preventDefault();
       setDismissed(false);
       setPinned(true);
       setLayout("stage");
+      // "Take over" on an approval card: the person drives from here on.
+      if (detail.takeover) view.control("takeover", { enabled: true });
     };
     window.addEventListener(OPEN_AGENT_BROWSER_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_AGENT_BROWSER_EVENT, onOpen);
-  }, [agentId, open]);
+  }, [agentId, open, view.control]);
   const staged = live && layout === "stage";
   useEffect(() => {
     setAgentBrowserStaged(staged);

@@ -1,11 +1,14 @@
 import { createStore, useStore } from "zustand";
 
 import type { AgentChatStoreHook } from "@/store/agentChat";
+import type { NodeType } from "@/components/nodes/nodeModel";
 import type { ToolChoice } from "./toolChoices";
 
 export interface MessageDraft {
   text: string;
   choices: ToolChoice[];
+  /** "New" in the Nodes library: the type chip in front of the box ("Dodaios Slides"). */
+  nodeType?: NodeType;
 }
 
 const EMPTY_DRAFT: MessageDraft = { text: "", choices: [] };
@@ -45,6 +48,7 @@ export function bindComposerDraftTarget(chat: AgentChatStoreHook, target: Compos
   writeComposerDraft(chat, sessionId, {
     text: [source.text, destination.text].filter(Boolean).join("\n"),
     choices: [...source.choices, ...destination.choices.filter((row) => !source.choices.some((sent) => sent.id === row.id))],
+    ...((source.nodeType ?? destination.nodeType) ? { nodeType: source.nodeType ?? destination.nodeType } : {}),
   });
   writeComposerDraft(chat, null, EMPTY_DRAFT);
   return true;
@@ -66,10 +70,14 @@ export function readComposerDraft(chat: AgentChatStoreHook, sessionId: string | 
 export function writeComposerDraft(chat: AgentChatStoreHook, sessionId: string | null, draft: MessageDraft) {
   const store = composerDraftsFor(chat);
   const previous = readComposerDraft(chat, sessionId);
-  if (previous.text === draft.text && JSON.stringify(previous.choices) === JSON.stringify(draft.choices)) return;
+  if (
+    previous.text === draft.text &&
+    previous.nodeType === draft.nodeType &&
+    JSON.stringify(previous.choices) === JSON.stringify(draft.choices)
+  ) return;
   store.setState(({ drafts }) => {
     const next = new Map(drafts);
-    if (draft.text || draft.choices.length) next.set(sessionId, draft);
+    if (draft.text || draft.choices.length || draft.nodeType) next.set(sessionId, draft);
     else next.delete(sessionId);
     return { drafts: next };
   });

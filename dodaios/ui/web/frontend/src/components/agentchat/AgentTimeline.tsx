@@ -6,6 +6,7 @@ import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFa
 import { BackgroundRun } from "./BackgroundRun";
 import { groupBackgroundRuns, type BackgroundRunItem } from "./backgroundLine";
 import { RoutineResultMessage } from "./RoutineResultMessage";
+import { PROACTIVE_KINDS, ProactiveMessage } from "./ProactiveMessage";
 import { isRoutineResult, withoutReportedRoutineStarts } from "./routineResult";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
@@ -17,7 +18,7 @@ import { ChainResultCard } from "./ChainResultCard";
 import { PAGE_NOTICE_KIND, PageCard, pageNoticeModes } from "./PageCard";
 import { AgentResultLine } from "./AgentResultLine";
 import { AGENT_RESULT_KIND } from "./agentResults";
-import { ApprovalRequestCard } from "./ApprovalRequestCard";
+import { ActionBlockedCard, ApprovalRequestCard } from "./ApprovalRequestCard";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
@@ -385,8 +386,10 @@ export function AgentTimeline({
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
       if (item.kind === "approval_request") return <ApprovalRequestCard key={item.id} item={item} />;
+      if (item.kind === "action_blocked") return <ActionBlockedCard key={item.id} item={item} />;
       // A reminder or appointment that came due: the assistant says it, with Done / Open right under it.
       if (item.kind === REMINDER_DUE_KIND) return <ReminderDueMessage key={item.id} item={item} />;
+      if (PROACTIVE_KINDS.has(item.kind)) return <ProactiveMessage key={item.id} item={item} />;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "standing_proposal") return <StandingProposalCard key={item.id} item={item} />;
       if (item.kind === "standing_paused") return <StandingPausedNotice key={item.id} item={item} />;

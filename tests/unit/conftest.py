@@ -107,3 +107,21 @@ def speech_by_loudness(monkeypatch: pytest.MonkeyPatch) -> None:
         return False
 
     monkeypatch.setattr(speech_map.SpeechMapper, "_ensure_model", _no_model)
+
+
+@pytest.fixture(autouse=True)
+def _proactive_voice_without_a_model():
+    """A notice the assistant tells on its own is worded without a real model call.
+
+    ``agent_chat/proactive_voice.py`` asks a connected subscription for the
+    words; a test that posts a reminder into the lead's chat must neither wait
+    for the batching pause nor reach a CLI. The written sentence is used.
+    """
+    from dodaios.agent_chat import proactive_voice
+
+    async def no_model(prompt: str) -> None:
+        return None
+
+    proactive_voice.set_desk(proactive_voice.VoiceDesk(write=no_model, settle_s=0.0))
+    yield
+    proactive_voice.set_desk(None)

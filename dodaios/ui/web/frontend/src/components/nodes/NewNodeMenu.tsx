@@ -1,9 +1,8 @@
 /**
- * "New" in the Nodes library: a short menu of the kinds, like "New" in an
- * office suite. A kind starts an empty node of that kind at once (no sample
- * content, only the editor's greyed hints) and opens it, ready to be typed
- * into; nothing has to be described first. The last entry still lets the reader describe what they
- * want and have the assistant build it.
+ * "New" in the Nodes library: a short menu of the kinds. A kind opens the
+ * lead conversation with its chip in front of the composer ("Dodaios
+ * Slides"), where the reader says what they want and the assistant builds it.
+ * The last entry describes one in a dialog without leaving the library.
  */
 import {
   useCallback,
@@ -13,7 +12,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { ChevronDown, Loader2, Plus, Sparkles } from "lucide-react";
+import { ChevronDown, Plus, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
@@ -23,10 +22,8 @@ import { NODE_TYPE_LABEL_KEY, nodeHueStyle } from "./nodeTheme";
 import { NodeTypeIcon } from "./NodeTypeIcon";
 
 export interface NewNodeMenuProps {
-  /** The kind being made right now (its entry spins; the menu takes no other). */
-  creating: NodeType | null;
-  /** Start a blank node of this kind and open it. */
-  onBlank: (type: NodeType) => void;
+  /** A kind was chosen: the chat opens with its chip. */
+  onChoose: (type: NodeType) => void;
   /** Describe it instead: the dialog that hands a request to the assistant. */
   onDescribe: () => void;
   /** Which edge of the button the menu lines up with. */
@@ -38,8 +35,7 @@ export interface NewNodeMenuProps {
 const ITEM_SELECTOR = "[role='menuitem']";
 
 export function NewNodeMenu({
-  creating,
-  onBlank,
+  onChoose,
   onDescribe,
   align = "end",
   testId = "nodes-new",
@@ -89,8 +85,6 @@ export function NewNodeMenu({
     items[next]?.focus();
   };
 
-  const busy = creating !== null;
-
   return (
     <div
       ref={root}
@@ -104,11 +98,10 @@ export function NewNodeMenu({
         size="sm"
         aria-haspopup="menu"
         aria-expanded={open}
-        disabled={busy}
         onClick={() => setOpen((value) => !value)}
         data-testid={testId}
       >
-        {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
+        <Plus aria-hidden />
         {t("nodes.new.button")}
         <ChevronDown aria-hidden className="-mr-0.5 opacity-60" />
       </Button>
@@ -128,11 +121,11 @@ export function NewNodeMenu({
             align === "end" ? "right-0" : "left-0",
           )}
         >
-          <p className="px-2.5 pb-1 pt-1.5 text-sm text-muted-foreground">{t("nodes.new.blank_heading")}</p>
+          <p className="px-2.5 pb-1 pt-1.5 text-sm text-muted-foreground">{t("nodes.new.chat_heading")}</p>
           {NODE_TYPES.map((type) => (
             <MenuItem
               key={type}
-              testId={`nodes-new-blank-${type}`}
+              testId={`nodes-new-chat-${type}`}
               icon={
                 <span
                   aria-hidden
@@ -144,7 +137,7 @@ export function NewNodeMenu({
               }
               onChoose={() => {
                 close(false);
-                onBlank(type);
+                onChoose(type);
               }}
             >
               {t(NODE_TYPE_LABEL_KEY[type])}

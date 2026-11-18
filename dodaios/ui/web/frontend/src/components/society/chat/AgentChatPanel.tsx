@@ -1,4 +1,4 @@
-import { ApprovalRequestCard } from "@/components/agentchat/ApprovalRequestCard";
+import { ActionBlockedCard, ApprovalRequestCard } from "@/components/agentchat/ApprovalRequestCard";
 import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
 import { InternalMessageRun, groupInternalRuns, rosterFaces } from "@/components/agentchat/InternalMessageRun";
 import { codingThreadOf } from "@/components/agentic/threads/openCodingThread";
@@ -958,6 +958,7 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
     </RoutineResultMessage>;
   }
   if (item.kind === "approval_request") return <ApprovalRequestCard item={item} />;
+  if (item.kind === "action_blocked") return <ActionBlockedCard item={item} />;
   if (item.kind === "memory_updated") return <MemoryUpdateNotice item={item} />;
   if (item.kind === "team_report") return <TeamReportNotice item={item} />;
   if (item.kind === "message_queued") {

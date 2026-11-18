@@ -447,3 +447,54 @@ def test_a_vendor_cli_on_its_top_rung_takes_the_bypass_stance():
     ]
     for runner, mode, want in cases:
         assert bridge_stance(runner, SimpleNamespace(permission_mode=mode)) == want, (runner, mode)
+
+
+class _Pay:
+    """A tool that pays (``trust.hard_limits`` "money")."""
+
+    name = "stripe"
+    description = "payments"
+    risk_tier = "monitor"
+    schema: dict[str, Any] = {"type": "object", "properties": {"action": {}, "amount": {}}}
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
+        self.calls.append(dict(args))
+        return ToolResult(success=True, output={"id": "p"})
+
+
+async def test_bypass_still_asks_before_moving_money():
+    """The person, 2026-11-18: paying asks in every mode, Bypass too."""
+    executor, bridge, _ = _stack(timeout_s=2.0)
+    card = _Card("deny")
+    bridge.arm(REF, _grant(card, "bypass", {"stripe"}))
+    pay = _Pay()
+    result = await executor.execute(
+        pay, {"action": "charge", "amount": 4999}, config_snapshot=_snapshot()
+    )
+    assert not result.success and pay.calls == []
+    assert [a[1] for a in card.asked] == ["stripe"]
+
+
+async def test_bypass_still_asks_before_wiping_the_home_folder(tmp_path: Path):
+    executor, bridge, _ = _stack(timeout_s=2.0)
+    card = _Card("deny")
+    bridge.arm(REF, _grant(card, "bypass"))
+    run = ft.folder_tools(tmp_path)["RunCommand"]
+    result = await executor.execute(run, {"command": "rm -rf ~"}, config_snapshot=_snapshot())
+    assert not result.success
+    assert [a[1] for a in card.asked] == ["RunCommand"]
+
+
+async def test_bypass_runs_ordinary_commands_without_a_card(tmp_path: Path):
+    executor, bridge, _ = _stack()
+    card = _Card("deny")
+    bridge.arm(REF, _grant(card, "bypass"))
+    run = ft.folder_tools(tmp_path)["RunCommand"]
+    result = await executor.execute(
+        run, {"command": "echo build"}, config_snapshot=_snapshot()
+    )
+    assert result.success, result.error
+    assert card.asked == []

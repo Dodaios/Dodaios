@@ -13,9 +13,17 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock, ToolResult
+from dodaios.safety.action_policy import host_risk
 
-from ..approval_cards import close_card, open_card
-from .commit_gate import COMMIT_VERB, CommitMemory, CommitStep, blocker_hint, commit_step
+from ..approval_cards import close_card, note_blocked, open_card
+from .commit_gate import (
+    COMMIT_VERB,
+    CommitMemory,
+    CommitStep,
+    blocker_hint,
+    commit_step,
+    payment_step,
+)
 
 log = logging.getLogger(__name__)
 
@@ -24,8 +32,18 @@ _TAKEOVER_TOOL = "request_browser_takeover"
 _LOGIN_TOOL = "society_request_login"
 
 
+#: The note the approval card sends with a "Take over": the person does the step.
+TAKEN_OVER_NOTE = "taken_over"
+
+
 def _not_approved(step: CommitStep, outcome: str) -> str:
     """What the browser model and the calling agent read when a commit did not run."""
+    if outcome == TAKEN_OVER_NOTE:
+        return (
+            f"The person took over the browser at: {step.summary}. They finish this step "
+            "themselves; nothing was clicked by you. Do not continue the task in the "
+            "browser or another way; say that the browser is theirs now."
+        )
     if outcome == "timeout":
         return (
             f"Nobody answered the approval for: {step.summary}. Nothing was clicked and the "
@@ -56,7 +74,11 @@ def _refusal(commits: CommitMemory, result: dict | None = None) -> ToolResult | 
         False,
         {
             **kept,
-            "reason": "declined" if refused["by"] == "declined" else "approval_required",
+            "reason": (
+                refused["by"]
+                if refused["by"] in {"declined", TAKEN_OVER_NOTE}
+                else "approval_required"
+            ),
             "consequential": list(commits.record),
         },
         _not_approved(step, refused["by"]),
@@ -141,7 +163,10 @@ async def ask_commit(
     runtime: Any, caller: Any, session: Any, step: Any, proposal: dict, *, trace_id: str,
     chat_session_id: str,
 ) -> str:
-    """Ask the person about one committing click: ``approved``, ``declined`` or ``timeout``.
+    """Ask the person about one committing click.
+
+    The outcome is ``approved``, ``declined``, ``taken_over`` (the person does
+    the step in the browser themselves) or ``timeout``.
 
     The row in the approvals table is the truth; the browser panel, the
     needs-you list and the chat that started the task each show it. The card
@@ -173,6 +198,7 @@ async def ask_commit(
         runtime, caller, approval.id, what=step.summary, where=step.host,
         detail="" if step.context.lower() == step.label.lower() else step.context,
         label="" if step.is_key else step.label, browser=True,
+        severity=step.severity, kind=step.kind,
     )
     outcome = "declined"
     try:
@@ -183,6 +209,8 @@ async def ask_commit(
             # ``wait_for_browser_approval`` closes an unanswered row with this note.
             if row is not None and str(row.note) == "Browser task ended":
                 outcome = "timeout"
+            elif row is not None and str(row.note) == TAKEN_OVER_NOTE:
+                outcome = TAKEN_OVER_NOTE
     finally:
         await close_card(
             runtime, caller, approval.id, "expired" if outcome == "timeout" else outcome
@@ -378,6 +406,15 @@ async def execute_live(
         if target_url and urlsplit(str(target_url)).scheme not in {"http", "https"}:
             denied = True
             return {"ok": False, "error": "Browser actions only navigate HTTP(S) websites"}
+        # The dark web never opens, in any mode and under any rule (``action_policy``):
+        # neither as a destination nor as the page the browser already stands on.
+        for where in (target_url, payload.get("url")):
+            blocked = host_risk(str(where or ""))
+            if blocked is not None:
+                denied = True
+                live.stop_turn(caller.agent_id, turn_trace)
+                await note_blocked(runtime, caller, blocked, str(where))
+                return {"ok": False, "error": f"Blocked: {blocked.reason} Do not try another way."}
         for field in ("file_name", "file_path", "path"):
             if field in parameters:
                 target = (workspace / str(parameters[field])).resolve()
@@ -418,10 +455,12 @@ async def execute_live(
         # run works up to it and the card names exactly that click
         # (``commit_gate``). What hands the person's own files or code to a
         # website still asks.
+        page_url = str(payload.get("url") or "")
         step = (
             None
             if name in read_actions
-            else commit_step(name, parameters, payload.get("target"), str(payload.get("url") or ""))
+            else commit_step(name, parameters, payload.get("target"), page_url)
+            or payment_step(name, parameters, payload.get("target"), page_url)
         )
         verb = name
         if name in read_actions:
@@ -434,6 +473,10 @@ async def execute_live(
         if verdict is Verdict.BLOCK:
             denied = True
             return {"ok": False, "error": "Browser action blocked by agent policy"}
+        if step is not None and step.severity == "confirm":
+            # Money and the person's account ask in every mode: Bypass and a
+            # standing "always allow" remove the other cards, never these.
+            verdict = Verdict.QUEUE
         trace = getattr(ctx, "trace_id", uuid4())
         if step is not None and verdict is Verdict.QUEUE:
             now = time.monotonic()
@@ -445,7 +488,7 @@ async def execute_live(
                 if outcome != "approved":
                     denied = True
                     commits.note(step, approved=False, now=now, by=outcome)
-                    if outcome == "declined":
+                    if outcome in {"declined", TAKEN_OVER_NOTE}:
                         live.stop_turn(caller.agent_id, turn_trace)
                     return {"ok": False, "error": _not_approved(step, outcome)}
             commits.note(step, approved=True, now=time.monotonic())

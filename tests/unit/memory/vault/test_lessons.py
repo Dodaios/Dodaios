@@ -173,7 +173,7 @@ def test_consolidation_resolves_contradiction_newer_wins_and_keeps_history(vault
     new = vault.remember("The user lives in Hamburg and works from home.", "profile").memory
     notified: list[str] = []
 
-    async def notify(text: str) -> None:
+    async def notify(text: str, counts: dict[str, int] | None = None) -> None:
         notified.append(text)
 
     reviewer = Scripted({"merges": [], "conflicts": [{"keep": new.id, "drop": [old.id]}]})
@@ -215,7 +215,7 @@ def test_stale_items_retire_without_a_model_and_no_notice_when_nothing_changed(v
     vault.remember("The user likes tea.", "preference")
     notified: list[str] = []
 
-    async def notify(text: str) -> None:
+    async def notify(text: str, counts: dict[str, int] | None = None) -> None:
         notified.append(text)
 
     assert asyncio.run(consolidate.run_if_due(vault, Scripted(), notify)) == 1

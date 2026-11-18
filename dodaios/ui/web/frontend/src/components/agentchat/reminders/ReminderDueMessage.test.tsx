@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn(async () => true) }));
@@ -80,7 +80,7 @@ describe("ReminderDueMessage", () => {
     show(own("n-1", "mem_1", "Call the dentist"));
     const message = screen.getByTestId("reminder-message");
     expect(message.dataset.messageId).toBe("n-1");
-    expect(message.textContent).toContain("You asked me to remind you: Call the dentist");
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Call the dentist, .*\d:\d{2}/);
     fireEvent.click(await screen.findByTestId("reminder-done"));
     await waitFor(() => expect(screen.getByTestId("reminder-settled").textContent).toBe("Ticked off"));
     expect(calls).toContain("/api/notify/reminders/mem_1/done");
@@ -110,7 +110,7 @@ describe("ReminderDueMessage", () => {
   test("an item that is no longer open keeps its words and offers nothing", async () => {
     show(own("n-4", "mem_4", "Water the plants"));
     await waitFor(() => expect(useDueRemindersStore.getState().loaded).toBe(true));
-    expect(screen.getByTestId("reminder-title").textContent).toBe("Water the plants");
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Water the plants/);
     expect(screen.queryByTestId("reminder-actions")).toBeNull();
   });
 
@@ -118,8 +118,7 @@ describe("ReminderDueMessage", () => {
     open = [row("ev_1", { reminder: false })];
     show(appointment("n-5", "ev_1", "Dentist", { location: "Main St 1" }));
     const message = screen.getByTestId("reminder-message");
-    expect(message.textContent).toContain("From your Google Calendar: Dentist");
-    expect(screen.getByTestId("reminder-when").textContent).toMatch(/\d:\d{2}.* · Main St 1$/);
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Dentist, .*\d:\d{2}.* · Main St 1\.$/);
     expect(message.textContent).not.toMatch(/Appointment:/);
     const open_ = await screen.findByTestId("reminder-open");
     expect(open_.textContent).toBe("Open in Google Calendar");
@@ -134,11 +133,10 @@ describe("ReminderDueMessage", () => {
 
   test("an entry that only says busy says so", () => {
     show(appointment("n-6", "ev_2", "", { busy_only: true, calendar: "Team availability" }));
-    expect(screen.getByTestId("reminder-title").textContent).toBe("Busy (no details shared)");
-    expect(screen.getByTestId("reminder-when").textContent).toMatch(/Team availability$/);
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Busy \(no details shared\), .*Team availability\.$/);
   });
 
-  test("several told in one go are one message that lists them, each with its own buttons", async () => {
+  test("several told in one go are one message, each item with its own actions under the words", async () => {
     open = [row("a1", { reminder: false }), row("a2", { reminder: false })];
     const [message] = foldReminderNotices([
       appointment("n-7", "a1", "Standup", { start: "2026-11-14T09:00:00Z", end: "2026-11-14T09:15:00Z" }),
@@ -146,14 +144,26 @@ describe("ReminderDueMessage", () => {
     ]);
     show(message);
     expect(screen.getAllByTestId("reminder-message")).toHaveLength(1);
-    expect(screen.getByTestId("reminder-message").textContent).toMatch(/^From your Google Calendar:/);
-    const items = screen.getAllByTestId("reminder-item");
-    expect(items.map((item) => within(item).getByTestId("reminder-title").textContent)).toEqual(["Standup", "Review"]);
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Standup, .*\. Review, /);
+    await waitFor(() => expect(screen.getAllByTestId("reminder-label").map((label) => label.textContent)).toEqual(["Standup", "Review"]));
     // A notification of the second item still finds its place.
     expect(document.querySelector('[data-message-id="n-8"]')).toBeTruthy();
     await waitFor(() => expect(screen.getAllByTestId("reminder-dismiss")).toHaveLength(2));
     fireEvent.click(screen.getAllByTestId("reminder-dismiss")[0]);
     await waitFor(() => expect(screen.getAllByTestId("reminder-dismiss")).toHaveLength(1));
+  });
+
+  test("the words the assistant wrote are the message; the actions stay under them", async () => {
+    open = [row("a1", { reminder: false }), row("a2", { reminder: false })];
+    const words = "Gleich ist Pause bis 10:45, danach hast du eine halbe Stunde für Mails.";  // i18n-allow
+    const [message] = foldReminderNotices([
+      appointment("n-10", "a1", "Pause", { voice: words, voice_by: "model" }),
+      appointment("n-11", "a2", "Mails & Inbox", { voice_covered: true }),
+    ]);
+    show(message);
+    expect(screen.getByTestId("reminder-words").textContent).toBe(words);
+    expect(screen.getByTestId("reminder-message").textContent).not.toMatch(/From your|Appointment:/);
+    await waitFor(() => expect(screen.getAllByTestId("reminder-dismiss")).toHaveLength(2));
   });
 
   test("an older notice with only its text still says it", () => {
@@ -169,6 +179,15 @@ describe("foldReminderNotices", () => {
     const items = [own("n1", "m1", "A"), own("n2", "m2", "B"), user, own("n3", "m3", "C")];
     const folded = foldReminderNotices(items);
     expect(folded.map((item) => item.id)).toEqual(["n1", "u1", "n3"]);
+    expect(((folded[0] as NoticeItem).data.reminder_group as NoticeItem[]).map((item) => item.id)).toEqual(["n1", "n2"]);
+  });
+
+  test("a reminder with words of its own is a message of its own; one worded with the one before joins it", () => {
+    const first = { ...own("n1", "m1", "A"), data: { ...own("n1", "m1", "A").data, voice: "Water the plants and call mum." } };
+    const covered = { ...own("n2", "m2", "B"), data: { ...own("n2", "m2", "B").data, voice_covered: true } };
+    const later = { ...own("n3", "m3", "C"), data: { ...own("n3", "m3", "C").data, voice: "Your lunch break starts now." } };
+    const folded = foldReminderNotices([first, covered, later]);
+    expect(folded.map((item) => item.id)).toEqual(["n1", "n3"]);
     expect(((folded[0] as NoticeItem).data.reminder_group as NoticeItem[]).map((item) => item.id)).toEqual(["n1", "n2"]);
   });
 
@@ -192,7 +211,7 @@ describe("noticeRow", () => {
 
   test("such an item reads as the person's own reminder in the chat", () => {
     show(told("n4", { memory_id: "m4", reminder: false, source: "dodaios", title: "Book the hotels", text: "Book the hotels" }));
-    expect(screen.getByTestId("reminder-message").textContent).toContain("You asked me to remind you: Book the hotels");
+    expect(screen.getByTestId("reminder-words").textContent).toMatch(/^Book the hotels/);
     expect(screen.getByTestId("reminder-message").textContent).not.toMatch(/Calendar/);
   });
 
