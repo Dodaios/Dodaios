@@ -143,7 +143,6 @@ export function TitlePill({
   /** What a press on the name opens. */
   menu?: (close: () => void) => ReactNode;
 }) {
-  const t = useT();
   const Icon = picture ? ImageIcon : FileText;
   const face = (
     <>
@@ -167,7 +166,7 @@ export function TitlePill({
     <div className="inline-flex min-w-0 items-center gap-2.5">
       {menu ? (
         <BarPopover
-          label={t("visualization.more")}
+          label={title}
           trigger={face}
           triggerClassName={cn(
             pillClass,
