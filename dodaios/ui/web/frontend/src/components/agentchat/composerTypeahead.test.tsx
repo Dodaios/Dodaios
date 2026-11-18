@@ -301,19 +301,50 @@ describe("composer typeahead", () => {
     );
     type("ask @");
 
-    await waitFor(() => expect(screen.getAllByTestId("composer-typeahead-item")).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByTestId("composer-typeahead-item")).toHaveLength(8));
     const rows = screen.getAllByTestId("composer-typeahead-item").map((r) => r.textContent);
-    // The agent first, then the connected plugin; the disconnected one waits for a search.
+    // The agent first, then the six node types, then the connected plugin;
+    // the disconnected one waits for a search.
     expect(rows[0]).toContain("@Mailbox");
     // An agent wears its face, not a generic robot glyph.
     expect(screen.getAllByTestId("composer-typeahead-item")[0].querySelector("svg.lucide-bot")).toBeNull();
-    expect(rows[1]).toContain("Gmail");
+    const names = ["Docs", "Slides", "Sheets", "Analytics", "Whiteboard", "Clips"];
+    rows.slice(1, 7).forEach((row, index) => expect(row?.startsWith(`Dodaios ${names[index]}`)).toBe(true));
+    expect(rows[7]).toContain("Gmail");
     expect(screen.getByTestId("composer-typeahead").textContent).toContain("Agents");
     const asked = fetchMock.mock.calls.map((c) => String(c[0]));
     expect(asked.some((u) => u.includes("/api/agent-chat/typeahead") && u.includes("surface=jarvis"))).toBe(true);
 
-    fireEvent.click(screen.getAllByTestId("composer-typeahead-item")[1]);
+    fireEvent.click(screen.getAllByTestId("composer-typeahead-item")[7]);
     await waitFor(() => expect(box().querySelector('[data-tool-chip][data-tool-id="plugin:gmail"]')).toBeTruthy());
+  });
+
+  it("sets a node type's chip from @ in the Jarvis chat and drops the typed word", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/agent-chat/typeahead")) {
+        return { ok: true, status: 200, json: async () => ({ trigger: "@", truncated: false, items: [] }) } as Response;
+      }
+      if (u.includes("/api/agent-chat/tools")) {
+        return { ok: true, status: 200, json: async () => ({ items: [], mode: "browse", total: 0 }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+    seedJarvis(catalog(["@"]));
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AgentChatStoreProvider store={useJarvisChatStore}>
+          <AgentComposer />
+        </AgentChatStoreProvider>
+      </QueryClientProvider>,
+    );
+    type("@slid");
+
+    await waitFor(() => expect(screen.getAllByTestId("composer-typeahead-item")).toHaveLength(1));
+    fireEvent.click(screen.getAllByTestId("composer-typeahead-item")[0]);
+    await waitFor(() => expect(screen.getByTestId("node-request-chip").textContent).toBe("Dodaios Slides"));
+    expect(box().textContent).toBe("");
+    expect(box().getAttribute("data-placeholder")).toBe("What should this presentation be about?");
   });
 });
 

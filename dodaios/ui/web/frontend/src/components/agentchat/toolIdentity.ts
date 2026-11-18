@@ -21,13 +21,13 @@ import {
   Search,
   Shapes,
   ShieldCheck,
-  Sparkles,
   Terminal,
   Users,
   Workflow,
   Wrench,
 } from "lucide-react";
 import { McpLogo } from "@/components/extensions/McpLogo";
+import { SkillIcon } from "@/components/icons/sectionIcons";
 import { CLI_VENDOR_LOGOS, cliVendor } from "@/lib/cliVendors";
 import { brandIdVariants, bundledPluginLogo, isRasterLogo } from "@/lib/pluginLogos";
 import type { ToolCategory, ToolChoice } from "./toolChoices";
@@ -189,7 +189,7 @@ function findBrand(value: string): string | undefined {
 
 export const CATEGORY_ICONS = {
   plugins: Plug,
-  skills: Sparkles,
+  skills: SkillIcon,
   mcp: McpLogo,
   memory: Brain,
   web: Globe,

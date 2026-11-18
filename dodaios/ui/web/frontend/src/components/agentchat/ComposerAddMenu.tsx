@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Check, FolderOpen, Loader2, Paperclip, Plus, Search, X } from "lucide-react";
-import { useT } from "@/i18n";
+import { useLocaleChunk, useT } from "@/i18n";
 import { requestPluginFocus } from "@/lib/customConnector";
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
@@ -11,8 +11,8 @@ import { nodeHueStyle } from "@/components/nodes/nodeTheme";
 import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
 import { ToolChoiceIcon } from "./ToolChoiceChips";
 import { CATEGORY_ICONS, toolIdentityStyle } from "./toolIdentity";
+import { browseToolRows } from "./browseToolRows";
 import {
-  browseToolRows,
   searchTools,
   TOOL_CATEGORIES,
   type ToolChoice,
@@ -59,6 +59,8 @@ export function ComposerAddMenu({
   compact?: boolean;
 }) {
   const t = useT();
+  // The curated tools' plain names (browseToolRows) live in this chunk.
+  useLocaleChunk("chat_tools");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
