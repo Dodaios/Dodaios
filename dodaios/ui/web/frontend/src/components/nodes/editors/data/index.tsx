@@ -317,6 +317,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
   const head = (
     <header className="flex flex-col gap-3">
       <h1 className="px-1.5 text-3xl font-semibold tracking-tight">{node.title}</h1>
+      <div data-live-path="/summary">
       <InlineText
         value={spec.summary}
         onChange={(value) => act(t("nodes.editor.data.history.summary"), (draft) => void (draft.summary = value), "summary")}
@@ -327,7 +328,8 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         className="max-w-[700px] text-base text-muted-foreground"
         testId="data-summary"
       />
-      <ul aria-label={t("nodes.editor.data.sources.label")} className="flex flex-wrap items-center gap-1.5 px-1.5 text-sm text-muted-foreground">
+      </div>
+      <ul data-live-path="/sources" aria-label={t("nodes.editor.data.sources.label")} className="flex flex-wrap items-center gap-1.5 px-1.5 text-sm text-muted-foreground">
         <li aria-hidden className="flex text-muted-foreground/80">
           <Database className="h-3.5 w-3.5" />
         </li>
@@ -372,6 +374,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         onSelect={() => setSelection((now) => (now && now.section === s && now.kind !== "section" ? now : sectionSel))}
         className="p-3"
         testId="data-section"
+        livePath={`/sections/${s}`}
         dropTarget={isDropTarget("section", s, s)}
         onDragOver={dragOver("section", s, s)}
         onDrop={drop("section", s, s)}
@@ -391,7 +394,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         </Floating>
         <div className="flex items-start gap-1">
           <Grip vertical name={name} onMove={(step) => moveSection(s, s + step)} onDragStart={dragStart({ part: "section", section: s, index: s })} />
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1" data-live-path={`/sections/${s}/title`}>
             <InlineText
               value={section.title}
               onChange={(value) => act(t("nodes.editor.data.history.section"), (draft) => void (draft.sections[s]!.title = value), `s${s}.title`)}
@@ -427,6 +430,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
                   onSelect={() => setSelection(sel)}
                   className="border border-border bg-card"
                   testId="data-metric"
+                  livePath={`/sections/${s}/metrics/${i}`}
                   dropTarget={isDropTarget("metrics", s, i)}
                   onDragOver={dragOver("metrics", s, i)}
                   onDrop={drop("metrics", s, i)}
@@ -476,6 +480,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
                   onSelect={() => setSelection(sel)}
                   className={cn(spans[i] && "xl:col-span-2")}
                   testId="data-chart"
+                  livePath={`/sections/${s}/charts/${i}`}
                   dropTarget={isDropTarget("charts", s, i)}
                   onDragOver={dragOver("charts", s, i)}
                   onDrop={drop("charts", s, i)}
@@ -524,6 +529,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
               onSelect={() => setSelection(sel)}
               className="mt-4 p-1"
               testId="data-table"
+              livePath={`/sections/${s}/tables/${i}`}
               dropTarget={isDropTarget("tables", s, i)}
               onDragOver={dragOver("tables", s, i)}
               onDrop={drop("tables", s, i)}
