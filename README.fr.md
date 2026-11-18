@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Arrêtez de surveiller vos terminaux. Un seul assistant pilote vos agents de code à votre place.</b></p>
+<p><b>Soyez le PDG de vos agents de code, pas leur baby-sitter.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Dernière version" /></a>

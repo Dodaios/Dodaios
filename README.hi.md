@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>टर्मिनलों की निगरानी करना बंद करें। एक असिस्टेंट आपके लिए आपके कोडिंग एजेंट चलाता है।</b></p>
+<p><b>अपने कोडिंग एजेंटों के CEO बनें, बेबीसिटर नहीं।</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="नई रिलीज़" /></a>
