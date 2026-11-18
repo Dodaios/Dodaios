@@ -290,7 +290,7 @@ describe("NavRail", () => {
     await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(4));
     const [hn, x, claude, acme] = screen.getAllByTestId("rail-notice");
     // Hacker News's own orange mark.
-    expect(hn.querySelector("img")?.getAttribute("src")).toContain("FF6600");
+    expect(hn.querySelector("img")?.getAttribute("src")).toContain("FB651E");
     for (const tile of [x, claude]) {
       expect(tile.querySelector("img, [data-logo]")).not.toBeNull();
       expect(tile.querySelector('[data-testid="rail-notice-monogram"]')).toBeNull();

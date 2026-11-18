@@ -110,6 +110,7 @@ still supply their own logo URL. No built-in depends on the Simple Icons CDN.
 | google_cloud | [Vendor original](https://www.gstatic.com/cgc/supercloud_favicon.ico) | Vendor artwork; nominative identification only | 2026-09-10 |
 | gitlab | [Original mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/gitlab-icon.svg) | CC0-1.0; nominative use | 2026-09-10 |
 | x | [Original X mark](https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/x.svg) | CC0-1.0; monochrome, white icon tile | 2026-09-10 |
+| hacker-news | [Original Y Combinator mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/ycombinator.svg), the mark Hacker News shows | CC0-1.0; nominative use | 2026-11-18 |
 | linkedin | [Original mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/linkedin-icon.svg) | CC0-1.0; nominative use | 2026-09-10 |
 | youtube_studio | [Original mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/youtube-icon.svg) | CC0-1.0; nominative use | 2026-09-10 |
 | hubspot | [Original mark](https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/hubspot.svg) | CC0-1.0; nominative use | 2026-09-10 |
