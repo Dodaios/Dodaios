@@ -17,7 +17,7 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **Be the CEO, not the babysitter of your coding agents.**
+> **The lead engineer between you and your coding agents.**
 
 Use it word for word, and never alone: the definition always follows.
 
@@ -50,9 +50,9 @@ Use it word for word, and never alone: the definition always follows.
 
 The maintainer wrote the definition himself and settled on it late in the
 evening of 16 November 2026. On 18 November 2026 he chose the one-liner above
-it: it names the reader's problem, watching over each coding agent, and the
-role Dodaios gives them instead; the paragraphs and the definition then show
-the system that makes it work.
+it: it names the role Dodaios takes: it stands between the person and their
+coding agents the way a lead engineer stands between a team and the person
+who sets its goals, and the text that follows shows how.
 A few places in the definition were
 adjusted so that each sentence is true in the code on main: phone calls are a
 preview, the coding agents (not the assistant) reach servers over SSH, life
@@ -71,6 +71,8 @@ else is in `docs/`.
 
 Earlier promises:
 
+- On 18 November 2026: "Be the CEO, not the babysitter of your coding agents."
+  The maintainer replaced it the same evening with the lead-engineer line.
 - Briefly on 18 November 2026: "Stop babysitting terminals. One assistant
   runs your coding agents for you." The maintainer replaced it the same day
   with a shorter line about the reader's role.
