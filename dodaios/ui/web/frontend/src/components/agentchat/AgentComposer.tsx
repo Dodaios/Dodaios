@@ -854,6 +854,11 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                   row.category === "mcp" ? "mcps" : row.category === "skills" ? "skills" : "plugins",
                 )
               }
+              nodeType={nodeType}
+              onNodeType={(type) => {
+                setNodeType(type);
+                fieldRef.current?.focus();
+              }}
               disabled={!connected || busy}
             />
             {/* What the assistant may do, as its glyph alone; the name and
@@ -1049,6 +1054,11 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                 row.category === "mcp" ? "mcps" : row.category === "skills" ? "skills" : "plugins",
               )
             }
+            nodeType={nodeType}
+            onNodeType={(type) => {
+              setNodeType(type);
+              fieldRef.current?.focus();
+            }}
             disabled={!connected || busy}
           />
         )}

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
@@ -167,6 +167,54 @@ describe("the type chip in the composer", () => {
     const draft = readComposerDraft(useAgentChatStore, "lead");
     expect(draft.nodeType).toBe("docs");
     expect(draft.text).toBe("A one-page brief");
+  });
+});
+
+describe("the type chip from the Add menu", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    useEventStore.setState({ connected: true, wsWarming: false, assistantName: "George" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ items: [], mode: "browse", total: 0 }) }) as Response),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    writeComposerDraft(useAgentChatStore, "lead", { text: "", choices: [] });
+    vi.unstubAllGlobals();
+  });
+
+  it("lists every node type and puts the picked one's chip in front of the box", async () => {
+    seed();
+    composer();
+    fireEvent.click(screen.getByTestId("composer-add"));
+    const menu = await screen.findByTestId("composer-add-menu");
+    for (const kind of NODE_TYPES) expect(within(menu).getByTestId(`composer-add-node-${kind}`)).toBeTruthy();
+    expect(within(menu).getByTestId("composer-add-node-sheets").textContent).toContain("Dodaios Sheets");
+
+    fireEvent.click(within(menu).getByTestId("composer-add-node-sheets"));
+    expect(screen.queryByTestId("composer-add-menu")).toBeNull();
+    expect(screen.getByTestId("node-request-chip").textContent).toBe("Dodaios Sheets");
+    expect(screen.getByTestId("composer-chip-field").getAttribute("data-placeholder")).toBe("What should go in this sheet?");
+
+    // Another pick replaces it: one node per message.
+    fireEvent.click(screen.getByTestId("composer-add"));
+    const again = await screen.findByTestId("composer-add-menu");
+    expect(within(again).getByTestId("composer-add-node-sheets").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(again).getByTestId("composer-add-node-motion"));
+    expect(screen.getAllByTestId("node-request-chip").map((chip) => chip.textContent)).toEqual(["Dodaios Clips"]);
+  });
+
+  it("finds a node type by its name in the menu's search", async () => {
+    seed();
+    composer();
+    fireEvent.click(screen.getByTestId("composer-add"));
+    const menu = await screen.findByTestId("composer-add-menu");
+    fireEvent.change(menu.querySelector("input")!, { target: { value: "slid" } });
+    expect(within(menu).getByTestId("composer-add-node-slides")).toBeTruthy();
+    expect(within(menu).queryByTestId("composer-add-node-docs")).toBeNull();
   });
 });
 
