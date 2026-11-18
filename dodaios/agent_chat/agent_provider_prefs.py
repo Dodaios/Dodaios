@@ -35,8 +35,14 @@ from loguru import logger
 #: The agents' surface; the only one ``disabled`` and ``api_only`` narrow.
 AGENT_SURFACE = "society"
 
+#: Bounds for a hand-edited file. Provider ids are few; a provider's model
+#: list is not: a proxy or router can offer hundreds or thousands of models,
+#: and a person who wants five of them hides all the rest (issue #1835: 419
+#: models, the old shared cap of 256 left 163 switched on).
 _MAX_IDS = 256
 _MAX_ID_LEN = 200
+_MAX_MODELS = 20_000
+_MAX_MODEL_ID_LEN = 512
 
 
 @dataclass(frozen=True)
@@ -69,10 +75,10 @@ def _path() -> Path:
     return user_data_dir() / "agent_chat" / "agent_providers.json"
 
 
-def _ids(value: Any) -> list[str]:
+def _ids(value: Any, *, limit: int = _MAX_IDS, max_len: int = _MAX_ID_LEN) -> list[str]:
     if not isinstance(value, list):
         return []
-    return [v for v in value if isinstance(v, str) and v and len(v) <= _MAX_ID_LEN][:_MAX_IDS]
+    return [v for v in value if isinstance(v, str) and v and len(v) <= max_len][:limit]
 
 
 def parse(data: Any) -> AgentProviderPrefs:
@@ -84,7 +90,9 @@ def parse(data: Any) -> AgentProviderPrefs:
     if isinstance(raw_hidden, dict):
         for key, models in list(raw_hidden.items())[:_MAX_IDS]:
             if isinstance(key, str) and key and len(key) <= _MAX_ID_LEN:
-                kept = tuple(dict.fromkeys(_ids(models)))
+                kept = tuple(
+                    dict.fromkeys(_ids(models, limit=_MAX_MODELS, max_len=_MAX_MODEL_ID_LEN))
+                )
                 if kept:
                     hidden[key] = kept
     return AgentProviderPrefs(
