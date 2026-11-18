@@ -4,6 +4,7 @@ import { mintWsTicket } from "@/lib/ws";
 import { jitteredDelay, requestConnect } from "@/lib/connectBudget";
 import { BROWSER_PROFILE_CHANGED_EVENT } from "@/lib/browserProfiles";
 import type { BrowserPointerState } from "./browserPointerState";
+import { clearBrowserFrame, publishBrowserFrame } from "./liveFrames";
 
 export interface BrowserViewState {
   connected: boolean;
@@ -99,6 +100,7 @@ export function useBrowserView(agentId: string, enabled = true) {
     setState(empty);
     const clearCanvas = () => {
       lastPicture.current = null;
+      clearBrowserFrame(agentId);
       inputGeneration.current = "";
       const el = canvas.current;
       if (el) el.width = 1280;
@@ -120,6 +122,8 @@ export function useBrowserView(agentId: string, enabled = true) {
           if (el.height !== image.height) el.height = image.height;
           el.getContext("2d")?.drawImage(image, 0, 0);
           lastPicture.current = image;
+          // Small watching views (an approval card) show the same picture.
+          publishBrowserFrame(agentId, image.src);
           inputGeneration.current = frame.generation;
           el.dataset.browserGeometryId = frame.geometry_id ?? "";
           // Read-only diagnostics for end-to-end stream acceptance and support.

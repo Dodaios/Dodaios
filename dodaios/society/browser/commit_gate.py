@@ -26,8 +26,10 @@ __all__ = [
     "COMMIT_VERB",
     "CommitMemory",
     "CommitStep",
+    "PAYMENT_KIND",
     "blocker_hint",
     "commit_step",
+    "payment_step",
 ]
 
 #: The verb the agent's approval rules see for a committing click
@@ -36,6 +38,10 @@ COMMIT_VERB: Final[str] = "commit"
 
 #: The label the worker gives an Enter key in a message box (``commit_target.py``).
 KEY_LABEL: Final[str] = "Enter"
+#: The kind of step that types a card or bank account into a page (``payment_step``).
+PAYMENT_KIND: Final[str] = "payment_details"
+#: Actions that type text into a field.
+_INPUTS: Final[frozenset[str]] = frozenset({"input", "input_text"})
 
 #: Browser actions that press a control or submit what is focused.
 _CLICKS: Final[frozenset[str]] = frozenset(
@@ -56,6 +62,37 @@ _DISMISS: Final[re.Pattern[str]] = re.compile(
 #: ("Send", "Buy now"); a phrase or a German verb may stand anywhere in it
 #: ("Abo kündigen"), because German puts the verb last.  # i18n-allow
 _KINDS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
+    (
+        # Before "delete" and "cancel": ending the account itself always asks
+        # (``action_policy.commit_severity``).
+        "close_account",
+        re.compile(
+            r"\b(close|delete|deactivate|terminate|cancel) (my |your |the )?account\b|"
+            r"\b(konto|account) (löschen|schließen|kündigen|deaktivieren)\b",  # i18n-allow
+            re.I,
+        ),
+    ),
+    (
+        # Granting a site or app access to the person's account (an OAuth
+        # consent screen) always asks.
+        "authorize",
+        re.compile(
+            r"^(authorize|authorise|grant access|allow access)\b|"
+            r"\b(autorisieren|zugriff (erlauben|gewähren))\b",  # i18n-allow: page labels
+            re.I,
+        ),
+    ),
+    (
+        # Before "send": a money transfer always asks, a message by mode.
+        "transfer",
+        re.compile(
+            r"^(transfer|wire)\b|\bsend (money|payment|funds)\b|"
+            r"\bconfirm (the )?(transfer|payment)\b|"
+            r"\b(überweisen|überweisung (ausführen|bestätigen|absenden)|"  # i18n-allow
+            r"geld senden)\b",  # i18n-allow: page labels
+            re.I,
+        ),
+    ),
     (
         "cancel",
         re.compile(
@@ -84,8 +121,8 @@ _KINDS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     (
         "send",
         re.compile(
-            r"^(send|submit|reply|transfer)\b|"
-            r"\b(senden|absenden|abschicken|antworten|überweisen)\b",  # i18n-allow
+            r"^(send|submit|reply)\b|"
+            r"\b(senden|absenden|abschicken|antworten)\b",  # i18n-allow
             re.I,
         ),
     ),
@@ -99,7 +136,7 @@ _KINDS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     (
         "delete",
         re.compile(
-            r"^(delete|remove|erase|deactivate)\b|\b(close|delete) (my |your )?account\b|"
+            r"^(delete|remove|erase|deactivate)\b|"
             r"\b(löschen|entfernen|deaktivieren)\b",  # i18n-allow
             re.I,
         ),
@@ -151,11 +188,23 @@ class CommitStep:
         return self.label == KEY_LABEL
 
     @property
+    def severity(self) -> str:
+        """``ask`` (by mode) or ``confirm`` (every mode, Bypass too): ``action_policy``."""
+        from dodaios.safety.action_policy import commit_severity
+
+        return str(commit_severity(self.kind))
+
+    @property
     def summary(self) -> str:
         """What is about to be clicked, where, and what the page says about it."""
         where = f" on {self.host}" if self.host else ""
         # A key press has no button to name (``KEY_LABEL``).
-        line = f"Press Enter{where}" if self.is_key else f'Click "{self.label}"{where}'
+        if self.kind == PAYMENT_KIND:
+            line = f'Enter payment details into "{self.label}"{where}'
+        elif self.is_key:
+            line = f"Press Enter{where}"
+        else:
+            line = f'Click "{self.label}"{where}'
         if self.context and self.context.lower() != self.label.lower():
             line += f": {self.context}"
         return line
@@ -168,6 +217,7 @@ class CommitStep:
             "url": self.url,
             "context": self.context,
             "summary": self.summary,
+            "severity": self.severity,
         }
 
 
@@ -241,6 +291,32 @@ def commit_step(
         host=(urlsplit(url).hostname or "").removeprefix("www."),
         url=url,
         context=context if quoted else "",
+    )
+
+
+def payment_step(
+    name: str, parameters: dict[str, Any], target: Any, url: str = ""
+) -> CommitStep | None:
+    """Typing a card or bank account into a page, or ``None`` for any other typing.
+
+    Read from the field (its autocomplete, name and label, ``commit_target``)
+    and from what is typed (13 to 19 digits is a card number on any field).
+    The card never quotes what is typed.
+    """
+    if name not in _INPUTS:
+        return None
+    from dodaios.safety.action_policy import input_risk
+
+    if input_risk(target, str(parameters.get("text") or "")) is None:
+        return None
+    described = target if isinstance(target, dict) else {}
+    label = _clean(described.get("label") or described.get("field"), _LABEL_CHARS)
+    return CommitStep(
+        kind=PAYMENT_KIND,
+        label=label or "payment field",
+        host=(urlsplit(url).hostname or "").removeprefix("www."),
+        url=url,
+        context="",
     )
 
 

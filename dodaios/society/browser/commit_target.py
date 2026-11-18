@@ -151,7 +151,14 @@ def describe_node(node: Any) -> dict[str, str] | None:
         "href": str(attrs.get("href") or ""),
         "label": _squash(label, _LABEL_CHARS),
         "context": _squash(context, _CONTEXT_CHARS),
-        "field": "",
+        # What a field is for, so typing a card number can ask (``commit_gate.payment_step``).
+        "field": _squash(
+            " ".join(
+                str(attrs.get(key) or "")
+                for key in ("autocomplete", "name", "id", "placeholder", "aria-label")
+            ),
+            _LABEL_CHARS,
+        ),
         "in_dialog": "1" if in_dialog else "",
     }
 
@@ -168,7 +175,9 @@ async def describe_target(proposal: dict, browser_session: Any, page: Any) -> di
             for name, params in proposal.items():
                 if not isinstance(params, dict):
                     continue
-                if name in {"click", "click_element_by_index"} and params.get("index") is not None:
+                if name in {"click", "click_element_by_index", "input", "input_text"} and (
+                    params.get("index") is not None
+                ):
                     lookup = getattr(browser_session, "get_element_by_index", None)
                     if not callable(lookup):
                         return None

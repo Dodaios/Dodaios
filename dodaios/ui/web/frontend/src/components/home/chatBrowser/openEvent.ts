@@ -5,8 +5,15 @@
  */
 export const OPEN_AGENT_BROWSER_EVENT = "dodaios:open-agent-browser";
 
+export interface OpenAgentBrowserDetail {
+  agentId: string;
+  /** The person takes control of the page at once (an approval card's "Take over"). */
+  takeover?: boolean;
+}
+
 /** True when a chat browser stage took the request. */
-export function requestAgentBrowserStage(agentId: string): boolean {
-  const event = new CustomEvent(OPEN_AGENT_BROWSER_EVENT, { detail: { agentId }, cancelable: true });
+export function requestAgentBrowserStage(agentId: string, options: { takeover?: boolean } = {}): boolean {
+  const detail: OpenAgentBrowserDetail = { agentId, ...options };
+  const event = new CustomEvent(OPEN_AGENT_BROWSER_EVENT, { detail, cancelable: true });
   return !window.dispatchEvent(event);
 }

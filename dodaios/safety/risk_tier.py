@@ -287,9 +287,21 @@ class RiskTierEvaluator:
             if self._pattern_matches(pattern, black):
                 raise ActionBlocked(pattern=pattern, matched=cmd)
 
+        # 1b. The risky-action table (``action_policy``): the dark web never
+        # runs, in any mode; money and catastrophic shell commands always ask,
+        # so no whitelist entry turns them into a safe call.
+        from .action_policy import Severity, tool_call_risk
+
+        finding = tool_call_risk(tool.name, args)
+        if finding is not None and finding.severity is Severity.BLOCK:
+            raise ActionBlocked(pattern=f"<policy:{finding.category}>", matched=cmd)
+        always_asks = finding is not None and finding.severity is Severity.CONFIRM
+
         # 2. Whitelist — downgrade to safe, against the narrow model-proof set
         white = (
-            () if requires_human_approval(tool, args) else _whitelist_candidates(tool, args)
+            ()
+            if always_asks or requires_human_approval(tool, args)
+            else _whitelist_candidates(tool, args)
         )
         for pattern in self._collect_patterns("whitelist") if white else ():
             if self._pattern_matches(pattern, white):
@@ -334,6 +346,8 @@ class RiskTierEvaluator:
         # block tier gets bounced directly
         if tier in self._safety.always_block_tiers:
             raise ActionBlocked(pattern="<tool-declared-block>", matched=cmd)
+        if always_asks and tier in ("safe", "monitor"):
+            tier = "ask"
 
         return TierDecision(
             tier=tier,
