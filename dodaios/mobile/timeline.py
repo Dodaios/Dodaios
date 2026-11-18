@@ -100,7 +100,12 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
                 row["answered"] = True
         elif kind == "notice":
             notice_kind = str(payload.get("kind") or "")
-            text = _text(payload.get("text") or payload.get("report"), 1200)
+            # What the assistant said on its own (``agent_chat/proactive_voice``)
+            # reads in its words; an item told inside the message before it is not
+            # drawn again.
+            text = _text(payload.get("voice") or payload.get("text") or payload.get("report"), 1200)
+            if payload.get("voice_covered"):
+                continue
             if notice_kind in _SILENT_NOTICES or not text or is_background_notice(payload):
                 continue
             rows.append(

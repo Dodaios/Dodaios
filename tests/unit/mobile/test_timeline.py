@@ -88,3 +88,19 @@ def test_background_notices_are_not_rows() -> None:
     shown = [r["text"] for r in folded["rows"]]
     assert shown == ["Three new orders today.", "Scout needs a login."]
     assert folded["last_seq"] == 6
+
+
+def test_a_proactive_message_reads_in_the_words_the_assistant_wrote() -> None:
+    folded = fold_events(
+        [
+            _ev(1, "notice", kind="reminder_due", text="Appointment: Break on 2026-11-18 10:30.",
+                voice="Your break starts at 10:30, then half an hour for mail."),
+            _ev(2, "notice", kind="reminder_due", text="Appointment: Mail on 2026-11-18 10:45.",
+                voice_covered=True),
+            _ev(3, "notice", kind="routine_run", text="Daily check"),
+        ],
+        running=False,
+    )
+    assert [r["text"] for r in folded["rows"]] == [
+        "Your break starts at 10:30, then half an hour for mail."
+    ]
