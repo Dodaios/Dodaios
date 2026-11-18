@@ -20,7 +20,7 @@ export default function AssistantRoutineDialog({ agentId, routineId, onClose }: 
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-[#090909]/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
+        <Dialog.Overlay className="fixed inset-0 z-[80] bg-scrim/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
         <Dialog.Content
           data-testid="assistant-routine-dialog"
           aria-describedby={undefined}

@@ -56,8 +56,10 @@ export function applyMissionDragImage(dt: DataTransfer, title: string): void {
       padding: "8px 14px",
       borderRadius: "9999px",
       border: `1px solid ${ACCENT}`,
-      background: "rgba(20, 20, 16, 0.92)",
-      color: "#f5f5f0",
+      // Theme tokens, not literals: the chip is the floating layer of
+      // whichever theme is on screen (index.css, "Theme tokens").
+      background: "hsl(var(--popover))",
+      color: "hsl(var(--popover-foreground))",
       font: "600 13px/1.2 ui-sans-serif, system-ui, sans-serif",
       whiteSpace: "nowrap",
       boxShadow: `0 8px 24px rgba(0,0,0,0.45), 0 0 18px ${ACCENT}55`,
