@@ -7,7 +7,12 @@ import { readToolChoices, type ToolChoice } from "./toolChoices";
 import { sendAgentChatMessage } from "@/lib/agentChatApi";
 import gmailLogo from "@/assets/brands/gmail.svg?url";
 
-vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
+vi.mock("@/i18n", () => ({
+  useT: () => (key: string) => key,
+  useLocaleChunk: () => true,
+  isLocaleChunkLoaded: () => false,
+  translate: (key: string) => key,
+}));
 
 const gmail: ToolChoice = {
   id: "plugin:gmail",

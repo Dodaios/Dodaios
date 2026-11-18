@@ -5,7 +5,7 @@ import { fetchTypeahead, type AgentChatSurface } from "@/lib/agentChatApi";
 import { searchTools } from "@/components/agentchat/toolChoices";
 import { nodeChipLabel } from "@/components/nodes/NodeRequestChip";
 import { NODE_TYPES, type NodeType } from "@/components/nodes/nodeModel";
-import { translate } from "@/i18n";
+import { loadLocaleChunk, translate } from "@/i18n";
 import {
   activeToken,
   applyPick,
@@ -82,7 +82,9 @@ export function nodeTypeMentions(query: string): TypeaheadItem[] {
 }
 
 async function jarvisMentions(seat: Seat, query: string, signal: AbortSignal): Promise<TypeaheadItem[]> {
-  const [agents, tools] = await Promise.allSettled([
+  const [, agents, tools] = await Promise.allSettled([
+    // The curated tools' plain names (browseToolRows) live in this chunk.
+    loadLocaleChunk("chat_tools"),
     fetchTypeahead({ surface: seat.surface, provider: seat.provider, cwd: seat.cwd, trigger: "@", q: query }, signal),
     searchTools(
       { provider: seat.provider, model: seat.model ?? "", cwd: seat.cwd, stance: seat.stance ?? "ask", q: query },

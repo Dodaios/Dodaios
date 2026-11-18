@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { browseToolRows, type ToolChoice } from "./toolChoices";
+import { loadLocaleChunk } from "@/i18n";
+
+import { browseToolRows } from "./browseToolRows";
+import type { ToolChoice } from "./toolChoices";
 
 /**
  * What the Add menu and the chat's `@` list show. The catalog also holds the
@@ -46,6 +49,8 @@ const CATALOG: ToolChoice[] = [
 ];
 
 describe("browseToolRows", () => {
+  beforeAll(() => loadLocaleChunk("chat_tools"));
+
   it("keeps connectors, the person's skills and the tools worth naming, in plain words", () => {
     const shown = browseToolRows(CATALOG);
     expect(shown.map((r) => r.id)).toEqual([

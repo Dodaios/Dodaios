@@ -13,7 +13,8 @@
 
 import type { NodeType } from "@/components/nodes/nodeModel";
 import { choiceTag } from "./composerChips";
-import { browseToolRows, type ToolChoice } from "./toolChoices";
+import { browseToolRows } from "./browseToolRows";
+import type { ToolChoice } from "./toolChoices";
 
 export interface TypeaheadItem {
   /** What lands after the trigger character — `commit`, `github:issue`, `src/app.py`. */

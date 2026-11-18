@@ -114,6 +114,7 @@ export function loadUiLocale(lang: UiLanguage): Promise<void> {
  * that cares waits for `ready` before it paints.
  */
 export type LocaleChunk =
+  | "chat_tools"
   | "marketplace"
   | "local_models"
   | "society"
@@ -165,6 +166,13 @@ function voiceLocale(lang: UiLanguage): () => Promise<unknown> {
 }
 
 const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknown>>> = {
+  chat_tools: {
+    en: () => import("./locales/chat_tools/en.json"),
+    de: () => import("./locales/chat_tools/de.json"),
+    es: () => import("./locales/chat_tools/es.json"),
+    zh: () => import("./locales/chat_tools/zh.json"),
+    pt: () => import("./locales/chat_tools/pt.json"),
+  },
   marketplace: {
     en: () => import("./locales/marketplace/en.json"),
     de: () => import("./locales/marketplace/de.json"),

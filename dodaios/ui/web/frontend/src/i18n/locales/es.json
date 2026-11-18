@@ -7789,45 +7789,7 @@
     "connect": "Configurar",
     "next_message": "Seleccionadas para el próximo mensaje",
     "hint": "Elige herramientas para el próximo mensaje. Se siguen aplicando los permisos.",
-    "done": "Listo",
-    "curated": {
-      "browser": {
-        "label": "Navegador",
-        "hint": "Hacer algo en la web con tu propio navegador"
-      },
-      "web_search": {
-        "label": "Búsqueda web",
-        "hint": "Buscar algo en la web"
-      },
-      "computer_use": {
-        "label": "Usar el ordenador",
-        "hint": "Trabajar en la pantalla con ratón y teclado"
-      },
-      "memory": {
-        "label": "Memoria",
-        "hint": "Lo que Dodaios recuerda de ti"
-      },
-      "reminders": {
-        "label": "Recordatorios",
-        "hint": "Crear, ver o completar recordatorios"
-      },
-      "artifact": {
-        "label": "Artefacto",
-        "hint": "Crear una página interactiva"
-      },
-      "screenshot": {
-        "label": "Captura de pantalla",
-        "hint": "Una imagen de tu pantalla"
-      },
-      "phone_call": {
-        "label": "Llamada",
-        "hint": "Llamar a un contacto guardado"
-      },
-      "contacts": {
-        "label": "Contactos",
-        "hint": "Buscar un contacto guardado"
-      }
-    }
+    "done": "Listo"
   },
   "credential_card": {
     "aria": "Campo seguro para credenciales",

@@ -1,0 +1,42 @@
+{
+  "chat_tools": {
+    "curated": {
+      "browser": {
+        "label": "Browser",
+        "hint": "Etwas im Web erledigen, in deinem eigenen Browser"
+      },
+      "web_search": {
+        "label": "Websuche",
+        "hint": "Etwas im Web nachschlagen"
+      },
+      "computer_use": {
+        "label": "Computer steuern",
+        "hint": "Mit Maus und Tastatur auf diesem Bildschirm arbeiten"
+      },
+      "memory": {
+        "label": "Gedächtnis",
+        "hint": "Was Dodaios über dich weiß"
+      },
+      "reminders": {
+        "label": "Erinnerungen",
+        "hint": "Erinnerungen setzen, anzeigen oder abhaken"
+      },
+      "artifact": {
+        "label": "Artefakt",
+        "hint": "Eine interaktive Seite bauen"
+      },
+      "screenshot": {
+        "label": "Bildschirmfoto",
+        "hint": "Ein Bild von deinem Bildschirm"
+      },
+      "phone_call": {
+        "label": "Anruf",
+        "hint": "Einen gespeicherten Kontakt anrufen"
+      },
+      "contacts": {
+        "label": "Kontakte",
+        "hint": "Einen gespeicherten Kontakt nachschlagen"
+      }
+    }
+  }
+}
