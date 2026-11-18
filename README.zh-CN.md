@@ -26,7 +26,8 @@
   <a href="#文档">文档</a> ·
   <a href="https://dodaios.ai">官网</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ja.md">日本語</a>
 </p>
 
 </div>
