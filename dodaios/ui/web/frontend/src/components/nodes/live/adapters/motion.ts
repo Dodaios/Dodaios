@@ -140,7 +140,7 @@ export function clipSteps(previous: MotionSpec | null, next: MotionSpec): Reveal
   const oldTracks = new Map((before.tracks ?? []).map((track) => [track.id, track]));
   (next.tracks ?? []).forEach((track, trackIndex) => {
     const old = oldTracks.get(track.id);
-    if (!old) steps.push({ target: { path: `/tracks/${trackIndex}` }, enter: slideIn });
+    if (!old) steps.push({ target: { path: `/tracks/${trackIndex}` }, enter: slideIn, framed: false });
     steps.push(...itemSteps(track, trackIndex, old));
   });
 
