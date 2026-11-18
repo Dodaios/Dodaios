@@ -11950,7 +11950,16 @@
       "of_type": "Novo em {0}",
       "type_label": "Tipo",
       "menu_label": "Novo nó",
-      "blank_heading": "Começar um em branco",
+      "chat_heading": "Criar no chat",
+      "chip_remove": "Remover {0}",
+      "ask": {
+        "docs": "Sobre o que deve ser este documento?",
+        "slides": "Sobre o que deve ser esta apresentação?",
+        "sheets": "O que deve entrar nesta planilha?",
+        "data": "O que esta análise deve mostrar, e com quais dados?",
+        "whiteboard": "O que deve ir neste quadro branco?",
+        "motion": "Sobre o que deve ser este clipe?"
+      },
       "describe": "Descrever a {name}…",
       "untitled": {
         "docs": "Documento sem título",

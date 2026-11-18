@@ -31,8 +31,9 @@ import { useNodesLibrary } from "./useNodesLibrary";
 const chat = vi.hoisted(() => ({
   requestNewNode: vi.fn(async (_type: string, _text: string, _analytics?: unknown) => undefined),
   askDodaiosToChange: vi.fn(async () => undefined),
+  startNodeInChat: vi.fn(async (_type: string) => undefined),
 }));
-// The real module opens the chat store; the library only needs its two calls.
+// The real module opens the chat store; the library only needs its calls.
 vi.mock("./askDodaios", () => chat);
 // The covers are another component's business (and its own tests).
 vi.mock("./NodeCover", () => ({
@@ -153,6 +154,7 @@ beforeEach(() => {
   window.localStorage.clear();
   chat.requestNewNode.mockReset();
   chat.requestNewNode.mockResolvedValue(undefined);
+  chat.startNodeInChat.mockClear();
 });
 
 afterEach(() => {
@@ -580,8 +582,8 @@ describe("NodesLibrary", () => {
     expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("all");
   });
 
-  it("offers every kind under New, each but Analytics starting a blank node at once", async () => {
-    const fetchMock = installFetch({ nodes: SAMPLE, created: card("fresh", { id: "n-fresh", type: "sheets" }) });
+  it("offers every kind under New, each opening the chat with its chip instead of a blank file", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE });
     const onCreated = vi.fn<(card: NodeCard) => void>();
     const { onOpen } = renderLibrary({ onCreated });
     await screen.findByTestId("nodes-grid");
@@ -589,82 +591,39 @@ describe("NodesLibrary", () => {
     fireEvent.click(screen.getByTestId("nodes-new"));
     const menu = screen.getByTestId("nodes-new-menu");
     expect(within(menu).getAllByRole("menuitem").map((item) => item.getAttribute("data-testid"))).toEqual([
-      "nodes-new-blank-docs",
-      "nodes-new-blank-slides",
-      "nodes-new-blank-sheets",
-      "nodes-new-blank-data",
-      "nodes-new-blank-whiteboard",
-      "nodes-new-blank-motion",
+      "nodes-new-chat-docs",
+      "nodes-new-chat-slides",
+      "nodes-new-chat-sheets",
+      "nodes-new-chat-data",
+      "nodes-new-chat-whiteboard",
+      "nodes-new-chat-motion",
       "nodes-new-describe",
     ]);
 
-    fireEvent.click(within(menu).getByTestId("nodes-new-blank-sheets"));
-    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
-    // No dialog, no request to the assistant: the node is made from its starter.
+    for (const type of ["docs", "slides", "sheets", "data", "whiteboard", "motion"]) {
+      if (!screen.queryByTestId("nodes-new-menu")) fireEvent.click(screen.getByTestId("nodes-new"));
+      fireEvent.click(screen.getByTestId(`nodes-new-chat-${type}`));
+      expect(chat.startNodeInChat).toHaveBeenLastCalledWith(type);
+      expect(screen.queryByTestId("nodes-new-menu")).toBeNull();
+    }
+    // Nothing is made here, and no dialog opens: the chat takes it from there.
     expect(screen.queryByTestId("new-node-dialog")).toBeNull();
-    expect(chat.requestNewNode).not.toHaveBeenCalled();
-    const post = fetchMock.mock.calls.find(([url, init]) => url === "/api/nodes" && init?.method === "POST");
-    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ type: "sheets", title: "Untitled sheet", language: "en" });
-    expect(onCreated.mock.calls[0][0].key).toBe("fresh");
-    expect(onOpen).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("nodes-new-menu")).toBeNull();
-  });
-
-  it("asks an Analytics node for its data instead of making a dashboard of placeholders", async () => {
-    const fetchMock = installFetch({ nodes: SAMPLE });
-    const onCreated = vi.fn<(card: NodeCard) => void>();
-    renderLibrary({ onCreated });
-    await screen.findByTestId("nodes-grid");
-
-    fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(screen.getByTestId("nodes-new-blank-data"));
-    const dialog = await screen.findByTestId("new-node-dialog");
-    expect(within(dialog).getByTestId("new-node-type-data").getAttribute("aria-checked")).toBe("true");
-    expect(within(dialog).getByTestId("new-node-sources")).toBeTruthy();
-    expect(onCreated).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
-
-    // The empty Analytics shelf leads to the same dialog.
-    fireEvent.keyDown(dialog, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByTestId("new-node-dialog")).toBeNull());
-    fireEvent.click(screen.getByTestId("nodes-type-data"));
-    fireEvent.click(within(screen.getByTestId("nodes-no-matches")).getByTestId("nodes-new-of-type"));
-    expect(await screen.findByTestId("new-node-sources")).toBeTruthy();
+    expect(chat.requestNewNode).not.toHaveBeenCalled();
     expect(onCreated).not.toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it("starts a blank node of the shelf's kind from an empty shelf", async () => {
-    const fetchMock = installFetch({ nodes: SAMPLE, created: card("clip", { id: "n-clip", type: "motion" }) });
-    const onCreated = vi.fn<(card: NodeCard) => void>();
-    renderLibrary({ onCreated });
+  it("opens the chat with the shelf's kind from an empty shelf", async () => {
+    installFetch({ nodes: SAMPLE });
+    renderLibrary();
     await screen.findByTestId("nodes-grid");
 
     // An empty shelf says so and offers the one next step.
     fireEvent.click(screen.getByTestId("nodes-type-motion"));
     fireEvent.click(within(screen.getByTestId("nodes-no-matches")).getByTestId("nodes-new-of-type"));
-    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(chat.startNodeInChat).toHaveBeenLastCalledWith("motion");
     expect(screen.queryByTestId("new-node-dialog")).toBeNull();
-    const post = fetchMock.mock.calls.find(([url, init]) => url === "/api/nodes" && init?.method === "POST");
-    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ type: "motion", title: "Untitled clip" });
-  });
-
-  it("says so when a blank node could not be made, and stays on the library", async () => {
-    const api: Api = { nodes: SAMPLE, createFails: true };
-    installFetch(api);
-    const onCreated = vi.fn<(card: NodeCard) => void>();
-    renderLibrary({ onCreated });
-    await screen.findByTestId("nodes-grid");
-
-    fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
-    await waitFor(() =>
-      expect(useEventStore.getState().toasts.map((toast) => toast.message)).toContain(
-        "The node could not be created. Try again in a moment.",
-      ),
-    );
-    expect(onCreated).not.toHaveBeenCalled();
-    // The button is usable again.
-    expect(screen.getByTestId("nodes-new").hasAttribute("disabled")).toBe(false);
   });
 
   it("describes a new node with the type the reader is looking at", async () => {

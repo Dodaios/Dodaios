@@ -186,7 +186,9 @@ describe("a node's native editor on the stage", () => {
     await waitFor(() => expect(screen.queryAllByTestId("node-card").length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
+    // An empty node is started from the describe dialog ("New" with a kind opens the chat).
+    fireEvent.click(screen.getByTestId("nodes-new-describe"));
+    fireEvent.click(await screen.findByTestId("new-node-empty"));
     const editor = await screen.findByTestId("editor-stub");
     expect(editor.getAttribute("data-node")).toBe("n9");
     expect(editor.getAttribute("data-version")).toBe("1");

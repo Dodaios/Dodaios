@@ -1044,7 +1044,9 @@ describe("VisualizationView", () => {
 
     await findCard(DASH_KEY);
     fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
+    // An empty node is started from the describe dialog ("New" with a kind opens the chat).
+    fireEvent.click(screen.getByTestId("nodes-new-describe"));
+    fireEvent.click(await screen.findByTestId("new-node-empty"));
 
     await screen.findByTestId("visualization-frame");
     expect(frameSrc()).toContain(`/api/outputs/${created.slug}/files/index.html/page?theme=`);
