@@ -11847,7 +11847,11 @@
     "provider_model_unavailable": "模型不可用",
     "provider_other": "目前无法使用",
     "provider_detail": "请在 API 密钥中检查访问权限。",
-    "provider_action": "打开 API 密钥"
+    "provider_action": "打开 API 密钥",
+    "menu_label": "{who} 的选项",
+    "menu_snooze": "隐藏一小时",
+    "menu_close": "关闭",
+    "menu_close_all": "全部关闭（{count}）"
   },
   "nodes": {
     "title": "Nodes",
