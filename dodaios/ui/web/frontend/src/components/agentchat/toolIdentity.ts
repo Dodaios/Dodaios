@@ -51,6 +51,7 @@ const BRANDS: Record<string, Brand> = {
   gmail: { palette: ["#b3261e", "#ff938a"], aliases: ["google-mail", "gws-gmail"] },
   github: { palette: NEUTRAL, mark: "mono", aliases: ["gh"] },
   x: { palette: NEUTRAL, mark: "mono", aliases: ["twitter"] },
+  "hacker-news": { palette: ["#a84c14", "#ffb276"], aliases: ["hackernews", "hacker_news", "ycombinator", "y-combinator"] },
   google_drive: { palette: GREEN, aliases: ["google-drive", "gdrive", "gws-drive"] },
   google_calendar: { palette: BLUE, aliases: ["google-calendar", "gws-calendar"] },
   airtable: { palette: ["#96650b", "#efc561"] },

@@ -39,11 +39,14 @@ export type NoticeMark =
   | { type: "tool"; id: string }
   | { type: "provider"; id: string }
   | { type: "cli"; id: string }
-  | { type: "agent"; id: string }
+  /** `name`: the agent's own name, for its initial when the roster has no face for it. */
+  | { type: "agent"; id: string; name?: string }
+  /** A service named only by its name ("Hacker News", "X"): its logo when one is known, else its initial. */
+  | { type: "service"; name: string }
   /** No logo and no face to show: a plain sign for the kind of thing it is. */
   | { type: "glyph"; glyph: NoticeGlyph };
 
-/** The plain signs a tile can show when there is no logo and no face. */
+/** The plain signs a tile can show when there is no logo, no face and no name. */
 export type NoticeGlyph = "agent" | "terminal" | "mission";
 
 /** Where a click on a notice leads. */
@@ -126,7 +129,7 @@ function cardNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice
     key: row.link.agent_id ? `agent:${row.link.agent_id}` : `${row.kind}:${row.id}`,
     ask,
     tone: "needs",
-    mark: row.link.agent_id ? { type: "agent", id: row.link.agent_id } : { type: "glyph", glyph: "agent" },
+    mark: row.link.agent_id ? { type: "agent", id: row.link.agent_id, name: row.agent_name } : { type: "glyph", glyph: "agent" },
     subject: name,
     title: fill(t(`rail_notice.${ask}_title`), { who: name }),
     detail: more > 0 ? [row.title, fill(t("rail_notice.and_more"), { count: more })].filter(Boolean).join(" · ") : row.title,
@@ -134,6 +137,17 @@ function cardNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice
     count: rows.length,
     target: { type: "row", row },
   };
+}
+
+/**
+ * An agent needs a login or a key for a service. The card's title names the
+ * service, so the tile shows that service's logo ("Hacker News", "X",
+ * "Claude Code"), never a generic agent sign: the person signs in to the
+ * service, not to the agent.
+ */
+function credentialNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice {
+  const service = row.title.trim();
+  return { ...cardNotice(row, rows, t), key: `credential:${service.toLowerCase()}`, mark: { type: "service", name: service }, subject: service };
 }
 
 /** An agent asks for a service to be connected: the service's own mark, and a click that connects it. */
@@ -196,6 +210,8 @@ function needsNotices(rows: StatusRow[], t: Translate): RailNotice[] {
     const alone = row.kind === "pane" || row.kind === "mission" || !row.link.agent_id;
     // A service to connect is its own notice: it shows that service, not the agent that asks.
     const key = row.connect ? `connect:${row.connect.kind}:${row.connect.id}`
+      // A login it needs, too: it shows the service it is for.
+      : row.kind === "credential" && row.title.trim() ? `credential:${row.title.trim().toLowerCase()}`
       : alone ? `${row.kind}:${row.id}` : `agent:${row.link.agent_id}`;
     const group = groups.get(key);
     if (group) group.push(row);
@@ -206,6 +222,7 @@ function needsNotices(rows: StatusRow[], t: Translate): RailNotice[] {
     if (first.connect) return connectNotice(first, first.connect, t);
     if (first.kind === "pane") return paneNotice(first, t);
     if (first.kind === "mission") return missionNotice(first, t);
+    if (first.kind === "credential" && first.title.trim()) return credentialNotice(first, group, t);
     return cardNotice(first, group, t);
   });
 }

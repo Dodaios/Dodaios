@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plus, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
+  ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, ListChecks, Loader2, Plus, RefreshCw, ShieldCheck, SquareTerminal, UserRound,
   type LucideIcon,
 } from "lucide-react";
 
 import { ToolChoiceIcon } from "@/components/agentchat/ToolChoiceChips";
 import { serviceIconRow } from "@/components/agentchat/toolChoices";
+import { toolIdentity } from "@/components/agentchat/toolIdentity";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { openPaneSession } from "@/components/agentic/openPaneSession";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -68,8 +69,12 @@ const ASK_ICON: Partial<Record<NoticeAsk, LucideIcon>> = {
 /** A question and a warning read best as the character itself. */
 const ASK_SIGN: Partial<Record<NoticeAsk, string>> = { question: "?", trouble: "!" };
 
+/**
+ * Signs for a subject with no logo, no face and no name. Plain, standard
+ * symbols only: no robot heads, rockets or sparkles (the person, 2026-11-18).
+ */
 const GLYPH: Record<NoticeGlyph, LucideIcon> = {
-  agent: Bot, terminal: SquareTerminal, mission: Rocket,
+  agent: UserRound, terminal: SquareTerminal, mission: ListChecks,
 };
 
 /** What is asked, on the tile's corner. `busy` turns it into a quiet spinner. */
@@ -91,12 +96,31 @@ function AskBadge({ notice, busy = false, small = false }: { notice: RailNotice;
   );
 }
 
-/** An agent's own face from the roster; a plain sign until the roster has answered. */
-function AgentFace({ agentId, size }: { agentId: string; size: number }) {
+/** A name's first letter, set like the profile's initial: for a subject that has a name but no logo. */
+function Monogram({ name, size }: { name: string; size: number }) {
+  const letter = Array.from(name.trim())[0]?.toUpperCase() ?? "";
+  if (!letter) return <UserRound aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
+  return (
+    <span aria-hidden data-testid="rail-notice-monogram" className="font-semibold leading-none text-foreground"
+      style={{ fontSize: Math.round(size * 0.75) }}>
+      {letter}
+    </span>
+  );
+}
+
+/** An agent's own face from the roster; its initial (or a plain person sign) when the roster has none. */
+function AgentFace({ agentId, name, size }: { agentId: string; name: string; size: number }) {
   const roster = useSocietyRoster();
   const agent = roster.data?.agents.find((candidate) => candidate.agentId === agentId);
-  if (!agent) return <Bot aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
+  if (!agent) return <Monogram name={name} size={size / 1.35} />;
   return <AgentSwatch agent={agent} size={size} />;
+}
+
+/** A service named only by its name: its own logo when the app knows one, else its initial. */
+function ServiceMark({ name, size }: { name: string; size: number }) {
+  const row = serviceIconRow("plugin", name, name);
+  if (!toolIdentity(row).logo) return <Monogram name={name} size={size} />;
+  return <ToolChoiceIcon row={row} size={size} />;
 }
 
 /** Who the notice is about: a logo kept in its own colours, a face, or a plain sign. */
@@ -113,7 +137,9 @@ function SubjectMark({ notice, size }: { notice: RailNotice; size: number }) {
       <AgentMark agent={mark.id} label={subject} variant="plain" className="h-full w-full opacity-100" />
     </span>;
   }
-  if (mark.type === "agent") return <AgentFace agentId={mark.id} size={Math.round(size * 1.35)} />;
+  if (mark.type === "service") return <ServiceMark name={mark.name} size={size} />;
+  // An agent without a name of its own ("An agent") gets no initial: the person sign says it plainly.
+  if (mark.type === "agent") return <AgentFace agentId={mark.id} name={mark.name ?? ""} size={Math.round(size * 1.35)} />;
   const Glyph = GLYPH[mark.glyph];
   return <Glyph aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
 }
