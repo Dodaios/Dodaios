@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>আপনার আর আপনার কোডিং এজেন্টদের মাঝে লিড ইঞ্জিনিয়ার।</b></p>
+<p><b>আপনার সব কোডিং এজেন্ট, একটি চ্যাট থেকে পরিচালিত।</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="সর্বশেষ রিলিজ" /></a>
