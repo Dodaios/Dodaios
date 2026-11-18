@@ -760,6 +760,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
     const busy = presenting !== null || selection.length > 0 || writing >= 0 || activeField !== null;
     const kept = indexAfterRevision(diff, current, remote.next.slides?.length ?? 0);
     const target = written !== null && !busy ? written : kept;
+    console.info("slides-follow-debug", { written, busy, sel: selection.length, writing, activeField, kept, target, selected });
     if (target !== selected) setSelected(target);
     setAgentSlide(written !== null && written !== target ? written : null);
   }
