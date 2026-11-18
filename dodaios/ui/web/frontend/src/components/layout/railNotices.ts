@@ -74,8 +74,30 @@ export interface RailNotice {
   target: NoticeTarget;
 }
 
-/** How many notices the rail shows before the rest moves behind a count. */
+/**
+ * How many notice places the rail has before it could measure its height
+ * (the first draw, or a page without ResizeObserver).
+ */
 export const NOTICES_SHOWN = 4;
+
+/** One notice tile's height (`h-11`) and the gap between two tiles (`gap-1.5`), in CSS pixels. */
+export const NOTICE_TILE_PX = 44;
+export const NOTICE_GAP_PX = 6;
+
+/**
+ * How many tiles the rail draws for `count` notices in `height` pixels.
+ *
+ * Every notice gets its own tile while they all fit; only when they do not,
+ * the last place becomes the count tile ("+3") and the rest waits behind it.
+ * A smaller window therefore shows fewer tiles. One place always stays, so a
+ * window too short for even one tile still shows the count.
+ */
+export function noticePlaces(height: number, count: number): { tiles: number; more: number } {
+  const places = Math.max(1, Math.floor((Math.max(0, height) + NOTICE_GAP_PX) / (NOTICE_TILE_PX + NOTICE_GAP_PX)));
+  if (count <= places) return { tiles: count, more: 0 };
+  const tiles = places - 1;
+  return { tiles, more: count - tiles };
+}
 
 const ASK_OF_KIND: Record<string, NoticeAsk> = {
   question: "question",

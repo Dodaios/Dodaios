@@ -22,7 +22,9 @@ import { requestPluginFocus } from "@/lib/customConnector";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
-import { NOTICES_SHOWN, type NoticeAsk, type NoticeGlyph, type RailNotice } from "./railNotices";
+import {
+  NOTICE_GAP_PX, NOTICE_TILE_PX, NOTICES_SHOWN, noticePlaces, type NoticeAsk,
+ type NoticeGlyph, type RailNotice } from "./railNotices";
 import { refreshStatusLight } from "./statusLightStore";
 import { goToStatusRow, openKeys } from "./statusRows";
 
@@ -289,18 +291,42 @@ function NoticesPanel({ anchor, notices, onClose }: { anchor: HTMLElement; notic
   );
 }
 
+/**
+ * The height the rail has left for its tiles, followed as the window changes.
+ * `null` until it could be measured; the rail then keeps `NOTICES_SHOWN` places.
+ */
+function useFreeHeight(box: HTMLElement | null): number | null {
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const read = () => setHeight(box.getBoundingClientRect().height);
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [box]);
+  return height;
+}
+
 export default function RailNoticeTiles({ notices }: { notices: RailNotice[] }) {
   const t = useT();
   const moreRef = useRef<HTMLButtonElement | null>(null);
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const height = useFreeHeight(box);
   if (notices.length === 0) return null;
 
-  // The count tile takes one of the places, so the rail never grows past its limit.
-  const shown = notices.length > NOTICES_SHOWN ? notices.slice(0, NOTICES_SHOWN - 1) : notices;
+  // Every notice gets a tile while they fit in the rail's free height; only
+  // when they do not, the last place becomes the count tile.
+  const unmeasured = NOTICES_SHOWN * NOTICE_TILE_PX + (NOTICES_SHOWN - 1) * NOTICE_GAP_PX;
+  const { tiles } = noticePlaces(height ?? unmeasured, notices.length);
+  const shown = notices.slice(0, tiles);
   const more = notices.length - shown.length;
   const moreLabel = fill(t("rail_notice.more"), { count: more });
   return (
-    <>
+    // Takes the rail's free height below the shortcuts; the tiles are counted
+    // against it, so they never push the rail into a scroll.
+    <div ref={setBox} data-testid="rail-notices-tiles" className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5">
       {shown.map((notice) => <NoticeTile key={notice.key} notice={notice} />)}
       {more > 0 && (
         <QuickTooltip side="right" className="flex" content={moreLabel}>
@@ -312,6 +338,6 @@ export default function RailNoticeTiles({ notices }: { notices: RailNotice[] }) 
         </QuickTooltip>
       )}
       {open && more > 0 && moreRef.current && <NoticesPanel anchor={moreRef.current} notices={notices} onClose={() => setOpen(false)} />}
-    </>
+    </div>
   );
 }
