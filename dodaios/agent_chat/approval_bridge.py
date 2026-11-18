@@ -214,10 +214,12 @@ class ChatApprovalBridge:
         name = _bare(tool_name)
         # Bypass means what it says (maintainer, 2026-11-13): nothing asks in
         # this stance — no hard limit, no saved ask rule, no new recipient.
-        # Only the blacklist still stops a call, and it does so before any
-        # approval is ever requested.
+        # Two exceptions (the person, 2026-11-18): a call that moves money and
+        # a catastrophic shell command (wiping a disk, reading stored
+        # passwords) ask in every stance (``action_policy.tool_call_risk``).
+        # The blacklist and the dark web stop a call before any approval.
         if grant.stance == "bypass":
-            return "chat-bypass"
+            return None if _always_asks(tool_name, args or {}) else "chat-bypass"
         if grant.stance == "always_ask" or grant.force_ask(name, args or {}):
             return None
         # A hard limit (money, credentials, deleting for good, a new recipient)
@@ -273,6 +275,18 @@ class ChatApprovalBridge:
         await self._bus.publish(
             ActionDenied(trace_id=event.trace_id, tool_name=event.tool_name, reason=reason)
         )
+
+
+def _always_asks(tool_name: str, args: dict[str, Any]) -> bool:
+    """Money and catastrophic commands ask even in Bypass (``action_policy``)."""
+    from dodaios.safety.action_policy import Severity, tool_call_risk
+
+    try:
+        finding = tool_call_risk(tool_name, args)
+    except Exception:  # noqa: BLE001 — a broken check keeps Bypass as it was
+        log.warning("chat approval bridge: risk check failed for %s", tool_name, exc_info=True)
+        return False
+    return finding is not None and finding.severity is Severity.CONFIRM
 
 
 def _changed(before: dict[str, Any], after: dict[str, Any]) -> dict[str, dict[str, str]]:

@@ -59,8 +59,10 @@ def _button(label: str, context: str = "", **extra: str) -> dict[str, str]:
         ("Send", "send"),
         ("Nachricht senden", "send"),  # i18n-allow: a page label
         ("Post", "publish"),
-        ("Delete account", "delete"),
-        ("Konto löschen", "delete"),  # i18n-allow: a page label
+        ("Delete account", "close_account"),
+        ("Authorize app", "authorize"),
+        ("Zugriff erlauben", "authorize"),  # i18n-allow: a page label
+        ("Datei löschen", "delete"),  # i18n-allow: a page label
         ("Confirm", "confirm"),
         ("Bestätigen", "confirm"),  # i18n-allow: a page label
     ],
@@ -652,3 +654,133 @@ async def test_a_gate_card_in_the_conversation_closes_as_declined(rt, monkeypatc
     assert notices[-1] == {
         "kind": "approval_request_done", "approval_id": seen[0].id, "status": "declined",
     }
+
+
+# ------------------------------------------------------------------ money, accounts, the dark web
+
+
+async def _bypass_agent_run(rt, steps):
+    """An agent in Bypass runs ``steps`` (``(url, name, params, target)``)."""
+    from dodaios.society.browser.bridge import execute_live
+
+    agent, _ = await rt.roster.create(name="Free hand", provider="openai")
+    assert str(agent.approval_mode) == "bypass"
+    applied, verdicts = [], []
+
+    async def run(agent, *, action, **kwargs):
+        for url, name, params, target in steps:
+            async def apply(name=name):
+                applied.append(name)
+                return {}
+
+            verdict = await action(
+                {"action": {name: params}, "url": url, "target": target, "apply": apply}
+            )
+            verdicts.append(verdict)
+            if not verdict["ok"]:
+                raise RuntimeError(verdict["error"])
+        return {"ok": True, "artifacts": []}
+
+    rt.browser.live.run = run
+    result = await execute_live(
+        rt, agent, rt.browser, {"task": "Do it"}, SimpleNamespace(trace_id="t", config={})
+    )
+    return result, applied, verdicts
+
+
+async def test_a_purchase_asks_even_in_bypass(rt):
+    """The person, 2026-11-18: buying with the card asks in every mode, Bypass too."""
+    seen = []
+    person = _answer_cards(rt, approve=True, seen=seen)
+    try:
+        result, applied, _ = await _bypass_agent_run(
+            rt,
+            [("https://shop.example/checkout", "click", {"index": 4},
+              _button("Place your order", "Total 49,99 €"))],
+        )
+    finally:
+        person.cancel()
+    assert result.success and applied == ["click"]
+    assert len(seen) == 1
+    assert seen[0].action["commit"]["kind"] == "buy"
+    assert seen[0].action["commit"]["severity"] == "confirm"
+    assert result.output["consequential"][0]["by"] == "user"
+
+
+async def test_a_standing_always_allow_does_not_silence_a_purchase(rt):
+    await rt.roster.update(rt.lead_id, {"approval_rules": {"always_allow": ["core:browser:*"]}})
+    seen = []
+    person = _answer_cards(rt, approve=False, seen=seen)
+    try:
+        result, applied, _ = await _run_steps(
+            rt, [("click", {"index": 4}, _button("Buy now"))], task="Buy it"
+        )
+    finally:
+        person.cancel()
+    assert not result.success and applied == [] and len(seen) == 1
+
+
+async def test_a_message_in_bypass_still_runs_without_a_card(rt):
+    result, applied, _ = await _bypass_agent_run(
+        rt, [("https://mail.example/", "click", {"index": 2}, _button("Send"))]
+    )
+    assert result.success and applied == ["click"]
+    assert await rt.approvals.items() == []
+
+
+async def test_typing_a_card_number_asks_even_in_bypass_and_never_quotes_it(rt):
+    seen = []
+    person = _answer_cards(rt, approve=True, seen=seen)
+    field = {**_button("Card number"), "tag": "input", "field": "cc-number cardnumber"}
+    try:
+        result, applied, _ = await _bypass_agent_run(
+            rt,
+            [
+                ("https://shop.example/pay", "input", {"index": 3, "text": "Ruth"},
+                 {**_button("Name"), "tag": "input", "field": "cc-name"}),
+                ("https://shop.example/pay", "input",
+                 {"index": 4, "text": "4111 1111 1111 1111"}, field),
+            ],
+        )
+    finally:
+        person.cancel()
+    assert result.success and applied == ["input", "input"]
+    assert len(seen) == 1
+    assert seen[0].action["commit"]["kind"] == "payment_details"
+    assert "4111" not in seen[0].summary
+    assert "Enter payment details" in seen[0].summary
+
+
+@pytest.mark.parametrize(
+    "url", ["http://abcdefghijklmnop.onion/", "https://market.onion.ws/listing"]
+)
+async def test_the_dark_web_is_refused_in_every_mode_without_a_card(rt, monkeypatch, url):
+    notices = []
+
+    async def post(agent, payload):
+        notices.append(payload)
+
+    monkeypatch.setattr(rt, "post_chat_notice", post)
+    result, applied, verdicts = await _bypass_agent_run(
+        rt, [("https://duckduckgo.com/", "navigate", {"url": url}, None)]
+    )
+    assert not result.success and applied == []
+    assert "dark-web" in verdicts[0]["error"] and "Do not try another way" in verdicts[0]["error"]
+    assert await rt.approvals.items() == []
+    assert notices and notices[-1]["kind"] == "action_blocked"
+    assert notices[-1]["category"] == "dark_web"
+
+
+@pytest.mark.parametrize(
+    ("label", "kind"),
+    [
+        ("Delete my account", "close_account"),
+        ("Konto löschen", "close_account"),  # i18n-allow: a page label
+        ("Transfer", "transfer"),
+        ("Jetzt überweisen", "transfer"),  # i18n-allow: a page label
+        ("Delete", "delete"),
+    ],
+)
+def test_account_and_transfer_clicks_have_their_own_kind(label, kind):
+    step = commit_step("click", {"index": 1}, _button(label), "https://bank.example/")
+    assert step is not None and step.kind == kind
