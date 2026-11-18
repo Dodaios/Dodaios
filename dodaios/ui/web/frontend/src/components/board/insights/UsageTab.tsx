@@ -243,7 +243,10 @@ function UsageMixCard({ data }: { data: BoardInsights }) {
                   <div
                     className="absolute inset-y-0 left-0 rounded-md bg-accent"
                     // Wide enough to carry its own percentage, however small the share.
-                    style={{ width: row.count > 0 ? `${Math.max(row.share * 100, 18)}%` : "0%" }}
+                    // A floor in rem, not in percent: the label is a fixed width,
+                    // and on the light theme a label that runs past the fill is
+                    // white on a near-white track.
+                    style={{ width: row.count > 0 ? `max(${row.share * 100}%, 3.5rem)` : "0%" }}
                   />
                   <span
                     className={cn(

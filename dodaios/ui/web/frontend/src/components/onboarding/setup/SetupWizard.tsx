@@ -66,7 +66,7 @@ export function SetupWizard({
   return createPortal(
     <div
       {...{ [TOUR_LAYER_ATTR]: "" }}
-      className="fixed inset-0 z-[110] grid place-items-center overflow-y-auto bg-black/50 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[110] grid place-items-center overflow-y-auto bg-scrim/50 p-4 backdrop-blur-[2px]"
       data-testid="setup-window-backdrop"
     >
       <div
