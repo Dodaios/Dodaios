@@ -592,8 +592,11 @@ async def post_memory_health(text: str, *, provider: str = "", cause: str = "") 
         return False
 
 
-async def post_memory_tidy(text: str) -> bool:
-    """Write the one summary notice of a memory tidy-up pass. Never spoken."""
+async def post_memory_tidy(text: str, counts: dict[str, int] | None = None) -> bool:
+    """Write the one summary notice of a memory tidy-up pass. Never spoken.
+
+    ``counts`` (merged, resolved, retired, reworded) let the assistant say it
+    in the person's language; ``text`` is the English record."""
     try:
         from dodaios.society.runtime import current_runtime
 
@@ -603,7 +606,8 @@ async def post_memory_tidy(text: str) -> bool:
         if svc is None or session is None:
             return False
         await svc.post_notice(
-            session.session_id, {"kind": "memory_tidy", "status": "done", "text": text}
+            session.session_id,
+            {"kind": "memory_tidy", "status": "done", "text": text, **(counts or {})},
         )
         return True
     except Exception:  # noqa: BLE001 — a notice is a courtesy; the memory is already tidied

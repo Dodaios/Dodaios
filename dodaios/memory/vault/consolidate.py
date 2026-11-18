@@ -63,7 +63,7 @@ _STOP = frozenset(
 )
 
 Reviewer = Callable[[str], Awaitable[Any]]
-Notifier = Callable[[str], Awaitable[Any]]
+Notifier = Callable[[str, dict[str, int]], Awaitable[Any]]
 
 _SYSTEM: Final[str] = (
     "You tidy a personal memory store. Input: groups of memories that may say the "
@@ -202,6 +202,15 @@ class Tidy:
             if n
         ]
         return "Tidied the memory: " + ", ".join(parts) + " - review it in Memory."
+
+    def counts(self) -> dict[str, int]:
+        """The changes by name, for the message the assistant writes about them."""
+        return {
+            "merged": self.merged,
+            "resolved": self.resolved,
+            "retired": self.retired,
+            "reworded": self.strengthened,
+        }
 
 
 def _recorded(m: Memory) -> str:
@@ -354,7 +363,7 @@ def _retry_soon(vault: MemoryVault) -> None:
 async def run_if_due(vault: MemoryVault, reviewer: Reviewer, notify: Notifier | None = None) -> int:
     """One pass when the last one is old enough; returns the number of changes.
 
-    ``notify`` gets ONE sentence, and only when something changed.
+    ``notify`` gets ONE sentence and the changes by name, only when something changed.
     """
     import asyncio
 
@@ -403,7 +412,7 @@ async def run_if_due(vault: MemoryVault, reviewer: Reviewer, notify: Notifier | 
         log.info("memory consolidation: %s", tidy.sentence())
         if notify is not None:
             try:
-                await notify(tidy.sentence())
+                await notify(tidy.sentence(), tidy.counts())
             except Exception:  # noqa: BLE001 — a notice never undoes the tidy-up
                 log.debug("memory consolidation: notice not posted", exc_info=True)
     return tidy.total

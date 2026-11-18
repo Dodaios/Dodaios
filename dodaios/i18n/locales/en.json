@@ -607,6 +607,25 @@
     "call_done_open": "Okay, it stays open for you in the app. Goodbye.",
     "call_done_gone": "That decision is no longer open. Goodbye.",
     "test_title": "Notifications are on",
-    "test_body": "This is how Dodaios reaches you while the app is in the background."
+    "test_body": "This is how Dodaios reaches you while the app is in the background.",
+    "voice": {
+      "busy": "a blocked slot",
+      "reminder": "Quick reminder: {title}.",
+      "all_day": "Today is {title}.",
+      "appointment_range": "{title} starts at {start} and runs until {end}.",
+      "appointment_at": "{title} starts at {start}.",
+      "appointment": "{title} is up now.",
+      "tidy": "I tidied up my memory of you: {changes}. You can look it over under Memory.",
+      "tidy_plain": "I tidied up my memory of you. You can look it over under Memory.",
+      "tidy_merged": "joined {n} duplicates",
+      "tidy_resolved": "settled {n} contradictions",
+      "tidy_retired": "dropped {n} outdated entries",
+      "tidy_reworded": "made {n} lessons clearer",
+      "and": " and ",
+      "tidy_merged_one": "joined one duplicate",
+      "tidy_resolved_one": "settled one contradiction",
+      "tidy_retired_one": "dropped one outdated entry",
+      "tidy_reworded_one": "made one lesson clearer"
+    }
   }
 }

@@ -141,7 +141,15 @@ class MobilePushNotifier:
             return
         if session_id != (self._lead_session_id() or session_id):
             return
-        text = _line(payload.get("text") or payload.get("report") or payload.get("summary"))
+        if payload.get("voice_covered"):
+            # Told inside the message of the notice before it (``proactive_voice``).
+            return
+        text = _line(
+            payload.get("voice")
+            or payload.get("text")
+            or payload.get("report")
+            or payload.get("summary")
+        )
         if not text:
             return
         try:

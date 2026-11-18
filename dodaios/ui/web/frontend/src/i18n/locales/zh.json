@@ -1161,7 +1161,19 @@
     "tool_running": "仍在运行…",
     "interrupt_hint": "按 esc 中断",
     "status_words": "思考中…, 处理中…, 深挖中…, 推理中…, 琢磨中…, 整理中…, 解谜中…, 酝酿中…, 组装中…, 理顺中…, 烹制中…, 进入状态…",
-    "drop_nothing_usable": "拖入的内容中没有此聊天可用的东西。"
+    "drop_nothing_usable": "拖入的内容中没有此聊天可用的东西。",
+    "proactive_tidy": "我整理了关于你的记忆：{changes}。",
+    "proactive_tidy_plain": "我整理了关于你的记忆。",
+    "proactive_tidy_merged": "合并了 {n} 条重复记录",
+    "proactive_tidy_merged_one": "合并了 1 条重复记录",
+    "proactive_tidy_resolved": "理清了 {n} 处矛盾",
+    "proactive_tidy_resolved_one": "理清了 1 处矛盾",
+    "proactive_tidy_retired": "删除了 {n} 条过时记录",
+    "proactive_tidy_retired_one": "删除了 1 条过时记录",
+    "proactive_tidy_reworded": "把 {n} 条经验写得更清楚",
+    "proactive_tidy_reworded_one": "把 1 条经验写得更清楚",
+    "proactive_and": "，并",
+    "proactive_open_memory": "打开记忆"
   },
   "chats_view": {
     "title": "对话",
@@ -11658,7 +11670,9 @@
     "chat_own": "你让我提醒你：",
     "chat_mixed": "提醒一下：",
     "settled_done": "已完成",
-    "settled_dismissed": "已隐藏"
+    "settled_dismissed": "已隐藏",
+    "say_item": "{title}，{when}。",
+    "say_title": "{title}。"
   },
   "mobile": {
     "settings": {

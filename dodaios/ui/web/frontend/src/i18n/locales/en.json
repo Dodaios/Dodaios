@@ -1161,7 +1161,19 @@
     "tool_running": "Still running…",
     "interrupt_hint": "esc to interrupt",
     "status_words": "Thinking…, Working…, Digging…, Reasoning…, Pondering…, Wrangling…, Puzzling…, Noodling…, Assembling…, Untangling…, Cooking…, Vibing…",
-    "drop_nothing_usable": "That drop carried nothing this chat could use."
+    "drop_nothing_usable": "That drop carried nothing this chat could use.",
+    "proactive_tidy": "I tidied up my memory of you: {changes}.",
+    "proactive_tidy_plain": "I tidied up my memory of you.",
+    "proactive_tidy_merged": "joined {n} duplicates",
+    "proactive_tidy_merged_one": "joined one duplicate",
+    "proactive_tidy_resolved": "settled {n} contradictions",
+    "proactive_tidy_resolved_one": "settled one contradiction",
+    "proactive_tidy_retired": "dropped {n} outdated entries",
+    "proactive_tidy_retired_one": "dropped one outdated entry",
+    "proactive_tidy_reworded": "made {n} lessons clearer",
+    "proactive_tidy_reworded_one": "made one lesson clearer",
+    "proactive_and": " and ",
+    "proactive_open_memory": "Open Memory"
   },
   "chats_view": {
     "title": "Chat",
@@ -11658,7 +11670,9 @@
     "chat_own": "You asked me to remind you:",
     "chat_mixed": "A quick heads-up:",
     "settled_done": "Ticked off",
-    "settled_dismissed": "Dismissed"
+    "settled_dismissed": "Dismissed",
+    "say_item": "{title}, {when}.",
+    "say_title": "{title}."
   },
   "mobile": {
     "settings": {
