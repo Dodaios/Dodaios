@@ -11847,7 +11847,11 @@
     "provider_model_unavailable": "model not available",
     "provider_other": "not working right now",
     "provider_detail": "Check the access under API keys.",
-    "provider_action": "Open API keys"
+    "provider_action": "Open API keys",
+    "menu_label": "Options for {who}",
+    "menu_snooze": "Hide for an hour",
+    "menu_close": "Close",
+    "menu_close_all": "Close all {count}"
   },
   "nodes": {
     "title": "Nodes",

@@ -11847,7 +11847,11 @@
     "provider_model_unavailable": "modelo no disponible",
     "provider_other": "no funciona en este momento",
     "provider_detail": "Revisa el acceso en Claves de API.",
-    "provider_action": "Abrir claves de API"
+    "provider_action": "Abrir claves de API",
+    "menu_label": "Opciones de {who}",
+    "menu_snooze": "Ocultar una hora",
+    "menu_close": "Cerrar",
+    "menu_close_all": "Cerrar los {count}"
   },
   "nodes": {
     "title": "Nodes",

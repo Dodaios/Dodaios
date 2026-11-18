@@ -4,6 +4,7 @@ import { usePluginAttention, type PluginAttentionItem } from "@/hooks/usePluginA
 import { fill, useT } from "@/i18n";
 import { prettyProviderName } from "@/lib/prettyProviderName";
 
+import { useVisibleNotices } from "./railNoticeDismiss";
 import { useStatusLightStore, watchStatusLight, type StatusLightData, type StatusRow } from "./statusLightStore";
 
 /**
@@ -75,6 +76,12 @@ export interface RailNotice {
   /** How many things of the same subject stand behind this one notice. */
   count: number;
   target: NoticeTarget;
+  /**
+   * What tells this notice from a later one about the same subject (the card's
+   * id, when a connection ended): a notice the person closed shows again once
+   * its stamp changes. Empty when there is nothing to tell them apart by.
+   */
+  stamp?: string;
 }
 
 /**
@@ -136,6 +143,7 @@ function cardNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice
     action: t(`rail_notice.${ask}_action`),
     count: rows.length,
     target: { type: "row", row },
+    stamp: row.id,
   };
 }
 
@@ -165,6 +173,7 @@ function connectNotice(row: StatusRow, connect: NonNullable<StatusRow["connect"]
     action: t("rail_notice.connect_action"),
     count: 1,
     target: { type: "connect", service: connect.kind === "cli" ? "cli" : "plugin", id: connect.id, row },
+    stamp: row.id,
   };
 }
 
@@ -184,6 +193,7 @@ function paneNotice(row: StatusRow, t: Translate): RailNotice {
     action: t("rail_notice.waiting_action"),
     count: 1,
     target: { type: "row", row },
+    stamp: row.id,
   };
 }
 
@@ -199,6 +209,7 @@ function missionNotice(row: StatusRow, t: Translate): RailNotice {
     action: t("rail_notice.mission_action"),
     count: 1,
     target: { type: "row", row },
+    stamp: row.id,
   };
 }
 
@@ -244,6 +255,7 @@ function pluginNotices(items: PluginAttentionItem[], t: Translate): RailNotice[]
       action: t(reconnect ? "rail_notice.reconnect_action" : "rail_notice.plugin_error_action"),
       count: 1,
       target: reconnect ? { type: "reconnect", pluginId: item.id } : { type: "plugin", pluginId: item.id },
+      stamp: item.reauthAt ? `${item.status}:${item.reauthAt}` : undefined,
     };
   });
 }
@@ -319,11 +331,14 @@ export function railNotices(
   ];
 }
 
-/** The rail's notices, kept fresh while the window is in sight. */
+/**
+ * The rail's notices, kept fresh while the window is in sight, without the
+ * ones the person closed or put off (`railNoticeDismiss`).
+ */
 export function useRailNotices(): RailNotice[] {
   const t = useT();
   const light = useStatusLightStore((s) => s.light);
   const plugins = usePluginAttention();
   useEffect(() => watchStatusLight(), []);
-  return railNotices(light, plugins.items, t);
+  return useVisibleNotices(railNotices(light, plugins.items, t));
 }
