@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +48,8 @@ TASK_KIND: Final[str] = "project"
 GRACE_DAYS: Final[int] = 7
 #: How often the scheduler looks for due reminders.
 TICK_S: Final[float] = 30.0
+#: How long the scheduler waits for the conversation after a start.
+READY_WAIT_S: Final[float] = 180.0
 #: A reminder found more than this late (the app was closed) is marked
 #: delivered without a notice: a week-old "take the pizza out" helps nobody.
 STALE_AFTER: Final[timedelta] = timedelta(days=3)
@@ -424,6 +427,17 @@ def lead_target() -> tuple[Any, str] | None:
         return None
 
 
+def chat_ready() -> bool:
+    """Whether the app's conversations are up (the agent society is running)."""
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        return runtime is not None and runtime.chat_service() is not None
+    except Exception:  # noqa: BLE001 — not up yet; asked again next tick
+        return False
+
+
 async def post_notice(svc: Any, session_id: str, payload: dict[str, Any]) -> str:
     """Post a notice and return its timeline id (``n-<seq>``), or ``""``."""
     await svc.post_notice(session_id, payload)
@@ -481,8 +495,11 @@ class ReminderScheduler:
         notifier: Callable[[], Any | None],
         clock: Callable[[], datetime] = utc_now,
         tick_s: float = TICK_S,
+        ready: Callable[[], bool] = lambda: True,
     ) -> None:
         self._vault = vault
+        self._ready = ready
+        self._born = time.monotonic()
         self._target = target
         self._notifier = notifier
         self._clock = clock
@@ -512,6 +529,11 @@ class ReminderScheduler:
 
     async def tick(self) -> list[str]:
         """Deliver what is due; returns the ids delivered this round."""
+        if not self._ready() and time.monotonic() - self._born < READY_WAIT_S:
+            # Right after a start the conversation is not there yet: an item
+            # claimed now would be marked told without being told. An app that
+            # never brings one up still delivers (the desktop notification).
+            return []
         vault = self._vault()
         if vault is None:
             return []

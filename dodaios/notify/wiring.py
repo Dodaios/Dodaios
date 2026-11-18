@@ -17,7 +17,7 @@ from typing import Any
 
 from dodaios.notify import attention_bridge
 from dodaios.notify.notifier import Notifier, set_current
-from dodaios.notify.reminders import ReminderScheduler
+from dodaios.notify.reminders import ReminderScheduler, chat_ready
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +98,7 @@ def install(
         _scheduler = ReminderScheduler(
             vault=_vault_getter(cfg),
             notifier=lambda: notifier if desktop_reminders else None,
+            ready=chat_ready,
         )
         _scheduler.start()
         log.info("notify: reminder scheduler started")

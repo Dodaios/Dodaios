@@ -191,25 +191,30 @@ def build_prompt(kind: str, payloads: list[dict[str, Any]], situation: Situation
         "",
         facts_of(kind, payloads, situation.now.tzinfo),
     ]
-    if situation.later_today:
-        lines += ["", "Still coming up today (context only):"]
+    # The day around it matters for what is due now (a break, then the next
+    # block); a memory tidy-up or a trigger question stands on its own.
+    if kind == "reminder_due" and situation.later_today:
+        lines += ["", "Still coming up today (background, not news):"]
         lines += [f"- {line}" for line in situation.later_today]
-    if situation.failed_today:
-        lines += ["", "Your routines that failed or were skipped today (context only):"]
+    if kind == "reminder_due" and situation.failed_today:
+        lines += ["", "Your routines that failed or were skipped today (background, not news):"]
         lines += [f"- {line}" for line in situation.failed_today]
     if situation.recent:
-        lines += ["", "The last lines of your conversation (context only, quoted):"]
+        lines += ["", "The last lines of your conversation (background, quoted):"]
         lines += [f"> {line}" for line in situation.recent]
     lines += [
         "",
         f"Write the message in {language}. Talk like a capable person who knows them, in "
-        "the informal form (German: du). One to three short sentences: what is due or "
-        "what happened first, then only what helps right now, for example how it fits "
-        "with what comes next, or a failed routine you can catch up on together when it "
-        "fits. Give times as on a clock (10:30). Use only the facts above; never make up "
-        "a fact, a plan or a promise. No greeting, no sign-off, no heading, no list, no "
-        "emoji, no bold, no quotes around titles. Do not mention notices, notifications, "
-        "systems, apps or that you are an assistant. Reply with the message text only.",
+        "the informal form (German: du). One to three short sentences. The first sentence "
+        "says what is due or what happened. A background line may follow only when it "
+        "connects directly: the block that comes right after, or a failed routine whose "
+        "work fits into the time that is due now (say you can do it together then; a "
+        "break or a meal is never time for work). "
+        "Otherwise leave the background out. Give times as people in that language write "
+        "them (German 18:19, English 6:19 PM). Use only the facts above; never make up a "
+        "fact, a plan or a promise. No greeting, no sign-off, no heading, no list, no emoji, "
+        "no bold, no quotes around titles. Do not mention notices, notifications, systems, "
+        "apps, usage limits or that you are an assistant. Reply with the message text only.",
     ]
     return "\n".join(lines)
 

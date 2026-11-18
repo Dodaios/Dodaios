@@ -450,3 +450,25 @@ async def test_the_scheduler_does_not_tell_an_old_format_appointment_after_its_e
     )
     assert await scheduler.tick() == []
     assert notifier.calls == []
+
+
+async def test_nothing_is_claimed_before_the_conversation_is_up(
+    vault: MemoryVault, clock: Clock, tmp_path: Path
+) -> None:
+    """Right after a start an item claimed without a chat would be marked told, never told."""
+    svc, sid = _service(tmp_path)
+    due = NOW_LOCAL + timedelta(minutes=1)
+    memory = reminders.create_reminder(vault, "call the bank", due).memory
+    up = False
+    scheduler = reminders.ReminderScheduler(
+        vault=lambda: vault,
+        target=lambda: (svc, sid),
+        notifier=lambda: None,
+        clock=clock.utc,
+        ready=lambda: up,
+    )
+    clock.moment = NOW_LOCAL + timedelta(minutes=2)
+    assert await scheduler.tick() == []
+    assert reminders.list_due(vault, days=1)[0]["delivered"] is False
+    up = True
+    assert await scheduler.tick() == [memory.id]
