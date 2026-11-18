@@ -289,6 +289,8 @@ export class LivePlayer {
     this.units = [];
     this.revealed = 0;
     this.frameBox = null;
+    // The last batch's frame goes at once, not one tick later.
+    this.view.frame.dataset.shown = "false";
     this.add(units);
   }
 
