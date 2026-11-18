@@ -165,16 +165,74 @@ smooths each step.
 
 ## Testing a reveal by hand
 
+Do not ask the Dev assistant to build the node. Its chat may run on a local
+model that cannot call tools: it answers that it has no tool for it. Play the
+agent yourself instead: call the Dev app's own `node` tool over MCP, the way
+a coding agent does.
+
 1. Load the pull request in the Dev app: `python scripts/dev_preview.py <PR>`
-   (docs/dev-preview.md).
-2. In the Dev app's lead chat, ask for a node of the type, for example "Make
-   me a sheet of my monthly costs". The window should open beside the chat,
-   show the skeleton, then play each edit in with the presence.
-3. Check both themes (Settings > Appearance). The presence must be white on
-   charcoal and near-black on paper.
-4. Click into the content while a batch plays. It must finish at once, and
-   the view must not scroll by itself after that.
-5. Turn on reduced motion in the OS. The content must appear at once, with
-   the presence only.
-6. Unit tests: `npx vitest run src/components/nodes/live` and
+   (docs/dev-preview.md). If another agent's preview is loaded and its pull
+   request is still open, wait until it merges.
+2. Find the endpoints. The Dev app uses every default port plus 100:
+   - MCP tools: `http://127.0.0.1:47921/api/control/mcp/`
+   - the lead chat's session id: `GET http://127.0.0.1:47921/api/agent-chat/lead`
+     (`session_id` in the answer)
+   - the window's DevTools port: first line of
+     `<main checkout>/data-dev/webview/EBWebView/DevToolsActivePort`
+3. Start a turn so the card shows "being built" and the window may open by
+   itself: send the Dev lead chat any message that takes a while to answer
+   (type it in the composer, or over DevTools: focus the composer's
+   `[contenteditable="true"]`, then `Input.insertText` and an Enter key).
+4. While that turn runs, call the `node` tool: one `create` with a skeleton
+   spec, then several `update` calls with `changes`, a few seconds apart. The
+   bearer is the control key; the `X-Jarvis-Chat-Session` header makes the
+   write the lead's, in that chat. Run it with the main checkout's
+   interpreter from the preview worktree (`.claude/worktrees/dev-preview`):
+
+   ```python
+   import asyncio
+   from mcp import ClientSession
+   from mcp.client.streamable_http import streamablehttp_client
+   from dodaios.core.control_key import get_control_key
+
+   URL = "http://127.0.0.1:47921/api/control/mcp/"
+   SESSION = "<lead session id>"
+
+   async def main():
+       headers = {"Authorization": f"Bearer {get_control_key()}",
+                  "X-Jarvis-Chat-Session": SESSION}
+       async with streamablehttp_client(URL, headers=headers) as (read, write, _):
+           async with ClientSession(read, write) as s:
+               await s.initialize()
+               made = await s.call_tool("node", {
+                   "operation": "create", "type": "sheets", "title": "Monthly costs",
+                   "spec": {"sheets": [{"name": "Costs", "columns": ["Item", "Amount"], "rows": []}]}})
+               print(made.content[0].text)  # "... (node id <id>) ..."
+               node = input("node id: ")
+               for rows in (["Rent", 980], ["Power", 74]), (["Phone", 20], ["Gym", 30]):
+                   await asyncio.sleep(5)
+                   await s.call_tool("node", {"operation": "update", "node": node, "changes": [
+                       {"op": "append", "path": "/sheets/0/rows", "value": r} for r in rows]})
+
+   asyncio.run(main())
+   ```
+
+   Call `{"operation": "guide", "type": "<type>"}` first for the type's
+   grammar. Each `update` is one batch the editor plays back.
+5. Screenshot the Dev window over DevTools: take the page from
+   `http://127.0.0.1:<port>/json` (the one on `127.0.0.1:47921`, without
+   `solo=1`), then `Page.captureScreenshot` every half second while it
+   builds. For the light theme, run
+   `document.documentElement.classList.remove("dark")` in the page with
+   `Runtime.evaluate`; add the class back for dark. Do not switch the theme
+   in Settings: the setting is shared with the person's own app.
+6. Check, in both themes: the window opened by itself, the skeleton showed,
+   only the new content played in under the frame, tag and cursor, the view
+   did not jump, and the composer kept its focus
+   (`document.activeElement`).
+7. Click into the content while a batch plays. It must finish at once, and
+   the view must not scroll by itself after that. With reduced motion on in
+   the OS, the content must appear at once, with the presence only.
+8. Stop your Dev app afterwards, by its PID only (`dev_preview.py` prints it).
+9. Unit tests: `npx vitest run src/components/nodes/live` and
    `pytest tests/unit/nodes/test_live.py`.
