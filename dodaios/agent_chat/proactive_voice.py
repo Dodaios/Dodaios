@@ -107,7 +107,7 @@ def _local(value: Any, zone: Any) -> datetime | None:
         return None
     try:
         moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
+    except ValueError:  # not a moment after all: the item is told without its time
         return None
     if moment.tzinfo is None:
         return moment
@@ -295,6 +295,7 @@ def _assistant_name() -> str:
 
         return resolve_assistant_name(load_config())
     except Exception:  # noqa: BLE001 - the prompt says "the assistant" instead
+        log.debug("proactive voice: assistant name unresolved", exc_info=True)
         return ""
 
 
