@@ -80,6 +80,16 @@ interface Dragging {
   index: number;
 }
 
+
+/** A metric tile is never narrower than this; a narrow window wraps the row instead of cutting the figures. */
+const METRIC_MIN_WIDTH = 176;
+
+/** The metric row's columns: `perRow` across a wide canvas, fewer once a tile would drop below its narrowest. */
+function metricColumns(perRow: number): string {
+  const gaps = (perRow - 1) * 12;
+  return `repeat(auto-fill, minmax(max(${METRIC_MIN_WIDTH}px, calc((100% - ${gaps}px) / ${perRow} - 0.5px)), 1fr))`;
+}
+
 export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
   const t = useT();
   const nodeId = node.id ?? "";
@@ -417,7 +427,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         </div>
 
         {section.metrics.length > 0 && (
-          <div className="mt-4 grid gap-3" style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }} data-testid="data-metrics">
+          <div className="mt-4 grid gap-3" style={{ gridTemplateColumns: metricColumns(perRow) }} data-testid="data-metrics">
             {section.metrics.map((metric, i) => {
               const sel: DashSelection = { kind: "metrics", section: s, index: i };
               const selected = same(current, sel);
@@ -619,7 +629,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         </div>
       ) : (
         <div
-          className="mx-auto flex max-w-[1216px] flex-col gap-6 px-6 pb-28 pt-8"
+          className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-6 pb-28 pt-8 lg:px-10"
           onKeyDown={onBodyKey}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setSelection(null);

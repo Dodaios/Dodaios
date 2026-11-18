@@ -71,6 +71,53 @@ export function defaultWidth(kind: string): number {
   }
 }
 
+/** Columns that keep their width when the grid is wider than its columns: a number or a date reads no better wider. */
+const FIXED_KINDS = new Set(["number", "currency", "percent", "date", "check", "status"]);
+
+/**
+ * The widths the grid draws: the stored ones, and when they leave room at the
+ * right, that room shared among the text columns in proportion to their width
+ * (every column when there is no text column). A grid never ends halfway
+ * across its window; a grid wider than its window keeps its widths and scrolls.
+ */
+export function fillWidths(widths: readonly number[], kinds: readonly string[], room: number): number[] {
+  const total = widths.reduce((a, b) => a + b, 0);
+  const extra = Math.floor(room - total);
+  if (extra <= 0 || widths.length === 0) return [...widths];
+  let grow = widths.map((_, i) => !FIXED_KINDS.has(kinds[i]));
+  if (!grow.some(Boolean)) grow = widths.map(() => true);
+  const base = widths.reduce((sum, width, i) => (grow[i] ? sum + width : sum), 0);
+  const out = [...widths];
+  let given = 0;
+  let lastGrown = -1;
+  widths.forEach((width, i) => {
+    if (!grow[i]) return;
+    const share = Math.floor((extra * width) / base);
+    out[i] = width + share;
+    given += share;
+    lastGrown = i;
+  });
+  out[lastGrown] += extra - given;
+  return out;
+}
+
+/**
+ * The stored width that makes column `col` draw `target` pixels wide once the
+ * room is shared out again (a drag on a stretched column follows the pointer).
+ */
+export function storedWidthFor(widths: readonly number[], kinds: readonly string[], room: number, col: number, target: number): number {
+  const others = widths.reduce((sum, width, i) => (i === col ? sum : sum + width), 0);
+  if (others + target >= room) return target;
+  let grow = widths.map((_, i) => !FIXED_KINDS.has(kinds[i]));
+  if (!grow.some(Boolean)) grow = widths.map(() => true);
+  if (!grow[col]) return target;
+  const fixed = widths.reduce((sum, width, i) => (grow[i] ? sum : sum + width), 0);
+  const growingOthers = others - fixed;
+  if (growingOthers <= 0) return target;
+  // Drawn width = stored * (room - fixed) / (growingOthers + stored); solved for stored.
+  return Math.round((target * growingOthers) / (room - fixed - target));
+}
+
 export interface EditState {
   row: number;
   col: number;
@@ -178,7 +225,11 @@ export function SheetGrid(props: SheetGridProps) {
   const size: GridSize = useMemo(() => ({ rows: Math.max(1, rowCount), cols: Math.max(1, cols) }), [rowCount, cols]);
   const freeze = Math.min(sheet.freeze ?? 1, cols);
 
-  const widths = useMemo(() => views.map((view) => view.column.width ?? defaultWidth(view.kind)), [views]);
+  const storedWidths = useMemo(() => views.map((view) => view.column.width ?? defaultWidth(view.kind)), [views]);
+  const kinds = useMemo(() => views.map((view) => view.kind as string), [views]);
+  // The room right of the row numbers: the columns fill it, the grid never stops halfway.
+  const room = Math.max(0, scroll.width - ROW_NUMBER_WIDTH);
+  const widths = useMemo(() => fillWidths(storedWidths, kinds, room), [storedWidths, kinds, room]);
   const lefts = useMemo(() => {
     const out: number[] = [];
     let left = ROW_NUMBER_WIDTH;
@@ -514,23 +565,29 @@ export function SheetGrid(props: SheetGridProps) {
     event.preventDefault();
     event.stopPropagation();
     const startX = event.clientX;
+    // The drag follows the drawn width; what is stored is the width that draws it.
     const startWidth = widths[col];
-    let width = startWidth;
+    const startStored = storedWidths[col];
+    let stored = startStored;
     const onMove = (e: globalThis.MouseEvent) => {
-      width = Math.max(48, Math.min(480, Math.round(startWidth + e.clientX - startX)));
-      setResizing({ col, width });
+      const target = Math.max(48, Math.min(Math.max(480, startWidth), Math.round(startWidth + e.clientX - startX)));
+      stored = Math.max(48, Math.min(960, storedWidthFor(storedWidths, kinds, room, col, target)));
+      setResizing({ col, width: stored });
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       setResizing(null);
-      if (width !== startWidth) actions.resizeColumn(col, width);
+      if (stored !== startStored) actions.resizeColumn(col, stored);
       focusField();
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   };
-  const shownWidths = resizing ? widths.map((w, i) => (i === resizing.col ? resizing.width : w)) : widths;
+  const shownWidths = useMemo(
+    () => (resizing ? fillWidths(storedWidths.map((w, i) => (i === resizing.col ? resizing.width : w)), kinds, room) : widths),
+    [resizing, storedWidths, kinds, room, widths],
+  );
   const shownLefts = useMemo(() => {
     if (!resizing) return lefts;
     const out: number[] = [];

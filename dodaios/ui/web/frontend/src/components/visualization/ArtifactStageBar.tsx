@@ -160,7 +160,7 @@ export function TitlePill({
   );
   const pillClass = cn(
     "inline-flex h-10 min-w-0 items-center gap-2.5",
-    plain ? "px-1" : "max-w-[min(40rem,56vw)] rounded-full border border-border/70 bg-secondary/40 px-4",
+    plain ? "max-w-full px-1" : "max-w-[min(40rem,56vw)] rounded-full border border-border/70 bg-secondary/40 px-4",
   );
   return (
     <div className="inline-flex min-w-0 items-center gap-2.5">

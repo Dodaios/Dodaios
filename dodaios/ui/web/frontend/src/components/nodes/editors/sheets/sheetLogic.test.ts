@@ -30,6 +30,7 @@ import {
   type SheetsSpec,
 } from "./model";
 import * as ops from "./ops";
+import { fillWidths, storedWidthFor } from "./SheetGrid";
 import { advance, at, clampSelection, jump, move, rangeOf, selectAll, selectRows } from "./selection";
 
 const view = (kind: ColumnType, typed = true, unit = "") => ({ kind, column: { type: typed ? kind : undefined, unit } });
@@ -456,5 +457,37 @@ describe("charts from the grid", () => {
     const stored = storedChart(literal, null, orders(), null);
     expect(stored).toEqual(literal);
     expect(drawnChart(stored, orders(), [])).toBe(stored);
+  });
+});
+
+describe("fillWidths", () => {
+  it("shares the room right of the columns among the text columns", () => {
+    const out = fillWidths([260, 112, 360, 280], ["text", "number", "text", "text"], 2012);
+    expect(out[1]).toBe(112);
+    expect(out.reduce((a, b) => a + b, 0)).toBe(2012);
+    expect(out[0] / 260).toBeCloseTo(out[2] / 360, 1);
+  });
+
+  it("stretches every column when none holds text", () => {
+    const out = fillWidths([100, 100], ["number", "date"], 400);
+    expect(out).toEqual([200, 200]);
+  });
+
+  it("keeps the widths when the columns are wider than the room", () => {
+    expect(fillWidths([300, 300], ["text", "text"], 400)).toEqual([300, 300]);
+  });
+});
+
+describe("storedWidthFor", () => {
+  it("stores the width that draws the dragged width once the room is shared out", () => {
+    const widths = [260, 112, 360, 280];
+    const kinds = ["text", "number", "text", "text"];
+    const stored = storedWidthFor(widths, kinds, 2012, 0, 700);
+    const drawn = fillWidths(widths.map((w, i) => (i === 0 ? stored : w)), kinds, 2012);
+    expect(Math.abs(drawn[0] - 700)).toBeLessThanOrEqual(2);
+  });
+
+  it("stores the dragged width as is when the grid outgrows the room", () => {
+    expect(storedWidthFor([300, 300], ["text", "text"], 500, 0, 400)).toBe(400);
   });
 });
