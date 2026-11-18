@@ -122,7 +122,7 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
   };
 
   /** The line box of the character just before `index`, or the first one after it. */
-  const boxAt = (index: number): { x: number; y: number; h: number } | null => {
+  const boxAt = (index: number): { x: number; y: number; h: number; within: Element } | null => {
     const nodes = textNodesOf(element);
     const text = nodes.map((n) => n.data).join("");
     let at = Math.min(index, text.length) - 1;
@@ -141,7 +141,7 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
     const rects = range.getClientRects();
     const rect = rects.length > 0 ? rects[rects.length - 1] : null;
     if (!rect || (rect.width === 0 && rect.height === 0)) return null;
-    return { x: atEnd ? rect.right : rect.left, y: rect.top, h: rect.height };
+    return { x: atEnd ? rect.right : rect.left, y: rect.top, h: rect.height, within: element };
   };
 
   const placeGhost = (outer: DOMRect) => {

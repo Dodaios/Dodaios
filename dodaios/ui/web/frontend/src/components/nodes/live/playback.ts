@@ -74,7 +74,7 @@ export interface UnitMotion {
   /** Called every frame while the unit is prepared; `host` is the presence layer's box. */
   update?(host: DOMRect): void;
   /** Where the agent is writing now, in viewport pixels; null when it is not at a point. */
-  caret?(): { x: number; y: number; h: number } | null;
+  caret?(): { x: number; y: number; h: number; within: Element } | null;
 }
 
 /** One step of a batch: the elements that fade in together, and its status. */
@@ -418,7 +418,7 @@ export class LivePlayer {
     const under = outer.top + margin - caret.y;
     const delta = over > 0 ? over : under > 0 ? -under : 0;
     if (delta === 0) return;
-    const scroller = scrollParent(this.host.parentElement);
+    const scroller = scrollParent(caret.within);
     scroller?.scrollBy({ top: delta, behavior: this.reduced() ? "auto" : "smooth" });
   }
 
