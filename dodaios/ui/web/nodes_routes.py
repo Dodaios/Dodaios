@@ -75,7 +75,13 @@ from dodaios.nodes.board.scene import MAX_SCENE_BYTES, live_elements, scene_boun
 from dodaios.nodes.edit import KINDS, apply_field
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.model import Node
-from dodaios.nodes.store import MAX_EVERY_MINUTES, MIN_EVERY_MINUTES, NodeStore, SpecConflict
+from dodaios.nodes.store import (
+    MAX_EVERY_MINUTES,
+    MIN_EVERY_MINUTES,
+    NodeStore,
+    SpecConflict,
+    spec_conflict_detail,
+)
 from dodaios.nodes.types import MAX_SPEC_BYTES, MAX_TITLE_CHARS, NODE_TYPES, NodeError, node_type
 from dodaios.ui.web import living_pages_routes
 from dodaios.ui.web.artifact_view import ARTIFACT_PAGE_CSP
@@ -392,7 +398,9 @@ async def put_spec(node_id: str, request: Request) -> Any:
         return JSONResponse(
             status_code=409,
             content={
-                "detail": str(exc),
+                # Built from the node, not from the exception: the answer
+                # carries only what the editor needs to offer both versions.
+                "detail": spec_conflict_detail(current),
                 "version": current.version,
                 "updated_at": current.updated_at,
                 "spec": current.spec,

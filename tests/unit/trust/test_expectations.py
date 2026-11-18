@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -153,6 +154,16 @@ def test_mail_recipient_must_match() -> None:
     args = {"action": "send_message", "to": "ana@example.com"}
     assert _cmp("mail to Ana@Example.com is sent", "gmail", args, receipt=receipt) == HIT
     assert _cmp("mail to bob@example.com is sent", "gmail", args, receipt=receipt) == MISS
+
+
+def test_plus_addresses_are_read_and_a_long_run_without_at_stays_fast() -> None:
+    receipt = {"summary": "Mail sent", "evidence": {"to": "ana+news@example.com"}, "links": []}
+    args = {"action": "send_message", "to": "ana+news@example.com"}
+    assert _cmp("mail to ana+news@example.com is sent", "gmail", args, receipt=receipt) == HIT
+    # One pass over the text: this took seconds with an unbounded local part.
+    started = time.perf_counter()
+    _cmp("mail to " + "+" * 200_000 + " is sent", "gmail", args, receipt=receipt)
+    assert time.perf_counter() - started < 2.0
 
 
 def test_calendar_time_and_date() -> None:

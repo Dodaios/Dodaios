@@ -223,7 +223,10 @@ _FAILURE = re.compile(
     r"doesn't exist|does not exist)\b",
     re.I,
 )
-_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# The local part starts where a run of its characters starts and is capped at
+# RFC 5321's 64, so a long run with no "@" costs one pass instead of one pass
+# per starting position.
+_EMAIL = re.compile(r"(?<![\w.+-])[\w.+-]{1,64}@[\w-]+(?:\.[\w-]+)+")
 _URL = re.compile(r"https?://[^\s\"'<>)\]]+")
 _DATE = re.compile(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)")
 _TIME = re.compile(r"(?<![\d:+-])(\d{1,2}):(\d{2})(?!\d)")
