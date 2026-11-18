@@ -152,7 +152,7 @@ it("take over answers the row as taken over and hands the browser to the person"
 it("a blocked action has no buttons and says why", () => {
   const blocked: NoticeItem = {
     type: "notice", id: "b-1", kind: "action_blocked", text: "x is a dark-web address.",
-    agentName: "", agentId: "jarvis", status: "blocked", tsMs: 1,
+    agentName: "", agentId: "jarvis", status: "blocked", tsMs: 1, resolved: "",
     data: { kind: "action_blocked", category: "dark_web", where: "abc.onion", agent_id: "jarvis" },
   };
   render(<ActionBlockedCard item={blocked} />);

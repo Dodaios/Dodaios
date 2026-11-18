@@ -126,7 +126,7 @@ export function ApprovalRequestCard({ item }: { item: NoticeItem }) {
         className="mx-auto flex max-w-[85%] items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
         <Lock aria-hidden size={12} className="shrink-0" />
         <span className="min-w-0 truncate" data-testid="approval-request-closed">
-          {t(closedKey)} · {title}
+          {t(closedKey)} · {item.text || title}
         </span>
       </div>
     );
@@ -175,8 +175,8 @@ export function ApprovalRequestCard({ item }: { item: NoticeItem }) {
               {t("society.chat.approval_request_live_open")}
             </span>
           )}
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] text-foreground">
-            <span className="agent-browser-live-dot !h-1.5 !w-1.5" data-state="needs-you" aria-hidden />
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[11px] text-foreground shadow-sm">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" aria-hidden />
             {t("society.chat.approval_request_paused")}
           </span>
         </button>
