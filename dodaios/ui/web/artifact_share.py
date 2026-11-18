@@ -139,9 +139,14 @@ def staged_file(token: str, name: str) -> Path | None:
     """The staged file a download link names, or None for anything else."""
     if not _TOKEN_RE.match(token) or name != Path(name).name or name in ("", ".", ".."):
         return None
-    folder = share_folder().resolve()
-    target = (folder / token / name).resolve()
-    if target.parent.parent != folder or not target.is_file():
+    folder = os.path.realpath(share_folder())
+    candidate = os.path.realpath(os.path.join(folder, token, name))
+    # Contain the joined path before touching the disk: a link must name a
+    # file directly inside one stage folder of the share folder.
+    if not candidate.startswith(folder + os.sep):
+        return None
+    target = Path(candidate)
+    if target.parent.parent != Path(folder) or not target.is_file():
         return None
     return target
 

@@ -224,6 +224,14 @@ def _lock_of(node_id: str) -> threading.RLock:
         return lock
 
 
+def spec_conflict_detail(node: Node) -> str:
+    """The sentence an editor shows when its save was made from an older version."""
+    return (
+        f"The node changed since it was opened (now version {node.version}): "
+        "take its current content, or save again over it."
+    )
+
+
 class SpecConflict(NodeError):
     """A save from an editor that was made from an older version of the node.
 
@@ -232,10 +240,7 @@ class SpecConflict(NodeError):
     """
 
     def __init__(self, node: Node):
-        super().__init__(
-            f"The node changed since it was opened (now version {node.version}): "
-            "take its current content, or save again over it."
-        )
+        super().__init__(spec_conflict_detail(node))
         self.node = node
 
 

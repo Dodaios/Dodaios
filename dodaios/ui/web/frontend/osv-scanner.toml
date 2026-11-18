@@ -1,10 +1,10 @@
 # osv-scanner exceptions for package-lock.json in this folder.
 #
-# Every entry is a build-time-only (devDependencies) package with no fixed
-# release reachable from our toolchain. None of them ships in the prebuilt
-# bundle or runs inside the app: they parse our own CSS and source globs
-# while `npm run build` runs, so the attacker-controlled input each advisory
-# needs never reaches them. `ignoreUntil` forces a fresh review.
+# Every entry is a build-time-only package (Node tooling, never bundled) with
+# no fixed release reachable from our toolchain. None of them ships in the
+# prebuilt bundle or runs inside the app: they parse our own CSS and source
+# globs while `npm run build` runs, so the attacker-controlled input each
+# advisory needs never reaches them. `ignoreUntil` forces a fresh review.
 
 # braces: stack exhaustion on deeply nested brace patterns. 3.0.3 is the
 # last release and the advisory lists no fix. Pulled by chokidar/micromatch
@@ -31,3 +31,19 @@ reason = "Dev-only build dependency; the fix is 7.x, which Tailwind CSS 3 cannot
 id = "CVE-2026-104844"
 ignoreUntil = 2027-01-06
 reason = "Alias of GHSA-rj75-hqrm-r3gf."
+
+# picomatch: ReDoS on single-branch repeated extglobs such as "+(a)". Every
+# release up to 4.0.7, the newest, is affected; the advisory lists no fix.
+# Pulled by vite, vitest and tinyglobby (4.x) and by chokidar under sass and
+# tailwindcss (2.x): Node file watching and globbing at build time, matching
+# only globs from our own build config. chokidar cannot run in a browser and
+# is not in the bundle.
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-01-06
+reason = "Build-time glob matcher, no fixed release; only our own build-config globs reach it."
+
+[[IgnoredVulns]]
+id = "CVE-2026-112366"
+ignoreUntil = 2027-01-06
+reason = "Alias of GHSA-fc5q-39xc-vjpf."
