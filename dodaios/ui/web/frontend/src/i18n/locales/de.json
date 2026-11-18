@@ -1161,7 +1161,19 @@
     "tool_running": "Läuft noch…",
     "interrupt_hint": "Esc zum Abbrechen",
     "status_words": "Denkt nach…, Arbeitet…, Gräbt…, Überlegt…, Grübelt…, Sortiert…, Knobelt…, Tüftelt…, Baut zusammen…, Entwirrt…, Kocht…, Werkelt…",
-    "drop_nothing_usable": "Das Abgelegte enthielt nichts, was dieser Chat verwenden kann."
+    "drop_nothing_usable": "Das Abgelegte enthielt nichts, was dieser Chat verwenden kann.",
+    "proactive_tidy": "Ich habe mein Gedächtnis über dich aufgeräumt: {changes}.",
+    "proactive_tidy_plain": "Ich habe mein Gedächtnis über dich aufgeräumt.",
+    "proactive_tidy_merged": "{n} doppelte Einträge zusammengeführt",
+    "proactive_tidy_merged_one": "einen doppelten Eintrag zusammengeführt",
+    "proactive_tidy_resolved": "{n} Widersprüche geklärt",
+    "proactive_tidy_resolved_one": "einen Widerspruch geklärt",
+    "proactive_tidy_retired": "{n} veraltete Einträge entfernt",
+    "proactive_tidy_retired_one": "einen veralteten Eintrag entfernt",
+    "proactive_tidy_reworded": "{n} Lektionen klarer formuliert",
+    "proactive_tidy_reworded_one": "eine Lektion klarer formuliert",
+    "proactive_and": " und ",
+    "proactive_open_memory": "Memory öffnen"
   },
   "chats_view": {
     "title": "Chat",
@@ -11631,7 +11643,9 @@
     "chat_own": "Du wolltest erinnert werden:",
     "chat_mixed": "Kurz zur Erinnerung:",
     "settled_done": "Abgehakt",
-    "settled_dismissed": "Ausgeblendet"
+    "settled_dismissed": "Ausgeblendet",
+    "say_item": "{title}, {when}.",
+    "say_title": "{title}."
   },
   "mobile": {
     "settings": {

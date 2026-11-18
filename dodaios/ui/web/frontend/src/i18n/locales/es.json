@@ -1161,7 +1161,19 @@
     "tool_running": "Sigue en marcha…",
     "interrupt_hint": "esc para interrumpir",
     "status_words": "Pensando…, Trabajando…, Excavando…, Razonando…, Cavilando…, Ordenando…, Descifrando…, Ideando…, Montando…, Desenredando…, Cocinando…, Fluyendo…",
-    "drop_nothing_usable": "Lo que soltaste no contiene nada que este chat pueda usar."
+    "drop_nothing_usable": "Lo que soltaste no contiene nada que este chat pueda usar.",
+    "proactive_tidy": "He ordenado lo que recuerdo de ti: {changes}.",
+    "proactive_tidy_plain": "He ordenado lo que recuerdo de ti.",
+    "proactive_tidy_merged": "uní {n} duplicados",
+    "proactive_tidy_merged_one": "uní un duplicado",
+    "proactive_tidy_resolved": "aclaré {n} contradicciones",
+    "proactive_tidy_resolved_one": "aclaré una contradicción",
+    "proactive_tidy_retired": "quité {n} entradas obsoletas",
+    "proactive_tidy_retired_one": "quité una entrada obsoleta",
+    "proactive_tidy_reworded": "reformulé {n} lecciones",
+    "proactive_tidy_reworded_one": "reformulé una lección",
+    "proactive_and": " y ",
+    "proactive_open_memory": "Abrir Memoria"
   },
   "chats_view": {
     "title": "Chat",
@@ -11631,7 +11643,9 @@
     "chat_own": "Me pediste que te lo recordara:",
     "chat_mixed": "Un aviso rápido:",
     "settled_done": "Hecho",
-    "settled_dismissed": "Ocultado"
+    "settled_dismissed": "Ocultado",
+    "say_item": "{title}, {when}.",
+    "say_title": "{title}."
   },
   "mobile": {
     "settings": {

@@ -522,6 +522,7 @@ class ReminderScheduler:
             log.warning("reminders: could not read due memories", exc_info=True)
             return []
         delivered: list[str] = []
+        todo: list[Any] = []
         for memory in due:
             key = _DELIVERED + memory.id
             if vault.get_meta(key) is not None:
@@ -540,11 +541,16 @@ class ReminderScheduler:
             if due_at is not None and now - due_at > STALE_AFTER:
                 log.info("reminders: %s was due %s; too old to tell", memory.id, memory.due_at)
                 continue
-            await self.deliver(memory)
+            todo.append(memory)
             delivered.append(memory.id)
+        if todo:
+            context = _later_today(vault, {memory.id for memory in todo})
+            # Together: items due in the same minute become one message
+            # (``agent_chat/proactive_voice.py`` folds what arrives at once).
+            await asyncio.gather(*(self.deliver(memory, context) for memory in todo))
         return delivered
 
-    async def deliver(self, memory: Any) -> None:
+    async def deliver(self, memory: Any, context: list[str] | None = None) -> None:
         lang = notification_language(memory.text)
         session_id = ""
         message_id = ""
@@ -565,6 +571,9 @@ class ReminderScheduler:
                         "memory_id": memory.id,
                         "due_at": memory.due_at,
                         "reminder": is_reminder(memory),
+                        # What else is on today, for the assistant's wording;
+                        # never stored (``proactive_voice.CONTEXT_KEY``).
+                        "_voice_context": list(context or []),
                     },
                 )
             except Exception:  # noqa: BLE001 — the desktop notification below still goes out
@@ -583,6 +592,18 @@ class ReminderScheduler:
             # window is in front (the notice is a line among many).
             ignore_focus=True,
         )
+
+
+def _later_today(vault: Any, exclude: set[str]) -> list[str]:
+    """What else is due later today, as facts for the assistant's wording."""
+    try:
+        from dodaios.agent_chat.proactive_voice import later_today
+
+        now = datetime.now(person_zone())
+        return later_today(list_due(vault, days=1), now=now, exclude=exclude)
+    except Exception:  # noqa: BLE001 — the message is worded without the rest of the day
+        log.debug("reminders: rest of the day unreadable", exc_info=True)
+        return []
 
 
 def _notice_fields(memory: Any) -> dict[str, Any]:

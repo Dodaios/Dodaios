@@ -1537,8 +1537,33 @@ class AgentChatService:
     async def post_notice(self, session_id: str, payload: dict[str, Any]) -> None:
         """A system line in a session's timeline that is not a turn: the agent
         society posts learned skills, login requests and queued approvals here.
-        Stored like any event (kind ``notice``) so a reopened chat still shows it."""
-        await self._emit(session_id, make_event("notice", dict(payload)))
+        Stored like any event (kind ``notice``) so a reopened chat still shows it.
+
+        A notice the assistant tells on its own in its conversation (a
+        reminder coming due, the memory tidy-up) is worded first, as the
+        message the assistant sends (``proactive_voice``)."""
+        from dodaios.agent_chat import proactive_voice
+
+        payload = dict(payload)
+        if not proactive_voice.wants_voice(payload) or not self._is_lead_chat(session_id):
+            payload.pop(proactive_voice.CONTEXT_KEY, None)
+            await self._emit(session_id, make_event("notice", payload))
+            return
+
+        async def store(worded: dict[str, Any]) -> None:
+            await self._emit(session_id, make_event("notice", worded))
+
+        await proactive_voice.desk().tell(self, session_id, payload, store)
+
+    def _is_lead_chat(self, session_id: str) -> bool:
+        try:
+            from dodaios.agent_chat.lead import SURFACE
+
+            session = self.store.get_session(session_id)
+        except Exception:  # noqa: BLE001 - an unreadable chat gets its notice unworded
+            log.debug("agent chat: no session for a worded notice", exc_info=True)
+            return False
+        return session is not None and str(getattr(session, "surface", "") or "") == SURFACE
 
     def _refresh_picture_handoffs(self, session: Any) -> None:
         """Register the Dodaios chat's earlier pictures again (off the event loop)."""

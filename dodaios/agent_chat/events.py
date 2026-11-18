@@ -240,7 +240,12 @@ def is_transient(event: dict[str, Any]) -> bool:
 
 
 #: Notice kinds that only record background work (see :func:`is_background_notice`).
-BACKGROUND_NOTICE_KINDS: Final[frozenset[str]] = frozenset({"memory_learned", "watchdog"})
+#: A routine's start card and a memory write receipt are log lines, not
+#: messages: the run is in the routine's history, the note on the Memory page
+#: (maintainer, 2026-11-18: proactive messages read as messages, not logs).
+BACKGROUND_NOTICE_KINDS: Final[frozenset[str]] = frozenset(
+    {"memory_learned", "watchdog", "routine_run", "memory_updated"}
+)
 
 
 def is_background_notice(payload: dict[str, Any]) -> bool:
@@ -248,10 +253,11 @@ def is_background_notice(payload: dict[str, Any]) -> bool:
 
     The conversation's log keeps such a notice, but no chat view draws it and
     no phone is told about it. Each has a place of its own: what the assistant
-    learned is on the Memory page, a watchdog finding is in the status light,
-    and an unattended routine run that failed, was skipped or waits is in the
-    routine's run history. A routine's finished result is an answer the person
-    asked for and stays in the chat. The page applies the same rule
+    learned or noted is on the Memory page, a watchdog finding is in the status
+    light, a routine's start is in its run history, and an unattended routine
+    run that failed, was skipped or waits is in the routine's run history. A
+    routine's finished result is an answer the person asked for and stays in
+    the chat. The page applies the same rule
     (``src/components/agentchat/backgroundNotices.ts``).
     """
     kind = str(payload.get("kind") or "")

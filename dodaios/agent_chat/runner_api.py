@@ -266,6 +266,12 @@ def messages_from_events(
                 flush()
                 out.append(BrainMessage(role="assistant", content=text))
             continue
+        if kind == "notice" and payload.get("kind") == "memory_tidy" and payload.get("voice"):
+            # The chat shows the tidy-up as the assistant saying it (``proactive_voice``).
+            flush()
+            said = _recall.one_line(payload.get("voice"), 500)
+            out.append(BrainMessage(role="assistant", content=f"(on your own) {said}"))
+            continue
         if recall_ids and kind == "notice" and payload.get("kind") == _recall.TRIGGER_NOTICE_KIND:
             flush()
             text = _recall.trigger_notice_replay(int(ev.get("seq") or 0), payload)

@@ -607,6 +607,25 @@
     "call_done_open": "In Ordnung, es bleibt in der App für dich offen. Tschüss.",
     "call_done_gone": "Diese Entscheidung ist nicht mehr offen. Tschüss.",
     "test_title": "Benachrichtigungen sind an",
-    "test_body": "So erreicht dich Dodaios, während die App im Hintergrund ist."
+    "test_body": "So erreicht dich Dodaios, während die App im Hintergrund ist.",
+    "voice": {
+      "busy": "ein geblockter Termin",
+      "reminder": "Kurz zur Erinnerung: {title}.",
+      "all_day": "Heute steht {title} an.",
+      "appointment_range": "{title} beginnt um {start} und geht bis {end}.",
+      "appointment_at": "{title} beginnt um {start}.",
+      "appointment": "Jetzt steht {title} an.",
+      "tidy": "Ich habe mein Gedächtnis über dich aufgeräumt: {changes}. Unter Memory kannst du es dir ansehen.",
+      "tidy_plain": "Ich habe mein Gedächtnis über dich aufgeräumt. Unter Memory kannst du es dir ansehen.",
+      "tidy_merged": "{n} doppelte Einträge zusammengeführt",
+      "tidy_resolved": "{n} Widersprüche geklärt",
+      "tidy_retired": "{n} veraltete Einträge entfernt",
+      "tidy_reworded": "{n} Lektionen klarer formuliert",
+      "and": " und ",
+      "tidy_merged_one": "einen doppelten Eintrag zusammengeführt",
+      "tidy_resolved_one": "einen Widerspruch geklärt",
+      "tidy_retired_one": "einen veralteten Eintrag entfernt",
+      "tidy_reworded_one": "eine Lektion klarer formuliert"
+    }
   }
 }
