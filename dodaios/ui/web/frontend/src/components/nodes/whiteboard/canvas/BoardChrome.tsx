@@ -888,10 +888,7 @@ export function LiveBadge({ name }: { name: string }) {
   const t = useT();
   return (
     <Panel className="flex items-center gap-2 px-3 py-1.5 text-sm" data-testid="board-live" role="status">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D4A72C] opacity-60" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#D4A72C]" />
-      </span>
+      <span className="inline-flex h-2 w-2 rounded-full bg-[hsl(var(--presence-ink))]" />
       {t("nodes.whiteboard.live.drawing").replace("{assistant}", () => name)}
     </Panel>
   );

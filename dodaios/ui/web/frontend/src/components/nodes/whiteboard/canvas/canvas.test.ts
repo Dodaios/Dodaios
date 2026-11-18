@@ -20,7 +20,7 @@ vi.mock("@excalidraw/excalidraw", () => ({
 }));
 
 import type { BoardElement } from "../boardApi";
-import { FRESH_MS, freshAssistantIds, planPieces, stepDelay } from "./liveBuild";
+import { FRESH_MS, freshAssistantIds, groupPieces, planPieces } from "./liveBuild";
 import { currentItemState, keysFor } from "./styleOps";
 import { MAX_ZOOM, MIN_ZOOM, clampZoom, isNotch, zoomAround } from "./viewport";
 
@@ -67,11 +67,12 @@ describe("watching the assistant draw", () => {
     expect(planPieces(order, fresh).map((piece) => piece.ids)).toEqual([["frame"], ["box", "label"], ["other"], ["arrow"]]);
   });
 
-  it("plays a large drawing within a few seconds and a small one calmly", () => {
-    expect(stepDelay(1)).toBeGreaterThan(0);
-    expect(stepDelay(4)).toBeLessThanOrEqual(260);
-    expect(stepDelay(500) * 500).toBeLessThan(30_000);
-    expect(stepDelay(10)).toBeGreaterThan(stepDelay(100));
+  it("lands a very large drawing in groups so the play stays short", () => {
+    const pieces = Array.from({ length: 150 }, (_, i) => ({ ids: [`p${i}`] }));
+    const grouped = groupPieces(pieces);
+    expect(grouped.length).toBeLessThanOrEqual(60);
+    expect(grouped.flatMap((piece) => piece.ids)).toEqual(pieces.flatMap((piece) => piece.ids));
+    expect(groupPieces(pieces.slice(0, 5))).toHaveLength(5);
   });
 
   it("plays on opening only what the assistant drew in the last moments", () => {

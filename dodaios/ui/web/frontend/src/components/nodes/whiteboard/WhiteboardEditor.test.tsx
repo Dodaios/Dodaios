@@ -81,6 +81,7 @@ vi.mock("@excalidraw/excalidraw", async () => {
         setToast: vi.fn(),
         onPointerDown: vi.fn(() => () => undefined),
         onPointerUp: vi.fn(() => () => undefined),
+        onScrollChange: vi.fn(() => () => undefined),
       };
       pkg.state.api = api;
       (props.excalidrawAPI as (api: unknown) => void)(api);
