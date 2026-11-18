@@ -91,8 +91,14 @@ asks once more after `settleWaitMs`.
 | `{ changed: true }` | What the core saw change in the body's DOM for this batch, one step per changed block, in reading order. This is the default. |
 | `{ blocks: true }` | The body's top-level blocks, in reading order. The default when the editor opened mid-build. |
 
-A step whose target is not found is skipped. To use `path` targets, add
-`data-live-path="<JSON Pointer>"` to the elements that draw spec items.
+A step whose target is not found is skipped.
+
+A step may set `framed: false` to play without growing the presence frame (a
+new tab in a tab bar). An adapter may set `tagCorner: "bottom"` to put the name
+tag on the frame's lower-left corner (default: top-left).
+
+To use `path` targets, add `data-live-path="<JSON Pointer>"` to the elements
+that draw spec items.
 
 ### Where each type plugs in
 

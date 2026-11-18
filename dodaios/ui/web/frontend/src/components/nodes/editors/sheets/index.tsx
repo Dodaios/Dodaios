@@ -19,7 +19,7 @@
  * The rules a stored value has to follow (so the server's `normalize`
  * keeps it as it is) live in `model.ts`; the changes themselves in `ops.ts`.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownAZ,
   ArrowUpZA,
@@ -76,6 +76,10 @@ import {
   type SheetsSpec,
 } from "./model";
 import * as ops from "./ops";
+import { firstChangedSheet, changedRows } from "../../live/adapters/sheets";
+import { changesBetween } from "../../live/liveChanges";
+import { useNodeLive } from "../../live/liveStore";
+import { LIVE_TIMING } from "../../live/playback";
 import { SheetGrid, type EditState, type GridActions } from "./SheetGrid";
 import { SheetTabs } from "./SheetTabs";
 import { at, clampSelection, rangeOf, selectAll, selectColumns, selectRows, type Selection } from "./selection";
@@ -118,6 +122,29 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
   const editor = useNodeSpecEditor<SheetsSpec>(node.id ?? "", start, { prepare });
   const spec = editor.spec;
   const [activeSheet, setActiveSheet] = useState(0);
+
+  /* An agent's revision: the view moves to the sheet it wrote in, and the rows it wrote stay drawn
+   * (below the fold too) while they play in (docs/node-live-build.md). Adjusted while rendering, so
+   * the new sheet's grid is what the live build finds in the same commit. */
+  const remote = editor.remote ?? null;
+  const [seenRemote, setSeenRemote] = useState(0);
+  const [liveRows, setLiveRows] = useState<{ sheet: number; rows: number[] }>({ sheet: -1, rows: [] });
+  if (remote && remote.seq !== seenRemote) {
+    setSeenRemote(remote.seq);
+    const live = useNodeLive.getState().nodes[node.id ?? ""];
+    if (changesBetween(live, remote.fromVersion, remote.version).agent) {
+      const touched = firstChangedSheet(remote.previous, remote.next);
+      if (touched >= 0) {
+        setActiveSheet(touched);
+        setLiveRows({ sheet: touched, rows: changedRows(remote.previous, remote.next, touched) });
+      }
+    }
+  }
+  useEffect(() => {
+    if (liveRows.rows.length === 0) return;
+    const timer = window.setTimeout(() => setLiveRows({ sheet: -1, rows: [] }), LIVE_TIMING.maxBatchMs + 2_000);
+    return () => window.clearTimeout(timer);
+  }, [liveRows]);
   const sheetIndex = Math.min(activeSheet, spec.sheets.length - 1);
   const sheet = spec.sheets[sheetIndex];
 
@@ -975,6 +1002,8 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
       <div className="min-h-0 flex-1">
         <SheetGrid
           key={sheetIndex}
+          sheetIndex={sheetIndex}
+          liveRows={liveRows.sheet === sheetIndex ? liveRows.rows : undefined}
           sheet={sheet}
           computed={computed}
           views={views}
