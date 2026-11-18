@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
@@ -9,8 +9,9 @@ vi.mock("@/components/nodes/peek/peekFrame", () => ({ preloadNodePeek }));
 
 import { useAgentChatStore } from "@/store/agentChat";
 import { useNodePeek } from "@/store/nodePeek";
+import { parseNodeChange, useNodeLive } from "@/components/nodes/live/liveStore";
 import { PageCard, PageLink, pageCardData, pageNoticeModes, splitPageRef } from "./PageCard";
-import type { NoticeItem, TimelineItem } from "./reduce";
+import { EMPTY_TIMELINE, type NoticeItem, type TimelineItem } from "./reduce";
 
 afterEach(() => {
   cleanup();
@@ -156,4 +157,29 @@ it("draws nothing when the card cannot open a page", () => {
 it("names a link after the file when the answer gave no label", () => {
   render(<PageLink pageRef={PAGE} label=" " />);
   expect(screen.getByText("plan.html")).toBeTruthy();
+});
+
+it("shows a node an agent is building as 'being built' until the agent's turn ends, then the page", () => {
+  const running = { ...EMPTY_TIMELINE, items: [{ type: "turn", id: "t-1", status: "running", blocks: [] } as unknown as TimelineItem] };
+  useAgentChatStore.setState({ timeline: running });
+  const change = parseNodeChange({
+    node_id: "abc123def456", ref: SHEET, slug: SHEET.split("::")[0], node_type: "sheets", title: "Costs",
+    version: 1, previous_version: 0, updated_at: 1, action: "create", rewrite: false, ops: [],
+    author_kind: "assistant", author_name: "Ada", author_id: "lead", session_id: "chat-1", step: "",
+  });
+  act(() => useNodeLive.getState().receive(change!));
+  try {
+    render(<PageCard item={notice({ artifact: SHEET, node_type: "sheets" }, "Costs", "n-1")} />);
+    expect(screen.getByTestId("page-card").getAttribute("data-building")).toBe("true");
+    expect(screen.getByTestId("node-skeleton").getAttribute("data-type")).toBe("sheets");
+    expect(screen.getByTestId("page-card-status").textContent).toBe("nodes.live.card_building");
+    // The turn ends: the card settles to the page.
+    act(() => useAgentChatStore.setState({ timeline: EMPTY_TIMELINE }));
+    expect(screen.getByTestId("page-card").getAttribute("data-building")).toBeNull();
+    expect(screen.getByTestId("page-card-kind").textContent).toBe("nodes.type.sheets");
+    expect(useNodeLive.getState().nodes.abc123def456.building).toBe(false);
+  } finally {
+    useAgentChatStore.setState({ timeline: EMPTY_TIMELINE });
+    useNodeLive.setState({ nodes: {}, refs: {}, autoOpened: {}, suppressed: {} });
+  }
 });
