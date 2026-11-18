@@ -4,15 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useNodePeek } from "@/store/nodePeek";
 import { AUTO_OPEN_WITHIN_MS, shouldAutoOpen } from "./autoOpen";
-import {
-  IDLE_SETTLE_MS,
-  PRESENCE_LINGER_MS,
-  changesBetween,
-  liveNodeOfRef,
-  parseNodeChange,
-  presenceActive,
-  useNodeLive,
-} from "./liveStore";
+import { changesBetween, parseNodeChange, presenceActive } from "./liveChanges";
+import { IDLE_SETTLE_MS, PRESENCE_LINGER_MS, liveNodeOfRef, useNodeLive } from "./liveStore";
 import { receiveNodeChange } from "./receive";
 
 const REF = "20261118T100000__node__abc123def456::tasks/node/artifacts/files/budget.html";

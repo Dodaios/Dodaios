@@ -9,7 +9,8 @@ vi.mock("@/components/nodes/peek/peekFrame", () => ({ preloadNodePeek }));
 
 import { useAgentChatStore } from "@/store/agentChat";
 import { useNodePeek } from "@/store/nodePeek";
-import { parseNodeChange, useNodeLive } from "@/components/nodes/live/liveStore";
+import { parseNodeChange } from "@/components/nodes/live/liveChanges";
+import { useNodeLive } from "@/components/nodes/live/liveStore";
 import { PageCard, PageLink, pageCardData, pageNoticeModes, splitPageRef } from "./PageCard";
 import { EMPTY_TIMELINE, type NoticeItem, type TimelineItem } from "./reduce";
 
@@ -159,7 +160,7 @@ it("names a link after the file when the answer gave no label", () => {
   expect(screen.getByText("plan.html")).toBeTruthy();
 });
 
-it("shows a node an agent is building as 'being built' until the agent's turn ends, then the page", () => {
+it("shows a node an agent is building as 'being built' until the agent's turn ends, then the page", async () => {
   const running = { ...EMPTY_TIMELINE, items: [{ type: "turn", id: "t-1", status: "running", blocks: [] } as unknown as TimelineItem] };
   useAgentChatStore.setState({ timeline: running });
   const change = parseNodeChange({
@@ -171,7 +172,7 @@ it("shows a node an agent is building as 'being built' until the agent's turn en
   try {
     render(<PageCard item={notice({ artifact: SHEET, node_type: "sheets" }, "Costs", "n-1")} />);
     expect(screen.getByTestId("page-card").getAttribute("data-building")).toBe("true");
-    expect(screen.getByTestId("node-skeleton").getAttribute("data-type")).toBe("sheets");
+    expect((await screen.findByTestId("node-skeleton")).getAttribute("data-type")).toBe("sheets");
     expect(screen.getByTestId("page-card-status").textContent).toBe("nodes.live.card_building");
     // The turn ends: the card settles to the page.
     act(() => useAgentChatStore.setState({ timeline: EMPTY_TIMELINE }));

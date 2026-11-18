@@ -30,10 +30,9 @@ import { cn } from "@/lib/utils";
 import { useNodePeek } from "@/store/nodePeek";
 import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
-import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
 import { useLiveCard } from "@/components/nodes/live/autoOpen";
-import { NodeSkeleton } from "@/components/nodes/live/NodeSkeleton";
+import { LazyNodeSkeleton, LazyNodeTypeIcon } from "@/components/nodes/live/lazyParts";
 import { useEventStore } from "@/store/events";
 import { useAgentChatApi } from "./AgentChatStoreContext";
 import type { NoticeItem, TimelineItem } from "./reduce";
@@ -263,7 +262,7 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       <button type="button" data-testid="page-card-preview" onClick={open} aria-label={openLabel} className="relative block h-[300px] w-full cursor-pointer overflow-hidden text-left">
         {building ? (
           <div className="absolute inset-0" data-testid="page-card-building">
-            <NodeSkeleton type={nodeType ?? "docs"} />
+            <LazyNodeSkeleton type={nodeType ?? "docs"} />
           </div>
         ) : (
           <PagePreview src={`${artifactPageUrl(page.slug, page.path)}?theme=${theme}${touched ? `&v=${touched}` : ""}${version}`} title={page.title} />
@@ -271,7 +270,11 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       </button>
       <footer className="flex items-center gap-3 border-t border-border px-4 py-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-          {nodeType ? <NodeTypeIcon type={nodeType} className="h-5 w-5" /> : <FileChartColumn className="h-5 w-5" aria-hidden />}
+          {nodeType ? (
+            <LazyNodeTypeIcon type={nodeType} className="h-5 w-5" fallback={<FileChartColumn className="h-5 w-5" aria-hidden />} />
+          ) : (
+            <FileChartColumn className="h-5 w-5" aria-hidden />
+          )}
         </span>
         <button type="button" data-testid="page-card-title" onClick={open} aria-label={openLabel} className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[15px] font-medium text-foreground">{page.title}</span>

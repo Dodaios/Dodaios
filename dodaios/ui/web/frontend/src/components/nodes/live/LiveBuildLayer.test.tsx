@@ -7,7 +7,8 @@ vi.mock("@/hooks/useTheme", () => ({ useThemeValue: () => "dark" }));
 
 import type { NodeSpecEditor, RemoteRevision } from "../editors/useNodeSpecEditor";
 import { LiveBuildLayer } from "./LiveBuildLayer";
-import { parseNodeChange, useNodeLive } from "./liveStore";
+import { parseNodeChange } from "./liveChanges";
+import { useNodeLive } from "./liveStore";
 
 const REF = "20261118T100000__node__abc123def456::tasks/node/artifacts/files/notes.html";
 

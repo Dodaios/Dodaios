@@ -9,7 +9,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { invalidateNodes, type NodeState } from "../useNodes";
-import { parseNodeChange, useNodeLive, type NodeChange } from "./liveStore";
+import { parseNodeChange } from "./liveChanges";
+import { useNodeLive, type NodeChange } from "./liveStore";
 
 /** The library re-reads at most this often while an agent writes. */
 const LIBRARY_EVERY_MS = 1_500;

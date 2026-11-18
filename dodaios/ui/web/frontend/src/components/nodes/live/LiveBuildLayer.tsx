@@ -24,7 +24,8 @@ import { useEventStore } from "@/store/events";
 import type { NodeSpecEditor } from "../editors/useNodeSpecEditor";
 import { revealAdapter } from "./adapters";
 import { LivePresence, presenceTint } from "./LivePresence";
-import { PRESENCE_LINGER_MS, changesBetween, presenceActive, useNodeLive } from "./liveStore";
+import { changesBetween, presenceActive } from "./liveChanges";
+import { PRESENCE_LINGER_MS, useNodeLive } from "./liveStore";
 import {
   LIVE_TIMING,
   LivePlayer,

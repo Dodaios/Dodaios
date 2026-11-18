@@ -47,7 +47,6 @@ import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 import { onAgentAttention, seedAgentAttention } from "@/components/society/attention/attentionBus";
 import { onNotificationOpened } from "@/lib/notifyOpen";
 import { NODE_CHANGED_EVENT } from "@/components/nodes/live/liveStore";
-import { receiveNodeChange } from "@/components/nodes/live/receive";
 
 let singleton: WSClient | null = null;
 
@@ -414,8 +413,10 @@ export function useWebSocket(): void {
 
         // A node was created or revised: the open page or editor follows now,
         // and an agent's work plays back live (docs/node-live-build.md).
+        // Its code is fetched on the first one, so the app's start stays light.
         if (env.event_name === NODE_CHANGED_EVENT) {
-          receiveNodeChange(env.payload, queryClient);
+          const payload = env.payload;
+          void import("@/components/nodes/live/receive").then((live) => live.receiveNodeChange(payload, queryClient));
         }
 
         // A new-chat request from outside this window (the backend already raised it): land

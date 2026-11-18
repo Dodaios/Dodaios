@@ -145,13 +145,3 @@
   from { transform: translateX(-100%); }
   to { transform: translateX(100%); }
 }
-
-/* The node window sliding in when it opens by itself. */
-.live-window-in {
-  animation: live-window-in 150ms ease-out;
-}
-
-@keyframes live-window-in {
-  from { transform: translateX(28px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}

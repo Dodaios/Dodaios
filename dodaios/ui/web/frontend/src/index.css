@@ -3250,3 +3250,15 @@ textarea:not(:focus)::selection {
     cursor: default;
   }
 }
+
+/* The node window sliding in from the right when it opens by itself as an
+   agent makes a node (components/nodes/live, docs/node-live-build.md). In the
+   entry stylesheet because the window's first frame is drawn from the entry. */
+.live-window-in {
+  animation: live-window-in 150ms ease-out;
+}
+
+@keyframes live-window-in {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}

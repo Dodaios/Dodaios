@@ -16,8 +16,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { FileText, Loader2, X } from "lucide-react";
 
-import { NodeSkeleton } from "@/components/nodes/live/NodeSkeleton";
-import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
+import { LazyNodeSkeleton, LazyNodeTypeIcon } from "@/components/nodes/live/lazyParts";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
@@ -103,7 +102,11 @@ function NodePeekFrame({ peek }: { peek: NodePeekRequest }) {
           <div className="flex shrink-0 items-center gap-3 border-b border-border py-2.5 pl-4 pr-3">
             <div className="flex h-10 min-w-0 flex-1 items-center gap-2.5 px-1">
               {peek.live ? (
-                <NodeTypeIcon type={peek.live.nodeType} className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <LazyNodeTypeIcon
+                  type={peek.live.nodeType}
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  fallback={<FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+                />
               ) : (
                 <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
               )}
@@ -125,7 +128,7 @@ function NodePeekFrame({ peek }: { peek: NodePeekRequest }) {
           </div>
           {peek.live ? (
             <div className="min-h-0 flex-1">
-              <NodeSkeleton type={peek.live.nodeType} />
+              <LazyNodeSkeleton type={peek.live.nodeType} />
             </div>
           ) : (
             <div role="status" className="flex min-h-0 flex-1 items-center justify-center">
