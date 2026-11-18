@@ -29,6 +29,7 @@ from typing import Any
 
 from dodaios.core import config as cfg
 from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.tts.sentences import split_sentences
 
 # Gemini 3.1 Flash TTS output format is fixed: 24 kHz mono int16 PCM
 GEMINI_TTS_SAMPLE_RATE = 24_000
@@ -104,13 +105,6 @@ DEFAULT_VOICES: tuple[str, ...] = (
     "Sulafat",
 )
 
-# Sentence splitter: hooks onto .!?… — with a lookbehind so abbreviations
-# (e.g. "e.g.") aren't broken. 2026-04-24 reverted to a narrower split:
-# semicolon/colon/newlines as boundaries fragmented too aggressively and
-# triggered the SAPI5 fallback more often — the different sample rate
-# (22050 vs 24000) forced mid-stream resample flushes, producing crackling
-# and robotic artifacts.
-_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÄÖÜ])")  # i18n-allow: DE+EN lookahead
 
 
 class GeminiFlashTTS:
@@ -839,8 +833,7 @@ class VertexTTS(GeminiFlashTTS):
 
 def _split_sentences(text: str) -> list[str]:
     """Heuristic sentence splitter. Small overhead, notably better perceived latency."""
-    parts = _SENTENCE_END.split(text)
-    return [p.strip() for p in parts if p.strip()]
+    return split_sentences(text)
 
 
 # ----------------------------------------------------------------------

@@ -72,6 +72,8 @@ export function speakableText(markdown: string): string {
       .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/g, "$1$2")
       .replace(/~~(.+?)~~/g, "$1")
       .replace(/<\/?[a-zA-Z][^>]*>/g, "")
+      // What is left of a tag (or a lone angle bracket) is not read.
+      .replace(/[<>]/g, "")
       .trim();
     // A list item or heading without a closing mark still ends where it ends.
     if (line && !/[.!?:;,…]$/.test(line) && /^ {0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s)/.test(raw)) line += ".";

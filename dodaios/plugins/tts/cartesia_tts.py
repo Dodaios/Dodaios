@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any
@@ -21,6 +20,7 @@ from dodaios.plugins.tts.gemini_flash_tts import (
     SAPI5_SAMPLE_RATE,
     _sapi5_synthesize,
 )
+from dodaios.plugins.tts.sentences import split_sentences
 
 CARTESIA_TTS_SAMPLE_RATE = 24_000
 CARTESIA_TTS_ENDPOINT = "https://api.cartesia.ai/tts/bytes"
@@ -51,7 +51,6 @@ DEFAULT_VOICE_ID_PT = "6a16c1f4-462b-44de-998d-ccdaa4125a0a"  # Friendly Brazili
 # so a missing language hint behaves like the previous single-voice plugin.
 DEFAULT_VOICE_ID = DEFAULT_VOICE_ID_EN
 
-_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÄÖÜ])")  # i18n-allow (DE letters are part of the sentence-boundary match set)
 
 
 class _CartesiaFatalError(RuntimeError):
@@ -414,8 +413,7 @@ class CartesiaTTS:
 
 
 def _split_sentences(text: str) -> list[str]:
-    parts = _SENTENCE_END.split(text)
-    return [p.strip() for p in parts if p.strip()]
+    return split_sentences(text)
 
 
 def _normalize_language(code: str | None) -> str | None:

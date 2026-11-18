@@ -47,11 +47,10 @@ def test_read_aloud_returns_wav_in_the_texts_language(
 ) -> None:
     captured: dict[str, object] = {}
     _use(monkeypatch, _FakeTTS(captured))
+    # i18n-allow: German input under test
+    german = "Ich habe die Datei geändert und die Tests sind jetzt grün."  # i18n-allow
     with TestClient(server.app) as client:
-        resp = client.post(
-            "/api/tts/read-aloud",
-            json={"text": "Ich habe die Datei geändert und die Tests sind jetzt grün."},  # i18n-allow: German input under test
-        )
+        resp = client.post("/api/tts/read-aloud", json={"text": german})
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "audio/wav"
     assert resp.headers["x-read-language"] == "de"

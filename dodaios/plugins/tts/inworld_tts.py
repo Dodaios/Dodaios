@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any
@@ -28,6 +27,7 @@ from dodaios.core import config as cfg
 from dodaios.core.protocols import AudioChunk
 from dodaios.core.turn_language import DEFAULT_LOCALE
 from dodaios.plugins.tts.gemini_flash_tts import SAPI5_SAMPLE_RATE, _sapi5_synthesize
+from dodaios.plugins.tts.sentences import split_sentences
 
 INWORLD_TTS_SAMPLE_RATE = 24_000
 INWORLD_TTS_ENDPOINT = "https://api.inworld.ai/tts/v1/voice"
@@ -55,8 +55,6 @@ DEFAULT_VOICE_PT = "Leonor"
 # es-ES/pt-PT, but a bare "de" is normalized up so the field is always well-formed.
 _BCP47 = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT"}
 
-# DE letters are part of the sentence-boundary match set on the next line.
-_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÄÖÜ])")  # i18n-allow
 
 
 def strip_wav_header(data: bytes) -> bytes:
@@ -419,5 +417,4 @@ class InworldTTS:
 
 
 def _split_sentences(text: str) -> list[str]:
-    parts = _SENTENCE_END.split(text)
-    return [p.strip() for p in parts if p.strip()]
+    return split_sentences(text)
