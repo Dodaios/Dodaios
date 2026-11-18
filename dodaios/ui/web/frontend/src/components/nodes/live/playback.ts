@@ -363,7 +363,7 @@ export class LivePlayer {
         this.following &&
         lead instanceof HTMLElement &&
         typeof lead.scrollIntoView === "function" &&
-        !isPinned(lead, document.body)
+        !isPinned(lead, this.host.parentElement ?? document.body)
       ) {
         lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
       }
@@ -371,10 +371,43 @@ export class LivePlayer {
     if (!this.playing) this.host.dataset.phase = "thinking";
   }
 
-  private local(el: Element): Box {
+  /** The nearest scrolling ancestor of an element inside the host's parent: what clips the written part. */
+  private clipper = new WeakMap<Element, Element | null>();
+
+  private clipOf(el: Element): Element | null {
+    if (this.clipper.has(el)) return this.clipper.get(el) ?? null;
+    let found: Element | null = null;
+    const stop = this.host.parentElement;
+    for (let at = el.parentElement; at && at !== stop; at = at.parentElement) {
+      if (typeof window.getComputedStyle !== "function") break;
+      const overflow = window.getComputedStyle(at).overflow;
+      if (/(auto|scroll|hidden)/.test(overflow)) {
+        found = at;
+        break;
+      }
+    }
+    this.clipper.set(el, found);
+    return found;
+  }
+
+  /** The element's box inside the layer, cut to the scrolling area it sits in; w and h are 0 when it is scrolled out of view. */
+  private local(el: Element, clipped = true): Box {
     const outer = this.host.getBoundingClientRect();
     const box = el.getBoundingClientRect();
-    return { x: box.left - outer.left, y: box.top - outer.top, w: box.width, h: box.height };
+    let left = box.left;
+    let top = box.top;
+    let right = box.right;
+    let bottom = box.bottom;
+    const clip = clipped ? this.clipOf(el) : null;
+    if (clip) {
+      const view = clip.getBoundingClientRect();
+      left = Math.max(left, view.left);
+      top = Math.max(top, view.top);
+      right = Math.min(right, view.right);
+      bottom = Math.min(bottom, view.bottom);
+      if (right <= left || bottom <= top) return { x: 0, y: 0, w: 0, h: 0 };
+    }
+    return { x: left - outer.left, y: top - outer.top, w: right - left, h: bottom - top };
   }
 
   /** The written part of the batch, padded, inside the layer; null when none of it is in view. */
@@ -410,7 +443,7 @@ export class LivePlayer {
   /** Where the arrow points for `el`: the end of what was written, inside the layer. */
   private anchor(el: Element | null): { x: number; y: number } {
     if (!el || !el.isConnected) return HOME;
-    const b = this.local(el);
+    const b = this.local(el, false);
     const tall = b.h > this.host.clientHeight * 0.6;
     const x = tall ? b.x + 24 : b.x + Math.max(8, b.w - 10);
     const y = tall ? b.y + 24 : b.y + Math.max(8, b.h - 6);
