@@ -109,7 +109,7 @@ that draw spec items.
 | sheets | `adapters/sheets.ts` | `editors/sheets` |
 | data (Analytics) | `adapters/data.ts` | `editors/data` |
 | motion (Clips) | `adapters/motion.ts` | `editors/motion` |
-| whiteboard | `adapters/whiteboard.ts` | `whiteboard/WhiteboardEditor`. It is not on `EditorShell` and still plays its own `canvas/liveBuild.ts`. Moving it onto the shared presence means mounting `LivePresence` with a `LivePlayer` over the canvas. |
+| whiteboard | `adapters/whiteboard.ts` | `whiteboard/WhiteboardEditor`. It is not on `EditorShell`: `canvas/BoardPresence.tsx` mounts `LivePresence` and a `LivePlayer` over the canvas, with one invisible marker per piece (`data-live-path="/elements/<first id>"`) that follows the canvas's scroll and zoom. `canvas/liveBuild.ts` plans the pieces (frames, then shapes with their labels, then arrows) and lands them on the canvas on `revealDelays`; the adapter turns the plan into steps. |
 
 ## Presence and tokens
 

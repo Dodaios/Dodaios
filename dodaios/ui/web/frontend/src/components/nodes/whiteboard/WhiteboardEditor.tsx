@@ -84,6 +84,8 @@ import {
   type ChromeState,
   type DockTool,
 } from "./canvas/BoardChrome";
+import { authorName, useNodeLive } from "../live/liveStore";
+import { BoardPresence } from "./canvas/BoardPresence";
 import { CANVAS_OFFSETS, LiveBuild, freshAssistantIds } from "./canvas/liveBuild";
 import { applyStyle, sendEditorKey, type StylePatch } from "./canvas/styleOps";
 import { SmoothViewport } from "./canvas/viewport";
@@ -239,8 +241,13 @@ function describeError(error: unknown): string {
   return error instanceof NodesApiError ? error.detail : "";
 }
 
-/** How often the open board asks whether the assistant drew something. */
-export const WATCH_MS = 1_500;
+/**
+ * How often the open board asks whether something drew on it behind the
+ * socket's back. The assistant's strokes arrive by push (`NodeChanged`, which
+ * moves `revision`); this is the fallback, as for every node editor.
+ */
+export const WATCH_MS = 5_000;
+export const WATCH_PUSHED_MS = 20_000;
 /** The person's own moves keep the view theirs for this long. */
 const BUSY_MS = 2_500;
 /** Dots on the board, this far apart at 100 %. */
@@ -372,8 +379,9 @@ function BoardCanvas({
   // The dock ends like every node bar: "Chat" asks for a change to the board.
   const { onChat } = useNodeBarCommon();
   const assistant = useEventStore((s) => s.assistantName) || "Dodaios";
-  const assistantName = useRef(assistant);
-  assistantName.current = assistant;
+  const connected = useEventStore((s) => s.connected);
+  // The name on the tag and the badge is the one the event carried.
+  const drawer = authorName(useNodeLive((s) => s.nodes[nodeId]?.author), assistant);
   const root = useRef<HTMLDivElement>(null);
   const ground = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -418,7 +426,6 @@ function BoardCanvas({
     () =>
       new LiveBuild({
         api: () => api.current,
-        name: () => assistantName.current,
         personBusy: () => Date.now() - lastMove.current < BUSY_MS,
         onActive: setDrawing,
       }),
@@ -575,13 +582,13 @@ function BoardCanvas({
         // The next tick asks again.
       }
     };
-    const timer = window.setInterval(() => void tick(), WATCH_MS);
+    const timer = window.setInterval(() => void tick(), connected ? WATCH_PUSHED_MS : WATCH_MS);
     return () => {
       alive = false;
       window.clearInterval(timer);
       controller?.abort();
     };
-  }, [nodeId, sync]);
+  }, [nodeId, sync, connected]);
 
   // Unsaved strokes go out when the window hides or closes, and when the
   // board is left; the debounce would otherwise lose the last second.
@@ -941,6 +948,7 @@ function BoardCanvas({
           tools: { image: true },
         }}
       />
+      <BoardPresence nodeId={nodeId} build={live} api={() => api.current} />
       {mode ? <ToolOverlay tool={mode} onLasso={onLasso} onBucket={onBucket} /> : null}
       <input
         ref={fileInput}
@@ -992,7 +1000,7 @@ function BoardCanvas({
           />
         </div>
         <div className="absolute right-3 top-3 flex items-center gap-2">
-          {drawing ? <LiveBadge name={assistant} /> : null}
+          {drawing ? <LiveBadge name={drawer} /> : null}
           <SaveStatus state={save.state} detail={save.detail} />
           {!wide ? (
             <ZoomBar

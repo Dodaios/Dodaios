@@ -4,9 +4,11 @@
  * The assistant's `whiteboard` tool writes a whole diagram in one call, so
  * its work reaches the open board as one change. Shown at once it would just
  * appear. Instead the new elements are put on the board one piece at a time
- * (a frame, then each box with its label, then the arrows), and the
- * assistant's cursor, with its name, moves to each piece as it lands, the
- * way a colleague's cursor moves on a shared canvas.
+ * (a frame, then each box with its label, then the arrows), on the shared
+ * live-build timing (`revealDelays`), while the shared presence (the cursor,
+ * the name tag and the frame, `BoardPresence`) glides to each piece as it
+ * lands. This class only places the pieces; it tells a listener where each
+ * piece is so the presence can follow.
  *
  * Only what is new to this editor is played this way; a change to something
  * already on the board is drawn at once. The person can keep drawing while it
@@ -18,28 +20,13 @@ import { CaptureUpdateAction, getCommonBounds } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import type { BoardElement } from "../boardApi";
+import { LIVE_TIMING, prefersReducedMotion, revealDelays } from "../../live/playback";
 
-/**
- * The id the assistant's cursor is kept under among the editor's
- * collaborators. The editor colours a cursor by a hash of its id (hue =
- * hash % 37 * 10), not by the colour handed in; this id lands on hue 40, the
- * brand's gold.
- */
-export const ASSISTANT_CURSOR_ID = "dodaios-assistant-14";
-/** How long the whole play may take, however many pieces there are. */
-const PLAY_MS = 2_600;
-const STEP_MIN_MS = 45;
-const STEP_MAX_MS = 260;
-/** How long the cursor stays once the last piece landed. */
-const LINGER_MS = 1_400;
 /** A new element counts as the assistant's fresh work on opening for this long. */
 export const FRESH_MS = 90_000;
 
 /** The room the board's own controls take at the edges, kept free when fitting. */
 export const CANVAS_OFFSETS = { top: 64, right: 24, bottom: 88, left: 24 };
-
-/** The assistant's colour on the board: the brand's gold. */
-const CURSOR_COLOR = { background: "#D4A72C", stroke: "#8A6A12" };
 
 type Element = BoardElement & {
   containerId?: string | null;
@@ -52,6 +39,26 @@ type Element = BoardElement & {
 /** One piece of the play: elements that land together. */
 export interface Piece {
   ids: string[];
+}
+
+/** A piece as the presence sees it: where it sits on the canvas, in scene units. */
+export interface PieceBox {
+  /** The piece's first element: what its marker is named after. */
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Who follows the play: the shared presence (`BoardPresence`). */
+export interface BuildListener {
+  /** A play began: one box per piece, in the order they land. */
+  begin: (boxes: PieceBox[]) => void;
+  /** The play was cut short and landed at once. */
+  finished: () => void;
+  /** The last piece landed on time. */
+  done: () => void;
 }
 
 /** Did the assistant draw this element (its tool marks what it makes)? */
@@ -106,13 +113,16 @@ export function planPieces(order: readonly BoardElement[], fresh: ReadonlySet<st
     else if (LINEAR.has(element.type)) links.push(piece);
     else things.push(piece);
   }
-  return [...frames, ...things, ...links];
+  return groupPieces([...frames, ...things, ...links]);
 }
 
-/** The pause between two pieces, so the whole play takes about `PLAY_MS`. */
-export function stepDelay(pieces: number): number {
-  if (pieces <= 1) return STEP_MIN_MS;
-  return Math.round(Math.min(STEP_MAX_MS, Math.max(STEP_MIN_MS, PLAY_MS / pieces)));
+/** At most `LIVE_TIMING.maxUnits` pieces: consecutive ones land together when there are more. */
+export function groupPieces(pieces: Piece[], max: number = LIVE_TIMING.maxUnits): Piece[] {
+  if (pieces.length <= max) return pieces;
+  const size = Math.ceil(pieces.length / max);
+  const out: Piece[] = [];
+  for (let i = 0; i < pieces.length; i += size) out.push({ ids: pieces.slice(i, i + size).flatMap((piece) => piece.ids) });
+  return out;
 }
 
 interface Play {
@@ -121,13 +131,11 @@ interface Play {
   pieces: Piece[];
   shown: Set<string>;
   next: number;
-  timer: ReturnType<typeof setTimeout> | null;
+  timers: ReturnType<typeof setTimeout>[];
 }
 
 export interface LiveBuildOptions {
   api: () => ExcalidrawImperativeAPI | null;
-  /** The assistant's name, on its cursor. */
-  name: () => string;
   /** The person moved or drew in the last moments: the view is theirs then. */
   personBusy: () => boolean;
   /** The assistant is drawing (true) or done (false). */
@@ -136,15 +144,18 @@ export interface LiveBuildOptions {
 
 export class LiveBuild {
   private play: Play | null = null;
-  private cursor = { x: 0, y: 0, tx: 0, ty: 0, shown: false };
-  private cursorFrame = 0;
-  private lingerTimer: ReturnType<typeof setTimeout> | null = null;
+  private listener: BuildListener | null = null;
   private disposed = false;
 
   constructor(private readonly options: LiveBuildOptions) {}
 
   get playing(): boolean {
     return this.play !== null;
+  }
+
+  /** The presence that follows the play; null to detach it. */
+  attach(listener: BuildListener | null): void {
+    this.listener = listener;
   }
 
   /**
@@ -161,38 +172,44 @@ export class LiveBuild {
       return;
     }
     const held = new Set(pieces.flatMap((piece) => piece.ids));
-    this.play = {
+    const play: Play = {
       order: [...order],
       byId: new Map(order.map((element) => [element.id, element])),
       pieces,
       shown: new Set(),
       next: 0,
-      timer: null,
+      timers: [],
     };
+    this.play = play;
     editor.updateScene({
       elements: order.filter((element) => !held.has(element.id)) as never,
       captureUpdate: CaptureUpdateAction.NEVER,
     });
     this.options.onActive?.(true);
     if (opts.follow !== false) this.follow(order.filter((element) => held.has(element.id)));
-    const first = this.centerOf(pieces[0].ids);
-    if (first && !this.cursor.shown) {
-      // The cursor enters from a little up and left of the first piece.
-      this.cursor = { x: first.x - 80, y: first.y - 60, tx: first.x, ty: first.y, shown: true };
+    this.listener?.begin(pieces.map((piece) => this.boxOf(play, piece.ids)));
+    if (prefersReducedMotion()) {
+      // The result at once; only the presence moves.
+      this.finish();
+      this.listener?.done();
+      return;
     }
-    this.step();
+    revealDelays(pieces.length).forEach((delay, i) => {
+      play.timers.push(setTimeout(() => this.land(play, i), delay));
+    });
   }
 
-  /** Land whatever is still held back at once (a new change arrived, the board closes). */
+  /** Land whatever is still held back at once (a new change arrived, the person acted, the board closes). */
   finish(): void {
     const play = this.play;
     if (!play) return;
-    if (play.timer) clearTimeout(play.timer);
+    for (const timer of play.timers) clearTimeout(timer);
     for (const piece of play.pieces.slice(play.next)) for (const id of piece.ids) play.shown.add(id);
     play.next = play.pieces.length;
     this.render(play);
     this.play = null;
     this.options.onActive?.(false);
+    this.listener?.finished();
   }
 
   /** Work again after `dispose` (an effect that runs twice in development). */
@@ -203,28 +220,19 @@ export class LiveBuild {
   dispose(): void {
     this.finish();
     this.disposed = true;
-    if (this.cursorFrame) cancelAnimationFrame(this.cursorFrame);
-    if (this.lingerTimer) clearTimeout(this.lingerTimer);
   }
 
-  private step = () => {
-    const play = this.play;
-    if (!play || this.disposed) return;
-    play.timer = null;
-    const piece = play.pieces[play.next];
-    if (!piece) {
+  private land(play: Play, index: number): void {
+    if (this.play !== play || this.disposed) return;
+    for (const id of play.pieces[index].ids) play.shown.add(id);
+    play.next = index + 1;
+    this.render(play);
+    if (play.next >= play.pieces.length) {
       this.play = null;
       this.options.onActive?.(false);
-      this.lingerTimer = setTimeout(() => this.hideCursor(), LINGER_MS);
-      return;
+      this.listener?.done();
     }
-    for (const id of piece.ids) play.shown.add(id);
-    play.next += 1;
-    this.render(play);
-    const at = this.centerOf(piece.ids);
-    if (at) this.moveCursor(at.x, at.y, piece.ids[0]);
-    play.timer = setTimeout(this.step, stepDelay(play.pieces.length));
-  };
+  }
 
   /** The editor's elements plus the pieces landed so far, in the scene's order. */
   private render(play: Play): void {
@@ -249,14 +257,11 @@ export class LiveBuild {
     editor.updateScene({ elements: next as never, captureUpdate: CaptureUpdateAction.NEVER });
   }
 
-  private centerOf(ids: readonly string[]): { x: number; y: number } | null {
-    const play = this.play;
-    const elements = ids
-      .map((id) => play?.byId.get(id))
-      .filter((element): element is BoardElement => Boolean(element));
-    if (elements.length === 0) return null;
+  private boxOf(play: Play, ids: readonly string[]): PieceBox {
+    const elements = ids.map((id) => play.byId.get(id)).filter((element): element is BoardElement => Boolean(element));
+    if (elements.length === 0) return { id: ids[0], x: 0, y: 0, w: 0, h: 0 };
     const [x1, y1, x2, y2] = getCommonBounds(elements as never);
-    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+    return { id: ids[0], x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
   }
 
   /** Bring the new work into view, unless the person is busy with the view. */
@@ -281,54 +286,5 @@ export class LiveBuild {
       maxZoom: 1,
       canvasOffsets: CANVAS_OFFSETS,
     });
-  }
-
-  private moveCursor(x: number, y: number, selected: string): void {
-    this.cursor.tx = x;
-    this.cursor.ty = y;
-    this.cursor.shown = true;
-    this.selected = selected;
-    if (this.lingerTimer) {
-      clearTimeout(this.lingerTimer);
-      this.lingerTimer = null;
-    }
-    if (!this.cursorFrame) this.cursorFrame = requestAnimationFrame(this.glideCursor);
-  }
-
-  private selected = "";
-
-  private glideCursor = () => {
-    this.cursorFrame = 0;
-    const c = this.cursor;
-    if (!c.shown || this.disposed) return;
-    c.x += (c.tx - c.x) * 0.3;
-    c.y += (c.ty - c.y) * 0.3;
-    this.drawCursor();
-    if (Math.abs(c.tx - c.x) > 0.5 || Math.abs(c.ty - c.y) > 0.5) {
-      this.cursorFrame = requestAnimationFrame(this.glideCursor);
-    }
-  };
-
-  private drawCursor(): void {
-    const editor = this.options.api();
-    if (!editor) return;
-    const collaborators = new Map();
-    collaborators.set(ASSISTANT_CURSOR_ID, {
-      id: ASSISTANT_CURSOR_ID,
-      socketId: ASSISTANT_CURSOR_ID,
-      username: this.options.name(),
-      color: CURSOR_COLOR,
-      pointer: { x: this.cursor.x, y: this.cursor.y, tool: "pointer" },
-      button: "up",
-      selectedElementIds: this.selected ? { [this.selected]: true } : {},
-    });
-    editor.updateScene({ collaborators } as never);
-  }
-
-  private hideCursor(): void {
-    this.lingerTimer = null;
-    this.cursor.shown = false;
-    this.selected = "";
-    this.options.api()?.updateScene({ collaborators: new Map() } as never);
   }
 }
