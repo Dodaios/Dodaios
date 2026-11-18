@@ -27,6 +27,11 @@ describe("speakableText", () => {
     expect(spoken).not.toMatch(/const x|example\.com|a\.ts \||\*\*|```|`/);
   });
 
+  it("reads inline HTML by its words and skips autolinks", () => {
+    expect(speakableText("Press <kbd>Ctrl</kbd> &amp; see <https://example.com> now.")).toBe("Press Ctrl & see now.");
+    expect(speakableText("<script>alert(1)</script>Safe.")).toBe("Safe.");
+  });
+
   it("keeps snake_case words and plain sentences as they are", () => {
     expect(speakableText("Rename file_name_here now.")).toBe("Rename file_name_here now.");
   });

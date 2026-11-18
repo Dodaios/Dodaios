@@ -40,6 +40,12 @@ export function useReadAloud(id: string): { phase: ReadAloudPhase | null; error:
   return current.id === id ? { phase: current.phase, error: current.error } : { phase: null, error: "" };
 }
 
+/** The words of text that may hold inline HTML: parsed inert, never run or shown. */
+function textOfHtml(text: string): string {
+  if (!/[<&]/.test(text)) return text;
+  return new DOMParser().parseFromString(text, "text/html").body.textContent ?? "";
+}
+
 /**
  * Markdown as it should sound: code blocks, tables and links' addresses are
  * left out, markup signs dropped, a link read by its words.
@@ -65,21 +71,19 @@ export function speakableText(markdown: string): string {
       .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
       .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
-      .replace(/<(https?:\/\/[^>]+)>/g, "")
-      .replace(/https?:\/\/\S+/g, "")
+      // A web address is not read; an autolink leaves its empty brackets behind.
+      .replace(/https?:\/\/[^\s>]+/g, "")
+      .replace(/<>/g, "")
       .replace(/`([^`]*)`/g, "$1")
       .replace(/(\*\*|__)(.+?)\1/g, "$2")
       .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/g, "$1$2")
       .replace(/~~(.+?)~~/g, "$1")
-      .replace(/<\/?[a-zA-Z][^>]*>/g, "")
-      // What is left of a tag (or a lone angle bracket) is not read.
-      .replace(/[<>]/g, "")
       .trim();
     // A list item or heading without a closing mark still ends where it ends.
     if (line && !/[.!?:;,…]$/.test(line) && /^ {0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s)/.test(raw)) line += ".";
     lines.push(line);
   }
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+/g, " ").trim();
+  return textOfHtml(lines.join("\n")).replace(/\n{3,}/g, "\n\n").replace(/[ \t]+/g, " ").trim();
 }
 
 /** The first stretch is short so the voice starts at once; the rest are paragraph-sized. */
