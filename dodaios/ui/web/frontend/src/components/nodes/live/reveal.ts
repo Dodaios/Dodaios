@@ -15,6 +15,7 @@
  */
 import type { NodeType } from "../nodeModel";
 import type { LiveOp } from "./liveStore";
+import type { UnitMotion } from "./playback";
 
 /** What an adapter is given for one batch. */
 export interface RevealInput<S = unknown> {
@@ -55,6 +56,8 @@ export interface RevealStep {
   target: RevealTarget;
   /** What the agent is doing in this step, shown as the status ("Adding the totals"). */
   label?: string;
+  /** The step's own way of arriving instead of the plain fade (`UnitMotion`); for `path`, `selector` and `element` targets. */
+  motion?: UnitMotion;
 }
 
 export interface RevealAdapter<S = unknown> {
