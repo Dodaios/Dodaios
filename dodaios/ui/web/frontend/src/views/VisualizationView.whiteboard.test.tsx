@@ -135,13 +135,14 @@ describe("a whiteboard on the stage", () => {
     );
   });
 
-  it("makes a blank board from the stage bar and opens it", async () => {
+  it("makes a blank board from the title's menu and opens it", async () => {
     const created = typedNodeCard("w2", { type: "whiteboard", title: "Whiteboard 2" });
     const fetchMock = installFetch({ typed: [BOARD], runs: [BOARD_RUN], created, states: { [BOARD.slug]: boardState() } });
     renderView();
     await openCard(BOARD.key);
     await screen.findByTestId("whiteboard-editor-stub");
 
+    fireEvent.click(screen.getByTestId("visualization-more"));
     fireEvent.click(screen.getByTestId("visualization-new-whiteboard"));
     await waitFor(() => expect(screen.getByTestId("whiteboard-editor-stub").getAttribute("data-node")).toBe("w2"));
     expect(posts(fetchMock)).toHaveLength(1);
@@ -154,7 +155,8 @@ describe("a whiteboard on the stage", () => {
     installFetch({ typed: [doc], runs: [{ slug: doc.slug, utterance: "Brief", status: "success" }] });
     renderView();
     await openCard(doc.key);
-    await screen.findByTestId("visualization-frame");
+    await waitFor(() => expect(screen.getByTestId("visualization-title").textContent).toBe("Brief"));
+    fireEvent.click(screen.getByTestId("visualization-more"));
     expect(screen.queryByTestId("visualization-new-whiteboard")).toBeNull();
     expect(screen.queryByTestId("whiteboard-editor-stub")).toBeNull();
   });

@@ -6,7 +6,7 @@
  * Every control mirrors the selection (`useEditorState`), says its shortcut
  * in its tooltip and only offers what the page can draw from Markdown.
  */
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
   AlignCenter,
@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { ChartEditor } from "../charts/ChartEditor";
 import { starterChart } from "../charts/chartModel";
-import { MenuItem, Popover, Select, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
+import { MenuDivider, MenuItem, Popover, Select, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
 import { SAFE_LINK } from "./extensions";
 import { CALLOUT_TONES, isCalloutTone } from "./markdown/parse";
 import { chartSource } from "./views/ChartBlockView";
@@ -71,12 +71,56 @@ export interface DocsToolbarProps {
   editor: Editor;
   linkOpen: boolean;
   onLinkOpenChange: (open: boolean) => void;
-  outlineOpen: boolean;
-  onOutlineToggle: () => void;
   onPickPicture: () => void;
 }
 
-export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, onOutlineToggle, onPickPicture }: DocsToolbarProps) {
+/**
+ * The document's tools used now and then, in the node bar's "⋯": inline
+ * code, a code block, and the outline beside the page.
+ */
+export function DocsMore({ editor, outlineOpen, onOutlineToggle }: { editor: Editor; outlineOpen: boolean; onOutlineToggle: () => void }) {
+  const t = useT();
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      off: e.state.selection.$from.parent.type.name === "summary",
+      code: e.isActive("code"),
+      codeBlock: e.isActive("codeBlock"),
+    }),
+  });
+  const run = () => editor.chain().focus();
+  return (
+    <>
+      <MenuItem
+        label={t("nodes.editor.docs.mark.code")}
+        icon={<Code aria-hidden />}
+        shortcut={keys("Mod-e")}
+        checked={state.code}
+        disabled={state.off}
+        onClick={() => run().toggleCode().run()}
+        data-testid="docs-code"
+      />
+      <MenuItem
+        label={t("nodes.editor.docs.block.code")}
+        icon={<SquareCode aria-hidden />}
+        shortcut={keys("Mod-Alt-c")}
+        checked={state.codeBlock}
+        disabled={state.off}
+        onClick={() => run().toggleCodeBlock().run()}
+        data-testid="docs-code-block"
+      />
+      <MenuItem
+        label={t("nodes.editor.docs.outline.toggle")}
+        icon={<ListTree aria-hidden />}
+        checked={outlineOpen}
+        onClick={onOutlineToggle}
+        data-testid="docs-outline-toggle"
+      />
+    </>
+  );
+}
+
+export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, onPickPicture }: DocsToolbarProps) {
   const t = useT();
   const [newChart, setNewChart] = useState(false);
   const state = useEditorState({
@@ -134,7 +178,7 @@ export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, o
           onChange={setBlock}
           label={t("nodes.editor.docs.block.label")}
           disabled={off || state.codeBlock}
-          className="w-40"
+          variant="bar"
           testId="docs-block-kind"
         />
       </ToolbarGroup>
@@ -143,7 +187,6 @@ export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, o
         <ToolbarButton label={t("nodes.editor.docs.mark.bold")} shortcut={keys("Mod-b")} icon={<Bold aria-hidden />} active={state.bold} disabled={off} onClick={() => run().toggleBold().run()} data-testid="docs-bold" />
         <ToolbarButton label={t("nodes.editor.docs.mark.italic")} shortcut={keys("Mod-i")} icon={<Italic aria-hidden />} active={state.italic} disabled={off} onClick={() => run().toggleItalic().run()} data-testid="docs-italic" />
         <ToolbarButton label={t("nodes.editor.docs.mark.strike")} shortcut={keys("Mod-Shift-s")} icon={<Strikethrough aria-hidden />} active={state.strike} disabled={off} onClick={() => run().toggleStrike().run()} data-testid="docs-strike" />
-        <ToolbarButton label={t("nodes.editor.docs.mark.code")} shortcut={keys("Mod-e")} icon={<Code aria-hidden />} active={state.code} disabled={off} onClick={() => run().toggleCode().run()} data-testid="docs-code" />
         <LinkControl editor={editor} open={linkOpen} onOpenChange={onLinkOpenChange} active={state.link} disabled={off} />
       </ToolbarGroup>
       <ToolbarSeparator />
@@ -202,7 +245,6 @@ export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, o
             </>
           )}
         </Popover>
-        <ToolbarButton label={t("nodes.editor.docs.block.code")} shortcut={keys("Mod-Alt-c")} icon={<SquareCode aria-hidden />} active={state.codeBlock} disabled={off} onClick={() => run().toggleCodeBlock().run()} data-testid="docs-code-block" />
       </ToolbarGroup>
       <ToolbarSeparator />
       <Popover
@@ -212,8 +254,7 @@ export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, o
           <ToolbarButton
             label={t("nodes.editor.docs.insert.label")}
             icon={<Plus aria-hidden />}
-            showLabel
-            trailing={<ChevronDown className="!h-3 !w-3" aria-hidden />}
+            trailing={<ChevronDown className="!h-3 !w-3 text-muted-foreground" aria-hidden />}
             disabled={off}
             data-testid="docs-insert"
           />
@@ -275,14 +316,6 @@ export function DocsToolbar({ editor, linkOpen, onLinkOpenChange, outlineOpen, o
           <TableControls editor={editor} align={state.cellAlign} />
         </>
       )}
-      <ToolbarSeparator />
-      <ToolbarButton
-        label={t("nodes.editor.docs.outline.toggle")}
-        icon={<ListTree aria-hidden />}
-        active={outlineOpen}
-        onClick={onOutlineToggle}
-        data-testid="docs-outline-toggle"
-      />
       {newChart && (
         <ChartEditor
           open
@@ -340,7 +373,7 @@ function TableControls({ editor, align }: { editor: Editor; align: string }) {
           <ToolbarButton
             label={t("nodes.editor.docs.table.label")}
             icon={<Table aria-hidden />}
-            trailing={<ChevronDown className="!h-3 !w-3" aria-hidden />}
+            trailing={<ChevronDown className="!h-3 !w-3 text-muted-foreground" aria-hidden />}
             data-testid="docs-table-menu"
           />
         }
@@ -357,6 +390,18 @@ function TableControls({ editor, align }: { editor: Editor; align: string }) {
               data-testid={testId}
             />
           );
+          const aligned = (label: string, value: "left" | "center" | "right" | null, on: boolean, icon: ReactNode, testId: string) => (
+            <MenuItem
+              label={label}
+              icon={icon}
+              checked={on}
+              onClick={() => {
+                alignColumn(value);
+                close();
+              }}
+              data-testid={testId}
+            />
+          );
           return (
             <>
               {item(t("nodes.editor.docs.table.row_above"), () => run().addRowBefore().run(), "docs-row-above")}
@@ -366,13 +411,14 @@ function TableControls({ editor, align }: { editor: Editor; align: string }) {
               {item(t("nodes.editor.docs.table.delete_row"), () => run().deleteRow().run(), "docs-delete-row", true)}
               {item(t("nodes.editor.docs.table.delete_column"), () => run().deleteColumn().run(), "docs-delete-column", true)}
               {item(t("nodes.editor.docs.table.delete"), () => run().deleteTable().run(), "docs-delete-table", true)}
+              <MenuDivider />
+              {aligned(t("nodes.editor.docs.table.align_left"), null, align === "left" || align === "", <AlignLeft aria-hidden />, "docs-align-left")}
+              {aligned(t("nodes.editor.docs.table.align_center"), "center", align === "center", <AlignCenter aria-hidden />, "docs-align-center")}
+              {aligned(t("nodes.editor.docs.table.align_right"), "right", align === "right", <AlignRight aria-hidden />, "docs-align-right")}
             </>
           );
         }}
       </Popover>
-      <ToolbarButton label={t("nodes.editor.docs.table.align_left")} icon={<AlignLeft aria-hidden />} active={align === "left" || align === ""} onClick={() => alignColumn(null)} data-testid="docs-align-left" />
-      <ToolbarButton label={t("nodes.editor.docs.table.align_center")} icon={<AlignCenter aria-hidden />} active={align === "center"} onClick={() => alignColumn("center")} data-testid="docs-align-center" />
-      <ToolbarButton label={t("nodes.editor.docs.table.align_right")} icon={<AlignRight aria-hidden />} active={align === "right"} onClick={() => alignColumn("right")} data-testid="docs-align-right" />
     </ToolbarGroup>
   );
 }

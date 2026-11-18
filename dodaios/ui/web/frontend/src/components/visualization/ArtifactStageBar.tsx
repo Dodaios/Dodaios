@@ -6,7 +6,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Check, FileText, Image as ImageIcon, Loader2, MoreHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, FileText, Image as ImageIcon, Loader2, X } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -17,13 +17,15 @@ import { useEventStore } from "@/store/events";
 import "./stageBar.css";
 
 /**
- * The Artifacts stage's one bar, kept quiet on purpose.
+ * The Artifacts stage's top bar, kept quiet on purpose.
  *
- * In the middle a single pill names what is open. On the right: "Share",
- * one overflow menu for everything used now and then (the view — preview,
- * code, files, run —, the star, open in the browser, save a copy, show in
- * folder, previous / next), and a round close button that goes back to the
- * library. No status word for a run that simply succeeded, no icon row.
+ * In the middle a single pill names what is open; a press on it opens the
+ * menu of everything used now and then (the view — preview, code, files,
+ * run —, the star, open in the browser, save a copy, show in folder,
+ * previous / next). On the right: "Share" and a round close button that goes
+ * back to the library. No status word for a run that simply succeeded, no
+ * icon row: what shapes a node is in the bar at its bottom
+ * (components/nodes/bar/NodeBar.tsx).
  *
  * In the node window (`layout="window"`, components/nodes/peek) the same bar
  * is a window's title row: the name on the left, the same actions on the
@@ -112,7 +114,12 @@ export function StageBar({
   );
 }
 
-/** The name of what is open, in one calm pill. */
+/**
+ * The name of what is open, in one calm pill. With a `menu`, the pill is the
+ * way to everything used now and then (the view, the star, rename, open in
+ * the browser, save a copy, previous / next): one press on the name, a
+ * small arrow beside it says so. The bar keeps no "⋯" of its own.
+ */
 export function TitlePill({
   title,
   picture,
@@ -120,6 +127,7 @@ export function TitlePill({
   status,
   plain = false,
   detail,
+  menu,
 }: {
   title: string;
   /** A picture gets a picture glyph; everything else a document. */
@@ -132,15 +140,12 @@ export function TitlePill({
   plain?: boolean;
   /** What it is and when it changed, quieter, after the name (window title only). */
   detail?: string;
+  /** What a press on the name opens. */
+  menu?: (close: () => void) => ReactNode;
 }) {
   const Icon = picture ? ImageIcon : FileText;
-  return (
-    <div
-      className={cn(
-        "inline-flex h-10 min-w-0 items-center gap-2.5",
-        plain ? "px-1" : "max-w-[min(40rem,56vw)] rounded-full border border-border/70 bg-secondary/40 px-4",
-      )}
-    >
+  const face = (
+    <>
       <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
       <span
         className="truncate text-base font-medium text-foreground-strong"
@@ -150,6 +155,33 @@ export function TitlePill({
         {title}
       </span>
       {suffix && <span className="shrink-0 text-base text-muted-foreground">· {suffix}</span>}
+      {menu && <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+    </>
+  );
+  const pillClass = cn(
+    "inline-flex h-10 min-w-0 items-center gap-2.5",
+    plain ? "px-1" : "max-w-[min(40rem,56vw)] rounded-full border border-border/70 bg-secondary/40 px-4",
+  );
+  return (
+    <div className="inline-flex min-w-0 items-center gap-2.5">
+      {menu ? (
+        <BarPopover
+          label={title}
+          trigger={face}
+          triggerClassName={cn(
+            pillClass,
+            "text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            plain && "rounded-lg px-2",
+          )}
+          testId="visualization-more"
+          align={plain ? "left" : "center"}
+          className="min-w-0"
+        >
+          {menu}
+        </BarPopover>
+      ) : (
+        <div className={pillClass}>{face}</div>
+      )}
       {plain && detail && (
         <span className="stage-bar-detail shrink-0 text-sm text-muted-foreground" data-testid="visualization-title-detail">
           {detail}
@@ -169,6 +201,8 @@ export function BarPopover({
   triggerClassName,
   testId,
   triggerRef,
+  align = "right",
+  className,
   children,
 }: {
   label: string;
@@ -176,6 +210,9 @@ export function BarPopover({
   triggerClassName: string;
   testId: string;
   triggerRef?: RefObject<HTMLButtonElement>;
+  /** Which edge of the trigger the panel lines up with. */
+  align?: "left" | "right" | "center";
+  className?: string;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -204,7 +241,7 @@ export function BarPopover({
   }, [open]);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className={cn("relative", className)}>
       <button
         ref={triggerRef}
         type="button"
@@ -222,7 +259,10 @@ export function BarPopover({
           role="menu"
           aria-label={label}
           className={cn(
-            "absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-border bg-popover p-1.5 shadow-float",
+            "absolute top-full z-50 mt-2 w-72 rounded-xl border border-border bg-popover p-1.5 shadow-float",
+            align === "right" && "right-0",
+            align === "left" && "left-0",
+            align === "center" && "left-1/2 -translate-x-1/2",
             "animate-in fade-in-0 zoom-in-95 duration-150",
           )}
         >
@@ -307,20 +347,6 @@ export function MenuHeading({ title, detail }: { title: string; detail?: string 
       <p className="truncate text-sm font-medium text-foreground-strong">{title}</p>
       {detail && <p className="truncate text-sm text-muted-foreground">{detail}</p>}
     </div>
-  );
-}
-
-export function MoreMenu({ children }: { children: (close: () => void) => ReactNode }) {
-  const t = useT();
-  return (
-    <BarPopover
-      label={t("visualization.more")}
-      trigger={<MoreHorizontal aria-hidden />}
-      triggerClassName={ROUND_BUTTON}
-      testId="visualization-more"
-    >
-      {children}
-    </BarPopover>
   );
 }
 

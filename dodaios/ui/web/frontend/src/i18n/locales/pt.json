@@ -12051,7 +12051,8 @@
       "running": "Ainda se está a trabalhar nisto. Para primeiro a execução e elimina depois."
     },
     "ask": {
-      "change_draft": "Altera o node “{0}” (id {1}): "
+      "change_draft": "Altera o node “{0}” (id {1}): ",
+      "change_file_draft": "Altera “{0}” (ficheiro {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12231,6 +12232,11 @@
         "title": "Um quadro vazio",
         "hint": "Escolha uma ferramenta em baixo, prima N para uma nota adesiva ou peça a {assistant} para desenhar algo aqui."
       }
+    },
+    "bar": {
+      "label": "Ferramentas do node",
+      "more": "Mais ferramentas",
+      "chat": "Chat"
     }
   },
   "agent_browser": {

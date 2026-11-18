@@ -31,6 +31,14 @@ import { NodePeekHost } from "./NodePeekHost";
 
 vi.mock("@/hooks/useWebSocket", () => ({ getWSClient: () => null }));
 
+// These tests pin the window around the node, on the node's page (its bar,
+// comments, menu, keys); a typed node opening straight in its native editor
+// is pinned in views/VisualizationView.editors.test.tsx.
+vi.mock("@/components/nodes/editors/types", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/nodes/editors/types")>()),
+  isEditableType: () => false,
+}));
+
 // The conversation is the front page's own stage; here it only has to show
 // which chat store it was handed.
 vi.mock("@/components/home/ChatStage", async () => {
@@ -233,7 +241,7 @@ describe("the node window", () => {
     expect(await screen.findByTestId("visualization-edit")).toBeTruthy();
     expect(screen.getByTestId("visualization-comment")).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId("visualization-more"));
+    // "Chat" ends the node's bar.
     fireEvent.click(screen.getByTestId("visualization-ask-change"));
     // Nothing was left and nothing was sent: the sentence waits in the composer here.
     const draft = readComposerDraft(useAgentChatStore, useAgentChatStore.getState().activeSessionId);
@@ -265,7 +273,7 @@ describe("the node window", () => {
     );
   });
 
-  it("offers neither for a page that is no node", async () => {
+  it("offers no rename or revert for a page that is no node, and drafts a change to its file", async () => {
     installFetchMock();
     mount();
     await openWindow(PLAN);
@@ -273,7 +281,11 @@ describe("the node window", () => {
     fireEvent.click(screen.getByTestId("visualization-more"));
     expect(screen.queryByTestId("visualization-rename")).toBeNull();
     expect(screen.queryByTestId("visualization-revert")).toBeNull();
-    expect(screen.queryByTestId("visualization-ask-change")).toBeNull();
+    expect(screen.queryByTestId("visualization-comment")).toBeNull();
+    fireEvent.click(screen.getByTestId("visualization-ask-change"));
+    const draft = readComposerDraft(useAgentChatStore, useAgentChatStore.getState().activeSessionId);
+    expect(draft.text).toContain("Business plan v1");
+    expect(draft.text).toContain(`run-1/${PLAN_FILE.path}`);
   });
 
   it("closes on Escape and on a click beside it, but not while a text is typed", async () => {

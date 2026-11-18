@@ -37,6 +37,7 @@ import {
   Plus,
   Rows3,
   Scissors,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 
@@ -84,6 +85,8 @@ const SPARE_ROWS = 30;
 const TOTAL_MARKS: Record<string, string> = { sum: "Σ", avg: "Ø", min: "min", max: "max", count: "#" };
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const MOD = IS_MAC ? "⌘" : "Ctrl+";
+/** The tabs row under the grid (`SheetTabs`, h-10) and a little air above it. */
+const SHEET_TABS_HEIGHT = 44;
 
 type Menu =
   | { kind: "cells"; x: number; y: number }
@@ -757,34 +760,43 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
   const typeOptions = COLUMN_TYPES.map((type) => ({ value: type, label: t(`nodes.editor.sheets.types.${type}`) }));
 
   // ------------------------------------------------------------- toolbar
+  /* The node bar at the bottom of the sheet: the column's format, bold, sort
+   * and filter, insert and chart; the column settings open beside the grid
+   * from its last button. */
   const toolbar = (
     <>
       <ToolbarGroup label={t("nodes.editor.sheets.toolbar.format")}>
         <Select
+          variant="bar"
           label={t("nodes.editor.sheets.panel.type")}
           value={activeColumn?.formula ? activeView.kind : (activeColumn?.type ?? activeView?.kind ?? "text")}
           options={activeColumn?.formula ? typeOptions.filter((o) => ["number", "currency", "percent"].includes(o.value)) : typeOptions}
           onChange={(value) => patchSelected({ type: value as ColumnType }, step("column_type"))}
-          className="w-32"
           testId="sheet-type"
         />
-        <ToolbarButton
-          label={t("nodes.editor.sheets.toolbar.fewer_decimals")}
-          icon={<Minus aria-hidden />}
-          disabled={!activeView?.numeric || activeView.decimals <= 0}
-          onClick={() => changeDecimals(-1)}
-          data-testid="sheet-decimals-down"
-        />
-        <span className="w-12 text-center text-xs tabular-nums text-muted-foreground" aria-live="polite">
-          {activeView?.numeric ? `.${"0".repeat(activeView.decimals) || "–"}` : ""}
-        </span>
-        <ToolbarButton
-          label={t("nodes.editor.sheets.toolbar.more_decimals")}
-          icon={<Plus aria-hidden />}
-          disabled={!activeView?.numeric || activeView.decimals >= MAX_DECIMALS}
-          onClick={() => changeDecimals(1)}
-          data-testid="sheet-decimals-up"
-        />
+        {activeView?.numeric && (
+          <>
+            <ToolbarButton
+              label={t("nodes.editor.sheets.toolbar.fewer_decimals")}
+              icon={<Minus aria-hidden />}
+              disabled={activeView.decimals <= 0}
+              onClick={() => changeDecimals(-1)}
+              className="w-7"
+              data-testid="sheet-decimals-down"
+            />
+            <span className="w-8 text-center text-xs tabular-nums text-muted-foreground" aria-live="polite">
+              {`.${"0".repeat(activeView.decimals) || "–"}`}
+            </span>
+            <ToolbarButton
+              label={t("nodes.editor.sheets.toolbar.more_decimals")}
+              icon={<Plus aria-hidden />}
+              disabled={activeView.decimals >= MAX_DECIMALS}
+              onClick={() => changeDecimals(1)}
+              className="w-7"
+              data-testid="sheet-decimals-up"
+            />
+          </>
+        )}
         <ToolbarButton
           label={t("nodes.editor.sheets.toolbar.bold")}
           icon={<Bold aria-hidden />}
@@ -825,8 +837,7 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
             <ToolbarButton
               label={t("nodes.editor.sheets.toolbar.insert")}
               icon={<Plus aria-hidden />}
-              showLabel
-              trailing={<ChevronDown className="h-3 w-3" aria-hidden />}
+              trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
               data-testid="sheet-insert"
             />
           }
@@ -851,7 +862,6 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
         <ToolbarButton
           label={t("nodes.editor.sheets.menu.chart")}
           icon={<BarChart3 aria-hidden />}
-          showLabel
           disabled={(sheet.charts?.length ?? 0) >= MAX_CHARTS}
           onClick={() => openChart(null)}
           data-testid="sheet-insert-chart"
@@ -860,7 +870,7 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
       <ToolbarSeparator />
       <ToolbarButton
         label={t("nodes.editor.sheets.toolbar.settings")}
-        icon={<PanelRight aria-hidden />}
+        icon={<SlidersHorizontal aria-hidden />}
         active={panelOpen}
         onClick={() => setPanelOpen((open) => !open)}
         data-testid="sheet-panel-toggle"
@@ -903,7 +913,16 @@ export default function SheetsEditor({ node, initial, onDone }: NodeEditorProps)
       : editText(sheet.rows[storedRow(sel.active.row)]?.[activeColumn?.key ?? ""], locale);
 
   return (
-    <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} side={side} bodyClassName="relative flex flex-col overflow-hidden">
+    <EditorShell
+      editor={editor}
+      title={node.title}
+      onDone={onDone}
+      toolbar={toolbar}
+      side={side}
+      bodyClassName="relative flex flex-col overflow-hidden"
+      // Over the sheet's tabs, which stay in view under the bar.
+      barInset={SHEET_TABS_HEIGHT}
+    >
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-2" data-sheet-formula-bar="">
         <span className="w-16 shrink-0 rounded border border-border px-2 py-0.5 text-center font-mono text-xs" aria-label={t("nodes.editor.sheets.bar.address")}>
           {activeAddress}

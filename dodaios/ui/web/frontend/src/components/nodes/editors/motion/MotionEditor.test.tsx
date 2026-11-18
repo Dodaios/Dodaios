@@ -7,6 +7,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 
 import type { NodeCard } from "../../nodeModel";
 import MotionEditor, { accentToHex, hexToAccent } from "./index";
+import { barItem } from "../testBar";
 
 vi.mock("@/i18n", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/i18n")>();
@@ -143,14 +144,14 @@ describe("MotionEditor", () => {
   it("adds a card from the bin after the piece under the playhead, and undo takes it back", () => {
     open();
     expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(3);
-    fireEvent.click(screen.getByTestId("clip-tab-cards"));
+    fireEvent.click(screen.getByTestId("clip-bar-cards"));
     fireEvent.click(screen.getByTestId("motion-add-stat"));
     expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(4);
     // After the first scene (the playhead stands at 0), and it is picked.
     expect(screen.getByTestId("clip-scene-1").getAttribute("aria-selected")).toBe("true");
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
+    fireEvent.click(barItem("node-editor-undo"));
     expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(3);
-    fireEvent.click(screen.getByTestId("node-editor-redo"));
+    fireEvent.click(barItem("node-editor-redo"));
     expect(screen.getAllByTestId(/^clip-scene-/)).toHaveLength(4);
   });
 
@@ -171,7 +172,7 @@ describe("MotionEditor", () => {
 
   it("adds a text layer at the playhead and edits it in the inspector", async () => {
     open();
-    fireEvent.click(screen.getByTestId("clip-tab-text"));
+    fireEvent.click(screen.getByTestId("clip-bar-text"));
     fireEvent.click(screen.getByTestId("clip-add-text-title"));
     expect(screen.getByTestId("clip-inspector-text")).toBeTruthy();
     fireEvent.change(screen.getByTestId("clip-text"), { target: { value: "Watch this" } });
@@ -202,7 +203,7 @@ describe("MotionEditor", () => {
     await report({ t: 11, scene: 2, playing: false });
     expect(screen.getByTestId("motion-play")).toBeTruthy();
     // The safe-zone guide is the page's own.
-    fireEvent.click(screen.getByTestId("clip-guides"));
+    fireEvent.click(barItem("clip-guides"));
     expect(sent).toContainEqual({ type: "dodaios-film-view", bare: true, guides: true });
   });
 
@@ -213,7 +214,7 @@ describe("MotionEditor", () => {
     vi.spyOn(frame.contentWindow as Window, "postMessage").mockImplementation((message: unknown) => {
       answers.push(message as Record<string, unknown>);
     });
-    fireEvent.click(screen.getByTestId("clip-edit-text"));
+    fireEvent.click(barItem("clip-edit-text"));
     expect(answers).toContainEqual({ type: "dodaios-node-mode", mode: "edit" });
     await act(async () => {
       window.dispatchEvent(
@@ -245,6 +246,8 @@ describe("MotionEditor", () => {
 
   it("sets the format from a platform preset in the clip's settings", async () => {
     open();
+    // The clip's own settings open from the node bar.
+    fireEvent.click(screen.getByTestId("clip-inspector-toggle"));
     fireEvent.click(screen.getByTestId("clip-preset-shorts"));
     await waitFor(() => expect(lastSave()?.format).toBe("tall"), SAVE_WAIT);
     fireEvent.click(screen.getByTestId("clip-preset-feed"));

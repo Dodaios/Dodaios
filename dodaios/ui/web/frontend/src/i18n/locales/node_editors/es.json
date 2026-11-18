@@ -195,7 +195,7 @@
       },
       "region": "Editor de {0}",
       "toolbar": "Herramientas de edición",
-      "inspector": "Inspector",
+      "inspector": "Propiedades",
       "undo": "Deshacer",
       "redo": "Rehacer",
       "history": {
@@ -964,7 +964,8 @@
         "notes": {
           "label": "Notas del orador de la diapositiva {n}",
           "placeholder": "Lo que quieres decir en esta diapositiva. Al presentar, solo lo ves tú.",
-          "none": "Esta diapositiva no tiene notas."
+          "none": "Esta diapositiva no tiene notas.",
+          "toggle": "Notas del orador"
         },
         "strip": {
           "label": "Diapositivas",
@@ -1307,7 +1308,8 @@
             "text_left": "Izquierda",
             "text_center": "Centrado",
             "text_right": "Derecha",
-            "text_justify": "Justificado"
+            "text_justify": "Justificado",
+            "label": "Alineación"
           },
           "spread": {
             "x": "Distribuir horizontalmente",
@@ -1423,7 +1425,8 @@
         },
         "format": {
           "label": "Formato",
-          "hint": "Doble clic para escribir · arrastra para elegir varios"
+          "hint": "Doble clic para escribir · arrastra para elegir varios",
+          "slide": "Diapositiva"
         },
         "menu": {
           "label": "Acciones del elemento",
@@ -1452,6 +1455,9 @@
           "free_move": "Mover sin ajuste",
           "undo": "Deshacer · rehacer",
           "present": "Al presentar"
+        },
+        "panel": {
+          "close": "Cerrar"
         }
       }
     }

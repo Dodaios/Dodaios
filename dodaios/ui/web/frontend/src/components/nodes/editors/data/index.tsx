@@ -22,14 +22,14 @@
  * until it is filled).
  */
 import { useCallback, useMemo, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { BarChart3, Database, Eye, LayoutDashboard, Plus, Rows3, SquarePen, Table2 } from "lucide-react";
+import { BarChart3, ChevronDown, Database, Eye, Plus, Rows3, SlidersHorizontal, SquarePen, Table2 } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ChartEditor } from "../charts/ChartEditor";
 import type { ChartJson } from "../charts/chartModel";
 import { starterChart } from "../charts/chartModel";
-import { ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
+import { MenuItem, Popover, ToolbarButton } from "../controls";
 import { EditorShell } from "../EditorShell";
 import { PreviewFrame, useNodePreview } from "../PreviewFrame";
 import type { NodeEditorProps } from "../types";
@@ -92,6 +92,9 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
   const { spec, apply } = editor;
   const [selection, setSelection] = useState<DashSelection | null>(null);
   const [view, setView] = useState<"edit" | "page">("edit");
+  /* The settings beside the dashboard open from the node bar; the dashboard
+   * opens as itself and nothing else (the maintainer's request, 2026-11-18). */
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [chartDialog, setChartDialog] = useState<{ section: number; index: number | null } | null>(null);
   const [dragging, setDragging] = useState<Dragging | null>(null);
   const [dropAt, setDropAt] = useState<string>("");
@@ -243,58 +246,68 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
 
   /* ---------------------------------------------------------- toolbar */
 
+  /* The node bar at the bottom of the dashboard: add a figure, a chart, a
+   * table or a section; look at it as the page; open the settings beside it
+   * (summary, sources, the chosen piece). */
   const toolbar = (
     <>
-      <ToolbarGroup label={t("nodes.editor.data.add_group")}>
-        <ToolbarButton
+      <Popover
+        label={t("nodes.editor.data.add_group")}
+        role="menu"
+        trigger={
+          <ToolbarButton
+            label={t("nodes.editor.data.add_group")}
+            icon={<Plus aria-hidden />}
+            trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+            disabled={view !== "edit"}
+            data-testid="data-add"
+          />
+        }
+      >
+        <MenuItem
           label={t("nodes.editor.data.add.metrics")}
           icon={<SquarePen aria-hidden />}
-          showLabel
-          disabled={view !== "edit" || !canAdd(spec, target, "metrics")}
+          disabled={!canAdd(spec, target, "metrics")}
           onClick={() => addPart("metrics")}
           data-testid="data-add-metric"
         />
-        <ToolbarButton
+        <MenuItem
           label={t("nodes.editor.data.add.charts")}
           icon={<BarChart3 aria-hidden />}
-          showLabel
-          disabled={view !== "edit" || !canAdd(spec, target, "charts")}
+          disabled={!canAdd(spec, target, "charts")}
           onClick={() => addPart("charts")}
           data-testid="data-add-chart"
         />
-        <ToolbarButton
+        <MenuItem
           label={t("nodes.editor.data.add.tables")}
           icon={<Table2 aria-hidden />}
-          showLabel
-          disabled={view !== "edit" || !canAdd(spec, target, "tables")}
+          disabled={!canAdd(spec, target, "tables")}
           onClick={() => addPart("tables")}
           data-testid="data-add-table"
         />
-        <ToolbarButton
+        <MenuItem
           label={t("nodes.editor.data.add.section")}
           icon={<Rows3 aria-hidden />}
-          showLabel
-          disabled={view !== "edit" || spec.sections.length >= LIMITS.sections}
+          disabled={spec.sections.length >= LIMITS.sections}
           onClick={() => addSectionAfter(target)}
           data-testid="data-add-section"
         />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup label={t("nodes.editor.data.view.label")}>
-        <ToolbarButton
-          label={t("nodes.editor.data.view.edit")}
-          icon={<LayoutDashboard aria-hidden />}
-          active={view === "edit"}
-          onClick={() => setView("edit")}
-        />
-        <ToolbarButton
-          label={t("nodes.editor.data.view.page")}
-          icon={<Eye aria-hidden />}
-          active={view === "page"}
-          onClick={() => setView("page")}
-          data-testid="data-view-page"
-        />
-      </ToolbarGroup>
+      </Popover>
+      <ToolbarButton
+        label={t("nodes.editor.data.view.page")}
+        icon={<Eye aria-hidden />}
+        active={view === "page"}
+        onClick={() => setView(view === "page" ? "edit" : "page")}
+        data-testid="data-view-page"
+      />
+      <ToolbarButton
+        label={t("nodes.editor.inspector")}
+        icon={<SlidersHorizontal aria-hidden />}
+        active={inspectorOpen && view === "edit"}
+        disabled={view !== "edit"}
+        onClick={() => setInspectorOpen((open) => !open)}
+        data-testid="data-inspector-toggle"
+      />
     </>
   );
 
@@ -576,7 +589,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
       onDone={onDone}
       toolbar={toolbar}
       side={
-        view === "edit" ? (
+        view === "edit" && inspectorOpen ? (
           <DataInspector
             spec={spec}
             selection={current}
@@ -600,7 +613,7 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
         </div>
       ) : (
         <div
-          className="mx-auto flex max-w-[1216px] flex-col gap-6 px-6 py-8"
+          className="mx-auto flex max-w-[1216px] flex-col gap-6 px-6 pb-28 pt-8"
           onKeyDown={onBodyKey}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setSelection(null);

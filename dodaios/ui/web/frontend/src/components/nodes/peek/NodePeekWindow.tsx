@@ -36,6 +36,7 @@ import { Loader2, Maximize2, PanelRight, PanelRightClose, X } from "lucide-react
 import { AgentChatStoreProvider } from "@/components/agentchat/AgentChatStoreContext";
 import { PaneResizer } from "@/components/layout/PaneResizer";
 import { draftChangeBeside } from "@/components/nodes/askDodaios";
+import { createLeaveGuard } from "@/components/nodes/editors/leaveGuard";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { invalidateNodes, useNodes } from "@/components/nodes/useNodes";
@@ -115,10 +116,13 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
     invalidateNodes(client);
     useNodePeek.getState().close();
   }, [client]);
+  /* Every way out asks the open editor first: it saves what is left, and
+   * stays (saying so) when that does not go through. */
+  const leaveGuard = useMemo(createLeaveGuard, []);
   const requestClose = useCallback(() => {
     if (useNodeCommentDraft.getState().pending.length > 0) setConfirming(true);
-    else closeNow();
-  }, [closeNow]);
+    else leaveGuard.leave(closeNow);
+  }, [closeNow, leaveGuard]);
   useEffect(() => {
     if (unsent === 0) setConfirming(false);
   }, [unsent]);
@@ -323,6 +327,8 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
               run={run}
               visual={visual}
               node={node}
+              card={card}
+              leaveGuard={leaveGuard}
               onEditorOpen={setEditorOpen}
               onOpenNode={openMade}
               onJumpToRun={jumpToRun}

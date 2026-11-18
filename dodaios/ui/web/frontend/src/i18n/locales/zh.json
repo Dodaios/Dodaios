@@ -12051,7 +12051,8 @@
       "running": "它仍在处理中。请先停止运行，再删除。"
     },
     "ask": {
-      "change_draft": "修改 Node“{0}”（ID {1}）："
+      "change_draft": "修改 Node“{0}”（ID {1}）：",
+      "change_file_draft": "修改“{0}”（文件 {1}）："
     },
     "peek": {
       "window": "节点",
@@ -12231,6 +12232,11 @@
         "title": "空白白板",
         "hint": "在下方选择工具，按 N 添加便利贴，或请 {assistant} 在这里画点什么。"
       }
+    },
+    "bar": {
+      "label": "Node 工具",
+      "more": "更多工具",
+      "chat": "聊天"
     }
   },
   "agent_browser": {

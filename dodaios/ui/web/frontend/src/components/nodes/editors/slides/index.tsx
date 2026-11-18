@@ -30,40 +30,45 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent,
 import {
   ArrowRight,
   BarChart3,
+  BringToFront,
+  ChevronDown,
   ClipboardPaste,
   Copy,
   Grid3x3,
   ImagePlus,
   Keyboard,
-  Search,
-  ZoomIn,
-  ZoomOut,
   Loader2,
   Lock,
   Magnet,
+  Maximize,
   Minus,
-  Monitor,
   MonitorPlay,
-  Moon,
+  NotebookPen,
   Palette,
   Play,
   Plus,
   Scissors,
+  Search,
+  SendToBack,
   Shapes,
-  Sun,
+  SlidersHorizontal,
   Table2,
   Trash2,
   Type,
   Unlock,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
+import { useElementSize } from "@/hooks/useElementSize";
 import { fill, useT } from "@/i18n";
 import { useThemeValue } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
 import { ChartEditor } from "../charts/ChartEditor";
 import { validateChart, type ChartJson } from "../charts/chartModel";
-import { ColorPicker, MenuItem, Popover, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "../controls";
+import { ColorPicker, MenuDivider, MenuItem, Popover, ToolbarButton, ToolbarSeparator } from "../controls";
 import { EditorShell } from "../EditorShell";
 import { produce } from "../produce";
 import type { NodeEditorProps } from "../types";
@@ -83,7 +88,6 @@ import {
   switchLayout,
   type Deck,
   type DeckChart,
-  type DeckTheme,
   type Layout,
   type Slide,
   type Translate,
@@ -740,6 +744,13 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
   const [grid, setGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [snap, setSnap] = useState(true);
+  /* Panels stay closed until asked for, from the node bar: the deck opens as
+   * its slides and nothing else (the maintainer's request, 2026-11-18). */
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [panel, setPanel] = useState<"find" | "keys" | null>(null);
+  const notesBox = useRef<HTMLDivElement>(null);
+  const { height: notesHeight } = useElementSize(notesBox);
   const [menu, setMenu] = useState<{ x: number; y: number; index: number | null } | null>(null);
 
   // --- pictures and text dropped or pasted onto the deck -----------------------------------------
@@ -900,9 +911,6 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
   );
 
   // --- deck settings -------------------------------------------------------------------------
-  const setTheme = (next: DeckTheme) => {
-    if (next !== deck.theme) act(L("step.theme"), (draft) => void (draft.theme = next));
-  };
   const setAccent = (next: string) => {
     act(L("step.accent"), (draft) => {
       if (next) draft.accent = next.toLowerCase();
@@ -918,15 +926,144 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
     });
   };
 
-  const themeIcon = deck.theme === "dark" ? <Moon aria-hidden /> : deck.theme === "light" ? <Sun aria-hidden /> : <Monitor aria-hidden />;
   const accentHex = deck.accent?.startsWith("#") ? deck.accent.toUpperCase() : "";
 
-  const toolbar = (
-    <>
-      <ToolbarGroup label={L("toolbar.slides")}>
+  /* The node bar at the bottom of the deck. With an element selected it is
+   * the element's format; with none, what is added to a slide, the slide's
+   * own settings, the deck's look and Present. Everything used now and then
+   * is in its "⋯". */
+  const formatting =
+    slide && css ? (
+      <FormatBar
+        slide={slide}
+        deck={deck}
+        elements={elements}
+        selected={selectedIdx}
+        onElements={changeElements}
+        onSlide={changeSlide}
+        onLayout={(layout) => changeLayout(current, layout)}
+        onPickBackground={() => pickImage({ kind: "background" })}
+      />
+    ) : null;
+  const shapesPanel = (close: () => void, extra?: ReactNode) => (
+    <div className="w-64 p-2">
+      {extra}
+      <p className="pb-2 text-xs text-muted-foreground">{L("insert.shape")}</p>
+      <div className="grid grid-cols-5 gap-1">
+        {SHAPES.map((shape) => (
+          <button
+            key={shape}
+            type="button"
+            aria-label={L(`shape.${shape}`)}
+            title={L(`shape.${shape}`)}
+            onClick={() => {
+              close();
+              insertShape(shape);
+            }}
+            className="grid h-10 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid={`slides-insert-shape-${shape}`}
+          >
+            <ShapeGlyph shape={shape} className="h-6 w-6" />
+          </button>
+        ))}
+      </div>
+      <p className="pb-2 pt-3 text-xs text-muted-foreground">{L("insert.line")}</p>
+      <div className="grid grid-cols-2 gap-1">
+        {(["line", "arrow", "double", "dashed"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => {
+              close();
+              insertLine(kind);
+            }}
+            className="flex h-8 items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid={`slides-insert-line-${kind}`}
+          >
+            {kind === "line" || kind === "dashed" ? <Minus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+            <span className="truncate">{L(`insert.line_${kind}`)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* With an element selected the bar is its format; inserting stays one
+   * press away, every insert behind one "+". */
+  const insertMore = (
+    <Popover
+      label={L("toolbar.insert")}
+      trigger={
+        <ToolbarButton
+          label={L("toolbar.insert")}
+          icon={<Plus aria-hidden />}
+          trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+          data-testid="slides-insert-more"
+        />
+      }
+    >
+      {(close) =>
+        shapesPanel(
+          close,
+          <div className="mb-3 grid grid-cols-4 gap-1">
+            {(
+              [
+                ["text", <Type key="i" aria-hidden />, insertText, "slides-insert-text"],
+                ["image", <ImagePlus key="i" aria-hidden />, () => pickImage({ kind: "element-add" }), "slides-insert-image"],
+                ["table", <Table2 key="i" aria-hidden />, insertTable, "slides-insert-table"],
+                ["chart", <BarChart3 key="i" aria-hidden />, () => setChartTarget({ kind: "new" }), "slides-insert-chart"],
+              ] as const
+            ).map(([kind, icon, run, testId]) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => {
+                  close();
+                  run();
+                }}
+                className="flex h-14 flex-col items-center justify-center gap-1 rounded-md text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:h-4 [&_svg]:w-4"
+                data-testid={testId}
+              >
+                {icon}
+                <span className="max-w-full truncate px-1">{L(`insert.${kind}`)}</span>
+              </button>
+            ))}
+          </div>,
+        )
+      }
+    </Popover>
+  );
+  const propertiesToggle = (
+    <ToolbarButton
+      label={t("nodes.editor.inspector")}
+      icon={<SlidersHorizontal aria-hidden />}
+      active={inspectorOpen}
+      onClick={() => setInspectorOpen((open) => !open)}
+      data-testid="slides-inspector-toggle"
+    />
+  );
+  const toolbar =
+    selectedIdx.length > 0 ? (
+      <>
+        {insertMore}
+        <ToolbarSeparator />
+        {formatting}
+        <ToolbarSeparator />
+        {propertiesToggle}
+      </>
+    ) : (
+      <>
         <Popover
           label={L("add.label")}
-          trigger={<ToolbarButton label={L("add.button")} icon={<Plus aria-hidden />} showLabel disabled={!canAddSlide(deck)} data-testid="slides-add" />}
+          trigger={
+            <ToolbarButton
+              label={L("add.button")}
+              icon={<Plus aria-hidden />}
+              trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+              disabled={!canAddSlide(deck)}
+              data-testid="slides-add"
+            />
+          }
         >
           {(close) => (
             <div className="w-72 p-1">
@@ -940,169 +1077,92 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
             </div>
           )}
         </Popover>
-        <ToolbarButton
-          label={L("action.duplicate")}
-          icon={<Copy aria-hidden />}
-          shortcut={`${MOD}D`}
-          disabled={!canAddSlide(deck)}
-          onClick={() => duplicateSlide(current)}
-          data-testid="slides-duplicate"
-        />
-        <ToolbarButton label={L("action.delete")} icon={<Trash2 aria-hidden />} disabled={count <= 1} onClick={() => deleteSlide(current)} data-testid="slides-delete" />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup label={L("toolbar.insert")}>
+        <ToolbarSeparator />
         <ToolbarButton label={L("insert.text")} icon={<Type aria-hidden />} onClick={insertText} disabled={!slide} data-testid="slides-insert-text" />
         <Popover label={L("insert.shape")} trigger={<ToolbarButton label={L("insert.shape")} icon={<Shapes aria-hidden />} data-testid="slides-insert-shape" />}>
-          {(close) => (
-            <div className="w-64 p-2">
-              <p className="pb-2 text-xs text-muted-foreground">{L("insert.shape")}</p>
-              <div className="grid grid-cols-5 gap-1">
-                {SHAPES.map((shape) => (
-                  <button
-                    key={shape}
-                    type="button"
-                    aria-label={L(`shape.${shape}`)}
-                    title={L(`shape.${shape}`)}
-                    onClick={() => {
-                      close();
-                      insertShape(shape);
-                    }}
-                    className="grid h-10 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    data-testid={`slides-insert-shape-${shape}`}
-                  >
-                    <ShapeGlyph shape={shape} className="h-6 w-6" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </Popover>
-        <Popover role="menu" label={L("insert.line")} trigger={<ToolbarButton label={L("insert.line")} icon={<ArrowRight aria-hidden />} data-testid="slides-insert-line" />}>
-          {(close) => (
-            <div className="w-48 p-1">
-              {(["line", "arrow", "double", "dashed"] as const).map((kind) => (
-                <MenuItem
-                  key={kind}
-                  label={L(`insert.line_${kind}`)}
-                  icon={kind === "line" || kind === "dashed" ? <Minus aria-hidden /> : <ArrowRight aria-hidden />}
-                  onClick={() => {
-                    close();
-                    insertLine(kind);
-                  }}
-                  data-testid={`slides-insert-line-${kind}`}
-                />
-              ))}
-            </div>
-          )}
+          {(close) => shapesPanel(close)}
         </Popover>
         <ToolbarButton label={L("insert.image")} icon={<ImagePlus aria-hidden />} onClick={() => pickImage({ kind: "element-add" })} disabled={!slide} data-testid="slides-insert-image" />
         <ToolbarButton label={L("insert.table")} icon={<Table2 aria-hidden />} onClick={insertTable} disabled={!slide} data-testid="slides-insert-table" />
         <ToolbarButton label={L("insert.chart")} icon={<BarChart3 aria-hidden />} onClick={() => setChartTarget({ kind: "new" })} disabled={!slide} data-testid="slides-insert-chart" />
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup label={L("toolbar.look")}>
-        <Popover label={L("design.label")} trigger={<ToolbarButton label={L("design.label")} icon={<Palette aria-hidden />} showLabel data-testid="slides-design-button" />}>
-          {(close) => <DeckDesign deck={deck} onChange={act} onPickBackground={() => pickImage({ kind: "deck-background" })} close={close} />}
-        </Popover>
-        <Popover role="menu" label={L("theme.label")} trigger={<ToolbarButton label={L("theme.label")} icon={themeIcon} data-testid="slides-theme" />}>
-          {(close) => (
-            <div className="w-48 p-1">
-              {(["auto", "light", "dark"] as const).map((value) => (
-                <MenuItem
-                  key={value}
-                  label={L(`theme.${value}`)}
-                  checked={deck.theme === value}
-                  onClick={() => {
-                    close();
-                    setTheme(value);
-                  }}
-                  data-testid={`slides-theme-${value}`}
-                />
-              ))}
-            </div>
-          )}
-        </Popover>
+        <ToolbarSeparator />
+        {formatting}
         <Popover
-          label={L("accent.label")}
-          trigger={<ToolbarButton label={L("accent.label")} icon={<span className="h-4 w-4 rounded-full border border-border" style={{ background: accentSwatch(deck.accent) }} />} data-testid="slides-accent" />}
+          label={L("design.label")}
+          trigger={
+            <ToolbarButton
+              label={L("design.label")}
+              icon={<Palette aria-hidden />}
+              trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+              data-testid="slides-design-button"
+            />
+          }
         >
           {(close) => (
-            <div className="flex w-60 flex-col gap-3 p-2">
-              <div role="radiogroup" aria-label={L("accent.label")} className="flex flex-wrap gap-1.5">
-                <AccentSwatch
-                  label={L("accent.default")}
-                  color={DEFAULT_ACCENT}
-                  on={!deck.accent}
-                  onPick={() => {
-                    close();
-                    setAccent("");
-                  }}
-                />
-                {ACCENT_SWATCHES.map((name) => (
-                  <AccentSwatch
-                    key={name}
-                    label={L(`accent.${name}`)}
-                    color={SWATCH_COLORS[name]}
-                    swatch={name}
-                    on={deck.accent === name}
-                    onPick={() => {
-                      close();
-                      setAccent(name);
-                    }}
-                  />
-                ))}
+            <div className="flex flex-col">
+              <DeckDesign deck={deck} onChange={act} onPickBackground={() => pickImage({ kind: "deck-background" })} close={close} />
+              <div className="flex flex-col gap-2 border-t border-border p-2 pt-3" data-testid="slides-accent">
+                <p className="text-xs font-medium text-muted-foreground">{L("accent.label")}</p>
+                <div role="radiogroup" aria-label={L("accent.label")} className="flex flex-wrap items-center gap-1.5">
+                  <AccentSwatch label={L("accent.default")} color={DEFAULT_ACCENT} on={!deck.accent} onPick={() => setAccent("")} />
+                  {ACCENT_SWATCHES.map((name) => (
+                    <AccentSwatch
+                      key={name}
+                      label={L(`accent.${name}`)}
+                      color={SWATCH_COLORS[name]}
+                      swatch={name}
+                      on={deck.accent === name}
+                      onPick={() => setAccent(name)}
+                    />
+                  ))}
+                  <ColorPicker label={L("accent.custom")} value={accentHex} onChange={(hex) => setAccent(hex)} />
+                </div>
               </div>
-              <ColorPicker label={L("accent.custom")} value={accentHex} onChange={(hex) => setAccent(hex)} />
             </div>
           )}
         </Popover>
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarGroup label={L("toolbar.view")}>
-        <ToolbarButton label={L("view.grid")} icon={<Grid3x3 aria-hidden />} aria-pressed={grid} onClick={() => setGrid((on) => !on)} className={cn(grid && "bg-secondary text-foreground")} data-testid="slides-grid" />
-        <ToolbarButton label={L("view.snap")} icon={<Magnet aria-hidden />} aria-pressed={snap} onClick={() => setSnap((on) => !on)} className={cn(snap && "bg-secondary text-foreground")} data-testid="slides-snap" />
-        <ToolbarButton label={L("view.zoom_out")} icon={<ZoomOut aria-hidden />} disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))} data-testid="slides-zoom-out" />
-        <button
-          type="button"
-          onClick={() => setZoom(1)}
-          title={L("view.zoom_fit")}
-          className="h-8 min-w-[3.25rem] rounded-md px-1 text-xs tabular-nums text-muted-foreground hover:bg-secondary hover:text-foreground"
-          data-testid="slides-zoom"
-        >
-          {zoom === 1 ? L("view.fit") : `${Math.round(zoom * 100)}%`}
-        </button>
-        <ToolbarButton label={L("view.zoom_in")} icon={<ZoomIn aria-hidden />} disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} data-testid="slides-zoom-in" />
-        <Popover label={L("find.label")} trigger={<ToolbarButton label={L("find.label")} icon={<Search aria-hidden />} data-testid="slides-find" />}>
-          <FindReplace deck={deck} onReplace={(query, replacement, matchCase) => act(L("step.replace"), (draft) => void replaceAll(draft, query, replacement, matchCase))} onShow={(index) => setSelected(index)} />
-        </Popover>
-        <Popover label={L("keys.label")} trigger={<ToolbarButton label={L("keys.label")} icon={<Keyboard aria-hidden />} data-testid="slides-keys" />}>
-          <ShortcutList />
-        </Popover>
-      </ToolbarGroup>
-      <ToolbarSeparator />
-      <ToolbarButton
-        label={L("present.button")}
-        icon={<Play aria-hidden />}
-        showLabel
-        disabled={!css}
-        onClick={() => setPresenting({ from: current, presenter: false })}
-        data-testid="slides-present-button"
-      />
-      <Popover role="menu" label={L("present.more")} trigger={<ToolbarButton label={L("present.more")} icon={<MonitorPlay aria-hidden />} disabled={!css} data-testid="slides-present-more" />}>
-        {(close) => (
-          <div className="w-60 p-1">
-            <MenuItem label={L("present.from_current")} onClick={() => { close(); setPresenting({ from: current, presenter: false }); }} />
-            <MenuItem label={L("present.from_start")} onClick={() => { close(); setPresenting({ from: 0, presenter: false }); }} data-testid="slides-present-start" />
-            <MenuItem label={L("present.presenter_view")} onClick={() => { close(); setPresenting({ from: current, presenter: true }); }} data-testid="slides-present-presenter-view" />
-          </div>
-        )}
-      </Popover>
-      {imageBusy && <Loader2 className="ml-1 h-4 w-4 animate-spin text-muted-foreground" aria-label={L("image.working")} />}
+        <ToolbarSeparator />
+        <ToolbarButton
+          label={L("present.button")}
+          icon={<Play aria-hidden />}
+          disabled={!css}
+          onClick={() => setPresenting({ from: current, presenter: false })}
+          data-testid="slides-present-button"
+        />
+        {propertiesToggle}
+        {imageBusy && <Loader2 className="mx-1 h-4 w-4 animate-spin text-muted-foreground" aria-label={L("image.working")} />}
+      </>
+    );
+
+  const more = (
+    <>
+      {selectedIdx.length > 0 && (
+        <>
+          <MenuItem label={L("el.order.front")} icon={<BringToFront aria-hidden />} shortcut={`${MOD}⇧]`} onClick={() => orderSelected("front")} data-testid="slides-more-front" />
+          <MenuItem label={L("el.order.back")} icon={<SendToBack aria-hidden />} shortcut={`${MOD}⇧[`} onClick={() => orderSelected("back")} />
+          <MenuItem label={L("el.duplicate")} icon={<Copy aria-hidden />} shortcut={`${MOD}D`} onClick={duplicateSelected} />
+          <MenuItem label={L("el.delete")} icon={<Trash2 aria-hidden />} destructive onClick={removeSelected} />
+          <MenuDivider />
+        </>
+      )}
+      <MenuItem label={L("action.duplicate")} icon={<Copy aria-hidden />} disabled={!canAddSlide(deck)} onClick={() => duplicateSlide(current)} data-testid="slides-duplicate" />
+      <MenuItem label={L("action.delete")} icon={<Trash2 aria-hidden />} disabled={count <= 1} onClick={() => deleteSlide(current)} data-testid="slides-delete" />
+      <MenuDivider />
+      <MenuItem label={L("notes.toggle")} icon={<NotebookPen aria-hidden />} checked={notesOpen} onClick={() => setNotesOpen((open) => !open)} data-testid="slides-notes-toggle" />
+      <MenuItem label={L("view.grid")} icon={<Grid3x3 aria-hidden />} checked={grid} onClick={() => setGrid((on) => !on)} data-testid="slides-grid" />
+      <MenuItem label={L("view.snap")} icon={<Magnet aria-hidden />} checked={snap} onClick={() => setSnap((on) => !on)} data-testid="slides-snap" />
+      <MenuItem label={L("view.zoom_in")} icon={<ZoomIn aria-hidden />} disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} data-testid="slides-zoom-in" />
+      <MenuItem label={L("view.zoom_out")} icon={<ZoomOut aria-hidden />} disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))} data-testid="slides-zoom-out" />
+      <MenuItem label={L("view.zoom_fit")} icon={<Maximize aria-hidden />} disabled={zoom === 1} onClick={() => setZoom(1)} data-testid="slides-zoom" />
+      <MenuItem label={L("find.label")} icon={<Search aria-hidden />} onClick={() => setPanel("find")} data-testid="slides-find" />
+      <MenuItem label={L("keys.label")} icon={<Keyboard aria-hidden />} onClick={() => setPanel("keys")} data-testid="slides-keys" />
+      <MenuDivider />
+      <MenuItem label={L("present.from_start")} icon={<Play aria-hidden />} disabled={!css} onClick={() => setPresenting({ from: 0, presenter: false })} data-testid="slides-present-start" />
+      <MenuItem label={L("present.presenter_view")} icon={<MonitorPlay aria-hidden />} disabled={!css} onClick={() => setPresenting({ from: current, presenter: true })} data-testid="slides-present-presenter-view" />
     </>
   );
 
-  const side = slide ? (
+  const side = inspectorOpen && slide ? (
     selectedIdx.length ? (
       <ElementInspector
         elements={elements}
@@ -1150,7 +1210,16 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
   return (
     <DeckLookProvider value={look}>
       <ElementFiguresProvider value={figures}>
-        <EditorShell editor={editor} title={node.title} onDone={onDone} toolbar={toolbar} side={side} bodyClassName="flex overflow-hidden">
+        <EditorShell
+          editor={editor}
+          title={node.title}
+          onDone={onDone}
+          toolbar={toolbar}
+          more={more}
+          side={side}
+          bodyClassName="flex overflow-hidden"
+          barInset={notesOpen && slide ? notesHeight : 0}
+        >
           <div className="flex min-h-0 min-w-0 flex-1" onPaste={onPaste} data-testid="slides-editor">
             <div className="w-[220px] shrink-0 border-r border-border bg-sidebar/40">
               {css ? (
@@ -1181,7 +1250,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
             </div>
             <div
               ref={canvasBox}
-              className={cn("flex min-h-0 min-w-0 flex-1 flex-col bg-secondary/30", dropping && "ring-2 ring-inset ring-accent")}
+              className={cn("relative flex min-h-0 min-w-0 flex-1 flex-col bg-secondary/30", dropping && "ring-2 ring-inset ring-accent")}
               onDragOver={(event) => {
                 if (Array.from(event.dataTransfer.types).includes("Files")) {
                   event.preventDefault();
@@ -1194,18 +1263,30 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
               onDrop={onCanvasDrop}
               onKeyDown={onCanvasKeyDown}
             >
-              {slide && css && (
-                <FormatBar
-                  slide={slide}
-                  deck={deck}
-                  elements={elements}
-                  selected={selectedIdx}
-                  onElements={changeElements}
-                  onSlide={changeSlide}
-                  onLayout={(layout) => changeLayout(current, layout)}
-                  onOrder={(how) => orderSelected(how)}
-                  onPickBackground={() => pickImage({ kind: "background" })}
-                />
+              {panel && (
+                <div
+                  className="absolute right-3 top-3 z-30 rounded-lg border border-border bg-popover text-popover-foreground shadow-float"
+                  data-node-editor-popover=""
+                >
+                  <button
+                    type="button"
+                    aria-label={L("panel.close")}
+                    onClick={() => setPanel(null)}
+                    className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    data-testid="slides-panel-close"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                  {panel === "find" ? (
+                    <FindReplace
+                      deck={deck}
+                      onReplace={(query, replacement, matchCase) => act(L("step.replace"), (draft) => void replaceAll(draft, query, replacement, matchCase))}
+                      onShow={(index) => setSelected(index)}
+                    />
+                  ) : (
+                    <ShortcutList />
+                  )}
+                </div>
               )}
               <CanvasArea zoom={zoom}>
                 {(width) =>
@@ -1271,8 +1352,8 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
                   {imageError}
                 </p>
               )}
-              {slide && (
-                <div className="shrink-0 border-t border-border bg-background px-4 py-2">
+              {slide && notesOpen && (
+                <div ref={notesBox} className="shrink-0 border-t border-border bg-background px-4 py-2" data-testid="slides-notes-panel">
                   <label htmlFor="slides-notes" className="mb-1 block text-xs text-muted-foreground">
                     {fill(L("notes.label"), { n: current + 1 })}
                   </label>
@@ -1474,11 +1555,6 @@ const SWATCH_COLORS: Record<string, string> = {
   pink: "#C23F86",
 };
 
-function accentSwatch(accent: string | undefined): string {
-  if (!accent) return DEFAULT_ACCENT;
-  if (accent.startsWith("#")) return accent;
-  return SWATCH_COLORS[accent] ?? DEFAULT_ACCENT;
-}
 
 /** Find a text anywhere in the deck and replace it everywhere. */
 function FindReplace({

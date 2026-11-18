@@ -214,6 +214,7 @@ export function BoardDock({
   onNote,
   onMermaid,
   onLibrary,
+  onChat,
 }: {
   tool: string;
   locked: boolean;
@@ -222,6 +223,8 @@ export function BoardDock({
   onNote: () => void;
   onMermaid: () => void;
   onLibrary: () => void;
+  /** "Chat": ask the assistant for a change to the board, as every node bar ends. */
+  onChat?: () => void;
 }) {
   const t = useT();
   const [more, setMore] = useState(false);
@@ -335,6 +338,24 @@ export function BoardDock({
           </Panel>
         ) : null}
       </div>
+      {onChat ? (
+        <>
+          <Divider />
+          <QuickTooltip side="top" content={t("nodes.menu.ask")}>
+            <button
+              type="button"
+              onClick={onChat}
+              data-testid="visualization-ask-change"
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-medium text-foreground transition-colors",
+                "hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+            >
+              {t("nodes.bar.chat")}
+            </button>
+          </QuickTooltip>
+        </>
+      ) : null}
     </Panel>
   );
 }
