@@ -65,11 +65,11 @@ import logging
 from dataclasses import replace
 from typing import Any, Final
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from dodaios.nodes import comments, library, refresh
+from dodaios.nodes import comments, library, live, refresh
 from dodaios.nodes.board import files as board_files
 from dodaios.nodes.board.scene import MAX_SCENE_BYTES, live_elements, scene_bounds
 from dodaios.nodes.edit import KINDS, apply_field
@@ -88,7 +88,12 @@ from dodaios.ui.web.artifact_view import ARTIFACT_PAGE_CSP
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/nodes", tags=["nodes"])
+async def _bind_live_loop() -> None:
+    """The person's writes made here are announced on this loop (``nodes.live``)."""
+    live.bind_loop()
+
+
+router = APIRouter(prefix="/api/nodes", tags=["nodes"], dependencies=[Depends(_bind_live_loop)])
 
 #: What a node made from the library's "new" row is called until it is renamed.
 DEFAULT_TITLES: Final[dict[str, str]] = {

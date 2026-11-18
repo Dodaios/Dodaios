@@ -410,6 +410,15 @@ export function useWebSocket(): void {
           void queryClient.invalidateQueries({ queryKey: ["self-build"] });
         }
 
+        // A node was created or revised: the open page or editor follows now,
+        // and an agent's work plays back live (docs/node-live-build.md).
+        // Its code (and the live store) is fetched on the first one, so the
+        // app's start stays light: the name is `NODE_CHANGED_EVENT` there.
+        if (env.event_name === "NodeChanged") {
+          const payload = env.payload;
+          void import("@/components/nodes/live/receive").then((live) => live.receiveNodeChange(payload, queryClient));
+        }
+
         // A new-chat request from outside this window (the backend already raised it): land
         // on an empty typed chat with the caret in the composer. A detached
         // solo window is pinned to its section and stays where it is.

@@ -21,6 +21,7 @@ const SEARCH_GROUPS = [
   { id: "system-prompt", keys: ["system_prompt"] },
   { id: "agent-briefs", keys: ["agent_briefs"] },
   { id: "approvals", keys: ["approvals"] },
+  { id: "node-live", keys: ["node_live"] },
   { id: "self-build", keys: ["self_build"] },
   { id: "wake-word", keys: ["wake_word"] },
   { id: "volume", keys: ["volume"] },

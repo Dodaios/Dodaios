@@ -3296,7 +3296,8 @@
       "more": "Mais",
       "overlay_taskbar": "Overlay e barra de tarefas",
       "self_build": "Autoconstrução",
-      "approvals": "Modos de permissão"
+      "approvals": "Modos de permissão",
+      "node_live": "Nós enquanto são criados"
     },
     "languages_group_title": "Idiomas",
     "sections": {
@@ -3724,6 +3725,11 @@
       "by": "de {author}",
       "saved": "Aspeto alterado.",
       "failed": "Este aspeto não arrancou, por isso aparece o orbe de voz."
+    },
+    "node_live": {
+      "title": "Nós enquanto são criados",
+      "open_title": "Abrir os nós enquanto são criados",
+      "open_description": "Quando um agente cria um documento, uma planilha ou outro nó na conversa que você está vendo, ele abre ao lado da conversa e você acompanha a escrita."
     }
   },
   "telephony_view": {
@@ -12237,6 +12243,10 @@
       "label": "Ferramentas do node",
       "more": "Mais ferramentas",
       "chat": "Chat"
+    },
+    "live": {
+      "working": "{name} está trabalhando…",
+      "card_building": "{name} está criando…"
     }
   },
   "agent_browser": {

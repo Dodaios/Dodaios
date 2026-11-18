@@ -32,6 +32,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.nodes import live
 from dodaios.nodes.board import check, ops
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import NodeStore
@@ -268,6 +269,15 @@ class WhiteboardTool:
         if operation not in _OPERATIONS:
             return ToolResult(False, "", f"'operation' must be one of {', '.join(_OPERATIONS)}.")
         store = self._nodes()
+        if operation in ("guide", "list", "read"):
+            return await self._run(store, operation, args, ctx)
+        # The app shows the board being drawn, under the name of the agent drawing.
+        with live.writing(await live.author_for(session_of(ctx))):
+            return await self._run(store, operation, args, ctx)
+
+    async def _run(
+        self, store: NodeStore, operation: str, args: dict[str, Any], ctx: ExecutionContext
+    ) -> ToolResult:
         try:
             if operation == "guide":
                 return ToolResult(True, GUIDE)

@@ -16,10 +16,19 @@
 import { Suspense, lazy, useEffect } from "react";
 import { FileText, Loader2, X } from "lucide-react";
 
+import { LazyNodeSkeleton, LazyNodeTypeIcon } from "@/components/nodes/live/lazyParts";
 import { useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { useNodePeek, type NodePeekRequest } from "@/store/nodePeek";
-import { PEEK_FRAME_CLASS, PEEK_SCRIM_CLASS, loadNodePeekWindow, preloadNodePeek } from "./peekFrame";
+import {
+  LIVE_WINDOW_IN_CLASS,
+  PEEK_FRAME_CLASS,
+  PEEK_SCRIM_CLASS,
+  framedFirst,
+  loadNodePeekWindow,
+  preloadNodePeek,
+} from "./peekFrame";
 
 const NodePeekWindow = lazy(loadNodePeekWindow);
 
@@ -62,7 +71,8 @@ export function NodePeekHost() {
 /**
  * The window before its content: the same frame in the same place, the
  * node's name, and the ways out (the close button, Escape, a click beside
- * it). The content replaces it without the frame moving.
+ * it). The content replaces it without the frame moving. A node an agent is
+ * building shows its type's quiet skeleton meanwhile, not a spinner.
  */
 function NodePeekFrame({ peek }: { peek: NodePeekRequest }) {
   const t = useT();
@@ -77,14 +87,29 @@ function NodePeekFrame({ peek }: { peek: NodePeekRequest }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [close]);
   const title = peek.title || peek.path.split("/").pop() || t("nodes.peek.window");
+  framedFirst.seq = peek.seq;
   return (
     <div className="fixed inset-0 z-[60]" data-testid="node-peek-loading">
       <div aria-hidden onClick={close} className={PEEK_SCRIM_CLASS} />
-      <div role="dialog" aria-modal="true" aria-busy="true" aria-label={title} className={PEEK_FRAME_CLASS}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-busy="true"
+        aria-label={title}
+        className={cn(PEEK_FRAME_CLASS, peek.auto && LIVE_WINDOW_IN_CLASS)}
+      >
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center gap-3 border-b border-border py-2.5 pl-4 pr-3">
             <div className="flex h-10 min-w-0 flex-1 items-center gap-2.5 px-1">
-              <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              {peek.live ? (
+                <LazyNodeTypeIcon
+                  type={peek.live.nodeType}
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  fallback={<FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+                />
+              ) : (
+                <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              )}
               <span className="truncate text-base font-medium text-foreground-strong">{title}</span>
             </div>
             <button
@@ -101,9 +126,15 @@ function NodePeekFrame({ peek }: { peek: NodePeekRequest }) {
               <X className="h-[18px] w-[18px]" aria-hidden />
             </button>
           </div>
-          <div role="status" className="flex min-h-0 flex-1 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-          </div>
+          {peek.live ? (
+            <div className="min-h-0 flex-1">
+              <LazyNodeSkeleton type={peek.live.nodeType} />
+            </div>
+          ) : (
+            <div role="status" className="flex min-h-0 flex-1 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+            </div>
+          )}
         </section>
       </div>
     </div>

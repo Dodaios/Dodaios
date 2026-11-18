@@ -1,0 +1,147 @@
+/* The agent's presence over a node being built, and the quiet skeletons shown
+   while a node's editor loads. Colours come from the --presence-* tokens in
+   index.css (black and white in both themes); docs/node-live-build.md. */
+
+.live-presence {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+
+.live-presence[data-visible="true"] {
+  opacity: 1;
+}
+
+.live-presence-frame,
+.live-presence-tag,
+.live-presence-cursor,
+.live-presence-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.live-presence-frame {
+  border: 1.5px solid hsl(var(--presence-ink) / var(--presence-frame-alpha));
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.live-presence-frame[data-shown="true"] {
+  opacity: 1;
+}
+
+.live-presence-tag {
+  max-width: 220px;
+  overflow: hidden;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: hsl(var(--presence-ink));
+  color: hsl(var(--presence-on-ink));
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-presence-cursor {
+  width: 0;
+  height: 0;
+}
+
+.live-presence-cursor svg {
+  display: block;
+  overflow: visible;
+  /* The arrow's tip (7.2, 2.4 in its own pixels) is the point it stands on. */
+  transform: translate(-7.2px, -2.4px) scale(0.62);
+  transform-origin: 7.2px 2.4px;
+}
+
+.live-presence-cursor path {
+  fill: hsl(var(--presence-ink));
+  stroke: hsl(var(--presence-on-ink));
+}
+
+.live-presence-pill {
+  display: inline-flex;
+  max-width: 280px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border: 1px solid hsl(var(--presence-ink) / 0.16);
+  border-radius: 999px;
+  background: hsl(var(--presence-pill-bg));
+  color: hsl(var(--presence-pill-ink));
+  font-size: 11.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.live-presence-pill > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-presence[data-phase="thinking"][data-building="true"] .live-presence-pill {
+  opacity: 1;
+}
+
+.live-presence-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  animation: live-presence-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes live-presence-breathe {
+  0%,
+  100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* --- skeletons ------------------------------------------------------------ */
+
+.live-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.live-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    hsl(var(--presence-skeleton-sheen)) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: live-skeleton-shimmer 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.live-skeleton-block {
+  border-radius: 4px;
+  background: hsl(var(--presence-skeleton));
+}
+
+.live-skeleton-line {
+  border-color: hsl(var(--presence-skeleton));
+}
+
+@keyframes live-skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}

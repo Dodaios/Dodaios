@@ -14,10 +14,9 @@
  */
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { useLocaleChunk, useT } from "@/i18n";
+import { NodeSkeleton } from "../live/NodeSkeleton";
 import type { NodeCard } from "../nodeModel";
 import { invalidateNodes } from "../useNodes";
 import { fetchNodeSpec } from "./api";
@@ -93,10 +92,10 @@ export default function NodeEditorHost({ node, type, slug, onDone, startAt = nul
     onDone();
   }, [client, onDone]);
 
+  // The type's quiet outline while its spec and its editor load, not a spinner.
   const waiting = (
-    <div className="flex h-full items-center justify-center gap-2 text-base text-muted-foreground" data-testid="node-editor-loading">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {t("nodes.editor.loading")}
+    <div className="h-full" data-testid="node-editor-loading" aria-label={t("nodes.editor.loading")}>
+      <NodeSkeleton type={type} />
     </div>
   );
   const failed = (

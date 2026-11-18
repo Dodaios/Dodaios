@@ -2782,3 +2782,45 @@ class SelfBuildChanged(Event):
     kind: str = ""
     state: str = ""
     title: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class NodeChanged(Event):
+    """A node was created or revised: what the app needs to show it live.
+
+    Published by :mod:`dodaios.nodes.live` after every write of
+    :class:`~dodaios.nodes.store.NodeStore` (create, update, revert, and the
+    person's saves from an editor). The WebSocket forwards it: the node window
+    opens on an assistant's create, and an open editor takes the revision at
+    once and plays it back with the agent's presence
+    (``docs/node-live-build.md``). A person's save never starts a playback.
+    """
+
+    node_id: str = ""
+    #: ``slug::page_path``: the address the stage, the chat card and the node
+    #: window use for the node's page.
+    ref: str = ""
+    slug: str = ""
+    node_type: str = ""
+    title: str = ""
+    version: int = 0
+    #: The version the change was made from; 0 for a create.
+    previous_version: int = 0
+    #: Seconds since the epoch, as ``/api/nodes`` reports it.
+    updated_at: float = 0.0
+    #: ``create`` | ``update`` | ``revert`` | ``save`` (the person's editor).
+    action: str = ""
+    #: The spec was replaced whole, or the ops were too many to send.
+    rewrite: bool = False
+    #: The ``changes`` the call applied, in order (JSON Pointer ops). A value
+    #: too large to send is ``None``, marked ``value_omitted``.
+    ops: list[dict[str, Any]] = field(default_factory=list)
+    #: ``assistant`` (the lead, a named agent, a coding thread) or ``person``.
+    author_kind: str = "person"
+    author_name: str = ""
+    #: Tells authors apart: ``lead``, ``agent:<id>``, ``thread:<session id>``.
+    author_id: str = ""
+    #: The chat session the call came from; "" when none.
+    session_id: str = ""
+    #: The agent's current step, when known; "" otherwise.
+    step: str = ""

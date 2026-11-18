@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { cadence, relativeTime } from "@/components/visualization/livingPage";
 import { useT, useUiLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
 import { NodesApiError, fetchNodeBySlug, invalidateNodes, setNodeUpkeep, type NodeState } from "./useNodes";
 
 /** How often the relative time is redrawn. */
@@ -26,9 +27,12 @@ const POLL_MS = 30_000;
 /**
  * How often the open node is asked whether it changed. Short, because the
  * person is looking at the page while the assistant revises it, and the
- * answer is one small state file.
+ * answer is one small state file. While the app's socket is up, every change
+ * arrives as it happens (`NodeChanged`, components/nodes/live/receive.ts) and
+ * this is only the fallback.
  */
 const WATCH_MS = 5_000;
+const WATCH_PUSHED_MS = 20_000;
 
 export { NODE_SLUG_INFIX, isNodeSlug } from "./nodeModel";
 
@@ -43,11 +47,12 @@ export default function NodeUpkeepBar({
   const t = useT();
   const locale = localeForUiLanguage(useUiLanguage());
   const client = useQueryClient();
+  const connected = useEventStore((s) => s.connected);
   const key = ["node-upkeep", slug];
   const node = useQuery<NodeState>({
     queryKey: key,
     queryFn: () => fetchNodeBySlug(slug),
-    refetchInterval: WATCH_MS,
+    refetchInterval: connected ? WATCH_PUSHED_MS : WATCH_MS,
     retry: false,
   });
   const toggle = useMutation({

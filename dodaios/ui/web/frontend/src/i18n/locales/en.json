@@ -3296,7 +3296,8 @@
       "more": "More",
       "overlay_taskbar": "Overlay & taskbar",
       "self_build": "Self-building",
-      "approvals": "Permission modes"
+      "approvals": "Permission modes",
+      "node_live": "Nodes as they are built"
     },
     "languages_group_title": "Languages",
     "sections": {
@@ -3724,6 +3725,11 @@
       "by": "by {author}",
       "saved": "Look switched.",
       "failed": "This look did not start, so the voice orb is showing instead."
+    },
+    "node_live": {
+      "title": "Nodes as they are built",
+      "open_title": "Open nodes as they are built",
+      "open_description": "When an agent makes a document, a sheet or another node in the conversation you are looking at, it opens beside the conversation and you watch it being written."
     }
   },
   "telephony_view": {
@@ -12237,6 +12243,10 @@
       "label": "Node tools",
       "more": "More tools",
       "chat": "Chat"
+    },
+    "live": {
+      "working": "{name} is working…",
+      "card_building": "{name} is building it…"
     }
   },
   "agent_browser": {

@@ -24,6 +24,7 @@ import { useT } from "@/i18n";
 import { EditorShell } from "../EditorShell";
 import type { NodeEditorProps } from "../types";
 import { hasOwnUndo, shortcutOf, useNodeSpecEditor, type NodeSpecEditor } from "../useNodeSpecEditor";
+import { useNodeLive } from "../../live/liveStore";
 import { caretFor, startOf } from "./caret";
 import { DocSession, MAX_BODY_CHARS, cleanSummary, readSpec, type DocsSpec } from "./docModel";
 import { docExtensions } from "./extensions";
@@ -180,7 +181,10 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
     const { doc } = editor.state;
     let at: number;
     if (start !== null) at = caretFor(doc, start) ?? startOf(doc, start.path);
-    else if (sessionRef.current!.spec.markdown.trim() === "") at = startOf(doc, "/markdown");
+    // A blank document takes the caret, unless an agent is writing it: the
+    // person may be typing in the conversation beside it (live build).
+    else if (sessionRef.current!.spec.markdown.trim() === "" && !useNodeLive.getState().nodes[node.id ?? ""]?.building)
+      at = startOf(doc, "/markdown");
     else return;
     const selection = Selection.near(doc.resolve(Math.max(0, Math.min(at, doc.content.size))));
     editor.view.dispatch(editor.state.tr.setSelection(selection));

@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
-from dodaios.nodes import refresh
+from dodaios.nodes import live, refresh
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.look import MAX_SLIDES, LookError, look
 from dodaios.nodes.model import Node
@@ -50,6 +50,8 @@ _OPERATIONS: Final[tuple[str, ...]] = (
     "keep_current",
     "stop",
 )
+#: Operations that write a node: the app shows who wrote it (``nodes.live``).
+_WRITES: Final[frozenset[str]] = frozenset({"create", "update", "revert"})
 #: Operations that name one existing node.
 _ON_ONE_NODE: Final[frozenset[str]] = frozenset(
     {"update", "look", "get", "revert", "keep_current", "stop"}
@@ -86,10 +88,23 @@ WORK_METHOD: Final[str] = (
     "what you cannot tell from their words.\n"
     "2. Gather real material first: their files, apps, data and sources, with real "
     "numbers. Nothing invented; leave out what you cannot back.\n"
-    "3. Plan the structure before the spec, then create.\n"
+    "3. Plan the structure before the spec, then build it in steps (below).\n"
     "4. Call 'look' and judge it as they will see it; fix what is weak with 'update' "
     "and look again until you would hand it over yourself."
 )
+
+#: Added to the guide of every type the node tool writes itself. The person
+#: watches a node being built beside the chat (``docs/node-live-build.md``);
+#: one big spec at the end shows them nothing but the finished node.
+BUILD_IN_STEPS: Final[str] = (
+    "\nBuild it in steps, the person watches it grow beside the chat: create the node "
+    "with its title and a skeleton spec (the outline only: headings, column names, "
+    "slide titles), then fill it with several 'update' calls with 'changes', in "
+    "reading order (top to bottom, first slide to last), a section, a few rows or a "
+    "slide per call. Do not hold everything back for one final spec."
+)
+#: The types whose content this tool writes (a board and a clip have their own tools).
+_BUILT_IN_STEPS: Final[frozenset[str]] = frozenset({"docs", "slides", "sheets", "data"})
 
 #: What a create tells the model to do before it answers.
 _CHECK_IT: Final[str] = (
@@ -336,6 +351,16 @@ class NodeTool:
                 False, "", f"'operation' must be one of {', '.join(_OPERATIONS)}."
             )
         store = self._nodes()
+        if operation not in _WRITES:
+            return await self._run(store, operation, args, ctx)
+        # The app shows the write live, under the name of the agent that made it.
+        author = await live.author_for(session_of(ctx))
+        with live.writing(author):
+            return await self._run(store, operation, args, ctx)
+
+    async def _run(
+        self, store: NodeStore, operation: str, args: dict[str, Any], ctx: ExecutionContext
+    ) -> ToolResult:
         try:
             if operation == "guide":
                 return self._guide(args)
@@ -374,9 +399,12 @@ class NodeTool:
         wanted = _text(args.get("type"))
         if wanted is None:
             return ToolResult(True, _overview())
-        guide = kind_of(wanted).guide
+        kind = kind_of(wanted)
+        guide = kind.guide
         if "How to work" not in guide:
             guide += WORK_METHOD
+        if kind.type in _BUILT_IN_STEPS:
+            guide += BUILD_IN_STEPS
         return ToolResult(True, guide)
 
     async def _find(self, store: NodeStore, args: dict[str, Any], operation: str) -> Node:
@@ -433,7 +461,9 @@ class NodeTool:
             + (f" It cannot refresh yet: {refresh_error}" if refresh_error else ""),
             result_ref=f"artifact:{node.visual_id}",
         )
-        shown = await post_card(session_of(ctx), page_card(node.title, node.visual_id, node_type=node.type))
+        shown = await post_card(
+            session_of(ctx), page_card(node.title, node.visual_id, node_type=node.type)
+        )
         made = f"Created the {node.type} node '{node.title}' (node id {node.id})."
         if refresh_error:
             made += (
@@ -506,7 +536,10 @@ class NodeTool:
         if revised and not _called_in_background(ctx):
             # A person's own revision: the chat shows the fresh page. A refresh run
             # stays out of the conversation; the page itself shows its update.
-            await post_card(session_of(ctx), page_card(updated.title, updated.visual_id, node_type=updated.type))
+            await post_card(
+                session_of(ctx),
+                page_card(updated.title, updated.visual_id, node_type=updated.type),
+            )
         if not revised:
             what = (
                 f"the note was recorded, its content is unchanged (version {updated.version})"
@@ -547,7 +580,10 @@ class NodeTool:
     async def _revert(self, store: NodeStore, node: Node, ctx: Any) -> ToolResult:
         restored = await asyncio.to_thread(store.revert, node.id)
         if not _called_in_background(ctx):
-            await post_card(session_of(ctx), page_card(restored.title, restored.visual_id, node_type=restored.type))
+            await post_card(
+                session_of(ctx),
+                page_card(restored.title, restored.visual_id, node_type=restored.type),
+            )
         return ToolResult(
             True,
             f"Node '{restored.title}' has its earlier content again "
@@ -573,4 +609,4 @@ class NodeTool:
         )
 
 
-__all__ = ["MAX_GET_CHARS", "TYPE_LINES", "NodeTool"]
+__all__ = ["BUILD_IN_STEPS", "MAX_GET_CHARS", "TYPE_LINES", "NodeTool"]

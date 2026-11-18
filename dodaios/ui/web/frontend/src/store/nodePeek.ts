@@ -13,6 +13,7 @@
  */
 import { create } from "zustand";
 
+import type { NodeType } from "@/components/nodes/nodeModel";
 import type { AgentChatStoreHook } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 
@@ -28,12 +29,26 @@ export interface NodePeekRequest {
   chat: AgentChatStoreHook | null;
   /** Goes up with every request, so the same node asked twice is still news. */
   seq: number;
+  /** Opened by itself as an agent made the node (components/nodes/live): no focus taken. */
+  auto: boolean;
+  /** An agent is building the node: what the window needs before the library lists it. */
+  live: NodePeekLive | null;
+}
+
+/** A node an agent is building, as the window opens it: in its editor, from the first moment. */
+export interface NodePeekLive {
+  nodeId: string;
+  nodeType: NodeType;
 }
 
 export interface NodePeekOptions {
   /** The chat the click came from. Left out, an open window keeps its chat. */
   chat?: AgentChatStoreHook | null;
   title?: string;
+  /** Opened by itself, not by a click (never takes focus; slides in). */
+  auto?: boolean;
+  /** The node is being built by an agent: open it in its editor. */
+  live?: NodePeekLive | null;
 }
 
 /**
@@ -108,6 +123,8 @@ export const useNodePeek = create<NodePeekState>((set, get) => ({
         title: options.title?.trim() ?? "",
         chat: options.chat !== undefined ? options.chat : (current?.chat ?? null),
         seq: (current?.seq ?? 0) + 1,
+        auto: options.auto === true,
+        live: options.live ?? null,
       },
     });
   },

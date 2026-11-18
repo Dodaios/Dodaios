@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { NodeBar, NodeBarDivider, NodeBarEnd, NodeBarMore } from "../bar/NodeBar";
 import { MenuDivider, MenuItem } from "./controls";
 import { useLeaveGuard } from "./leaveGuard";
+import { LiveBuildLayer } from "../live/LiveBuildLayer";
 import type { NodeSpecEditor } from "./useNodeSpecEditor";
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -56,6 +57,7 @@ export interface EditorShellProps {
 
 export function EditorShell({ editor, title, toolbar, more, side, bodyClassName, barInset = 0, children }: EditorShellProps) {
   const t = useT();
+  const body = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState<"idle" | "saving" | "stuck">("idle");
   const leaveAnyway = useRef<(() => void) | null>(null);
   const flushRef = useRef(editor.flush);
@@ -147,7 +149,13 @@ export function EditorShell({ editor, title, toolbar, more, side, bodyClassName,
       )}
       <div className="flex min-h-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)}>{children}</div>
+          {/* The body, with the agent's presence laid over it while it builds the node. */}
+          <div className="relative flex min-h-0 min-w-0 flex-1">
+            <div ref={body} className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)} data-testid="node-editor-body">
+              {children}
+            </div>
+            <LiveBuildLayer editor={editor} body={body} />
+          </div>
           <NodeBar label={t("nodes.editor.toolbar")} inset={barInset}>
             {toolbar}
             {toolbar && <NodeBarDivider />}

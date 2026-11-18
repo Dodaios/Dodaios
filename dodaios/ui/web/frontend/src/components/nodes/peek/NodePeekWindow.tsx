@@ -39,6 +39,7 @@ import { draftChangeBeside } from "@/components/nodes/askDodaios";
 import { createLeaveGuard } from "@/components/nodes/editors/leaveGuard";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
+import { useNodeLive } from "@/components/nodes/live/liveStore";
 import { invalidateNodes, useNodes } from "@/components/nodes/useNodes";
 import { ROUND_BUTTON, StageBar, TitlePill } from "@/components/visualization/ArtifactStageBar";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -51,7 +52,7 @@ import { useEventStore } from "@/store/events";
 import { useNodePeek, type LentConversation, type NodePeekRequest } from "@/store/nodePeek";
 import { EmptyStage, Stage, isTypingTarget, visualOf, type StageChrome } from "@/views/VisualizationView";
 import { moveKeepingPlace } from "./moveKeepingPlace";
-import { PEEK_FRAME_CLASS, PEEK_SCRIM_CLASS } from "./peekFrame";
+import { LIVE_WINDOW_IN_CLASS, PEEK_FRAME_CLASS, PEEK_SCRIM_CLASS, framedFirst } from "./peekFrame";
 import {
   CHAT_DEFAULT_WIDTH,
   CHAT_MIN_WIDTH,
@@ -89,8 +90,15 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
   const card = useMemo(() => {
     const listed = allCards.find((c) => c.slug === peek.slug && c.path === peek.path);
     if (listed) return listed;
-    return made !== null && made.slug === peek.slug && made.path === peek.path ? made : null;
-  }, [allCards, made, peek.slug, peek.path]);
+    if (made !== null && made.slug === peek.slug && made.path === peek.path) return made;
+    // A node an agent is making right now: open before the library has it.
+    return peek.live !== null ? liveCard(peek) : null;
+  }, [allCards, made, peek]);
+  /* An agent is building it: it opens in its editor, where the build plays
+   * (components/nodes/live). Asked once per opening; Done goes to the page. */
+  const [startEditing, setStartEditing] = useState(peek.live !== null);
+  useEffect(() => setStartEditing(peek.live !== null), [peek.seq, peek.live]);
+  const editingStarted = useCallback(() => setStartEditing(false), []);
   const run = useMemo(
     () => (outputs.data ?? []).find((r) => r.slug === peek.slug) ?? null,
     [outputs.data, peek.slug],
@@ -110,12 +118,17 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
   const [confirming, setConfirming] = useState(false);
   const [sendingUnsent, setSendingUnsent] = useState(false);
   const closeNow = useCallback(() => {
+    // The person closed a window that opened by itself: it stays closed for the rest of the turn.
+    if (peek.auto && peek.live !== null) {
+      const sessionId = useNodeLive.getState().nodes[peek.live.nodeId]?.sessionId;
+      if (sessionId) useNodeLive.getState().suppress(sessionId);
+    }
     // The pins die with the page: comments nobody sent do not come back.
     useNodeCommentDraft.getState().open(null);
     // The cards and covers elsewhere follow what was edited here.
     invalidateNodes(client);
     useNodePeek.getState().close();
-  }, [client]);
+  }, [client, peek.auto, peek.live]);
   /* Every way out asks the open editor first: it saves what is left, and
    * stays (saying so) when that does not go through. */
   const leaveGuard = useMemo(createLeaveGuard, []);
@@ -220,13 +233,17 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [confirming, editorOpen, requestClose, step]);
 
-  // Focus comes into the window when it opens and goes back where it was.
+  // Focus comes into the window when it opens and goes back where it was. A
+  // window that opened by itself takes none: the person may be typing.
   useEffect(() => {
+    if (peek.auto) return;
     const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     frame.current?.focus({ preventScroll: true });
     return () => {
       if (before?.isConnected) before.focus({ preventScroll: true });
     };
+    // Only when the window opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => keepFocusInside(host, frame), []);
@@ -289,6 +306,8 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
   }, []);
 
   const loading = outputs.isLoading || nodes.isLoading;
+  /* Slides in only as it first opens by itself; a node swapped in stays put. */
+  const [opensByItself] = useState(peek.auto && framedFirst.seq !== peek.seq);
   const failed = outputs.isError && nodes.isError;
 
   return (
@@ -307,7 +326,8 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
         tabIndex={-1}
         data-testid="node-peek-window"
         data-narrow={narrow ? "true" : "false"}
-        className={PEEK_FRAME_CLASS}
+        data-auto={peek.auto ? "true" : undefined}
+        className={cn(PEEK_FRAME_CLASS, opensByItself && LIVE_WINDOW_IN_CLASS)}
       >
         <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-testid="node-peek-stage">
           {visual === null && run === null ? (
@@ -329,6 +349,8 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
               node={node}
               card={card}
               leaveGuard={leaveGuard}
+              startEditing={startEditing}
+              onEditingStarted={editingStarted}
               onEditorOpen={setEditorOpen}
               onOpenNode={openMade}
               onJumpToRun={jumpToRun}
@@ -388,6 +410,35 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
       </div>
     </div>
   );
+}
+
+/**
+ * The card of a node an agent is making, from what the window was told when
+ * it opened by itself; the library's own card takes its place once listed.
+ */
+function liveCard(peek: NodePeekRequest): NodeCard | null {
+  if (peek.live === null) return null;
+  const now = Date.now() / 1000;
+  return {
+    key: peek.ref,
+    id: peek.live.nodeId,
+    type: peek.live.nodeType,
+    origin: "node",
+    title: peek.title,
+    slug: peek.slug,
+    path: peek.path,
+    visual_kind: "page",
+    created_at: now,
+    updated_at: now,
+    size: 0,
+    version: 0,
+    status: "ready",
+    kept_current: false,
+    refreshing: false,
+    every_minutes: 0,
+    request: "",
+    preview: null,
+  };
 }
 
 /**

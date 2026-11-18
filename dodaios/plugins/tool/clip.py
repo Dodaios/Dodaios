@@ -33,6 +33,7 @@ from pathlib import Path, PurePath
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.nodes import live
 from dodaios.nodes.clip import ops
 from dodaios.nodes.kinds import motion
 from dodaios.nodes.kinds import motion_media as mm
@@ -375,6 +376,15 @@ class ClipTool:
         if operation not in _OPERATIONS:
             return ToolResult(False, "", f"'operation' must be one of {', '.join(_OPERATIONS)}.")
         store = self._nodes()
+        if operation in ("guide", "list"):
+            return await self._run(store, operation, args, ctx)
+        # The app shows the clip being cut, under the name of the agent cutting.
+        with live.writing(await live.author_for(session_of(ctx))):
+            return await self._run(store, operation, args, ctx)
+
+    async def _run(
+        self, store: NodeStore, operation: str, args: dict[str, Any], ctx: ExecutionContext
+    ) -> ToolResult:
         try:
             if operation == "guide":
                 return ToolResult(True, GUIDE)
