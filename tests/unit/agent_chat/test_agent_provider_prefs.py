@@ -118,3 +118,44 @@ def test_the_page_route_merges_and_refuses_unknown_ids() -> None:
     refused = client.put("/api/society/provider-prefs", json={"disabled": ["no-such-provider"]})
     assert refused.status_code == 422
     assert prefs_mod.load().disabled == frozenset({"grok-build"})
+
+
+def test_a_proxy_with_hundreds_of_models_can_switch_every_one_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #1835: 419 models behind a proxy, "Turn all off" stopped at 256."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from dodaios.ui.web.society_routes import router
+
+    client = TestClient(FastAPI(routes=router.routes))
+    models = [{"id": f"proxy/model-{n:03d}"} for n in range(419)]
+    every = [m["id"] for m in models]
+
+    # "Turn all off": the whole list in one save, and all of it comes back.
+    saved = client.put(
+        "/api/society/provider-prefs", json={"hidden_models": {"openai-codex": every}}
+    ).json()
+    assert len(saved["hidden_models"]["openai-codex"]) == 419
+
+    # A restart reads the file again from disk: still all 419 off.
+    monkeypatch.setattr(prefs_mod, "_cache", None)
+    assert len(prefs_mod.load().hidden("openai-codex")) == 419
+    assert prefs_mod.offered_models("openai-codex", models) == []
+
+    # Switching on the five wanted ones, one by one, leaves exactly those five.
+    wanted = every[-5:]
+    for model_id in wanted:
+        now = client.get("/api/society/provider-prefs").json()["hidden_models"]["openai-codex"]
+        hidden = [m for m in now if m != model_id]
+        client.put("/api/society/provider-prefs", json={"hidden_models": {"openai-codex": hidden}})
+    monkeypatch.setattr(prefs_mod, "_cache", None)
+    assert [m["id"] for m in prefs_mod.offered_models("openai-codex", models)] == wanted
+
+    # "Turn all on" clears the list again.
+    cleared = client.put(
+        "/api/society/provider-prefs", json={"hidden_models": {"openai-codex": []}}
+    )
+    assert cleared.json()["hidden_models"] == {}
+    assert prefs_mod.offered_models("openai-codex", models) == models
