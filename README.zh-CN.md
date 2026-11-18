@@ -9,9 +9,9 @@
 
 <h1>Dodaios</h1>
 
-<!-- the promise and the definition, translated (English word for word in README.md; docs/positioning.md) -->
-<p><b>All your coding agents, managed from one chat.</b><br />
-你所有的编程智能体，在一个聊天里统一管理。</p>
+<!-- the promise and the intro, translated (English word for word in README.md; docs/positioning.md) -->
+<p><b>Your chief of staff for coding agents.</b><br />
+你的编程智能体幕僚长。</p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="最新版本" /></a>
@@ -44,17 +44,13 @@
 
 </div>
 
-> Dodaios is a locally installed, open-source Python program that runs as a desktop app or as a headless server with a browser UI on Windows, macOS and Linux. It turns a personal AI assistant into the control center for the work you do on your computer.
+> You have Claude Code in one terminal, Codex in another, and a chat tab where you copy plans back and forth. Dodaios ends that. It is a layer above all your coding agents: you say what you want, by voice or chat, and one assistant takes it from there. It writes the brief, launches the right agent in its built-in Agentic IDE, keeps watch while it works and tells you when it's done or needs you. Run five agents at once and still know exactly what each one did.
 >
-> At its core is a "lead" assistant you can talk to by voice (wake word, dictation, real-time spoken conversation and, as an early preview, phone calls), by chat or from a paired phone. It isn't tied to one provider and works with Claude, OpenAI, Gemini or local Ollama models. It handles tasks itself through tools, computer use, plugins, CLIs and MCP servers. Above all, it hands work off to coding agents. They run side by side in a built-in Agentic IDE as real Claude Code or Codex terminals, on your computer or on your own servers over SSH, each with a call sign you can address by name, plus Git integration and task splitting. There is also a "society" of persistent, named agents that message each other.
->
-> Long-running work is covered by memory (about you, the people around you and the assistant's own persona), standing tasks, workflows, skills and opt-in life admin. The assistant also makes its own outputs, such as documents, slides, sheets and dashboards, and can propose and build the skills, routines and agents it is missing. A trust layer sets hard limits: outside Bypass permissions, moving money, handling credentials, permanent deletion and first contact with someone new always need your confirmation. In short, Dodaios is a voice-driven, locally running operating system for AI agents that makes one assistant the conductor of your models, your coding agents and your own computer.
+> Open source, and it runs on your computer. Works with your Claude or ChatGPT subscription, with API keys for Claude, OpenAI and Gemini, or with local Ollama models.
 
-Dodaios 是一个安装在本地的开源 Python 程序，可以作为桌面应用运行，也可以作为带浏览器界面的无屏幕服务器运行，支持 Windows、macOS 和 Linux。它把一个个人 AI 助手变成你在电脑上所做工作的控制中心。
+你在一个终端里开着 Claude Code，在另一个终端里开着 Codex，还有一个聊天标签页，用来把计划来回复制。Dodaios 终结了这一切。它是位于你所有编程智能体之上的一层：你用语音或聊天说出想要什么，一个助手就会接手。它撰写任务说明，在内置的 Agentic IDE 中启动合适的智能体，在其工作时持续关注，并在完成或需要你时通知你。同时运行五个智能体，依然清楚每一个做了什么。
 
-它的核心是一个“主”助手，你可以用语音（唤醒词、听写、实时语音对话，以及尚处早期预览的电话通话）、用聊天，或者从已配对的手机上和它交流。它不绑定某一家提供商，可以使用 Claude、OpenAI、Gemini 或本地的 Ollama 模型。它通过工具、电脑操作、插件、命令行工具和 MCP 服务器自己完成任务。最重要的是，它会把工作交给编程智能体。这些智能体在内置的 Agentic IDE 里并排运行，是真正的 Claude Code 或 Codex 终端，可以在你的电脑上，也可以通过 SSH 在你自己的服务器上；每个终端都有一个呼号，你可以按名字指挥它，此外还有 Git 集成和任务拆分。另外还有一个由持久存在、各有名字的智能体组成的“社会”，它们之间可以互相发消息。
-
-长期的工作靠这些来承接：记忆（关于你、你身边的人，以及助手自己的人设）、长期任务、工作流、技能，以及需要你主动开启的生活事务管理。助手还会制作自己的产出，比如文档、幻灯片、表格和仪表盘，并且能提议并构建它还缺少的技能、例行任务和智能体。信任层设有硬性限制：在“Bypass permissions”（跳过权限确认）模式之外，转账、处理凭据、永久删除，以及第一次联系某个新的人，总是需要你确认。简而言之，Dodaios 是一个用语音驱动、在本地运行的 AI 智能体操作系统，它让一个助手成为你的模型、你的编程智能体和你自己电脑的指挥。
+开源，运行在你自己的电脑上。可使用你的 Claude 或 ChatGPT 订阅、Claude、OpenAI 和 Gemini 的 API 密钥，或本地 Ollama 模型。
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 

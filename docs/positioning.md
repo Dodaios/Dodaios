@@ -17,9 +17,11 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **All your coding agents, managed from one chat.**
+> **Your chief of staff for coding agents.**
 
-Use it word for word, and never alone: the definition always follows.
+Use it word for word, and never alone: a short intro or the definition
+always follows. The README uses the short intro (two paragraphs, about 100
+words); longer texts such as a launch post can use the definition.
 
 > Dodaios is a locally installed, open-source Python program that runs as a
 > desktop app or as a headless server with a browser UI on Windows, macOS and
@@ -50,9 +52,10 @@ Use it word for word, and never alone: the definition always follows.
 
 The maintainer wrote the definition himself and settled on it late in the
 evening of 16 November 2026. On 18 November 2026 he chose the one-liner above
-it: it says what the person gets: one chat, and Dodaios does the prompting,
-the watching and the Git work for every coding agent behind it. The text
-that follows shows how.
+it: it names the role Dodaios takes. Like a chief of staff, it takes the
+request, writes the brief for each coding agent, keeps watch while they work
+and reports back, so the person decides and does not babysit. The text that
+follows shows how.
 A few places in the definition were
 adjusted so that each sentence is true in the code on main: phone calls are a
 preview, the coding agents (not the assistant) reach servers over SSH, life
@@ -63,14 +66,16 @@ agents" is a figure of speech for what the app coordinates. Do not use it to
 say that Dodaios is an operating system, and do not name another product as
 the comparison.
 
-The README is built on it and kept short: the one-liner, a few short
-paragraphs on the reader's problem, Git, memory and the plans it works with, the definition, one
-recording that shows the definition at work, the install commands, and a few
+The README is built on it and kept short: the one-liner, a two-paragraph
+intro on the reader's problem and the plans it works with, one recording that
+shows the assistant at work, the install commands, and a few
 lines on plans and keys, data, approvals and what is not finished. Everything
 else is in `docs/`.
 
 Earlier promises:
 
+- On 18 November 2026: "All your coding agents, managed from one chat."
+  The maintainer replaced it the same evening with the chief-of-staff line.
 - On 18 November 2026: "Be the CEO, not the babysitter of your coding agents."
   The maintainer replaced it the same evening with the one-chat line.
 - Briefly on 18 November 2026: "Stop babysitting terminals. One assistant

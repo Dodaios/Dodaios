@@ -9,8 +9,8 @@
 
 <h1>Dodaios</h1>
 
-<!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Semua agen coding Anda, dikelola dari satu chat.</b></p>
+<!-- the promise: word for word everywhere (docs/positioning.md) -->
+<p><b>Kepala staf Anda untuk agen coding.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Rilis terbaru" /></a>
@@ -43,34 +43,18 @@
 
 </div>
 
-Dodaios adalah program Python open source yang diinstal secara lokal dan berjalan
-sebagai aplikasi desktop atau sebagai server headless dengan UI di browser, di
-Windows, macOS, dan Linux. Dodaios mengubah asisten AI pribadi menjadi pusat
-kendali untuk pekerjaan yang Anda lakukan di komputer.
+Anda punya Claude Code di satu terminal, Codex di terminal lain, dan tab chat
+tempat Anda menyalin rencana bolak-balik. Dodaios mengakhiri itu. Dodaios
+adalah lapisan di atas semua agen coding Anda: Anda bilang apa yang Anda mau,
+lewat suara atau chat, dan satu asisten mengurus sisanya. Ia menulis brief,
+menjalankan agen yang tepat di Agentic IDE bawaannya, memantaunya selama
+bekerja, dan memberi tahu Anda saat agen selesai atau membutuhkan Anda.
+Jalankan lima agen sekaligus dan tetap tahu persis apa yang dikerjakan
+masing-masing.
 
-Intinya adalah asisten "utama" yang bisa Anda ajak bicara lewat suara (wake word,
-dikte, percakapan lisan real-time, dan, sebagai pratinjau awal, panggilan telepon),
-lewat chat, atau dari ponsel yang sudah dipasangkan. Asisten ini tidak terikat pada
-satu penyedia dan bisa bekerja dengan Claude, OpenAI, Gemini, atau model Ollama
-lokal. Ia mengerjakan tugas sendiri melalui tool, kendali komputer, plugin, CLI,
-dan server MCP. Yang terpenting, ia menyerahkan pekerjaan kepada agen coding.
-Agen-agen itu berjalan berdampingan di Agentic IDE bawaan sebagai terminal Claude
-Code atau Codex sungguhan, di komputer Anda atau di server Anda sendiri lewat SSH,
-masing-masing dengan nama panggilan yang bisa Anda sebut langsung, ditambah
-integrasi Git dan pembagian tugas. Ada juga sebuah "masyarakat" berisi agen
-persisten bernama yang saling berkirim pesan.
-
-Pekerjaan jangka panjang ditangani oleh memori (tentang Anda, orang-orang di sekitar
-Anda, dan persona asisten itu sendiri), tugas tetap, workflow, skill, serta urusan
-administrasi sehari-hari yang bisa Anda aktifkan sendiri. Asisten juga membuat
-hasil kerjanya sendiri, seperti dokumen, slide, spreadsheet, dan dasbor, serta bisa
-mengusulkan dan membangun skill, rutinitas, dan agen yang masih kurang. Lapisan
-kepercayaan menetapkan batas keras: di luar Bypass permissions, memindahkan uang,
-menangani kredensial, menghapus secara permanen, dan kontak pertama dengan orang
-baru selalu memerlukan konfirmasi Anda. Singkatnya, Dodaios adalah sistem operasi
-untuk agen AI yang dikendalikan dengan suara dan berjalan secara lokal, yang
-menjadikan satu asisten sebagai dirigen bagi model Anda, agen coding Anda, dan
-komputer Anda sendiri.
+Open source, dan berjalan di komputer Anda. Bekerja dengan langganan Claude
+atau ChatGPT Anda, dengan API key untuk Claude, OpenAI dan Gemini, atau dengan
+model Ollama lokal.
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 

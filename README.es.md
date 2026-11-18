@@ -9,8 +9,8 @@
 
 <h1>Dodaios</h1>
 
-<!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Todos tus agentes de programación, gestionados desde un solo chat.</b></p>
+<!-- the promise: word for word everywhere (docs/positioning.md) -->
+<p><b>Tu jefe de gabinete para agentes de programación.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Última versión" /></a>
@@ -43,35 +43,17 @@
 
 </div>
 
-Dodaios es un programa de código abierto en Python que se instala en local y
-funciona como aplicación de escritorio o como servidor sin pantalla con una
-interfaz web, en Windows, macOS y Linux. Convierte un asistente personal de IA
-en el centro de control del trabajo que haces en tu computadora.
+Tienes Claude Code en una terminal, Codex en otra y una pestaña de chat donde
+copias planes de un lado a otro. Dodaios acaba con eso. Es una capa por encima
+de todos tus agentes de programación: dices lo que quieres, por voz o por chat,
+y un asistente se encarga del resto. Escribe las instrucciones, lanza el agente
+adecuado en su Agentic IDE integrado, lo vigila mientras trabaja y te avisa
+cuando termina o te necesita. Ejecuta cinco agentes a la vez y sabrás
+exactamente qué hizo cada uno.
 
-En el centro hay un asistente "principal" con el que puedes hablar por voz
-(palabra de activación, dictado, conversación hablada en tiempo real y, como
-vista previa temprana, llamadas telefónicas), por chat o desde un teléfono
-vinculado. No depende de un solo proveedor: funciona con Claude, OpenAI, Gemini
-o modelos locales de Ollama. Resuelve tareas por su cuenta con herramientas,
-uso de la computadora, plugins, CLIs y servidores MCP. Pero, sobre todo, delega el
-trabajo en agentes de programación. Estos se ejecutan uno al lado del otro en
-un Agentic IDE integrado, como terminales reales de Claude Code o Codex, en tu
-computadora o en tus propios servidores por SSH. Cada uno tiene un indicativo
-por el que puedes llamarlo, y hay integración con Git y reparto de tareas.
-También existe una "sociedad" de agentes persistentes y con nombre que se
-envían mensajes entre sí.
-
-Para el trabajo a largo plazo hay memoria (sobre ti, las personas de tu entorno
-y la propia personalidad del asistente), tareas permanentes, flujos de trabajo,
-habilidades y gestión opcional de asuntos personales. El asistente también crea
-sus propios resultados, como documentos, presentaciones, hojas de cálculo y
-paneles, y puede proponer y construir las habilidades, rutinas y agentes que le
-faltan. Una capa de confianza fija límites estrictos: fuera de Bypass
-permissions, mover dinero, manejar credenciales, borrar algo de forma
-permanente y el primer contacto con alguien nuevo siempre necesitan tu
-confirmación. En resumen, Dodaios es un sistema operativo para agentes de IA,
-manejado por voz y que corre en local, que convierte a un solo asistente en el
-director de tus modelos, tus agentes de programación y tu propia computadora.
+Código abierto, y se ejecuta en tu computadora. Funciona con tu suscripción de
+Claude o ChatGPT, con claves de API de Claude, OpenAI y Gemini, o con modelos
+locales de Ollama.
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
