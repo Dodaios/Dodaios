@@ -55,6 +55,15 @@ export interface RevealStep {
   target: RevealTarget;
   /** What the agent is doing in this step, shown as the status ("Adding the totals"). */
   label?: string;
+  /**
+   * Type-specific motion when the step is revealed, played with the fade
+   * (a clip growing to its length, a track sliding in). Called as the unit
+   * is revealed, so it can measure the final layout; null plays the fade
+   * alone. Skipped with reduced motion.
+   */
+  enter?: (el: Element) => Keyframe[] | null;
+  /** Called with the step's first element as it is revealed (with reduced motion too). */
+  onReveal?: (el: Element) => void;
 }
 
 export interface RevealAdapter<S = unknown> {

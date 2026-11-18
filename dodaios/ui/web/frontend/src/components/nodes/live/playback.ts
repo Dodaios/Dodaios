@@ -56,6 +56,10 @@ export function revealDelays(count: number, timing = LIVE_TIMING): number[] {
 export interface RevealUnit {
   elements: Element[];
   label?: string;
+  /** Extra motion as the unit is revealed (`RevealStep.enter`). */
+  enter?: (el: Element) => Keyframe[] | null;
+  /** Called with the unit's first element as it is revealed (`RevealStep.onReveal`). */
+  onReveal?: (el: Element) => void;
 }
 
 /** `elements` in document order, each once, without any element inside another listed one. */
@@ -151,7 +155,12 @@ export function grouped(units: RevealUnit[], max: number = LIVE_TIMING.maxUnits)
   const out: RevealUnit[] = [];
   for (let i = 0; i < units.length; i += size) {
     const part = units.slice(i, i + size);
-    out.push({ elements: part.flatMap((u) => u.elements), label: part.find((u) => u.label)?.label });
+    const reveals = part.flatMap((u) => (u.onReveal ? [u.onReveal] : []));
+    out.push({
+      elements: part.flatMap((u) => u.elements),
+      label: part.find((u) => u.label)?.label,
+      onReveal: reveals.length > 0 ? (el) => reveals.forEach((reveal) => reveal(el)) : undefined,
+    });
   }
   return out;
 }
@@ -204,7 +213,7 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
       for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label });
       continue;
     }
-    if (elements.length > 0) units.push({ elements, label: step.label });
+    if (elements.length > 0) units.push({ elements, label: step.label, enter: step.enter, onReveal: step.onReveal });
   }
   return grouped(units);
 }
@@ -348,6 +357,16 @@ export class LivePlayer {
             duration: this.timing.fadeMs,
             easing: "ease-out",
           });
+          const extra = unit.enter?.(el);
+          if (extra && extra.length > 0) el.animate(extra, { duration: this.timing.fadeMs, easing: "ease-out" });
+        }
+      }
+      const first = unit.elements[0];
+      if (unit.onReveal && first?.isConnected) {
+        try {
+          unit.onReveal(first);
+        } catch {
+          // A type's hook must never stop the batch.
         }
       }
       const lead = unit.elements[0];

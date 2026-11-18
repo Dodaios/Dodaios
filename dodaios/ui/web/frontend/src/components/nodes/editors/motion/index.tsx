@@ -56,6 +56,7 @@ import { EditorShell } from "../EditorShell";
 import type { NodeEditorProps } from "../types";
 import { useNodeSpecEditor } from "../useNodeSpecEditor";
 import { fetchCaptions, fetchSilences, uploadMedia } from "./clipApi";
+import { CLIP_LIVE_SEEK, type ClipLiveSeekDetail } from "./clipLive";
 import { CaptionInspector, ItemInspector, ProjectInspector, VideoPieceInspector } from "./ClipInspector";
 import {
   FRAME,
@@ -294,6 +295,21 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
     setPlayToken((n) => n + 1);
   }, [playhead, duration]);
   const stop = useCallback(() => setPlaying(false), []);
+
+  // An agent placing a clip: the playhead moves onto it, unless the clip is playing.
+  const playingNow = useRef(false);
+  playingNow.current = playing;
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const onSeek = (event: Event) => {
+      const t = (event as CustomEvent<ClipLiveSeekDetail>).detail?.t;
+      if (playingNow.current || typeof t !== "number" || !Number.isFinite(t)) return;
+      setPlayhead(Math.max(0, t));
+    };
+    el.addEventListener(CLIP_LIVE_SEEK, onSeek);
+    return () => el.removeEventListener(CLIP_LIVE_SEEK, onSeek);
+  }, []);
   const toggle = useCallback(() => (playing ? stop() : play()), [playing, play, stop]);
 
   const onTime = useCallback(
