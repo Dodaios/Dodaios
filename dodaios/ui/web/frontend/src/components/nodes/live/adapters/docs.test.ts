@@ -117,6 +117,24 @@ describe("writing", () => {
   });
 });
 
+describe("an edit inside a paragraph", () => {
+  it("waits for the old words to fade before the new ones write in", () => {
+    vi.stubGlobal("CSS", { highlights: new Map() });
+    vi.stubGlobal("Highlight", class {});
+    const { content } = page("<p>keep this and write new words here</p>");
+    const plain = textWriting(content.firstElementChild!, { from: 10, to: 20 });
+    const edited = textWriting(content.firstElementChild!, { from: 10, to: 20, removed: "old words" });
+    expect(edited.steps).toBeGreaterThan(plain.steps);
+    // The waiting steps write nothing.
+    const host = document.createElement("div");
+    edited.prepare(host);
+    // The old words stand where the new ones will write in, until their turn.
+    expect(host.querySelector(".live-ghost")?.textContent).toBe("old words");
+    edited.finish();
+    expect(host.querySelector(".live-ghost")).toBeNull();
+  });
+});
+
 describe("the schedule", () => {
   const motion = (durationMs: number): UnitMotion => ({
     durationMs, steps: 1, prepare() {}, start() {}, advance() {}, finish() {},

@@ -18,6 +18,8 @@ export const GROUP_MS = 55;
 const MAX_GROUPS = 40;
 const WORDS_PER_GROUP = 3;
 const GHOST_FADE_MS = 260;
+/** Word-group slots the new words wait for the old ones to fade (about the ghost's fade). */
+const GHOST_LEAD_STEPS = 4;
 /** How long a skeleton stands before its picture fades in. */
 export const SKELETON_MS = 320;
 const SKELETON_FADE_MS = 220;
@@ -101,6 +103,8 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
   const from = Math.min(spec.from, end);
   const ends = groupEnds(full, from, end);
   const removed = (spec.removed ?? "").replace(/\s+/g, " ").trim();
+  /** Steps that wait while the old words fade out, before the new ones start to write in. */
+  const lead = removed ? GHOST_LEAD_STEPS : 0;
   let written = from;
   let hidden: Range | null = null;
   let ghost: HTMLElement | null = null;
@@ -138,6 +142,7 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
     } catch {
       return null;
     }
+    if (typeof range.getClientRects !== "function") return null;
     const rects = range.getClientRects();
     const rect = rects.length > 0 ? rects[rects.length - 1] : null;
     if (!rect || (rect.width === 0 && rect.height === 0)) return null;
@@ -156,8 +161,8 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
   };
 
   return {
-    durationMs: ends.length * GROUP_MS,
-    steps: ends.length,
+    durationMs: (lead + ends.length) * GROUP_MS,
+    steps: lead + ends.length,
     prepare(host) {
       const a = point(from);
       const b = point(end);
@@ -190,7 +195,8 @@ export function textWriting(element: Element, spec: TextWriting): UnitMotion {
       } else dropGhost();
     },
     advance(step) {
-      written = ends[Math.min(step, ends.length) - 1] ?? end;
+      if (step <= lead) return;
+      written = ends[Math.min(step - lead, ends.length) - 1] ?? end;
       if (hidden) {
         const next = point(written);
         if (next && written < end) {
