@@ -95,7 +95,10 @@ function skillSlug(row: ToolChoice): string {
 /** A skill row a person would tag: not a plugin's or CLI's companion, not retired, not the app's own. */
 function personSkill(row: ToolChoice): boolean {
   const slug = skillSlug(row);
-  if (isPluginOwnedSkill(row.skill || row.label || row.id)) return false;
+  // A plugin's companion skill is named after the plugin ("gmail",
+  // "google-calendar"); a skill of the person's own that merely mentions one
+  // ("t-gliche-github-triage") is theirs and stays.
+  if (slug.split(/[-_]/).length <= 2 && isPluginOwnedSkill(row.skill || row.label || row.id)) return false;
   if (slug.startsWith("plugin-") || slug.startsWith("cli-")) return false;
   if (AGENT_SKILLS.has(slug)) return false;
   return !/^\s*deprecated\b/i.test(row.description);

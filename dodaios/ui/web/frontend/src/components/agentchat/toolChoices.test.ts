@@ -27,6 +27,8 @@ const CATALOG: ToolChoice[] = [
   row("plugin:gmail", "plugins", { brand: "gmail", label: "Gmail" }),
   row("plugin:notion", "plugins", { brand: "notion", label: "Notion", available: false }),
   row("skill:humanizer", "skills"),
+  row("skill:t-gliche-github-triage", "skills"),
+  row("skill:gmail", "skills"),
   row("skill:memory-save", "skills", { description: "DEPRECATED since B5 and disabled." }),
   row("skill:plugin-shopify", "skills"),
   row("skill:cli-gcloud", "skills"),
@@ -49,6 +51,7 @@ describe("browseToolRows", () => {
     expect(shown.map((r) => r.id)).toEqual([
       "plugin:gmail",
       "skill:humanizer",
+      "skill:t-gliche-github-triage",
       "tool:society_browser",
       "tool:search_web",
       "tool:memory-search",
