@@ -967,6 +967,9 @@
           "none": "No notes for this slide.",
           "toggle": "Speaker notes"
         },
+        "live": {
+          "working_on": "{name} is working on slide {n}"
+        },
         "strip": {
           "label": "Slides",
           "slide": "Slide {n}",

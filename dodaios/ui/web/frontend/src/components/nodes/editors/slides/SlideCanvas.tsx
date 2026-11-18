@@ -86,6 +86,8 @@ export interface SlideCanvasProps {
   /** Fires with the drawn width, so a caller can size things around it. */
   onWidth?: (width: number) => void;
   testId?: string;
+  /** The slide's index in the deck, so the live build finds the slide on the stage. */
+  slideIndex?: number;
   children: ReactNode;
 }
 
@@ -100,6 +102,7 @@ export function SlideCanvas({
   style,
   onWidth,
   testId,
+  slideIndex,
   children,
 }: SlideCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -191,6 +194,7 @@ export function SlideCanvas({
       ref={hostRef}
       data-theme={theme}
       data-testid={testId}
+      data-slide={slideIndex}
       className={cn("relative block", className)}
       style={{ ...style, height: fixedWidth === undefined ? undefined : height }}
     >

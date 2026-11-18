@@ -93,6 +93,12 @@ asks once more after `settleWaitMs`.
 
 A step whose target is not found is skipped.
 
+A step may set `visible: true` when its elements are already on screen (a moved
+element, a thumbnail that glides): the player does not hide or fade them, the
+frame and cursor only visit them. `solo: true` puts the frame on that step's
+elements alone instead of growing around everything written. An `{ element }`
+target may sit inside a shadow root of the body (the slide canvas does).
+
 A step may set `framed: false` to play without growing the presence frame (a
 new tab in a tab bar). An adapter may set `tagCorner: "bottom"` to put the name
 tag on the frame's lower-left corner (default: top-left).

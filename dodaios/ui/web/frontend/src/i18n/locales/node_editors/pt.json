@@ -967,6 +967,9 @@
           "none": "Este slide não tem notas.",
           "toggle": "Notas do apresentador"
         },
+        "live": {
+          "working_on": "{name} está a trabalhar no slide {n}"
+        },
         "strip": {
           "label": "Slides",
           "slide": "Slide {n}",

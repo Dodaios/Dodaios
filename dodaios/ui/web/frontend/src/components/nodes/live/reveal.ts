@@ -73,6 +73,14 @@ export interface RevealStep {
    * the cursor, but the frame stays on the content.
    */
   framed?: boolean;
+  /**
+   * The elements are already on screen (an element that moves, a thumbnail
+   * that glides): the player does not hide or fade them, only the frame and
+   * the cursor visit, and `onReveal` runs.
+   */
+  visible?: boolean;
+  /** The frame sits on this step's elements alone instead of growing around everything written. */
+  solo?: boolean;
 }
 
 export interface RevealAdapter<S = unknown> {

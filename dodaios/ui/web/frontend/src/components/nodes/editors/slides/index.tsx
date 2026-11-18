@@ -65,7 +65,9 @@ import { useElementSize } from "@/hooks/useElementSize";
 import { fill, useT } from "@/i18n";
 import { useThemeValue } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
 
+import { authorName, useNodeLive } from "../../live/liveStore";
 import { ChartEditor } from "../charts/ChartEditor";
 import { validateChart, type ChartJson } from "../charts/chartModel";
 import { ColorPicker, MenuDivider, MenuItem, Popover, ToolbarButton, ToolbarSeparator } from "../controls";
@@ -92,6 +94,7 @@ import {
   type Slide,
   type Translate,
 } from "./deckModel";
+import { diffDecks, firstWritten, indexAfterRevision } from "./deckDiff";
 import { loadDeckCss } from "./deckPage";
 import { ElementInspector, ShapeGlyph } from "./ElementInspector";
 import {
@@ -299,6 +302,8 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
       ownFrom.current = null;
       return;
     }
+    // An agent's revision places the stage itself, while it renders (see "following the agent").
+    if (editor.remote && editor.remote.next.slides === slides) return;
     let first = 0;
     while (first < Math.min(before.length, slides.length) && before[first] === slides[first]) first++;
     if (first < slides.length || slides.length !== before.length) setSelected(Math.min(first, slides.length - 1));
@@ -739,6 +744,32 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
 
   // --- presenting --------------------------------------------------------------------------
   const [presenting, setPresenting] = useState<{ from: number; presenter: boolean } | null>(null);
+
+  // --- following the agent ------------------------------------------------------------------
+  // An agent's revision moves the stage to the slide it wrote, unless the person is busy
+  // (a selection, a text in hand, a presentation): then the stage stays on the person's slide
+  // (kept under them when slides were added before it) and the strip thumbnail plays the build.
+  // Decided while rendering, so the reveal finds the stage already on the right slide.
+  const remote = editor.remote ?? null;
+  const [followed, setFollowed] = useState(remote?.seq ?? 0);
+  const [agentSlide, setAgentSlide] = useState<number | null>(null);
+  if (remote && remote.seq !== followed) {
+    setFollowed(remote.seq);
+    const diff = diffDecks(remote.previous, remote.next);
+    const written = firstWritten(diff);
+    const busy = presenting !== null || selection.length > 0 || writing >= 0 || activeField !== null;
+    const kept = indexAfterRevision(diff, current, remote.next.slides?.length ?? 0);
+    const target = written !== null && !busy ? written : kept;
+    if (target !== selected) setSelected(target);
+    setAgentSlide(written !== null && written !== target ? written : null);
+  }
+  useEffect(() => {
+    if (agentSlide === null) return;
+    const timer = window.setTimeout(() => setAgentSlide(null), 4_000);
+    return () => window.clearTimeout(timer);
+  }, [agentSlide, followed]);
+  const liveAuthor = useNodeLive((state) => state.nodes[nodeId]?.author ?? null);
+  const assistantName = useEventStore((state) => state.assistantName);
 
   // --- view -----------------------------------------------------------------------------------
   const [grid, setGrid] = useState(false);
@@ -1288,6 +1319,20 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
                   )}
                 </div>
               )}
+              {agentSlide !== null && liveAuthor && (
+                <div
+                  className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border px-2.5 py-0.5 text-[11.5px] leading-[18px]"
+                  style={{
+                    background: "hsl(var(--presence-pill-bg))",
+                    color: "hsl(var(--presence-pill-ink))",
+                    borderColor: "hsl(var(--presence-ink) / 0.16)",
+                  }}
+                  role="status"
+                  data-testid="slides-agent-slide"
+                >
+                  {fill(L("live.working_on"), { name: authorName(liveAuthor, assistantName), n: agentSlide + 1 })}
+                </div>
+              )}
               <CanvasArea zoom={zoom}>
                 {(width) =>
                   css && slide ? (
@@ -1318,6 +1363,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
                             accent={accent}
                             editable
                             testId="slides-canvas"
+                            slideIndex={current}
                             className="overflow-hidden rounded-lg shadow-[0_1px_3px_rgba(0,0,0,.12),0_8px_24px_-8px_rgba(0,0,0,.18)] ring-1 ring-border"
                           >
                             <SlideView
