@@ -31,7 +31,10 @@ export interface DeckDiff {
   reordered: boolean;
 }
 
-const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+/** A slide as text, without the element ids the editor invents on every load. */
+const keyOf = (value: unknown): string => JSON.stringify(value ?? null, (key, v) => (key === "id" ? undefined : v));
+
+const same = (a: unknown, b: unknown): boolean => keyOf(a) === keyOf(b);
 
 export function diffDecks(previous: Deck | null, next: Deck, ops: readonly { op?: string }[] | null = null): DeckDiff {
   const after = next.slides ?? [];
@@ -43,8 +46,8 @@ export function diffDecks(previous: Deck | null, next: Deck, ops: readonly { op?
     };
   }
   const before = previous.slides ?? [];
-  const keyBefore = before.map((s) => JSON.stringify(s));
-  const keyAfter = after.map((s) => JSON.stringify(s));
+  const keyBefore = before.map(keyOf);
+  const keyAfter = after.map(keyOf);
   const usedBefore = new Set<number>();
   const matched: (number | null)[] = after.map(() => null);
   // Same index first, so duplicated slides stay where they are.

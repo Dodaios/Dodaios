@@ -27,6 +27,12 @@ describe("what a revision changed in a deck", () => {
     expect(firstWritten(diff)).toBe(1);
   });
 
+  it("does not mistake element ids the editor invents on every load for a change", () => {
+    const before = deck(slide("One", { elements: [box("a", 10)] }), slide("Two"));
+    const after = deck(slide("One", { elements: [box("zzz", 10)] }), slide("Two"), slide("Three"));
+    expect(diffDecks(before, after).changes.map((c) => [c.kind, c.index])).toEqual([["added", 2]]);
+  });
+
   it("keeps the person's slide under them when a slide is put in before it", () => {
     const before = deck(slide("One"), slide("Two"));
     const after = deck(slide("New"), slide("One"), slide("Two"));
