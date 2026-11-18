@@ -82,6 +82,7 @@ def install(
     cfg: Any,
     get_service: Callable[[], Any | None],
     start_scheduler: bool = True,
+    desktop_reminders: bool = True,
 ) -> Notifier:
     """Build the notifier, subscribe the attention bridge, start the scheduler."""
     global _scheduler
@@ -93,7 +94,11 @@ def install(
     set_current(notifier)
     attention_bridge.install(bus, notifier)
     if start_scheduler:
-        _scheduler = ReminderScheduler(vault=_vault_getter(cfg), notifier=lambda: notifier)
+        # ``desktop_reminders=False``: told in the chat only (a dev app trying them).
+        _scheduler = ReminderScheduler(
+            vault=_vault_getter(cfg),
+            notifier=lambda: notifier if desktop_reminders else None,
+        )
         _scheduler.start()
         log.info("notify: reminder scheduler started")
     return notifier

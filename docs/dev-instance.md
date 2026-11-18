@@ -59,6 +59,15 @@ The dev icon is rendered by `scripts/make_app_icon.py` into both icon homes
 (`dodaios/assets/icons/` ships with the package, `assets/icons/` is the
 build-tool copy).
 
+## Reminders in the dev app
+
+The dev app does not deliver reminders or calendar appointments: the default
+app does, and two apps on one calendar would tell everything twice. To try how
+a reminder reads in the chat, start the dev app with `JARVIS_DEV_REMINDERS=1`
+(for example `JARVIS_DEV_REMINDERS=1 python scripts/dev_preview.py <PR>`). It
+then tells the reminders of its own `data-dev` directory in its own chat, with
+no desktop notification.
+
 ## Known sharing
 
 Two things are deliberately shared and fine: `jarvis.toml` (settings you change
