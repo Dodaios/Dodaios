@@ -708,6 +708,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     if (!minimal) return;
     const box = fieldWrapRef.current?.querySelector<HTMLElement>('[role="textbox"]');
     const measure = () => {
+      // A node-type chip and its question need the full width: the box goes on top.
+      if (nodeType) return setTall(true);
       if (!value.trim() && !hasAttachments) return setTall(false);
       if (hasAttachments || value.includes("\n")) return setTall(true);
       if (!box) return;
@@ -721,7 +723,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     const ro = new ResizeObserver(measure);
     ro.observe(box);
     return () => ro.disconnect();
-  }, [minimal, value, hasAttachments]);
+  }, [minimal, value, hasAttachments, nodeType]);
 
   const field = (
     <ComposerChipField
