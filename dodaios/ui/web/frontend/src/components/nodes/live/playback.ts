@@ -463,17 +463,26 @@ export class LivePlayer {
     this.motion = stepCursor(this.motion, now).motion;
     const { x, y } = this.motion;
     this.view.cursor.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    this.view.pill.style.transform = `translate3d(${(x + 18).toFixed(1)}px, ${(y + 22).toFixed(1)}px, 0)`;
+    /* Beside the cursor, on whichever side has room: never cut off at the layer's edge. */
+    const width = this.host.clientWidth;
+    const beside = (el: HTMLElement, left: number) => {
+      const w = el.offsetWidth;
+      if (left + w <= width - 6) return left;
+      return Math.max(6, Math.min(x - w - 10, width - w - 6));
+    };
+    const pill = this.view.pill;
+    pill.style.transform = `translate3d(${beside(pill, x + 18).toFixed(1)}px, ${(y + 22).toFixed(1)}px, 0)`;
 
     /* The name tag sits on the frame's top-left corner, or beside the cursor before there is one. */
     const tag = this.view.tag;
     if (this.frameBox !== null) {
       const f = this.frameBox;
       const above = f.y - tag.offsetHeight - 2;
-      tag.style.transform = `translate3d(${f.x.toFixed(1)}px, ${(above >= 0 ? above : f.y + 4).toFixed(1)}px, 0)`;
+      const left = Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2));
+      tag.style.transform = `translate3d(${left.toFixed(1)}px, ${(above >= 0 ? above : f.y + 4).toFixed(1)}px, 0)`;
       tag.dataset.on = "frame";
     } else {
-      tag.style.transform = `translate3d(${(x + 18).toFixed(1)}px, ${(y + 2).toFixed(1)}px, 0)`;
+      tag.style.transform = `translate3d(${beside(tag, x + 18).toFixed(1)}px, ${(y + 2).toFixed(1)}px, 0)`;
       tag.dataset.on = "cursor";
     }
     this.loop = window.requestAnimationFrame((time) => this.tick(time));
