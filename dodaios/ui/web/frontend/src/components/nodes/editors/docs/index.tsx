@@ -15,9 +15,9 @@
  * revision that arrives while nothing is unsaved replaces the content (one
  * undo step brings the person's version back).
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { EditorContent, ReactNodeViewRenderer, useEditor, useEditorState, type Editor } from "@tiptap/react";
-import { Selection } from "@tiptap/pm/state";
+import { Selection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 
 import { useT } from "@/i18n";
@@ -26,6 +26,7 @@ import type { NodeEditorProps } from "../types";
 import { hasOwnUndo, shortcutOf, useNodeSpecEditor, type NodeSpecEditor } from "../useNodeSpecEditor";
 import { useNodeLive } from "../../live/liveStore";
 import { caretFor, startOf } from "./caret";
+import { rememberBlocks } from "./liveBlocks";
 import { DocSession, MAX_BODY_CHARS, cleanSummary, readSpec, type DocsSpec } from "./docModel";
 import { docExtensions } from "./extensions";
 import { pictureFiles, pictureFromFile } from "./images";
@@ -39,6 +40,14 @@ import "./docs.css";
 /** Room kept free in the body for the picture's own Markdown and later typing. */
 const PICTURE_HEADROOM = 2_000;
 const NOTICE_MS = 6_000;
+
+/** Draws a revision that did not come from this editor, before the live-build layer reads the body. */
+function RevisionSync({ spec, sync }: { spec: unknown; sync: () => void }) {
+  useLayoutEffect(() => {
+    sync();
+  }, [spec, sync]);
+  return null;
+}
 
 export default function DocsEditor({ node, initial, startAt = null, onDone }: NodeEditorProps) {
   const t = useT();
@@ -198,19 +207,31 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
     }
   }, [editor]);
 
-  // A spec that did not come from this editor (the assistant's revision, or
-  // "Take theirs") replaces the content.
-  useEffect(() => {
-    if (!editor || specEditor.spec === lastApplied.current) return;
-    lastApplied.current = specEditor.spec;
-    const next = readSpec(specEditor.spec);
+  /* A spec that did not come from this editor (the assistant's revision, or
+   * "Take theirs") replaces the content. It is drawn in a layout effect of a
+   * component placed before the live-build layer (`RevisionSync` below), so
+   * the layer finds the new content in place when it plans the reveal. */
+  const syncRevision = useCallback(() => {
+    if (!editor || editor.isDestroyed || specRef.current.spec === lastApplied.current) return;
+    lastApplied.current = specRef.current.spec;
+    // The blocks as they stand, for the live-build reveal to tell what is new.
+    rememberBlocks(editor.view.dom);
+    const next = readSpec(specRef.current.spec);
     const mine = sessionRef.current!.specOf(editor.state.doc);
     if (mine.summary === cleanSummary(next.summary) && mine.markdown === next.markdown) return;
     const session = new DocSession(next);
     sessionRef.current = session;
+    const { from, to } = editor.state.selection;
+    const focused = editor.isFocused;
     editor.commands.setContent(session.content, { emitUpdate: false });
     session.remember(editor.state.doc);
-  }, [editor, specEditor.spec]);
+    if (focused) {
+      // The person's caret stays where they had it, as far as the text allows.
+      const { doc } = editor.state;
+      const at = (pos: number) => doc.resolve(Math.min(pos, doc.content.size));
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.between(at(from), at(to))));
+    }
+  }, [editor]);
 
   const history = useEditorState({
     editor,
@@ -258,6 +279,7 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
       more={<DocsMore editor={editor} outlineOpen={outlineOpen} onOutlineToggle={() => setOutlineOpen((open) => !open)} />}
       side={outlineOpen ? <Outline editor={editor} /> : undefined}
     >
+      <RevisionSync spec={specEditor.spec} sync={syncRevision} />
       <div
         className="doc-editor mx-auto w-full max-w-[816px] px-12 pb-40 pt-12"
         onMouseDown={(event) => {

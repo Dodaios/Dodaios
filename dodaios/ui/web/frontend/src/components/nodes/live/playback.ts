@@ -52,10 +52,37 @@ export function revealDelays(count: number, timing = LIVE_TIMING): number[] {
   return Array.from({ length: count }, (_, i) => Math.round(i * step));
 }
 
+/**
+ * A unit's own way of arriving, for a type whose content is not best shown by
+ * a plain fade (text written at a caret, a picture's skeleton). The player
+ * calls it in this order: `prepare` when the batch is queued (hide what is to
+ * come, draw what stands in its place), `start` when the unit's turn comes,
+ * `advance(1..steps)` while it runs, `finish` when it is over or interrupted
+ * (everything shown, anything drawn for it removed). `finish` is safe to call
+ * at any time, even without `prepare` (reduced motion). Nothing here may
+ * change the editor's own DOM or styles (see `writing.ts`).
+ */
+export interface UnitMotion {
+  /** How long the unit takes at natural speed; long batches are compressed. */
+  durationMs: number;
+  /** How many times `advance` is called while the unit runs. */
+  steps: number;
+  prepare(host: HTMLElement): void;
+  start(): void;
+  advance(step: number): void;
+  finish(): void;
+  /** Called every frame while the unit is prepared; `host` is the presence layer's box. */
+  update?(host: DOMRect): void;
+  /** Where the agent is writing now, in viewport pixels; null when it is not at a point. */
+  caret?(): { x: number; y: number; h: number; within: Element } | null;
+}
+
 /** One step of a batch: the elements that fade in together, and its status. */
 export interface RevealUnit {
   elements: Element[];
   label?: string;
+  /** Replaces the plain fade for these elements. */
+  motion?: UnitMotion;
   /** Extra motion as the unit is revealed (`RevealStep.enter`). */
   enter?: (el: Element) => Keyframe[] | null;
   /** Called with the unit's first element as it is revealed (`RevealStep.onReveal`). */
@@ -155,17 +182,79 @@ export function grouped(units: RevealUnit[], max: number = LIVE_TIMING.maxUnits)
   if (units.length <= max) return units;
   const size = Math.ceil(units.length / max);
   const out: RevealUnit[] = [];
-  for (let i = 0; i < units.length; i += size) {
-    const part = units.slice(i, i + size);
-    const reveals = part.flatMap((u) => (u.onReveal ? [u.onReveal] : []));
-    out.push({
-      elements: part.flatMap((u) => u.elements),
-      label: part.find((u) => u.label)?.label,
-      framed: part.some((u) => u.framed !== false),
-      onReveal: reveals.length > 0 ? (el) => reveals.forEach((reveal) => reveal(el)) : undefined,
-    });
+  let run: RevealUnit[] = [];
+  const flush = () => {
+    for (let i = 0; i < run.length; i += size) {
+      const part = run.slice(i, i + size);
+      const reveals = part.flatMap((u) => (u.onReveal ? [u.onReveal] : []));
+      out.push({
+        elements: part.flatMap((u) => u.elements),
+        label: part.find((u) => u.label)?.label,
+        framed: part.some((u) => u.framed !== false),
+        onReveal: reveals.length > 0 ? (el) => reveals.forEach((reveal) => reveal(el)) : undefined,
+      });
+    }
+    run = [];
+  };
+  for (const unit of units) {
+    // A unit with its own motion is never merged: its motion would be lost.
+    if (unit.motion) {
+      flush();
+      out.push(unit);
+    } else run.push(unit);
   }
+  flush();
   return out;
+}
+
+/**
+ * When each unit of a batch starts and how long it runs, in ms from the
+ * batch's start. Plain units are `staggerMs` apart (compressed, see
+ * `revealDelays`); a unit with its own motion takes its `durationMs`. If the
+ * whole would pass `maxBatchMs`, every start and length is scaled down.
+ */
+export function schedule(units: readonly RevealUnit[], timing = LIVE_TIMING): { starts: number[]; lengths: number[] } {
+  if (!units.some((u) => u.motion)) {
+    const starts = revealDelays(units.length, timing);
+    return { starts, lengths: units.map(() => timing.staggerMs) };
+  }
+  const weights = units.map((u) => u.motion?.durationMs ?? timing.staggerMs);
+  const before = weights.slice(0, -1).reduce((a, b) => a + b, 0);
+  const room = Math.max(0, timing.maxBatchMs - timing.fadeMs);
+  const scale = Math.min(1, room / Math.max(1, before + (weights[weights.length - 1] ?? 0)));
+  let at = 0;
+  const starts: number[] = [];
+  for (const w of weights) {
+    starts.push(Math.round(at * scale));
+    at += w;
+  }
+  return { starts, lengths: weights.map((w) => Math.floor(w * scale)) };
+}
+
+/** Room kept clear at the foot of the view for a floating bar, and at its top. */
+const VIEW_FOOT = 104;
+const VIEW_HEAD = 24;
+
+/** Scroll `scroller` the least that brings `rect` (viewport pixels) into its free area. */
+function bringIntoView(scroller: Element, rect: DOMRect, instant: boolean): void {
+  const box = scroller.getBoundingClientRect();
+  const bottom = box.bottom - VIEW_FOOT;
+  const top = box.top + VIEW_HEAD;
+  let delta = 0;
+  if (rect.height > bottom - top || rect.top < top) delta = rect.top - top;
+  else if (rect.bottom > bottom) delta = rect.bottom - bottom;
+  if (Math.abs(delta) < 2) return;
+  scroller.scrollBy({ top: delta, behavior: instant ? "auto" : "smooth" });
+}
+
+/** The nearest ancestor that scrolls, or null. */
+function scrollParent(el: Element | null): Element | null {
+  for (let at = el; at; at = at.parentElement) {
+    if (typeof window.getComputedStyle !== "function") return null;
+    const overflow = window.getComputedStyle(at).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && at.scrollHeight > at.clientHeight) return at;
+  }
+  return null;
 }
 
 /** The marked element for a JSON Pointer, or for its nearest marked ancestor path. */
@@ -216,7 +305,7 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
       for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label, framed: step.framed });
       continue;
     }
-    if (elements.length > 0) units.push({ elements, label: step.label, framed: step.framed, enter: step.enter, onReveal: step.onReveal });
+    if (elements.length > 0) units.push({ elements, label: step.label, framed: step.framed, enter: step.enter, onReveal: step.onReveal, motion: step.motion });
   }
   return grouped(units);
 }
@@ -264,6 +353,9 @@ export class LivePlayer {
   /** `performance.now()` of the last scheduled reveal. */
   private slotAt = 0;
   private hidden = new Map<Element, Animation>();
+  /** Units with their own motion that are prepared and not yet over. */
+  private moving = new Set<UnitMotion>();
+  private tagAt: { x: number; y: number } | null = null;
   private frameBox: Box | null = null;
   private motion: CursorMotion | null = null;
   private aimed: Element | null = null;
@@ -313,16 +405,47 @@ export class LivePlayer {
       this.revealUpTo(this.units.length);
       return;
     }
-    for (const unit of this.units.slice(start)) for (const el of unit.elements) this.hide(el);
+    const added = this.units.slice(start);
+    for (const unit of added) {
+      if (unit.motion) {
+        unit.motion.prepare(this.host);
+        this.moving.add(unit.motion);
+      } else for (const el of unit.elements) this.hide(el);
+    }
     // Late units queue behind the ones already scheduled, never ahead of them.
     const now = performance.now();
     const base = start > 0 ? Math.max(0, this.slotAt + this.timing.staggerMs - now) : 0;
-    const delays = revealDelays(this.units.length - start, this.timing);
-    delays.forEach((delay, i) => {
+    const { starts, lengths } = schedule(added, this.timing);
+    starts.forEach((delay, i) => {
       this.timers.push(window.setTimeout(() => this.revealUpTo(start + i + 1), base + delay));
+      const motion = added[i].motion;
+      if (!motion) return;
+      for (let k = 1; k <= motion.steps; k += 1) {
+        const at = base + delay + (lengths[i] * k) / motion.steps;
+        this.timers.push(window.setTimeout(() => this.stepMotion(motion, k), at));
+      }
     });
-    this.slotAt = now + base + (delays[delays.length - 1] ?? 0);
+    this.slotAt = now + base + (starts[starts.length - 1] ?? 0);
     this.host.dataset.phase = "writing";
+  }
+
+  /** One sub-step of a unit's own motion; its last one ends the unit. */
+  private stepMotion(motion: UnitMotion, step: number): void {
+    if (!this.moving.has(motion)) return;
+    motion.advance(step);
+    if (step >= motion.steps) {
+      motion.finish();
+      this.moving.delete(motion);
+    }
+    this.followCaret(motion);
+  }
+
+  /** The view keeps the writing in sight (until the person scrolled or worked). */
+  private followCaret(motion: UnitMotion): void {
+    const caret = this.following ? motion.caret?.() : null;
+    if (!caret) return;
+    const scroller = scrollParent(caret.within);
+    if (scroller) bringIntoView(scroller, new DOMRect(caret.x, caret.y, 1, caret.h), this.reduced());
   }
 
   /** Reveal everything of the batch now. */
@@ -330,6 +453,8 @@ export class LivePlayer {
     for (const timer of this.timers) window.clearTimeout(timer);
     this.timers = [];
     this.revealUpTo(this.units.length, true);
+    for (const motion of this.moving) motion.finish();
+    this.moving.clear();
   }
 
   /** The person acted in the node: the batch shows at once and the view stays where they put it. */
@@ -356,7 +481,14 @@ export class LivePlayer {
     while (this.revealed < Math.min(count, this.units.length)) {
       const unit = this.units[this.revealed];
       this.revealed += 1;
-      for (const el of unit.elements) {
+      if (unit.motion) {
+        // Its own arrival: started on its turn, or shown at once.
+        if (reduced) {
+          unit.motion.finish();
+          this.moving.delete(unit.motion);
+        } else unit.motion.start();
+      }
+      for (const el of unit.motion ? [] : unit.elements) {
         this.hidden.get(el)?.cancel();
         this.hidden.delete(el);
         if (!reduced && canAnimate(el)) {
@@ -383,7 +515,9 @@ export class LivePlayer {
         typeof lead.scrollIntoView === "function" &&
         !isPinned(lead, this.host.parentElement ?? document.body)
       ) {
-        lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
+        const scroller = scrollParent(lead);
+        if (scroller) bringIntoView(scroller, lead.getBoundingClientRect(), reduced);
+        else lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
       }
     }
     if (!this.playing) this.host.dataset.phase = "thinking";
@@ -458,6 +592,15 @@ export class LivePlayer {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  /** Where the arrow points for a caret given in viewport pixels: just under its line's end. */
+  private caretPoint(caret: { x: number; y: number; h: number }): { x: number; y: number } {
+    const outer = this.host.getBoundingClientRect();
+    return {
+      x: Math.min(Math.max(caret.x - outer.left + 2, 8), Math.max(8, this.host.clientWidth - 24)),
+      y: Math.min(Math.max(caret.y - outer.top + caret.h * 0.85, 8), Math.max(8, this.host.clientHeight - 24)),
+    };
+  }
+
   /** Where the arrow points for `el`: the end of what was written, inside the layer. */
   private anchor(el: Element | null): { x: number; y: number } {
     if (!el || !el.isConnected) return HOME;
@@ -507,9 +650,24 @@ export class LivePlayer {
     /* The cursor glides to the last unit written; it rides along when the body scrolls. */
     const lastUnit = this.revealed > 0 ? this.units[this.revealed - 1] : null;
     const el = lastUnit ? lastUnit.elements[lastUnit.elements.length - 1] : null;
-    const point = this.anchor(el);
+    /* A unit with its own motion may know a finer point (the caret of the text being written). */
+    if (this.moving.size > 0) {
+      const outer = this.host.getBoundingClientRect();
+      for (const own of this.moving) own.update?.(outer);
+    }
+    const writing = lastUnit?.motion && this.moving.has(lastUnit.motion) ? (lastUnit.motion.caret?.() ?? null) : null;
+    const point = writing
+      ? this.caretPoint(writing)
+      : this.anchor(el);
     if (this.motion === null) this.motion = beginCursor(point.x, point.y, now);
-    if (el !== this.aimed) {
+    if (writing) {
+      // The caret moves a little at a time: each move is a short glide of its own.
+      if (Math.abs(point.x - this.motion.toX) > 2 || Math.abs(point.y - this.motion.toY) > 2) {
+        this.aimed = el;
+        const distance = Math.hypot(point.x - this.motion.x, point.y - this.motion.y);
+        this.motion = aimCursor(this.motion, { x: point.x, y: point.y, clickId: 0, clickX: 0, clickY: 0 }, distance, now, reduced).motion;
+      }
+    } else if (el !== this.aimed) {
       this.aimed = el;
       const distance = Math.hypot(point.x - this.motion.x, point.y - this.motion.y);
       this.motion = aimCursor(this.motion, { x: point.x, y: point.y, clickId: 0, clickX: 0, clickY: 0 }, distance, now, reduced).motion;
@@ -535,7 +693,8 @@ export class LivePlayer {
 
     /* The name tag sits on the frame's top-left corner, or beside the cursor before there is one. */
     const tag = this.view.tag;
-    if (this.frameBox !== null) {
+    let goal: { x: number; y: number };
+    if (this.frameBox !== null && !writing) {
       const f = this.frameBox;
       const left = Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2));
       let top: number;
@@ -547,12 +706,21 @@ export class LivePlayer {
         const above = f.y - tag.offsetHeight - 2;
         top = above >= 0 ? above : f.y + 4;
       }
-      tag.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
+      goal = { x: left, y: top };
       tag.dataset.on = "frame";
     } else {
-      tag.style.transform = `translate3d(${beside(tag, x + 18).toFixed(1)}px, ${(y + 2).toFixed(1)}px, 0)`;
+      // Before there is a frame, and while text is written at the caret, the tag rides beside the cursor.
+      goal = { x: beside(tag, x + 18), y: y + 2 };
       tag.dataset.on = "cursor";
     }
+    /* The tag eases to its place, so moving from the frame to the caret never jumps. */
+    const at = this.tagAt;
+    if (at === null || reduced) this.tagAt = goal;
+    else {
+      const k = 1 - Math.exp(-dt / 70);
+      this.tagAt = { x: at.x + (goal.x - at.x) * k, y: at.y + (goal.y - at.y) * k };
+    }
+    tag.style.transform = `translate3d(${this.tagAt.x.toFixed(1)}px, ${this.tagAt.y.toFixed(1)}px, 0)`;
     this.loop = window.requestAnimationFrame((time) => this.tick(time));
   }
 }
