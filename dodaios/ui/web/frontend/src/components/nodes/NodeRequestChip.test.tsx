@@ -41,7 +41,9 @@ const CATALOG: AgentChatCatalog = {
   ],
 };
 
-function seed(send = vi.fn(async () => {})) {
+type Send = (...args: unknown[]) => Promise<void | "sent" | "failed" | "stale">;
+
+function seed(send = vi.fn<Send>(async () => {})) {
   useAgentChatStore.setState({
     catalog: CATALOG,
     connections: [{ jarvis: "claude-api", key_set: true, is_active_brain: true }],
@@ -154,7 +156,7 @@ describe("the type chip in the composer", () => {
   });
 
   it("keeps the chip and the words when the message could not be sent", async () => {
-    const send = seed(vi.fn(async () => "failed" as const));
+    const send = seed(vi.fn<Send>(async () => "failed"));
     writeComposerDraft(useAgentChatStore, "lead", { text: "", choices: [], nodeType: "docs" });
     composer();
     type("A one-page brief");

@@ -23,7 +23,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { MISSION_DND_MIME } from "@/lib/missionDnd";
-import { useEventStore } from "@/store/events";
 import type { NodeCard } from "./nodeModel";
 import { NodesLibrary } from "./NodesLibrary";
 import { useNodesLibrary } from "./useNodesLibrary";
