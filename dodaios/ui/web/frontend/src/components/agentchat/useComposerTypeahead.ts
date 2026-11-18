@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import type { ComposerChipFieldHandle } from "@/components/agentchat/ComposerChipField";
 import { fetchTypeahead, type AgentChatSurface } from "@/lib/agentChatApi";
 import { searchTools } from "@/components/agentchat/toolChoices";
+import { nodeChipLabel } from "@/components/nodes/NodeRequestChip";
+import { NODE_TYPES, type NodeType } from "@/components/nodes/nodeModel";
+import { translate } from "@/i18n";
 import {
   activeToken,
   applyPick,
@@ -55,12 +58,29 @@ interface Seat {
   /** The Jarvis chat's model and permission stance — what its tool catalog is read for. */
   model?: string;
   stance?: string;
+  /** The box can hold a node-type chip: `@` lists the node types too. */
+  nodes?: boolean;
 }
 
 /**
  * The Jarvis chat's `@` list: the agents the backend names, then the plugins
  * and tools the Add menu offers. Either half failing leaves the other.
  */
+/**
+ * The node types as `@` rows ("Dodaios Slides"), matched by name like the Add
+ * menu's "Nodes" section. A pick sets the type's chip, not a word.
+ */
+export function nodeTypeMentions(query: string): TypeaheadItem[] {
+  const words = query.trim().toLowerCase();
+  return NODE_TYPES.flatMap((type) => {
+    const label = nodeChipLabel(translate, type);
+    const name = translate(`nodes.type.${type}`);
+    const value = name.toLowerCase().replace(/\s+/g, "-");
+    if (words && !label.toLowerCase().includes(words) && !type.includes(words) && !"nodes".startsWith(words)) return [];
+    return [{ value, label, hint: translate(`nodes.new.about.${type}`), kind: "node", group: "nodes", nodeType: type }];
+  });
+}
+
 async function jarvisMentions(seat: Seat, query: string, signal: AbortSignal): Promise<TypeaheadItem[]> {
   const [agents, tools] = await Promise.allSettled([
     fetchTypeahead({ surface: seat.surface, provider: seat.provider, cwd: seat.cwd, trigger: "@", q: query }, signal),
@@ -73,6 +93,7 @@ async function jarvisMentions(seat: Seat, query: string, signal: AbortSignal): P
   if (agents.status === "rejected" && tools.status === "rejected") throw agents.reason;
   return [
     ...(agents.status === "fulfilled" ? agents.value.items : []),
+    ...(seat.nodes ? nodeTypeMentions(query) : []),
     ...(tools.status === "fulfilled" ? toolTypeaheadItems(tools.value.items, query) : []),
   ];
 }
@@ -97,6 +118,8 @@ export function useComposerTypeahead(
   setValue: (next: string) => void,
   seat: Seat,
   fieldRef?: RefObject<ComposerChipFieldHandle | null>,
+  /** A node type was picked from the `@` list: set its chip. */
+  onNodeType?: (type: NodeType) => void,
 ): ComposerTypeahead {
   const [token, setToken] = useState<ActiveToken | null>(null);
   const [rawItems, setRawItems] = useState<TypeaheadItem[]>([]);
@@ -276,6 +299,18 @@ export function useComposerTypeahead(
       const box = textareaRef.current;
       const field = fieldRef?.current;
       if (!token) return;
+      if (item.nodeType) {
+        // The typed `@word` goes; the chip in front of the box says it instead.
+        const text = field?.getDraft().text ?? box?.value ?? value;
+        const rest = (text.slice(0, token.start) + text.slice(token.end)).replace(/^\s+/, "");
+        setValue(rest);
+        field?.hydrate(rest, field.getDraft().choices);
+        dismissedStart.current = null;
+        setToken(null);
+        onNodeType?.(item.nodeType);
+        window.requestAnimationFrame(() => field?.focus());
+        return;
+      }
       // A picked file, folder or name is a real one: it keeps the command colour.
       if (token.trigger === "@" && !item.choice) rememberMention(item.value);
       const applied = applyPick(field?.getDraft().text ?? box?.value ?? value, token, item);

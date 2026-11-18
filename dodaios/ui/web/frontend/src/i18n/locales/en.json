@@ -7789,7 +7789,45 @@
     "connect": "Set up",
     "next_message": "Selected for the next message",
     "hint": "Pick tools for your next message. Permissions still apply.",
-    "done": "Done"
+    "done": "Done",
+    "curated": {
+      "browser": {
+        "label": "Browser",
+        "hint": "Do something on the web in your own browser"
+      },
+      "web_search": {
+        "label": "Web search",
+        "hint": "Look something up on the web"
+      },
+      "computer_use": {
+        "label": "Computer use",
+        "hint": "Work on this computer's screen with mouse and keyboard"
+      },
+      "memory": {
+        "label": "Memory",
+        "hint": "What Dodaios remembers about you"
+      },
+      "reminders": {
+        "label": "Reminders",
+        "hint": "Set, list or finish your reminders"
+      },
+      "artifact": {
+        "label": "Artifact",
+        "hint": "Build one interactive page"
+      },
+      "screenshot": {
+        "label": "Screenshot",
+        "hint": "A picture of your screen"
+      },
+      "phone_call": {
+        "label": "Phone call",
+        "hint": "Call one of your saved contacts"
+      },
+      "contacts": {
+        "label": "Contacts",
+        "hint": "Look up a saved contact"
+      }
+    }
   },
   "credential_card": {
     "aria": "Secure credential field",

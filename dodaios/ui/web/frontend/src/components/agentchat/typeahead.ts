@@ -11,6 +11,7 @@
  * opens a `/` list for a seat that would read the slash as plain text.
  */
 
+import type { NodeType } from "@/components/nodes/nodeModel";
 import { choiceTag } from "./composerChips";
 import { browseToolRows, type ToolChoice } from "./toolChoices";
 
@@ -29,6 +30,8 @@ export interface TypeaheadItem {
   aliases?: string[];
   /** A plugin or tool from the composer's catalog: the pick becomes its chip. */
   choice?: ToolChoice;
+  /** A node type (the Dodaios chat): the pick sets its chip in front of the box. */
+  nodeType?: NodeType;
 }
 
 export interface TypeaheadResponse {

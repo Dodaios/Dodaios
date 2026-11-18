@@ -284,7 +284,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     triggers,
     model: draft.model,
     stance: draft.permissionMode,
-  }, fieldRef);
+    nodes: surface === "jarvis",
+  }, fieldRef, setNodeType);
 
   const running = runningTurn(timeline) !== null;
   // An answer being written beside the main thread is work too: Stop is the

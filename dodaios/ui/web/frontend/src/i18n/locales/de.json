@@ -7789,7 +7789,45 @@
     "connect": "Einrichten",
     "next_message": "Für die nächste Nachricht ausgewählt",
     "hint": "Wähle Tools für die nächste Nachricht. Berechtigungen gelten weiterhin.",
-    "done": "Fertig"
+    "done": "Fertig",
+    "curated": {
+      "browser": {
+        "label": "Browser",
+        "hint": "Etwas im Web erledigen, in deinem eigenen Browser"
+      },
+      "web_search": {
+        "label": "Websuche",
+        "hint": "Etwas im Web nachschlagen"
+      },
+      "computer_use": {
+        "label": "Computer steuern",
+        "hint": "Mit Maus und Tastatur auf diesem Bildschirm arbeiten"
+      },
+      "memory": {
+        "label": "Gedächtnis",
+        "hint": "Was Dodaios über dich weiß"
+      },
+      "reminders": {
+        "label": "Erinnerungen",
+        "hint": "Erinnerungen setzen, anzeigen oder abhaken"
+      },
+      "artifact": {
+        "label": "Artefakt",
+        "hint": "Eine interaktive Seite bauen"
+      },
+      "screenshot": {
+        "label": "Bildschirmfoto",
+        "hint": "Ein Bild von deinem Bildschirm"
+      },
+      "phone_call": {
+        "label": "Anruf",
+        "hint": "Einen gespeicherten Kontakt anrufen"
+      },
+      "contacts": {
+        "label": "Kontakte",
+        "hint": "Einen gespeicherten Kontakt nachschlagen"
+      }
+    }
   },
   "credential_card": {
     "aria": "Sicheres Feld für Zugangsdaten",
