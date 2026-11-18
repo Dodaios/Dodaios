@@ -219,6 +219,22 @@ export function schedule(units: readonly RevealUnit[], timing = LIVE_TIMING): { 
   return { starts, lengths: weights.map((w) => Math.floor(w * scale)) };
 }
 
+/** Room kept clear at the foot of the view for a floating bar, and at its top. */
+const VIEW_FOOT = 104;
+const VIEW_HEAD = 24;
+
+/** Scroll `scroller` the least that brings `rect` (viewport pixels) into its free area. */
+function bringIntoView(scroller: Element, rect: DOMRect, instant: boolean): void {
+  const box = scroller.getBoundingClientRect();
+  const bottom = box.bottom - VIEW_FOOT;
+  const top = box.top + VIEW_HEAD;
+  let delta = 0;
+  if (rect.height > bottom - top || rect.top < top) delta = rect.top - top;
+  else if (rect.bottom > bottom) delta = rect.bottom - bottom;
+  if (Math.abs(delta) < 2) return;
+  scroller.scrollBy({ top: delta, behavior: instant ? "auto" : "smooth" });
+}
+
 /** The nearest ancestor that scrolls, or null. */
 function scrollParent(el: Element | null): Element | null {
   for (let at = el; at; at = at.parentElement) {
@@ -412,14 +428,8 @@ export class LivePlayer {
   private followCaret(motion: UnitMotion): void {
     const caret = this.following ? motion.caret?.() : null;
     if (!caret) return;
-    const outer = this.host.getBoundingClientRect();
-    const margin = 56;
-    const over = caret.y + caret.h - (outer.bottom - margin);
-    const under = outer.top + margin - caret.y;
-    const delta = over > 0 ? over : under > 0 ? -under : 0;
-    if (delta === 0) return;
     const scroller = scrollParent(caret.within);
-    scroller?.scrollBy({ top: delta, behavior: this.reduced() ? "auto" : "smooth" });
+    if (scroller) bringIntoView(scroller, new DOMRect(caret.x, caret.y, 1, caret.h), this.reduced());
   }
 
   /** Reveal everything of the batch now. */
@@ -477,9 +487,11 @@ export class LivePlayer {
         this.following &&
         lead instanceof HTMLElement &&
         typeof lead.scrollIntoView === "function" &&
-        !isPinned(lead, document.body)
+        !isPinned(lead, scrollParent(lead) ?? document.body)
       ) {
-        lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
+        const scroller = scrollParent(lead);
+        if (scroller) bringIntoView(scroller, lead.getBoundingClientRect(), reduced);
+        else lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
       }
     }
     if (!this.playing) this.host.dataset.phase = "thinking";
