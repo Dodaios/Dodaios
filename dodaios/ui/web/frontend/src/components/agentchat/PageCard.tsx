@@ -31,7 +31,7 @@ import { useNodePeek } from "@/store/nodePeek";
 import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
-import { useLiveCard } from "@/components/nodes/live/autoOpen";
+import { useLiveCard } from "@/components/nodes/live/liveCard";
 import { LazyNodeSkeleton, LazyNodeTypeIcon } from "@/components/nodes/live/lazyParts";
 import { useEventStore } from "@/store/events";
 import { useAgentChatApi } from "./AgentChatStoreContext";
