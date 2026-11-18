@@ -35,6 +35,11 @@ export function splitNodeRequest(message: string): { type: NodeType; text: strin
   return { type: match[1], text: trimmed.slice(match[0].length).trim() };
 }
 
+/** What the chip says for `type` ("Dodaios Slides"). */
+export function nodeChipLabel(t: (key: string) => string, type: NodeType): string {
+  return `${BRAND} ${t(NODE_TYPE_LABEL_KEY[type])}`;
+}
+
 export function NodeRequestChip({
   type,
   onRemove,
@@ -46,7 +51,7 @@ export function NodeRequestChip({
   className?: string;
 }) {
   const t = useT();
-  const label = `${BRAND} ${t(NODE_TYPE_LABEL_KEY[type])}`;
+  const label = nodeChipLabel(t, type);
   return (
     <span
       style={nodeHueStyle(type)}

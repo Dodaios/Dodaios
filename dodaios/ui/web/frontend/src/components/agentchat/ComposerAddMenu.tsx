@@ -5,6 +5,10 @@ import { useT } from "@/i18n";
 import { requestPluginFocus } from "@/lib/customConnector";
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
+import { nodeChipLabel } from "@/components/nodes/NodeRequestChip";
+import { NODE_TYPES, type NodeType } from "@/components/nodes/nodeModel";
+import { nodeHueStyle } from "@/components/nodes/nodeTheme";
+import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
 import { ToolChoiceIcon } from "./ToolChoiceChips";
 import { CATEGORY_ICONS, toolIdentityStyle } from "./toolIdentity";
 import {
@@ -27,6 +31,8 @@ export function ComposerAddMenu({
   onAttach,
   onFolder,
   onConnect,
+  nodeType,
+  onNodeType,
   disabled,
   compact = false,
 }: {
@@ -41,6 +47,13 @@ export function ComposerAddMenu({
   onAttach: () => void;
   onFolder: () => void;
   onConnect: (row: ToolChoice) => void;
+  /** The node-type chip in the box now ("Dodaios Slides"), if any. */
+  nodeType?: NodeType;
+  /**
+   * Given on the Dodaios chat: the menu lists the node types, and a pick puts
+   * that type's chip in front of the box, as "New" in the Nodes library does.
+   */
+  onNodeType?: (type: NodeType) => void;
   disabled: boolean;
   /** A round "+" with no word beside it — the front page's quiet composer. */
   compact?: boolean;
@@ -134,6 +147,15 @@ export function ComposerAddMenu({
   }, [open, provider, model, cwd, stance, query, category, retry]);
 
   const visible = browseToolRows(result?.items ?? [], query);
+  // The node types are the app's own, not the catalog's: matched here by name.
+  const words = query.trim().toLowerCase();
+  const nodeRows = onNodeType && !category
+    ? NODE_TYPES.filter((type) => {
+        if (!words) return true;
+        const label = nodeChipLabel(t, type).toLowerCase();
+        return label.includes(words) || type.includes(words) || "nodes".startsWith(words);
+      })
+    : [];
   const groups = new Map<string, ToolChoice[]>();
   const operationGroups = new Set(
     visible
@@ -313,7 +335,49 @@ export function ComposerAddMenu({
                   </button>
                 </div>
               )}
-              {!loading && !failed && visible.length === 0 && (
+              {nodeRows.length > 0 && (
+                <div data-testid="composer-add-nodes">
+                  <div className="px-3 pb-1 pt-1 text-xs font-medium tracking-wide text-muted-foreground">
+                    {t("nodes.title")}
+                  </div>
+                  {nodeRows.map((type) => {
+                    const picked = nodeType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        data-tool-row
+                        aria-pressed={picked}
+                        data-testid={`composer-add-node-${type}`}
+                        style={nodeHueStyle(type)}
+                        onClick={() => {
+                          setOpen(false);
+                          onNodeType?.(type);
+                        }}
+                        className="tool-picker-row flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
+                      >
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--node-hue)/0.16)] text-[hsl(var(--node-hue))]">
+                          <NodeTypeIcon type={type} className="h-[18px] w-[18px]" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="tool-picker-name block truncate text-sm font-medium">
+                            {nodeChipLabel(t, type)}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {t(`nodes.new.about.${type}`)}
+                          </span>
+                        </span>
+                        {picked ? (
+                          <Check className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!loading && !failed && visible.length === 0 && nodeRows.length === 0 && (
                 <p className="p-3 text-sm text-muted-foreground">{t("chat_tools.empty")}</p>
               )}
               {[...groups].map(([key, rows]) => (
