@@ -56,6 +56,8 @@ export function revealDelays(count: number, timing = LIVE_TIMING): number[] {
 export interface RevealUnit {
   elements: Element[];
   label?: string;
+  /** False: the frame does not grow to this unit (see `RevealStep.framed`). */
+  framed?: boolean;
 }
 
 /** `elements` in document order, each once, without any element inside another listed one. */
@@ -151,7 +153,11 @@ export function grouped(units: RevealUnit[], max: number = LIVE_TIMING.maxUnits)
   const out: RevealUnit[] = [];
   for (let i = 0; i < units.length; i += size) {
     const part = units.slice(i, i + size);
-    out.push({ elements: part.flatMap((u) => u.elements), label: part.find((u) => u.label)?.label });
+    out.push({
+      elements: part.flatMap((u) => u.elements),
+      label: part.find((u) => u.label)?.label,
+      framed: part.some((u) => u.framed !== false),
+    });
   }
   return out;
 }
@@ -198,13 +204,13 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
     } else if ("element" in target) {
       elements = root.contains(target.element) ? [target.element] : [];
     } else if ("changed" in target) {
-      for (const el of changed) units.push({ elements: [el], label: step.label });
+      for (const el of changed) units.push({ elements: [el], label: step.label, framed: step.framed });
       continue;
     } else {
-      for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label });
+      for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label, framed: step.framed });
       continue;
     }
-    if (elements.length > 0) units.push({ elements, label: step.label });
+    if (elements.length > 0) units.push({ elements, label: step.label, framed: step.framed });
   }
   return grouped(units);
 }
@@ -260,6 +266,8 @@ export class LivePlayer {
   private alive = true;
   /** The view scrolls to what is written; off once the person scrolled or worked. */
   following = true;
+  /** Which corner of the frame the name tag sits on; a type's adapter chooses. */
+  tagCorner: "top" | "bottom" = "top";
 
   constructor(
     private readonly host: HTMLElement,
@@ -373,6 +381,7 @@ export class LivePlayer {
   private frameTarget(): Box | null {
     let box: Box | null = null;
     for (const unit of this.units.slice(0, this.revealed)) {
+      if (unit.framed === false) continue;
       for (const el of unit.elements) {
         if (!el.isConnected) continue;
         const b = this.local(el);
@@ -477,9 +486,17 @@ export class LivePlayer {
     const tag = this.view.tag;
     if (this.frameBox !== null) {
       const f = this.frameBox;
-      const above = f.y - tag.offsetHeight - 2;
       const left = Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2));
-      tag.style.transform = `translate3d(${left.toFixed(1)}px, ${(above >= 0 ? above : f.y + 4).toFixed(1)}px, 0)`;
+      let top: number;
+      if (this.tagCorner === "bottom") {
+        // On the lower-left corner, below the frame; inside it when there is no room below.
+        const below = f.y + f.h + 2;
+        top = below + tag.offsetHeight <= this.host.clientHeight ? below : f.y + f.h - tag.offsetHeight - 4;
+      } else {
+        const above = f.y - tag.offsetHeight - 2;
+        top = above >= 0 ? above : f.y + 4;
+      }
+      tag.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
       tag.dataset.on = "frame";
     } else {
       tag.style.transform = `translate3d(${beside(tag, x + 18).toFixed(1)}px, ${(y + 2).toFixed(1)}px, 0)`;

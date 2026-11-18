@@ -138,6 +138,10 @@ export interface SheetGridProps {
     selectAll: string;
     newRow: string;
   };
+  /** The shown sheet's index in the spec: marks the grid's rows for the live build. */
+  sheetIndex: number;
+  /** Stored rows an agent just wrote: kept drawn (below the fold too) while they play in. */
+  liveRows?: readonly number[];
   /** Focus requests from outside (the toolbar, a closed menu): bump to focus the grid. */
   focusToken: number;
 }
@@ -215,7 +219,8 @@ export function SheetGrid(props: SheetGridProps) {
   }, []);
 
   const first = Math.max(0, Math.floor(scroll.top / ROW_HEIGHT) - OVERSCAN);
-  const last = Math.min(rowCount, Math.ceil((scroll.top + scroll.height) / ROW_HEIGHT) + OVERSCAN);
+  const liveLast = (props.liveRows ?? []).reduce((m, stored) => Math.max(m, viewRows.indexOf(stored)), -1);
+  const last = Math.min(rowCount, Math.max(Math.ceil((scroll.top + scroll.height) / ROW_HEIGHT) + OVERSCAN, liveLast + 1));
   const range = rangeOf(selection);
   const active = selection.active;
 
@@ -566,7 +571,10 @@ export function SheetGrid(props: SheetGridProps) {
     <div
       ref={scroller}
       className="relative h-full min-h-0 overflow-auto overscroll-contain bg-background"
+      // Scrolling a row into view (the live build following the writing) stays clear of the sticky head and totals.
+      style={{ scrollPaddingTop: HEAD_HEIGHT, scrollPaddingBottom: footHeight }}
       data-testid="sheet-grid-scroll"
+      data-live-sheet={props.sheetIndex}
     >
       <div className="relative" style={{ width: shownTableWidth, height: HEAD_HEIGHT + rowCount * ROW_HEIGHT + footHeight }}>
         <table
@@ -586,7 +594,7 @@ export function SheetGrid(props: SheetGridProps) {
             ))}
           </colgroup>
           <thead>
-            <tr role="row" aria-rowindex={1} style={{ height: HEAD_HEIGHT }}>
+            <tr role="row" aria-rowindex={1} style={{ height: HEAD_HEIGHT }} data-live-path={`/sheets/${props.sheetIndex}/columns`}>
               <th
                 role="columnheader"
                 aria-label={labels.selectAll}
@@ -686,7 +694,13 @@ export function SheetGrid(props: SheetGridProps) {
               const values = stored >= 0 ? computed[stored] : undefined;
               const rowSelected = row >= range.top && row <= range.bottom;
               return (
-                <tr key={row} role="row" aria-rowindex={row + 2} style={{ height: ROW_HEIGHT }}>
+                <tr
+                  key={row}
+                  role="row"
+                  aria-rowindex={row + 2}
+                  style={{ height: ROW_HEIGHT }}
+                  data-live-path={stored >= 0 ? `/sheets/${props.sheetIndex}/rows/${stored}` : undefined}
+                >
                   <th
                     role="rowheader"
                     scope="row"
