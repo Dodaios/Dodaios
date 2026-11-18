@@ -19,7 +19,9 @@ three places, and none knows what happened in the others.
 
 > **Be the CEO, not the babysitter of your coding agents.**
 
-Use it word for word, and never alone: the definition always follows.
+Use it word for word, and never alone: a short intro or the definition
+always follows. The README uses the short intro (two paragraphs, about 100
+words); longer texts such as a launch post can use the definition.
 
 > Dodaios is a locally installed, open-source Python program that runs as a
 > desktop app or as a headless server with a browser UI on Windows, macOS and
@@ -63,9 +65,9 @@ agents" is a figure of speech for what the app coordinates. Do not use it to
 say that Dodaios is an operating system, and do not name another product as
 the comparison.
 
-The README is built on it and kept short: the one-liner, a few short
-paragraphs on the reader's problem, Git, memory and the plans it works with, the definition, one
-recording that shows the definition at work, the install commands, and a few
+The README is built on it and kept short: the one-liner, a two-paragraph
+intro on the reader's problem and the plans it works with, one recording that
+shows the assistant at work, the install commands, and a few
 lines on plans and keys, data, approvals and what is not finished. Everything
 else is in `docs/`.
 

@@ -9,7 +9,7 @@
 
 <h1>Dodaios</h1>
 
-<!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
+<!-- the promise: word for word everywhere (docs/positioning.md) -->
 <p><b>Be the CEO, not the babysitter of your coding agents.</b></p>
 
 <p>
@@ -44,50 +44,15 @@
 </div>
 
 You have Claude Code in one terminal, Codex in another, and a chat tab where
-you copy plans back and forth. Dodaios puts that in one app. You say what you
-want, by voice or chat, and one assistant takes it from there: it writes the
-brief, splits a big job into separate assignments, starts the right coding
-agents in its built-in Agentic IDE, follows the work and tells you when an
-agent finishes or needs you. Ask it at any time what each agent did.
+you copy plans back and forth. Dodaios ends that. It is a layer above all your
+coding agents: you say what you want, by voice or chat, and one assistant takes
+it from there. It writes the brief, launches the right agent in its built-in
+Agentic IDE, keeps watch while it works and tells you when it's done or needs
+you. Run five agents at once and still know exactly what each one did.
 
-Git is built in. Each agent can get its own worktree, so agents don't edit over
-each other. You see every file an agent changed as a diff, then commit, push,
-open a pull request or merge the branch back, in the same window.
-
-The assistant remembers you: your preferences, the people you mention and the
-projects you work on, from one conversation to the next. That memory is one
-file on your computer, and you can read, correct or forget every entry.
-
-Open source, and it runs on your computer. It works with the plans and keys
-you already have: a Claude or ChatGPT plan, API keys for Claude, OpenAI or
-Gemini, or local Ollama models.
-
-Dodaios is a locally installed, open-source Python program that runs as a
-desktop app or as a headless server with a browser UI on Windows, macOS and
-Linux. It turns a personal AI assistant into the control center for the work
-you do on your computer.
-
-At its core is a "lead" assistant you can talk to by voice (wake word,
-dictation, real-time spoken conversation and, as an early preview, phone
-calls), by chat or from a paired phone. It isn't tied to one provider and
-works with Claude, OpenAI, Gemini or local Ollama models. It handles tasks
-itself through tools, computer use, plugins, CLIs and MCP servers. Above all,
-it hands work off to coding agents. They run side by side in a built-in
-Agentic IDE as real Claude Code or Codex terminals, on your computer or on
-your own servers over SSH, each with a call sign you can address by name, plus
-Git integration and task splitting. There is also a "society" of persistent,
-named agents that message each other.
-
-Long-running work is covered by memory (about you, the people around you and
-the assistant's own persona), standing tasks, workflows, skills and opt-in
-life admin. The assistant also makes its own outputs, such as documents,
-slides, sheets and dashboards, and can propose and build the skills, routines
-and agents it is missing. A trust layer sets hard limits: outside Bypass
-permissions, moving money, handling credentials, permanent deletion and first
-contact with someone new always need your confirmation. In short, Dodaios is
-a voice-driven, locally running operating system for AI agents that makes one
-assistant the conductor of your models, your coding agents and your own
-computer.
+Open source, and it runs on your computer. Works with your Claude or ChatGPT
+subscription, with API keys for Claude, OpenAI and Gemini, or with local Ollama
+models.
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
