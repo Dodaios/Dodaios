@@ -144,6 +144,7 @@ export function SheetTabs({ names, active, onPick, onAdd, onRename, onMove, onMe
               }}
               onDragEnd={() => setDragged(null)}
               data-testid={`sheet-tab-${index}`}
+              data-live-path={`/sheets/${index}`}
             >
               {index === active && <span aria-hidden className="absolute inset-x-3 top-0 h-0.5 bg-foreground" />}
               {name}

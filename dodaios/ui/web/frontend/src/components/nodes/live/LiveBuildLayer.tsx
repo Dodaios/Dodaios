@@ -156,11 +156,12 @@ export function LiveBuildLayer({
 
   /** Play an adapter's steps; a type adapter whose targets are not drawn yet is asked once more. */
   const playSteps = useCallback(
-    (steps: (root: HTMLElement) => RevealStep[], changed: Element[], retry: boolean) => {
+    (steps: (root: HTMLElement) => RevealStep[], changed: Element[], retry: boolean, tagCorner: "top" | "bottom" = "top") => {
       const root = body.current;
       const playing = ensurePlayer();
       if (!root || !playing) return;
       const units = unitsFor(steps(root), root, changed);
+      playing.tagCorner = tagCorner;
       playing.play(units);
       if (units.length === 0 && retry) {
         window.setTimeout(() => {
@@ -192,6 +193,7 @@ export function LiveBuildLayer({
       (at) => adapter.steps({ type: node.nodeType, previous: remote.previous, next: remote.next, ops: range.ops, initial: false, root: at }),
       changed,
       true,
+      adapter.tagCorner,
     );
     // Only `seq` says that a new revision arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,6 +222,7 @@ export function LiveBuildLayer({
         (at) => adapter.steps({ type: live.nodeType, previous: null, next: editor.spec, ops: null, initial: true, root: at }),
         [],
         false,
+        adapter.tagCorner,
       );
     }, LIVE_TIMING.settleWaitMs);
     return () => {

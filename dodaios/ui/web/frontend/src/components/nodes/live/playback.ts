@@ -83,6 +83,8 @@ export interface RevealUnit {
   label?: string;
   /** Replaces the plain fade for these elements. */
   motion?: UnitMotion;
+  /** False: the frame does not grow to this unit (see `RevealStep.framed`). */
+  framed?: boolean;
 }
 
 /** `elements` in document order, each once, without any element inside another listed one. */
@@ -180,7 +182,11 @@ export function grouped(units: RevealUnit[], max: number = LIVE_TIMING.maxUnits)
   const flush = () => {
     for (let i = 0; i < run.length; i += size) {
       const part = run.slice(i, i + size);
-      out.push({ elements: part.flatMap((u) => u.elements), label: part.find((u) => u.label)?.label });
+      out.push({
+        elements: part.flatMap((u) => u.elements),
+        label: part.find((u) => u.label)?.label,
+        framed: part.some((u) => u.framed !== false),
+      });
     }
     run = [];
   };
@@ -287,13 +293,13 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
     } else if ("element" in target) {
       elements = root.contains(target.element) ? [target.element] : [];
     } else if ("changed" in target) {
-      for (const el of changed) units.push({ elements: [el], label: step.label });
+      for (const el of changed) units.push({ elements: [el], label: step.label, framed: step.framed });
       continue;
     } else {
-      for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label });
+      for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label, framed: step.framed });
       continue;
     }
-    if (elements.length > 0) units.push({ elements, label: step.label, motion: step.motion });
+    if (elements.length > 0) units.push({ elements, label: step.label, framed: step.framed, motion: step.motion });
   }
   return grouped(units);
 }
@@ -352,6 +358,8 @@ export class LivePlayer {
   private alive = true;
   /** The view scrolls to what is written; off once the person scrolled or worked. */
   following = true;
+  /** Which corner of the frame the name tag sits on; a type's adapter chooses. */
+  tagCorner: "top" | "bottom" = "top";
 
   constructor(
     private readonly host: HTMLElement,
@@ -373,6 +381,8 @@ export class LivePlayer {
     this.units = [];
     this.revealed = 0;
     this.frameBox = null;
+    // The last batch's frame goes at once, not one tick later.
+    this.view.frame.dataset.shown = "false";
     this.add(units);
   }
 
@@ -487,7 +497,7 @@ export class LivePlayer {
         this.following &&
         lead instanceof HTMLElement &&
         typeof lead.scrollIntoView === "function" &&
-        !isPinned(lead, scrollParent(lead) ?? document.body)
+        !isPinned(lead, this.host.parentElement ?? document.body)
       ) {
         const scroller = scrollParent(lead);
         if (scroller) bringIntoView(scroller, lead.getBoundingClientRect(), reduced);
@@ -497,16 +507,50 @@ export class LivePlayer {
     if (!this.playing) this.host.dataset.phase = "thinking";
   }
 
-  private local(el: Element): Box {
+  /** The nearest scrolling ancestor of an element inside the host's parent: what clips the written part. */
+  private clipper = new WeakMap<Element, Element | null>();
+
+  private clipOf(el: Element): Element | null {
+    if (this.clipper.has(el)) return this.clipper.get(el) ?? null;
+    let found: Element | null = null;
+    const stop = this.host.parentElement;
+    for (let at = el.parentElement; at && at !== stop; at = at.parentElement) {
+      if (typeof window.getComputedStyle !== "function") break;
+      const overflow = window.getComputedStyle(at).overflow;
+      if (/(auto|scroll|hidden)/.test(overflow)) {
+        found = at;
+        break;
+      }
+    }
+    this.clipper.set(el, found);
+    return found;
+  }
+
+  /** The element's box inside the layer, cut to the scrolling area it sits in; w and h are 0 when it is scrolled out of view. */
+  private local(el: Element, clipped = true): Box {
     const outer = this.host.getBoundingClientRect();
     const box = el.getBoundingClientRect();
-    return { x: box.left - outer.left, y: box.top - outer.top, w: box.width, h: box.height };
+    let left = box.left;
+    let top = box.top;
+    let right = box.right;
+    let bottom = box.bottom;
+    const clip = clipped ? this.clipOf(el) : null;
+    if (clip) {
+      const view = clip.getBoundingClientRect();
+      left = Math.max(left, view.left);
+      top = Math.max(top, view.top);
+      right = Math.min(right, view.right);
+      bottom = Math.min(bottom, view.bottom);
+      if (right <= left || bottom <= top) return { x: 0, y: 0, w: 0, h: 0 };
+    }
+    return { x: left - outer.left, y: top - outer.top, w: right - left, h: bottom - top };
   }
 
   /** The written part of the batch, padded, inside the layer; null when none of it is in view. */
   private frameTarget(): Box | null {
     let box: Box | null = null;
     for (const unit of this.units.slice(0, this.revealed)) {
+      if (unit.framed === false) continue;
       for (const el of unit.elements) {
         if (!el.isConnected) continue;
         const b = this.local(el);
@@ -544,7 +588,7 @@ export class LivePlayer {
   /** Where the arrow points for `el`: the end of what was written, inside the layer. */
   private anchor(el: Element | null): { x: number; y: number } {
     if (!el || !el.isConnected) return HOME;
-    const b = this.local(el);
+    const b = this.local(el, false);
     const tall = b.h > this.host.clientHeight * 0.6;
     const x = tall ? b.x + 24 : b.x + Math.max(8, b.w - 10);
     const y = tall ? b.y + 24 : b.y + Math.max(8, b.h - 6);
@@ -636,8 +680,17 @@ export class LivePlayer {
     let goal: { x: number; y: number };
     if (this.frameBox !== null && !writing) {
       const f = this.frameBox;
-      const above = f.y - tag.offsetHeight - 2;
-      goal = { x: Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2)), y: above >= 0 ? above : f.y + 4 };
+      const left = Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2));
+      let top: number;
+      if (this.tagCorner === "bottom") {
+        // On the lower-left corner, below the frame; inside it when there is no room below.
+        const below = f.y + f.h + 2;
+        top = below + tag.offsetHeight <= this.host.clientHeight ? below : f.y + f.h - tag.offsetHeight - 4;
+      } else {
+        const above = f.y - tag.offsetHeight - 2;
+        top = above >= 0 ? above : f.y + 4;
+      }
+      goal = { x: left, y: top };
       tag.dataset.on = "frame";
     } else {
       // Before there is a frame, and while text is written at the caret, the tag rides beside the cursor.
