@@ -195,7 +195,7 @@
       },
       "region": "Editor de {0}",
       "toolbar": "Ferramentas de edição",
-      "inspector": "Inspetor",
+      "inspector": "Propriedades",
       "undo": "Desfazer",
       "redo": "Refazer",
       "history": {
@@ -964,7 +964,8 @@
         "notes": {
           "label": "Notas do apresentador do slide {n}",
           "placeholder": "O que você quer dizer neste slide. Ao apresentar, só você vê.",
-          "none": "Este slide não tem notas."
+          "none": "Este slide não tem notas.",
+          "toggle": "Notas do apresentador"
         },
         "strip": {
           "label": "Slides",
@@ -1307,7 +1308,8 @@
             "text_left": "Esquerda",
             "text_center": "Centralizado",
             "text_right": "Direita",
-            "text_justify": "Justificado"
+            "text_justify": "Justificado",
+            "label": "Alinhamento"
           },
           "spread": {
             "x": "Distribuir na horizontal",
@@ -1423,7 +1425,8 @@
         },
         "format": {
           "label": "Formatar",
-          "hint": "Clique duplo para escrever · arraste para selecionar vários"
+          "hint": "Clique duplo para escrever · arraste para selecionar vários",
+          "slide": "Slide"
         },
         "menu": {
           "label": "Ações do elemento",
@@ -1452,6 +1455,9 @@
           "free_move": "Mover sem ajuste",
           "undo": "Desfazer · refazer",
           "present": "Apresentando"
+        },
+        "panel": {
+          "close": "Fechar"
         }
       }
     }

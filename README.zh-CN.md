@@ -21,12 +21,17 @@
 </p>
 
 <p>
+  <a href="https://trendshift.io/repositories/91076?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-91076" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/91076" alt="Dodaios%2FDodaios | Trendshift" width="250" height="55"/></a>
+</p>
+
+<p>
   <a href="#安装">安装</a> ·
   <a href="#你的套餐和密钥">你的套餐</a> ·
   <a href="#文档">文档</a> ·
   <a href="https://dodaios.ai">官网</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ja.md">日本語</a>
 </p>
 
 </div>

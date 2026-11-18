@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { typedNodeCard } from "../testCards";
 import { GenericSpecEditor } from "./GenericSpecEditor";
+import { barItem, leave, renderEditor } from "./testBar";
 
 afterEach(() => {
   cleanup();
@@ -21,7 +22,7 @@ describe("GenericSpecEditor", () => {
       }),
     );
     const onDone = vi.fn();
-    render(
+    const { guard } = renderEditor(
       <GenericSpecEditor
         node={typedNodeCard("g1", { title: "Plan" })}
         initial={{ spec: { markdown: "# A" }, version: 1, updated_at: 1 }}
@@ -32,13 +33,15 @@ describe("GenericSpecEditor", () => {
     expect(JSON.parse(field.value)).toEqual({ markdown: "# A" });
     fireEvent.change(field, { target: { value: '{"markdown": "# B"' } });
     expect(screen.getByRole("status").textContent).toContain("not valid JSON");
-    expect((screen.getByTestId("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
+    expect((barItem("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(field, { target: { value: '{"markdown": "# B"}' } });
-    expect((screen.getByTestId("node-editor-undo") as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(screen.getByTestId("node-editor-done"));
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect((barItem("node-editor-undo") as HTMLButtonElement).disabled).toBe(false);
+    // Closing the node saves first, then lets it close.
+    const closed = vi.fn();
+    leave(guard, closed);
+    await waitFor(() => expect(closed).toHaveBeenCalled());
     expect(puts).toEqual([{ markdown: "# B" }]);
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
+    fireEvent.click(barItem("node-editor-undo"));
     expect(JSON.parse(field.value)).toEqual({ markdown: "# A" });
   });
 });

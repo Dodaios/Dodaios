@@ -7959,6 +7959,9 @@
     "retry": "Reintentar",
     "thinking": "Pensando",
     "copy_answer": "Copiar respuesta",
+    "read_aloud": "Leer en voz alta",
+    "stop_reading": "Detener la lectura",
+    "read_aloud_failed": "No se pudo leer en voz alta: {error}",
     "waiting_answer": "Esperando tu respuesta abajo",
     "waiting_approval": "Esperando aprobación — {summary}",
     "approval_waiting": "Esperando tu aprobación",
@@ -11850,7 +11853,11 @@
     "provider_model_unavailable": "modelo no disponible",
     "provider_other": "no funciona en este momento",
     "provider_detail": "Revisa el acceso en Claves de API.",
-    "provider_action": "Abrir claves de API"
+    "provider_action": "Abrir claves de API",
+    "menu_label": "Opciones de {who}",
+    "menu_snooze": "Ocultar una hora",
+    "menu_close": "Cerrar",
+    "menu_close_all": "Cerrar los {count}"
   },
   "nodes": {
     "title": "Nodes",
@@ -11956,7 +11963,16 @@
       "of_type": "Nuevo en {0}",
       "type_label": "Tipo",
       "menu_label": "Nuevo nodo",
-      "blank_heading": "Empezar uno en blanco",
+      "chat_heading": "Crearlo en el chat",
+      "chip_remove": "Quitar {0}",
+      "ask": {
+        "docs": "¿De qué debe tratar este documento?",
+        "slides": "¿De qué debe tratar esta presentación?",
+        "sheets": "¿Qué debe ir en esta hoja?",
+        "data": "¿Qué debe mostrar este análisis y con qué datos?",
+        "whiteboard": "¿Qué debe ir en esta pizarra?",
+        "motion": "¿De qué debe tratar este clip?"
+      },
       "describe": "Descríbeselo a {name}…",
       "untitled": {
         "docs": "Documento sin título",
@@ -12041,7 +12057,8 @@
       "running": "Todavía se está trabajando en ello. Detén primero la ejecución y después elimínalo."
     },
     "ask": {
-      "change_draft": "Cambia el node «{0}» (id {1}): "
+      "change_draft": "Cambia el node «{0}» (id {1}): ",
+      "change_file_draft": "Cambia «{0}» (archivo {1}): "
     },
     "peek": {
       "window": "Nodo",
@@ -12221,6 +12238,11 @@
         "title": "Una pizarra vacía",
         "hint": "Elige una herramienta abajo, pulsa N para una nota adhesiva o pide a {assistant} que dibuje algo aquí."
       }
+    },
+    "bar": {
+      "label": "Herramientas del node",
+      "more": "Más herramientas",
+      "chat": "Chat"
     },
     "live": {
       "working": "{name} está trabajando…",

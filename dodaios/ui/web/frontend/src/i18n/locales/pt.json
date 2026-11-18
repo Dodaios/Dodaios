@@ -7959,6 +7959,9 @@
     "retry": "Tentar de novo",
     "thinking": "A pensar",
     "copy_answer": "Copiar resposta",
+    "read_aloud": "Ler em voz alta",
+    "stop_reading": "Parar a leitura",
+    "read_aloud_failed": "Não foi possível ler em voz alta: {error}",
     "waiting_answer": "À espera da tua resposta abaixo",
     "waiting_approval": "À espera de aprovação — {summary}",
     "approval_waiting": "À espera da tua aprovação",
@@ -11850,7 +11853,11 @@
     "provider_model_unavailable": "modelo indisponível",
     "provider_other": "não está funcionando agora",
     "provider_detail": "Verifique o acesso em Chaves de API.",
-    "provider_action": "Abrir chaves de API"
+    "provider_action": "Abrir chaves de API",
+    "menu_label": "Opções de {who}",
+    "menu_snooze": "Ocultar por uma hora",
+    "menu_close": "Fechar",
+    "menu_close_all": "Fechar todos os {count}"
   },
   "nodes": {
     "title": "Nodes",
@@ -11956,7 +11963,16 @@
       "of_type": "Novo em {0}",
       "type_label": "Tipo",
       "menu_label": "Novo nó",
-      "blank_heading": "Começar um em branco",
+      "chat_heading": "Criar no chat",
+      "chip_remove": "Remover {0}",
+      "ask": {
+        "docs": "Sobre o que deve ser este documento?",
+        "slides": "Sobre o que deve ser esta apresentação?",
+        "sheets": "O que deve entrar nesta planilha?",
+        "data": "O que esta análise deve mostrar, e com quais dados?",
+        "whiteboard": "O que deve ir neste quadro branco?",
+        "motion": "Sobre o que deve ser este clipe?"
+      },
       "describe": "Descrever a {name}…",
       "untitled": {
         "docs": "Documento sem título",
@@ -12041,7 +12057,8 @@
       "running": "Ainda se está a trabalhar nisto. Para primeiro a execução e elimina depois."
     },
     "ask": {
-      "change_draft": "Altera o node “{0}” (id {1}): "
+      "change_draft": "Altera o node “{0}” (id {1}): ",
+      "change_file_draft": "Altera “{0}” (ficheiro {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12221,6 +12238,11 @@
         "title": "Um quadro vazio",
         "hint": "Escolha uma ferramenta em baixo, prima N para uma nota adesiva ou peça a {assistant} para desenhar algo aqui."
       }
+    },
+    "bar": {
+      "label": "Ferramentas do node",
+      "more": "Mais ferramentas",
+      "chat": "Chat"
     },
     "live": {
       "working": "{name} está trabalhando…",

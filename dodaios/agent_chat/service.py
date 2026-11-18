@@ -2009,6 +2009,16 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
+            if session.surface == "jarvis" and direct_user and not control_owned:
+                # "New" in the Nodes library: the type chip rides in front of the
+                # description. The bubble keeps the chip; the turn gets the request.
+                from dodaios.agent_chat.node_request import expand_node_request
+
+                node_request = expand_node_request(text)
+                if node_request is not None:
+                    prompt = chat_attachments.compose(node_request, attached)
+                    if display_text is None:
+                        display_text = text
             if session.surface == "society" and not text.startswith("/"):
                 # Decisions on the agent's proposals reach it here, once, as a
                 # system note in front of its next message: never as a message

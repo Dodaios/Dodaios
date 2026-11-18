@@ -10,7 +10,9 @@
  */
 import {
   cloneElement,
+  createContext,
   forwardRef,
+  useContext,
   useCallback,
   useEffect,
   useId,
@@ -31,6 +33,13 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------- buttons */
+
+/**
+ * Where a toolbar's tooltips open. A bar at the top of an editor shows them
+ * under its buttons; the node bar at the bottom of an open node (`NodeBar`)
+ * provides "top", so they open over it instead of off the window's edge.
+ */
+export const ToolbarTipSide = createContext<"top" | "bottom">("bottom");
 
 export interface ToolbarButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   /** The control's name: read aloud, and shown in the tooltip (or beside the icon). */
@@ -71,9 +80,10 @@ export const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(f
       {trailing}
     </button>
   );
+  const side = useContext(ToolbarTipSide);
   const tip = shortcut ? `${label}  ${shortcut}` : label;
   return (
-    <QuickTooltip content={showLabel && !shortcut ? "" : tip} side="bottom" className="inline-flex">
+    <QuickTooltip content={showLabel && !shortcut ? "" : tip} side={side} className="inline-flex">
       {button}
     </QuickTooltip>
   );
@@ -246,6 +256,11 @@ export function Popover({
   );
 }
 
+/** A thin line between two runs of menu items. */
+export function MenuDivider() {
+  return <div role="separator" className="my-1 h-px bg-border" />;
+}
+
 export interface MenuItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   label: string;
   icon?: ReactNode;
@@ -318,10 +333,15 @@ export interface ColorPickerProps {
   /** Colours to offer instead of the kit's. */
   palette?: readonly string[];
   className?: string;
+  /**
+   * Show what the colour is for (a text's "A", a fill's bucket) with the
+   * colour as a bar under it, as a format bar does; a bare swatch without.
+   */
+  icon?: ReactNode;
 }
 
 /** A swatch that opens the kit palette with a custom colour field. */
-export function ColorPicker({ value, onChange, label, allowDefault = true, palette = KIT_COLORS, className }: ColorPickerProps) {
+export function ColorPicker({ value, onChange, label, allowDefault = true, palette = KIT_COLORS, className, icon }: ColorPickerProps) {
   const t = useT();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -343,15 +363,25 @@ export function ColorPicker({ value, onChange, label, allowDefault = true, palet
             className,
           )}
         >
-          <span
-            aria-hidden
-            className="h-4 w-4 rounded-sm border border-border"
-            style={
-              value
-                ? { background: value }
-                : { background: "repeating-linear-gradient(45deg, transparent 0 3px, hsl(var(--border)) 3px 4px)" }
-            }
-          />
+          {icon ? (
+            <span aria-hidden className="flex flex-col items-center gap-[3px] [&_svg]:h-4 [&_svg]:w-4">
+              {icon}
+              <span
+                className="h-[3px] w-4 rounded-full"
+                style={value ? { background: value } : { background: "hsl(var(--foreground) / 0.45)" }}
+              />
+            </span>
+          ) : (
+            <span
+              aria-hidden
+              className="h-4 w-4 rounded-sm border border-border"
+              style={
+                value
+                  ? { background: value }
+                  : { background: "repeating-linear-gradient(45deg, transparent 0 3px, hsl(var(--border)) 3px 4px)" }
+              }
+            />
+          )}
         </button>
       }
     >
@@ -566,10 +596,15 @@ export interface SelectProps {
   disabled?: boolean;
   className?: string;
   testId?: string;
+  /**
+   * "bar": a quiet trigger for the node bar, the chosen value and a small
+   * chevron on no fill of its own, like the bar's buttons.
+   */
+  variant?: "field" | "bar";
 }
 
 /** A short choice on the app's own listbox (never the system's popup). */
-export function Select({ value, options, onChange, label, showLabel = false, disabled, className, testId }: SelectProps) {
+export function Select({ value, options, onChange, label, showLabel = false, disabled, className, testId, variant = "field" }: SelectProps) {
   const id = useId();
   return (
     <div className={cn("flex flex-col gap-1", className)}>
@@ -586,7 +621,11 @@ export function Select({ value, options, onChange, label, showLabel = false, dis
         ariaLabel={label}
         disabled={disabled}
         testId={testId}
-        className="h-8 text-sm"
+        className={
+          variant === "bar"
+            ? "h-8 gap-1 bg-transparent px-2 py-0 text-sm hover:bg-secondary [&>svg]:h-3.5 [&>svg]:w-3.5"
+            : "h-8 text-sm"
+        }
       />
     </div>
   );

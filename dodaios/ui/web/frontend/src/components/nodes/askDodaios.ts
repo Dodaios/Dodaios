@@ -8,13 +8,17 @@
  * reader left on places of the node go out together, with the text each was
  * left on, as one background request, and the assistant revises the node.
  *
+ * `startNodeInChat` only DRAFTS: "New" in the library opens the lead
+ * conversation with the type chip ("Dodaios Slides") in front of the
+ * composer, and the reader writes behind it what the node should be about.
+ *
  * `askDodaiosToChange` only DRAFTS: it opens the lead conversation with the
  * start of a sentence in the composer ("Change the node … : "), and the
  * reader finishes and sends it.
  *
  * Store-level on purpose (no hooks), so a menu item can call it directly.
  */
-import { writeComposerDraft } from "@/components/agentchat/composerDrafts";
+import { readComposerDraft, writeComposerDraft } from "@/components/agentchat/composerDrafts";
 import { translate } from "@/i18n";
 import { fetchLeadSession, sendAgentChatMessage } from "@/lib/agentChatApi";
 import { sendNodeComments as postNodeComments } from "./useNodes";
@@ -83,8 +87,17 @@ export async function sendNodeComments(
   );
 }
 
-/** The start of the sentence that asks for a change to `card`. */
+/**
+ * The start of the sentence that asks for a change to `card`: a typed node by
+ * its id (the assistant revises it through the `node` tool), anything else
+ * the library adopted (a worker's page, a picture, a PDF) by its file.
+ */
 export function changeDraftText(card: NodeCard): string {
+  if (card.id === null && card.path !== null) {
+    return translate("nodes.ask.change_file_draft")
+      .replace("{0}", () => card.title)
+      .replace("{1}", () => `${card.slug}/${card.path}`);
+  }
   return translate("nodes.ask.change_draft")
     .replace("{0}", () => card.title)
     .replace("{1}", () => card.id ?? card.key);
@@ -95,14 +108,17 @@ export function changeDraftText(card: NodeCard): string {
  * screen. `within` names the part of the page whose composer is meant, for
  * the moments when two are on screen (the node window over the front page).
  */
-export function focusComposerAtEnd(within: () => ParentNode | null = () => document): void {
+export function focusComposerAtEnd(
+  within: () => ParentNode | null = () => document,
+  { empty = false }: { empty?: boolean } = {},
+): void {
   let attempts = 0;
   const tryFocus = () => {
     const field = [...(within() ?? document).querySelectorAll<HTMLElement>("[data-jarvis-chat-input]")].find(
       (node) => node.isContentEditable && node.offsetParent !== null,
     );
     // The draft reaches the field a frame after it mounts; wait for both.
-    if (field && (field.textContent ?? "") !== "") {
+    if (field && (empty || (field.textContent ?? "") !== "")) {
       field.focus();
       const selection = window.getSelection();
       if (selection) {
@@ -131,11 +147,8 @@ export function draftChangeBeside(card: NodeCard, chat: AgentChatStoreHook, with
   focusComposerAtEnd(within);
 }
 
-/**
- * Open the lead conversation with a draft that names the node, and leave the
- * caret behind it. Nothing is sent.
- */
-export async function askDodaiosToChange(card: NodeCard): Promise<void> {
+/** Open the lead conversation (or, when its route does not answer, the one open) and say which. */
+async function openLeadConversation(): Promise<string | null> {
   const chat = useAgentChatStore;
   let sessionId = chat.getState().activeSessionId;
   try {
@@ -147,9 +160,36 @@ export async function askDodaiosToChange(card: NodeCard): Promise<void> {
   } catch {
     // The lead route did not answer: the conversation that is open takes the draft.
   }
-  writeComposerDraft(chat, sessionId, { text: changeDraftText(card), choices: [] });
+  return sessionId;
+}
+
+function showLeadConversation(): void {
   useHomeStore.getState().openAgentChat(null);
   if (useHomeStore.getState().surface !== "chat") useHomeStore.getState().setSurface("chat");
   useEventStore.getState().setActiveSection("chats");
+}
+
+/**
+ * Open the lead conversation with a draft that names the node, and leave the
+ * caret behind it. Nothing is sent.
+ */
+export async function askDodaiosToChange(card: NodeCard): Promise<void> {
+  const chat = useAgentChatStore;
+  const sessionId = await openLeadConversation();
+  writeComposerDraft(chat, sessionId, { text: changeDraftText(card), choices: [] });
+  showLeadConversation();
   focusComposerAtEnd();
+}
+
+/**
+ * "New" in the Nodes library: open the lead conversation with the type chip
+ * of `type` in front of the composer and the caret in it. What was already
+ * typed there stays behind the chip. Nothing is sent.
+ */
+export async function startNodeInChat(type: NodeType): Promise<void> {
+  const chat = useAgentChatStore;
+  const sessionId = await openLeadConversation();
+  writeComposerDraft(chat, sessionId, { ...readComposerDraft(chat, sessionId), nodeType: type });
+  showLeadConversation();
+  focusComposerAtEnd(() => document, { empty: true });
 }

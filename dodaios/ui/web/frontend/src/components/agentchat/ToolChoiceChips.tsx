@@ -1,5 +1,6 @@
 import { Fragment, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
+import { NodeRequestChip, splitNodeRequest } from "@/components/nodes/NodeRequestChip";
 import { useT } from "@/i18n";
 import type { ToolChoice } from "./toolChoices";
 import { splitMessageChips } from "./composerChips";
@@ -86,12 +87,22 @@ export function ToolChoiceChips({
   );
 }
 
-/** A stored sentence with `@gmail` tags drawn as brand pills in the same line. */
+/**
+ * A stored sentence with `@gmail` tags drawn as brand pills in the same line.
+ * A node asked for from the chat ("New" in the Nodes library) starts with its
+ * type chip, drawn on a line of its own above the words.
+ */
 export function MessageWithChips({ text, choices }: { text: string; choices: ToolChoice[] }) {
-  const parts = splitMessageChips(text, choices);
-  if (!parts.length) return null;
+  const nodeAsk = splitNodeRequest(text);
+  const parts = splitMessageChips(nodeAsk ? nodeAsk.text : text, choices);
+  if (!parts.length && !nodeAsk) return null;
   return (
     <span data-testid="tool-choice-chips" data-editable="false" className="whitespace-pre-wrap">
+      {nodeAsk && (
+        <span className="mb-1.5 flex">
+          <NodeRequestChip type={nodeAsk.type} />
+        </span>
+      )}
       {parts.map((part, index) =>
         part.type === "text" ? (
           <Fragment key={index}>{part.text}</Fragment>

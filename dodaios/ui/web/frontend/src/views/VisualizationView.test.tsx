@@ -23,7 +23,7 @@
  * - only files the WebView can draw are offered (`classifyVisual`).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { SectionStage } from "@/App";
@@ -843,7 +843,7 @@ describe("VisualizationView", () => {
     expect(screen.queryByTestId("node-upkeep-bar")).toBeNull();
   });
 
-  it("offers to ask for a change on a typed node, and not on an adopted page", async () => {
+  it("ends the bar with Chat, which asks for a change to a typed node and to an adopted page alike", async () => {
     installFetchMock(
       [NODE_RUN, DASH_RUN],
       { ...NODE_FILES, mission_dash: [DASH_FILE] },
@@ -854,17 +854,21 @@ describe("VisualizationView", () => {
 
     fireEvent.click(await findCard(NODE.key));
     await screen.findByTestId("visualization-frame");
-    openMore();
-    fireEvent.click(screen.getByTestId("visualization-ask-change"));
+    const bar = screen.getByTestId("visualization-page-bar");
+    fireEvent.click(within(bar).getByTestId("visualization-ask-change"));
     expect(chat.askDodaiosToChange).toHaveBeenCalledTimes(1);
     expect(chat.askDodaiosToChange).toHaveBeenCalledWith(NODE);
 
     fireEvent.click(screen.getByTestId("visualization-back"));
     fireEvent.click(await findCard(DASH_KEY));
     await waitFor(() => expect(stageTitle()).toBe("Umsatz-Dashboard"));
+    // An adopted page takes no comments, but a change can be asked for all the same.
+    expect(screen.queryByTestId("visualization-comment")).toBeNull();
+    fireEvent.click(screen.getByTestId("visualization-ask-change"));
+    expect(chat.askDodaiosToChange).toHaveBeenCalledTimes(2);
+    expect(chat.askDodaiosToChange).toHaveBeenLastCalledWith(expect.objectContaining({ key: DASH_KEY, id: null }));
     openMore();
     expect(screen.getByTestId("visualization-favorite")).toBeTruthy();
-    expect(screen.queryByTestId("visualization-ask-change")).toBeNull();
   });
 
   it("collects the comments left on a typed node's page and sends them all with one click", async () => {
@@ -1044,7 +1048,9 @@ describe("VisualizationView", () => {
 
     await findCard(DASH_KEY);
     fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
+    // An empty node is started from the describe dialog ("New" with a kind opens the chat).
+    fireEvent.click(screen.getByTestId("nodes-new-describe"));
+    fireEvent.click(await screen.findByTestId("new-node-empty"));
 
     await screen.findByTestId("visualization-frame");
     expect(frameSrc()).toContain(`/api/outputs/${created.slug}/files/index.html/page?theme=`);

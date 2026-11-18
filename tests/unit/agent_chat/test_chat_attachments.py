@@ -109,6 +109,71 @@ def test_attach_refuses_an_empty_drop(tmp_path: Path) -> None:
     assert "nothing" in res.json()["detail"].lower()
 
 
+def test_a_recording_too_large_to_read_still_comes_back(
+    tmp_path: Path, described, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 60 MB screen recording is never analysed, but it is still attached.
+
+    An empty answer made the composer say the drop carried nothing usable.
+    """
+    from dodaios.agentic_ide import drops
+
+    monkeypatch.setattr(drops, "read_for_analysis", lambda _source, **_kw: None)
+    with TestClient(_app(tmp_path)) as client:
+        res = client.post(
+            "/api/agent-chat/attachments",
+            files=[("files", ("recording.mp4", b"0" * 4096, "video/mp4"))],
+            data={"cwd": str(tmp_path), "surface": "jarvis"},
+        )
+    assert res.status_code == 200, res.text
+    (row,) = res.json()["attachments"]
+    assert row["name"].endswith(".mp4")
+    assert row["reference"]
+    assert row["kind"] == "other"
+    assert len(list((tmp_path / ".jarvis" / "drops").glob("*.mp4"))) == 1
+
+
+def test_every_file_comes_back_when_only_some_are_read(
+    tmp_path: Path, described, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A picture next to a large video: both come back, in drop order."""
+    from dodaios.agentic_ide import drops
+
+    real = drops.read_for_analysis
+    monkeypatch.setattr(
+        drops, "read_for_analysis",
+        lambda source, **kw: None if drops.size_of(source) > 1000 else real(source, **kw),
+    )
+    with TestClient(_app(tmp_path)) as client:
+        res = client.post(
+            "/api/agent-chat/attachments",
+            files=[
+                ("files", ("recording.mp4", b"0" * 4096, "video/mp4")),
+                ("files", ("shot.png", PNG, "image/png")),
+            ],
+            data={"cwd": str(tmp_path), "surface": "jarvis"},
+        )
+    assert res.status_code == 200, res.text
+    video, picture = res.json()["attachments"]
+    assert video["name"].endswith(".mp4") and video["described_by"] == "none"
+    assert picture["name"].endswith(".png") and picture["described_by"] == "vision"
+
+
+def test_files_still_come_back_when_the_analysis_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def broken(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr(drop_analysis, "analyze", broken)
+    found = asyncio.run(
+        chat_attachments.ingest(tmp_path, uploads=[("shot.png", PNG)], always_copy=True)
+    )
+    (item,) = found
+    assert item.kind == "image"
+    assert item.reference
+
+
 def test_a_path_inside_the_folder_is_referenced_where_it_lies(
     tmp_path: Path, described
 ) -> None:

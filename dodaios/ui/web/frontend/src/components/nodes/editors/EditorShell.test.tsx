@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { EditorShell } from "./EditorShell";
+import { LeaveGuardContext, createLeaveGuard, type LeaveGuard } from "./leaveGuard";
 import { useNodeSpecEditor } from "./useNodeSpecEditor";
 
 interface Spec {
@@ -29,9 +30,10 @@ const ok = (body: { spec: Spec; base_version: number }): Reply => ({
   body: { version: body.base_version + 1, updated_at: 200 + body.base_version, spec: body.spec },
 });
 
-function Harness({ onDone, side = false }: { onDone: () => void; side?: boolean }) {
+function Harness({ onDone, side = false, guard = null }: { onDone: () => void; side?: boolean; guard?: LeaveGuard | null }) {
   const editor = useNodeSpecEditor<Spec>("n1", { spec: { title: "Plan" }, version: 1, updated_at: 100 }, { saveDelayMs: 10_000 });
   return (
+    <LeaveGuardContext.Provider value={guard}>
     <EditorShell
       editor={editor}
       title="Plan"
@@ -44,7 +46,14 @@ function Harness({ onDone, side = false }: { onDone: () => void; side?: boolean 
       </button>
       <input data-testid="field" defaultValue="" />
     </EditorShell>
+    </LeaveGuardContext.Provider>
   );
+}
+
+/** Undo and redo live in the bar's "⋯": open it, and find the item. */
+function menuItem(testId: string): HTMLButtonElement {
+  if (!screen.queryByTestId(testId)) fireEvent.click(screen.getByTestId("node-editor-more"));
+  return screen.getByTestId(testId) as HTMLButtonElement;
 }
 
 afterEach(() => {
@@ -53,28 +62,32 @@ afterEach(() => {
 });
 
 describe("EditorShell", () => {
-  it("frames the editor with a toolbar, the body and an optional inspector", () => {
+  it("frames the editor with its bar at the bottom, the body and an optional inspector, and no Done", () => {
     installFetch(ok);
     render(<Harness onDone={() => {}} side />);
     expect(screen.getByRole("region", { name: /Plan/ })).toBeTruthy();
-    expect(screen.getByRole("toolbar")).toBeTruthy();
-    expect(screen.getByText("Bold")).toBeTruthy();
+    const bar = screen.getByRole("toolbar");
+    expect(bar.getAttribute("data-testid")).toBe("node-bar");
+    expect(bar.contains(screen.getByText("Bold"))).toBe(true);
     expect(screen.getByText("Inspector body").closest("aside")).toBeTruthy();
+    expect(screen.queryByTestId("node-editor-done")).toBeNull();
   });
 
-  it("undoes and redoes from its buttons, naming the step", () => {
+  it("undoes and redoes from the bar's menu, naming the step", () => {
     installFetch(ok);
     render(<Harness onDone={() => {}} />);
-    const undo = screen.getByTestId("node-editor-undo") as HTMLButtonElement;
-    const redo = screen.getByTestId("node-editor-redo") as HTMLButtonElement;
-    expect(undo.disabled).toBe(true);
+    expect(menuItem("node-editor-undo").disabled).toBe(true);
+    // The menu closes again on a press outside it.
+    fireEvent.pointerDown(document.body);
     fireEvent.click(screen.getByTestId("rename"));
     expect(screen.getByTestId("rename").textContent).toBe("Plan!");
+    const undo = menuItem("node-editor-undo");
     expect(undo.disabled).toBe(false);
-    expect(undo.getAttribute("aria-label")).toContain("Rename");
+    expect(undo.textContent).toContain("Rename");
     expect(screen.getByTestId("node-editor-save-state").textContent).toMatch(/Unsaved/);
     fireEvent.click(undo);
     expect(screen.getByTestId("rename").textContent).toBe("Plan");
+    const redo = menuItem("node-editor-redo");
     expect(redo.disabled).toBe(false);
     fireEvent.click(redo);
     expect(screen.getByTestId("rename").textContent).toBe("Plan!");
@@ -97,27 +110,29 @@ describe("EditorShell", () => {
     expect(screen.getByTestId("rename").textContent).toBe("Plan!");
   });
 
-  it("saves before Done and then leaves", async () => {
+  it("saves before the node closes, and then lets it close", async () => {
     const puts = installFetch(ok);
-    const onDone = vi.fn();
-    render(<Harness onDone={onDone} />);
+    const guard = createLeaveGuard();
+    const closed = vi.fn();
+    render(<Harness onDone={() => {}} guard={guard} />);
     fireEvent.click(screen.getByTestId("rename"));
-    fireEvent.click(screen.getByTestId("node-editor-done"));
-    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    act(() => guard.leave(closed));
+    await waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
     expect(puts).toEqual([{ title: "Plan!" }]);
   });
 
-  it("does not drop unsaved work silently when the save fails on Done", async () => {
+  it("does not drop unsaved work silently when the save fails as the node closes", async () => {
     installFetch(() => ({ status: 422, body: { detail: "A title is too long." } }));
-    const onDone = vi.fn();
-    render(<Harness onDone={onDone} />);
+    const guard = createLeaveGuard();
+    const closed = vi.fn();
+    render(<Harness onDone={() => {}} guard={guard} />);
     fireEvent.click(screen.getByTestId("rename"));
-    fireEvent.click(screen.getByTestId("node-editor-done"));
+    act(() => guard.leave(closed));
     await screen.findByTestId("node-editor-unsaved");
-    expect(onDone).not.toHaveBeenCalled();
+    expect(closed).not.toHaveBeenCalled();
     expect(screen.getByTestId("node-editor-save-state").textContent).toContain("A title is too long.");
     fireEvent.click(screen.getByTestId("node-editor-leave-anyway"));
-    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 
   it("shows a conflict and resolves it either way", async () => {
@@ -127,16 +142,17 @@ describe("EditorShell", () => {
       version = 5;
       return { status: 409, body: { detail: "changed", version: 5, updated_at: 900, spec: { title: "Theirs" } } };
     });
-    render(<Harness onDone={() => {}} />);
+    const guard = createLeaveGuard();
+    render(<Harness onDone={() => {}} guard={guard} />);
     fireEvent.click(screen.getByTestId("rename"));
-    fireEvent.click(screen.getByTestId("node-editor-done"));
+    act(() => guard.leave(() => {}));
     await screen.findByTestId("node-editor-conflict");
     expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("conflict");
     fireEvent.click(screen.getByTestId("node-editor-take-theirs"));
     expect(screen.getByTestId("rename").textContent).toBe("Theirs");
     expect(screen.queryByTestId("node-editor-conflict")).toBeNull();
     // Mine is one undo away.
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
+    fireEvent.click(menuItem("node-editor-undo"));
     expect(screen.getByTestId("rename").textContent).toBe("Plan!");
   });
 
@@ -147,9 +163,10 @@ describe("EditorShell", () => {
       if (body.base_version === 1) return { status: 409, body: { detail: "changed", version: 3, updated_at: 900, spec: { title: "Theirs" } } };
       return ok(body);
     });
-    render(<Harness onDone={() => {}} />);
+    const guard = createLeaveGuard();
+    render(<Harness onDone={() => {}} guard={guard} />);
     fireEvent.click(screen.getByTestId("rename"));
-    act(() => void fireEvent.click(screen.getByTestId("node-editor-done")));
+    act(() => guard.leave(() => {}));
     await screen.findByTestId("node-editor-conflict");
     fireEvent.click(screen.getByTestId("node-editor-keep-mine"));
     await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("saved"));

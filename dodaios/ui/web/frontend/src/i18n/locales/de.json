@@ -7959,6 +7959,9 @@
     "retry": "Erneut versuchen",
     "thinking": "Denkt nach",
     "copy_answer": "Antwort kopieren",
+    "read_aloud": "Vorlesen",
+    "stop_reading": "Vorlesen stoppen",
+    "read_aloud_failed": "Vorlesen fehlgeschlagen: {error}",
     "waiting_answer": "Wartet unten auf deine Antwort",
     "waiting_approval": "Wartet auf Freigabe — {summary}",
     "approval_waiting": "Wartet auf deine Freigabe",
@@ -11850,7 +11853,11 @@
     "provider_model_unavailable": "Modell nicht verfügbar",
     "provider_other": "funktioniert gerade nicht",
     "provider_detail": "Prüfe den Zugang unter API-Schlüssel.",
-    "provider_action": "API-Schlüssel öffnen"
+    "provider_action": "API-Schlüssel öffnen",
+    "menu_label": "Optionen für {who}",
+    "menu_snooze": "Eine Stunde ausblenden",
+    "menu_close": "Schließen",
+    "menu_close_all": "Alle {count} schließen"
   },
   "nodes": {
     "title": "Nodes",
@@ -11956,7 +11963,16 @@
       "of_type": "Neu in {0}",
       "type_label": "Typ",
       "menu_label": "Neuer Node",
-      "blank_heading": "Leer beginnen",
+      "chat_heading": "Im Chat bauen lassen",
+      "chip_remove": "{0} entfernen",
+      "ask": {
+        "docs": "Worum soll es in diesem Dokument gehen?",
+        "slides": "Worum soll es in dieser Präsentation gehen?",
+        "sheets": "Was soll in diese Tabelle?",
+        "data": "Was soll diese Analyse zeigen, und aus welchen Daten?",
+        "whiteboard": "Was soll auf dieses Whiteboard?",
+        "motion": "Worum soll es in diesem Clip gehen?"
+      },
       "describe": "{name} beschreiben, was es werden soll…",
       "untitled": {
         "docs": "Unbenanntes Dokument",
@@ -12041,7 +12057,8 @@
       "running": "Daran wird noch gearbeitet. Stopp den Durchlauf zuerst, dann kannst du es löschen."
     },
     "ask": {
-      "change_draft": "Ändere den Node „{0}“ (ID {1}): "
+      "change_draft": "Ändere den Node „{0}“ (ID {1}): ",
+      "change_file_draft": "Ändere „{0}“ (Datei {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12221,6 +12238,11 @@
         "title": "Ein leeres Board",
         "hint": "Wähle unten ein Werkzeug, drücke N für eine Haftnotiz oder bitte {assistant}, hier etwas zu zeichnen."
       }
+    },
+    "bar": {
+      "label": "Node-Werkzeuge",
+      "more": "Weitere Werkzeuge",
+      "chat": "Chat"
     },
     "live": {
       "working": "{name} arbeitet…",

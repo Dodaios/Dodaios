@@ -7959,6 +7959,9 @@
     "retry": "Retry",
     "thinking": "Thinking",
     "copy_answer": "Copy answer",
+    "read_aloud": "Read aloud",
+    "stop_reading": "Stop reading",
+    "read_aloud_failed": "Could not read aloud: {error}",
     "waiting_answer": "Waiting for your answer below",
     "waiting_approval": "Waiting for approval — {summary}",
     "approval_waiting": "Waiting for your approval",
@@ -11850,7 +11853,11 @@
     "provider_model_unavailable": "model not available",
     "provider_other": "not working right now",
     "provider_detail": "Check the access under API keys.",
-    "provider_action": "Open API keys"
+    "provider_action": "Open API keys",
+    "menu_label": "Options for {who}",
+    "menu_snooze": "Hide for an hour",
+    "menu_close": "Close",
+    "menu_close_all": "Close all {count}"
   },
   "nodes": {
     "title": "Nodes",
@@ -11956,7 +11963,16 @@
       "of_type": "New in {0}",
       "type_label": "Type",
       "menu_label": "New node",
-      "blank_heading": "Start a blank one",
+      "chat_heading": "Build it in the chat",
+      "chip_remove": "Remove {0}",
+      "ask": {
+        "docs": "What should this document be about?",
+        "slides": "What should this presentation be about?",
+        "sheets": "What should go in this sheet?",
+        "data": "What should this analysis show, and from which data?",
+        "whiteboard": "What should go on this whiteboard?",
+        "motion": "What should this clip be about?"
+      },
       "describe": "Describe it to {name}…",
       "untitled": {
         "docs": "Untitled document",
@@ -12041,7 +12057,8 @@
       "running": "This is still being worked on. Stop the run first, then delete it."
     },
     "ask": {
-      "change_draft": "Change the node \"{0}\" (id {1}): "
+      "change_draft": "Change the node \"{0}\" (id {1}): ",
+      "change_file_draft": "Change \"{0}\" (file {1}): "
     },
     "peek": {
       "window": "Node",
@@ -12221,6 +12238,11 @@
         "title": "An empty board",
         "hint": "Pick a tool below, press N for a sticky note, or ask {assistant} to draw something here."
       }
+    },
+    "bar": {
+      "label": "Node tools",
+      "more": "More tools",
+      "chat": "Chat"
     },
     "live": {
       "working": "{name} is working…",

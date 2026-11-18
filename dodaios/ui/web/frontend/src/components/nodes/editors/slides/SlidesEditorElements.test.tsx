@@ -13,6 +13,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { NodeCard } from "../../nodeModel";
 import { resetDeckPageCache } from "./deckPage";
 import SlidesEditor from "./index";
+import { barItem } from "../testBar";
 
 if (typeof window.PointerEvent === "undefined") {
   class TestPointerEvent extends MouseEvent {
@@ -88,9 +89,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The deck as it opens, with the settings beside it opened from the node bar (they start closed). */
 async function open(spec: Spec = SPEC) {
   const view = render(<SlidesEditor node={NODE} initial={{ spec, version: 3, updated_at: 2 }} onDone={() => {}} />);
   await screen.findByTestId("slides-canvas");
+  fireEvent.click(screen.getByTestId("slides-inspector-toggle"));
   return view;
 }
 
@@ -157,10 +160,12 @@ describe("inserting elements", () => {
     fireEvent.click(screen.getByTestId("slides-insert-shape"));
     fireEvent.click(screen.getByTestId("slides-insert-shape-star"));
     expect(el(2).className).toContain("is-star");
-    fireEvent.click(screen.getByTestId("slides-insert-line"));
+    // The new shape is selected: the bar is its format, and every insert is behind its "+".
+    fireEvent.click(screen.getByTestId("slides-insert-more"));
     fireEvent.click(screen.getByTestId("slides-insert-line-arrow"));
     expect(el(3).className).toContain("el-line");
     expect(el(3).querySelector("polygon")).not.toBeNull();
+    fireEvent.click(screen.getByTestId("slides-insert-more"));
     fireEvent.click(screen.getByTestId("slides-insert-table"));
     expect(el(4).querySelector("table.el-table")).not.toBeNull();
     const spec = await saved();
@@ -187,7 +192,7 @@ describe("selecting and changing elements", () => {
     fireEvent.pointerUp(surface(), { pointerId: 1 });
     expect(el(0).style.left).toBe("200px");
     expect(el(0).style.top).toBe("150px");
-    fireEvent.click(screen.getByRole("button", { name: /undo/i }));
+    fireEvent.click(barItem("node-editor-undo"));
     expect(el(0).style.left).toBe("100px");
   });
 
@@ -269,6 +274,8 @@ describe("review fixes", () => {
 describe("the slide and the deck", () => {
   it("hides a slide from the format bar and marks it in the strip", async () => {
     await open();
+    // The slide's own settings are one button in the bar.
+    fireEvent.click(screen.getByTestId("slides-bar-layout"));
     fireEvent.click(screen.getByTestId("slides-bar-hide"));
     expect(screen.getByTestId("slides-thumb-hidden-0")).toBeTruthy();
     const spec = await saved();
@@ -296,8 +303,7 @@ describe("the slide and the deck", () => {
 
   it("presents in the presenter view with the next slide and a timer", async () => {
     await open();
-    fireEvent.click(screen.getByTestId("slides-present-more"));
-    fireEvent.click(screen.getByTestId("slides-present-presenter-view"));
+    fireEvent.click(barItem("slides-present-presenter-view"));
     expect(await screen.findByTestId("slides-presenter")).toBeTruthy();
     expect(screen.getByTestId("slides-presenter-timer").textContent).toMatch(/^\d\d:\d\d$/);
     fireEvent.keyDown(screen.getByTestId("slides-present"), { key: "Escape" });

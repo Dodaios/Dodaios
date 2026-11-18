@@ -233,7 +233,7 @@ fades in). The renderer keeps the chart in the parser's own reading, so a
 spec read twice is the same spec. A chart with one series wears the clip's
 accent.
 
-**The clip editor.** "Edit" on a clip opens the native editor
+**The clip editor.** A clip opens in its native editor
 (`frontend/src/components/nodes/editors/motion/`):
 
 * The preview is the real film, drawn by the server from the unsaved spec
@@ -257,9 +257,13 @@ accent.
   characters), the chart (the shared chart editor), the length with "Fit to
   content" (the renderer's default length for that content) and the
   transition.
-* The toolbar holds the whole clip's format, background, accent (the kit's
-  six colours are kept by name, so the film takes that colour's shade for
-  its theme) and loop.
+* The node bar opens the library on the left at its media, texts, cards
+  or captions, exports the film, and opens the clip's settings on the right:
+  its format, background, accent (the kit's six colours are kept by name, so
+  the film takes that colour's shade for its theme) and loop. A piece picked
+  on the timeline shows its own settings there by itself. Its "⋯" holds
+  "delete and close the gap", snapping, writing in the cards and the safe
+  zone. One row above the timeline plays, splits, deletes and zooms.
 
 Every change is an undo step of the shared editor history and saves itself.
 A scene may be blank: a new clip is one title card with no text, and a scene
@@ -333,11 +337,11 @@ spreadsheet grid. It is keyboard-first:
   a formula reads cannot be deleted; the editor names the formula column.
   Columns move left and right from the column head's menu. A column is
   resized by dragging its head's edge.
-* The toolbar sets the selected columns' type and number format, decimals,
-  and bold; it sorts by the active column (the stored rows are reordered) and
-  filters. A filter is a column's value list and only hides rows while the
+* The node bar sets the selected columns' type and number format, decimals
+  (for a number column), and bold; it sorts by the active column (the stored
+  rows are reordered), filters, inserts rows and columns, and adds a chart. A filter is a column's value list and only hides rows while the
   person works; it is not saved. The page has its own filter for readers.
-  "Column settings" opens the inspector: name, type, unit or currency code,
+  "Column settings" (the bar's last tool) opens the inspector: name, type, unit or currency code,
   decimals, total, formula (checked as it is typed, with the other columns'
   keys listed), width, alignment, bold, colour, and the sheet's frozen
   columns and note.
@@ -372,7 +376,7 @@ text and checklist items (`- [ ]`, `- [x]`) as a box that cannot be
 changed on the page. A picture is shown only when it is embedded (a data URI); one from
 an address is its description.
 
-**The document editor.** "Edit" on a document opens a rich-text editor
+**The document editor.** A document opens in a rich-text editor
 (`frontend/src/components/nodes/editors/docs/`, TipTap on ProseMirror):
 
 * The page's title, then the summary as the first line (plain text, Enter
@@ -380,13 +384,14 @@ an address is its description.
   bold, italic, strikethrough, inline code, links, bulleted, numbered and
   check lists (nested with Tab), quotes, callouts in their five tones, code
   blocks, tables, dividers, pictures, charts and key figures.
-* The toolbar holds the block type (text, section heading `##`, subheading
-  `###`, minor heading `####`), the marks, the link form (Cmd/Ctrl+K),
-  the lists, quote, callout and code block, and "Insert" (table, chart, key
-  figures, picture, divider). While the caret is in a table, the toolbar also
-  holds rows and columns (insert above, below, left, right; delete) and the
-  column's alignment, which Markdown keeps per column. The outline button
-  opens the headings in the side panel; a click goes to the heading.
+* The node bar holds the block type (text, section heading `##`, subheading
+  `###`, minor heading `####`), bold, italic and strikethrough, the link form
+  (Cmd/Ctrl+K), the lists, quote and callout, and "Insert" (table, chart, key
+  figures, picture, divider). While the caret is in a table, the bar also
+  holds the table's menu: rows and columns (insert above, below, left, right;
+  delete) and the column's alignment, which Markdown keeps per column. Its
+  "⋯" holds inline code, the code block and the outline, which opens the
+  headings in the side panel; a click goes to the heading.
 * Markdown typed at the start of a line becomes its block (`## `, `- `,
   `1. `, `[ ] `, `> `, three backticks, `---`, `[!tip] ` for a callout),
   and `**bold**`, `*italic*`, `~~struck~~` and backticks become marks.
@@ -549,17 +554,23 @@ deck carries the defaults: `background`, `transition`, a type pairing
 A deck holds its pictures inside its spec, so its spec may be 3.6 MB
 (`SLIDES_SPEC_BYTES`, about nine full pictures) instead of one.
 
-**The deck editor.** "Edit" on a deck opens the native editor
+**The deck editor.** A deck opens in its native editor
 (`frontend/src/components/nodes/editors/slides/`), built like a presentation
 program:
 
-* The toolbar adds, duplicates and deletes slides; inserts a text box, a
-  shape (14 kinds), a line or an arrow, a picture, a table or a chart;
+* The node bar adds a slide; inserts a text box, a shape (14 kinds) or a
+  line or an arrow, a picture, a table or a chart; holds the slide's own
+  settings ("Slide": layout, background, transition, shown when presenting);
   opens "Design" (nine ready-made looks that set theme, accent, type and
   background at once, and each of them alone, with the transition every
-  slide takes and the footers); sets the theme and the accent; shows a grid
-  and switches snapping; and presents (from this slide, from the start, or
-  in the presenter view).
+  slide takes, the footers and the accent); presents from this slide; and
+  opens the inspector. With an element selected the bar is that element's
+  format: font, size, bold, italic, underline, text colour, alignment, lists
+  and fill (a line: its colour), and every insert behind one "+". Its "⋯"
+  duplicates and deletes the slide (and orders, duplicates and deletes a
+  selected element), shows the speaker notes under the slide, the grid and
+  snapping, zooms, finds and replaces, lists the keys, and presents from the
+  start or in the presenter view.
 * The strip shows every slide as a live thumbnail. "New slide" adds a slide
   of a picked layout after the selected one, filled with short sample texts
   in the person's language. A thumbnail is dragged to a new place; the strip
@@ -622,12 +633,13 @@ same tree.
 
 ## Comments on a node
 
-On the stage, "Comment" switches a typed node's page into comment mode. A
-click on the page then drops a numbered pin with a small field at that place.
-The reader writes what should change and adds it with Enter or the tick. A
-comment does not go out on its own: the reader can leave as many as they like,
-and take one back with its cross. A "Send" button in the stage's toolbar
-counts them ("Send 3 comments") and hands them all to the assistant at once.
+The comment button in the node bar shows a typed node's page in comment
+mode (pressed again, the node is back in its editor). A click on the page then
+drops a numbered pin with a small field at that place. The reader writes what
+should change and adds it with Enter or the tick. A comment does not go out on
+its own: the reader can leave as many as they like, and take one back with its
+cross. A "Send" button in the bar counts them ("Send 3 comments") and hands
+them all to the assistant at once.
 Once they went out, each pin turns into a speech bubble with three moving
 dots, and its note says the assistant is working the comment in. The bubbles
 stay until the node's revision draws the page again.
@@ -665,17 +677,43 @@ microphone is disabled.
 
 ## Editing a node
 
-"Edit" on the stage opens the node's native editor, one per type, in the
+A typed node opens straight in its native editor, one per type, in the
 app (`frontend/src/components/nodes/editors/`; a whiteboard has its own
-canvas, see Whiteboards). The editor works on the spec, not on the page: the
-page stays the reading view, the cover and what is shared, and Done draws it
-again from the saved spec. A node started blank from the library opens
-straight in its editor. Comment mode stays on the page. The page's own Edit
-(next section) is what a node without an editor falls back to.
+canvas, see Whiteboards). There is no Edit to press first and no Done: the
+work saves itself, and closing the node saves what is left. The editor works
+on the spec, not on the page: the page stays the cover and what is shared,
+and it comes back on the stage for comment mode. When an editor cannot load,
+its message leads back to the page, whose bar has an Edit that opens the
+editor again. The page's own Edit (next section) is what a node without an
+editor falls back to.
 
-Every editor has the same frame (`EditorShell.tsx`): undo and redo, the
-type's toolbar, the save state and Done along the top, an optional inspector
-on the right. The editing state is `useNodeSpecEditor.ts`:
+**The node bar.** The maintainer asked (2026-11-18) for a node to be shaped
+the way an artifact is in a desktop chat app: the whole node on screen, and
+one small bar floating at the bottom in the middle. Every node type has it
+(`frontend/src/components/nodes/bar/NodeBar.tsx`):
+
+| Part | What it holds |
+|------|---------------|
+| The type's tools | The few used most, as icons with a tooltip and, where they choose, a small arrow. |
+| "⋯" | Undo and redo (with their keys), then the type's tools used now and then. |
+| The comment button | Comment mode on the node's page (typed nodes with a page). |
+| "Chat" | Starts a request for a change in the conversation ("Change the node …: ", or "Change … (file …): " for a page the library adopted). Nothing is sent. |
+
+The top bar holds only the node's name, Share and close. A press on the name
+opens what the overflow menu held: the view (preview, code, files, run), the
+star, rename, undo the assistant's last change, a new whiteboard on a board,
+open in the browser, save a copy, show in folder, previous and next. Side
+panels (an inspector, an outline, the clip's library) start closed and open
+from the bar. A page the stage shows itself (a page in comment mode, an
+adopted page, a picture, a PDF) has the same bar in a slim band under it, so
+the page's own controls at its bottom edge stay free. A whiteboard's dock is
+its bar and ends with "Chat" too.
+
+Every editor has the same frame (`EditorShell.tsx`): the body, the node bar
+over its bottom, and an optional inspector on the right. Saving is quiet: the
+bar shows a mark only when a save is held, refused (a click tries again) or
+the node changed elsewhere, and "⋯" says the state in words. The editing state
+is `useNodeSpecEditor.ts`:
 
 * **Undo and redo.** Each change makes a new version of the spec without
   touching the old one; the parts that did not change are shared, so a deep
@@ -685,12 +723,11 @@ on the right. The editing state is `useNodeSpecEditor.ts`:
   Shift+Cmd/Ctrl+Z and Ctrl+Y redo, while focus is in the editor; a text field
   with its own undo (a rich-text field) keeps the keys.
 * **Saving.** The editor saves by itself 0.7 s after the last change, and at
-  once when focus leaves it, the window is hidden, Done is pressed or the
-  editor closes. A save sends the whole spec and the version it was edited
+  once when focus leaves it, the window is hidden, or the node is closed. A save sends the whole spec and the version it was edited
   from. The type's `normalize` checks it as it checks the assistant's
   writes. The answer carries the spec as it was kept, but the editor does not
   put it under the person's hands (an empty row the person just added would
-  vanish); the page after Done shows what was kept. The saves of one stretch
+  vanish); the node's page and its cover show what was kept. The saves of one stretch
   of editing share one history version, so "undo that" (`revert`) goes back a
   stretch, not a keystroke.
 * **Conflicts.** When the assistant revised the node while it is open, the
@@ -698,8 +735,11 @@ on the right. The editing state is `useNodeSpecEditor.ts`:
   undone). With unsaved work, autosave stops and a bar offers "Take theirs"
   (also undoable, so the person's own work is one undo away) or "Keep mine"
   (saved over the other version). A save the server refuses because the node
-  moved on (409) ends in the same bar. Done does not drop unsaved work
-  silently: when the save fails it says so and offers to leave anyway.
+  moved on (409) ends in the same bar. Closing the node does not drop
+  unsaved work silently: the close waits for the save, and when the save
+  fails the editor stays, says so and offers to leave anyway
+  (`editors/leaveGuard.ts`; the node window routes every way out through
+  it).
 
 Charts are made in one shared dialog (`editors/charts/ChartEditor.tsx`): the
 kind (columns, bars, line, area, pie, donut, columns and bars stacked),
@@ -712,7 +752,8 @@ one renderer.
 
 ## Editing a node in its page
 
-On the stage, "Edit" makes a typed node's page writable: the reader clicks a
+For a typed node without a native editor, "Edit" in the page's bar makes
+its page writable: the reader clicks a
 text and types; leaving the field (or Enter) saves it, Esc puts the old text
 back. Each change is one value of the spec, saved through
 `POST /api/nodes/{id}/edit` (`dodaios/nodes/edit.py`): a JSON Pointer (or
@@ -868,12 +909,12 @@ The conversation the click came from is on the right, with its composer.
 
 | In the window | What it does |
 |---------------|--------------|
-| Edit, Comment, Share, the overflow menu | The same as on the stage of the Nodes section. |
-| "Ask to change it" | Writes the start of the request into the composer beside the node. Nothing is sent. |
+| The node bar, the name's menu, Share | The same as on the stage of the Nodes section. |
+| "Chat" in the node bar | Writes the start of the request into the composer beside the node. Nothing is sent. |
 | The seam between node and conversation | Drag it to resize the conversation. The width is remembered. |
 | The panel button | Puts the conversation away or brings it back. The choice is remembered. |
 | The arrows button | "Open in Nodes": closes the window and opens the node in the Nodes section. |
-| Left and right arrow keys | Go to the previous or next page this conversation made. |
+| Left and right arrow keys | Go to the previous or next page this conversation made (not while a node is open in its editor, which keeps its keys; the name's menu has previous and next). |
 | Escape, the close button, a click beside the window | Close it. |
 
 A card clicked in the conversation beside the node puts that node in the

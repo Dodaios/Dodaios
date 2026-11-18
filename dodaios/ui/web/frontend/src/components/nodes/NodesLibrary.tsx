@@ -13,11 +13,12 @@
  * the filter panel, the card menu, the "New" menu and the dialog that hands a
  * described node to the assistant.
  *
- * "New" works like it does in an office suite: a kind (from the menu, or
- * "New in <kind>" on an empty shelf) starts a blank node of that kind at once
- * and opens it, ready to be typed into. Describing it to the assistant is the
- * menu's last entry, not a step on the way. Analytics is the exception: an
- * analysis is made from data, so it opens the dialog that asks for the sources.
+ * "New" does not start an empty file: a kind (from the menu, or "New in
+ * <kind>" on an empty shelf) opens the lead conversation with that kind's chip
+ * in front of the composer ("Dodaios Slides"), and the reader writes behind it
+ * what they want; the assistant builds the node from that (maintainer,
+ * 2026-11-18: a blank file "looks bad and odd"). The menu's last entry still
+ * opens the dialog that describes a node without leaving the library.
  */
 import {
   useCallback,
@@ -39,10 +40,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import type { OutputSummary } from "@/hooks/useOutputs";
-import { useT, useUiLanguage } from "@/i18n";
+import { useT } from "@/i18n";
 import { endMissionDrag, startMissionDrag } from "@/lib/missionDnd";
 import { cn } from "@/lib/utils";
-import { useEventStore } from "@/store/events";
 import {
   LIBRARY_SORTS,
   LIBRARY_TABS,
@@ -58,6 +58,7 @@ import {
 } from "./libraryModel";
 import { NewNodeDialog } from "./NewNodeDialog";
 import { NewNodeMenu } from "./NewNodeMenu";
+import { startNodeInChat } from "./askDodaios";
 import { NodeTypeRow } from "./NodeTypeRow";
 import { NODE_MENU_WIDTH, cardIsWorking, useNodeCardActions, type NodeCardActions } from "./NodeCardMenu";
 import { NodeCover } from "./NodeCover";
@@ -65,7 +66,6 @@ import { NODE_TYPES, type NodeCard, type NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY } from "./nodeTheme";
 import { NodeTypeIcon } from "./NodeTypeIcon";
 import type { NodesLibraryState } from "./useNodesLibrary";
-import { useNodeActions } from "./useNodes";
 
 type Translate = (key: string) => string;
 
@@ -100,17 +100,11 @@ export function NodesLibrary({
 }: {
   library: NodesLibraryState;
   onOpen: (card: NodeCard) => void;
-  /** A node the reader just started blank: it opens ready to be typed into. */
+  /** A node the reader started empty from the describe dialog: it opens ready to be typed into. */
   onCreated?: (card: NodeCard) => void;
 }) {
   const t = useT();
-  const language = useUiLanguage();
-  const pushToast = useEventStore((s) => s.pushToast);
-  const nodeActions = useNodeActions();
   const [newType, setNewType] = useState<NodeType | null>(null);
-  /** The kind a blank node is being made of right now (one at a time). */
-  const [creating, setCreating] = useState<NodeType | null>(null);
-  const creatingRef = useRef(false);
 
   const open = useCallback(
     (card: NodeCard) => {
@@ -138,37 +132,8 @@ export function NodesLibrary({
   );
   /** Describing a new node starts with the type the reader is looking at, else a document. */
   const describeNew = useCallback(() => setNewType(pickedType ?? "docs"), [pickedType]);
-  /** A blank node of `type`, made and opened at once, with a name in the reader's language. */
-  const startBlank = useCallback(
-    async (type: NodeType) => {
-      if (creatingRef.current) return;
-      creatingRef.current = true;
-      setCreating(type);
-      let card: NodeCard;
-      try {
-        card = await nodeActions.createNode({ type, title: t(`nodes.new.untitled.${type}`), language });
-      } catch {
-        creatingRef.current = false;
-        setCreating(null);
-        pushToast("error", t("nodes.new.create_failed"));
-        return;
-      }
-      creatingRef.current = false;
-      setCreating(null);
-      onCreated(card);
-    },
-    [nodeActions, t, language, pushToast, onCreated],
-  );
-  /**
-   * A new node of `type` from the menu or an empty shelf. An analysis is made
-   * from data, so Analytics asks where the data comes from (and whether to keep
-   * it current) before a dashboard is made; its "Start with an empty one"
-   * still opens an empty dashboard.
-   */
-  const startNew = useCallback(
-    (type: NodeType) => (type === "data" ? setNewType(type) : void startBlank(type)),
-    [startBlank],
-  );
+  /** A new node of `type` from the menu or an empty shelf: the chat, with the type's chip. */
+  const startNew = useCallback((type: NodeType) => void startNodeInChat(type), []);
   const skippedRuns = library.nodes.data?.skipped_runs ?? 0;
   const scannedRuns = library.nodes.data?.scanned_runs ?? 0;
 
@@ -192,12 +157,7 @@ export function NodesLibrary({
                 onChange={library.setTab}
               />
               <div className="ml-auto flex items-center gap-1">
-                <NewNodeMenu
-                  creating={creating}
-                  onBlank={startNew}
-                  onDescribe={describeNew}
-                  className="mr-1.5"
-                />
+                <NewNodeMenu onChoose={startNew} onDescribe={describeNew} className="mr-1.5" />
                 <SearchTool value={search} onChange={library.setSearch} />
                 <FilterTool
                   tab={tab}
@@ -236,12 +196,7 @@ export function NodesLibrary({
             ) : shown.length === 0 ? (
               bare ? (
                 <QuietState testId="nodes-empty" sentence={t("nodes.states.empty")}>
-                  <NewNodeMenu
-                    creating={creating}
-                    onBlank={startNew}
-                    onDescribe={describeNew}
-                    align="start"
-                  />
+                  <NewNodeMenu onChoose={startNew} onDescribe={describeNew} align="start" />
                 </QuietState>
               ) : (
                 <QuietState testId="nodes-no-matches" sentence={emptySentence(library, t)}>
@@ -250,11 +205,10 @@ export function NodesLibrary({
                     {pickedType !== null && search.trim() === "" && (
                       <Button
                         size="sm"
-                        disabled={creating !== null}
                         onClick={() => startNew(pickedType)}
                         data-testid="nodes-new-of-type"
                       >
-                        {creating === pickedType ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
+                        <Plus aria-hidden />
                         {t("nodes.new.of_type").replace("{0}", () => t(NODE_TYPE_LABEL_KEY[pickedType]))}
                       </Button>
                     )}

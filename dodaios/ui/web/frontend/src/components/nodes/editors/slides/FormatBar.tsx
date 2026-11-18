@@ -1,24 +1,24 @@
 /**
- * The bar above the slide: the few settings used most, where the eye is.
+ * The deck's formatting tools in the node bar at the bottom of the open deck.
  *
  * With a text box or a shape selected: font, size, bold, italic, underline,
- * text colour, alignment, list and fill. With other elements: fill or line
- * colour, and arranging. With nothing selected: the slide's layout, its
- * background, its transition and whether it is shown when presenting. The
- * inspector beside the slide holds every setting; this bar only repeats the
- * common ones.
+ * text colour, alignment, lists and fill (a line: its colour). With nothing
+ * selected: one "Slide" button for the slide's layout, background,
+ * transition and whether it is shown when presenting. The inspector (opened
+ * from the bar) holds every setting; this repeats the common ones where the
+ * hand already is, the way an office suite's format bar does.
  */
 import { type ReactNode } from "react";
-import { AlignCenter, AlignLeft, AlignRight, Bold, BringToFront, EyeOff, Eye, Italic, LayoutTemplate, List, ListOrdered, Minus, PaintBucket, Plus, SendToBack, Underline } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Baseline, Bold, ChevronDown, Eye, EyeOff, Italic, LayoutTemplate, List, ListOrdered, Minus, PaintBucket, PenLine, Plus, Underline } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-import { ColorPicker, Popover, Select, ToolbarButton } from "../controls";
+import { ColorPicker, MenuItem, Popover, Select, ToolbarButton } from "../controls";
 import type { Deck, Layout, Slide } from "./deckModel";
 import { FONTS, hasText, TRANSITIONS, type ShapeElement, type SlideElement, type TextElement } from "./elementModel";
 import { ELEMENT_COLORS } from "./ElementInspector";
-import { LayoutGlyph, LayoutPicker } from "./LayoutPicker";
+import { LayoutPicker } from "./LayoutPicker";
 import { BackgroundEditor } from "./SlideDesign";
 import type { ElementsChange } from "./CanvasEditor";
 
@@ -30,34 +30,13 @@ export interface FormatBarProps {
   onElements: ElementsChange;
   onSlide: (label: string, change: (slide: Slide) => void, coalesce?: string) => void;
   onLayout: (layout: Layout) => void;
-  onOrder: (how: "front" | "back") => void;
   onPickBackground: () => void;
 }
 
-function Divider() {
-  return <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />;
-}
+/** A colour swatch that sits in the bar like its icons do. */
+const SWATCH = "h-8 border-0 px-2 hover:bg-secondary";
 
-function Press({ on, label, onClick, children, testId }: { on?: boolean; label: string; onClick: () => void; children: ReactNode; testId?: string }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={on}
-      onClick={onClick}
-      data-testid={testId}
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:h-4 [&_svg]:w-4",
-        on && "bg-secondary text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-export function FormatBar({ slide, deck, elements, selected, onElements, onSlide, onLayout, onOrder, onPickBackground }: FormatBarProps) {
+export function FormatBar({ slide, deck, elements, selected, onElements, onSlide, onLayout, onPickBackground }: FormatBarProps) {
   const t = useT();
   const L = (key: string) => t(`nodes.editor.slides.${key}`);
   const items = selected.map((i) => elements[i]).filter(Boolean);
@@ -73,53 +52,32 @@ export function FormatBar({ slide, deck, elements, selected, onElements, onSlide
       else record[key] = value;
     });
 
-  const shell = (children: ReactNode) => (
-    <div
-      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-background px-3"
-      role="toolbar"
-      aria-label={L("format.label")}
-      data-testid="slides-format-bar"
-    >
+  const group = (children: ReactNode) => (
+    <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={L("format.label")} data-testid="slides-format-bar">
       {children}
     </div>
   );
 
   if (!items.length) {
-    return shell(
-      <>
-        <Popover
-          label={L("layout.change")}
-          trigger={
-            <button type="button" className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-secondary" data-testid="slides-bar-layout">
-              <LayoutTemplate className="h-4 w-4 text-muted-foreground" aria-hidden />
-              <LayoutGlyph layout={slide.layout} className="h-[14px] w-[25px] border border-border" />
-              {L(`layout.${slide.layout}`)}
-            </button>
-          }
-        >
-          {(close) => (
-            <div className="w-72 p-1">
-              <LayoutPicker
-                current={slide.layout}
-                onPick={(layout) => {
-                  close();
-                  onLayout(layout);
-                }}
-              />
-            </div>
-          )}
-        </Popover>
-        <Divider />
-        <Popover
-          label={L("bg.title")}
-          trigger={
-            <button type="button" className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-secondary" data-testid="slides-bar-background">
-              <PaintBucket className="h-4 w-4 text-muted-foreground" aria-hidden />
-              {L("bg.title")}
-            </button>
-          }
-        >
-          <div className="w-72 p-2">
+    return group(
+      <Popover
+        label={L("format.slide")}
+        trigger={
+          <ToolbarButton
+            label={L("format.slide")}
+            icon={<LayoutTemplate aria-hidden />}
+            trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+            data-testid="slides-bar-layout"
+          />
+        }
+      >
+        <div className="flex w-80 flex-col gap-3 p-2" data-testid="slides-bar-slide">
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">{L("layout.change")}</p>
+            <LayoutPicker current={slide.layout} onPick={(layout) => onLayout(layout)} />
+          </div>
+          <div className="border-t border-border pt-3">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">{L("bg.title")}</p>
             <BackgroundEditor
               background={slide.background}
               onPickImage={onPickBackground}
@@ -137,36 +95,41 @@ export function FormatBar({ slide, deck, elements, selected, onElements, onSlide
             />
             {!slide.background && deck.background && <p className="mt-2 text-xs text-muted-foreground">{L("bg.inherited")}</p>}
           </div>
-        </Popover>
-        <Divider />
-        <Select
-          label={L("transition.label")}
-          value={slide.transition ?? "deck"}
-          options={[{ value: "deck", label: L("transition.deck") }, ...TRANSITIONS.map((name) => ({ value: name, label: L(`transition.${name}`) }))]}
-          onChange={(value) =>
-            onSlide(L("step.transition"), (s) => {
-              if (value === "deck") delete s.transition;
-              else s.transition = value as Slide["transition"];
-            })
-          }
-          className="w-36"
-        />
-        <Divider />
-        <Press
-          on={!!slide.hidden}
-          label={slide.hidden ? L("slide.is_hidden") : L("slide.hide")}
-          onClick={() =>
-            onSlide(slide.hidden ? L("step.show_slide") : L("step.hide_slide"), (s) => {
-              if (s.hidden) delete s.hidden;
-              else s.hidden = true;
-            })
-          }
-          testId="slides-bar-hide"
-        >
-          {slide.hidden ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-        </Press>
-        <span className="ml-2 truncate text-xs text-muted-foreground">{L("format.hint")}</span>
-      </>,
+          <div className="flex items-end gap-2 border-t border-border pt-3">
+            <Select
+              label={L("transition.label")}
+              showLabel
+              value={slide.transition ?? "deck"}
+              options={[{ value: "deck", label: L("transition.deck") }, ...TRANSITIONS.map((name) => ({ value: name, label: L(`transition.${name}`) }))]}
+              onChange={(value) =>
+                onSlide(L("step.transition"), (s) => {
+                  if (value === "deck") delete s.transition;
+                  else s.transition = value as Slide["transition"];
+                })
+              }
+              className="min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              aria-pressed={!!slide.hidden}
+              onClick={() =>
+                onSlide(slide.hidden ? L("step.show_slide") : L("step.hide_slide"), (s) => {
+                  if (s.hidden) delete s.hidden;
+                  else s.hidden = true;
+                })
+              }
+              className={cn(
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                slide.hidden && "bg-secondary",
+              )}
+              data-testid="slides-bar-hide"
+            >
+              {slide.hidden ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+              {slide.hidden ? L("slide.is_hidden") : L("slide.hide")}
+            </button>
+          </div>
+        </div>
+      </Popover>,
     );
   }
 
@@ -174,94 +137,107 @@ export function FormatBar({ slide, deck, elements, selected, onElements, onSlide
   const first = texts[0];
   const fillable = items.find((item) => item.type === "text" || item.type === "shape") as TextElement | ShapeElement | undefined;
   const line = items.find((item) => item.type === "line");
+  const size = first ? (first.size ?? (first.type === "shape" ? 24 : 28)) : 0;
+  const align = first ? (first.align ?? (first.type === "shape" ? "center" : "left")) : "left";
+  const AlignIcon = align === "center" ? AlignCenter : align === "right" ? AlignRight : AlignLeft;
 
-  return shell(
+  return group(
     <>
       {first && (
         <>
           <Select
+            variant="bar"
             label={L("el.font")}
             value={first.font ?? "sans"}
             options={FONTS.map((font) => ({ value: font, label: L(`font.${font}`) }))}
             onChange={(value) => set("font", value === "sans" ? undefined : value)}
-            className="w-36"
             testId="slides-bar-font"
           />
-          <div className="ml-1 flex items-center rounded-md border border-border-strong">
-            <button
-              type="button"
-              aria-label={L("el.smaller")}
-              title={L("el.smaller")}
-              className="grid h-7 w-6 place-items-center text-muted-foreground hover:text-foreground"
-              onClick={() => set("size", Math.max(8, Math.round((first.size ?? (first.type === "shape" ? 24 : 28)) - 2)))}
-            >
-              <Minus className="h-3.5 w-3.5" aria-hidden />
-            </button>
-            <span className="w-8 text-center text-xs tabular-nums" data-testid="slides-bar-size">
-              {first.size ?? (first.type === "shape" ? 24 : 28)}
-            </span>
-            <button
-              type="button"
-              aria-label={L("el.bigger")}
-              title={L("el.bigger")}
-              className="grid h-7 w-6 place-items-center text-muted-foreground hover:text-foreground"
-              onClick={() => set("size", Math.min(240, Math.round((first.size ?? (first.type === "shape" ? 24 : 28)) + 2)))}
-              data-testid="slides-bar-bigger"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-            </button>
-          </div>
-          <Divider />
-          <Press on={!!first.bold} label={L("el.bold")} onClick={() => set("bold", !first.bold)} testId="slides-bar-bold">
-            <Bold aria-hidden />
-          </Press>
-          <Press on={!!first.italic} label={L("el.italic")} onClick={() => set("italic", !first.italic)}>
-            <Italic aria-hidden />
-          </Press>
-          <Press on={!!first.underline} label={L("el.underline")} onClick={() => set("underline", !first.underline)}>
-            <Underline aria-hidden />
-          </Press>
-          <ColorPicker label={L("el.text_color")} value={first.color?.startsWith("#") ? first.color.toUpperCase() : ""} palette={ELEMENT_COLORS} onChange={(value) => set("color", value || undefined)} className="ml-1 h-7" />
-          <Divider />
-          {(["left", "center", "right"] as const).map((align) => (
-            <Press key={align} on={(first.align ?? (first.type === "shape" ? "center" : "left")) === align} label={L(`el.align.text_${align}`)} onClick={() => set("align", align)}>
-              {align === "left" ? <AlignLeft aria-hidden /> : align === "center" ? <AlignCenter aria-hidden /> : <AlignRight aria-hidden />}
-            </Press>
-          ))}
-          <Press on={first.list === "bullet"} label={L("el.list_bullet")} onClick={() => set("list", first.list === "bullet" ? undefined : "bullet")} testId="slides-bar-bullets">
-            <List aria-hidden />
-          </Press>
-          <Press on={first.list === "number"} label={L("el.list_number")} onClick={() => set("list", first.list === "number" ? undefined : "number")}>
-            <ListOrdered aria-hidden />
-          </Press>
-          <Divider />
+          <ToolbarButton label={L("el.smaller")} icon={<Minus aria-hidden />} onClick={() => set("size", Math.max(8, Math.round(size - 2)))} className="w-7" />
+          <span className="w-7 text-center text-sm tabular-nums" data-testid="slides-bar-size">
+            {size}
+          </span>
+          <ToolbarButton
+            label={L("el.bigger")}
+            icon={<Plus aria-hidden />}
+            onClick={() => set("size", Math.min(240, Math.round(size + 2)))}
+            className="w-7"
+            data-testid="slides-bar-bigger"
+          />
+          <ToolbarButton label={L("el.bold")} icon={<Bold aria-hidden />} active={!!first.bold} onClick={() => set("bold", !first.bold)} data-testid="slides-bar-bold" />
+          <ToolbarButton label={L("el.italic")} icon={<Italic aria-hidden />} active={!!first.italic} onClick={() => set("italic", !first.italic)} />
+          <ToolbarButton label={L("el.underline")} icon={<Underline aria-hidden />} active={!!first.underline} onClick={() => set("underline", !first.underline)} />
+          <ColorPicker
+            label={L("el.text_color")}
+            value={first.color?.startsWith("#") ? first.color.toUpperCase() : ""}
+            palette={ELEMENT_COLORS}
+            onChange={(value) => set("color", value || undefined)}
+            className={SWATCH}
+            icon={<Baseline />}
+          />
+          <Popover
+            label={L("el.align.label")}
+            role="menu"
+            trigger={
+              <ToolbarButton
+                label={L("el.align.label")}
+                icon={<AlignIcon aria-hidden />}
+                trailing={<ChevronDown className="h-3 w-3 text-muted-foreground" aria-hidden />}
+                data-testid="slides-bar-align"
+              />
+            }
+          >
+            {(["left", "center", "right"] as const).map((value) => (
+              <MenuItem
+                key={value}
+                label={L(`el.align.text_${value}`)}
+                icon={value === "left" ? <AlignLeft aria-hidden /> : value === "center" ? <AlignCenter aria-hidden /> : <AlignRight aria-hidden />}
+                checked={align === value}
+                onClick={() => set("align", value)}
+              />
+            ))}
+          </Popover>
+          <ToolbarButton
+            label={L("el.list_bullet")}
+            icon={<List aria-hidden />}
+            active={first.list === "bullet"}
+            onClick={() => set("list", first.list === "bullet" ? undefined : "bullet")}
+            data-testid="slides-bar-bullets"
+          />
+          <ToolbarButton
+            label={L("el.list_number")}
+            icon={<ListOrdered aria-hidden />}
+            active={first.list === "number"}
+            onClick={() => set("list", first.list === "number" ? undefined : "number")}
+          />
         </>
       )}
       {fillable && (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">{L("el.fill")}</span>
-          <ColorPicker label={L("el.fill")} value={fillable.fill?.startsWith("#") ? fillable.fill.toUpperCase() : ""} palette={ELEMENT_COLORS} onChange={(value) => set("fill", value || undefined)} className="h-7" />
-        </div>
+        <ColorPicker
+          label={L("el.fill")}
+          value={fillable.fill?.startsWith("#") ? fillable.fill.toUpperCase() : ""}
+          palette={ELEMENT_COLORS}
+          onChange={(value) => set("fill", value || undefined)}
+          className={SWATCH}
+          icon={<PaintBucket />}
+        />
       )}
       {line && (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">{L("el.line_color")}</span>
-          <ColorPicker
-            label={L("el.line_color")}
-            value={line.type === "line" && line.color?.startsWith("#") ? line.color.toUpperCase() : ""}
-            palette={ELEMENT_COLORS}
-            onChange={(value) => each(L("step.format"), (element) => {
+        <ColorPicker
+          label={L("el.line_color")}
+          value={line.type === "line" && line.color?.startsWith("#") ? line.color.toUpperCase() : ""}
+          palette={ELEMENT_COLORS}
+          onChange={(value) =>
+            each(L("step.format"), (element) => {
               if (element.type !== "line") return;
               if (value) element.color = value;
               else delete element.color;
-            })}
-            className="h-7"
-          />
-        </div>
+            })
+          }
+          className={SWATCH}
+          icon={<PenLine />}
+        />
       )}
-      <Divider />
-      <ToolbarButton label={L("el.order.front")} icon={<BringToFront aria-hidden />} onClick={() => onOrder("front")} className="h-7 w-7" />
-      <ToolbarButton label={L("el.order.back")} icon={<SendToBack aria-hidden />} onClick={() => onOrder("back")} className="h-7 w-7" />
     </>,
   );
 }

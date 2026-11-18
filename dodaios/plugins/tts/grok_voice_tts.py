@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any
@@ -35,6 +34,7 @@ from dodaios.plugins.tts.gemini_flash_tts import (
     SAPI5_SAMPLE_RATE,
     _sapi5_synthesize,
 )
+from dodaios.plugins.tts.sentences import split_sentences
 
 # xAI delivers PCM as 16-bit signed little-endian mono — the same format
 # as Gemini TTS (`audio/l16; rate=24000`) and ElevenLabs (`pcm_24000`).
@@ -85,8 +85,6 @@ DEFAULT_VOICES: tuple[str, ...] = (
     "atlas",
 )
 
-# Sentence splitter: identical to GeminiFlashTTS — DE+EN capital lookahead.
-_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÄÖÜ])")  # i18n-allow: DE+EN capital-letter lookahead, matched in logic
 
 
 class GrokVoiceTTS:
@@ -436,8 +434,7 @@ class _GrokFatalError(RuntimeError):
 
 def _split_sentences(text: str) -> list[str]:
     """Heuristic sentence splitter (DE+EN). Identical to GeminiFlashTTS."""
-    parts = _SENTENCE_END.split(text)
-    return [p.strip() for p in parts if p.strip()]
+    return split_sentences(text)
 
 
 # xAI languages per the docs: auto, en, ar-EG, ar-SA, ar-AE, bn, zh, fr, de,

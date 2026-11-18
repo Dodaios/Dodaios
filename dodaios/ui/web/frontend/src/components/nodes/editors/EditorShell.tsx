@@ -1,24 +1,33 @@
 /**
  * The common frame of every node editor.
  *
- * A top bar (undo and redo, the type's own toolbar in the middle, the save
- * state and Done at the end), an optional strip that explains a conflict,
- * then the editor's body with an optional inspector panel beside it. The
- * frame also scopes the editor's keys: the hook's undo/redo shortcuts act
+ * A node opens straight in its editor: the body fills the stage, and the
+ * type's tools float in one small bar at the bottom (`NodeBar`): the few
+ * used most as icons, "⋯" for the rest (undo and redo with them), then the
+ * stage's comment button and "Chat". There is no toolbar row on top and no
+ * Done: the work is saved as it is made, and closing the node saves what is
+ * left. An inspector panel beside the body shows only where the editor puts
+ * one (each type opens it from its bar). Above the body, a strip explains a
+ * conflict or a save that did not go through.
+ *
+ * The frame also scopes the editor's keys: the hook's undo/redo shortcuts act
  * only while focus is inside this frame, and focus leaving it saves.
  *
- * Done saves first. If the save cannot go through (offline, refused, or the
- * node moved on), the frame says so and offers to leave anyway instead of
- * dropping the person's work without a word.
+ * Closing the node saves first (`leaveGuard.ts`). If the save cannot go
+ * through, the frame says so and offers to leave anyway instead of dropping
+ * the person's work without a word.
  */
-import { useCallback, useRef, useState, type FocusEvent, type ReactNode } from "react";
-import { AlertTriangle, Check, CloudOff, Loader2, Redo2, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
+import { AlertTriangle, CloudOff, Loader2, Redo2, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { QuickTooltip } from "@/components/ui/tooltip";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { NodeBar, NodeBarDivider, NodeBarEnd, NodeBarMore } from "../bar/NodeBar";
+import { MenuDivider, MenuItem } from "./controls";
+import { useLeaveGuard } from "./leaveGuard";
 import { LiveBuildLayer } from "../live/LiveBuildLayer";
-import { ToolbarButton, ToolbarGroup, ToolbarSeparator } from "./controls";
 import type { NodeSpecEditor } from "./useNodeSpecEditor";
 
 const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -31,31 +40,47 @@ export interface EditorShellProps {
   editor: NodeSpecEditor<any>;
   /** The node's title, the frame's accessible name. */
   title: string;
+  /** Part of every editor's contract; the stage closes the node, the frame has no Done of its own. */
   onDone: () => void;
-  /** The type's own toolbar controls. */
+  /** The type's tools used most: icons in the node bar. */
   toolbar?: ReactNode;
-  /** An inspector panel beside the body. */
+  /** The type's tools used now and then: items of the bar's "⋯" menu, after undo and redo. */
+  more?: ReactNode | ((close: () => void) => ReactNode);
+  /** An inspector panel beside the body; absent while the editor keeps it closed. */
   side?: ReactNode;
   /** Classes for the body (the default scrolls). */
   bodyClassName?: string;
+  /** Lifts the bar over something at the bottom of the body that has to stay in view (a sheet's tabs). */
+  barInset?: number;
   children: ReactNode;
 }
 
-export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassName, children }: EditorShellProps) {
+export function EditorShell({ editor, title, toolbar, more, side, bodyClassName, barInset = 0, children }: EditorShellProps) {
   const t = useT();
   const body = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState<"idle" | "saving" | "stuck">("idle");
+  const leaveAnyway = useRef<(() => void) | null>(null);
+  const flushRef = useRef(editor.flush);
+  flushRef.current = editor.flush;
 
-  const done = useCallback(async () => {
-    setLeaving("saving");
-    const saved = await editor.flush();
-    if (saved) {
-      setLeaving("idle");
-      onDone();
-    } else {
-      setLeaving("stuck");
-    }
-  }, [editor, onDone]);
+  /* Closing the node comes through here first: save, then close; stay and
+   * say so when the save does not go through. */
+  const guard = useLeaveGuard();
+  useEffect(() => {
+    if (!guard) return;
+    return guard.hold((go) => {
+      setLeaving("saving");
+      void flushRef.current().then((saved) => {
+        if (saved) {
+          setLeaving("idle");
+          go();
+        } else {
+          leaveAnyway.current = go;
+          setLeaving("stuck");
+        }
+      });
+    });
+  }, [guard]);
 
   /* Focus moving between two fields of the editor ends a typing run (the
    * next field's typing is its own undo step); focus leaving the editor also
@@ -70,8 +95,8 @@ export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassNam
     [editor],
   );
 
-  const undoTip = editor.undoLabel ? `${t("nodes.editor.undo")}: ${editor.undoLabel}` : t("nodes.editor.undo");
-  const redoTip = editor.redoLabel ? `${t("nodes.editor.redo")}: ${editor.redoLabel}` : t("nodes.editor.redo");
+  const undoLabel = editor.undoLabel ? `${t("nodes.editor.undo")}: ${editor.undoLabel}` : t("nodes.editor.undo");
+  const redoLabel = editor.redoLabel ? `${t("nodes.editor.redo")}: ${editor.redoLabel}` : t("nodes.editor.redo");
 
   return (
     <div
@@ -82,50 +107,6 @@ export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassNam
       onBlur={onBlur}
       data-testid="node-editor"
     >
-      <div
-        role="toolbar"
-        aria-label={t("nodes.editor.toolbar")}
-        // The bar comes in from the top when the editor opens (from Edit, or
-        // from a click into the page), so the switch to editing reads as one.
-        className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-3 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none"
-      >
-        <ToolbarGroup label={t("nodes.editor.history.group")}>
-          <ToolbarButton
-            label={undoTip}
-            icon={<Undo2 aria-hidden />}
-            shortcut={`${MOD}Z`}
-            disabled={!editor.canUndo}
-            onClick={editor.undo}
-            data-testid="node-editor-undo"
-          />
-          <ToolbarButton
-            label={redoTip}
-            icon={<Redo2 aria-hidden />}
-            shortcut={REDO_KEYS}
-            disabled={!editor.canRedo}
-            onClick={editor.redo}
-            data-testid="node-editor-redo"
-          />
-        </ToolbarGroup>
-        {toolbar && (
-          <>
-            <ToolbarSeparator />
-            <div className="flex min-w-0 items-center gap-1">{toolbar}</div>
-          </>
-        )}
-        <div className="flex-1" />
-        <SaveStatus editor={editor} />
-        <Button
-          size="sm"
-          onClick={() => void done()}
-          disabled={leaving === "saving"}
-          data-testid="node-editor-done"
-          className="ml-2 shrink-0"
-        >
-          {leaving === "saving" && <Loader2 className="animate-spin" aria-hidden />}
-          {t("nodes.editor.done")}
-        </Button>
-      </div>
       {editor.conflict !== null && (
         <div
           role="alert"
@@ -153,23 +134,66 @@ export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassNam
           <Button size="sm" variant="outline" onClick={() => setLeaving("idle")}>
             {t("nodes.editor.leave.stay")}
           </Button>
-          <Button size="sm" variant="destructive" onClick={onDone} data-testid="node-editor-leave-anyway">
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setLeaving("idle");
+              leaveAnyway.current?.();
+            }}
+            data-testid="node-editor-leave-anyway"
+          >
             {t("nodes.editor.leave.anyway")}
           </Button>
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        {/* The body, with the agent's presence laid over it while it builds the node. */}
-        <div className="relative flex min-h-0 min-w-0 flex-1">
-          <div ref={body} className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)} data-testid="node-editor-body">
-            {children}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* The body, with the agent's presence laid over it while it builds the node. */}
+          <div className="relative flex min-h-0 min-w-0 flex-1">
+            <div ref={body} className={cn("min-h-0 min-w-0 flex-1 overflow-auto", bodyClassName)} data-testid="node-editor-body">
+              {children}
+            </div>
+            <LiveBuildLayer editor={editor} body={body} />
           </div>
-          <LiveBuildLayer editor={editor} body={body} />
+          <NodeBar label={t("nodes.editor.toolbar")} inset={barInset}>
+            {toolbar}
+            {toolbar && <NodeBarDivider />}
+            <SaveStatus editor={editor} leaving={leaving === "saving"} />
+            <NodeBarMore testId="node-editor-more">
+              {(close) => (
+                <>
+                  <SaveLine editor={editor} />
+                  <MenuItem
+                    label={undoLabel}
+                    aria-label={undoLabel}
+                    icon={<Undo2 aria-hidden />}
+                    shortcut={`${MOD}Z`}
+                    disabled={!editor.canUndo}
+                    onClick={editor.undo}
+                    data-testid="node-editor-undo"
+                  />
+                  <MenuItem
+                    label={redoLabel}
+                    aria-label={redoLabel}
+                    icon={<Redo2 aria-hidden />}
+                    shortcut={REDO_KEYS}
+                    disabled={!editor.canRedo}
+                    onClick={editor.redo}
+                    data-testid="node-editor-redo"
+                  />
+                  {more && <MenuDivider />}
+                  {typeof more === "function" ? more(close) : more}
+                </>
+              )}
+            </NodeBarMore>
+            <NodeBarEnd divider={false} />
+          </NodeBar>
         </div>
         {side && (
           <aside
             aria-label={t("nodes.editor.inspector")}
-            className="w-72 shrink-0 overflow-y-auto border-l border-border bg-sidebar p-4"
+            className="w-72 shrink-0 overflow-y-auto border-l border-border bg-sidebar p-4 animate-in fade-in-0 slide-in-from-right-2 duration-150 motion-reduce:animate-none"
           >
             {side}
           </aside>
@@ -184,52 +208,86 @@ function isEditorPopover(node: Node): boolean {
   return node instanceof Element && node.closest("[data-node-editor-popover], [data-combobox-panel]") !== null;
 }
 
-/** "Saving…", "Saved", "Not saved", with the reason and a retry where it helps. */
+/**
+ * Whether the work is safe. Saving is quiet: the words are there for screen
+ * readers and at the top of "⋯", and the bar itself shows a mark only when
+ * there is something to do about it: a warning that names the reason when a
+ * save is held or the node changed elsewhere, a crossed-out cloud that tries
+ * again on a click when a save was refused, and a turning circle while the
+ * node waits for its last save to close.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function SaveStatus({ editor }: { editor: NodeSpecEditor<any> }) {
-  const t = useT();
-  const { saveState, error, dirty } = editor;
+export function SaveStatus({ editor, leaving = false }: { editor: NodeSpecEditor<any>; leaving?: boolean }) {
+  const words = useSaveWords(editor);
+  const { saveState } = editor;
+  const state = leaving && saveState !== "failed" && saveState !== "conflict" ? "saving" : saveState;
+  let mark: ReactNode = null;
+  if (state === "saving" && leaving) {
+    mark = (
+      <span className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      </span>
+    );
+  } else if (state === "held" || state === "conflict") {
+    mark = (
+      <span className="inline-flex h-8 w-8 items-center justify-center text-warning">
+        <AlertTriangle className="h-4 w-4" aria-hidden />
+      </span>
+    );
+  } else if (state === "failed") {
+    mark = (
+      <button
+        type="button"
+        onClick={editor.retry}
+        aria-label={words}
+        data-testid="node-editor-retry"
+        className={cn(
+          "inline-flex h-8 w-8 items-center justify-center rounded-md text-destructive transition-colors hover:bg-secondary",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        )}
+      >
+        <CloudOff className="h-4 w-4" aria-hidden />
+      </button>
+    );
+  }
   return (
     <div
-      className="flex min-w-0 shrink items-center gap-1.5 text-sm text-muted-foreground"
+      className="flex shrink-0 items-center"
       aria-live="polite"
       data-testid="node-editor-save-state"
-      data-state={saveState}
+      data-state={state}
     >
-      {saveState === "saving" && (
-        <>
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-          <span>{t("nodes.editor.save.saving")}</span>
-        </>
+      {mark !== null && (
+        <QuickTooltip content={words} side="top" className="inline-flex">
+          {mark}
+        </QuickTooltip>
       )}
-      {saveState === "saved" && (
-        <>
-          <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{t("nodes.editor.save.saved")}</span>
-        </>
-      )}
-      {saveState === "idle" && dirty && <span>{t("nodes.editor.save.pending")}</span>}
-      {saveState === "held" && (
-        <span className="truncate text-warning" title={error}>
-          {error || t("nodes.editor.save.held")}
-        </span>
-      )}
-      {saveState === "conflict" && <span className="text-warning">{t("nodes.editor.save.conflict")}</span>}
-      {saveState === "failed" && (
-        <>
-          <CloudOff className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden />
-          <span className="max-w-[18rem] truncate text-destructive" title={error}>
-            {error || t("nodes.editor.save.failed")}
-          </span>
-          <button
-            type="button"
-            onClick={editor.retry}
-            className="shrink-0 rounded px-1 text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {t("nodes.editor.save.retry")}
-          </button>
-        </>
-      )}
+      <span className="sr-only">{words}</span>
     </div>
+  );
+}
+
+/** The save state in words: "Saving…", "Saved", "Unsaved changes", or why it is not saved. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useSaveWords(editor: NodeSpecEditor<any>): string {
+  const t = useT();
+  const { saveState, error, dirty } = editor;
+  if (saveState === "saving") return t("nodes.editor.save.saving");
+  if (saveState === "saved") return t("nodes.editor.save.saved");
+  if (saveState === "held") return error || t("nodes.editor.save.held");
+  if (saveState === "conflict") return t("nodes.editor.save.conflict");
+  if (saveState === "failed") return `${error || t("nodes.editor.save.failed")} · ${t("nodes.editor.save.retry")}`;
+  return dirty ? t("nodes.editor.save.pending") : "";
+}
+
+/** The first line of "⋯": the save state, quietly. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function SaveLine({ editor }: { editor: NodeSpecEditor<any> }) {
+  const words = useSaveWords(editor);
+  if (!words) return null;
+  return (
+    <p className="truncate px-2 pb-1 pt-1 text-xs text-muted-foreground" data-testid="node-editor-save-line">
+      {words}
+    </p>
   );
 }

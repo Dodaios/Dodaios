@@ -52,6 +52,7 @@ vi.mock("../charts/ChartEditor", () => ({
 }));
 
 import DataEditor from "./index";
+import { barItem } from "../testBar";
 
 const SPEC = {
   summary: "Sales through October.",
@@ -128,6 +129,13 @@ const lastSaved = () => puts[puts.length - 1]!.spec as typeof SPEC;
 /** The charts on the canvas (the inspector draws the selected one again). */
 const canvasCharts = () => screen.getAllByTestId("data-chart").map((tile) => within(tile).getByTestId("chart-preview").textContent);
 const labels = () => screen.getAllByTestId("data-metric-label").map((input) => (input as HTMLInputElement).value);
+/** Adding is one menu in the node bar: open it, then pick. */
+const add = (testId: string) => {
+  fireEvent.click(screen.getByTestId("data-add"));
+  fireEvent.click(screen.getByTestId(testId));
+};
+/** The settings beside the dashboard open from the node bar. */
+const openInspector = () => fireEvent.click(screen.getByTestId("data-inspector-toggle"));
 
 describe("DataEditor", () => {
   it("opens with every part of the dashboard", () => {
@@ -149,16 +157,17 @@ describe("DataEditor", () => {
     expect(lastSaved().sections[0]!.metrics[0]!.value).toBe("50.1k €");
     expect(puts[0]!.base_version).toBe(1);
 
-    fireEvent.click(screen.getByTestId("node-editor-undo"));
+    fireEvent.click(barItem("node-editor-undo"));
     expect((screen.getAllByTestId("data-metric-value")[0] as HTMLInputElement).value).toBe("48.2k €");
-    expect((screen.getByTestId("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByTestId("node-editor-redo"));
+    expect((barItem("node-editor-undo") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(barItem("node-editor-redo"));
     expect((screen.getAllByTestId("data-metric-value")[0] as HTMLInputElement).value).toBe("50.1k €");
   });
 
   it("adds a metric to the selected section and selects it", () => {
     open();
-    fireEvent.click(screen.getByTestId("data-add-metric"));
+    openInspector();
+    add("data-add-metric");
     expect(labels()).toEqual(["Revenue", "Orders", "New metric"]);
     const tiles = screen.getAllByTestId("data-metric");
     expect(tiles[2]!.getAttribute("data-selected")).toBe("true");
@@ -194,9 +203,11 @@ describe("DataEditor", () => {
     expect(screen.queryByTestId("data-metric")).toBeNull();
     expect(screen.queryByTestId("data-chart")).toBeNull();
     expect(screen.queryByTestId("data-table")).toBeNull();
-    for (const add of ["data-add-metric", "data-add-chart", "data-add-table"]) {
-      expect((screen.getByTestId(add) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId("data-add"));
+    for (const part of ["data-add-metric", "data-add-chart", "data-add-table"]) {
+      expect((screen.getByTestId(part) as HTMLButtonElement).disabled).toBe(false);
     }
+    fireEvent.pointerDown(document.body);
     // Nothing to delete in the empty section.
     expect((screen.getByRole("button", { name: "Delete Section 1" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -230,6 +241,7 @@ describe("DataEditor", () => {
 
   it("flips a delta's reading from the inspector", async () => {
     open();
+    openInspector();
     fireEvent.mouseDown(screen.getAllByTestId("data-metric")[0]!);
     fireEvent.click(screen.getByTestId("data-metric-lower"));
     await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 3000 });
@@ -238,7 +250,7 @@ describe("DataEditor", () => {
 
   it("adds a chart through the chart editor and keeps an edited chart's width", () => {
     open();
-    fireEvent.click(screen.getByTestId("data-add-chart"));
+    add("data-add-chart");
     expect(screen.getByTestId("chart-editor-title").textContent).toBe("New chart");
     fireEvent.click(screen.getByText("save-chart"));
     expect(canvasCharts()).toEqual(["By month", "Saved chart"]);
@@ -250,7 +262,7 @@ describe("DataEditor", () => {
     // The first chart was full width and stays so.
     expect(screen.getAllByTestId("data-chart")[0]!.className).toContain("xl:col-span-2");
 
-    fireEvent.click(screen.getByTestId("data-add-chart"));
+    add("data-add-chart");
     fireEvent.click(screen.getByText("cancel-chart"));
     expect(canvasCharts()).toHaveLength(2);
   });
@@ -290,11 +302,13 @@ describe("DataEditor", () => {
 
   it("says what a kept-current dashboard's refresh does to hand edits", () => {
     open(SPEC, { kept_current: true, refreshing: true, every_minutes: 60 });
+    openInspector();
     expect(screen.getByTestId("data-upkeep-note").textContent).toContain("refreshed every");
   });
 
   it("edits the named sources in the inspector", async () => {
     open();
+    openInspector();
     const input = screen.getByTestId("data-source-input");
     fireEvent.change(input, { target: { value: "returns.xlsx" } });
     fireEvent.keyDown(input, { key: "Enter" });
