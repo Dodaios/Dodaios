@@ -94,6 +94,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("NavRail", () => {
@@ -362,6 +363,49 @@ describe("NavRail", () => {
     fireEvent.click(screen.getByText("OpenAI: usage limit reached"));
     expect(useEventStore.getState().activeSection).toBe("apikeys");
     expect(screen.queryByTestId("rail-notices-panel")).toBeNull();
+  });
+
+  /** Gives the rail's tile box `height` pixels, as a window of that size would. */
+  function railHeight(height: number) {
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      disconnect() {}
+    });
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === "rail-notices-tiles") return { ...real.call(this), height } as DOMRect;
+      return real.call(this);
+    });
+  }
+
+  const SIX: Partial<StatusLightData> = {
+    needs_you: [card("question", "q1", "Which database?", "a1", "Researcher"), PANE, card("approval", "p1", "Send the mail")],
+    trouble: [{ provider: "openai", account: "work", class: "quota", reason: "x", blocked: true }],
+  };
+
+  test("a tall rail shows every notice as its own tile and no count", async () => {
+    railHeight(600);
+    plugins = [
+      { id: "gmail", display_name: "Gmail", status: "needs_reauth" },
+      { id: "slack", display_name: "Slack", status: "error" },
+    ];
+    vi.stubGlobal("fetch", backend({ ...QUIET, ...SIX }));
+    renderRail();
+    await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(6));
+    expect(screen.queryByTestId("rail-notices-more")).toBeNull();
+  });
+
+  test("a short rail shows fewer tiles: the last place that fits becomes the count", async () => {
+    // 150 px hold three 44 px tiles with their 6 px gaps.
+    railHeight(150);
+    plugins = [
+      { id: "gmail", display_name: "Gmail", status: "needs_reauth" },
+      { id: "slack", display_name: "Slack", status: "error" },
+    ];
+    vi.stubGlobal("fetch", backend({ ...QUIET, ...SIX }));
+    renderRail();
+    await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(2));
+    expect(screen.getByTestId("rail-notices-more").textContent).toBe("+4");
   });
 });
 

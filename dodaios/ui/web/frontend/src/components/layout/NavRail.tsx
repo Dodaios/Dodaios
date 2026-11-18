@@ -49,7 +49,7 @@ function RailNotices() {
   const notices = useRailNotices();
   if (notices.length === 0) return null;
   return (
-    <section aria-label={t("rail_notice.title")} data-testid="rail-notices" className="flex flex-col items-center gap-1.5">
+    <section aria-label={t("rail_notice.title")} data-testid="rail-notices" className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5">
       <Divider />
       <Suspense fallback={null}><RailNoticeTiles notices={notices} /></Suspense>
     </section>
@@ -77,7 +77,8 @@ export function NavRail({ searchOn }: {
   const searchLabel = t("quick_switch.sidebar_search");
 
   return (
-    <div data-testid="nav-rail" className="flex flex-col items-center gap-1.5 pb-3 pt-1">
+    // Fills the column, so the notices under the shortcuts can count the height left to them.
+    <div data-testid="nav-rail" className="flex min-h-0 flex-1 flex-col items-center gap-1.5 pb-3 pt-1">
       <nav aria-label={t("sidebar.sections")} data-testid="sidebar-shortcuts">
         <ul className="m-0 flex list-none flex-col items-center gap-1.5 p-0">
           {SHORTCUTS.map((item, index) => {
