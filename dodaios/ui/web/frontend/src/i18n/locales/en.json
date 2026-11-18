@@ -9381,6 +9381,8 @@
         "review": "In review",
         "ready": "Ready"
       },
+      "active_count": "{count} working",
+      "resting": "Idle · {count}",
       "column_empty": {
         "building": "No agent is building.",
         "checks": "No checks are running.",

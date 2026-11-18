@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>Be the CEO, not the babysitter of your coding agents.</b></p>
+<p><b>All your coding agents, managed from one chat.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Latest release" /></a>

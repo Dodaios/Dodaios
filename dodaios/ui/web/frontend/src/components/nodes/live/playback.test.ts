@@ -174,4 +174,25 @@ describe("the player", () => {
     expect(animate).not.toHaveBeenCalled();
     player.destroy();
   });
+  it("runs a unit's own motion on its turn, and never hides one that is already on screen", () => {
+    const player = new LivePlayer(host, view, () => false);
+    const [a, b] = units(2);
+    const onReveal = vi.fn();
+    player.play([{ ...a, onReveal }, { ...b, visible: true, onReveal }]);
+    // One hold (the first unit); the visible unit is not hidden.
+    expect(animate).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(LIVE_TIMING.staggerMs * 2);
+    expect(onReveal).toHaveBeenCalledTimes(2);
+    expect(onReveal).toHaveBeenCalledWith(a.elements[0]);
+    // Hold + fade of the first unit only.
+    expect(animate).toHaveBeenCalledTimes(2);
+    player.destroy();
+  });
+
+  it("carries a step's own motion, visibility and solo frame into its unit", () => {
+    const root = html("<p>x</p>");
+    const onReveal = vi.fn();
+    const [unit] = unitsFor([{ target: { selector: "p" }, onReveal, visible: true, solo: true }], root, []);
+    expect(unit).toMatchObject({ visible: true, solo: true, onReveal });
+  });
 });

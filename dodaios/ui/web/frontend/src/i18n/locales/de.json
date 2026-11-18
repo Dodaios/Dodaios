@@ -9381,6 +9381,8 @@
         "review": "Im Review",
         "ready": "Bereit"
       },
+      "active_count": "{count} arbeiten",
+      "resting": "Ruhend · {count}",
       "column_empty": {
         "building": "Kein Agent arbeitet gerade.",
         "checks": "Es laufen keine Prüfungen.",

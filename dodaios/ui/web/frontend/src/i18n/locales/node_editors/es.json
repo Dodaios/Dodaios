@@ -967,6 +967,9 @@
           "none": "Esta diapositiva no tiene notas.",
           "toggle": "Notas del orador"
         },
+        "live": {
+          "working_on": "{name} está trabajando en la diapositiva {n}"
+        },
         "strip": {
           "label": "Diapositivas",
           "slide": "Diapositiva {n}",

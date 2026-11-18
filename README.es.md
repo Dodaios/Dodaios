@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>Sé el CEO de tus agentes de programación, no su niñera.</b></p>
+<p><b>Todos tus agentes de programación, gestionados desde un solo chat.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Última versión" /></a>
