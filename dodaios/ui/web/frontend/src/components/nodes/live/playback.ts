@@ -89,6 +89,10 @@ export interface RevealUnit {
   onReveal?: (el: Element) => void;
   /** False: the frame does not grow to this unit (see `RevealStep.framed`). */
   framed?: boolean;
+  /** Already on screen: not hidden or faded, only visited. */
+  visible?: boolean;
+  /** The frame sits on this unit alone. */
+  solo?: boolean;
 }
 
 /** `elements` in document order, each once, without any element inside another listed one. */
@@ -191,6 +195,8 @@ export function grouped(units: RevealUnit[], max: number = LIVE_TIMING.maxUnits)
         elements: part.flatMap((u) => u.elements),
         label: part.find((u) => u.label)?.label,
         framed: part.some((u) => u.framed !== false),
+        visible: part.every((u) => u.visible) || undefined,
+        solo: part.some((u) => u.solo) || undefined,
         onReveal: reveals.length > 0 ? (el) => reveals.forEach((reveal) => reveal(el)) : undefined,
       });
     }
@@ -257,6 +263,17 @@ function scrollParent(el: Element | null): Element | null {
   return null;
 }
 
+/** Whether `el` is inside `root`, looking through the shadow roots that hold it (a slide's canvas). */
+function within(root: Element, el: Element): boolean {
+  let at: Node | null = el;
+  while (at) {
+    if (root.contains(at)) return true;
+    const top: Node = at.getRootNode();
+    at = top instanceof ShadowRoot ? top.host : null;
+  }
+  return false;
+}
+
 /** The marked element for a JSON Pointer, or for its nearest marked ancestor path. */
 export function elementForPath(root: Element, path: string): Element | null {
   const marked = [...root.querySelectorAll("[data-live-path]")];
@@ -284,6 +301,16 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
   const units: RevealUnit[] = [];
   for (const step of steps) {
     const target = step.target;
+    const unit = (elements: Element[]): RevealUnit => ({
+      elements,
+      label: step.label,
+      framed: step.framed,
+      enter: step.enter,
+      onReveal: step.onReveal,
+      motion: step.motion,
+      visible: step.visible,
+      solo: step.solo,
+    });
     let elements: Element[] = [];
     if ("path" in target) {
       const found = elementForPath(root, target.path);
@@ -297,15 +324,15 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
       }
       elements = found ? [found] : [];
     } else if ("element" in target) {
-      elements = root.contains(target.element) ? [target.element] : [];
+      elements = within(root, target.element) ? [target.element] : [];
     } else if ("changed" in target) {
-      for (const el of changed) units.push({ elements: [el], label: step.label, framed: step.framed });
+      for (const el of changed) units.push(unit([el]));
       continue;
     } else {
-      for (const el of topBlocks(root)) units.push({ elements: [el], label: step.label, framed: step.framed });
+      for (const el of topBlocks(root)) units.push(unit([el]));
       continue;
     }
-    if (elements.length > 0) units.push({ elements, label: step.label, framed: step.framed, enter: step.enter, onReveal: step.onReveal, motion: step.motion });
+    if (elements.length > 0) units.push(unit(elements));
   }
   return grouped(units);
 }
@@ -410,7 +437,7 @@ export class LivePlayer {
       if (unit.motion) {
         unit.motion.prepare(this.host);
         this.moving.add(unit.motion);
-      } else for (const el of unit.elements) this.hide(el);
+      } else if (!unit.visible) for (const el of unit.elements) this.hide(el);
     }
     // Late units queue behind the ones already scheduled, never ahead of them.
     const now = performance.now();
@@ -491,7 +518,7 @@ export class LivePlayer {
       for (const el of unit.motion ? [] : unit.elements) {
         this.hidden.get(el)?.cancel();
         this.hidden.delete(el);
-        if (!reduced && canAnimate(el)) {
+        if (!reduced && !unit.visible && canAnimate(el)) {
           el.animate([{ opacity: this.timing.fromOpacity }, { opacity: 1 }], {
             duration: this.timing.fadeMs,
             easing: "ease-out",
@@ -565,7 +592,9 @@ export class LivePlayer {
   /** The written part of the batch, padded, inside the layer; null when none of it is in view. */
   private frameTarget(): Box | null {
     let box: Box | null = null;
-    for (const unit of this.units.slice(0, this.revealed)) {
+    const written = this.units.slice(0, this.revealed);
+    const last = written[written.length - 1];
+    for (const unit of last?.solo ? [last] : written) {
       if (unit.framed === false) continue;
       for (const el of unit.elements) {
         if (!el.isConnected) continue;

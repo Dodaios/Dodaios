@@ -256,6 +256,7 @@ export function SlideStrip({
                 aria-setsize={count}
                 tabIndex={on ? 0 : -1}
                 data-testid={`slides-thumb-${index}`}
+                data-strip-item={index}
                 onClick={() => {
                   if (suppressClick.current) {
                     suppressClick.current = false;
@@ -281,6 +282,7 @@ export function SlideStrip({
                   {/* The option's label names the slide; the drawing itself is not read out. */}
                   <div
                     aria-hidden
+                    data-strip-thumb={index}
                     className={cn(
                       "rounded-[7px] p-[2px] transition-shadow",
                       on ? "ring-2 ring-[hsl(var(--accent))]" : "ring-1 ring-border group-hover:ring-border-strong",

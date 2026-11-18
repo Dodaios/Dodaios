@@ -967,6 +967,9 @@
           "none": "Keine Notizen zu dieser Folie.",
           "toggle": "Sprechernotizen"
         },
+        "live": {
+          "working_on": "{name} arbeitet an Folie {n}"
+        },
         "strip": {
           "label": "Folien",
           "slide": "Folie {n}",

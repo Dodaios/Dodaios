@@ -967,6 +967,9 @@
           "none": "这张幻灯片没有备注。",
           "toggle": "演讲者备注"
         },
+        "live": {
+          "working_on": "{name} 正在编辑第 {n} 张"
+        },
         "strip": {
           "label": "幻灯片",
           "slide": "第 {n} 张",
