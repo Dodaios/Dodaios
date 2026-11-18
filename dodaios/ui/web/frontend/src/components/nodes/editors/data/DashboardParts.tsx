@@ -220,6 +220,7 @@ export function Piece({
   onDragOver,
   onDrop,
   label,
+  livePath,
 }: {
   selected: boolean;
   onSelect: () => void;
@@ -230,6 +231,8 @@ export function Piece({
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
   label: string;
+  /** The spec path this piece draws (`/sections/0/charts/1`): where the live build points. */
+  livePath?: string;
 }) {
   return (
     <div
@@ -241,6 +244,7 @@ export function Piece({
       onDragOver={onDragOver}
       onDrop={onDrop}
       data-testid={testId}
+      data-live-path={livePath}
       data-selected={selected || undefined}
       className={cn(
         "group/piece relative min-w-0 rounded-lg outline-none transition-shadow",
