@@ -1,7 +1,7 @@
 # Positioning: what Dodaios stands for
 
 Decided by the maintainer on 15 November 2026; the promise was last changed on
-18 November 2026. The README, the website and
+19 November 2026. The README, the website and
 every launch text follow this page. What a public text may and may not say is
 in [positioning-claims.md](positioning-claims.md).
 
@@ -17,7 +17,7 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **Your chief of staff for coding agents.**
+> **All your coding agents in one chat.**
 
 Use it word for word, and never alone: a short intro or the definition
 always follows. The README uses the short intro (two paragraphs, about 100
@@ -74,6 +74,9 @@ else is in `docs/`.
 
 Earlier promises:
 
+- On 19 November 2026: "Your chief of staff for coding agents."
+  The maintainer replaced it the same day with the one-chat line and wrote
+  a new first paragraph for the README to go with it.
 - On 18 November 2026: "All your coding agents, managed from one chat."
   The maintainer replaced it the same evening with the chief-of-staff line.
 - On 18 November 2026: "Be the CEO, not the babysitter of your coding agents."
