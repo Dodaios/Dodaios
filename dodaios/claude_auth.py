@@ -338,11 +338,9 @@ def claude_cli_argv_prefix(binary: str) -> list[str]:
         # forwards to: run that, with no ``cmd.exe`` re-parsing the arguments.
         native = path.resolve().parent / "node_modules" / "@anthropic-ai" / "claude-code" / "bin"
         for name in ("claude.exe", "claude"):
-            try:
-                if (native / name).is_file():
-                    return [str(native / name)]
-            except OSError:
-                continue
+            # Path.is_file() answers False for an unreadable path; nothing is swallowed.
+            if (native / name).is_file():
+                return [str(native / name)]
     node = shutil.which("node") or shutil.which("node.exe")
     if node:
         cli_dir = path.resolve().parent
