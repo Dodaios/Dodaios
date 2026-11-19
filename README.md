@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>Your chief of staff for coding agents.</b></p>
+<p><b>All your coding agents in one chat.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Latest release" /></a>
@@ -43,12 +43,7 @@
 
 </div>
 
-You have Claude Code in one terminal, Codex in another, and a chat tab where
-you copy plans back and forth. Dodaios ends that. It is a layer above all your
-coding agents: you say what you want, by voice or chat, and one assistant takes
-it from there. It writes the brief, launches the right agent in its built-in
-Agentic IDE, keeps watch while it works and tells you when it's done or needs
-you. Run five agents at once and still know exactly what each one did.
+Ten terminals, Claude Code here, Codex there, and none of the agents knows what the others are doing. You copy context back and forth, write the same prompt three times and lose track of who changed what. Dodaios cleans that up: it's the tech lead above all your coding agents. It knows your projects, writes every brief, launches the right agents in its Agentic IDE and keeps watch. You stay in one chat, and Dodaios tells you when an agent is done or needs you. Even with 30 agents at once.
 
 Open source, and it runs on your computer. Works with your Claude or ChatGPT
 subscription, with API keys for Claude, OpenAI and Gemini, or with local Ollama
