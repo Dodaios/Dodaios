@@ -43,8 +43,8 @@ async def test_retiring_twice_archives_nothing_new(tmp_path: Path) -> None:
     runtime = await _runtime(tmp_path)
     try:
         await runtime.roster.create(name="Scout", focus=[])
-        assert await retire_named_agents(runtime) == ["Scout"]
+        assert (await retire_named_agents(runtime)).names == ["Scout"]
         await runtime.roster.refresh()
-        assert await retire_named_agents(runtime) == []
+        assert (await retire_named_agents(runtime)).names == []
     finally:
         await runtime.close()
