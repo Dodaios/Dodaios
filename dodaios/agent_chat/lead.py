@@ -615,6 +615,41 @@ async def post_memory_tidy(text: str, counts: dict[str, int] | None = None) -> b
         return False
 
 
+async def post_agents_retired(names: list[str], routines: int) -> bool:
+    """Tell the person in the lead chat which named agents were archived.
+
+    The retirement of named agents (``society/retirement.py``) switches their
+    routines off; without this notice a standing job just stopped. The notice
+    carries the names and the routine count so the assistant can say it in the
+    person's language. Returns whether it was posted.
+    """
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        session = lead_session(svc, create=False) if svc is not None else None
+        if svc is None or session is None:
+            return False
+        await svc.post_notice(
+            session.session_id,
+            {
+                "kind": "agents_retired",
+                "status": "done",
+                "text": (
+                    f"Named agents archived: {', '.join(names)}. "
+                    f"Routines switched off: {routines}."
+                ),
+                "agents": list(names),
+                "routines": int(routines),
+            },
+        )
+        return True
+    except Exception:  # noqa: BLE001 — a notice is a courtesy; the agents are archived already
+        log.warning("lead thread: agents-retired notice not posted", exc_info=True)
+        return False
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime

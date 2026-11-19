@@ -5,7 +5,7 @@ import { useEventStore } from "@/store/events";
 
 import { isBackgroundNotice } from "./backgroundNotices";
 import { groupBackgroundRuns } from "./backgroundLine";
-import { ProactiveMessage } from "./ProactiveMessage";
+import { PROACTIVE_KINDS, ProactiveMessage } from "./ProactiveMessage";
 import type { NoticeItem } from "./reduce";
 
 function notice(kind: string, text: string, data: Record<string, unknown> = {}): NoticeItem {
@@ -32,6 +32,14 @@ describe("ProactiveMessage", () => {
     render(<ProactiveMessage item={notice("memory_tidy", "Tidied the memory: merged 2, retired 1 - review it in Memory.")} />);
     expect(screen.getByTestId("proactive-message").textContent)
       .toContain("I tidied up my memory of you: joined 2 duplicates and dropped one outdated entry.");
+  });
+
+  test("the notice that named agents were archived is a message of its own, never a grey line", () => {
+    const words = "I archived Directeur and Accountmanager; 4 routines are switched off.";
+    render(<ProactiveMessage item={notice("agents_retired", "Named agents archived: Directeur.", { voice: words })} />);
+    expect(screen.getByTestId("proactive-message").textContent).toContain(words);
+    expect(PROACTIVE_KINDS.has("agents_retired")).toBe(true);
+    expect(isBackgroundNotice(notice("agents_retired", "x"))).toBe(false);
   });
 
   test("never folds into the grey background line", () => {

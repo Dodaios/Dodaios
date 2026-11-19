@@ -41,7 +41,9 @@ from typing import Any, Final
 log = logging.getLogger(__name__)
 
 #: Notice kinds the assistant says in its own words.
-VOICED_KINDS: Final[frozenset[str]] = frozenset({"reminder_due", "memory_tidy", "event_trigger"})
+VOICED_KINDS: Final[frozenset[str]] = frozenset(
+    {"reminder_due", "memory_tidy", "event_trigger", "agents_retired"}
+)
 #: Kinds whose notices close together are one message.
 BATCHED_KINDS: Final[frozenset[str]] = frozenset({"reminder_due"})
 #: How long the desk waits for more notices of the same kind.
@@ -152,6 +154,23 @@ def _tidy_fact(payload: dict[str, Any]) -> str:
     )
 
 
+def _retired_fact(payload: dict[str, Any]) -> str:
+    names = ", ".join(str(n) for n in payload.get("agents") or [])
+    routines = int(payload.get("routines") or 0)
+    return (
+        "Named agents are no longer part of Dodaios: the person works with you alone, plus the "
+        "coding agents of the Agentic IDE. On this start you archived the agents the person had "
+        f"made earlier: {names}. Nothing was deleted (their chats and memory are kept). "
+        + (
+            f"{routines} routine(s) of those agents were switched off and run no more. "
+            if routines
+            else "None of them had a routine running. "
+        )
+        + "Tell the person plainly, and offer to take over the instructions or routines of "
+        "those agents so that nothing they relied on stays lost."
+    )
+
+
 def facts_of(kind: str, payloads: list[dict[str, Any]], zone: Any) -> str:
     """What happened, as plain facts for the model; never the wording."""
     if kind == "reminder_due":
@@ -159,6 +178,8 @@ def facts_of(kind: str, payloads: list[dict[str, Any]], zone: Any) -> str:
         return f"These items are due now:\n{lines}"
     if kind == "memory_tidy":
         return _tidy_fact(payloads[0])
+    if kind == "agents_retired":
+        return _retired_fact(payloads[0])
     if kind == "event_trigger":
         return (
             "An outside event matched one of the person's standing rules, and you ask "
@@ -282,6 +303,12 @@ def fallback_text(kind: str, payloads: list[dict[str, Any]], lang: str, zone: An
         return " ".join(_item_sentence(p, lang, zone) for p in payloads)
     if kind == "memory_tidy":
         return _tidy_sentence(payloads[0], lang)
+    if kind == "agents_retired":
+        payload = payloads[0]
+        names = ", ".join(str(n) for n in payload.get("agents") or [])
+        routines = int(payload.get("routines") or 0)
+        key = "retired_routines" if routines else "retired"
+        return _phrase(key, lang, names=names, n=routines)
     return str(payloads[0].get("text") or "")
 
 

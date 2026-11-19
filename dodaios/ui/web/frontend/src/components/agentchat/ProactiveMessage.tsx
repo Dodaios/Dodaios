@@ -18,7 +18,9 @@ import type { NoticeItem } from "./reduce";
  */
 
 /** Notice kinds drawn here. */
-export const PROACTIVE_KINDS: ReadonlySet<string> = new Set(["memory_tidy", "event_trigger"]);
+export const PROACTIVE_KINDS: ReadonlySet<string> = new Set([
+  "memory_tidy", "event_trigger", "agents_retired",
+]);
 
 const TIDY_PARTS = ["merged", "resolved", "retired", "reworded"] as const;
 

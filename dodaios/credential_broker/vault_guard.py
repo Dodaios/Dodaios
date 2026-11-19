@@ -30,7 +30,11 @@ import sys
 from pathlib import Path
 from typing import Any, Final
 
-__all__ = ["REFUSAL", "hook_settings", "refusal", "touches_vault"]
+__all__ = ["FROZEN_FLAG", "REFUSAL", "hook_command", "hook_settings", "main", "refusal", "touches_vault"]
+
+#: How a frozen build's executable is asked to act as the hook: it holds no
+#: loose ``.py`` files and has no ``-m``, so ``dodaios/__main__.py`` answers this flag.
+FROZEN_FLAG: Final[str] = "--vault-guard-hook"
 
 REFUSAL: Final[str] = (
     "Refused: this command would read the owner's secret store (the Keychain, a keyring or "
@@ -96,29 +100,37 @@ def _blocked_call(call: dict[str, Any]) -> bool:
     return False
 
 
-def hook_settings(python: str | None = None) -> dict[str, Any]:
-    """Claude Code ``--settings`` that run this guard before every shell or file call."""
+def hook_command(python: str | None = None) -> str:
+    """The shell command that runs this guard as a hook."""
     interpreter = python or sys.executable or "python3"
-    script = str(Path(__file__).resolve())
     # Double quotes read the same in sh, bash and cmd (Claude Code on Windows);
     # neither path can hold a double quote.
-    command = f'"{interpreter}" "{script}"'
+    if getattr(sys, "frozen", False) and python is None:
+        # The executable is the app, not a Python: no script path to hand it.
+        return f'"{interpreter}" {FROZEN_FLAG}'
+    return f'"{interpreter}" "{Path(__file__).resolve()}"'
+
+
+def hook_settings(python: str | None = None) -> dict[str, Any]:
+    """Claude Code ``--settings`` that run this guard before every shell or file call."""
     return {
         "hooks": {
             "PreToolUse": [
                 {
                     "matcher": "Bash|Read|Grep|Glob|NotebookRead",
-                    "hooks": [{"type": "command", "command": command, "timeout": 10}],
+                    "hooks": [{"type": "command", "command": hook_command(python), "timeout": 10}],
                 }
             ]
         }
     }
 
 
-def _main() -> int:
+def main() -> int:
+    """Judge the hook payload on stdin: exit 2 blocks the call, 0 lets it run."""
     try:
-        call = json.loads(sys.stdin.read() or "{}")
-    except ValueError:
+        stdin = sys.stdin if sys.stdin is not None else open(0, encoding="utf-8", closefd=False)
+        call = json.loads(stdin.read() or "{}")
+    except (ValueError, OSError):
         return 0  # Not a hook payload: nothing to judge.
     if isinstance(call, dict) and _blocked_call(call):
         sys.stderr.write(REFUSAL + "\n")
@@ -127,4 +139,4 @@ def _main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(_main())
+    sys.exit(main())

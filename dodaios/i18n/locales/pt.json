@@ -625,7 +625,9 @@
       "tidy_merged_one": "juntei um duplicado",
       "tidy_resolved_one": "resolvi uma contradição",
       "tidy_retired_one": "removi uma entrada antiga",
-      "tidy_reworded_one": "reescrevi uma lição com mais clareza"
+      "tidy_reworded_one": "reescrevi uma lição com mais clareza",
+      "retired": "Arquivei os agentes com nome que você criou antes: {names}. Nada foi apagado. O Dodaios agora trabalha com um só assistente e posso assumir o que eles faziam por você.",
+      "retired_routines": "Arquivei os agentes com nome que você criou antes: {names}. As {n} rotina(s) deles foram desligadas e não rodam mais; nada foi apagado. O Dodaios agora trabalha com um só assistente: diga quais devo assumir."
     }
   }
 }
