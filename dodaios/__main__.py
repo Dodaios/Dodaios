@@ -62,6 +62,24 @@ if len(sys.argv) >= 2 and sys.argv[1] == "--turn-host":
 
     raise SystemExit(_turn_host_main(sys.argv[2:]))
 
+# A frozen build is no Python: a stored plugin command such as
+# ``<this exe> -m dodaios.plugins.tool.connected_server youtube_studio`` would
+# start a second app window instead of the server, and the plugin showed no
+# tools. Answer ``-m`` for the package's own modules only (never a general
+# "run any module" door).
+if getattr(sys, "frozen", False) and len(sys.argv) >= 3 and sys.argv[1] == "-m":
+    from dodaios.core.frozen_module import run_package_module as _run_package_module
+
+    raise SystemExit(_run_package_module(sys.argv[2], sys.argv[3:]))
+
+# The secret-store guard a Claude Code seat runs before each file or shell
+# call (see credential_broker.vault_guard.FROZEN_FLAG): a frozen build has no
+# loose script to point the hook at. Never boots the app.
+if sys.argv[1:] == ["--vault-guard-hook"]:
+    from dodaios.credential_broker.vault_guard import main as _vault_guard_main
+
+    raise SystemExit(_vault_guard_main())
+
 # Windows Terminal defaults to cp1252 — which breaks Unicode (box-drawing,
 # emojis, ✓/✗). Force utf-8 before printing anything.
 if sys.platform == "win32":

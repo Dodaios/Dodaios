@@ -625,7 +625,9 @@
       "tidy_merged_one": "einen doppelten Eintrag zusammengeführt",
       "tidy_resolved_one": "einen Widerspruch geklärt",
       "tidy_retired_one": "einen veralteten Eintrag entfernt",
-      "tidy_reworded_one": "eine Lektion klarer formuliert"
+      "tidy_reworded_one": "eine Lektion klarer formuliert",
+      "retired": "Ich habe die benannten Agenten archiviert, die du früher angelegt hast: {names}. Es wurde nichts gelöscht. Dodaios arbeitet jetzt mit einem Assistenten, und ich kann übernehmen, was sie für dich getan haben.",
+      "retired_routines": "Ich habe die benannten Agenten archiviert, die du früher angelegt hast: {names}. Ihre {n} Routine(n) sind abgeschaltet und laufen nicht mehr; gelöscht wurde nichts. Dodaios arbeitet jetzt mit einem Assistenten, sag mir, welche ich übernehmen soll."
     }
   }
 }

@@ -63,6 +63,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Iterable
@@ -297,6 +298,33 @@ def _behind_shim(binary: str, agent: str) -> list[str]:
         log.warning("agent chat: could not look behind the %s shim", agent, exc_info=True)
         direct = None
     return list(direct) if direct else [binary]
+
+
+def _json_flag_value(prefix: list[str], payload: str) -> str:
+    """``payload`` as a flag value that survives ``prefix``.
+
+    Claude Code reads ``--settings`` and ``--mcp-config`` as inline JSON or as
+    a file path. Behind an npm ``.cmd`` shim the line is re-parsed by
+    ``cmd.exe``, which does not know the ``\\"`` escape ``list2cmdline`` writes:
+    a ``|`` inside the JSON (a hook matcher such as ``Bash|Read``) then ends
+    the command and ``cmd`` tries to run ``Read``. The JSON goes into a file
+    named by its content (one file per distinct payload, rewritten never) and
+    the path travels instead.
+    """
+    if not (prefix and _is_batch(prefix[0])):
+        return payload
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    path = Path(tempfile.gettempdir()) / "dodaios-claude-flags" / f"{digest}.json"
+    try:
+        if not path.is_file():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(f".{os.getpid()}.tmp")
+            tmp.write_text(payload, encoding="utf-8")
+            os.replace(tmp, path)
+        return str(path)
+    except OSError:
+        log.warning("agent chat: could not write the flag file; passing JSON inline", exc_info=True)
+        return payload
 
 
 def _argv_prompt(prefix: list[str], prompt: str) -> str:
@@ -1266,7 +1294,7 @@ def _plan_claude_code(
 
         settings.update(hook_settings())
     if settings:
-        argv += ["--settings", json.dumps(settings)]
+        argv += ["--settings", _json_flag_value(prefix, json.dumps(settings))]
     if model:
         argv += ["--model", model]
     if effort:
@@ -1287,7 +1315,7 @@ def _plan_claude_code(
     # it on Windows (32 767 characters for the whole command line).
     mcp_config = dodaios_harness.mcp_config_json(identity.session_id if identity else None)
     if mcp_config:
-        argv += ["--mcp-config", mcp_config]
+        argv += ["--mcp-config", _json_flag_value(prefix, mcp_config)]
         if identity is not None:
             argv += identity_turn_flags("claude-cli", identity)
         if identity is not None and identity.path is not None:
@@ -1452,8 +1480,17 @@ def _strip_effort_label(label: str) -> str:
     return label
 
 
+def _agy_catalog_is_live() -> bool:
+    """The cached catalog is what ``agy models`` answered, not the fallback table."""
+    return bool(_AGY_CATALOG.get("live")) and _agy_catalog_cached() is not None
+
+
 def agy_model_args(
-    model: str, effort: str, catalog: list[dict[str, Any]] | None = None
+    model: str,
+    effort: str,
+    catalog: list[dict[str, Any]] | None = None,
+    *,
+    live: bool = False,
 ) -> list[str]:
     """The ``--model`` / ``--effort`` pair agy accepts for a base id + effort.
 
@@ -1464,6 +1501,12 @@ def agy_model_args(
     """
     rows = catalog or agy_model_catalog(None)
     by_id = {r["id"]: r for r in rows}
+    if live and catalog and model and model not in by_id:
+        # The installed agy listed its models and this one is not among them (a
+        # saved choice from the curated list, e.g. ``gemini-3.1-pro``): agy
+        # would refuse it, so it runs its own default model instead.
+        log.warning("agent chat: agy has no model %r; using its default", model)
+        model = ""
     if not model:
         # Default model: agy accepts ``--effort`` alone.
         return ["--effort", effort] if effort in _AGY_EFFORT_SUFFIXES else []
@@ -1559,7 +1602,7 @@ def plan_agy(
         argv += ["--dangerously-skip-permissions"]
         if mode == "accept-edits":
             argv += ["--mode", "accept-edits"]
-    argv += agy_model_args(model, effort, _agy_catalog_cached())
+    argv += agy_model_args(model, effort, _agy_catalog_cached(), live=_agy_catalog_is_live())
     if resume:
         argv += ["--conversation", resume]
     env = dodaios_harness.apply_env(_account_env("antigravity"))
@@ -1730,7 +1773,7 @@ def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list
     except (CliUnavailable, OSError, ValueError, subprocess.SubprocessError) as exc:
         log.debug("agent chat: agy models unavailable: %s", exc)
     rows = agy_model_catalog(raw)
-    _AGY_CATALOG.update(rows=rows, at=now, key=key)
+    _AGY_CATALOG.update(rows=rows, at=now, key=key, live=raw is not None)
     _remember_models("agy-cli", rows)
     return list(rows)
 

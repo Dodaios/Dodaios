@@ -63,6 +63,9 @@ __all__ = ["SocietyRuntime", "current_runtime", "set_current_runtime"]
 
 _DB_NAME = "society.db"
 _CLOSE_TASK_TIMEOUT_S = 2.0
+#: How often and how long the archived-agents notice waits for the lead chat.
+_RETIREMENT_NOTICE_TRIES = 90
+_RETIREMENT_NOTICE_WAIT_S = 2.0
 _USABLE_TTL_S = 30.0
 
 
@@ -269,6 +272,7 @@ class SocietyRuntime:
         )
         self._start_lock = asyncio.Lock()
         self._delivery_task: asyncio.Task[None] | None = None
+        self._retirement_task: asyncio.Task[None] | None = None
         # Runs for the whole session, so it is not one of ``_watchers``
         # (finite background work that callers may wait for).
         self._runtime_updates_task: asyncio.Task[None] | None = None
@@ -360,8 +364,10 @@ class SocietyRuntime:
         # Named agents are retired: only the lead stays on the roster.
         from .retirement import retire_named_agents
 
-        if await retire_named_agents(self):
+        retired = await retire_named_agents(self)
+        if retired:
             await self.roster.refresh()
+            self._retirement_task = asyncio.create_task(self._announce_retirement(retired))
         # Work a previous process left claimed can never report; close it now.
         from .boot_sweep import sweep_interrupted_runs
 
@@ -639,6 +645,7 @@ class SocietyRuntime:
                 self._starting_task,
                 self._context_start_task,
                 self._delivery_task,
+                self._retirement_task,
                 self._runtime_updates_task,
                 self._skill_routines_task,
                 self._project_review_task,
@@ -928,6 +935,19 @@ class SocietyRuntime:
             avatar={"contract": 1, "archetype": "spirit", "base": "gigi", "parts": {}},
         )
         return lead
+
+    async def _announce_retirement(self, retired: Any) -> None:
+        """Tell the person in the lead chat what the start archived (never silent).
+
+        The chat service comes up after the runtime, so this waits for it.
+        """
+        from dodaios.agent_chat.lead import post_agents_retired
+
+        for _ in range(_RETIREMENT_NOTICE_TRIES):
+            if await post_agents_retired(retired.names, retired.routines):
+                return
+            await asyncio.sleep(_RETIREMENT_NOTICE_WAIT_S)
+        log.warning("society: the archived-agents notice found no lead conversation to land in")
 
     # ------------------------------------------------------------ catalog
 

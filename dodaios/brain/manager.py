@@ -13706,6 +13706,10 @@ _ACCOUNT_ACCESS_MARKERS: tuple[str, ...] = (
     "billing required",
     "billing not active",
     "account is suspended",
+    # Gemini CLI refuses personal accounts since the move to Antigravity: a
+    # terminal account state, not a network fault (issue #1871).
+    "ineligibletiererror",
+    "no longer supported for gemini code assist",
 )
 
 

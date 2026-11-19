@@ -333,6 +333,16 @@ def claude_cli_argv_prefix(binary: str) -> list[str]:
     native binaries and shims on macOS/Linux are invoked directly.
     """
     path = Path(binary)
+    if path.suffix.lower() in {".cmd", ".bat"}:
+        # Current npm installs ship the CLI as a native program the shim only
+        # forwards to: run that, with no ``cmd.exe`` re-parsing the arguments.
+        native = path.resolve().parent / "node_modules" / "@anthropic-ai" / "claude-code" / "bin"
+        for name in ("claude.exe", "claude"):
+            try:
+                if (native / name).is_file():
+                    return [str(native / name)]
+            except OSError:
+                continue
     node = shutil.which("node") or shutil.which("node.exe")
     if node:
         cli_dir = path.resolve().parent

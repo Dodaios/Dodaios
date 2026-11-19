@@ -625,7 +625,9 @@
       "tidy_merged_one": "uní un duplicado",
       "tidy_resolved_one": "aclaré una contradicción",
       "tidy_retired_one": "quité una entrada obsoleta",
-      "tidy_reworded_one": "reformulé una lección"
+      "tidy_reworded_one": "reformulé una lección",
+      "retired": "He archivado los agentes con nombre que habías creado antes: {names}. No se ha borrado nada. Dodaios ahora trabaja con un solo asistente y puedo asumir lo que hacían por ti.",
+      "retired_routines": "He archivado los agentes con nombre que habías creado antes: {names}. Sus {n} rutina(s) están desactivadas y ya no se ejecutan; no se ha borrado nada. Dodaios ahora trabaja con un solo asistente: dime cuáles debo asumir yo."
     }
   }
 }

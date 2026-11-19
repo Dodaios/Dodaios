@@ -625,7 +625,9 @@
       "tidy_merged_one": "joined one duplicate",
       "tidy_resolved_one": "settled one contradiction",
       "tidy_retired_one": "dropped one outdated entry",
-      "tidy_reworded_one": "made one lesson clearer"
+      "tidy_reworded_one": "made one lesson clearer",
+      "retired": "I archived the named agents you had made earlier: {names}. Nothing is deleted. Dodaios now works with one assistant, and I can take over what they did for you.",
+      "retired_routines": "I archived the named agents you had made earlier: {names}. Their {n} routine(s) are switched off and run no more; nothing is deleted. Dodaios now works with one assistant, so tell me which of them I should take over."
     }
   }
 }
