@@ -32,6 +32,16 @@ type and send
 
 wait for the answer, stop the recording and AirDrop it to this Mac.
 
+--web-phone needs neither step: Telegram's own web app (Telegram Web K) in a
+phone-sized Chrome stands in for the phone, signed in to your Telegram account
+once with a QR code (`node scripts/readme_demo/telegram-web.cjs login` opens a
+small window; scan it with Telegram on your phone, Settings > Devices > Link
+Desktop Device; the script opens that window itself when the session is
+missing and waits). The script then makes the demo bot with @BotFather, taps
+Start, types and sends the sentence in that chat and films it there, so
+nothing is AirDropped. The web session stays for the next take until
+`telegram-web.cjs logout` ends it.
+
 Everything else is done here. The desktop is filmed while the message arrives
 and is answered (the DevTools screencast of a headless Chrome, 60 frames a
 second, 1200 x 675 at scale 1.6). The script then waits for the AirDropped
@@ -127,6 +137,8 @@ LOCK_WAIT = 300.0
 MIN_FREE_BYTES = int(2.0 * 1024**3)
 RAW_KEEP = 3
 TELEGRAM_API = "https://api.telegram.org"
+WEB_HELPER = "telegram-web.cjs"  # Telegram Web in a phone-sized Chrome (--web-phone)
+WEB_TYPING_S = 60.0  # typing the sentence at a person's pace takes about 8 s
 VIDEO_SUFFIXES = (".mov", ".mp4", ".m4v")
 TOKEN_SHAPE = re.compile(r"^\d{5,15}:[A-Za-z0-9_-]{30,64}$")
 #: The stand-in Bot API of --fake-telegram and selftest: a made-up bot and sender.
@@ -450,8 +462,58 @@ def check_token(token: str) -> dict[str, Any]:
     return me
 
 
-def obtain_token(paths: Paths, new: bool) -> tuple[str, dict[str, Any], bool]:
-    """The demo bot's token, its getMe, and whether it is the one kept from an earlier take."""
+def web_helper(modules: Path, *args: str, timeout: float = 300.0) -> str:
+    """telegram-web.cjs with these arguments (--web-phone); the last line it printed."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("JARVIS", "DODAIOS", "CLAUDE_CODE", "TELEGRAM"))
+    }
+    env["NODE_PATH"] = str(modules)
+    try:
+        proc = subprocess.run(  # noqa: S603
+            ["node", str(HERE / WEB_HELPER), *args],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise Stop(f"telegram-web.cjs {args[0]} did not finish within {timeout:.0f} s.") from None
+    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    last = lines[-1] if lines else ""
+    if last.startswith("error"):
+        raise Stop(f"telegram-web.cjs {args[0]}: {last[6:]}")
+    if proc.returncode != 0 or not last:
+        raise Stop(
+            f"telegram-web.cjs {args[0]} stopped: "
+            + (proc.stderr.strip()[-300:] or f"exit code {proc.returncode}")
+        )
+    return last
+
+
+def ensure_web_session(modules: Path) -> None:
+    """Telegram Web signed in (--web-phone); if not, the QR window, waiting for the scan."""
+    if web_helper(modules, "status", timeout=150) == "signed-in":
+        item("Telegram Web", "signed in (the session kept from before)")
+        return
+    say("  Telegram Web is not signed in. A small window with Telegram's QR code opens:")
+    say("  scan it with Telegram on your phone (Settings > Devices > Link Desktop Device).")
+    say("  If your account has a password, type it in that window. It closes by itself.")
+    beep()
+    if web_helper(modules, "login", timeout=6 * 3600 + 300) != "signed-in":
+        raise Stop("Telegram Web did not sign in.")
+    item("Telegram Web", "signed in")
+
+
+def obtain_token(
+    paths: Paths, new: bool, web_modules: Path | None = None
+) -> tuple[str, dict[str, Any], bool]:
+    """The demo bot's token, its getMe, and whether it is the one kept from an earlier take.
+
+    With ``web_modules`` (--web-phone) a missing bot is made with @BotFather in
+    Telegram Web instead of asking for a token."""
     stored = "" if new else read_secret_file(paths.token_file)
     if stored:
         _SECRETS.append(stored)
@@ -468,6 +530,31 @@ def obtain_token(paths: Paths, new: bool) -> tuple[str, dict[str, Any], bool]:
                 )
             else:
                 raise Stop(f"Telegram could not check the bot: {exc}") from None
+    if web_modules is not None:
+        say(f"  Making the demo bot ({ASSISTANT}) with @BotFather in Telegram Web.")
+        fresh = paths.token_file.with_name(paths.token_file.name + ".new")
+        fresh.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(fresh.parent, 0o700)
+        fresh.unlink(missing_ok=True)
+        try:
+            web_helper(web_modules, "newbot", str(fresh), ASSISTANT, timeout=300)
+            token = read_secret_file(fresh)
+        finally:
+            fresh.unlink(missing_ok=True)
+        if not token:
+            raise Stop("@BotFather gave no token.")
+        _SECRETS.append(token)
+        try:
+            me = check_token(token)
+        except TelegramError as exc:
+            raise Stop(f"Telegram could not check the new bot: {exc}") from None
+        write_private(paths.token_file, token + "\n")
+        item(
+            "bot",
+            f"@{me['username']} (made with @BotFather just now; the token is kept in"
+            f" {paths.token_file}, readable by you only)",
+        )
+        return token, me, False
     if not sys.stdin or not sys.stdin.isatty():
         raise Stop("No token yet, and no terminal to paste one into. Run this in Terminal.")
     say('  In Telegram: @BotFather, /newbot, name it Nova, give it a username ending in "bot".')
@@ -1307,10 +1394,19 @@ def run_record_cjs(paths: Paths, modules: Path, parts: str, folder: Path) -> Non
 
 
 class Film:
-    """telegram-film.cjs in its own process, steered one line at a time."""
+    """telegram-film.cjs (the desktop) or telegram-web.cjs film (the phone with
+    --web-phone) in its own process, steered one line at a time."""
 
-    def __init__(self, paths: Paths, modules: Path, folder: Path, scrub_file: Path) -> None:
+    def __init__(
+        self,
+        paths: Paths,
+        modules: Path,
+        folder: Path,
+        scrub_file: Path,
+        bot: str = "",
+    ) -> None:
         self.folder = folder
+        self.label = "phone" if bot else "desktop"
         folder.mkdir(parents=True, exist_ok=True)
         env = node_env(
             paths,
@@ -1322,8 +1418,13 @@ class Film:
                 "DEMO_SCRUB_FILE": str(scrub_file),
             },
         )
+        command = (
+            ["node", str(HERE / WEB_HELPER), "film", bot, str(folder)]
+            if bot
+            else ["node", str(HERE / "telegram-film.cjs"), str(folder)]
+        )
         self.proc = subprocess.Popen(  # noqa: S603
-            ["node", str(HERE / "telegram-film.cjs"), str(folder)],
+            command,
             env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -1334,7 +1435,9 @@ class Film:
         self.expect("ready", 120)
 
     def expect(self, word: str, timeout: float) -> str:
+        """The next line that begins with ``word`` (or one of several, split by "|")."""
         assert self.proc.stdout is not None
+        words = word.split("|")
         end = time.time() + timeout
         while time.time() < end:
             ready, _, _ = select.select([self.proc.stdout], [], [], max(0.05, end - time.time()))
@@ -1342,13 +1445,13 @@ class Film:
                 continue
             line = self.proc.stdout.readline()
             if not line:
-                raise Stop(f"The desktop filming stopped (see {self.folder / 'film.log'}).")
+                raise Stop(f"The {self.label} filming stopped (see {self.folder / 'film.log'}).")
             line = line.strip()
             if line.startswith("error"):
-                raise Stop("The desktop filming failed: " + line[6:])
-            if line.split(" ")[0] == word:
+                raise Stop(f"The {self.label} filming failed: " + line[6:])
+            if line.split(" ")[0] in words:
                 return line
-        raise Stop(f"The desktop filming did not answer ({word}).")
+        raise Stop(f"The {self.label} filming did not answer ({word}).")
 
     def command(self, line: str, answer: str, timeout: float = 30) -> str:
         assert self.proc.stdin is not None
@@ -1731,8 +1834,11 @@ def plan_phone(
     end: float | None = None,
     remove: list[tuple[float, float]] | None = None,
     auto_remove: bool = True,
+    whole: bool = False,
 ) -> Plan:
-    a, b, share = app_run(f)
+    # A recording of Telegram Web (--web-phone) is the chat from its first frame
+    # to its last: no Control Center at either end to leave out.
+    a, b, share = (0, f.last, 1.0) if whole else app_run(f)
     events: dict[str, Any] = {
         "app_on_screen": [_r(f.time(a)), _r(f.time(b))],
         "app_share": round(share, 3),
@@ -2149,6 +2255,7 @@ def cut_clip(
     marks: dict[str, float] | None = None,
     args: argparse.Namespace | None = None,
     lock_enabled: bool = True,
+    whole: bool = False,
 ) -> dict[str, Any]:
     """Plan, render, measure and read one clip; the report of it."""
     footage = read_footage(raw, kind)
@@ -2157,7 +2264,9 @@ def cut_clip(
     remove = [span(text) for text in getattr(args, "remove", [])] or None
     auto = not getattr(args, "no_auto_remove", False)
     if kind == "phone":
-        plan = plan_phone(footage, start, end, remove, auto)
+        plan = plan_phone(
+            footage, start, end, remove, auto, whole or bool(getattr(args, "whole", False))
+        )
     else:
         plan = plan_desktop(
             footage, marks or {}, start, end, remove, auto, getattr(args, "speed", None)
@@ -2581,6 +2690,7 @@ def warm_up(paths: Paths, instance: Instance, modules: Path) -> dict[str, Any]:
 
 def run_take(args: argparse.Namespace) -> int:
     dry, fake_mode = bool(args.dry_run), bool(args.fake_telegram)
+    web = bool(getattr(args, "web_phone", False))
     if fake_mode and not dry:
         raise Stop("--fake-telegram goes with --dry-run.")
     paths = make_paths(args)
@@ -2588,7 +2698,11 @@ def run_take(args: argparse.Namespace) -> int:
     if dry:
         out = paths.out / "telegram-dry-run"
         paths.out = out
-    say("Telegram take for the README" + (" (dry run, no person needed)" if dry else ""))
+    say(
+        "Telegram take for the README"
+        + (" (dry run, no person needed)" if dry else "")
+        + (" (Telegram Web stands in for the phone)" if web else "")
+    )
     say()
     say("1. Checks")
     need_tools()
@@ -2605,7 +2719,7 @@ def run_take(args: argparse.Namespace) -> int:
     if load > 6:
         say("  ! The Mac is busy: frames may come unevenly. Better when the load is under 5.")
     item("OCR (privacy check)", "macOS text recognition" if ocr_available() else "missing (PyObjC)")
-    if not dry:
+    if not dry and not web:
         downloads_names(paths.downloads)  # macOS asks now, not after the take
         item("AirDrop arrives in", str(paths.downloads))
     instance = Instance(paths, args.python)
@@ -2614,7 +2728,9 @@ def run_take(args: argparse.Namespace) -> int:
     if not dry:
         say()
         say("2. The demo bot")
-        token, me, kept = obtain_token(paths, args.new_token)
+        if web:
+            ensure_web_session(modules)
+        token, me, kept = obtain_token(paths, args.new_token, modules if web else None)
     bot_name = str(me.get("username") or "")
     link = f"https://t.me/{bot_name}"
     if not dry:
@@ -2672,7 +2788,7 @@ def run_take(args: argparse.Namespace) -> int:
         if drained:
             item("old messages", f"{drained} sent while no instance ran: marked read, not answered")
         telegram = Telegram(token=token)
-    if not dry:
+    if not dry and not web:
         say()
         beep()
         if sys.stdin and sys.stdin.isatty():
@@ -2684,12 +2800,19 @@ def run_take(args: argparse.Namespace) -> int:
 
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     take_dir = paths.work / f"desktop-{stamp}"
+    phone_dir = paths.work / f"phone-{stamp}"
     scrub_file = paths.work / f"scrub-{stamp}.txt"
     write_private(scrub_file, "")
     film: Film | None = None
+    phone_film: Film | None = None
     lock = FilmLock("telegram_take.py (the desktop of the Telegram take)", enabled=not args.no_lock)
     timeline: dict[str, float] = {}
-    report: dict[str, Any] = {"dry_run": dry, "fake_telegram": fake_mode, "sentence": args.sentence}
+    report: dict[str, Any] = {
+        "dry_run": dry,
+        "fake_telegram": fake_mode,
+        "web_phone": web,
+        "sentence": args.sentence,
+    }
     owner_names: dict[str, str] = {}
     answer = ""
     try:
@@ -2700,16 +2823,24 @@ def run_take(args: argparse.Namespace) -> int:
             row = instance.wait_channel()
             item("Telegram channel", f"connected as {row.get('handle')}")
         film = Film(paths, modules, take_dir, scrub_file)
+        if web:
+            phone_film = Film(paths, modules, phone_dir, scrub_file, bot=bot_name)
+            item("Telegram Web", f"the chat with @{bot_name} is open")
         lead = instance.lead()
         sid = lead["session_id"]
         baseline = max([e["seq"] for e in instance.events(sid, 5)] or [0])
         start_at = time.time()
         timeline["take_start"] = start_at
-        downloads_known = set() if dry else downloads_names(paths.downloads)
+        downloads_known = set() if (dry or web) else downloads_names(paths.downloads)
         window = pairing_window_s(paths)
         say()
         if dry:
             say("4. The take (a stand-in sends the message)")
+        elif web:
+            say(
+                f"4. The take (in the chat with @{bot_name}, Telegram Web taps Start if"
+                " needed, then types and sends)"
+            )
         else:
             say("4. Step 2, on your phone (Do Not Disturb on, so no notice shows):")
             if owner:
@@ -2773,6 +2904,8 @@ def run_take(args: argparse.Namespace) -> int:
                 pairs.append(f"{user}={PERSONA[2]}")
             write_private(scrub_file, "\n".join(pairs) + "\n")
             film.command(f"scrub {scrub_file}", "scrubbed")
+            if phone_film is not None:
+                phone_film.command(f"scrub {scrub_file}", "scrubbed")
             if not dry:
                 owner = {"bot": bot_name, "user_id": user_id}
                 write_private(paths.owner_file, json.dumps(owner) + "\n")
@@ -2805,6 +2938,34 @@ def run_take(args: argparse.Namespace) -> int:
                 )
                 if not posted:
                     raise Stop("The instance did not take the stand-in message.")
+        elif web and phone_film is not None:
+            if not owner:
+                # First contact: Start sends /start, which pairs the sender as the owner
+                # while the channel's first-contact window is open. Not filmed.
+                answer_line = phone_film.command("start", "started|no-start", 40)
+                end = time.time() + 40
+                while time.time() < end and not instance.owner_ids():
+                    time.sleep(0.3)
+                ids = instance.owner_ids()
+                if not ids:
+                    raise Stop(
+                        "Telegram Web sent Start but the instance paired nobody"
+                        f" ({answer_line}); run this again."
+                    )
+                timeline["paired"] = time.time()
+                learn_owner(ids[0])
+                item("paired", "your Telegram account, by Start in Telegram Web")
+                phone_film.command("reply 40", "replied|no-reply", 50)
+                time.sleep(2.0)
+            # The sentence is the first message after this point (not /start or its answer).
+            baseline = max([e["seq"] for e in instance.events(sid, 5)] or [baseline])
+            arm()
+            phone_film.command("arm", "armed")
+            time.sleep(0.6)
+            phone_film.command(f"record {time.time():.3f}", "recording")
+            time.sleep(1.4)
+            sent_line = phone_film.command(f"type {args.sentence}", "sent", WEB_TYPING_S)
+            timeline["typed"] = float(sent_line.split(" ")[1])
         reopened = 0
         deadline = time.time() + 45 * 60
         told_paired = bool(owner) or dry  # a dry run has no person to tell
@@ -2933,10 +3094,22 @@ def run_take(args: argparse.Namespace) -> int:
             sent_at = timeline["answer_done"] + 1.0
             report["answer_sent_estimated"] = True
         timeline["answer_sent"] = sent_at
+        if phone_film is not None:
+            # The answer as Telegram Web draws it: the phone's clip ends on it.
+            replied = phone_film.command("reply 90", "replied|no-reply", 100)
+            if replied.startswith("replied"):
+                timeline["answer_shown_phone"] = float(replied.split(" ")[1])
+                sent_at = max(sent_at, timeline["answer_shown_phone"])
+            else:
+                say("  ! Telegram Web did not show the answer within 90 s.")
         time.sleep(max(0.0, sent_at + HOLD + 0.6 - time.time()))
         film.command("mark end", "marked")
         film.stop()
         film = None
+        if phone_film is not None:
+            phone_film.command("mark end", "marked")
+            phone_film.stop()
+            phone_film = None
         lock.release()
         timeline["filmed_until"] = time.time()
     except KeyboardInterrupt:
@@ -2945,6 +3118,8 @@ def run_take(args: argparse.Namespace) -> int:
     finally:
         if film is not None:
             film.stop()
+        if phone_film is not None:
+            phone_film.stop()
         lock.release()
         if not args.keep_running:
             instance.stop()
@@ -2993,7 +3168,25 @@ def run_take(args: argparse.Namespace) -> int:
 
     # ---- the phone clip ---------------------------------------------------
     phone_src: Path | None = None
-    if dry:
+    if web:
+        # Telegram Web's screencast, as the desktop's: no recording to wait for.
+        phone_raw = paths.raw / f"phone-raw-{stamp}.mp4"
+        phone_footage = frames_to_video(phone_dir, phone_raw)
+        shutil.copy(phone_dir / "take.json", paths.raw / f"phone-raw-{stamp}.json")
+        shutil.rmtree(phone_dir, ignore_errors=True)
+        item("phone recording", f"Telegram Web, {phone_footage['frames']} frames -> {phone_raw}")
+        phone = cut_clip(
+            "phone",
+            phone_raw,
+            out / "telegram-phone-master.mp4",
+            out / "telegram-phone-sheet.png",
+            terms,
+            lock_enabled=not args.no_lock,
+            whole=True,
+        )
+        phone["footage"] = phone_footage
+        report["phone"] = phone
+    elif dry:
         stand_in = paths.work / "stand-in-downloads"
         stand_in.mkdir(parents=True, exist_ok=True)
         made = paths.work / f"made-up-{stamp}.mov"
@@ -3037,7 +3230,7 @@ def run_take(args: argparse.Namespace) -> int:
         if dry:
             phone["positive_control"] = positive_control(phone_raw, phone_terms)
         report["phone"] = phone
-    else:
+    elif not web:
         say("  ! No phone recording arrived: only the desktop clip is cut.")
     for pattern in ("desktop-raw-*.mp4", "desktop-raw-*.json", "phone-raw-*"):
         keep_newest(paths.raw, pattern, RAW_KEEP * (2 if pattern.endswith("json") else 1))
@@ -3642,6 +3835,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         parser.add_argument("--no-auto-remove", action="store_true", help="cut out no wait")
         parser.add_argument(
+            "--whole",
+            action="store_true",
+            help="phone: a Telegram Web recording (--web-phone), the chat from start to end",
+        )
+        parser.add_argument(
             "--speed", type=float, default=None, help=f"desktop: play faster, at most {SPEED_MAX}"
         )
         args = parser.parse_args(argv[1:])
@@ -3693,7 +3891,15 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument(
             "--sentence", default=SENTENCE, help="what is sent (default: %(default)s)"
         )
+        parser.add_argument(
+            "--web-phone",
+            action="store_true",
+            help="no phone in anyone's hand: Telegram Web in a phone-sized Chrome sends the"
+            " sentence and is filmed (signed in once with a QR code; makes the bot itself)",
+        )
         args = parser.parse_args(argv)
+        if args.web_phone and args.dry_run:
+            parser.error("--web-phone talks to the real Telegram; it does not go with --dry-run")
         handler = run_take
     try:
         return handler(args)
