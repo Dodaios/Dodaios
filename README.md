@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>Meet the AI agent that puts your other coding agents to work.</b></p>
+<p><b>One chat to rule all your coding agents. Dodaios sits above Claude Code, Cursor, and local LLMs to orchestrate complex engineering tasks across multiple agents automatically.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Latest release" /></a>
@@ -43,7 +43,7 @@
 
 </div>
 
-Dodaios is the AI agent that briefs and coordinates your coding agents, tracks their work, and brings the results into one workspace on your computer, with your own plans and keys.
+
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
