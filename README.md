@@ -43,7 +43,7 @@
 
 </div>
 
-Dodaios is the AI lead for your coding agents. Give it a goal, and it coordinates agents like Claude Code and Codex, follows their work, and helps move problems toward a solution—all in one workspace.
+Dodaios is the AI agent that briefs and coordinates your coding agents, tracks their work, and brings the results into one workspace on your computer, with your own plans and keys.
 
 https://github.com/user-attachments/assets/37cdc5a5-30d6-49c8-92ff-3454a075569f
 
