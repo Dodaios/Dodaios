@@ -1,4 +1,4 @@
-
+<div align="center">
 <a href="https://dodaios.ai">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-dark.svg" />
