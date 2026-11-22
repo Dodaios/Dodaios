@@ -43,6 +43,12 @@
  *   known, and the backend searches for it (see `extractDropPayload`).
  * * **A new folder**, made inside the folder on screen; a typed name that does
  *   not exist yet is offered for creation rather than only refused.
+ * * **GitHub**, a place on the start view that lists the person's
+ *   repositories like the folders of a folder. A repository that is a
+ *   connected folder already opens that folder; any other one is downloaded
+ *   once (`cloneGitHubRepo`, which reuses an earlier download) and then
+ *   opened, so it is chosen like any folder. A typed name finds repositories
+ *   too, and a pasted repository address offers exactly that one.
  *
  * ## Clicking fast
  *
@@ -64,16 +70,19 @@ import {
   Check,
   ChevronRight,
   CornerLeftUp,
+  Download,
   Eye,
   EyeOff,
   Folder,
   FolderGit2,
   FolderOpen,
   FolderPlus,
+  Github,
   HardDrive,
   History,
   Home,
   Loader2,
+  Lock,
   Monitor,
   Search,
   X,
@@ -81,6 +90,12 @@ import {
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
 import { waitForNativeDrop } from "@/lib/nativeDrop";
+import { cloneGitHubRepo, fetchLinkedFolders } from "@/lib/gitApi";
+import {
+  fetchGitHubRepos,
+  type GitHubRepoChoice,
+  type GitHubRepoList,
+} from "./sidePanel/git/gitOverviewApi";
 import { useDragSessionEnd } from "./dragSessionEnd";
 import { Button, FOCUS_RING, Field, IconButton, SectionLabel } from "./controls";
 import {
@@ -100,12 +115,14 @@ import {
 import {
   extractDropPayload,
   foldCrumbs,
+  gitHubRepoFromAddress,
   isAbsolutePath,
   isFolderName,
   lastUsedLabel,
   leafName,
   looksLikePath,
   matchByName,
+  matchRepos,
   normalizeTypedPath,
   parentPath,
   pathCrumbs,
@@ -175,7 +192,18 @@ interface Preview {
 type Row =
   | { kind: "recent"; key: string; path: string; name: string; recent: RecentWorkspace }
   | { kind: "folder"; key: string; path: string; name: string; item: FolderItem; detail?: string }
-  | { kind: "create"; key: string; parent: string | null; name: string };
+  | { kind: "create"; key: string; parent: string | null; name: string }
+  /** The GitHub place on the start view: opens the list of repositories. */
+  | { kind: "github-place"; key: string; path: string; name: string; detail: string }
+  /**
+   * One GitHub repository. `local` is its folder when it is on this computer
+   * already; `path` is that folder too, or a `github:` key that no folder can
+   * have, so the list's de-duplication treats it as a place of its own.
+   */
+  | { kind: "github"; key: string; path: string; name: string; repo: GitHubRepoChoice; local: string | null };
+
+/** The key a repository that is not on this computer is listed under. */
+const GITHUB_KEY = "github:";
 
 interface Section {
   label: string | null;
@@ -231,6 +259,23 @@ export function FolderPicker({
   const [nativePicker, setNativePicker] = useState<NativePickerSupport | null>(null);
   const [nativeOpen, setNativeOpen] = useState(false);
   const [nativeNote, setNativeNote] = useState<string | null>(null);
+
+  // The person's GitHub repositories; null until the backend has answered, and
+  // for good on a backend without the route (the GitHub place stays away).
+  const [github, setGithub] = useState<GitHubRepoList | null>(null);
+  // `owner/name` (lower case) → the folder it is on this computer.
+  const [githubFolders, setGithubFolders] = useState<Record<string, string>>({});
+  // The GitHub place is open: the start view lists repositories instead.
+  const [githubOpen, setGithubOpen] = useState(false);
+  // The repository being downloaded; one at a time.
+  const [cloning, setCloning] = useState<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -297,6 +342,20 @@ export function FolderPicker({
         // rather than showing a button that would 404 on click.
         setNativePicker({ available: false });
       });
+    void fetchGitHubRepos()
+      .then((list) => {
+        if (alive.current) setGithub(list);
+      })
+      .catch(() => {
+        /* no route or no network: the GitHub place is simply not offered */
+      });
+    void fetchLinkedFolders()
+      .then((folders) => {
+        if (alive.current) setGithubFolders(folders);
+      })
+      .catch(() => {
+        /* every repository then offers a download, which finds an earlier clone */
+      });
   }, [load]);
 
   /**
@@ -310,6 +369,7 @@ export function FolderPicker({
       previousRef.current = hereRef.current;
       hereRef.current = target;
       setHere(target);
+      setGithubOpen(false);
       setText("");
       setCursor(null);
       setNotice(null);
@@ -392,13 +452,23 @@ export function FolderPicker({
   // ------------------------------------------------------------ what is typed
   const typed = normalizeTypedPath(text);
   const parts = useMemo(() => typedParts(typed), [typed]);
-  const pathMode = parts.dir !== "";
-  const word = pathMode ? "" : parts.leaf;
+  // A repository's address is neither a path nor a name: it means that one
+  // repository, and nothing on the disk is looked up for it.
+  const addressRepo = gitHubRepoFromAddress(typed);
+  const pathMode = !addressRepo && parts.dir !== "";
+  const word = addressRepo || pathMode ? "" : parts.leaf;
+  // The start view with the GitHub place open. A name finds repositories
+  // there and nothing else; a path still goes to the disk.
+  const inGitHub = githubOpen && here === null;
 
   // The folder whose contents the typed text is matched against: its own
   // folder part, or — for a bare word on the start view — the home folder,
   // because that is where `cd Desktop` starts from in a terminal.
-  const lookup = pathMode ? parts.dir : typed && here === null ? (home ?? "~") : "";
+  const lookup = pathMode
+    ? parts.dir
+    : typed && !addressRepo && !inGitHub && here === null
+      ? (home ?? "~")
+      : "";
   const lookupHidden = showHidden || parts.leaf.startsWith(".");
   const lookupBase = lookup && !isAbsolutePath(lookup) ? (here ?? home) : null;
   const previewKey = lookup ? `${lookup}\n${lookupHidden}\n${lookupBase ?? ""}` : "";
@@ -438,9 +508,11 @@ export function FolderPicker({
   const livePreview = preview && preview.key === previewKey ? preview : null;
 
   // A bare word is also looked up by name on the whole machine once it is long
-  // enough; a path is a place and never reaches the name search.
+  // enough; a path is a place and never reaches the name search, and neither
+  // does a name typed in the GitHub list.
+  const searchWord = inGitHub ? "" : word;
   useEffect(() => {
-    if (word.length < SEARCH_MIN) {
+    if (searchWord.length < SEARCH_MIN) {
       setHits(null);
       setSearching(false);
       return;
@@ -448,12 +520,12 @@ export function FolderPicker({
     let cancelled = false;
     setSearching(true);
     const handle = window.setTimeout(() => {
-      searchFolders(word)
+      searchFolders(searchWord)
         .then((res) => {
-          if (!cancelled) setHits({ word, entries: res.entries });
+          if (!cancelled) setHits({ word: searchWord, entries: res.entries });
         })
         .catch(() => {
-          if (!cancelled) setHits({ word, entries: [] });
+          if (!cancelled) setHits({ word: searchWord, entries: [] });
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
@@ -463,7 +535,7 @@ export function FolderPicker({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [word]);
+  }, [searchWord]);
 
   // A full path that names an existing folder is chosen as it is typed, with
   // no Enter needed: someone who types `C:\work\shop` and then clicks the
@@ -515,6 +587,35 @@ export function FolderPicker({
         name: recent.name,
         recent,
       }));
+    const repoRows = (items: GitHubRepoChoice[]): Row[] =>
+      items.map((repo) => {
+        const local = githubFolders[repo.name.toLowerCase()] ?? null;
+        return {
+          kind: "github",
+          key: `github:${repo.name}`,
+          path: local ?? `${GITHUB_KEY}${repo.name.toLowerCase()}`,
+          name: repo.name,
+          repo,
+          local,
+        };
+      });
+    const repos = github?.connected ? github.repos : [];
+    // Offered once the backend has answered, connected or not: the place says
+    // which, and the list it opens says how to connect.
+    const githubPlace: Row[] = github
+      ? [
+          {
+            kind: "github-place",
+            key: "github-place",
+            path: GITHUB_KEY,
+            name: t("ide_folder_picker.github_place"),
+            detail: github.connected ? github.login : t("ide_folder_picker.github_not_connected_detail"),
+          },
+        ]
+      : [];
+    // A bare word finds repositories from two letters on, like the search of
+    // the whole machine; one letter would match most of them.
+    const repoHits = word.length >= SEARCH_MIN ? matchRepos(repos, word).slice(0, HITS_SHOWN) : [];
 
     // The folder a new one would be made in, and what it already holds.
     let contextDir: { path: string | null; entries: FolderItem[] } | null = null;
@@ -523,12 +624,22 @@ export function FolderPicker({
       // Laid out by what the LISTING is, not by where the address bar already
       // points: while a folder is on its way, the one before it stays on
       // screen (dimmed, see `stale`) instead of the list going blank.
-      if (listing.path === null) {
+      if (listing.path === null && inGitHub) {
+        add(null, repoRows(repos));
+      } else if (listing.path === null) {
         add(t("ide_folder_picker.recent_folders"), recentRows(recents));
-        add(t("ide_folder_picker.places"), folderRows(listing.entries, true));
+        add(t("ide_folder_picker.places"), [...folderRows(listing.entries, true), ...githubPlace]);
       } else {
         add(null, folderRows(listing.entries));
       }
+    } else if (addressRepo) {
+      const known = github?.repos.find((repo) => sameName(repo.name, addressRepo));
+      add(
+        t("ide_folder_picker.from_github"),
+        repoRows([
+          known ?? { name: addressRepo, description: "", private: false, fork: false, url: "", pushed_at: "" },
+        ]),
+      );
     } else if (pathMode) {
       if (livePreview && !livePreview.error) {
         contextDir = { path: livePreview.path, entries: livePreview.entries };
@@ -537,13 +648,23 @@ export function FolderPicker({
           folderRows(matchByName(livePreview.entries, parts.leaf)),
         );
       }
+      // `octo/no` is a relative path to the disk and the start of a
+      // repository's name to GitHub; both are shown.
+      if (!isAbsolutePath(typed) && /^[^\\/]+\/[^\\/]*$/.test(typed)) {
+        add(t("ide_folder_picker.from_github"), repoRows(matchRepos(repos, typed).slice(0, HITS_SHOWN)));
+      }
+    } else if (inGitHub) {
+      add(null, repoRows(matchRepos(repos, word)));
     } else {
       if (here === null && listingIsHere) {
         // By NAME only. Matching the path as well put every recent folder that
         // lives on the Desktop above the Desktop itself, and "cd Desktop"
         // followed by Enter opened one of them.
         add(t("ide_folder_picker.recent_folders"), recentRows(matchByName(recents, word)));
-        add(t("ide_folder_picker.places"), folderRows(matchByName(listing.entries, word), true));
+        add(t("ide_folder_picker.places"), [
+          ...folderRows(matchByName(listing.entries, word), true),
+          ...matchByName(githubPlace, word),
+        ]);
         if (livePreview && !livePreview.error) {
           contextDir = { path: livePreview.path, entries: livePreview.entries };
           add(t("ide_folder_picker.in_home"), folderRows(matchByName(livePreview.entries, word)));
@@ -561,6 +682,7 @@ export function FolderPicker({
           folderRows(hits.entries.slice(0, HITS_SHOWN), true),
         );
       }
+      add(t("ide_folder_picker.from_github"), repoRows(repoHits));
     }
 
     // Nothing there is called anything like the typed name: the one thing
@@ -569,9 +691,10 @@ export function FolderPicker({
     // behind on the disk. While folders still match, the name is being
     // completed, not invented, and the offer would only be in the way.
     const foundElsewhere =
-      hits !== null &&
-      hits.word === word &&
-      hits.entries.some((entry) => sameName(entry.name, parts.leaf));
+      (hits !== null &&
+        hits.word === word &&
+        hits.entries.some((entry) => sameName(entry.name, parts.leaf))) ||
+      repoHits.some((repo) => sameName(repo.name.slice(repo.name.indexOf("/") + 1), parts.leaf));
     if (
       contextDir &&
       isFolderName(parts.leaf) &&
@@ -592,7 +715,24 @@ export function FolderPicker({
     }
 
     return { sections: out, listed: out.flatMap((section) => section.rows), context: contextDir };
-  }, [typed, here, recents, listing, listingIsHere, pathMode, livePreview, parts, word, hits, machine, t]);
+  }, [
+    typed,
+    here,
+    recents,
+    listing,
+    listingIsHere,
+    pathMode,
+    livePreview,
+    parts,
+    word,
+    hits,
+    machine,
+    t,
+    addressRepo,
+    inGitHub,
+    github,
+    githubFolders,
+  ]);
 
   // The list still shows the folder before this one: the address bar moved on
   // the click, the listing has not arrived. Those rows are dimmed and cannot
@@ -601,10 +741,19 @@ export function FolderPicker({
   const stale = !typed && !listingIsHere;
   const rows = stale ? NO_ROWS : listed;
 
+  const busy = loading || searching || (previewKey !== "" && !livePreview);
+
   // The first match is highlighted while a name is being typed, so Enter opens
   // it. With no name there is nothing to prefer, and Enter means the typed
-  // path itself (or, in the empty field, "use this folder").
-  const defaultIndex = parts.leaf && rows.length > 0 && rows[0].kind !== "create" ? 0 : -1;
+  // path itself (or, in the empty field, "use this folder"). A repository that
+  // would have to be downloaded comes first only once every folder lookup has
+  // answered: a folder of that name found a moment later must not lose to a
+  // download started by a quick Enter. A typed address means that repository,
+  // so it does not wait.
+  const first = rows[0];
+  const downloadFirst = first?.kind === "github" && !first.local;
+  const defaultIndex =
+    parts.leaf && first && first.kind !== "create" && !(downloadFirst && busy && !addressRepo) ? 0 : -1;
   const activeIndex =
     cursor && cursor.text === text && cursor.index < rows.length ? cursor.index : defaultIndex;
 
@@ -635,13 +784,80 @@ export function FolderPicker({
       .finally(() => setCreating(false));
   };
 
+  const githubOpenRef = useRef(githubOpen);
+  githubOpenRef.current = githubOpen;
+
+  /** The GitHub place: the start view, listing repositories. */
+  const openGitHub = () => {
+    previousRef.current = hereRef.current;
+    hereRef.current = null;
+    setHere(null);
+    setGithubOpen(true);
+    setText("");
+    setCursor(null);
+    setNotice(null);
+    inputRef.current?.focus();
+  };
+
+  const closeGitHub = () => {
+    setGithubOpen(false);
+    setText("");
+    setCursor(null);
+    setNotice(null);
+    inputRef.current?.focus();
+  };
+
+  /**
+   * Open a repository like a folder: the folder it already has on this
+   * computer, or the one it is downloaded into. Someone who went elsewhere
+   * while it downloaded stays there; the row then names the new folder.
+   */
+  const openRepo = (row: Extract<Row, { kind: "github" }>) => {
+    if (row.local) {
+      go(row.local);
+      return;
+    }
+    if (cloning) return;
+    const repo = row.repo.name;
+    const startedHere = hereRef.current;
+    const startedInGitHub = githubOpenRef.current;
+    setCloning(repo);
+    setNotice(null);
+    cloneGitHubRepo(repo)
+      .then((res) => {
+        if (!alive.current) return;
+        setGithubFolders((previous) => ({ ...previous, [repo.toLowerCase()]: res.folder }));
+        if (hereRef.current === startedHere && githubOpenRef.current === startedInGitHub) go(res.folder);
+      })
+      .catch((e) => {
+        if (alive.current) setNotice((e as Error).message);
+      })
+      .finally(() => {
+        if (alive.current) setCloning(null);
+      });
+  };
+
   const activate = (row: Row) => {
     if (row.kind === "create") {
       makeFolder(row.parent, row.name);
       return;
     }
+    if (row.kind === "github-place") {
+      openGitHub();
+      return;
+    }
+    if (row.kind === "github") {
+      openRepo(row);
+      return;
+    }
     go(row.path);
     if (row.kind === "recent") onSelectRecent?.(row.recent);
+  };
+
+  /** Tab writes a row's folder into the field; a place or a download has none yet. */
+  const completable = (row: Row | undefined): row is Row => {
+    if (!row || row.kind === "create" || row.kind === "github-place") return false;
+    return row.kind !== "github" || row.local !== null;
   };
 
   /**
@@ -651,19 +867,22 @@ export function FolderPicker({
    * folder from anywhere else is written out in full.
    */
   const complete = (row: Row) => {
-    if (row.kind === "create") return;
+    if (row.kind === "create" || row.kind === "github-place") return;
+    if (row.kind === "github" && !row.local) return;
     const sep = separatorOf(row.path);
     // The folder the typed text is read against. For a bare word that is known
-    // without waiting for any listing: the folder on screen, or home.
+    // without waiting for any listing: the folder on screen, or home. A
+    // repository's row is named `owner/name`, which is not its folder's name.
     const base = pathMode ? (context?.path ?? null) : (here ?? home);
-    const inside = base ? samePath(parentPath(row.path), base) : false;
+    const inside = base && row.kind !== "github" ? samePath(parentPath(row.path), base) : false;
     setText(inside ? `${parts.dir}${row.name}${sep}` : `${row.path.replace(/[\\/]+$/, "")}${sep}`);
     setCursor(null);
     setNotice(null);
   };
 
   const goUp = () => {
-    if (here !== null) go(parentPath(here));
+    if (inGitHub) closeGitHub();
+    else if (here !== null) go(parentPath(here));
   };
 
   const onFieldKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -694,7 +913,7 @@ export function FolderPicker({
     }
     if (event.key === "Tab" && !event.shiftKey && text) {
       const row = rows[activeIndex >= 0 ? activeIndex : 0];
-      if (row && row.kind !== "create") {
+      if (completable(row)) {
         event.preventDefault();
         complete(row);
       }
@@ -710,7 +929,7 @@ export function FolderPicker({
     }
     // Not on a held key: clearing a long text by holding Backspace would
     // otherwise run on up the folder tree once the field is empty.
-    if (event.key === "Backspace" && !text && !event.repeat && here !== null) {
+    if (event.key === "Backspace" && !text && !event.repeat && (here !== null || inGitHub)) {
       event.preventDefault();
       goUp();
     }
@@ -727,6 +946,9 @@ export function FolderPicker({
     const replacesAll =
       !input.value || (input.selectionStart === 0 && input.selectionEnd === input.value.length);
     if (!pasted || /[\r\n]/.test(pasted) || !replacesAll) return;
+    // A repository's address stays in the field with its one row highlighted:
+    // opening it means downloading it, which Enter or a click confirms.
+    if (gitHubRepoFromAddress(normalizeTypedPath(pasted))) return;
     if (!looksLikePath(normalizeTypedPath(pasted))) return;
     event.preventDefault();
     setText(pasted);
@@ -809,12 +1031,19 @@ export function FolderPicker({
 
   // ------------------------------------------------------------------ render
   const crumbs = here ? foldCrumbs(pathCrumbs(here)) : [];
-  const busy = loading || searching || (previewKey !== "" && !livePreview);
   const newFolderHome = here ?? t("ide_folder_picker.your_home_folder");
 
   let empty: string | null = null;
   if (listed.length === 0 && !busy) {
-    if (typed) {
+    if (inGitHub && !pathMode) {
+      empty =
+        github?.reason ||
+        (!github?.connected
+          ? t("ide_folder_picker.github_not_connected")
+          : typed
+            ? fill(t("ide_folder_picker.no_repo_match"), { query: typed })
+            : t("ide_folder_picker.github_empty"));
+    } else if (typed) {
       empty = livePreview?.error ?? fill(t("ide_folder_picker.no_match"), { query: typed });
     } else if (listing.error && listingIsHere) {
       empty = listing.error;
@@ -872,7 +1101,11 @@ export function FolderPicker({
           }}
           onKeyDown={onFieldKeyDown}
           onPaste={onFieldPaste}
-          placeholder={t("ide_folder_picker.search_placeholder")}
+          placeholder={
+            github?.connected
+              ? t("ide_folder_picker.search_placeholder_github")
+              : t("ide_folder_picker.search_placeholder")
+          }
           aria-label={t("ide_folder_picker.search_aria")}
           aria-controls="folder-picker-list"
           aria-invalid={notice ? true : undefined}
@@ -916,7 +1149,7 @@ export function FolderPicker({
         <IconButton
           label={t("ide_folder_picker.go_up")}
           onClick={goUp}
-          disabled={here === null}
+          disabled={here === null && !inGitHub}
         >
           <CornerLeftUp className="h-4 w-4" />
         </IconButton>
@@ -928,10 +1161,10 @@ export function FolderPicker({
             type="button"
             onClick={() => go(null)}
             title={fill(t("ide_folder_picker.start_title"), { machine })}
-            aria-current={here === null ? "location" : undefined}
+            aria-current={here === null && !inGitHub ? "location" : undefined}
             className={cn(
               CRUMB,
-              here === null ? "max-w-full shrink font-medium text-foreground" : "shrink-0",
+              here === null && !inGitHub ? "max-w-full shrink font-medium text-foreground" : "shrink-0",
             )}
           >
             <Monitor className="h-3.5 w-3.5 shrink-0" />
@@ -939,6 +1172,19 @@ export function FolderPicker({
                 title still, and the path needs the room more. */}
             <span className={cn("truncate", here !== null && "sr-only")}>{machine}</span>
           </button>
+          {inGitHub && (
+            <>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+              <span
+                aria-current="location"
+                data-testid="github-crumb"
+                className={cn(CRUMB, "shrink font-medium text-foreground hover:bg-transparent")}
+              >
+                <Github className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{t("ide_folder_picker.github_place")}</span>
+              </span>
+            </>
+          )}
           {crumbs.map((crumb, index) => {
             const last = index === crumbs.length - 1;
             return (
@@ -1117,6 +1363,7 @@ export function FolderPicker({
                     chosen={row.kind !== "create" && samePath(row.path, selected)}
                     home={home}
                     creating={creating}
+                    cloning={cloning}
                     showTerminals={Boolean(onSelectRecent)}
                     onActivate={activate}
                     onForget={(recent) => {
@@ -1226,6 +1473,7 @@ function PickerRow({
   chosen,
   home,
   creating,
+  cloning,
   showTerminals,
   onActivate,
   onForget,
@@ -1236,6 +1484,8 @@ function PickerRow({
   chosen: boolean;
   home: string | null;
   creating: boolean;
+  /** The repository being downloaded, if any. */
+  cloning: string | null;
   showTerminals: boolean;
   onActivate: (row: Row) => void;
   onForget: (recent: RecentWorkspace) => void;
@@ -1270,6 +1520,102 @@ function PickerRow({
             })}
           </span>
           {active && <kbd className={KEY}>↵</kbd>}
+        </button>
+      </li>
+    );
+  }
+
+  if (row.kind === "github-place") {
+    return (
+      <li className="group/row relative">
+        <button
+          type="button"
+          role="option"
+          aria-selected={active}
+          data-row={index}
+          data-testid="github-place"
+          onClick={() => onActivate(row)}
+          title={t("ide_folder_picker.github_title")}
+          className={cn(ROW, surface)}
+        >
+          <Github className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="max-w-[55%] shrink-0 truncate">{row.name}</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{row.detail}</span>
+          {active ? (
+            <kbd className={KEY}>↵</kbd>
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100" />
+          )}
+        </button>
+      </li>
+    );
+  }
+
+  if (row.kind === "github") {
+    const { repo, local } = row;
+    const downloading = cloning !== null && sameName(cloning, repo.name);
+    // One download at a time; a repository already here still opens.
+    const waiting = cloning !== null && !downloading && !local;
+    const pushed = local ? "" : lastUsedLabel(Date.parse(repo.pushed_at));
+    const title = local
+      ? local
+      : [fill(t("ide_folder_picker.download_title"), { repo: repo.name }), repo.description]
+          .filter(Boolean)
+          .join("\n");
+    return (
+      <li className="group/row relative">
+        <button
+          type="button"
+          role="option"
+          aria-selected={active}
+          aria-busy={downloading || undefined}
+          data-row={index}
+          data-testid="github-repo"
+          onClick={() => onActivate(row)}
+          disabled={downloading || waiting}
+          title={title}
+          className={cn(ROW, surface, waiting && "opacity-50")}
+        >
+          {downloading ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+          ) : (
+            <Github className={cn("h-4 w-4 shrink-0", chosen ? "text-primary" : "text-muted-foreground")} />
+          )}
+          <span
+            className={cn(
+              "truncate",
+              local || downloading ? "max-w-[55%] shrink-0" : "min-w-0 flex-1",
+              chosen && "font-medium",
+            )}
+          >
+            {repo.name}
+          </span>
+          {downloading ? (
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" role="status">
+              {t("ide_folder_picker.downloading")}
+            </span>
+          ) : (
+            local && (
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{local}</span>
+            )
+          )}
+          {repo.private && (
+            <Lock aria-label={t("ide_folder_picker.private_repo")} className="h-3 w-3 shrink-0 text-muted-foreground" />
+          )}
+          {pushed && !downloading && (
+            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">{pushed}</span>
+          )}
+          {chosen && <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={3} />}
+          {active ? (
+            <span className="flex shrink-0 items-center gap-1">
+              {local && <kbd className={KEY}>Tab</kbd>}
+              <kbd className={KEY}>↵</kbd>
+            </span>
+          ) : local ? (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100" />
+          ) : (
+            !downloading && <Download aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
         </button>
       </li>
     );

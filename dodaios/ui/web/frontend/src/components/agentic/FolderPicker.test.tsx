@@ -11,6 +11,13 @@ vi.mock("@/lib/agenticIdeApi", () => ({
   openNativePicker: vi.fn(),
   createFolder: vi.fn(),
 }));
+vi.mock("@/lib/gitApi", () => ({
+  cloneGitHubRepo: vi.fn(),
+  fetchLinkedFolders: vi.fn(),
+}));
+vi.mock("./sidePanel/git/gitOverviewApi", () => ({
+  fetchGitHubRepos: vi.fn(),
+}));
 
 import {
   FolderPicker,
@@ -26,8 +33,18 @@ import {
   separatorOf,
   splitTypedPath,
 } from "./FolderPicker";
-import { foldCrumbs, isFolderName, matchByName, parentPath, typedParts } from "./folderPaths";
+import {
+  foldCrumbs,
+  gitHubRepoFromAddress,
+  isFolderName,
+  matchByName,
+  matchRepos,
+  parentPath,
+  typedParts,
+} from "./folderPaths";
 import * as api from "@/lib/agenticIdeApi";
+import * as gitApi from "@/lib/gitApi";
+import * as githubApi from "./sidePanel/git/gitOverviewApi";
 
 const HOME = "/home/ruben";
 
@@ -41,6 +58,8 @@ const DISK: Record<string, string[]> = {
   "/home/ruben/notes": [],
   "/srv": ["deploy"],
   "/srv/deploy": [],
+  // Where a downloaded repository lands; not listed under any folder above.
+  "/clones/blog": [],
 };
 
 const REPOS = new Set(["/home/ruben/webshop"]);
@@ -114,6 +133,9 @@ beforeEach(() => {
   // headless install and a remote browser both report — so every test keeps
   // asserting against the path that must work everywhere.
   vi.mocked(api.fetchNativePickerSupport).mockResolvedValue({ available: false });
+  // A backend without the GitHub routes: no GitHub place, the lists as before.
+  vi.mocked(githubApi.fetchGitHubRepos).mockRejectedValue(new Error("no such route"));
+  vi.mocked(gitApi.fetchLinkedFolders).mockResolvedValue({});
 });
 
 afterEach(() => {
@@ -981,5 +1003,192 @@ describe("the chosen folder", () => {
     render(<FolderPicker selected="/x" onSelect={vi.fn()} showSelection={false} />);
     await screen.findByText("webshop");
     expect(screen.queryByTestId("folder-selection")).toBeNull();
+  });
+});
+
+describe("reading a GitHub address", () => {
+  it.each([
+    ["https://github.com/octo/tools", "octo/tools"],
+    ["https://github.com/octo/tools.git", "octo/tools"],
+    ["github.com/octo/tools/", "octo/tools"],
+    ["https://www.github.com/octo/tools/tree/main/src", "octo/tools"],
+    ["https://github.com/octo/tools?tab=readme", "octo/tools"],
+    ["git@github.com:octo/tools.git", "octo/tools"],
+    ["ssh://git@github.com/octo/next.js.git", "octo/next.js"],
+  ])("reads %s as %s", (text, repo) => {
+    expect(gitHubRepoFromAddress(text)).toBe(repo);
+  });
+
+  it.each(["octo/tools", "https://github.com/octo", "https://gitlab.com/octo/tools", "/home/octo/tools", "https://github.com/octo/.."])(
+    "does not read %s as a repository",
+    (text) => {
+      expect(gitHubRepoFromAddress(text)).toBeNull();
+    },
+  );
+
+  it("finds repositories by the start of their name first", () => {
+    const repos = [{ name: "octo/notebook" }, { name: "octo/blog" }, { name: "ruben/notes" }];
+    expect(matchRepos(repos, "no").map((repo) => repo.name)).toEqual(["octo/notebook", "ruben/notes"]);
+    expect(matchRepos(repos, "octo/b").map((repo) => repo.name)).toEqual(["octo/blog"]);
+    expect(matchRepos(repos, "log").map((repo) => repo.name)).toEqual(["octo/blog"]);
+  });
+});
+
+describe("GitHub repositories as folders", () => {
+  const repo = (name: string, extra: Partial<githubApi.GitHubRepoChoice> = {}) => ({
+    name,
+    description: "",
+    private: false,
+    fork: false,
+    url: `https://github.com/${name}`,
+    pushed_at: "2026-11-20T10:00:00Z",
+    ...extra,
+  });
+
+  function connected(repos: githubApi.GitHubRepoChoice[]) {
+    vi.mocked(githubApi.fetchGitHubRepos).mockResolvedValue({
+      connected: true,
+      source: "gh",
+      login: "ruben",
+      repos,
+      reason: "",
+    });
+  }
+
+  function repoRow(name: string): HTMLButtonElement {
+    const row = screen
+      .getAllByTestId("github-repo")
+      .find((button) => button.textContent?.includes(name));
+    if (!row) throw new Error(`no row for ${name}`);
+    return row as HTMLButtonElement;
+  }
+
+  it("is no place at all on a backend without GitHub", async () => {
+    await open();
+    expect(screen.queryByTestId("github-place")).toBeNull();
+  });
+
+  it("lists the repositories under a place, and opens one that is here already", async () => {
+    connected([repo("ruben/webshop"), repo("ruben/blog", { private: true })]);
+    vi.mocked(gitApi.fetchLinkedFolders).mockResolvedValue({ "ruben/webshop": "/home/ruben/webshop" });
+    const onSelect = await open();
+
+    const place = await screen.findByTestId("github-place");
+    expect(place.textContent).toContain("ruben");
+    fireEvent.click(place);
+
+    expect(screen.getByTestId("github-crumb").textContent).toContain("GitHub");
+    expect(repoRow("ruben/webshop").textContent).toContain("/home/ruben/webshop");
+    expect(screen.getByLabelText("Private")).toBeTruthy();
+    // The folders of the start view give way to the repositories.
+    expect(screen.queryByText("Places")).toBeNull();
+
+    fireEvent.click(repoRow("ruben/webshop"));
+    expect(onSelect).toHaveBeenCalledWith("/home/ruben/webshop");
+    expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
+  });
+
+  it("downloads a repository that is not here and chooses its folder", async () => {
+    connected([repo("ruben/blog")]);
+    let finish: (value: gitApi.GitHubClone) => void = () => {};
+    vi.mocked(gitApi.cloneGitHubRepo).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const onSelect = await open();
+    fireEvent.click(await screen.findByTestId("github-place"));
+    fireEvent.click(repoRow("ruben/blog"));
+
+    expect(gitApi.cloneGitHubRepo).toHaveBeenCalledWith("ruben/blog");
+    expect(await screen.findByText("Downloading…")).toBeTruthy();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await act(async () => finish({ folder: "/clones/blog", repo: "ruben/blog", created: true }));
+    expect(onSelect).toHaveBeenCalledWith("/clones/blog");
+    await waitFor(() => expect(screen.queryByTestId("github-crumb")).toBeNull());
+    expect(screen.getByRole("navigation").textContent).toContain("blog");
+  });
+
+  it("says why a download failed and keeps the choice", async () => {
+    connected([repo("ruben/blog")]);
+    vi.mocked(gitApi.cloneGitHubRepo).mockRejectedValue(new Error("Git could not download ruben/blog: not found"));
+    const onSelect = await open();
+    fireEvent.click(await screen.findByTestId("github-place"));
+    fireEvent.click(repoRow("ruben/blog"));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("could not download ruben/blog");
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(repoRow("ruben/blog").disabled).toBe(false);
+  });
+
+  it("finds repositories by a typed name, after the folders, and lists a folder once", async () => {
+    connected([repo("ruben/webshop"), repo("octo/blog")]);
+    vi.mocked(gitApi.fetchLinkedFolders).mockResolvedValue({ "ruben/webshop": "/home/ruben/webshop" });
+    await open();
+    await screen.findByTestId("github-place");
+
+    type("blo");
+    expect(await screen.findByText("From GitHub")).toBeTruthy();
+    expect(repoRow("octo/blog")).toBeTruthy();
+
+    type("webs");
+    await screen.findAllByText("webshop");
+    // ruben/webshop IS the webshop folder: it is listed as that folder only.
+    expect(screen.queryAllByTestId("github-repo")).toHaveLength(0);
+  });
+
+  it("does not start a download on a quick Enter while folders are still being looked up", async () => {
+    connected([repo("octo/blog")]);
+    vi.mocked(gitApi.cloneGitHubRepo).mockResolvedValue({ folder: "/clones/blog", repo: "octo/blog", created: true });
+    const onSelect = await open();
+    await screen.findByTestId("github-place");
+
+    type("blog");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
+
+    // Once nothing on the disk is called that, the repository is the match.
+    await waitFor(() => expect(repoRow("octo/blog").getAttribute("aria-selected")).toBe("true"));
+    type("blog");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith("/clones/blog"));
+    expect(gitApi.cloneGitHubRepo).toHaveBeenCalledWith("octo/blog");
+  });
+
+  it("offers the repository of a pasted address, also one that is not the person's own", async () => {
+    connected([]);
+    vi.mocked(gitApi.cloneGitHubRepo).mockResolvedValue({ folder: "/clones/blog", repo: "octo/tools", created: true });
+    const onSelect = await open();
+    const address = "https://github.com/octo/tools.git";
+
+    fireEvent.paste(field(), { clipboardData: { getData: () => address } });
+    type(address);
+    await waitFor(() => expect(repoRow("octo/tools").getAttribute("aria-selected")).toBe("true"));
+    // An address is not a path: nothing on the disk is asked for it.
+    expect(vi.mocked(api.fetchFolders).mock.calls.some(([target]) => String(target).includes("github"))).toBe(false);
+
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith("/clones/blog"));
+    expect(gitApi.cloneGitHubRepo).toHaveBeenCalledWith("octo/tools");
+  });
+
+  it("explains how to connect GitHub when it is not, and goes back with Backspace", async () => {
+    vi.mocked(githubApi.fetchGitHubRepos).mockResolvedValue({
+      connected: false,
+      source: "",
+      login: "",
+      repos: [],
+      reason: "",
+    });
+    await open();
+    const place = await screen.findByTestId("github-place");
+    expect(place.textContent).toContain("Not connected");
+    fireEvent.click(place);
+
+    expect(await screen.findByText(/GitHub is not connected/)).toBeTruthy();
+    fireEvent.keyDown(field(), { key: "Backspace" });
+    expect(await screen.findByText("Places")).toBeTruthy();
+    expect(screen.queryByTestId("github-crumb")).toBeNull();
   });
 });

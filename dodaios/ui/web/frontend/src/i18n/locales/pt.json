@@ -10066,7 +10066,18 @@
     "no_match": "Nenhuma pasta corresponde a “{query}”.",
     "folder_list": "Pastas",
     "loading": "A carregar…",
-    "truncated": "Só são mostradas as primeiras {count} pastas. Para abrir outra, escreve o nome dela e prime Enter."
+    "truncated": "Só são mostradas as primeiras {count} pastas. Para abrir outra, escreve o nome dela e prime Enter.",
+    "github_place": "GitHub",
+    "github_title": "Os teus repositórios do GitHub, como pastas",
+    "github_not_connected_detail": "Não ligado",
+    "from_github": "Do GitHub",
+    "github_not_connected": "O GitHub não está ligado. Liga-o em Plugins para veres aqui os teus repositórios, ou cola acima o endereço de um repositório.",
+    "github_empty": "Esta conta do GitHub ainda não tem repositórios.",
+    "no_repo_match": "Nenhum repositório corresponde a “{query}”.",
+    "download_title": "Transfere {repo} para este computador e abre a pasta",
+    "downloading": "A transferir…",
+    "private_repo": "Privado",
+    "search_placeholder_github": "Pesquisa pastas e repositórios ou escreve um caminho, p. ex. cd Desktop"
   },
   "shell_events": {
     "empty": "Ainda não há eventos. Emite um evento de teste no separador Debug.",

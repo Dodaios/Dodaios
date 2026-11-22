@@ -14,6 +14,9 @@ from dodaios.agentic_ide.git_ops import GitError
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
+#: The real one, kept before the fixture below replaces it for every test.
+_REAL_CLONE_HOME = github_clone.clone_home
+
 
 def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(
@@ -77,6 +80,34 @@ def test_a_folder_that_holds_something_else_is_left_alone(upstream: Path, tmp_pa
     assert exc.value.code == "exists"
 
 
+def test_the_clone_home_moves_beside_a_dodaios_folder_that_is_a_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert _REAL_CLONE_HOME() == tmp_path / "Dodaios"
+    (tmp_path / "Dodaios").mkdir()
+    assert _REAL_CLONE_HOME() == tmp_path / "Dodaios"
+    # Someone keeps the app's own source in ~/Dodaios: clones would be
+    # untracked folders in that checkout.
+    _git(tmp_path / "Dodaios", "init", "-q", "-b", "main")
+    assert _REAL_CLONE_HOME() == tmp_path / "Dodaios-repos"
+
+
+def test_a_plain_folder_inside_a_checkout_of_the_same_repository_is_not_taken_for_a_clone(
+    upstream: Path, tmp_path: Path
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    _git(home, "init", "-q", "-b", "main")
+    _git(home, "remote", "add", "origin", "https://github.com/octo/notes.git")
+    (home / "notes").mkdir()
+    (home / "notes" / "part.txt").write_text("of the checkout", encoding="utf-8")
+    cloned = github_clone.clone_repository("octo/notes", None)
+    assert cloned.created is True
+    assert cloned.folder == home / "notes-octo"
+    assert (home / "notes" / "part.txt").read_text(encoding="utf-8") == "of the checkout"
+
+
 @pytest.mark.parametrize("repo", ["notes", "octo/..", "octo/.", "../octo/notes", "octo/a b", ""])
 def test_only_an_owner_and_a_name_are_accepted(repo: str, tmp_path: Path) -> None:
     with pytest.raises(GitError) as exc:
@@ -137,6 +168,28 @@ def test_connected_folders_name_their_github_repository(
     monkeypatch.setattr(library, "list_projects", lambda include_archived=False: projects)
     monkeypatch.setattr(github_link, "bound_repository", lambda folder: "")
     assert github_clone.linked_repositories() == {"p1": "octo/app"}
+    assert github_clone.linked_folders() == {"octo/app": str(on_github)}
+
+
+def test_the_folder_of_a_repository_is_the_one_opened_last(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dodaios.ui.web import agentic_ide_git_routes as routes
+
+    main = tmp_path / "app"
+    worktree = tmp_path / "app-feature"
+    for folder in (main, worktree):
+        folder.mkdir()
+    projects = [
+        SimpleNamespace(id="p1", path=str(main), scratch=False, last_opened_at=10.0),
+        SimpleNamespace(id="p2", path=str(worktree), scratch=False, last_opened_at=20.0),
+    ]
+    monkeypatch.setattr(library, "list_projects", lambda include_archived=False: projects)
+    monkeypatch.setattr(github_link, "bound_repository", lambda folder: "Octo/App")
+    assert routes.linked_github_repositories() == {
+        "linked": {"p1": "Octo/App", "p2": "Octo/App"},
+        "folders": {"octo/app": str(worktree)},
+    }
 
 
 def test_the_clone_route_answers_with_the_folder_or_the_reason(
