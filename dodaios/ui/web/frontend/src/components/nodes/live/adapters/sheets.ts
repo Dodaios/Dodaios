@@ -3,8 +3,8 @@
  *
  * Built by hand, a sheet grows in a fixed order: the tab first, then the
  * header row, then the body row by row from the top. The frame wraps the
- * range written so far and grows downward; the name tag sits on its lower-left
- * corner. A row brings its values and its formatting together (it is one
+ * range written so far and grows downward; the cursor rests at the end of the
+ * last row written. A row brings its values and its formatting together (it is one
  * table row, so frozen columns fade with it). Totals that change because of
  * the new rows update in place with a brief, quiet highlight once the rows
  * are in.
@@ -100,7 +100,6 @@ function shownSheet(root: HTMLElement): number {
 }
 
 export const sheetsReveal: RevealAdapter = {
-  tagCorner: "bottom",
   steps: (input) => {
     const { previous, next, initial, root } = input as RevealInput<SheetsSpec>;
     const sheet = shownSheet(root);

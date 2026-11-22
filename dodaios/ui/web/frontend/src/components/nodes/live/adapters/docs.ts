@@ -31,6 +31,8 @@ function stepFor(change: BlockChange): RevealStep {
 }
 
 export const docsReveal: RevealAdapter = {
+  // The text editor draws after React: its blocks may land just after the batch started.
+  lateJoin: true,
   steps(input: RevealInput): RevealStep[] {
     const content = editorOf(input.root);
     if (!content) return defaultReveal.steps(input);

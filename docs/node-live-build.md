@@ -75,6 +75,7 @@ interface RevealStep {
 
 interface RevealAdapter<S> {
   steps(input: RevealInput<S>): RevealStep[];   // in the order they play
+  lateJoin?: boolean;      // DOM changes just after the batch started join it (docs only)
 }
 ```
 
@@ -100,8 +101,13 @@ elements alone instead of growing around everything written. An `{ element }`
 target may sit inside a shadow root of the body (the slide canvas does).
 
 A step may set `framed: false` to play without growing the presence frame (a
-new tab in a tab bar). An adapter may set `tagCorner: "bottom"` to put the name
-tag on the frame's lower-left corner (default: top-left).
+new tab in a tab bar).
+
+An adapter sets `lateJoin: true` only when its editor draws after React's
+commit (the docs text editor): then DOM changes in the body within
+`captureMs` of the batch start join it as units. Every other type leaves it
+off. There such changes are the editor's own chrome (the Clips time readout,
+a ruler, a counter), and the frame and cursor would jump to them.
 
 To use `path` targets, add `data-live-path="<JSON Pointer>"` to the elements
 that draw spec items.
@@ -120,15 +126,37 @@ that draw spec items.
 ## Presence and tokens
 
 `LivePresence.tsx` draws the pieces and `LivePlayer` (`playback.ts`) moves
-them. The look is black and white, from tokens in `src/index.css` for both
-themes:
+them. They are the ones a colleague's cursor has in a shared document:
+
+- **The cursor**: a small arrow (16 px) with a light rim and a soft shadow.
+  While text is written at a caret it stays at the caret. Otherwise it rests
+  at the end of the last line written, or at the lower right corner of a
+  picture, chart or shape. An editor's controls inside a block ("Add row")
+  and a chart's axis labels are not its text. The cursor moves with an
+  exponential ease-out that is re-aimed every frame (`CARET_EASE_MS`,
+  `HOP_EASE_MS`), so it keeps up with a caret that moves every few
+  milliseconds. When the element it rests on scrolls, the cursor moves with it.
+- **The name tag** is fixed to the cursor, below and to the right of the
+  tip. Near the right or bottom edge it moves to the left or above. Between
+  edits, after `THINKING_AFTER_MS` of quiet, the tag shows the status instead
+  of the name ("Dodaios is working…", on a whiteboard "Dodaios is drawing"),
+  with a slow sheen over the words. There is no separate status pill.
+- **The frame** grows around what this batch has written. When the next
+  target does not overlap it (the next slide, a part of the editor far away),
+  the frame does not glide across the editor. It lands on the new target and
+  fades in.
+- Nothing is drawn until the cursor rests on something written
+  (`data-placed`). Before that, the chat card's "being built" line is the
+  only sign.
+
+The look is black and white, from tokens in `src/index.css` for both themes:
 
 | Token | Light | Dark | Used for |
 |-------|-------|------|----------|
 | `--presence-ink` | near-black | near-white | cursor fill, frame, tag ground |
 | `--presence-on-ink` | near-white | near-black | tag text, cursor rim |
 | `--presence-frame-alpha` | 0.55 | 0.6 | the frame's strength |
-| `--presence-pill-bg`, `--presence-pill-ink` | | | the status pill |
+| `--presence-pill-bg`, `--presence-pill-ink` | | | the slides editor's "working on slide N" chip |
 | `--presence-skeleton`, `--presence-skeleton-sheen` | | | skeleton blocks and their shimmer |
 
 When two or more agents build at once, `presenceTint` gives each one a muted
@@ -145,8 +173,16 @@ tint. A single agent is always the plain ink. Do not use gold, hues or glow.
 | `maxBatchMs` | 3000 | A batch never plays longer. Long batches are compressed. |
 | `maxUnits` | 60 | More units are revealed in groups. |
 | `settleWaitMs` | 160 | The wait before a retry, and before opening mid-build. |
-| `captureMs` | 700 | DOM changes this long after the batch started still join it. |
+| `captureMs` | 700 | DOM changes this long after the batch started still join it (only with `lateJoin`). |
 | `openSlideMs` | 150 | The node window sliding in. |
+
+The presence, also in `playback.ts`:
+
+| Name | Value | Meaning |
+|------|-------|---------|
+| `CARET_EASE_MS` | 35 | The cursor's ease-out time constant while it follows a caret. |
+| `HOP_EASE_MS` | 110 | The same for a move from one written block to the next. |
+| `THINKING_AFTER_MS` | 600 | Quiet after a batch before the tag shows the status. |
 
 Presence fades `PRESENCE_LINGER_MS` (1.5 s) after the agent's turn ends. A
 build with no agent write for `IDLE_SETTLE_MS` (90 s) ends anyway.

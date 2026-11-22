@@ -53,7 +53,7 @@ it("shows the agent's presence with its name while it builds", () => {
   render(<Harness lines={["One"]} remote={null} />);
   const presence = screen.getByTestId("live-presence");
   expect(presence.getAttribute("data-visible")).toBe("true");
-  expect(screen.getByTestId("live-presence-tag").textContent).toBe("Ada");
+  expect(screen.getByTestId("live-presence-name").textContent).toBe("Ada");
 });
 
 it("shows no presence for the person's own saves", () => {

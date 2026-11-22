@@ -102,6 +102,8 @@ export function LiveBuildLayer({
   /* What changes in the body, from the push until the editor drew the new spec. */
   const capture = useRef<Capture>({ state: "off", records: [], until: 0 });
   const observer = useRef<MutationObserver | null>(null);
+  /** The playing batch's adapter takes late DOM changes as units (`RevealAdapter.lateJoin`). */
+  const lateJoin = useRef(false);
   useEffect(() => {
     const root = body.current;
     if (!root || typeof MutationObserver === "undefined") return;
@@ -109,7 +111,7 @@ export function LiveBuildLayer({
       const now = capture.current;
       if (now.state === "armed") {
         now.records.push(...records);
-      } else if (now.state === "playing" && performance.now() < now.until) {
+      } else if (now.state === "playing" && lateJoin.current && performance.now() < now.until) {
         // An editor that draws after React (a text editor) joins the batch here,
         // before the browser paints, so nothing flashes at full strength.
         const late = changedElements(records, root);
@@ -156,12 +158,12 @@ export function LiveBuildLayer({
 
   /** Play an adapter's steps; a type adapter whose targets are not drawn yet is asked once more. */
   const playSteps = useCallback(
-    (steps: (root: HTMLElement) => RevealStep[], changed: Element[], retry: boolean, tagCorner: "top" | "bottom" = "top") => {
+    (steps: (root: HTMLElement) => RevealStep[], changed: Element[], retry: boolean, late: boolean) => {
       const root = body.current;
       const playing = ensurePlayer();
       if (!root || !playing) return;
+      lateJoin.current = late;
       const units = unitsFor(steps(root), root, changed);
-      playing.tagCorner = tagCorner;
       playing.play(units);
       if (units.length === 0 && retry) {
         window.setTimeout(() => {
@@ -193,7 +195,7 @@ export function LiveBuildLayer({
       (at) => adapter.steps({ type: node.nodeType, previous: remote.previous, next: remote.next, ops: range.ops, initial: false, root: at }),
       changed,
       true,
-      adapter.tagCorner,
+      adapter.lateJoin === true,
     );
     // Only `seq` says that a new revision arrived.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,7 +224,7 @@ export function LiveBuildLayer({
         (at) => adapter.steps({ type: live.nodeType, previous: null, next: editor.spec, ops: null, initial: true, root: at }),
         [],
         false,
-        adapter.tagCorner,
+        adapter.lateJoin === true,
       );
     }, LIVE_TIMING.settleWaitMs);
     return () => {

@@ -1,7 +1,8 @@
 /**
- * The agent's presence over a board it is drawing: the shared look (cursor,
- * name tag, frame, status pill) from the live-build core, moved by the shared
- * player.
+ * The agent's presence over a board it is drawing: the shared look (cursor
+ * with its name tag, frame) from the live-build core, moved by the shared
+ * player. The tag also says that the assistant is drawing, so the board shows
+ * no badge of its own.
  *
  * The canvas has no DOM per element, so the player is given one invisible
  * marker per piece, laid out in scene units inside a layer that follows the
@@ -17,7 +18,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useThemeValue } from "@/hooks/useTheme";
-import { fill, useT } from "@/i18n";
+import { useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { piecePath, whiteboardReveal } from "../../live/adapters/whiteboard";
 import { LivePresence, presenceTint } from "../../live/LivePresence";
@@ -131,7 +132,6 @@ export function BoardPresence({
           initial: false,
           root: boardEl,
         });
-        player.current.tagCorner = whiteboardReveal.tagCorner ?? "top";
         player.current.play(unitsFor(steps, boardEl, []));
       },
       finished: () => player.current?.finish(),
@@ -162,7 +162,7 @@ export function BoardPresence({
   }, [build]);
 
   const name = authorName(live?.author, assistantName);
-  const status = live?.step || fill(t("nodes.live.working"), { name });
+  const status = live?.step || t("nodes.whiteboard.live.drawing").replace("{assistant}", () => name);
   const tint = live?.author ? presenceTint(live.author.id, authors ? authors.split("\n") : [], theme === "dark") : null;
   return (
     <>

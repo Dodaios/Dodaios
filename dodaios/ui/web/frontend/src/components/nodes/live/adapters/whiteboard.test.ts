@@ -36,8 +36,4 @@ describe("the whiteboard reveal", () => {
     root.appendChild(marker);
     expect(elementForPath(root, "/elements/box")).toBe(marker);
   });
-
-  it("puts the name tag above the frame", () => {
-    expect(whiteboardReveal.tagCorner).toBe("top");
-  });
 });

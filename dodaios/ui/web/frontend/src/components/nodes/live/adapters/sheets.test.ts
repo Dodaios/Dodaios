@@ -68,10 +68,9 @@ describe("what a sheet edit changed", () => {
 });
 
 describe("the sheets reveal", () => {
-  it("plays the header, then the new rows top to bottom, with the tag on the lower-left corner", () => {
+  it("plays the new rows top to bottom", () => {
     const before = spec([{ item: "a", cost: 1 }]);
     const after = spec([{ item: "a", cost: 1 }, { item: "b", cost: 2 }, { item: "c", cost: 3 }]);
-    expect(sheetsReveal.tagCorner).toBe("bottom");
     expect(pathsOf(run(before, after, grid(after)))).toEqual(["/sheets/0/rows/1", "/sheets/0/rows/2"]);
   });
 

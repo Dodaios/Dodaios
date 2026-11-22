@@ -157,7 +157,7 @@ describe("the player with a unit's own motion", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const make = () => host.appendChild(document.createElement("div"));
-    return { host, elements: { cursor: make(), frame: make(), tag: make(), pill: make() } };
+    return { host, elements: { cursor: make(), frame: make(), tag: make() } };
   }
 
   it("runs prepare, start, each step and finish, and finishes at once when interrupted", () => {

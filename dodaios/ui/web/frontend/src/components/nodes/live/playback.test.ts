@@ -8,6 +8,7 @@ import {
   readingOrder,
   revealDelays,
   unitsFor,
+  THINKING_AFTER_MS,
   type PresenceElements,
 } from "./playback";
 import { defaultReveal } from "./reveal";
@@ -109,7 +110,7 @@ describe("the player", () => {
     vi.useFakeTimers();
     host = html("");
     const make = () => host.appendChild(document.createElement("div"));
-    view = { cursor: make(), frame: make(), tag: make(), pill: make() };
+    view = { cursor: make(), frame: make(), tag: make() };
     animate.mockClear();
   });
 
@@ -127,10 +128,49 @@ describe("the player", () => {
     expect(host.dataset.phase).toBe("writing");
     vi.advanceTimersByTime(LIVE_TIMING.staggerMs * 3);
     expect(player.playing).toBe(false);
+    // The tag says the agent is working only after a quiet moment, never between quick batches.
+    expect(host.dataset.phase).toBe("writing");
+    vi.advanceTimersByTime(THINKING_AFTER_MS);
     expect(host.dataset.phase).toBe("thinking");
     // 3 holds + 3 fades.
     expect(animate).toHaveBeenCalledTimes(6);
     player.destroy();
+  });
+
+  it("keeps writing while a unit's own motion still runs after its turn came", () => {
+    const player = new LivePlayer(host, view, () => false);
+    const [unit] = units(1);
+    let finished = false;
+    const motion = {
+      durationMs: 1_000,
+      steps: 4,
+      prepare: vi.fn(),
+      start: vi.fn(),
+      advance: vi.fn(),
+      finish: vi.fn(() => {
+        finished = true;
+      }),
+    };
+    player.play([{ ...unit, motion }]);
+    vi.advanceTimersByTime(10);
+    // Revealed, but its text is still being written: no "working" status yet.
+    expect(motion.start).toHaveBeenCalled();
+    expect(player.playing).toBe(true);
+    vi.advanceTimersByTime(THINKING_AFTER_MS);
+    expect(host.dataset.phase).toBe("writing");
+    vi.advanceTimersByTime(LIVE_TIMING.maxBatchMs);
+    expect(finished).toBe(true);
+    expect(player.playing).toBe(false);
+    vi.advanceTimersByTime(THINKING_AFTER_MS);
+    expect(host.dataset.phase).toBe("thinking");
+    player.destroy();
+  });
+
+  it("shows nothing until it has placed the cursor on something written", () => {
+    const player = new LivePlayer(host, view, () => false);
+    expect(host.dataset.placed).toBe("false");
+    player.destroy();
+    expect(host.dataset.placed).toBe("false");
   });
 
   it("finishes at once when the person acts, and stops following the writing", () => {
@@ -194,5 +234,31 @@ describe("the player", () => {
     const onReveal = vi.fn();
     const [unit] = unitsFor([{ target: { selector: "p" }, onReveal, visible: true, solo: true }], root, []);
     expect(unit).toMatchObject({ visible: true, solo: true, onReveal });
+  });
+});
+
+describe("where the cursor rests", () => {
+  it("finds the last written text, not an editor's control or a chart's labels", async () => {
+    const { textEnd } = await import("./playback");
+    const root = document.createElement("div");
+    root.innerHTML = `<table><tr><td>Filter</td><td id="last">388</td></tr></table><button>Add row</button><svg><text>60</text></svg>`;
+    document.body.appendChild(root);
+    const seen: string[] = [];
+    const original = document.createRange.bind(document);
+    document.createRange = () => {
+      const range = original();
+      const setStart = range.setStart.bind(range);
+      range.setStart = (node: Node, offset: number) => {
+        seen.push(node.textContent ?? "");
+        setStart(node, offset);
+      };
+      return range;
+    };
+    try {
+      textEnd(root);
+    } finally {
+      document.createRange = original;
+    }
+    expect(seen).toEqual(["388"]);
   });
 });
