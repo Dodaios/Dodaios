@@ -33,6 +33,8 @@ def _isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
     monkeypatch.setattr(github_clone, "clone_home", lambda: tmp_path / "home")
+    # No connected folders unless a test names some: never the real ones.
+    monkeypatch.setattr(library, "list_projects", lambda include_archived=False: [])
 
 
 @pytest.fixture
@@ -91,6 +93,24 @@ def test_the_clone_home_moves_beside_a_dodaios_folder_that_is_a_checkout(
     # untracked folders in that checkout.
     _git(tmp_path / "Dodaios", "init", "-q", "-b", "main")
     assert _REAL_CLONE_HOME() == tmp_path / "Dodaios-repos"
+
+
+def test_a_repository_that_is_a_connected_folder_is_never_downloaded_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "work" / "notes"
+    project.mkdir(parents=True)
+    projects = [SimpleNamespace(id="p1", path=str(project), scratch=False, last_opened_at=1.0)]
+    monkeypatch.setattr(library, "list_projects", lambda include_archived=False: projects)
+    monkeypatch.setattr(github_link, "bound_repository", lambda folder: "Octo/Notes")
+
+    def no_git(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("nothing may be downloaded")
+
+    monkeypatch.setattr(git_ops, "_run", no_git)
+    cloned = github_clone.clone_repository("octo/notes", None)
+    assert cloned == github_clone.Cloned(folder=project, repo="octo/notes", created=False)
+    assert not (tmp_path / "home").exists()
 
 
 def test_a_plain_folder_inside_a_checkout_of_the_same_repository_is_not_taken_for_a_clone(

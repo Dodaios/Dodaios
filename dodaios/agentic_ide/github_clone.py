@@ -3,8 +3,8 @@
 The thread composer and the folder picker list the person's GitHub
 repositories next to the folders already connected. A repository that is not
 on this computer yet is cloned into ``~/Dodaios/<name>``; the caller then uses
-that folder like any other. A repository that is already there is reused,
-never cloned twice or overwritten.
+that folder like any other. A repository that is already there, as a connected
+folder or as an earlier clone, is reused, never cloned twice or overwritten.
 """
 
 from __future__ import annotations
@@ -120,17 +120,30 @@ def _discard(folder: Path) -> None:
         shutil.rmtree(folder, onerror=_writable)
 
 
-def clone_repository(repo: str, cred: github_link.Credential | None) -> Cloned:
-    """Clone ``owner/name`` into the clone home, or find it there.
+def _connected_folder(repo: str) -> Path | None:
+    """The connected folder that already is ``repo``, if one exists."""
+    folder = linked_folders().get(repo.lower())
+    if folder and Path(folder).is_dir():
+        return Path(folder)
+    return None
 
-    The GitHub connection's login is tried first (private repositories); a
-    second try without it covers a public repository and a login that git's
-    own credential helper holds.
+
+def clone_repository(repo: str, cred: github_link.Credential | None) -> Cloned:
+    """Clone ``owner/name`` into the clone home, or find it on this computer.
+
+    A connected folder that is the repository is answered first, so a picker
+    that asked before it knew which folders are which never downloads a second
+    copy of a project the person already has. The GitHub connection's login is
+    tried first (private repositories); a second try without it covers a
+    public repository and a login that git's own credential helper holds.
     """
     repo = _valid(repo)
     if not git_ops.git_available():
         raise GitError("Git is not installed.", code="missing")
     with _lock_for(repo):
+        here = _connected_folder(repo)
+        if here is not None:
+            return Cloned(folder=here, repo=repo, created=False)
         target, existing = _destination(repo)
         if existing:
             return Cloned(folder=target, repo=repo, created=False)

@@ -1088,6 +1088,26 @@ describe("GitHub repositories as folders", () => {
     expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
   });
 
+  it("waits for which repositories are here already before offering any", async () => {
+    connected([repo("ruben/webshop")]);
+    let answer: (folders: Record<string, string>) => void = () => {};
+    vi.mocked(gitApi.fetchLinkedFolders).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const onSelect = await open();
+    // Offered now, ruben/webshop would be a download of a folder that exists.
+    await act(async () => {});
+    expect(screen.queryByTestId("github-place")).toBeNull();
+
+    await act(async () => answer({ "ruben/webshop": "/home/ruben/webshop" }));
+    fireEvent.click(await screen.findByTestId("github-place"));
+    fireEvent.click(repoRow("ruben/webshop"));
+    expect(onSelect).toHaveBeenCalledWith("/home/ruben/webshop");
+    expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
+  });
+
   it("downloads a repository that is not here and chooses its folder", async () => {
     connected([repo("ruben/blog")]);
     let finish: (value: gitApi.GitHubClone) => void = () => {};

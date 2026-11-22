@@ -263,8 +263,10 @@ export function FolderPicker({
   // The person's GitHub repositories; null until the backend has answered, and
   // for good on a backend without the route (the GitHub place stays away).
   const [github, setGithub] = useState<GitHubRepoList | null>(null);
-  // `owner/name` (lower case) → the folder it is on this computer.
-  const [githubFolders, setGithubFolders] = useState<Record<string, string>>({});
+  // `owner/name` (lower case) → the folder it is on this computer; null until
+  // known. The GitHub rows wait for it: a row that offered a download before
+  // the answer came would download a project the person already has.
+  const [githubFolders, setGithubFolders] = useState<Record<string, string> | null>(null);
   // The GitHub place is open: the start view lists repositories instead.
   const [githubOpen, setGithubOpen] = useState(false);
   // The repository being downloaded; one at a time.
@@ -354,7 +356,9 @@ export function FolderPicker({
         if (alive.current) setGithubFolders(folders);
       })
       .catch(() => {
-        /* every repository then offers a download, which finds an earlier clone */
+        // Every repository then offers a download; the backend still answers
+        // a connected folder or an earlier clone instead of downloading again.
+        if (alive.current) setGithubFolders({});
       });
   }, [load]);
 
@@ -589,7 +593,7 @@ export function FolderPicker({
       }));
     const repoRows = (items: GitHubRepoChoice[]): Row[] =>
       items.map((repo) => {
-        const local = githubFolders[repo.name.toLowerCase()] ?? null;
+        const local = githubFolders?.[repo.name.toLowerCase()] ?? null;
         return {
           kind: "github",
           key: `github:${repo.name}`,
@@ -599,10 +603,13 @@ export function FolderPicker({
           local,
         };
       });
-    const repos = github?.connected ? github.repos : [];
+    // Both answers first: which repositories there are, and which of them are
+    // on this computer already.
+    const githubReady = github !== null && githubFolders !== null;
+    const repos = githubReady && github.connected ? github.repos : [];
     // Offered once the backend has answered, connected or not: the place says
     // which, and the list it opens says how to connect.
-    const githubPlace: Row[] = github
+    const githubPlace: Row[] = githubReady
       ? [
           {
             kind: "github-place",
@@ -833,7 +840,7 @@ export function FolderPicker({
     cloneGitHubRepo(repo)
       .then((res) => {
         if (!alive.current) return;
-        setGithubFolders((previous) => ({ ...previous, [repo.toLowerCase()]: res.folder }));
+        setGithubFolders((previous) => ({ ...(previous ?? {}), [repo.toLowerCase()]: res.folder }));
         if (hereRef.current === startedHere && githubOpenRef.current === startedInGitHub) go(res.folder);
       })
       .catch((e) => {
