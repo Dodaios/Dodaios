@@ -712,8 +712,8 @@ class TTSConfig(BaseModel):
 
 #: The closed vocabulary of per-model Ollama options a user may pin under
 #: ``[brain.providers.ollama.models."<tag>"]``. Source of truth for the
-#: config_writer's closed-key check and the TS mirror
-#: (``src/lib/ollamaModelOptions.ts``); a parity test pins the three together
+#: config_writer's closed-key check and the route body; a parity test pins
+#: them together
 #: (AP-4). Everything here is an Ollama *request option* except the last two:
 #: ``keep_alive`` rides the warm ping and ``think`` rides the OpenAI-compat
 #: ``reasoning_effort`` field (verified live on Ollama 0.32.15).

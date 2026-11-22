@@ -2,8 +2,8 @@
 
 Same anti-drift contract as ``test_hangup_reason_parity.py``: the set of spoken
 phrase-kinds (timeout / announcement / clarify / …) must agree across every
-layer, so the Transcription view's per-kind label covers every value the
-pipeline can emit. A drift fails this test instead of shipping a missing label.
+layer, so the frontend's types cover every value the pipeline can emit. A
+drift fails this test instead of shipping an unknown kind.
 
 Layers under test:
 
@@ -11,8 +11,6 @@ Layers under test:
 2. ``dodaios/sessions/models.py``          — ``KNOWN_SPOKEN_KINDS`` frozenset (mirror)
 3. ``dodaios/ui/web/frontend/.../sessions/types.ts``
                                           — ``KNOWN_SPOKEN_KINDS`` const tuple
-4. ``dodaios/ui/web/frontend/.../sessions/TurnCard.tsx``
-                                          — the ``SPOKEN_KIND_LABEL`` map
 """
 from __future__ import annotations
 
@@ -24,11 +22,6 @@ from dodaios.sessions.models import KNOWN_SPOKEN_KINDS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TYPES_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/types.ts"
-TURN_CARD_TSX = (
-    REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/TurnCard.tsx"
-)
-
-
 def _expected() -> set[str]:
     return set(SPOKEN_KINDS)
 
@@ -49,22 +42,4 @@ def test_types_ts_known_set_matches_constants_tuple() -> None:
     assert found == _expected(), (
         f"types.ts drift: extra={found - _expected()}, "
         f"missing={_expected() - found}"
-    )
-
-
-def test_turn_card_label_map_covers_every_kind() -> None:
-    """``SPOKEN_KIND_LABEL`` in TurnCard.tsx must have a label for every kind,
-    so no recorded spoken phrase renders without a human-readable tag."""
-    text = TURN_CARD_TSX.read_text(encoding="utf-8")
-    block = re.search(
-        r"SPOKEN_KIND_LABEL[^=]*=\s*\{([\s\S]+?)\}",
-        text,
-    )
-    assert block is not None, "could not find SPOKEN_KIND_LABEL map in TurnCard.tsx"
-    keys = set(re.findall(r'(?:"([^"]+)"|(\w+))\s*:', block.group(1)))
-    # findall with two groups yields tuples — flatten to the non-empty member.
-    flat = {a or b for (a, b) in keys}
-    assert flat == _expected(), (
-        f"TurnCard.tsx SPOKEN_KIND_LABEL drift: extra={flat - _expected()}, "
-        f"missing={_expected() - flat}"
     )

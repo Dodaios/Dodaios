@@ -106,8 +106,7 @@ def test_live_db_distinct_hangup_reasons_all_validate() -> None:
     Pydantic. This is the sharp drift detector — if this test goes
     red, a new value was introduced in the pipeline without anyone
     updating ``KNOWN_HANGUP_REASONS``. Then: add the value to the
-    constant + extend ``hangupLabel`` in the frontend
-    (dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx).
+    constant and to the frontend's ``types.ts``.
     """
     con = sqlite3.connect(str(_LIVE_DB))
     try:
@@ -122,7 +121,7 @@ def test_live_db_distinct_hangup_reasons_all_validate() -> None:
     assert not unknown, (
         f"New hangup_reason values in data/sessions.db: {sorted(unknown)}. "
         f"Please add them to KNOWN_HANGUP_REASONS in dodaios/sessions/models.py "
-        f"and to the frontend (types.ts + SessionList.hangupLabel)."
+        f"and to the frontend (types.ts)."
     )
 
     # Plus: every value MUST be Pydantic-validatable. This protects
