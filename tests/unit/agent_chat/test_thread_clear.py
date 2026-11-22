@@ -226,6 +226,22 @@ async def test_a_name_after_the_command_becomes_the_title(service, store):
     assert store.list_events(sid)[-1]["payload"]["title"] == "login bug"
 
 
+async def test_a_worktree_put_away_stays_away_for_a_clear(service, store, monkeypatch):
+    """Clearing needs no folder: a rested thread's worktree is not made again for it."""
+    from dodaios.orchestrator.verification import workdir
+
+    sid = _thread(store)
+    _one_turn(store, sid, "first topic", "an answer")
+    monkeypatch.setattr(workdir, "away", lambda folder: True)
+
+    def restore(folder: str) -> bool:
+        raise AssertionError("a clear restored the worktree")
+
+    monkeypatch.setattr(workdir, "restore", restore)
+    await service.send(sid, "/clear")
+    assert store.get_session(sid).cleared_seq == 5
+
+
 async def test_a_working_thread_is_not_cleared_under_its_turn(service, store):
     sid = _thread(store)
     _one_turn(store, sid, "first topic", "an answer")

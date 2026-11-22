@@ -1950,13 +1950,6 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
-        if session.surface == "agent":
-            # A worktree the app made for this thread and put away while the
-            # thread rested is back before the turn needs its folder.
-            from dodaios.orchestrator.verification import workdir
-
-            if workdir.away(session.cwd):
-                await asyncio.to_thread(workdir.restore, session.cwd)
         # Nothing was typed for a background result: it passes the gates a
         # control-owned message passes, and keeps the person's standing.
         control_owned = control_owned or background_result
@@ -1968,9 +1961,17 @@ class AgentChatService:
             and thread_clear.wants_clear(session, text, attachments)
         ):
             # "/clear" the person typed in a coding thread: the thread starts
-            # over, and no turn runs for it (``thread_clear``).
+            # over, and no turn runs for it (``thread_clear``). It needs no
+            # folder, so a worktree put away stays away.
             await self.clear_conversation(session_id, name=thread_clear.clear_name(text) or "")
             return ""
+        if session.surface == "agent":
+            # A worktree the app made for this thread and put away while the
+            # thread rested is back before the turn needs its folder.
+            from dodaios.orchestrator.verification import workdir
+
+            if workdir.away(session.cwd):
+                await asyncio.to_thread(workdir.restore, session.cwd)
         if session.surface == "society":
             session = await self.bind_society_session(session_id, routine_run=routine_run)
         selected_runner = None
