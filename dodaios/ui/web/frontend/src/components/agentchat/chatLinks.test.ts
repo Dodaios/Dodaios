@@ -32,6 +32,16 @@ describe("chat file links", () => {
     expect(chatLinkAction(chatUrlTransform(name))).toEqual({ type: "local", path: name });
   });
 
+  it.each([
+    ["src/app.ts#L42", "src/app.ts"],
+    ["notes.md:3", "notes.md"],
+    ["/Users/me/repo/app.py:12", "/Users/me/repo/app.py"],
+  ])("keeps the line on a linked file %s, and the computer opens the file", (raw, file) => {
+    const href = chatUrlTransform(raw);
+    expect(href).toBe("#jarvis-local=" + encodeURIComponent(raw));
+    expect(chatLinkAction(href)).toEqual({ type: "local", path: file });
+  });
+
   it("opens a preserved local path and still sends web links out", () => {
     const href = chatUrlTransform("C:/Users/me/Clip.mp4");
     expect(chatLinkAction(href)).toEqual({ type: "local", path: "C:/Users/me/Clip.mp4" });

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import type { ShikiTransformer } from "shiki";
 
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ type ShikiHighlighterApi = {
       lang: string;
       themes: { light: string; dark: string };
       defaultColor: string;
+      transformers?: ShikiTransformer[];
     },
   ) => string;
 };
@@ -86,13 +88,19 @@ interface CodeBlockProps {
   chrome?: boolean;
   /** Less air around the frame: a chat answer, not a long guide. */
   dense?: boolean;
+  /** A line (1-based) to mark and bring into view: the one a file reference pointed at. */
+  markLine?: number;
 }
 
-export function CodeBlock({ language, code, chrome = true, dense = false }: CodeBlockProps) {
+/** The class the marked line wears; styled in index.css, since Shiki writes it at runtime. */
+const MARKED_LINE = "code-line-marked";
+
+export function CodeBlock({ language, code, chrome = true, dense = false, markLine }: CodeBlockProps) {
   const t = useT();
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const mountedRef = useRef(true);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -118,6 +126,11 @@ export function CodeBlock({ language, code, chrome = true, dense = false }: Code
             lang,
             themes: CODE_THEMES,
             defaultColor: "light",
+            transformers: markLine ? [{
+              line(node, line) {
+                if (line === markLine) this.addClassToHast(node, MARKED_LINE);
+              },
+            }] : [],
           });
           setHtml(out);
         } catch {
@@ -131,7 +144,14 @@ export function CodeBlock({ language, code, chrome = true, dense = false }: Code
     return () => {
       cancelled = true;
     };
-  }, [language, code]);
+  }, [language, code, markLine]);
+
+  // The marked line comes into view once it is drawn, and again when the
+  // highlighted version replaces the plain one.
+  useEffect(() => {
+    if (!markLine) return;
+    rootRef.current?.querySelector(`.${MARKED_LINE}`)?.scrollIntoView?.({ block: "center" });
+  }, [markLine, code, html]);
 
   const handleCopy = () => {
     void robustCopy(code).then((copied) => {
@@ -145,6 +165,7 @@ export function CodeBlock({ language, code, chrome = true, dense = false }: Code
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "not-prose group relative overflow-hidden",
         chrome && "rounded-lg border border-border bg-card",
@@ -191,7 +212,15 @@ export function CodeBlock({ language, code, chrome = true, dense = false }: Code
         />
       ) : (
         <pre className="m-0 overflow-x-auto px-4 py-3.5 font-mono text-sm leading-6 text-foreground">
-          <code>{code}</code>
+          <code>
+            {markLine
+              // Line by line only when one is marked; otherwise one text node.
+              ? code.split("\n").map((text, index) => <Fragment key={index}>
+                {index > 0 && "\n"}
+                <span className={cn("line", index + 1 === markLine && MARKED_LINE)}>{text}</span>
+              </Fragment>)
+              : code}
+          </code>
         </pre>
       )}
     </div>

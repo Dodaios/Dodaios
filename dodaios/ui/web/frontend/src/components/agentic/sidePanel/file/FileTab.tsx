@@ -122,6 +122,7 @@ export function FileTab() {
         {/* The folder gives way first, cut from its left, so the name stays readable. */}
         {folder && <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground"><bdi dir="ltr">{folder}</bdi></span>}
         <span className="min-w-0 max-w-full shrink-0 truncate font-medium text-foreground" data-testid="side-file-name">{name}</span>
+        {file.line && shown === "file" && <span className="ml-1.5 shrink-0 text-muted-foreground" data-testid="side-file-line">L{file.line}</span>}
       </span>
       {shown === "change" && <DiffStat added={added} removed={removed} />}
       {hasChange && <div role="tablist" aria-label={t("ide_side_panel.file.views")} className="flex shrink-0 items-center gap-0.5">
@@ -153,7 +154,7 @@ export function FileTab() {
           : loaded.state === "ready"
             // Long lines wrap inside the panel, so the whole file reads without scrolling sideways.
             ? <div data-testid="side-file-text" className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5 [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]">
-              <CodeBlock language={language} code={loaded.text} chrome={false} />
+              <CodeBlock language={language} code={loaded.text} chrome={false} markLine={file.line} />
             </div>
             : <Notice message={t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
               {/* A file this panel cannot read (a program, an archive) opens on the computer. */}
