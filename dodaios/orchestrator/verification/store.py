@@ -92,7 +92,9 @@ CREATE TABLE IF NOT EXISTS runs (
     iteration         INTEGER NOT NULL DEFAULT 0,
     follow_ups        INTEGER NOT NULL DEFAULT 0,
     signatures_json   TEXT NOT NULL DEFAULT '[]',
-    heartbeat_ms      INTEGER
+    heartbeat_ms      INTEGER,
+    policy_id         TEXT NOT NULL DEFAULT '',
+    arm               TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -143,6 +145,8 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("follow_ups", "INTEGER NOT NULL DEFAULT 0"),
     ("signatures_json", "TEXT NOT NULL DEFAULT '[]'"),
     ("heartbeat_ms", "INTEGER"),
+    ("policy_id", "TEXT NOT NULL DEFAULT ''"),
+    ("arm", "TEXT NOT NULL DEFAULT ''"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -161,6 +165,7 @@ _INSERTABLE: Final[tuple[str, ...]] = (
     "run_id", "root_span_id", "owner_session", "owner_turn", "session_id", "repo_id",
     "workdir", "isolated", "base_sha", "brief_text", "domains_json", "primary_domain",
     "domain_source", "provider", "model_requested", "effort", "state", "boot_id", "started_ms",
+    "policy_id", "arm",
 )
 _BRIEF_MAX: Final[int] = 20_000
 
