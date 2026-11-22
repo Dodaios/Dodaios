@@ -11,6 +11,8 @@ from dodaios.rsi import repo_cards
 from dodaios.rsi.repo_cards import RepoBoard
 
 LEAD = "lead-1"
+#: The real GitHub reader, kept before the stand-in below replaces it.
+_READ_PULL_REQUESTS = repo_cards._pull_requests
 
 
 class _Threads:
@@ -69,6 +71,12 @@ class _Git:
 
 
 PROJECTS = [("notes", "/code/notes"), ("shop", "/code/shop"), ("infra", "/code/infra")]
+
+
+@pytest.fixture(autouse=True)
+def _no_github(monkeypatch):
+    """No test here asks GitHub; one that wants pull requests says which."""
+    monkeypatch.setattr(repo_cards, "_pull_requests", lambda: None)
 
 
 @pytest.fixture
@@ -263,3 +271,104 @@ def test_the_setting_is_off_by_default_and_closed_to_self_change():
 
     assert JarvisConfig().rsi.repo_index is False
     assert is_forbidden("rsi.repo_index")
+
+
+# ------------------------------------------------------------ pull requests
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _with_prs(threads: _Threads, git: _Git, answers: list[Any], clock: _Clock) -> RepoBoard:
+    asked: list[int] = []
+
+    def read() -> Any:
+        asked.append(1)
+        return answers[0] if answers else None
+
+    board = RepoBoard(
+        threads, projects=lambda: list(PROJECTS), repo_of=git.repo_of, git_state=git.state,
+        recent_jobs=lambda _owner: [], pull_requests=read, clock=clock,
+    )
+    board.asked_github = asked  # type: ignore[attr-defined]
+    # Refreshes run when the test says so, in the test's own thread.
+    board.request_refresh = lambda: True  # type: ignore[method-assign]
+    return board
+
+
+def test_open_pull_requests_and_their_checks_reach_the_index(threads, git):
+    clock = _Clock()
+    answers = [{"github.com/acme/notes": (2, 1, 0, False), "github.com/acme/shop": (1, 0, 1, True)}]
+    board = _with_prs(threads, git, answers, clock)
+    threads.add("s1", "/code/notes", state="busy")
+    board.refresh()
+    board.states()  # learns which repositories are in play
+    board.refresh()
+
+    states = {s.name: s for s in board.states()[0]}
+    assert (states["notes"].prs, states["notes"].prs_failing) == (2, 1)
+    assert (states["shop"].prs, states["shop"].prs_running, states["shop"].conflict) == (1, 1, True)
+    text = board.text()
+    assert "notes: 1 busy; PR 2, 1 failing" in text
+    # A failing or conflicting pull request alone puts a repository in play.
+    assert "shop" in text
+
+
+def test_github_is_asked_at_most_once_a_minute_and_only_with_a_github_repo_in_play(threads, git):
+    clock = _Clock()
+    board = _with_prs(threads, git, [{}], clock)
+    board.refresh()
+    assert board.asked_github == []  # nothing in play yet
+    threads.add("s1", "/code/notes", state="busy")
+    board.states()
+    board.refresh()
+    board.refresh()
+    board.refresh()
+    assert len(board.asked_github) == 1
+    clock.now += repo_cards.PULL_REQUESTS_TTL_S
+    board.refresh()
+    assert len(board.asked_github) == 2
+
+
+def test_no_answer_from_github_keeps_what_was_known(threads, git):
+    clock = _Clock()
+    answers: list[Any] = [{"github.com/acme/notes": (1, 1, 0, False)}]
+    board = _with_prs(threads, git, answers, clock)
+    threads.add("s1", "/code/notes", state="busy")
+    board.refresh()
+    board.states()  # learns which repositories are in play
+    board.refresh()
+    answers[0] = None
+    clock.now += repo_cards.PULL_REQUESTS_TTL_S
+    board.refresh()
+    assert {s.name: s.prs_failing for s in board.states()[0]}["notes"] == 1
+
+
+def test_pull_requests_are_counted_per_repository_from_githubs_answer(monkeypatch):
+    from dodaios.agentic_ide import github_link
+
+    rows = [
+        github_link.OpenPullRequest(repo="Acme/Notes", number=1, title="a", checks="failing"),
+        github_link.OpenPullRequest(repo="acme/notes", number=2, title="b", checks="passing"),
+        github_link.OpenPullRequest(repo="acme/shop", number=3, title="c", checks="running",
+                                    conflicts=True),
+    ]
+    monkeypatch.setattr(github_link, "credential", lambda: github_link.Credential("t", "gh"))
+    monkeypatch.setattr(github_link, "open_pull_requests", lambda _cred: ("me", rows, []))
+    assert _READ_PULL_REQUESTS() == {
+        "github.com/acme/notes": (2, 1, 0, False),
+        "github.com/acme/shop": (1, 0, 1, True),
+    }
+
+    def down(_cred: Any) -> Any:
+        raise github_link.GitHubError("GitHub could not be reached.", code="unreachable")
+
+    monkeypatch.setattr(github_link, "open_pull_requests", down)
+    assert _READ_PULL_REQUESTS() is None
+    monkeypatch.setattr(github_link, "credential", lambda: None)
+    assert _READ_PULL_REQUESTS() is None
