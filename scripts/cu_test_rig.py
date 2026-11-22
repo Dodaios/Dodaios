@@ -19,7 +19,7 @@ Modes (all runnable on Windows, macOS and Linux/X11):
       engine): proves the v2 coordinate pipeline end-to-end on THIS machine.
 
   python scripts/cu_test_rig.py --mode engine --engine v2
-  python scripts/cu_test_rig.py --mode engine --engine stable|current
+  python scripts/cu_test_rig.py --mode engine --engine current
       Run the REAL engine (v2 or a legacy one) with a SCRIPTED brain that
       emits the targets' coordinates — model variance is excluded, so two
       runs compare the ENGINES, not the model. Includes the duplicate-type
@@ -586,10 +586,7 @@ async def _run_engine_mission(
             bus=None,
             monitor="all",
         )
-        if engine == "stable":
-            from dodaios.harness.screenshot_only_loop_stable import run_cu_loop
-        else:
-            from dodaios.harness.screenshot_only_loop import run_cu_loop
+        from dodaios.harness.screenshot_only_loop import run_cu_loop
 
     task = SimpleNamespace(prompt=goal, env={}, timeout_s=180, cwd=".")
     chunks: list[str] = []
@@ -715,7 +712,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["raw", "engine"], default="raw")
     parser.add_argument(
-        "--engine", choices=["v2", "stable", "current"], default="v2",
+        "--engine", choices=["v2", "current"], default="v2",
         help="engine to drive in --mode engine",
     )
     args = parser.parse_args()

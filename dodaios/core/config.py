@@ -2021,7 +2021,6 @@ class MCPServerConfig(BaseModel):
     http_host: str = "127.0.0.1"
     http_port: int = 47822
     auth_token_env: str = "JARVIS_MCP_TOKEN"  # noqa: S105 — env var NAME, not a secret
-    max_call_depth: int = 3  # loop guard
 
 
 class AudioConfig(BaseModel):

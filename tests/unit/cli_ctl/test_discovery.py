@@ -74,14 +74,3 @@ def test_token_optional(monkeypatch, tmp_path):
 
 def test_current_process_is_alive():
     assert discovery._pid_alive(os.getpid()) is True
-
-
-def test_filename_and_dir_parity_with_writer(monkeypatch):
-    """discovery must target the exact file the desktop app writes."""
-    from dodaios.ui.shell import single_instance
-
-    assert discovery.SESSION_FILENAME == single_instance.SESSION_FILENAME
-    # With the test override cleared, the resolved path must match the writer's.
-    monkeypatch.delenv("JARVIS_CLI_SESSION_FILE", raising=False)
-    si = single_instance.SingleInstance()
-    assert discovery.session_file() == si.session_file

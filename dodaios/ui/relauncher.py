@@ -3,8 +3,7 @@
 The desktop app cannot restart itself in-process: its single-instance Named
 Mutex (``Global\\Dodaios_v1``) is held until the process exits, and a
 fresh launcher started while the old process still lives would just activate the
-old window and exit (see ``dodaios/ui/shell/single_instance.py``). So a restart is
-two-phase:
+old window and exit. So a restart is two-phase:
 
 1. The dying app spawns THIS detached helper (``DesktopApp.request_restart``).
 2. The helper waits for the old PID to disappear (the kernel releases the mutex

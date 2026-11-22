@@ -290,13 +290,7 @@ async def test_compound_screenshot_goal_uses_the_loop_not_the_fast_path(
     assert ctx.vision_engine.calls >= 1
 
 
-@pytest.mark.parametrize(
-    "module_name",
-    (
-        "dodaios.harness.screenshot_only_loop",
-        "dodaios.harness.screenshot_only_loop_stable",
-    ),
-)
+@pytest.mark.parametrize("module_name", ("dodaios.harness.screenshot_only_loop",))
 def test_legacy_save_screenshot_degrades_without_asking_when_recording_is_not_granted(
     monkeypatch: pytest.MonkeyPatch,
     module_name: str,

@@ -180,8 +180,6 @@ clipboard-*.mp4
 ChatGPT Image *
 
 # Canonical home for development/verification screenshots (see AGENTS.md).
-# The app's boot sweep consolidates stray root captures here and auto-prunes
-# them after 10 days (dodaios/core/screenshots.py). Folder is created on boot.
 /screenshots/
 
 # Sub-Agent-Sandbox-Outputs (Research-/Demo-Drops, kein Projekt-Code)

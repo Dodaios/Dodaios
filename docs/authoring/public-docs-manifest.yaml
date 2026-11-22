@@ -672,7 +672,6 @@ pages:
       - dodaios/plugins/tool/computer_use_tool.py
       - dodaios/harness/native_computer_use.py
       - dodaios/vision/engine.py
-      - dodaios/safety/vision_telemetry.py
     related:
       - permissions
       - safety-and-approvals

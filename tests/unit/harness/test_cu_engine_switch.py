@@ -1,91 +1,14 @@
-"""Reversible Computer-Use engine switch ([computer_use].engine).
+"""The Computer-Use engine setting ([computer_use].engine).
 
-Covers (a) the harness selector that picks the maintained vs the frozen
-"june13" engine per config, and (b) a runtime smoke proving the frozen
-2026-06-10 engine (dodaios/harness/screenshot_only_loop_june13.py) still drives a
-trivial mission to completion against TODAY's codebase — the compatibility claim
-the switch relies on.
+Every value, the retired "current", "june13" and "stable" included, routes a
+live mission to the guarded v2 engine; a config error falls back to it too.
 """
 from __future__ import annotations
 
-import time
 from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
 
-import dodaios.harness.screenshot_only_loop_june13 as june13
 import dodaios.plugins.harness.computer_use as harness
-from dodaios.core.protocols import HarnessTask, Observation
-from dodaios.harness.computer_use_context import ComputerUseContext
-
-# --- minimal fakes (mirror tests/unit/harness/test_cu_loop_robustness.py) -----
-
-
-class _FakeVision:
-    def __init__(self, titles: list[str] | None = None) -> None:
-        self.calls = 0
-        self._titles = titles
-
-    def _guess_active_app_hint(self, _f: str | None = None) -> str:
-        if not self._titles:
-            return ""
-        return self._titles[min(self.calls, len(self._titles) - 1)]
-
-    async def observe(self, *, mode: str = "auto", cancel_token: Any = None,
-                      window_title_filter: str | None = None) -> Observation:
-        idx = self.calls
-        self.calls += 1
-        title = self._titles[min(idx, len(self._titles) - 1)] if self._titles else ""
-        return Observation(
-            trace_id=uuid4(), timestamp_ns=time.time_ns(), screenshot_path=None,
-            screenshot_hash=f"h-{idx}", nodes=(), window_title=title, active_pid=0,
-            source="screenshot_only", pruning_stats={},
-        )
-
-
-class _FakeBrain:
-    def __init__(self, reply: str) -> None:
-        self.reply = reply
-        self.calls = 0
-
-    async def complete_text(self, *, system: str, user: str) -> str:
-        self.calls += 1
-        return self.reply
-
-
-class _FakeExecutor:
-    async def execute(self, tool: Any, args: dict[str, Any], *,
-                      user_utterance: str = "", trace_id: Any = None) -> Any:
-        return SimpleNamespace(success=True, output="ok", error="")
-
-
-def _ctx(brain: _FakeBrain, vision: _FakeVision) -> ComputerUseContext:
-    return ComputerUseContext(
-        vision_engine=vision, brain_manager=brain, tool_executor=_FakeExecutor(),
-        tools={}, verify_after_each_step=False, step_budget=5,
-    )
-
-
-# --- runtime smoke: the frozen june13 engine still runs on today's codebase ---
-
-
-async def test_june13_engine_runs_a_trivial_mission_to_completion():
-    # A reply that satisfies BOTH the action parser (action=done) and any
-    # verifier parser (done=true + proof), so the loop terminates cleanly
-    # regardless of which path the frozen engine takes for this goal.
-    brain = _FakeBrain('{"action": "done", "done": true, "proof": "the app is open"}')
-    ctx = _ctx(brain, _FakeVision(titles=["New Tab - Google Chrome"]))
-    task = HarnessTask(prompt="oeffne chrome", timeout_s=10.0)
-
-    chunks = []
-    async for chunk in june13._run_screenshot_loop(task, ctx, cancel_token=None):
-        chunks.append(chunk)
-
-    assert chunks, "frozen june13 engine produced no output (crashed?)"
-    assert chunks[-1].is_final
-    assert chunks[-1].exit_code == 0
-    assert brain.calls >= 1  # it actually drove the brain
-
 
 # --- selector: [computer_use].engine picks the right module -------------------
 
