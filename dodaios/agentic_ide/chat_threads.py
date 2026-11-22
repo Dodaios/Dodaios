@@ -59,6 +59,13 @@ _STATE_EVENTS: Final[int] = 400
 _REPORT_CHARS: Final[int] = 4000
 _JOB_CHARS: Final[int] = 200
 _DONE: Final[frozenset[str]] = frozenset({"done", "complete", "completed", "ok", "success"})
+#: How the app's verdict on a run (``verification.probe``) is told to the conversation.
+_JUDGED: Final[dict[str, str]] = {
+    "verified": "completed",
+    "unverified": "completed",
+    "failed": "failed",
+    "needs_decision": "needs_input",
+}
 #: Thread events that may be news for the conversation that started the turn.
 _NEWS: Final[frozenset[str]] = frozenset(
     {"turn_finished", "question_required", "plan_ready", "approval_required"}
@@ -189,12 +196,25 @@ class ChatThreads:
             return None
 
     def _listen(self, service: Any) -> None:
+        from dodaios.orchestrator.verification.recorder import recorder
+
+        checking = recorder()
+        if checking is not None:
+            # A result held back while its run was checked goes out with the verdict.
+            checking.add_verdict_listener(self._on_verdict)
         if self._listening is service or not hasattr(service, "add_event_listener"):
             return
         if self._listening is not None:
             self._listening.remove_event_listener(self._on_event)
         service.add_event_listener(self._on_event)
         self._listening = service
+
+    def _on_verdict(self, _run_id: str, session_id: str) -> None:
+        """Runs on the recorder's thread: hand the report over to the loop."""
+        tracked = self._tracked.get(session_id)
+        if tracked is None or self._loop is None or self._loop.is_closed():
+            return
+        self._loop.call_soon_threadsafe(self._schedule, session_id, tracked)
 
     def default_provider(self, service: Any, fallback_cli: str | None) -> Any | None:
         """The coding agent for a request that names none.
@@ -459,7 +479,13 @@ class ChatThreads:
         key = f"coding-thread:{job_id}"
 
         async def probe() -> dict[str, Any] | None:
-            return await asyncio.to_thread(self._evidence, session_id, started_ms)
+            from dodaios.orchestrator.verification.probe import shape
+
+            # While the app checks what a turn left ([rsi] verify = "enforce"),
+            # the job is over only when its run got a verdict.
+            return await asyncio.to_thread(
+                lambda: shape(job_id, self._evidence(session_id, started_ms))
+            )
 
         started = jobs.start(
             "ide_submission",
@@ -509,6 +535,31 @@ class ChatThreads:
             "evidence": "Recorded thread completion and its final message; not independent "
                         "verification",
         }
+
+    @staticmethod
+    def _checked(job_id: str) -> bool:
+        """True while the app holds thread jobs until their output was checked."""
+        from dodaios.orchestrator.verification.recorder import recorder
+
+        checking = recorder()
+        return bool(job_id) and checking is not None and checking.enforcing
+
+    @staticmethod
+    def _judged(job_id: str, said: str = "") -> dict[str, Any] | None:
+        """What the app's check says about a job whose turn is over.
+
+        ``None`` when the app checks nothing; an answer without a ``detail``
+        when the run has no verdict to give.
+        """
+        from dodaios.orchestrator.verification.probe import shape
+
+        if not job_id:
+            return None
+        return shape(job_id, {"report": said})
+
+    def _again(self, session_id: str, tracked: _Tracked) -> None:
+        if self._tracked.get(session_id) is tracked:
+            self._schedule(session_id, tracked)
 
     # --------------------------------------------------------------- state
 
@@ -897,6 +948,13 @@ class ChatThreads:
             state = await asyncio.to_thread(self._state, service, session_id)
             finished = state["finished"]
             turn_id = str(((finished or {}).get("payload") or {}).get("turn_id") or "")
+            # Read before anything is marked as told: two reports of one thread
+            # must not both find the same news fresh across an await.
+            judged = (
+                await asyncio.to_thread(self._judged, tracked.job_id, state["last_turn"][1])
+                if self._checked(tracked.job_id)
+                else None
+            )
             keys = attention_keys(
                 state["events"],
                 question=state["question"],
@@ -915,6 +973,24 @@ class ChatThreads:
                 return
             elif finished is None or int(finished.get("ts_ms") or 0) < tracked.started_ms:
                 return  # the end on record belongs to an earlier turn
+            elif judged is not None and judged.get("status") == "running":
+                # The app still checks what the turn left: no news yet. The
+                # verdict brings this report back; so does a look later on,
+                # should whoever checks have gone silent.
+                from dodaios.orchestrator.verification.probe import STALE_MS
+
+                if self._loop is not None:
+                    self._loop.call_later(
+                        STALE_MS / 1000 + 60, self._again, session_id, tracked
+                    )
+                return
+            elif judged is not None and judged.get("detail") in _JUDGED:
+                kind = _JUDGED[str(judged["detail"])]
+                files = changed_files(state["events"], turn_id)
+                report = _clip(str(judged.get("report") or text), _REPORT_CHARS) + (
+                    "\n\nFiles it changed: " + ", ".join(files) if files else ""
+                )
+                evidence = str(judged.get("evidence") or "the app's check of the thread's output")
             elif status == "error":
                 kind, report = "failed", _clip(error or text or "The turn failed.", _REPORT_CHARS)
                 evidence = "the thread's recorded turn error"

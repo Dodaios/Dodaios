@@ -4587,16 +4587,20 @@ class RsiConfig(BaseModel):
     (``dodaios.orchestrator.verification``). Off by default.
 
     ``verify`` says what happens to a run's output when its turn has ended:
-    ``off`` nothing, ``observe`` the changed files are scanned for weakened
+    ``off`` nothing; ``observe`` the changed files are scanned for weakened
     checks and off-limits paths, GitHub is asked whether the run's commit
-    landed and what its checks say, and the result is recorded. Nothing is sent
-    to the agent and no turn is held in either mode.
+    landed and what its checks say, and the result is recorded, while nothing
+    is sent to the agent and no turn is held; ``enforce`` the same checks decide
+    what follows: the job the lead waits for is over only when the run got its
+    verdict, and a weakened check or failing checks bring the thread one
+    follow-up order, within fixed limits
+    (``dodaios.orchestrator.verification.driver``).
     """
 
     model_config = {"extra": "allow"}
 
     enabled: bool = False
-    verify: Literal["off", "observe"] = "off"
+    verify: Literal["off", "observe", "enforce"] = "off"
     #: While the output is verified (``verify`` is not ``off``), every coding
     #: thread the lead opens gets a git worktree of its own on a new branch, so
     #: what the run changed can be told from what its neighbours changed

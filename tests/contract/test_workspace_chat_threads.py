@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -827,6 +828,8 @@ def own_worktrees(rig: Rig, tmp_path):
         store,
         thread_exists=lambda sid: rig.service.store.get_session(sid) is not None,
         idle_ms=lambda sid: idle.get(sid, 0),
+        # The machine's own free space is not what these tests are about.
+        free_bytes=lambda _folder: 100 * 1024**3,
     )
     workdir.set_dirs(dirs)
     try:
@@ -930,7 +933,7 @@ async def test_a_project_that_is_no_repository_keeps_its_threads_in_the_folder(
     from dodaios.orchestrator.verification.store import VerificationStore
 
     store = VerificationStore(tmp_path / "verification.db")
-    workdir.set_dirs(workdir.WorkDirs(store))
+    workdir.set_dirs(workdir.WorkDirs(store, free_bytes=lambda _folder: 100 * 1024**3))
     try:
         result = await create(rig)
         await rig.settle()
@@ -941,3 +944,103 @@ async def test_a_project_that_is_no_repository_keeps_its_threads_in_the_folder(
     assert thread.cwd == rig.workspace.folder
     assert "folder" not in result["agents"][0] and "branch" not in result["agents"][0]
     assert rig.service.prompts == [(thread.session_id, "Fix the failing tests")]
+
+
+# ------------------------------------- enforced checks: the result waits for the verdict
+
+
+@pytest.fixture
+def enforcing(rig: Rig, own_worktrees, monkeypatch):
+    """The app checks what each turn left; GitHub and the scan are stand-ins the test sets."""
+    import json
+    from dataclasses import replace
+
+    from dodaios.orchestrator.verification import evidence, gates
+    from dodaios.orchestrator.verification import recorder as run_recorder
+    from dodaios.rsi.harness_probe import Harness
+
+    _dirs, store, _idle = own_worktrees
+    github = {
+        "now": evidence.Evidence("pr_open", "running", pr=4, reason="pull request #4 is open")
+    }
+    sent: list[tuple[str, str]] = []
+
+    def scan(row: dict[str, Any], _events: Any, **_kwargs: Any) -> Any:
+        # The agent committed a change in its own worktree.
+        return gates.GateResult(
+            gates.CLEAN,
+            area=gates.WorkArea(folder=row["workdir"], base=row["base_sha"], how="thread_worktree"),
+            tree_id=f"tree-{row.get('iteration') or 0}", files=["app.py"], added=1,
+            head_sha="c" * 40, committed=True,
+        )
+
+    def follow_up(session_id: str, prompt: str, _run_id: str, _output: int) -> str:
+        sent.append((session_id, prompt))
+        return "never-started"
+
+    monkeypatch.setattr(gates, "check_run", scan)
+    made = run_recorder.RunRecorder(
+        store, rig.service, verify="enforce",
+        probe=lambda runner: Harness(runner, "1.2.3", "1.2"),
+        read_evidence=lambda _repo, sha: replace(github["now"], head_sha=sha),
+        send_follow_up=follow_up,
+    )
+    rig.service.add_event_listener(made.on_event)
+    run_recorder.set_recorder(made)
+    try:
+        yield SimpleNamespace(recorder=made, store=store, github=github, sent=sent, json=json)
+    finally:
+        run_recorder.set_recorder(None)
+
+
+async def test_with_enforced_checks_the_result_waits_for_the_apps_verdict(rig: Rig, enforcing):
+    from dodaios.orchestrator.verification import evidence
+
+    result = await create(rig)
+    await rig.settle()
+    enforcing.recorder.process_pending()
+    await rig.settle()
+    job_id = result["deliveries"][0]["job_id"]
+
+    # The turn is over, its checks still run: nothing is reported, the job runs on.
+    run = enforcing.store.get(job_id)
+    assert run["state"] == "checking"
+    assert rig.results() == []
+    job = await jobs.refresh(jobs.get_ledger().get(job_id))
+    assert job.state == "running"
+
+    enforcing.github["now"] = evidence.Evidence(
+        "merged", "passing", pr=4, reason="pull request #4 is merged"
+    )
+    enforcing.recorder.tick(run["evidence_due_ms"])
+    await rig.settle()
+
+    [told] = rig.results()
+    material = enforcing.json.loads(told.report)
+    assert material["status"] == "completed"
+    assert material["evidence"].startswith("Checked by the app")
+    assert "pull request #4 is merged" in material["evidence"]
+    job = await jobs.refresh(jobs.get_ledger().get(job_id))
+    assert (job.state, job.detail) == ("done", "verified")
+    assert enforcing.sent == []
+
+
+async def test_with_enforced_checks_a_failure_brings_one_order_and_no_report(rig: Rig, enforcing):
+    from dodaios.orchestrator.verification import evidence
+
+    enforcing.github["now"] = evidence.Evidence(
+        "pr_open", "failing", pr=4, failing=("unit",), reason="pull request #4 is open"
+    )
+    result = await create(rig)
+    await rig.settle()
+    enforcing.recorder.process_pending()
+    await rig.settle()
+
+    [(sid, prompt)] = enforcing.sent
+    assert sid == rig.threads()[0].session_id
+    assert "- unit" in prompt
+    assert rig.results() == []
+    job_id = result["deliveries"][0]["job_id"]
+    assert enforcing.store.get(job_id)["state"] == "running"
+    job = await jobs.refresh(jobs.get_ledger().get(job_id))
+    assert job.state == "running"
