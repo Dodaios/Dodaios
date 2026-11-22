@@ -760,3 +760,37 @@ async def test_a_new_thread_comes_back_with_its_code_and_link(rig: Rig):
     assert agent["code"] == f"#{sid[:6]}"
     assert agent["link"].endswith(f"(thread:{sid})")
     await rig.settle()
+
+
+async def test_an_order_to_a_thread_is_recorded_as_a_run_when_recording_is_on(rig: Rig, tmp_path):
+    """The real hand-off path: the turn starts inside the send, the order is noted after it."""
+    from dodaios.orchestrator.verification import recorder as run_recorder
+    from dodaios.orchestrator.verification.store import ENDED, VerificationStore
+    from dodaios.rsi.harness_probe import Harness
+
+    store = VerificationStore(tmp_path / "verification.db")
+    made = run_recorder.RunRecorder(
+        store, rig.service, probe=lambda runner: Harness(runner, "1.2.3", "1.2")
+    )
+    rig.service.add_event_listener(made.on_event)
+    run_recorder.set_recorder(made)
+    try:
+        result = await create(rig, prompt="Fix the failing tests in tests/unit/test_app.py")
+        await rig.settle()
+        made.process_pending()
+        job_id = result["deliveries"][0]["job_id"]
+        run = store.get(job_id)
+        assert run is not None
+        assert run["state"] == ENDED
+        assert run["turn_status"] == "done"
+        assert run["session_id"] == rig.threads()[0].session_id
+        assert run["workdir"] == rig.workspace.folder
+        assert run["primary_domain"] == "testing"
+        assert run["turn_id"]
+        assert run["harness_version"] == "1.2.3"
+        assert [s["step"] for s in store.steps(job_id)] == [
+            "bound", "turn_started", "turn_finished",
+        ]
+    finally:
+        run_recorder.set_recorder(None)
+        store.close()

@@ -47,6 +47,11 @@ FORBIDDEN_PATTERNS: tuple[str, ...] = (
     # How far the self-building loop may go, and its kill switch: the person
     # decides that in Settings, never the loop or an agent (docs/self-build.md).
     "self_build.*",
+    # Whether delegated coding runs are recorded, and later how their output is
+    # checked: a check the checked side could switch off is no check. The person
+    # sets it in the config file, never voice, chat, self-mod or an agent
+    # (dodaios/orchestrator/verification).
+    "rsi.*",
     "*_api_key",
     "*_token",
     "*_secret",
