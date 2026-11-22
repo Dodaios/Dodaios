@@ -14,6 +14,7 @@ import {
   VISUAL_TOKENS,
   hasScripts,
   isThemeAware,
+  pinColourScheme,
   scalableSvg,
   visualDocument,
   visualTitle,
@@ -66,14 +67,28 @@ describe("visualDocument", () => {
 
   it("draws a visual that fixes its own colours on a white page, in both palettes", () => {
     const doc = visualDocument('<p style="color:#333">x</p>', OPTIONS);
-    expect(doc).toContain("color-scheme:light");
+    expect(doc).toContain("color-scheme:light !important");
     expect(doc).toContain("--fg:#171717");
+  });
+
+  it("gives a page that asks for the reader's palette the app's answer, not the computer's", () => {
+    const page = "<html><head><style>:root{color-scheme:light dark;--ink:#111}"
+      + "@media (prefers-color-scheme: dark){:root{--ink:#eee}}"
+      + "@media ( prefers-color-scheme:light ) and (min-width:400px){p{margin:0}}</style></head><body><p>x</p></body></html>";
+    const dark = visualDocument(page, OPTIONS);
+    expect(dark).toContain("@media (min-width:0px){:root{--ink:#eee}}");
+    expect(dark).toContain("@media (max-width:0px) and (min-width:400px){p{margin:0}}");
+    expect(dark).toContain("color-scheme:dark !important");
+    const light = visualDocument(page, { ...OPTIONS, theme: "light" });
+    expect(light).toContain("@media (max-width:0px){:root{--ink:#eee}}");
+    expect(light).toContain("@media (min-width:0px) and (min-width:400px){p{margin:0}}");
+    expect(light).not.toContain("prefers-color-scheme");
   });
 
   it("draws a visual that names the chat's colours in the app's palette", () => {
     const doc = visualDocument('<p style="color:var(--muted)">x</p>', OPTIONS);
     expect(doc).toContain('data-theme="dark"');
-    expect(doc).toContain("color-scheme:dark");
+    expect(doc).toContain("color-scheme:dark !important");
     expect(doc).toContain("--fg:#fafafa");
     for (const token of VISUAL_TOKENS) expect(doc).toContain(`--${token}:`);
   });
@@ -96,6 +111,12 @@ describe("what a visual says about itself", () => {
     expect(isThemeAware('<rect stroke="var(--line)"/>')).toBe(true);
     expect(isThemeAware("@media (prefers-color-scheme: dark) {}")).toBe(true);
     expect(isThemeAware('<rect stroke="#333" fill="var(--brand)"/>')).toBe(false);
+  });
+
+  it("answers a palette query for the look it is drawn in", () => {
+    expect(pinColourScheme("@media (prefers-color-scheme: dark) {}", "dark")).toBe("@media (min-width:0px) {}");
+    expect(pinColourScheme("@media (prefers-color-scheme: dark) {}", "light")).toBe("@media (max-width:0px) {}");
+    expect(pinColourScheme("matchMedia('(prefers-color-scheme: light)')", "light")).toBe("matchMedia('(min-width:0px)')");
   });
 
   it("reads the caption from the title", () => {

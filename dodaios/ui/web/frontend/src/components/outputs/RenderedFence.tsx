@@ -150,6 +150,20 @@ export function scalableSvg(svg: string): string {
   });
 }
 
+/**
+ * A visual that asks which palette the reader prefers gets the app's answer.
+ *
+ * What `prefers-color-scheme` says inside a frame depends on the engine and on
+ * the computer's own appearance, and neither has to agree with the palette the
+ * app is in. A page that turned dark for the computer while the app is light
+ * would be light text on a light surface. So each such query is replaced by
+ * one that is simply true or false for the look the visual is drawn in.
+ */
+export function pinColourScheme(code: string, look: Theme): string {
+  return code.replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (_query, asked: string) =>
+    asked.toLowerCase() === look ? "(min-width:0px)" : "(max-width:0px)");
+}
+
 /** A value no page written beforehand can know. */
 function makeNonce(): string {
   const bytes = new Uint8Array(16);
@@ -200,17 +214,18 @@ export function visualDocument(code: string, options: VisualDocumentOptions): st
   const head =
     '<meta charset="utf-8">' +
     `<meta http-equiv="Content-Security-Policy" content="${policy}">` +
-    `<style>:root{${colours};color-scheme:${look}}</style>` +
+    // The scheme is fixed here, so `light-dark()` and a page's own `color-scheme: light dark` follow the look too.
+    `<style>:root{${colours};color-scheme:${look} !important}</style>` +
     `<script nonce="${nonce}">${reporterScript(token)}</script>`;
   if (language === "html" && /<html[\s>]/i.test(code)) {
     // The page's own doctype would come too late to count; ours already stands.
-    let page = code.replace(/^\s*<!doctype[^>]*>/i, "");
+    let page = pinColourScheme(code, look).replace(/^\s*<!doctype[^>]*>/i, "");
     if (!/<html[^>]*\sdata-theme=/i.test(page)) {
       page = page.replace(/<html(\s[^>]*)?>/i, (_match, attrs: string | undefined) => `<html${attrs ?? ""} data-theme="${look}">`);
     }
     return `<!doctype html>${head}${page}`;
   }
-  const body = language === "svg" ? scalableSvg(code) : code;
+  const body = pinColourScheme(language === "svg" ? scalableSvg(code) : code, look);
   return (
     `<!doctype html><html lang="en" data-theme="${look}"><head>${head}<style>` +
     "html,body{margin:0}" +
