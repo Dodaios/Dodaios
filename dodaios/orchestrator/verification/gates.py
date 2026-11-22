@@ -88,6 +88,10 @@ class GateResult:
     findings: list[Finding] = field(default_factory=list)
     truncated: bool = False
     reason: str = ""
+    #: The commit the work area was on when it was read.
+    head_sha: str = ""
+    #: The work area held nothing beyond that commit: no uncommitted or untracked file.
+    committed: bool = False
 
     @property
     def churn(self) -> int:
@@ -103,6 +107,8 @@ class GateResult:
             "folder": self.area.folder if self.area else "",
             "base": self.area.base if self.area else "",
             "tree_id": self.tree_id,
+            "head_sha": self.head_sha,
+            "committed": self.committed,
             "files": len(self.files),
             "added": self.added,
             "deleted": self.deleted,
@@ -264,7 +270,10 @@ def check_run(
         status = FINDINGS
     else:
         status = CLEAN
+    head_tree = _git(area.folder, "rev-parse", "--verify", "--quiet", "HEAD^{tree}")
     return GateResult(
         status, area=area, tree_id=tree, files=files, added=added, deleted=deleted,
         findings=found, truncated=truncated,
+        head_sha=_git(area.folder, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"),
+        committed=bool(head_tree) and head_tree == tree,
     )

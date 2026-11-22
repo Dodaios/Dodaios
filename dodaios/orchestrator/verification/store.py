@@ -78,7 +78,11 @@ CREATE TABLE IF NOT EXISTS runs (
     ended_ms          INTEGER,
     gate_status       TEXT NOT NULL DEFAULT '',
     churn_lines       INTEGER,
-    tree_id           TEXT NOT NULL DEFAULT ''
+    tree_id           TEXT NOT NULL DEFAULT '',
+    head_sha          TEXT NOT NULL DEFAULT '',
+    landing           TEXT NOT NULL DEFAULT '',
+    ci_status         TEXT NOT NULL DEFAULT '',
+    evidence_due_ms   INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -119,6 +123,10 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("gate_status", "TEXT NOT NULL DEFAULT ''"),
     ("churn_lines", "INTEGER"),
     ("tree_id", "TEXT NOT NULL DEFAULT ''"),
+    ("head_sha", "TEXT NOT NULL DEFAULT ''"),
+    ("landing", "TEXT NOT NULL DEFAULT ''"),
+    ("ci_status", "TEXT NOT NULL DEFAULT ''"),
+    ("evidence_due_ms", "INTEGER"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -128,6 +136,7 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "harness_version", "harness_line", "state", "turn_id", "turn_status", "tokens_in",
         "tokens_out", "tokens_cached", "cost_usd", "wall_ms", "mixed_model",
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
+        "head_sha", "landing", "ci_status", "evidence_due_ms",
     }
 )
 #: Every column a new run may carry.
@@ -234,6 +243,14 @@ class VerificationStore:
             rows = self._conn.execute(
                 f"SELECT * FROM runs WHERE state IN ({marks}) ORDER BY started_ms",  # noqa: S608
                 tuple(sorted(OPEN_STATES)),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def evidence_due(self) -> list[dict[str, Any]]:
+        """Runs whose landing and checks are to be read again, soonest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE evidence_due_ms IS NOT NULL ORDER BY evidence_due_ms"
             ).fetchall()
         return [dict(row) for row in rows]
 

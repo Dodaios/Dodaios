@@ -4588,8 +4588,9 @@ class RsiConfig(BaseModel):
 
     ``verify`` says what happens to a run's output when its turn has ended:
     ``off`` nothing, ``observe`` the changed files are scanned for weakened
-    checks and off-limits paths and the result is recorded. Nothing is sent to
-    the agent and no turn is held in either mode.
+    checks and off-limits paths, GitHub is asked whether the run's commit
+    landed and what its checks say, and the result is recorded. Nothing is sent
+    to the agent and no turn is held in either mode.
     """
 
     model_config = {"extra": "allow"}

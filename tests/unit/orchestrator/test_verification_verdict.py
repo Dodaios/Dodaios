@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 import subprocess
+import time
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -12,7 +14,7 @@ import pytest
 
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.store import AgentChatStore
-from dodaios.orchestrator.verification import gates, verdict
+from dodaios.orchestrator.verification import evidence, gates, verdict
 from dodaios.orchestrator.verification import recorder as rec
 from dodaios.orchestrator.verification.store import ENDED, VerificationStore
 from dodaios.plugins.tool import verify_delegate
@@ -44,26 +46,35 @@ def worktree(tmp_path: Path) -> Path:
 
 
 class _Rig:
-    def __init__(self, tmp_path: Path, folder: Path, verify: str) -> None:
+    def __init__(self, tmp_path: Path, folder: Path, verify: str, **more: Any) -> None:
         self.chat = AgentChatStore(tmp_path / "agent_chat.db")
         self.store = VerificationStore(tmp_path / "verification.db")
         self.session = self.chat.create_session(
             provider="claude-api", model="m", effort="low", cwd=str(folder), surface="agent"
         )
-        self.recorder = rec.RunRecorder(
+        self.more = more
+        self.recorder = self.new_recorder(verify)
+
+    def new_recorder(self, verify: str = "observe") -> rec.RunRecorder:
+        """A recorder on the same record, as after an app restart."""
+        return rec.RunRecorder(
             self.store, SimpleNamespace(store=self.chat), verify=verify,
-            probe=lambda runner: Harness(runner, "2.1.330", "2.1"),
+            probe=lambda runner: Harness(runner, "2.1.330", "2.1"), **self.more,
         )
 
     def emit(self, kind: str, payload: dict[str, Any]) -> None:
         stored = self.chat.append_event(self.session.session_id, make_event(kind, payload))
         self.recorder.on_event(self.session.session_id, stored)
 
-    def run_a_turn(self, job_id: str = "job_1") -> dict[str, Any]:
+    def run_a_turn(self, job_id: str = "job_1", work: Any = None) -> dict[str, Any]:
+        """One turn of the thread; ``work`` is what the agent does between start and end."""
         self.emit("turn_started", {"turn_id": "t1", "runner": "claude-cli", "model": "m"})
         self.recorder.note_submission(
             job_id=job_id, session_id=self.session.session_id, prompt="Fix it", started_ms=0
         )
+        if work is not None:
+            self.recorder.process_pending()  # the run is bound to the commit it started on
+            work()
         self.emit("turn_finished", {"turn_id": "t1", "status": "done", "usage": {}})
         self.recorder.process_pending()
         return self.store.get(job_id)
@@ -73,8 +84,8 @@ class _Rig:
 def rig(tmp_path: Path, worktree: Path):
     made: list[_Rig] = []
 
-    def build(verify: str = "observe") -> _Rig:
-        made.append(_Rig(tmp_path, worktree, verify))
+    def build(verify: str = "observe", folder: Path | None = None, **more: Any) -> _Rig:
+        made.append(_Rig(tmp_path, folder or worktree, verify, **more))
         return made[-1]
 
     yield build
@@ -92,8 +103,10 @@ def test_an_ended_run_is_scanned_and_the_result_recorded(rig, worktree: Path):
     assert run["churn_lines"] == 2
     assert run["tree_id"]
     steps = it.store.steps("job_1")
-    assert [s["step"] for s in steps] == ["bound", "turn_started", "turn_finished", "gates"]
-    assert steps[-1]["detail"]["findings"][0]["rule"] == "C1"
+    assert [s["step"] for s in steps] == [
+        "bound", "turn_started", "turn_finished", "gates", "evidence",
+    ]
+    assert steps[-2]["detail"]["findings"][0]["rule"] == "C1"
 
 
 def test_with_verify_off_nothing_is_scanned(rig, worktree: Path):
@@ -123,7 +136,7 @@ def test_a_weakened_check_fails_the_job(rig, worktree: Path):
     found = verdict.from_run(it.store.get("job_1"), it.store.steps("job_1"))
     assert found.verdict == "failed"
     assert "C1 tests/test_calc.py" in found.summary
-    assert [c.name for c in found.checks] == ["turn", "output_scan", "tests"]
+    assert [c.name for c in found.checks] == ["turn", "output_scan", "checks"]
 
 
 def test_a_clean_scan_is_not_proof_that_the_change_works(rig, worktree: Path):
@@ -207,3 +220,310 @@ def test_a_record_made_before_the_scan_existed_gains_its_columns(tmp_path: Path)
         assert store.get("job_old")["churn_lines"] == 3
     finally:
         store.close()
+
+
+# ------------------------------------------------- landing and checks, from GitHub
+
+
+class _GitHub:
+    """Stands in for GitHub: gives its answers in turn, the last one for good."""
+
+    def __init__(self, *answers: evidence.Evidence) -> None:
+        self.answers = list(answers)
+        self.asked: list[tuple[str, str]] = []
+
+    def __call__(self, repo_id: str, head_sha: str) -> evidence.Evidence:
+        self.asked.append((repo_id, head_sha))
+        found = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
+        return replace(found, head_sha=head_sha)
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = time.time()
+
+    def __call__(self) -> float:
+        return self.now
+
+
+OPEN_RUNNING = evidence.Evidence("pr_open", "running", pr=12, reason="pull request #12 is open")
+MERGED_PASSING = evidence.Evidence(
+    "merged", "passing", pr=12, checked_sha="b" * 40,
+    reason="pull request #12 is merged; checks read on the merge commit",
+)
+
+
+def _on_github(worktree: Path) -> None:
+    _git(worktree, "remote", "add", "origin", "https://github.com/acme/notes.git")
+
+
+def _commit(worktree: Path, name: str = "calc.py") -> str:
+    (worktree / name).write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    _git(worktree, "add", name)
+    _git(worktree, "commit", "-q", "-m", "work")
+    return _git(worktree, "rev-parse", "HEAD")
+
+
+def test_github_is_asked_about_the_commit_the_run_left_behind(rig, worktree: Path):
+    _on_github(worktree)
+    github = _GitHub(MERGED_PASSING)
+    it = rig(read_evidence=github)
+
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+
+    head = _git(worktree, "rev-parse", "HEAD")
+    assert github.asked == [("github.com/acme/notes", head)]
+    assert (run["head_sha"], run["landing"], run["ci_status"]) == (head, "merged", "passing")
+    assert run["evidence_due_ms"] is None
+    steps = it.store.steps("job_1")
+    assert [s["step"] for s in steps][-2:] == ["gates", "evidence"]
+    assert steps[-2]["detail"]["head_sha"] == head
+    assert steps[-2]["detail"]["committed"] is True
+    assert steps[-1]["status"] == "merged/passing"
+    assert steps[-1]["detail"]["pr"] == 12
+
+
+def test_work_that_is_not_committed_is_not_on_github_and_nobody_asks(rig, worktree: Path):
+    _on_github(worktree)
+    github = _GitHub(MERGED_PASSING)
+    it = rig(read_evidence=github)
+    (worktree / "calc.py").write_text("X = 1\n", encoding="utf-8")
+
+    run = it.run_a_turn()
+
+    assert github.asked == []
+    assert (run["landing"], run["ci_status"], run["evidence_due_ms"]) == ("none", "none", None)
+    assert it.store.steps("job_1")[-1]["detail"]["reason"] == "the work is not committed"
+
+
+def test_a_run_that_changed_nothing_has_nothing_to_land(rig, worktree: Path):
+    _on_github(worktree)
+    github = _GitHub(MERGED_PASSING)
+    it = rig(read_evidence=github)
+    run = it.run_a_turn()
+    assert github.asked == []
+    assert run["landing"] == "none"
+    assert it.store.steps("job_1")[-1]["detail"]["reason"] == "the run changed no file"
+
+
+def test_a_run_without_a_checkout_of_its_own_has_no_commit_to_ask_about(
+    rig, worktree: Path, tmp_path: Path
+):
+    main = tmp_path / "main"
+    _on_github(main)
+    github = _GitHub(MERGED_PASSING)
+    it = rig(folder=main, read_evidence=github)
+    run = it.run_a_turn(work=lambda: _commit(main))
+    assert run["gate_status"] == gates.UNATTRIBUTED
+    assert github.asked == []
+    assert (run["head_sha"], run["landing"]) == ("", "")
+
+
+def test_with_verify_off_github_is_never_asked(rig, worktree: Path):
+    _on_github(worktree)
+    github = _GitHub(MERGED_PASSING)
+    it = rig(verify="off", read_evidence=github)
+    it.run_a_turn(work=lambda: _commit(worktree))
+    assert github.asked == []
+
+
+def test_checks_that_still_run_are_read_again_when_they_are_due(rig, worktree: Path):
+    _on_github(worktree)
+    clock = _Clock()
+    github = _GitHub(OPEN_RUNNING, OPEN_RUNNING, MERGED_PASSING)
+    it = rig(read_evidence=github, clock=clock)
+
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+
+    first_due = run["ended_ms"] + evidence.RECHECK_AFTER_S[0] * 1000
+    assert (run["landing"], run["ci_status"], run["evidence_due_ms"]) == (
+        "pr_open", "running", first_due,
+    )
+    # Not due yet: nothing is asked.
+    assert it.recorder.read_due(first_due - 1) == 0
+    assert len(github.asked) == 1
+    # Due, and nothing new: asked, the next read is set, no second step.
+    assert it.recorder.read_due(first_due) == 1
+    run = it.store.get("job_1")
+    second_due = run["ended_ms"] + evidence.RECHECK_AFTER_S[1] * 1000
+    assert run["evidence_due_ms"] == second_due
+    assert sum(1 for s in it.store.steps("job_1") if evidence.is_step(s)) == 1
+    # Due again, merged and green: the record is settled and says so.
+    assert it.recorder.read_due(second_due) == 1
+    run = it.store.get("job_1")
+    assert (run["landing"], run["ci_status"], run["evidence_due_ms"]) == (
+        "merged", "passing", None,
+    )
+    told = [s for s in it.store.steps("job_1") if evidence.is_step(s)]
+    assert [(s["step"], s["status"]) for s in told] == [
+        ("evidence", "pr_open/running"), ("evidence:1", "merged/passing"),
+    ]
+    assert it.recorder.read_due(second_due + 10**9) == 0
+    assert it.recorder._wait_s() is None
+
+
+def test_a_commit_that_shows_no_check_is_given_up_on_after_five_minutes(rig, worktree: Path):
+    _on_github(worktree)
+    clock = _Clock()
+    github = _GitHub(evidence.Evidence("pushed", "none"))
+    it = rig(read_evidence=github, clock=clock)
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+    while run["evidence_due_ms"] is not None:
+        it.recorder.read_due(run["evidence_due_ms"])
+        run = it.store.get("job_1")
+    waited = [after for after in evidence.RECHECK_AFTER_S if after <= evidence.NO_CHECKS_GIVE_UP_S]
+    assert len(github.asked) == 1 + len(waited)
+    assert (run["landing"], run["ci_status"]) == ("pushed", "none")
+
+
+def test_checks_that_never_end_are_not_waited_for_beyond_the_last_reading(rig, worktree: Path):
+    _on_github(worktree)
+    clock = _Clock()
+    github = _GitHub(OPEN_RUNNING)
+    it = rig(read_evidence=github, clock=clock)
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+    while run["evidence_due_ms"] is not None:
+        it.recorder.read_due(run["evidence_due_ms"])
+        run = it.store.get("job_1")
+    assert len(github.asked) == 1 + len(evidence.RECHECK_AFTER_S)
+    assert run["ci_status"] == "running"
+
+
+def test_a_restart_goes_on_reading_what_was_due(rig, worktree: Path):
+    _on_github(worktree)
+    clock = _Clock()
+    github = _GitHub(OPEN_RUNNING, MERGED_PASSING)
+    it = rig(read_evidence=github, clock=clock)
+    due = it.run_a_turn(work=lambda: _commit(worktree))["evidence_due_ms"]
+
+    after_restart = it.new_recorder()
+    after_restart._resume()
+
+    # The writer thread sleeps until then, at most five minutes at a time.
+    clock.now = due / 1000 - 30
+    assert after_restart._wait_s() == pytest.approx(30, abs=0.01)
+    clock.now = due / 1000 - 3600
+    assert after_restart._wait_s() == 300.0
+    assert after_restart.read_due(due) == 1
+    assert it.store.get("job_1")["landing"] == "merged"
+    # With the scan switched off after the restart nothing is read again.
+    assert it.new_recorder(verify="off")._due == {}
+
+
+def test_the_writer_thread_reads_due_evidence_by_itself(rig, worktree: Path, monkeypatch):
+    monkeypatch.setattr(rec, "_MIN_WAIT_S", 0.01)
+    _on_github(worktree)
+    clock = _Clock()
+    github = _GitHub(OPEN_RUNNING, MERGED_PASSING)
+    it = rig(read_evidence=github, clock=clock)
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+    clock.now = run["evidence_due_ms"] / 1000 + 1
+
+    it.recorder.start()
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline and it.store.get("job_1")["landing"] != "merged":
+            time.sleep(0.02)
+    finally:
+        it.recorder.stop()
+
+    assert it.store.get("job_1")["landing"] == "merged"
+    assert len(github.asked) == 2
+
+
+def test_github_failing_to_answer_leaves_the_scan_on_record(rig, worktree: Path):
+    _on_github(worktree)
+
+    def broken(_repo: str, _sha: str) -> evidence.Evidence:
+        raise RuntimeError("boom")
+
+    it = rig(read_evidence=broken)
+    run = it.run_a_turn(work=lambda: _commit(worktree))
+    assert run["gate_status"] == gates.CLEAN
+    assert run["landing"] == ""
+    found = verdict.from_run(run, it.store.steps("job_1"))
+    assert found.verdict == "unverified"
+
+
+def test_a_clean_scan_with_passing_checks_on_the_commit_is_verified(rig, worktree: Path):
+    _on_github(worktree)
+    it = rig(read_evidence=_GitHub(MERGED_PASSING))
+    it.run_a_turn(work=lambda: _commit(worktree))
+    found = verdict.from_run(it.store.get("job_1"), it.store.steps("job_1"))
+    assert found.verdict == "verified"
+    assert [c.ok for c in found.checks] == [True, True, True]
+    assert "#12 is merged" in found.checks[2].detail
+
+
+def test_work_left_beside_the_commit_is_not_what_the_checks_ran_on(rig, worktree: Path):
+    _on_github(worktree)
+    it = rig(read_evidence=_GitHub(MERGED_PASSING))
+
+    def work() -> None:
+        _commit(worktree)
+        (worktree / "later.py").write_text("LATER = 1\n", encoding="utf-8")
+
+    it.run_a_turn(work=work)
+    found = verdict.from_run(it.store.get("job_1"), it.store.steps("job_1"))
+    assert found.verdict == "unverified"
+    assert "beyond the commit" in found.summary
+
+
+def _steps(scan: dict[str, Any], found: evidence.Evidence | None) -> list[dict[str, Any]]:
+    steps = [{"step": "gates", "status": scan["status"], "detail": scan}]
+    if found is not None:
+        steps.append({"step": "evidence", "detail": found.to_detail()})
+    return steps
+
+
+CLEAN_SCAN = {"status": "clean", "files": 1, "added": 2, "deleted": 0, "committed": True}
+ENDED_RUN = {"run_id": "job_1", "state": ENDED, "turn_status": "done"}
+
+
+@pytest.mark.parametrize(
+    ("scan", "found", "wanted", "says"),
+    [
+        (CLEAN_SCAN, MERGED_PASSING, "verified", "checks pass on the commit"),
+        (CLEAN_SCAN, evidence.Evidence("pr_open", "passing", pr=3), "verified", "checks pass"),
+        (
+            CLEAN_SCAN,
+            evidence.Evidence(
+                "pr_open", "failing", pr=3, failing=("test (ubuntu)", "lint"),
+                reason="pull request #3 is open",
+            ),
+            "failed",
+            "pull request #3 is open; failing: test (ubuntu), lint",
+        ),
+        (CLEAN_SCAN, OPEN_RUNNING, "unverified", "they still run"),
+        (CLEAN_SCAN, evidence.Evidence("pushed", "none", reason="x"), "unverified", "no checks"),
+        (
+            CLEAN_SCAN,
+            evidence.Evidence("none", "none", reason="the commit is not on GitHub"),
+            "unverified",
+            "the commit is not on GitHub",
+        ),
+        (CLEAN_SCAN, None, "unverified", "no independent test evidence"),
+        (
+            {**CLEAN_SCAN, "status": "findings", "ambiguous": 1},
+            MERGED_PASSING,
+            "unverified",
+            "points someone has to look at",
+        ),
+        ({**CLEAN_SCAN, "committed": False}, MERGED_PASSING, "unverified", "beyond the commit"),
+    ],
+)
+def test_what_the_record_supports(scan, found, wanted: str, says: str):
+    answer = verdict.from_run(ENDED_RUN, _steps(scan, found))
+    assert answer.verdict == wanted
+    assert says in answer.summary
+
+
+def test_passing_checks_do_not_outweigh_a_weakened_check():
+    scan = {
+        **CLEAN_SCAN, "status": "violations",
+        "findings": [{"rule": "C1", "severity": "violation", "path": "tests/test_a.py",
+                      "note": "a test file was deleted"}],
+    }
+    answer = verdict.from_run(ENDED_RUN, _steps(scan, MERGED_PASSING))
+    assert answer.verdict == "failed"
+    assert "C1 tests/test_a.py" in answer.summary

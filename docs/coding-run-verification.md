@@ -1,15 +1,17 @@
 # Coding run verification
 
 What became of an order the lead gave a coding agent: on which model and CLI
-it ran, in which repository, how it ended, and whether the change it left
-behind weakened the checks. Off by default. Code:
+it ran, in which repository, how it ended, whether the change it left behind
+weakened the checks, whether it landed and what the repository's checks say
+about it. Off by default. Code:
 `dodaios/orchestrator/verification/` (the record and the checks) and
 `dodaios/rsi/` (tags and the report).
 
 ```toml
 [rsi]
 enabled = true        # record every order a coding thread takes
-verify = "observe"    # also scan what an ended run left behind
+verify = "observe"    # also scan what an ended run left behind, and ask GitHub
+                      # what became of its commit
 ```
 
 Both settings are closed to voice, chat, self-mod and agents
@@ -131,14 +133,44 @@ shared_checkout_repos = ["github.com/acme/legacy"]   # these keep the project fo
 Only threads opened through the lead get one. A thread the person starts in the
 IDE runs where the person put it.
 
+## Landing and checks
+
+The agent's own report never counts. After the scan, the app asks GitHub about
+the commit the run's work area was on, with the person's own GitHub connection
+(the app's, else the GitHub CLI's): one GraphQL call, only for a repository on
+github.com, and only for a run with a checkout of its own that made a commit.
+
+| Recorded | Values |
+| --- | --- |
+| `landing` | `none` (nothing changed, left uncommitted, or not pushed), `pushed`, `pr_open`, `pr_closed`, `merged`, `unknown` (GitHub was not asked or did not answer) |
+| `ci_status` | `passing`, `failing`, `running`, `none`, `unknown` |
+
+- **Merged work is judged where it landed.** The checks are those of the merge
+  commit. A merge queue tests several pull requests as one and cancels the runs
+  of all but the last; then the next commit on the default branch with checks
+  speaks for the work when they passed (it holds the work). A red commit is
+  never skipped for a green one after it. Without either, the checks of the
+  pull request's head count.
+- **A cancelled check is not a failed one.** GitHub rolls it up as a failure;
+  here it reads as "no checks completed".
+- **Unsettled evidence is read again**: while checks run, while a pull request
+  is open (it may merge), and when GitHub was out of reach, at 2, 5, 10, 20 and
+  40 minutes and then up to six hours after the run's end. A commit that shows
+  no check after 5 minutes is taken to have none. This happens in the
+  recorder's thread and survives an app restart. Nothing looks at an agent
+  while it works.
+
 ## What the lead can ask
 
 `verify_delegate` answers for a thread job from the record:
 
-- `failed` when the turn failed or the scan found a violation, with the rule
-  and the file;
-- `unverified` otherwise. A clean scan does not prove the change works, and no
-  test evidence is read yet.
+- `failed` when the turn failed, the scan found a violation (with the rule and
+  the file), or the checks on the run's commit fail (with their names);
+- `verified` when the turn ended well, the scan found nothing at all, the work
+  area held nothing beyond the commit, and the checks on that commit pass;
+- `unverified` otherwise, with the reason: checks still run, the commit has
+  none, the work is not on GitHub, or the scan left points to look at. A clean
+  scan alone does not prove the change works.
 
 Without a record (recording off) the tool answers as before.
 
@@ -151,13 +183,17 @@ python -m dodaios.rsi.report --since-days 7 --json
 
 One row per cell: the domain a run was bound to, the model, and the runner with
 its CLI version line (`claude-cli 2.1`). Per cell: runs, how their turns ended,
-mean duration, and what the scan said (`scanned`, `violations`,
-`unattributed`). The report opens the record read-only and calls no model.
+mean duration, what the scan said (`scanned`, `violations`, `unattributed`),
+and what GitHub said (`merged`, `ci ok`, `ci red`). The report opens the record
+read-only and calls no model.
 
 ## Limits
 
-- It records and scans. It does not send a follow-up prompt, hold the lead's
-  answer, run tests or read CI.
+- It records, scans and reads GitHub. It does not send a follow-up prompt, hold
+  the lead's answer or run tests itself. A repository without checks on GitHub,
+  or one hosted elsewhere, never yields `verified`.
+- Passing checks say the repository's own tests pass, no more. Whether a red
+  check was red before the run is not looked at yet.
 - Coding agents run as the same user as the app and have a shell, so nothing
   stops one from editing the record. The scan protects against shortcuts, not
   against an agent that sets out to deceive it.
@@ -167,7 +203,7 @@ mean duration, and what the scan said (`scanned`, `violations`,
 
 ## Tests
 
-`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir}.py`,
+`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir,evidence}.py`,
 `tests/unit/rsi/`, and tests through the real hand-off path in
 `tests/contract/test_workspace_chat_threads.py`. The cheat-scan tests feed the
 scan diffs that git itself wrote; the worktree tests make, put away and restore
