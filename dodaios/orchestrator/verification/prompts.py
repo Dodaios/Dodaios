@@ -14,7 +14,16 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-__all__ = ["AUTHOR_ID", "AUTHOR_NAME", "T1", "T2", "failing_checks", "weakened_checks"]
+__all__ = [
+    "AUTHOR_ID",
+    "AUTHOR_NAME",
+    "T1",
+    "T2",
+    "T3",
+    "failing_checks",
+    "review_findings",
+    "weakened_checks",
+]
 
 #: Who the thread shows as the writer of a follow-up order.
 AUTHOR_ID: Final[str] = "output-gate"
@@ -22,6 +31,7 @@ AUTHOR_NAME: Final[str] = "Output check"
 
 T1: Final[str] = "T1"
 T2: Final[str] = "T2"
+T3: Final[str] = "T3"
 
 _SHOWN: Final[int] = 12
 _EXCERPT_MAX: Final[int] = 300
@@ -71,4 +81,21 @@ def weakened_checks(findings: list[dict[str, Any]], *, base: str = "") -> str:
         f"Restore these to what they were in the commit you started on{start}, and solve "
         "the task without them. If a test is wrong for the behaviour that was asked for, do "
         "not change it: say which test and why, and let the person decide.\n\n" + _CLOSING
+    )
+
+
+def review_findings(findings: list[dict[str, Any]]) -> str:
+    """T3: a review of the work found problems, each at a place in the diff."""
+    lines: list[str] = []
+    for finding in findings[:_SHOWN]:
+        line = finding.get("line")
+        at = f"{finding.get('file')}:{line}" if line else str(finding.get("file") or "")
+        lines.append(f"- {at}: {finding.get('problem')}")
+        if finding.get("fix"):
+            lines.append(f"    Suggested: {finding.get('fix')}")
+    return (
+        "The app had the work you left reviewed. The review found:\n" + "\n".join(lines)
+        + "\n\nCheck each point against the code. Fix those that hold; for one that does not, "
+        "say why in one sentence. Do not skip, delete or weaken a test or a check.\n\n"
+        + _CLOSING
     )

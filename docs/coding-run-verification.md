@@ -14,6 +14,8 @@ verify = "observe"    # also scan what an ended run left behind, and ask GitHub
                       # what became of its commit
 # verify = "enforce"  # the same checks decide: the lead's job is over only with
                       # a verdict, and a finding brings one follow-up order
+# review = "triggered"  # with enforce: a model reviews outputs a fixed trigger picks
+# review_paid = false   # true lets a review use an API key
 ```
 
 Both settings are closed to voice, chat, self-mod and agents
@@ -202,6 +204,22 @@ turn ends -> scan -> GitHub -> decide
   thread goes through at once. A check that shows no sign of life for 15
   minutes leaves the thread's own word, so a dead check never holds the answer.
   The note that a thread finished waits for the verdict the same way.
+- **A model's second opinion, on fixed triggers** (`review.py`, with
+  `review = "triggered"`, off by default). An output whose checks are not red
+  gets one review when the scan left points to look at, the change touches a
+  path where a mistake costs more (access, sessions, secrets, crypto,
+  permissions, payments, billing, migrations, SQL), it changes more than 400
+  lines or 15 files, or a random audit draws it (one in ten, fixed per run and
+  output). One call without tools, by another model family than the worker's
+  when one is signed in with a subscription, else the worker's own
+  subscription; an API key only with `review_paid = true`. An approval must
+  name the places it read, an objection the file and line of each finding, all
+  in the diff; otherwise the review proves nothing and a `verified` becomes
+  `unverified`. An objection brings the order T3 with the findings (it counts
+  against the two follow-up orders). At most one review per output, 16 per
+  request of the person and 50 a day; a due review that the budget stops leaves
+  the output `unverified`. A review started before an app restart is not run
+  again.
 - **Verdicts**: `verified`, `unverified` (with the reason), `failed`,
   `superseded`, `needs_decision`. The jobs ledger shows them as `done` with the
   detail `verified` or `unverified`, `failed`, `cancelled` and `blocked`.
@@ -261,7 +279,7 @@ read-only and calls no model.
 
 ## Tests
 
-`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir,evidence,driver,follow_up,send_and_probe}.py`,
+`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir,evidence,driver,follow_up,send_and_probe,review}.py`,
 `tests/unit/rsi/`, and tests through the real hand-off path in
 `tests/contract/test_workspace_chat_threads.py`. The cheat-scan tests feed the
 scan diffs that git itself wrote; the worktree tests make, put away and restore
