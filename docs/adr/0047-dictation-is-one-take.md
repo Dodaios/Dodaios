@@ -242,3 +242,83 @@ the same 74 recordings: 13.6 % before, 13.7 % after.
   taking the keyboard focus on a machine in use. `[dictation].paste_delay_ms`
   stays at 120.
 
+
+## Amendment 2026-11-22: a paragraph follows the grammar of the sentence
+
+### Context
+
+Since the amendment of 2026-11-17 an on-device engine reads the open piece at
+every pause, and a reading that ends with a full stop is kept. A recognizer
+closes every reading with a full stop where its audio runs out, also when the
+speaker only stopped to think inside a sentence; German speakers often stop
+right before the verb at the end of a clause. The pause after such a cut is
+long, so the blank line for a pause of 2 s or more made a paragraph there,
+before a "sentence" of one word that was the missing verb. Paragraphs were
+also set at a pause whatever their length, and a long stretch was closed at
+the first sentence end past 70 words.
+
+The five long dictations of 2026-11-22 on a maintainer's Mac (Parakeet
+leading) had 14 automatic paragraphs. 8 of them split a sentence and 4
+paragraphs held fewer than 20 words.
+
+### Decision
+
+1. **A full stop ends a sentence only when the sentence is finished**
+   (`dodaios/dictation/grammar.py`, German and English). It is not when the
+   last word is one no sentence ends with (an article, a conjunction, a
+   possessive), when a German subordinate or relative clause still waits for
+   its verb (it ends in a noun, a number or a word that cannot be a verb
+   form), or when the next "sentence" only carries it on: it starts in lower
+   case, it is one or two words that are not a reply or a greeting, or it is
+   a subordinate or relative clause on its own. Each rule leans to
+   "unfinished": that costs a paragraph or a cut, the other way splits a
+   sentence. Another language gets only the words that end no sentence in
+   any served language.
+2. **A reading is kept only up to a finished sentence.** Decision 2 of the
+   amendment of 2026-11-17 now asks the sentence rules: a reading that ends
+   inside a sentence is read again with what follows, and a break inside a
+   reading is taken as a sentence end only when the words the recognizer
+   heard after it do not carry the sentence on.
+3. **A long pause is a cue for a paragraph, not a paragraph.** The take
+   still marks it with a blank line; the formatting rules decide.
+4. **A sentence cut at a pause is joined again** when the part before is
+   unfinished and the part after is a short tail of up to three words that
+   is not a reply. The full stop goes, and the first word of the tail loses
+   its capital when it can never be a noun (a function word, or the verb
+   that closes an open German clause).
+5. **Paragraphs are planned over the whole block**
+   (`dodaios/dictation/paragraphs.py`). A boundary may take a break only
+   after a finished sentence. Its cues are worth: a long pause +2.5, a
+   sentence opening a new point ("Another thing", "Secondly", "Finally")
+   +2.0, a change of subject or a request ("Okay", "Could you") +1.0, a turn
+   against what came before +0.5, a sentence pointing back ("This", "So",
+   "For example") -1.5, "and" or "then" -0.75. A break costs 1.25. A
+   paragraph of 35 to 80 words costs nothing; a shorter or longer one costs
+   the square of its distance from that range, in steps of 10 and 20 words;
+   one short sentence on its own costs 0.75 more. The breaks with the lowest
+   total win (dynamic programming over the sentences, 0.04 s for 7,000
+   words). A dictation under 50 words stays one paragraph, as before.
+
+### Measured
+
+The 50 dictations of 50 words or more in that Mac's history, their
+recognized text formatted by the old and the new rules:
+
+| | Before | After |
+| --- | --- | --- |
+| Paragraph breaks | 37 | 34 |
+| Paragraphs under 20 words | 8 | 0 |
+| Paragraphs over 110 words | 4 | 0 |
+| Longest paragraph | 160 words | 110 words |
+| Breaks after an unfinished sentence or before its rest | 7 | 0 |
+| Median paragraph | 62 words | 62 words |
+
+Two of those recordings (96 s and 108 s, kept on the Mac) ran as live takes
+in real time with the real Parakeet model, old and new take side by side.
+In the first, the old take cut a German clause before its verb and the
+delivered text had a paragraph before that verb; the new take read the
+sentence whole and cut after it. Both kept 4 of about 30 readings, and the
+wait after the stop stayed the same (320 ms and 312 ms; 128 ms and 127 ms).
+In the five dictations of the context, 1 of the 8 sentence splits is still
+a paragraph break: the recognizer closed the sentence before a long verb
+group, which no rule here recognizes.

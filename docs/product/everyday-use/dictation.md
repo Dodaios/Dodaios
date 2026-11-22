@@ -71,17 +71,28 @@ parágrafo", "nova linha") work the same way. The phrases work in every
 dictation language and need no wording model. A phrase you talk about stays
 as words: "add a new line to the file" is delivered as that sentence.
 
-A dictation of about 50 words or more also gets paragraphs by itself:
+A dictation of about 50 words or more also gets paragraphs by itself, by
+the rules German and English writing share:
 
-- where you pause for two seconds or longer between two sentences;
-- before a sentence that opens a new topic, such as one starting with
-  "Another thing" or "Secondly" (German, Spanish and Portuguese have their
-  own lists);
-- once a paragraph has grown to about 70 words, at the next sentence end.
+- A paragraph ends only after a finished sentence. When you stop to think in
+  the middle of a sentence, the recognizer often puts a full stop there.
+  Dodaios sees that the sentence is not finished (it ends on a word like
+  "and" or "the", or a German clause still waits for its verb, or the next
+  "sentence" is only its last word or two) and makes no paragraph there. A
+  sentence split like that is put back together.
+- A new paragraph starts where you pause for two seconds or longer between
+  two finished sentences, or where a sentence opens a new point: "Another
+  thing", "Secondly", "Finally", or a request such as "Could you". German
+  has its own list.
+- A sentence that leans on the one before, such as one starting with "This",
+  "So" or "For example", does not start a paragraph.
+- A paragraph is a few sentences long. One short sentence is not made a
+  paragraph of its own, and a long stretch without any of these cues is
+  shared out into paragraphs of about 50 to 90 words.
 
-A sentence is never split, and a list you dictated line by line keeps its
-lines. To keep every dictation one paragraph, set
-`[dictation] auto_paragraphs = false`; spoken commands still work then.
+A list you dictated line by line keeps its lines. To keep every dictation one
+paragraph, set `[dictation] auto_paragraphs = false`; spoken commands still
+work then.
 
 A recognizer writes three dots where you pause. Dodaios removes them, so a
 pause in the middle of a sentence leaves no mark in the text.

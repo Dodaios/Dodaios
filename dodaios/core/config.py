@@ -3641,11 +3641,14 @@ class DictationConfig(BaseModel):
     #: ``dodaios.dictation.formatting``. No model call, no rephrasing.
     remove_fillers: bool = True
 
-    #: Break a long dictation into paragraphs: where the speaker paused for
-    #: a while between two sentences, before a sentence that opens a new
-    #: topic, and once a paragraph has grown long. A dictation under about 50
-    #: words stays one paragraph. Rules only, no model call. Spoken commands
-    #: ("new paragraph") work either way.
+    #: Break a long dictation into paragraphs the way German and English
+    #: writing does: only after a finished sentence (a full stop the
+    #: recognizer put at a pause inside a sentence does not count), where the
+    #: speaker paused for a while or a sentence opens a new point, never
+    #: before a sentence that leans on the one before, and so that no
+    #: paragraph is a scrap or a wall (``dodaios.dictation.paragraphs``). A
+    #: dictation under about 50 words stays one paragraph. Rules only, no
+    #: model call. Spoken commands ("new paragraph") work either way.
     auto_paragraphs: bool = True
 
     #: Safety ceiling for the cleanup: if the rules would drop more than this
