@@ -20,7 +20,7 @@ from typing import Any
 
 from dodaios.core.delegate_verify import Check, Verification
 
-from . import evidence, gates
+from . import driver, evidence, gates
 from .store import ENDED
 
 __all__ = ["for_job", "from_run"]
@@ -82,6 +82,15 @@ def from_run(run: dict[str, Any], steps: list[dict[str, Any]]) -> Verification:
         return Verification(
             job_id, "coding", "unverified", "The run's end is not on record.",
             [Check("turn", None, f"the run is {run.get('state') or 'unknown'}")],
+        )
+    judged = str(run.get("verdict") or "")
+    if judged in (driver.SUPERSEDED, driver.NEEDS_DECISION):
+        # Nobody's result, or a question: neither is a claim that could hold.
+        reason = str(run.get("verdict_reason") or judged)
+        said = "The run was not judged" if judged == driver.SUPERSEDED else "The agent asks"
+        return Verification(
+            job_id, "coding", "unverified", f"{said}: {reason}.",
+            [Check("turn", None, reason)],
         )
     turn = str(run.get("turn_status") or "")
     checks = [Check("turn", turn == "done", f"the thread's turn ended as {turn or 'unknown'}")]

@@ -24,6 +24,7 @@ from typing import Any, Final
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "CHECKING",
     "ENDED",
     "INTERRUPTED",
     "OPEN_STATES",
@@ -33,12 +34,15 @@ __all__ = [
 ]
 
 RUNNING: Final[str] = "running"
-#: The run's turn ended and was recorded. Nothing has judged the work yet.
+#: A turn of the run ended and what it left is being checked; a follow-up order
+#: may still come (``[rsi] verify = "enforce"`` only).
+CHECKING: Final[str] = "checking"
+#: The run is over and recorded. ``verdict`` says how it was judged, when it was.
 ENDED: Final[str] = "ended"
 #: The run was open when the app stopped and its end could not be read back.
 INTERRUPTED: Final[str] = "interrupted"
-STATES: Final[tuple[str, ...]] = (RUNNING, ENDED, INTERRUPTED)
-OPEN_STATES: Final[frozenset[str]] = frozenset({RUNNING})
+STATES: Final[tuple[str, ...]] = (RUNNING, CHECKING, ENDED, INTERRUPTED)
+OPEN_STATES: Final[frozenset[str]] = frozenset({RUNNING, CHECKING})
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -82,7 +86,13 @@ CREATE TABLE IF NOT EXISTS runs (
     head_sha          TEXT NOT NULL DEFAULT '',
     landing           TEXT NOT NULL DEFAULT '',
     ci_status         TEXT NOT NULL DEFAULT '',
-    evidence_due_ms   INTEGER
+    evidence_due_ms   INTEGER,
+    verdict           TEXT NOT NULL DEFAULT '',
+    verdict_reason    TEXT NOT NULL DEFAULT '',
+    iteration         INTEGER NOT NULL DEFAULT 0,
+    follow_ups        INTEGER NOT NULL DEFAULT 0,
+    signatures_json   TEXT NOT NULL DEFAULT '[]',
+    heartbeat_ms      INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -127,6 +137,12 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("landing", "TEXT NOT NULL DEFAULT ''"),
     ("ci_status", "TEXT NOT NULL DEFAULT ''"),
     ("evidence_due_ms", "INTEGER"),
+    ("verdict", "TEXT NOT NULL DEFAULT ''"),
+    ("verdict_reason", "TEXT NOT NULL DEFAULT ''"),
+    ("iteration", "INTEGER NOT NULL DEFAULT 0"),
+    ("follow_ups", "INTEGER NOT NULL DEFAULT 0"),
+    ("signatures_json", "TEXT NOT NULL DEFAULT '[]'"),
+    ("heartbeat_ms", "INTEGER"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -136,7 +152,8 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "harness_version", "harness_line", "state", "turn_id", "turn_status", "tokens_in",
         "tokens_out", "tokens_cached", "cost_usd", "wall_ms", "mixed_model",
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
-        "head_sha", "landing", "ci_status", "evidence_due_ms",
+        "head_sha", "landing", "ci_status", "evidence_due_ms", "verdict", "verdict_reason",
+        "iteration", "follow_ups", "signatures_json", "heartbeat_ms",
     }
 )
 #: Every column a new run may carry.
@@ -245,6 +262,17 @@ class VerificationStore:
                 tuple(sorted(OPEN_STATES)),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def root_follow_ups(self, root_span_id: str) -> int:
+        """Follow-up orders all runs of one request of the person got together."""
+        if not root_span_id:
+            return 0
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COALESCE(SUM(follow_ups), 0) FROM runs WHERE root_span_id = ?",
+                (root_span_id,),
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
 
     def evidence_due(self) -> list[dict[str, Any]]:
         """Runs whose landing and checks are to be read again, soonest first."""

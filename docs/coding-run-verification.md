@@ -12,6 +12,8 @@ about it. Off by default. Code:
 enabled = true        # record every order a coding thread takes
 verify = "observe"    # also scan what an ended run left behind, and ask GitHub
                       # what became of its commit
+# verify = "enforce"  # the same checks decide: the lead's job is over only with
+                      # a verdict, and a finding brings one follow-up order
 ```
 
 Both settings are closed to voice, chat, self-mod and agents
@@ -160,6 +162,54 @@ github.com, and only for a run with a checkout of its own that made a commit.
   recorder's thread and survives an app restart. Nothing looks at an agent
   while it works.
 
+## Enforced checks (`verify = "enforce"`)
+
+The same checks, but they decide. A run is not over when its thread's turn
+ends: it stays open while what the turn left is checked, and the job the lead
+waits for reports only the outcome.
+
+```
+turn ends -> scan -> GitHub -> decide
+  a check was weakened, or the repository's checks fail -> one follow-up order -> next turn
+  checks still run                                       -> wait, read again
+  otherwise                                              -> verdict
+```
+
+- **The decision is code, not a model** (`driver.py`). A weakened check (any
+  violation of the scan) brings the order T2: restore what was weakened, and
+  say so if a test is wrong for the asked behaviour instead of changing it.
+  Failing checks bring T1: the names of the failing checks, read their logs,
+  fix only that, weaken nothing. Both end by asking for one closing line,
+  `RESULT: fixed | cannot-fix: … | needs-decision: …`. That line only ends a
+  run early (`cannot-fix` fails it, `needs-decision` hands the question on);
+  `fixed` proves nothing, the next check decides.
+- **Fixed limits**, constants of the code that no prompt or setting raises: at
+  most 2 follow-up orders per run and 16 per request of the person; none after
+  the same finding came back, after a turn that changed nothing, after 400,000
+  output tokens, or after an app restart. Running checks are waited for up to
+  45 minutes after the turn's end.
+- **One way in** (`send.py`). An order is sent only into a thread at rest whose
+  last turn ended by itself, where nothing waits for the person and the person
+  did not write since. It carries the app as author ("Output check"), so the
+  thread shows who wrote it. Its intent is on record before it goes, and an
+  order whose sending cannot be confirmed is never sent again.
+- **The person always wins.** A message from the person into the thread, a
+  turn nobody here started, or a new order of the lead ends the run as
+  `superseded`; nothing is sent after that.
+- **The lead's wait** (`probe.py`). Until the verdict, the job reports
+  `running`, with a progress that moves while the check is alive, so the wait
+  neither ends early nor gives up. A question, an approval or a plan in the
+  thread goes through at once. A check that shows no sign of life for 15
+  minutes leaves the thread's own word, so a dead check never holds the answer.
+  The note that a thread finished waits for the verdict the same way.
+- **Verdicts**: `verified`, `unverified` (with the reason), `failed`,
+  `superseded`, `needs_decision`. The jobs ledger shows them as `done` with the
+  detail `verified` or `unverified`, `failed`, `cancelled` and `blocked`.
+
+Not done yet: the lead's own text after it delegated is still shown at once, a
+thread's other events still wake the lead, and a job held across an app
+restart is not picked up again by the lead's wait.
+
 ## What the lead can ask
 
 `verify_delegate` answers for a thread job from the record:
@@ -189,9 +239,8 @@ read-only and calls no model.
 
 ## Limits
 
-- It records, scans and reads GitHub. It does not send a follow-up prompt, hold
-  the lead's answer or run tests itself. A repository without checks on GitHub,
-  or one hosted elsewhere, never yields `verified`.
+- It runs no tests itself. A repository without checks on GitHub, or one hosted
+  elsewhere, never yields `verified`.
 - Passing checks say the repository's own tests pass, no more. Whether a red
   check was red before the run is not looked at yet.
 - Coding agents run as the same user as the app and have a shell, so nothing
@@ -203,7 +252,7 @@ read-only and calls no model.
 
 ## Tests
 
-`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir,evidence}.py`,
+`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir,evidence,driver,follow_up,send_and_probe}.py`,
 `tests/unit/rsi/`, and tests through the real hand-off path in
 `tests/contract/test_workspace_chat_threads.py`. The cheat-scan tests feed the
 scan diffs that git itself wrote; the worktree tests make, put away and restore
