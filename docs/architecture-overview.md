@@ -318,7 +318,7 @@ Concretely, for the custom-phrase (`stt_match`) path: the rolling-Whisper wake *
 
 This project has an auto-memory at `~/.claude/projects/<your-claude-project-dir>/memory/`. **Check `MEMORY.md` before larger decisions** — stable user preferences (multi-provider brain, hybrid privacy, bilingual, anti-confirmation-fatigue, no-Anthropic-API, frontier-quality-before-cost) live there.
 
-The Knowledge Wiki is the long-term memory tier (B0/B1/B5/B7/B8/B9 live). Three router-tier tools: `wiki-recall` (search), `wiki-page-read` (read by vault path), `wiki-ingest` (deterministic save-fact). Vault root configured in `[wiki_integration].vault_root`; default `wiki/obsidian-vault/`. Telemetry snapshot at `GET /api/wiki/telemetry`. Trigger contract in ADR-0014.
+The personal memory vault is the long-term memory tier (ADR-0044, `dodaios/memory/vault/`): one SQLite file, written through the `remember` tool and read by recall. The Knowledge Wiki and its Obsidian vault are retired; the old folder (`[wiki_integration].vault_root`, default `wiki/obsidian-vault/`) is only read once, by the vault's legacy import.
 
 Realtime and chat memory use a durable two-stage path. A recall-biased extractor
 reviews a turn only when the user explicitly asked to keep it (the brain
@@ -345,4 +345,4 @@ control command itself is never stored as knowledge.
 `POST /api/wiki/backfill` safely re-reviews recent persisted Realtime sessions
 under policy-v3 review keys without draining unrelated journal rows.
 
-The legacy Curator-Merger is soft-disabled since 2026-05-17 (`[memory.legacy_curator] enabled = false`, gated in `dodaios/brain/factory.py`). The `data/workspace/` snapshot stays on disk and ~35 reader sites keep rendering it — but no new writes land there. Hart-Cut (migrate snapshot to `wiki/obsidian-vault/`, refactor readers, delete `dodaios/memory/curator/`) remains open.
+The legacy Curator-Merger is soft-disabled since 2026-05-17 (`[memory.legacy_curator] enabled = false`, gated in `dodaios/brain/factory.py`). The `data/workspace/` snapshot stays on disk and ~35 reader sites keep rendering it — but no new writes land there. The hard cut (refactor the readers, delete `dodaios/memory/curator/`) remains open.

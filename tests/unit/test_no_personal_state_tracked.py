@@ -94,10 +94,8 @@ _BANNED_EXACT: frozenset[str] = frozenset(
         "jarvis.toml",
         "mcp.json",
         ".env",
-        # Personal Obsidian UI state — NOT part of the seed scaffold.
-        # (The other .obsidian/ files — app.json, appearance.json,
-        # core-plugins.json, daily-notes.json, templates.json, and the
-        # Minimal theme — are intentionally tracked as seed config.)
+        # Personal Obsidian UI state of the retired wiki vault (ADR-0044;
+        # its seed scaffold is no longer tracked either).
         "wiki/obsidian-vault/.obsidian/graph.json",
         "wiki/obsidian-vault/.obsidian/hotkeys.json",
         # Personal wiki content files

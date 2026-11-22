@@ -1,9 +1,0 @@
-{
-  "name": "serve",
-  "description": "Start Ollama server",
-  "inputSchema": {
-    "type": "object",
-    "properties": {},
-    "additionalProperties": false
-  }
-}
