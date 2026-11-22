@@ -71,6 +71,9 @@ describe("the side panel's File tab", () => {
     const row = screen.getByText("print('new')").closest("[data-kind]");
     expect(row?.getAttribute("data-kind")).toBe("add");
     expect(row?.textContent).toContain("2");
+    // A long changed line wraps in the panel, like the file does, instead of scrolling sideways.
+    expect(screen.getByText("print('new')").className).toContain("whitespace-pre-wrap");
+    expect(screen.getByTestId("explorer-diff").className).not.toContain("min-w-max");
     fireEvent.click(screen.getByRole("tab", { name: "File" }));
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("file");
   });
