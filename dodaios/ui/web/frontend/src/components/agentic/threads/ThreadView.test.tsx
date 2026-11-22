@@ -120,6 +120,15 @@ describe("ThreadView", () => {
     expect(useIdeThreadsStore.getState().projectOf).toEqual({ s1: "p1" });
   });
 
+  it("names the agent's own shortcuts in the empty box", async () => {
+    api.fetchAgentChatCatalog.mockResolvedValue({ ...CATALOG, providers: [{ ...CATALOG.providers[0], typeahead: ["/", "@"] }] });
+    // A fresh draft reads the catalog again, now with this agent's shortcuts.
+    useThreadChatStore.getState().newChat();
+    render(<ThreadView onScreen />);
+    const box = screen.getByTestId("thread-composer-input");
+    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Ask anything. @ files, / commands"));
+  });
+
   it("starts a new thread on the agent and model the person picked last", async () => {
     localStorage.setItem("jarvis.ide.threadSeat.v1", JSON.stringify({ provider: "claude-api", model: "claude-opus-5-5", effort: "low", permissionMode: "default" }));
     render(<ThreadView onScreen />);
