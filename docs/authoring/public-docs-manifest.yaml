@@ -874,7 +874,6 @@ pages:
     diataxis: troubleshooting
     summary: Diagnose startup, connection, provider, voice, permission, and extension problems using safe checks before changing configuration.
     authoritative_sources:
-      - docs/README-desktop-black-screen.md
       - dodaios/diagnostics/doctor.py
       - dodaios/ui/web/diagnostics_routes.py
     related:
@@ -918,7 +917,6 @@ pages:
     authoritative_sources:
       - docs/dodaios-cli.md
       - docs/dodaios-cli-reference.md
-      - docs/reference/dodaios-cli.md
       - dodaios/cli_ctl
       - scripts/ci/gen_cli_reference.py
     related:

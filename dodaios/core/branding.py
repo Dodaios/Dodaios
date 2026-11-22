@@ -132,11 +132,6 @@ LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES = ("Jarvis-Output",)
 # home directory; lower-cased on a system without a file explorer).
 DELIVERABLES_DIR_NAME = "Dodaios-Outputs"
 LEGACY_DELIVERABLES_DIR_NAMES = ("Jarvis-Outputs",)
-# The folder created inside an existing Obsidian vault the user registers.
-# Only a new registration uses it; a vault root already saved in the
-# configuration keeps naming the folder it names.
-OBSIDIAN_VAULT_FOLDER_NAME = "Dodaios"
-LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES = ("Jarvis",)
 
 # --- Marketplace manifest namespace -------------------------------------------
 # The key a plugin package keeps this app's own data under
@@ -308,7 +303,6 @@ __all__ = [
     "LEGACY_DELIVERABLES_DIR_NAMES",
     "LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES",
     "LEGACY_FALLBACK_USER_DATA_DIR_NAMES",
-    "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES",
     "LEGACY_LAUNCHER_ENTRY_NAMES",
     "LEGACY_MACOS_APP_DIR_NAMES",
     "LEGACY_MACOS_APP_NAMES",
@@ -355,7 +349,6 @@ __all__ = [
     "MCP_TOOLS_SERVER_NAME",
     "LEGACY_MCP_AGENTS_SERVER_NAMES",
     "LEGACY_MCP_TOOLS_SERVER_NAMES",
-    "OBSIDIAN_VAULT_FOLDER_NAME",
     "OFFICIAL_RELEASES_LATEST_API_URL",
     "OFFICIAL_REPO_GIT_URL",
     "OFFICIAL_REPO_SLUG",

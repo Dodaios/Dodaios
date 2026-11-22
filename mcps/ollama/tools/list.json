@@ -1,9 +1,0 @@
-{
-  "name": "list",
-  "description": "List models",
-  "inputSchema": {
-    "type": "object",
-    "properties": {},
-    "additionalProperties": false
-  }
-}

@@ -239,6 +239,8 @@ Desktop.ini
 !.agents/skills/
 .agents/skills/security-github/
 .playwright-mcp/
+# Tool descriptions an agent CLI caches per MCP server (committed by accident once).
+/mcps/
 
 # TypeScript incremental build cache (regenerated on every `tsc --build`)
 *.tsbuildinfo
@@ -246,11 +248,10 @@ Desktop.ini
 # Standalone sibling project — versioned in its own repo
 jarvis-promo-video/
 
-# Obsidian transient workspace state (plugin configs ARE committed)
-wiki/obsidian-vault/.obsidian/workspace.json
-wiki/obsidian-vault/.obsidian/workspace-mobile.json
-wiki/obsidian-vault/.obsidian/workspaces.json
-wiki/obsidian-vault/.trash/
+# The retired wiki folder (ADR-0044). Nothing ships in it any more; an old
+# install may still hold the person's Obsidian notes here, which the memory
+# vault reads once on its legacy import. Personal content: never tracked.
+/wiki/
 
 # Generated worktree inventory (ephemeral)
 git-worktree-status.csv
@@ -273,25 +274,9 @@ git-worktree-status.csv
 # Per-user MCP server config — ship mcp.json.example instead.
 /mcp.json
 
-# Personal knowledge-vault CONTENT. The vault self-creates on first run
-# (dodaios/memory/wiki/integration.py seeds schema.md); only the empty skeleton
-# (schema.md, README.md, 00-index/, 99-templates/) ships as a seed.
-wiki/obsidian-vault/sessions/
-wiki/obsidian-vault/_archive/
-wiki/obsidian-vault/entities/
-wiki/obsidian-vault/concepts/
-wiki/obsidian-vault/projects/
-wiki/obsidian-vault/log.md
-# Per-agent memory books (dodaios/society/memory_books.py) are personal content too.
-wiki/obsidian-vault/society/
-# Runtime-regenerated vault self-documentation page (live stats + person links).
-wiki/obsidian-vault/memory.md
 
 # Local CI repro artifact (JUnit XML), regenerated per run — never committed.
 ci-repro-report.xml
-# Personal Obsidian UI state (theme + plugin-config defaults stay tracked as a seed).
-wiki/obsidian-vault/.obsidian/graph.json
-wiki/obsidian-vault/.obsidian/hotkeys.json
 
 # Dev scratch & personal incident reports (pytest dumps, recovery notes).
 /_*.txt
@@ -440,16 +425,6 @@ Untitled document*
 # too rather than relying on a best-effort side effect.
 /.jarvis/
 
-# Personal knowledge-vault write paths that fill at runtime. The contact mirror
-# and daily-note writers create these on first use; only the empty skeleton
-# ships (see the vault-content block above).
-wiki/obsidian-vault/people/
-wiki/obsidian-vault/10-notes/
-wiki/obsidian-vault/index.md
-wiki/obsidian-vault/attachments/
-# Attachment sink: ignore the contents, keep the tracked folder placeholder.
-wiki/obsidian-vault/90-attachments/*
-!wiki/obsidian-vault/90-attachments/.gitkeep
 
 # ============================================================
 # Marketing material — LOCAL ONLY, never distributed (maintainer directive
