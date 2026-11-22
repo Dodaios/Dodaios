@@ -307,16 +307,16 @@ async def test_a_refused_default_model_is_retried_once_on_a_listed_one(tmp_path:
 async def test_a_team_that_would_shrink_to_one_waits_instead_of_ending(tmp_path: Path) -> None:
     def script(provider: str, step: str, nth: int):
         if provider == "gpt":
-            return TurnResult("failed", error="quota")
+            return TurnResult("failed", error="connection reset")
         return None
 
     turns = FakeTurns(script)
     engine = _engine(turns)
     snap = await _run(engine, tmp_path, seats=SEATS[:2])
 
-    # Not the end of the thread: the seat may only be over its quota for now.
+    # Not the end of the thread: the seat may only be signed out for now.
     assert (snap["state"], snap["reason"]) == ("needs_input", "member_failed")
-    assert snap["note"] == "GPT: quota"
+    assert snap["note"] == "GPT: connection reset"
     assert all(m["state"] == "active" for m in snap["members"])
     assert len(turns.prompts("gpt", "draft")) == 2  # asked, and once more
 

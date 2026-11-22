@@ -74,6 +74,31 @@ _DISAGREEMENTS: Final[tuple[str, ...]] = (
     "review_disagreement",
     "step_disagreement",
 )
+#: A member's seat is out of credit, over its spending cap or its plan's usage
+#: limit. The person tops it up (or the limit resets) and the member goes on
+#: where it stopped: it keeps its place, its thread and its work (#1881).
+LIMIT_REASON: Final[str] = "member_limit_reached"
+#: needs_input reasons a message from the person ends: Continue with it.
+_MESSAGE_RESUMES: Final[tuple[str, ...]] = (*_DISAGREEMENTS, LIMIT_REASON)
+#: A member that left is back; Continue goes on with it.
+BACK_REASON: Final[str] = "member_back"
+
+
+def hit_a_limit(error: str) -> bool:
+    """The turn failed on the seat's credit, spending cap or usage limit.
+
+    Asking again at once only repeats the refusal, and it is no reason to
+    drop the member: the person tops the seat up and the team goes on.
+    """
+    from dodaios.agent_chat.turn_errors import provider_down_reason
+    from dodaios.brain.seat_health import CLASS_QUOTA, classify_seat_failure
+
+    text = str(error or "").strip()
+    if not text:
+        return False
+    if text == provider_down_reason("account_blocked"):
+        return True
+    return classify_seat_failure(text) == CLASS_QUOTA
 
 
 class TeamError(ValueError):
@@ -276,8 +301,9 @@ class TeamThreads(PlannedWork):
             phase=team["phase"],
             payload={"text": text[:_MAX_TASK]},
         )
-        if team["state"] == "needs_input" and team["reason"] in _DISAGREEMENTS:
-            # The answer settles the open points: one more round with it.
+        if team["state"] == "needs_input" and team["reason"] in _MESSAGE_RESUMES:
+            # The answer settles the open points, or says the seat is topped
+            # up: one more round with it.
             return await self.resume(team_id)
         return await asyncio.to_thread(self.snapshot, team_id)
 
@@ -326,10 +352,37 @@ class TeamThreads(PlannedWork):
         elif reason == "limit_cost":
             limits["max_cost_usd"] = float(limits["max_cost_usd"]) * 1.5 + 1.0
         if len(self._active(team_id)) < MIN_MEMBERS:
-            raise TeamError("Fewer than two members are left; start a new team thread.")
+            raise TeamError(
+                "Fewer than two members are left; bring one back or start a new team thread."
+            )
         self._store.update(team_id, state="running", reason="", note="", limits=limits, work=work)
         self._notice(team_id, team["phase"], "resumed", {"after": reason or team["reason"]})
         self._spawn(team_id)
+        return await asyncio.to_thread(self.snapshot, team_id)
+
+    async def rejoin(self, team_id: str, member_id: str) -> dict[str, Any]:
+        """A member that left comes back with its thread, where the team is now.
+
+        It joins the next step. A team that ended because too few members
+        were left waits again, so Continue goes on with it.
+        """
+        team = self._require(team_id)
+        member = next(
+            (m for m in self._store.members(team_id) if m["member_id"] == member_id), None
+        )
+        if member is None:
+            raise KeyError(member_id)
+        if member["state"] != "left":
+            raise TeamError("This member is still in the team.")
+        ended = team["state"] == "failed" and team["reason"] == "not_enough_members"
+        if team["state"] in ("done", "stopped", "failed") and not ended:
+            raise TeamError("This team thread is over. Start a new one.")
+        self._store.member_rejoin(team_id, member_id)
+        self._notice(team_id, team["phase"], "member_rejoined", {"member_id": member_id})
+        if ended and len(self._active(team_id)) >= MIN_MEMBERS:
+            self._store.update(
+                team_id, state="needs_input", reason=BACK_REASON, note=member["name"]
+            )
         return await asyncio.to_thread(self.snapshot, team_id)
 
     async def accept(self, team_id: str) -> dict[str, Any]:
@@ -992,6 +1045,8 @@ class TeamThreads(PlannedWork):
         said_before = {e["author"] for e in self._store.entries(team_id)}
 
         failed: list[tuple[dict[str, Any], str]] = []
+        #: Members whose seat hit its credit or usage limit: they stay.
+        limited: list[tuple[dict[str, Any], str]] = []
 
         async def file(member: dict[str, Any], result: TurnResult) -> None:
             payload: Any = {"text": result.text[:_MAX_TEXT]}
@@ -1022,7 +1077,7 @@ class TeamThreads(PlannedWork):
                 result = await self._turn(
                     team_id, member, text, kind, fresh["lang"], timeout_s, label=label
                 )
-                if result.status == "failed":
+                if result.status == "failed" and not hit_a_limit(result.error):
                     # One more try before the member counts as failed: an
                     # overloaded provider or a dropped connection passes. Where
                     # the seat's own default model was refused before the member
@@ -1055,6 +1110,8 @@ class TeamThreads(PlannedWork):
                     raise
             elif result.status == "timeout":
                 timed_out.append(member["name"])
+            elif hit_a_limit(result.error):
+                limited.append((member, result.error))
             else:
                 failed.append((member, result.error))
 
@@ -1084,6 +1141,7 @@ class TeamThreads(PlannedWork):
                     "files_changed",
                     {"step": kind, "files": list(change.files[:8])},
                 )
+        waiting = list(limited)
         if failed:
             if len(self._active(team_id)) - len(failed) >= MIN_MEMBERS:
                 for member, error in failed:
@@ -1098,12 +1156,17 @@ class TeamThreads(PlannedWork):
                 # Without them no team is left. That does not end the thread:
                 # the seat may only be signed out or over its quota for now, and
                 # Continue asks again.
-                self._halt(
-                    team,
-                    "needs_input",
-                    "member_failed",
-                    note="; ".join(f"{member['name']}: {error[:300]}" for member, error in failed),
-                )
+                waiting += failed
+        if waiting:
+            # A seat out of credit is never a reason to drop its member: the
+            # team waits until the person has topped it up, then Continue asks
+            # the same member again, in the same thread.
+            self._halt(
+                team,
+                "needs_input",
+                LIMIT_REASON if limited else "member_failed",
+                note="; ".join(f"{member['name']}: {error[:300]}" for member, error in waiting),
+            )
         if timed_out:
             over_total = left_s is not None and (turn_s is None or left_s <= turn_s)
             self._halt(

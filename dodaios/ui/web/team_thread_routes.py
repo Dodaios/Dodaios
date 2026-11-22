@@ -469,6 +469,16 @@ async def accept_team_thread(team_id: str, request: Request) -> dict[str, Any]:
     return await _command(request, team_id, "accept")
 
 
+@router.post("/{team_id}/members/{member_id}/rejoin", openapi_extra={"x-jarvis-dangerous": True})
+async def rejoin_team_member(team_id: str, member_id: str, request: Request) -> dict[str, Any]:
+    """Bring a member that left back into the team, with its own thread."""
+    engine = await _engine(request)
+    try:
+        return await engine.rejoin(team_id, member_id)
+    except (TeamError, KeyError) as exc:
+        raise _refused(exc) from exc
+
+
 @router.post("/{team_id}/stop", openapi_extra={"x-jarvis-dangerous": True})
 async def stop_team_thread(team_id: str, request: Request) -> dict[str, Any]:
     """End a team thread and stop its running turns."""

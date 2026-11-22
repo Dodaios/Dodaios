@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from dodaios.agent_chat.team import engine as engine_module
 from dodaios.agent_chat.team.store import (
     ENTRY_KINDS,
     MODES,
@@ -64,9 +65,11 @@ def test_every_locale_names_every_state_step_and_reason(locale: Path) -> None:
     reasons = set(re.findall(r'_halt\(\s*team,\s*"\w+",\s*"(\w+)"', engine))
     reasons |= set(re.findall(r'reason="(\w+)"', engine))
     reasons |= {"interrupted", "limit_time", "stalled"}
+    # Named by a constant rather than spelled at the call.
+    reasons |= {engine_module.LIMIT_REASON, engine_module.BACK_REASON}
     assert reasons <= set(texts["reason"]), reasons - set(texts["reason"])
     notices = set(re.findall(r'_notice\(\s*team_id,\s*[^,]+,\s*"(\w+)"', engine))
-    notices |= {"plan_agreed", "plan_accepted_by_user"}
+    notices |= {"plan_agreed", "plan_accepted_by_user", engine_module.LIMIT_REASON}
     notices |= {"plan_version_agreed", "plan_version_accepted_by_user"}
     notices |= {"step_accepted", "step_accepted_by_user"}
     assert notices <= set(texts["notice"]), notices - set(texts["notice"])

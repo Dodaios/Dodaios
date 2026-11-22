@@ -290,6 +290,16 @@ class TeamThreadStore:
             )
             self._conn.commit()
 
+    def member_rejoin(self, team_id: str, member_id: str) -> None:
+        """A member that left is back in the team."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE team_thread_members SET state = 'active', left_reason = '' "
+                "WHERE team_id = ? AND member_id = ?",
+                (team_id, member_id),
+            )
+            self._conn.commit()
+
     def member_model(self, team_id: str, member_id: str, model: str) -> None:
         """The member runs on ``model`` from here; its fallback is used up."""
         with self._lock:
