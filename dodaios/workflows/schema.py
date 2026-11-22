@@ -199,7 +199,7 @@ WorkflowRunState = Literal[
     "missed",       # the cron slot passed while the app was not running (BUG-212)
 ]
 
-#: Run states that never change again. Mirrored in ``hooks/useWorkflows.ts``.
+#: Run states that never change again.
 WORKFLOW_RUN_TERMINAL_STATES: tuple[str, ...] = ("completed", "failed", "cancelled", "missed")
 
 

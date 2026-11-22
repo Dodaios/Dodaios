@@ -234,7 +234,6 @@ def main() -> None:
         ROOT / "assets" / "icons" / "dodaios-gigi-256.png",
         public / "dodaios-gigi-256.png",
         public / "dodaios-logo.png",
-        FRONTEND / "src" / "assets" / "dodaios-mark.png",
     ):
         write_png(path, logo_256)
     write_png(public / "dodaios-mark-256.png", render_mark(256))

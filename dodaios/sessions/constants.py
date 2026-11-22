@@ -121,10 +121,9 @@ VOICE_MODES: Final[tuple[str, ...]] = (
 #
 # Same anti-drift contract as HANGUP_REASONS: every phrase Jarvis commits to
 # the audible output path is published as a ``SpeechSpoken`` event and
-# tagged with one of these kinds. The Transcription view renders a per-kind
-# label, so the set has to agree across Python (this module), the Pydantic
-# mirror (``models.py``), the TS const (``types.ts``) and the UI label map
-# (``TurnCard.tsx``). The parity test in
+# tagged with one of these kinds, so the set has to agree across Python (this
+# module), the Pydantic mirror (``models.py``) and the TS const
+# (``types.ts``). The parity test in
 # ``tests/unit/sessions/test_spoken_kind_parity.py`` fails on any drift.
 #
 SPOKEN_KIND_REPLY: Final[str] = "reply"
