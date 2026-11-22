@@ -7900,6 +7900,7 @@
     "note_declined": "Pulada. {agent} decide esta.",
     "note_moved_on": "Você mudou de assunto, então a recomendação foi usada.",
     "note_message": "Respondida no chat.",
+    "note_delegator": "{name} respondeu isto por você.",
     "unanswered": "Sem resposta: o turno terminou.",
     "composer_placeholder": "Responda a {agent} ou escreva sobre outra coisa"
   },

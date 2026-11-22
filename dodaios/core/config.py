@@ -4620,6 +4620,32 @@ class RsiConfig(BaseModel):
     repo_index: bool = False
 
 
+class BriefsConfig(BaseModel):
+    """``[briefs]`` — how Dodaios hands work to coding agents (``dodaios.briefs``).
+
+    Every brief for a coding agent passes one pipeline, whoever wrote it. Each
+    part can be switched off on its own; ``docs/agent-briefs.md`` says what
+    each one does.
+    """
+
+    model_config = {"extra": "allow"}
+
+    #: ``revise``: a brief with a fault goes back to its writer once before it
+    #: is sent. ``note``: checked and recorded, never sent back. ``off``: every
+    #: brief goes out exactly as written; nothing is looked up, assembled or recorded.
+    check: Literal["revise", "note", "off"] = "revise"
+    #: Pick the effort from the size of the job when none was named.
+    auto_effort: bool = True
+    #: A thread an agent opened gets the standing rules for work orders once.
+    standing_rules: bool = True
+    #: The lead may answer a coding thread's question from the person's own words.
+    lead_answers_questions: bool = True
+    #: Hold a finished order's done-when points against what the run left behind.
+    acceptance: bool = True
+    #: Keep every order and its outcome in ``briefs.db``.
+    record: bool = True
+
+
 class JarvisConfig(BaseModel):
     """Root config model."""
 
@@ -4641,6 +4667,7 @@ class JarvisConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     self_build: SelfBuildConfig = Field(default_factory=SelfBuildConfig)
     rsi: RsiConfig = Field(default_factory=RsiConfig)
+    briefs: BriefsConfig = Field(default_factory=BriefsConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     harness: HarnessConfig = Field(default_factory=HarnessConfig)

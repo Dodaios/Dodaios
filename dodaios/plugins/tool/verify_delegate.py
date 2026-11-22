@@ -133,9 +133,14 @@ async def _resolve_ledger(job_id: str) -> Resolved:
     if job.kind == "ide_submission" and job.target.startswith("thread:"):
         from dodaios.orchestrator.verification.verdict import for_job
 
+        from dodaios.briefs.acceptance import with_done_when
+
         recorded = await asyncio.to_thread(for_job, job_id)
-        if recorded is not None:
-            return recorded
+        # The order's own done-when points, checked when the turn ended
+        # (``dodaios.briefs.acceptance``), join what the run record says.
+        judged = await asyncio.to_thread(with_done_when, job_id, recorded)
+        if judged is not None:
+            return judged
     if job.kind == "society_assignment" and job.meta.get("event_id"):
         return await _resolve_society(job_id, str(job.meta["event_id"]))
     if job.kind == "artifact":

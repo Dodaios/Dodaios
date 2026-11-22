@@ -1793,8 +1793,8 @@ def _build_registry() -> tuple[AppCommand, ...]:
             description=(
                 "Show how Dodaios briefs the person's coding agents: their standing "
                 "wishes, the default when there are none (the agent checks its own work "
-                "and, with tests and CI green, pushes and merges) and the limits that "
-                "always stay."
+                "and, with tests and CI green, pushes and merges), the limits that "
+                "always stay, and per project what it learned their own words stand for."
             ),
             method="GET",
             path="/api/settings/agent-briefs",
@@ -1840,6 +1840,35 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "en": ("let agents merge on their own", "i want to approve every pr myself"),
                 "es": ("deja que los agentes hagan merge solos",),  # i18n-allow: input vocab
                 "pt": ("deixa os agentes fazer merge sozinhos",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="agent-briefs-forget-word",
+            title="Forget a learned word",
+            description=(
+                "Forget what one of the person's own words stands for in one project, when "
+                "they say the meaning Dodaios learned is wrong or no longer wanted. project "
+                "and said are the values agent-briefs-get lists under glossary. A new "
+                "meaning is learned with the next brief (delegate, options.resolved)."
+            ),
+            method="POST",
+            path="/api/settings/agent-briefs/glossary/unlearn",
+            params={
+                "type": "object",
+                "properties": {
+                    "project": _str_param(
+                        "The project as agent-briefs-get names it.", max_length=400
+                    ),
+                    "said": _str_param("The person's word to forget.", max_length=200),
+                },
+                "required": ["project", "said"],
+            },
+            ui_section="settings",
+            voice_aliases={
+                "de": ("vergiss was das wort bedeutet",),  # i18n-allow: input vocab
+                "en": ("forget what that word means",),
+                "es": ("olvida lo que significa esa palabra",),  # i18n-allow: input vocab
+                "pt": ("esquece o que essa palavra significa",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------- agentic IDE

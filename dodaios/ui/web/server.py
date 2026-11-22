@@ -4173,6 +4173,10 @@ class WebServer:
         from dodaios.rsi.repo_cards import install as install_repo_board
 
         install_repo_board(service, self.cfg)
+        # How briefs for coding agents are checked and followed: the ``[briefs]`` switches.
+        from dodaios.briefs import settings as brief_settings
+
+        brief_settings.configure(self.cfg)
         # "Needs you" list and notifier: one event listener, nothing on boot.
         from dodaios.agent_chat.attention import install as install_attention
 

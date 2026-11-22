@@ -843,6 +843,28 @@ def _brief_wishes() -> str:
         return ""
 
 
+def _through_brief_check(
+    text: str, utterance: str, session, terminal_name: str, agent_display: str  # noqa: ANN001
+) -> str:
+    """A composed brief as it is sent: checked, recorded and with the person's own words.
+
+    The same pass every brief for a coding agent takes (``dodaios.briefs``),
+    on its wording only: this writer is on a spoken turn's clock, so nothing
+    is sent back and no file is read again.
+    """
+    from dodaios.briefs import handoff
+
+    return handoff.composed(
+        text,
+        utterance=utterance,
+        folder=str(getattr(session, "folder", "") or ""),
+        recipient_name=agent_display,
+        session=terminal_name,
+        # Room for what sanitising adds; the cap below still holds.
+        max_chars=MAX_PROMPT_CHARS - 100,
+    )
+
+
 def _strip_wrapper(text: str) -> str:
     """Remove a fenced block or surrounding quotes a model may have added."""
     stripped = text.strip()
@@ -947,7 +969,10 @@ async def compose(
         chosen = (candidates or [])[:max_files]
         return ComposedPrompt(
             text=sanitize_prompt(
-                blueprint.render_fallback(base_instruction, chosen, attached),
+                _through_brief_check(
+                    blueprint.render_fallback(base_instruction, chosen, attached),
+                    utterance, session, terminal_name, agent_display,
+                ),
                 keep_newlines=True,
             )[:MAX_PROMPT_CHARS],
             files=chosen,
@@ -1256,6 +1281,9 @@ async def _compose_after_start(
         # Enter that follows picks a suggestion instead of submitting.
         composed = f"{composed}\n\nStart there; search further if needed."
 
+    composed = await asyncio.to_thread(
+        _through_brief_check, composed, said, session, terminal_name, agent_display
+    )
     final = sanitize_prompt(composed, keep_newlines=True)[:MAX_PROMPT_CHARS]
     if not final:
         return degrade("composer returned nothing usable")

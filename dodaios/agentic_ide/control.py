@@ -161,7 +161,9 @@ class CodingSessionControl:
                 image_brief, attachments, image_receipts = await prepare(owner, term, images)
             except ImageReferenceError as exc:
                 raise SessionError(str(exc)) from exc
-            composed = str(args["prompt"]) + image_brief
+            # A brief that passed the shared check arrives assembled for this
+            # pane's model (``dodaios.briefs``); ``prompt`` stays what was written.
+            composed = str(args.get("_brief_text") or args["prompt"]) + image_brief
             sanitized = sanitize_prompt(composed, keep_newlines=True)
             if any(row["path"] not in sanitized for row in image_receipts):
                 raise SessionError(
