@@ -4,10 +4,12 @@ import type { DiffHunk } from "./explorerApi";
 /**
  * A unified diff, read top to bottom: removed lines red, added lines green,
  * unchanged context in the body ink, with both line numbers in the gutter.
+ * A long line wraps beside its gutter instead of making the view scroll
+ * sideways, so a narrow panel still shows every line whole.
  */
 export function DiffView({ hunks }: { hunks: DiffHunk[] }) {
   return (
-    <div data-testid="explorer-diff" className="min-w-max font-mono text-[12px] leading-[1.55]">
+    <div data-testid="explorer-diff" className="font-mono text-[12px] leading-[1.55]">
       {hunks.map((hunk, index) => (
         <div key={`${hunk.header}-${index}`}>
           <div className="sticky top-0 z-[1] border-y border-border/60 bg-muted/80 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
@@ -41,7 +43,7 @@ export function DiffView({ hunks }: { hunks: DiffHunk[] }) {
               </span>
               <span
                 className={cn(
-                  "whitespace-pre pr-4",
+                  "min-w-0 flex-1 whitespace-pre-wrap pr-4 [overflow-wrap:anywhere]",
                   line.kind === "add" && "text-success",
                   line.kind === "del" && "text-destructive",
                   line.kind === "ctx" && "text-foreground/80",
