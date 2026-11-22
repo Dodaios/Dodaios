@@ -334,6 +334,19 @@ class RunRecorder:
         self._open[session_id] = run
         self._catch_up(run)
 
+    def _bind_policy(self, run: _Open, runner: str, line: str) -> None:
+        """Freeze the run's policy (``rsi.bind``) once its cell is known: at its first turn."""
+        if not self.enforcing or run.iteration:
+            return
+        row = self.store.get(run.run_id) or {}
+        if row.get("policy_id"):
+            return  # bound before (a run picked up again after a restart)
+        from dodaios.rsi import bind, selector
+
+        cell = selector.cell_of({**row, "runner": runner, "harness_line": line})
+        root = str(row.get("root_span_id") or run.run_id)
+        self.store.update_run(run.run_id, **bind.binding_fields(cell, root))
+
     def _resume(self) -> None:
         """Take runs an earlier boot left open back under watch, or close them."""
         if self._verify != "off":
@@ -474,6 +487,10 @@ class RunRecorder:
             harness_version=harness.version,
             harness_line=harness.line,
         )
+        try:
+            self._bind_policy(run, runner, harness.line)
+        except Exception:  # noqa: BLE001 - an unbound run runs under the code's own limits
+            log.warning("run recorder: no policy bound to %s", run.run_id, exc_info=True)
         self.store.add_step(
             run.run_id, run.iteration, "turn_started", turn_id=turn_id,
             harness_version=harness.version,
@@ -1042,5 +1059,10 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
         return None
     set_recorder(made)
     _install_workdirs(store, service, section)
+    if made.enforcing:
+        from dodaios.rsi import bind
+        from dodaios.rsi.policy import store_for
+
+        bind.set_store(store_for(data_dir))
     log.info("run recorder: recording delegated coding runs to %s", store.path)
     return made

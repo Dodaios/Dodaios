@@ -113,11 +113,32 @@ def result_line(text: str) -> tuple[str, str]:
     return "", ""
 
 
+def _policy_limits(run: dict[str, Any]) -> tuple[int, int]:
+    """``(follow-up orders, seconds to wait for checks)`` the run's policy allows.
+
+    A policy chooses less than the code's limits, never more; a run without a
+    readable policy has the code's limits.
+    """
+    text = str(run.get("policy_json") or "")
+    if not text:
+        return MAX_FOLLOW_UPS, EVIDENCE_WAIT_S
+    try:
+        data = json.loads(text)
+        p_max = int(data.get("p_max", MAX_FOLLOW_UPS))
+        wait = int(data.get("evidence_wait_s", EVIDENCE_WAIT_S))
+    except (TypeError, ValueError):  # an unreadable policy leaves the code's own limits
+        return MAX_FOLLOW_UPS, EVIDENCE_WAIT_S
+    return max(0, min(p_max, MAX_FOLLOW_UPS)), max(60, min(wait, EVIDENCE_WAIT_S))
+
+
 def _follow_up_budget(run: dict[str, Any], root_follow_ups: int, same_boot: bool) -> str:
     """Why this run gets no further follow-up order, or ``""`` when it may."""
     if not same_boot:
         return "the app restarted since the run began"
-    if int(run.get("follow_ups") or 0) >= MAX_FOLLOW_UPS:
+    allowed, _wait = _policy_limits(run)
+    if int(run.get("follow_ups") or 0) >= allowed:
+        if allowed < MAX_FOLLOW_UPS:
+            return f"its policy allows {allowed} follow-up order(s)"
         return f"it already got {MAX_FOLLOW_UPS} follow-up orders"
     if root_follow_ups >= MAX_ROOT_FOLLOW_UPS:
         return "the request's budget of follow-up orders is spent"
@@ -260,7 +281,7 @@ def decide(
     waited_s = (now_ms - int(run.get("ended_ms") or now_ms)) / 1000
     on_github = landing in (evidence.PUSHED, evidence.PR_OPEN, evidence.MERGED)
     if checks == evidence.RUNNING:
-        if waited_s < EVIDENCE_WAIT_S:
+        if waited_s < _policy_limits(run)[1]:
             return Decision(WAIT, reason=f"{reason}; the checks run")
         return after_review(_close(UNVERIFIED, f"{reason}; the checks still ran after the wait"))
     # No check in sight yet (CI may not have started), or GitHub did not answer.

@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS runs (
     signatures_json   TEXT NOT NULL DEFAULT '[]',
     heartbeat_ms      INTEGER,
     policy_id         TEXT NOT NULL DEFAULT '',
-    arm               TEXT NOT NULL DEFAULT ''
+    arm               TEXT NOT NULL DEFAULT '',
+    policy_json       TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -147,6 +148,7 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("heartbeat_ms", "INTEGER"),
     ("policy_id", "TEXT NOT NULL DEFAULT ''"),
     ("arm", "TEXT NOT NULL DEFAULT ''"),
+    ("policy_json", "TEXT NOT NULL DEFAULT ''"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -157,7 +159,8 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "tokens_out", "tokens_cached", "cost_usd", "wall_ms", "mixed_model",
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
         "head_sha", "landing", "ci_status", "evidence_due_ms", "verdict", "verdict_reason",
-        "iteration", "follow_ups", "signatures_json", "heartbeat_ms",
+        "iteration", "follow_ups", "signatures_json", "heartbeat_ms", "policy_id", "arm",
+        "policy_json",
     }
 )
 #: Every column a new run may carry.
@@ -165,7 +168,7 @@ _INSERTABLE: Final[tuple[str, ...]] = (
     "run_id", "root_span_id", "owner_session", "owner_turn", "session_id", "repo_id",
     "workdir", "isolated", "base_sha", "brief_text", "domains_json", "primary_domain",
     "domain_source", "provider", "model_requested", "effort", "state", "boot_id", "started_ms",
-    "policy_id", "arm",
+    "policy_id", "arm", "policy_json",
 )
 _BRIEF_MAX: Final[int] = 20_000
 

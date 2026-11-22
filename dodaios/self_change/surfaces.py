@@ -24,6 +24,7 @@ class Surface(StrEnum):
     CONFIG = "config"  # a setting of the assistant itself
     ROUTINE = "routine"
     AGENT = "agent"
+    CODING_POLICY = "coding_policy"  # how the app steers coding runs (dodaios.rsi.policy)
 
 
 class State(StrEnum):
@@ -119,4 +120,17 @@ def core_reasons(
         reasons.append(f"it edits protected code ({protected[0]})")
     if touches_objective(after or ""):
         reasons.append("its text changes the goal, the limits or the approvals")
+    if surface is Surface.CODING_POLICY and _policy_text(after):
+        reasons.append("it changes what coding agents are told")
     return reasons
+
+
+def _policy_text(after: str | None) -> str:
+    """The turn material a coding policy would add to briefs (decision 5.4: the owner's call)."""
+    import json
+
+    try:
+        data = json.loads(after or "{}")
+    except ValueError:  # not JSON: the gate's policy check blocks it anyway
+        return ""
+    return str(data.get("domain_block") or "") if isinstance(data, dict) else ""

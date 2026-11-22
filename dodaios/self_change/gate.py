@@ -227,12 +227,26 @@ def _run_pytest(workdir: Path, tests: tuple[str, ...]) -> subprocess.CompletedPr
     )
 
 
+def policy_valid(draft: Draft, gate: Gate) -> CheckResult:
+    """A coding policy parses and keeps within the code's own limits."""
+    if draft.after is None:
+        return CheckResult("policy", PASS, "the policy is removed")
+    from dodaios.rsi.policy import Policy, PolicyError
+
+    try:
+        Policy.from_text(draft.after)
+    except PolicyError as exc:  # reported as the check's failure, which blocks the change
+        return CheckResult("policy", FAIL, f"not a valid coding policy: {exc}"[:200])
+    return CheckResult("policy", PASS, "a valid coding policy within the code's limits")
+
+
 DEFAULT_CHECKS: Final[dict[Surface, tuple[Check, ...]]] = {
     Surface.SKILL: (hygiene, skill_valid),
     Surface.PROMPT: (hygiene, routing_replay),
     Surface.INSTRUCTIONS: (hygiene, routing_replay),
     Surface.TOOL: (hygiene, routing_replay),
     Surface.CODE: (hygiene, code_tests),
+    Surface.CODING_POLICY: (hygiene, policy_valid),
 }
 
 
