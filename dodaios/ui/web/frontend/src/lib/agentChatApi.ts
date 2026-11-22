@@ -772,6 +772,8 @@ export interface SentMessage {
    * answer; the agent's work goes on and no turn was started.
    */
   aside?: string;
+  /** The message was `/clear` in a coding thread: its conversation started over, no turn runs. */
+  cleared?: boolean;
 }
 
 /** Close a side question's card; one still being answered is stopped. */

@@ -37,6 +37,7 @@ from dodaios.agent_chat import attachments as chat_attachments
 from dodaios.agent_chat import (
     lead_compaction,
     seat_outcomes,
+    thread_clear,
     token_efficiency,
     turn_errors,
     turn_prompts,
@@ -51,7 +52,7 @@ from dodaios.agent_chat.credential_requests import (
     CredentialSpec,
 )
 from dodaios.agent_chat.effort import normalize_effort
-from dodaios.agent_chat.events import is_transient, make_event, shown_text
+from dodaios.agent_chat.events import CLEARED_KIND, is_transient, make_event, shown_text
 from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from dodaios.agent_chat.permissions import (
     PLAN_MODES,
@@ -1855,6 +1856,56 @@ class AgentChatService:
 
         return await bind_society_session(self, session_id, routine_run=routine_run)
 
+    async def clear_conversation(self, session_id: str, *, name: str = "") -> dict[str, Any]:
+        """Start a coding thread's conversation over (``/clear``); the session afterwards.
+
+        The thread shows empty and its agent's next turn opens a new
+        conversation; what was said before stays stored (``thread_clear``).
+        Raises :class:`SessionBusy` while a turn runs or is being prepared: the
+        command then waits behind it like any message typed meanwhile.
+        """
+        session = self.store.get_session(session_id)
+        if session is None:
+            raise NoSuchSession(session_id)
+        if session.surface != "agent":
+            raise ValueError("Only a coding thread is cleared this way")
+        if session_id in self._preparing:
+            raise SessionBusy(session_id)
+        # The UI calls a turn idle from its turn_finished on (reports_running).
+        await self._await_finishing(session_id)
+        async with self._publish_lock(session_id):
+            # No await between this check and the write: the event itself
+            # drops the CLI conversation, and a turn admitted in between would
+            # resume the old one and bring it back. One small write, so it
+            # runs on the loop like a turn's end does.
+            if session_id in self._preparing or self.is_running(session_id):
+                raise SessionBusy(session_id)
+            # Cards of the old conversation that still waited for an answer
+            # (a question, a secure field) are closed with it.
+            self._cancel_questions(session_id)
+            stored = self.store.append_event(session_id, make_event(CLEARED_KIND, {}))
+            if name:
+                self.store.update_session(session_id, title=name)
+            self._deliver_event(session_id, stored)
+        log.info("agent chat %s: conversation cleared by the person", session_id)
+        cleared = self.store.get_session(session_id)
+        if cleared is None:  # deleted while it was cleared
+            return {}
+        # The open windows hold the session row: its title and its
+        # conversation changed with the clear.
+        await self._emit(
+            session_id,
+            make_event(
+                "session_updated",
+                {
+                    "title": cleared.title,
+                    "vendor_session": cleared.vendor_session or "",
+                    "cleared_seq": cleared.cleared_seq,
+                },
+            ),
+        )
+        return cleared.to_dict()
+
     async def send(
         self,
         session_id: str,
@@ -1899,6 +1950,21 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
+        # Nothing was typed for a background result: it passes the gates a
+        # control-owned message passes, and keeps the person's standing.
+        control_owned = control_owned or background_result
+        if (
+            direct_user
+            and incoming is None
+            and not control_owned
+            and author is None
+            and thread_clear.wants_clear(session, text, attachments)
+        ):
+            # "/clear" the person typed in a coding thread: the thread starts
+            # over, and no turn runs for it (``thread_clear``). It needs no
+            # folder, so a worktree put away stays away.
+            await self.clear_conversation(session_id, name=thread_clear.clear_name(text) or "")
+            return ""
         if session.surface == "agent":
             # A worktree the app made for this thread and put away while the
             # thread rested is back before the turn needs its folder.
@@ -1906,9 +1972,6 @@ class AgentChatService:
 
             if workdir.away(session.cwd):
                 await asyncio.to_thread(workdir.restore, session.cwd)
-        # Nothing was typed for a background result: it passes the gates a
-        # control-owned message passes, and keeps the person's standing.
-        control_owned = control_owned or background_result
         if session.surface == "society":
             session = await self.bind_society_session(session_id, routine_run=routine_run)
         selected_runner = None

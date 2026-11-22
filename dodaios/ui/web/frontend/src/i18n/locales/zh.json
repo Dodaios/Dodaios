@@ -8011,6 +8011,7 @@
     "compacted": "对话已压缩",
     "compacted_tokens": "对话已压缩 · {before} → {after} tokens",
     "compacted_from": "对话已从 {before} tokens 压缩",
+    "cleared": "对话已清空",
     "compaction_failed": "无法压缩对话",
     "compaction_hint": "上下文窗口已满：智能体总结了到目前为止的对话，并基于该总结继续工作。",
     "compaction_manual_hint": "应你的要求，智能体总结了到目前为止的对话，并基于该总结继续工作。",

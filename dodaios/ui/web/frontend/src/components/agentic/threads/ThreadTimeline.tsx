@@ -7,7 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ChatFileIcon, ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { ASIDE_ASKED, STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
+import { ASIDE_ASKED, CONVERSATION_CLEARED, STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
 import { isModelFallback, MODEL_FALLBACK_EXHAUSTED_KIND, modelFallbackText } from "@/components/agentchat/modelFallback";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
@@ -1189,6 +1189,12 @@ function ModelFallbackLine({ item }: { item: NoticeItem }) {
   );
 }
 
+/** Where `/clear` started the conversation over: the agent knows nothing from before this line. */
+function ClearedLine() {
+  const t = useT();
+  return <p role="note" data-testid="thread-cleared" className="text-center text-xs text-muted-foreground">{t("thread_turn.cleared")}</p>;
+}
+
 function ErrorLine({ text }: { text: string }) {
   return <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{text}</p>;
 }
@@ -1242,6 +1248,7 @@ function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTur
   if (item.type === "notice") {
     if (isModelFallback(item)) return <ModelFallbackLine item={item} />;
     if (item.kind === ASIDE_ASKED) return <AsideCard item={item} />;
+    if (item.kind === CONVERSATION_CLEARED) return <ClearedLine />;
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
   }
   return <div className="rounded-xl border border-border px-3 py-2 text-sm">

@@ -18,6 +18,7 @@ import { useRecalledMessages } from "./recalledMessages";
 import { MagicWordText } from "./MagicWordText";
 import { QueuedMessages } from "./QueuedMessages";
 import { MAGIC_WORD_RUNNERS, hasMagicWord } from "@/lib/magicWords";
+import { isClearCommand } from "@/lib/threadClear";
 import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
 
 /**
@@ -515,7 +516,15 @@ export function ThreadComposer({
     const text = (drafts.get(threadKey) ?? value).trim();
     if (!text && files.attachments.length === 0) return;
     if (files.analyzing > 0 || starting) return;
-    if (!provider || !provider.connected) {
+    // "/clear" starts the thread's conversation over (the store and the
+    // backend do it); a thread that does not exist yet has nothing to clear.
+    const clears = files.attachments.length === 0 && isClearCommand(text);
+    if (clears && !activeSessionId && !busy) {
+      setValue("");
+      setProblem("");
+      return;
+    }
+    if (!clears && (!provider || !provider.connected)) {
       setProblem(t("ide_threads.choose_connected_agent"));
       return;
     }
@@ -530,6 +539,11 @@ export function ThreadComposer({
       releaseHeldFiles(held);
       const sent = await dispatch(text, attachments, undefined, steers ? "after" : undefined);
       if (!sent) giveBack(key, text);
+      return;
+    }
+    if (clears) {
+      // No message is written for it, so there is none to take back with Escape.
+      if (!(await dispatch(text, attachments))) giveBack(key, text);
       return;
     }
     const before = chat.getState();

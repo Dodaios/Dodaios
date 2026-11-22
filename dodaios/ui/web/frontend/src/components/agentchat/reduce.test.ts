@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentChatEvent } from "@/lib/agentChatApi";
 import {
+  CONVERSATION_CLEARED,
   EMPTY_TIMELINE,
   reduceEvent,
   reduceEvents,
@@ -58,6 +59,60 @@ describe("side threads", () => {
     expect(tl.items).toHaveLength(1);
     expect(sideThreadOf(tl.items[0])).toMatchObject({ id: "s9", running: false });
     expect(tl.items[0]).toMatchObject({ text: "And the weather?", resolved: "stopped" });
+  });
+});
+
+describe("a cleared conversation", () => {
+  it("starts over at the clear: one line, and nothing from before", () => {
+    const before = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "first topic" }),
+      ev("turn_started", { turn_id: "t1" }),
+      ev("context_usage", { turn_id: "t1", used: 1200, window: 200000, model: "m" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "an answer" }),
+      ev("turn_finished", { turn_id: "t1", status: "done" }),
+    ]);
+    expect(before.context?.used).toBe(1200);
+
+    const cleared = reduceEvent(before, ev(CONVERSATION_CLEARED, {}));
+    expect(cleared.items).toHaveLength(1);
+    expect(cleared.items[0]).toMatchObject({ type: "notice", kind: CONVERSATION_CLEARED });
+    // The agent's context is empty again, and the reconnect cursor moved on.
+    expect(cleared.context).toBeUndefined();
+    expect(cleared.pendingApprovals).toEqual([]);
+    expect(cleared.lastSeq).toBe(seq);
+
+    const next = reduceEvents(cleared, [
+      ev("user_message", { text: "second topic" }),
+      ev("turn_started", { turn_id: "t2" }),
+    ]);
+    expect(next.items.map((item) => item.type)).toEqual(["notice", "user", "turn"]);
+  });
+
+  it("keeps the waiting line of a message queued behind the command", () => {
+    const before = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "first topic" }),
+      ev("turn_started", { turn_id: "t1" }),
+      ev("notice", { kind: "message_queued", queue_id: "q1", text: "/clear" }),
+      ev("notice", { kind: "message_queued", queue_id: "q2", text: "and then this" }),
+      ev("turn_finished", { turn_id: "t1", status: "done" }),
+    ]);
+    const cleared = reduceEvents(before, [
+      ev(CONVERSATION_CLEARED, {}),
+      ev("notice", { kind: "message_dequeued", queue_id: "q1", status: "sent", turn_id: "" }),
+    ]);
+    expect(cleared.items.map((item) => item.type === "notice" ? item.kind : item.type)).toEqual([
+      CONVERSATION_CLEARED, "message_queued",
+    ]);
+    expect(cleared.items[1]).toMatchObject({ text: "and then this" });
+  });
+
+  it("is the first event of a thread read again, and reads the same", () => {
+    const read = reduceEvents(EMPTY_TIMELINE, [
+      { seq: 5, ts_ms: 2_000, kind: CONVERSATION_CLEARED, payload: {} },
+      { seq: 6, ts_ms: 2_001, kind: "session_updated", payload: { title: "", vendor_session: "", cleared_seq: 5 } },
+    ]);
+    expect(read.items).toHaveLength(1);
+    expect(read.lastSeq).toBe(6);
   });
 });
 

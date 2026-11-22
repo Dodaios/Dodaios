@@ -8011,6 +8011,7 @@
     "compacted": "Conversación compactada",
     "compacted_tokens": "Conversación compactada · {before} → {after} tokens",
     "compacted_from": "Conversación compactada desde {before} tokens",
+    "cleared": "Conversación borrada",
     "compaction_failed": "No se pudo compactar la conversación",
     "compaction_hint": "La ventana de contexto estaba llena: el agente resumió la conversación hasta ahora y sigue a partir de ese resumen.",
     "compaction_manual_hint": "A petición, el agente resumió la conversación hasta ahora y sigue a partir de ese resumen.",

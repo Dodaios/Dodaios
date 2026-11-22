@@ -270,6 +270,52 @@ describe("ThreadView", () => {
     await waitFor(() => expect(screen.queryByTestId("thread-aside")).toBeNull());
   });
 
+  it("clears the thread on /clear: no message, the conversation gone, one line left", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.sendAgentChatMessage.mockResolvedValue({ turn_id: "", session_id: "s1", cleared: true });
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "fix the login test" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1500, kind: "assistant_text", payload: { turn_id: "t1", message_id: "m1", text: "The test passes now." } });
+      store.ingest({ seq: 4, ts_ms: 4000, kind: "turn_finished", payload: { turn_id: "t1", status: "done", duration_ms: 3000, usage: null, error: null } });
+    });
+    expect(screen.getByText("The test passes now.")).toBeTruthy();
+
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/clear" } });
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
+    expect(api.sendAgentChatMessage.mock.calls[0].slice(0, 2)).toEqual(["s1", "/clear"]);
+    expect(box.value).toBe("");
+    // The backend answers with the clear itself; the command is never a message.
+    act(() => {
+      store.ingest({ seq: 5, ts_ms: 5000, kind: "conversation_cleared", payload: {} });
+      store.ingest({ seq: 6, ts_ms: 5000, kind: "session_updated", payload: { title: "", vendor_session: "", cleared_seq: 5 } });
+    });
+    await waitFor(() => expect(screen.queryByText("The test passes now.")).toBeNull());
+    expect(screen.queryByTestId("thread-user-message")).toBeNull();
+    expect(screen.queryByTestId("thread-turn")).toBeNull();
+    expect(screen.getByTestId("thread-cleared").textContent).toBe("Conversation cleared");
+    expect(useThreadChatStore.getState().activeSessionId).toBe("s1");
+    expect(screen.queryByTestId("thread-stop")).toBeNull();
+  });
+
+  it("has nothing to clear in a thread that does not exist yet", async () => {
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.cwd).toBe("/repo"));
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/clear" } });
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    expect(box.value).toBe("");
+    expect(api.createAgentChatSession).not.toHaveBeenCalled();
+    expect(api.sendAgentChatMessage).not.toHaveBeenCalled();
+    expect(screen.getByText(/What should we build in/)).toBeTruthy();
+  });
+
   it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);

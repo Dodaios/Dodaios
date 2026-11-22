@@ -8011,6 +8011,7 @@
     "compacted": "Conversation compacted",
     "compacted_tokens": "Conversation compacted · {before} → {after} tokens",
     "compacted_from": "Conversation compacted from {before} tokens",
+    "cleared": "Conversation cleared",
     "compaction_failed": "Could not compact the conversation",
     "compaction_hint": "The context window was full: the agent summarised the conversation so far and carries on from that summary.",
     "compaction_manual_hint": "On request, the agent summarised the conversation so far and carries on from that summary.",

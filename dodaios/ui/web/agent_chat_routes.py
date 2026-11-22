@@ -2202,6 +2202,9 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
         client_timezone.reset(token)
     if queue_id:
         return {"turn_id": "", "session_id": session_id, "queued": True, "queue_id": queue_id}
+    if not turn_id:
+        # "/clear" in a coding thread: the conversation started over, no turn runs.
+        return {"turn_id": "", "session_id": session_id, "cleared": True}
     return {"turn_id": turn_id, "session_id": session_id}
 
 
