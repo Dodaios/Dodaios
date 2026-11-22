@@ -11,6 +11,12 @@ the group inside which runs are comparable. The report only reads
 The model of a run is the one that answered when the thread's own events named
 it, else the requested one; ``(default)`` means the CLI picked it and did not
 say which.
+
+``scanned`` counts the runs whose output was put through the deterministic
+checks, ``violations`` those where a check was weakened or an off-limits path
+changed, and ``unattributed`` those that shared their checkout, so nothing
+could be pinned on them. Together they say how often such events happen under
+the way of working as it is.
 """
 
 from __future__ import annotations
@@ -87,6 +93,14 @@ def cells(runs: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
                 "mixed_model": sum(1 for r in members if r.get("mixed_model")),
                 "person_intervened": sum(1 for r in members if r.get("person_intervened")),
                 "isolated": sum(1 for r in members if r.get("isolated")),
+                # What the output scan said, where it ran ([rsi] verify = "observe").
+                "scanned": sum(1 for r in members if r.get("gate_status")),
+                "clean": sum(1 for r in members if r.get("gate_status") == "clean"),
+                "findings": sum(1 for r in members if r.get("gate_status") == "findings"),
+                "violations": sum(1 for r in members if r.get("gate_status") == "violations"),
+                "unattributed": sum(
+                    1 for r in members if r.get("gate_status") == "unattributed"
+                ),
                 "mean_minutes": round(wall / 60_000, 1) if wall is not None else None,
                 "mean_tokens_out": _mean(r.get("tokens_out") for r in ended),
             }
@@ -98,12 +112,16 @@ def render(rows: Sequence[dict[str, Any]], *, total: int) -> str:
     """The cells as a plain table."""
     if not rows:
         return "No coding runs on record. Set `[rsi] enabled = true` to record them."
-    head = ("domain", "model", "harness", "runs", "done", "error", "cancelled", "open", "min")
+    head = (
+        "domain", "model", "harness", "runs", "done", "error", "cancelled", "open", "min",
+        "scanned", "violations", "unattributed",
+    )
     table = [
         (
             c["domain"], c["model"], c["harness"], str(c["runs"]), str(c["done"]),
             str(c["error"]), str(c["cancelled"]), str(c["open"]),
             "-" if c["mean_minutes"] is None else f"{c['mean_minutes']:.1f}",
+            str(c["scanned"]), str(c["violations"]), str(c["unattributed"]),
         )
         for c in rows
     ]

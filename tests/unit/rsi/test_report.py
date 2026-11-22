@@ -43,6 +43,22 @@ def test_runs_are_grouped_into_cells_largest_first(tmp_path: Path):
     assert rows[1]["open"] == 1
 
 
+def test_the_cells_say_how_often_the_scan_found_something(tmp_path: Path):
+    db = tmp_path / "verification.db"
+    _record(db)
+    store = VerificationStore(db)
+    try:
+        store.update_run("job_0", gate_status="clean")
+        store.update_run("job_1", gate_status="violations")
+        store.update_run("job_2", gate_status="unattributed")
+    finally:
+        store.close()
+    backend = report.cells(report.load_runs(db))[0]
+    assert (backend["scanned"], backend["clean"], backend["violations"]) == (3, 1, 1)
+    assert backend["unattributed"] == 1
+    assert "violations" in report.render([backend], total=3).splitlines()[0]
+
+
 def test_since_leaves_older_runs_out(tmp_path: Path):
     db = tmp_path / "verification.db"
     _record(db)
