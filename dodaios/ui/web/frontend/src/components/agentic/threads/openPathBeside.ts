@@ -1,43 +1,42 @@
 import { openOutsideFile } from "@/components/agentic/editor/editorApi";
-import { loadFileList } from "@/components/agentic/editor/fileListCache";
+import { fetchTypeahead } from "@/lib/agentChatApi";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { useIdeChatStore } from "@/store/ideChat";
 import { revealInExplorer } from "@/store/ideExplorer";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
-import { filesFromFolder, matchProjectPath } from "./projectPathMatch";
+import { matchProjectPath } from "./projectPathMatch";
 
 /** A path with no drive, no leading slash and no `~`: an answer named it from some folder. */
 function isRelative(path: string): boolean {
   return !/^(?:[a-z]:[\\/]|[\\/]|~(?:[\\/]|$))/i.test(path.trim());
 }
 
-/** The folder of workspace `workspaceId`: the open one's, else the project list's. */
-function workspaceFolder(workspaceId: string): string {
-  const open = useIdeChatStore.getState().workspace;
-  if (open?.id === workspaceId && open.path) return open.path;
-  for (const project of useIdeProjectsStore.getState().projects) {
-    const workspace = project.workspaces?.find((candidate) => candidate.id === workspaceId);
-    if (workspace) return workspace.folder;
-  }
-  return "";
-}
+/** The most entries one lookup reads; the search ranks exact names first. */
+const LOOKUP_LIMIT = 1000;
 
 /**
  * The full path of the one file or folder of the project a relative path
  * means when it is not there as written (`core/config.py` for
  * `dodaios/core/config.py`); null when none or several fit.
+ *
+ * The candidates are the files and folders under the thread's folder whose
+ * name holds the named one, from the composer's file search (`@`): it reads
+ * the thread's own folder, whichever workspace is open, and the server keeps
+ * the listing warm.
  */
-async function findInProject(workspaceId: string, path: string, folder: string): Promise<string | null> {
-  const root = workspaceFolder(workspaceId);
-  if (!root) return null;
+async function findInProject(path: string, folder: string): Promise<string | null> {
+  const target = path.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  const name = target.slice(target.lastIndexOf("/") + 1);
+  if (!name) return null;
   try {
-    const listing = await loadFileList(workspaceId);
-    const files = filesFromFolder(listing.paths, root, folder);
-    const match = files ? matchProjectPath(path, folder, files) : null;
+    const found = await fetchTypeahead({ surface: "agent", provider: "", cwd: folder, trigger: "@", q: name, limit: LOOKUP_LIMIT });
+    // Folders come back as `path/`, which is how the match tells them from files.
+    const entries = found.items.filter((item) => item.kind === "file" || item.kind === "folder").map((item) => item.value);
+    const match = matchProjectPath(path, folder, entries);
     return match ? absoluteFilePath(match.path, folder) : null;
   } catch {
-    return null;
+    return null; // The lookup is a second chance; without it the path reads as missing.
   }
 }
 
@@ -76,7 +75,7 @@ export async function openPathBeside(path: string, folder: string, line?: number
     return;
   }
   if (isRelative(path) && folder) {
-    const inProject = await findInProject(workspaceId, path, folder);
+    const inProject = await findInProject(path, folder);
     const found = inProject ? await lookUp(inProject) : null;
     if (inProject && found) {
       if (found.kind === "directory") revealInExplorer({ workspaceId, path: found.path });

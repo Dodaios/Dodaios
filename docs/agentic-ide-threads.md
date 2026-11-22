@@ -71,9 +71,9 @@ news since it was last opened.
   `dodaios/core/config.py`), with the project folder's own name in front
   removed, or the one file of that bare name. Several that fit open
   nothing, so no guess opens the wrong file. After that the home folder is
-  tried. The project's file list is the one Go to File uses
-  (`components/agentic/editor/fileListCache.ts`), and the lookup lives in
-  `components/agentic/threads/projectPathMatch.ts`.
+  tried. The candidates come from the composer's file search (`@`) in the
+  thread's own folder, so it works whichever workspace is open; the match
+  lives in `components/agentic/threads/projectPathMatch.ts`.
 - **Visuals:** an answer can show a picture instead of describing it. A
   fenced `mermaid`, `svg` or `html` block is drawn as a figure, and a picture
   or a self-contained HTML page the agent saved is shown where it is linked

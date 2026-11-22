@@ -12,9 +12,8 @@
  * (packages/client-runtime/src/workspaceBasenameLookup.ts:
  * stripRepeatedWorkspacePrefix, pickWorkspaceLinkMatch,
  * pickWorkspaceBasenameMatch), MIT License, Copyright (c) 2026 T3 Tools Inc.
- * — third_party/t3code/LICENSE. Changes: it reads the project's whole file
- * list instead of a search, a bare name must be unique, and folders are found
- * the same way.
+ * — third_party/t3code/LICENSE. Changes: a bare name must be unique, and
+ * folders are found the same way as files.
  */
 
 export interface ProjectPathMatch {
@@ -67,8 +66,9 @@ function foldersEndingWith(tail: string, files: readonly string[]): string[] {
 
 /**
  * The file or folder `written` means among `files` (paths relative to the
- * thread's `folder`), or null when none or several fit. A path that cannot be
- * meant from inside the project (absolute, `~`, `./`, `../`) is never looked up.
+ * thread's `folder`; a folder may be listed as `path/`), or null when none or
+ * several fit. A path that cannot be meant from inside the project
+ * (absolute, `~`, `./`, `../`) is never looked up.
  */
 export function matchProjectPath(written: string, folder: string, files: readonly string[]): ProjectPathMatch | null {
   const clean = written.trim().replace(/\\/g, "/");
@@ -95,28 +95,4 @@ export function matchProjectPath(written: string, folder: string, files: readonl
   }
   const folders = foldersEndingWith(target, files);
   return folders.length === 1 ? { path: folders[0], kind: "directory" } : null;
-}
-
-/**
- * The project's files as seen from the thread's folder: the listing is
- * relative to the workspace folder, the answer to the thread's. A thread
- * outside the workspace folder has no listing here (null).
- */
-export function filesFromFolder(files: readonly string[], workspaceFolder: string, threadFolder: string): string[] | null {
-  const windows = isWindowsPath(workspaceFolder);
-  const key = (path: string) => {
-    const clean = path.replace(/\\/g, "/").replace(/\/+$/, "");
-    return windows ? clean.toLowerCase() : clean;
-  };
-  const root = key(workspaceFolder);
-  const here = key(threadFolder);
-  if (!root || !here) return null;
-  if (here === root) return files.map((file) => file.replace(/\\/g, "/"));
-  if (!here.startsWith(`${root}/`)) return null;
-  const prefix = `${here.slice(root.length + 1)}/`;
-  const fold = windows ? (path: string) => path.toLowerCase() : (path: string) => path;
-  return files
-    .map((file) => file.replace(/\\/g, "/"))
-    .filter((file) => fold(file).startsWith(prefix))
-    .map((file) => file.slice(prefix.length));
 }

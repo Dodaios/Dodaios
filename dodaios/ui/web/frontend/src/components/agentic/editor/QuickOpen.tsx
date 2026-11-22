@@ -6,10 +6,17 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { tabsOf, useCodeEditorStore } from "@/store/codeEditor";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
-import { loadFileList, peekFileList } from "./fileListCache";
+import { fetchFileList } from "./editorApi";
 import { parseQuickOpen, rankPaths } from "./quickOpenMatch";
 
-export { forgetFileList } from "./fileListCache";
+/** A listing is reused for this long, so Ctrl+P twice in a row opens instantly. */
+const LIST_TTL_MS = 20_000;
+const listCache = new Map<string, { at: number; paths: string[]; truncated: boolean }>();
+
+/** Drop a workspace's cached listing after the explorer created, renamed or deleted something. */
+export function forgetFileList(workspaceId: string): void {
+  listCache.delete(workspaceId);
+}
 
 /**
  * Go to File (Ctrl+P): type part of a name, Enter opens it. `name:42` opens at
@@ -20,7 +27,7 @@ export function QuickOpen({ workspaceId }: { workspaceId: string }) {
   const close = () => useCodeEditorStore.getState().setQuickOpen(false);
   const openTabs = useCodeEditorStore(useShallow((state) => tabsOf(state, workspaceId)));
   const [query, setQuery] = useState("");
-  const [paths, setPaths] = useState<string[] | null>(() => peekFileList(workspaceId)?.paths ?? null);
+  const [paths, setPaths] = useState<string[] | null>(() => listCache.get(workspaceId)?.paths ?? null);
   const [error, setError] = useState("");
   const [cursor, setCursor] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -28,9 +35,12 @@ export function QuickOpen({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     input.current?.focus();
+    const cached = listCache.get(workspaceId);
+    if (cached && Date.now() - cached.at < LIST_TTL_MS) return;
     let alive = true;
-    loadFileList(workspaceId)
+    fetchFileList(workspaceId)
       .then((answer) => {
+        listCache.set(workspaceId, { at: Date.now(), ...answer });
         if (alive) setPaths(answer.paths);
       })
       .catch((err: unknown) => alive && setError((err as Error).message));

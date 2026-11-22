@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filesFromFolder, matchProjectPath } from "./projectPathMatch";
+import { matchProjectPath } from "./projectPathMatch";
 
 const FILES = [
   "README.md",
@@ -33,6 +33,13 @@ describe("which project file a path means", () => {
     expect(matchProjectPath(written, FOLDER, FILES)).toEqual({ path, kind: "file" });
   });
 
+  it("reads folders listed with a trailing slash, as the file search lists them", () => {
+    const listed = ["dodaios/", "dodaios/memory/", "dodaios/memory/vault/", "mcps/", "dodaios/memory/vault/store.py"];
+    expect(matchProjectPath("memory/vault/", FOLDER, listed)).toEqual({ path: "dodaios/memory/vault", kind: "directory" });
+    expect(matchProjectPath("mcps/", FOLDER, listed)).toEqual({ path: "mcps", kind: "directory" });
+    expect(matchProjectPath("vault/store.py", FOLDER, listed)).toEqual({ path: "dodaios/memory/vault/store.py", kind: "file" });
+  });
+
   it.each([
     ["components/society/arcade/", "dodaios/ui/web/frontend/src/components/society/arcade"],
     ["society/arcade", "dodaios/ui/web/frontend/src/components/society/arcade"],
@@ -53,21 +60,5 @@ describe("which project file a path means", () => {
     "",
   ])("never guesses for %s", (written) => {
     expect(matchProjectPath(written, FOLDER, FILES)).toBeNull();
-  });
-});
-
-describe("the project's files from the thread's folder", () => {
-  it("are the listing itself when the thread works in the workspace folder", () => {
-    expect(filesFromFolder(["a/b.py"], "/Users/me/Dodaios/", "/Users/me/Dodaios")).toEqual(["a/b.py"]);
-  });
-
-  it("are the files under the thread's folder when it is inside the workspace", () => {
-    expect(filesFromFolder(["web/src/app.ts", "core/x.py"], "/repo", "/repo/web")).toEqual(["src/app.ts"]);
-    expect(filesFromFolder(["Web\\src\\app.ts"], "C:\\Repo", "c:\\repo\\web")).toEqual(["src/app.ts"]);
-  });
-
-  it("are unknown for a thread outside the workspace folder", () => {
-    expect(filesFromFolder(["a.py"], "/repo", "/elsewhere")).toBeNull();
-    expect(filesFromFolder(["a.py"], "/repo", "/repository")).toBeNull();
   });
 });
