@@ -33,6 +33,8 @@ export { readFence } from "@/lib/visualFence";
 
 // The chart library loads with the first page that carries a chart.
 const ChartFence = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFence })));
+// The diagram library is large and most documents carry no diagram.
+const MermaidFence = lazy(() => import("@/components/outputs/MermaidFence").then(module => ({ default: module.MermaidFence })));
 
 /**
  * Split a leading YAML front matter block (`---` … `---`) off a document.
@@ -127,6 +129,9 @@ export function MarkdownProse({
         }
         const visualLanguage = visualFenceLanguage(language, code);
         if (visualLanguage) {
+          if (visualLanguage === "mermaid") {
+            return <Suspense fallback={<CodeBlock language={language} code={code} />}><MermaidFence code={code} /></Suspense>;
+          }
           return <RenderedFence language={visualLanguage} code={code} />;
         }
         if (PLAIN_FENCE_LANGUAGES.has(language)) {

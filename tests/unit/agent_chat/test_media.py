@@ -452,3 +452,154 @@ def test_a_capture_tool_naming_a_file_posts_nothing(tmp_path):
         tool_name="browser_snapshot",
     )
     assert [item["kind"] for item in result] == ["tool_result"]
+
+
+# ------------------------------------------------------------------ pages and temp folders
+
+PAGE = b"<!doctype html><html><body><h1>Report</h1></body></html>"
+
+
+def test_a_page_linked_with_image_syntax_is_archived_and_shown_in_place(tmp_path):
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "report.html").write_bytes(PAGE)
+    result = normalize(tmp_path, "Here it is:\n\n![Weekly report](report.html)", "assistant_text")
+    assert len(result) == 1
+    text = result[0]["payload"]["text"]
+    assert "![Weekly report](</api/outputs/chat-media-" in text
+    assert "/media.html/download?disposition=inline>)" in text
+    stored = list((tmp_path / "archive").glob("chat-media-*/tasks/chat/artifacts/files/media.html"))
+    assert [file.read_bytes() for file in stored] == [PAGE]
+    # The copy holds when the agent's file is gone.
+    (work / "report.html").unlink()
+    assert stored[0].read_bytes() == PAGE
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I updated `index.html` and index.html for you.",
+        "See [the page](index.html).",
+        "Docs: ![remote](https://example.test/index.html) and https://example.test/index.html",
+        '{"path": "index.html"}',
+    ],
+)
+def test_a_page_is_only_shown_when_the_answer_shows_it(tmp_path, text):
+    # A web project's own pages are named all the time; none of that is "show this".
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "index.html").write_bytes(PAGE)
+    result = normalize(tmp_path, text, "assistant_text")
+    assert [item["kind"] for item in result] == ["assistant_text"]
+    assert result[0]["payload"]["text"] == text
+    assert not list((tmp_path / "archive").glob("*"))
+
+
+def test_a_tool_result_never_shows_a_page(tmp_path):
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "index.html").write_bytes(PAGE)
+    result = normalize(tmp_path, {"path": "index.html", "output": "![x](index.html)"}, name="Write")
+    assert [item["kind"] for item in result] == ["tool_result"]
+    assert not list((tmp_path / "archive").glob("*"))
+
+
+def test_a_page_too_large_for_a_figure_says_so(tmp_path, monkeypatch):
+    monkeypatch.setattr(media, "MAX_PAGE_BYTES", 10)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "big.html").write_bytes(PAGE)
+    result = normalize(tmp_path, "![Big](big.html)", "assistant_text")
+    assert result[0]["payload"]["text"] == "![Big](big.html)"
+    assert result[-1]["kind"] == "error"
+    assert "too large" in result[-1]["payload"]["message"]
+
+
+def _normalize_thread(tmp_path, scratch, text):
+    cwd = tmp_path / "work"
+    cwd.mkdir(exist_ok=True)
+    return media.normalize_media_event(
+        event(text, "assistant_text"),
+        cwd=cwd,
+        outputs_root=tmp_path / "archive",
+        scope="session",
+        extra_roots=(scratch,),
+    )
+
+
+def test_a_coding_thread_shows_what_its_agent_saved_in_a_temp_folder(tmp_path):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    (scratch / "chart.png").write_bytes(PNG)
+    (scratch / "flow.html").write_bytes(PAGE)
+    text = f"![Chart]({scratch / 'chart.png'})\n\n![Flow]({scratch / 'flow.html'})"
+    result = _normalize_thread(tmp_path, scratch, text)
+    assert [item["kind"] for item in result] == ["assistant_text"]
+    shown = result[0]["payload"]["text"]
+    assert "![Chart](</api/outputs/chat-media-" in shown and "media.png" in shown
+    assert "![Flow](</api/outputs/chat-media-" in shown and "media.html" in shown
+    assert str(scratch) not in shown
+
+
+def test_a_temp_folder_does_not_widen_what_prose_or_a_link_out_of_it_reaches(tmp_path):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    (scratch / "chart.png").write_bytes(PNG)
+    (tmp_path / "private.png").write_bytes(PNG)
+    (scratch / "way-out.png").symlink_to(tmp_path / "private.png")
+    # A file merely named is looked for in the workspace only.
+    named = _normalize_thread(tmp_path, scratch, f"Saved it as {scratch / 'chart.png'} for you.")
+    assert [item["kind"] for item in named] == ["assistant_text"]
+    # A link that resolves outside every allowed folder is refused.
+    for reference in (tmp_path / "private.png", scratch / "way-out.png"):
+        refused = _normalize_thread(tmp_path, scratch, f"![x]({reference})")
+        assert refused[0]["payload"]["text"] == f"![x]({reference})"
+        assert refused[-1]["kind"] == "error"
+    assert not list((tmp_path / "archive").glob("*"))
+
+
+def test_temp_roots_are_real_folders_named_once():
+    import tempfile
+    from pathlib import Path
+
+    roots = media.temp_roots()
+    assert Path(tempfile.gettempdir()).resolve() in roots
+    assert len(set(roots)) == len(roots)
+    assert all(root.is_dir() and root == root.resolve() for root in roots)
+
+
+@pytest.mark.parametrize(
+    ("surface", "shown"),
+    [("agent", True), ("jarvis", False)],
+)
+def test_only_a_coding_thread_reaches_the_temp_folder(tmp_path, monkeypatch, surface, shown):
+    monkeypatch.setenv("JARVIS_ISOLATION_ROOT", str(tmp_path / "archive"))
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    (scratch / "chart.png").write_bytes(PNG)
+    monkeypatch.setattr(media, "temp_roots", lambda: (scratch,))
+    work = tmp_path / "work"
+    work.mkdir()
+    store = AgentChatStore(tmp_path / "chat.db")
+    session = store.create_session(
+        provider="openai-codex", model="", effort="", cwd=str(work), surface=surface
+    )
+    service = AgentChatService(store)
+    asyncio.run(
+        service._emit(
+            session.session_id, event(f"![Chart]({scratch / 'chart.png'})", "assistant_text")
+        )
+    )
+    persisted = store.list_events(session.session_id)
+    assert ("/api/outputs/chat-media-" in persisted[0]["payload"]["text"]) is shown
+    store.close()
+
+
+def test_the_renderer_draws_only_the_pages_this_module_stores():
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/components"
+    preview = (frontend / "agentchat/MediaPreview.tsx").read_text(encoding="utf-8")
+    assert 'const CHAT_MEDIA_PREFIX = "/api/outputs/chat-media-";' in preview
+    page = (frontend / "outputs/PagePreview.tsx").read_text(encoding="utf-8")
+    assert f"MAX_PAGE_CHARS = {media.MAX_PAGE_BYTES:_}" in page

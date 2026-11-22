@@ -267,6 +267,13 @@ function ThoughtSentence({ text }: { text: string }) {
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
+/**
+ * A picture the agent set into its answer itself (`![chart](…)`) is there to
+ * be read, like a figure it drew: it shows larger than one the chat only
+ * picked up from a mention or a tool result.
+ */
+export const THREAD_SHOWN = "[&_[data-kind=image]_img]:max-h-[360px] [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
+
 /** The mark a step of an opened line wears: what kind of work it was. */
 function stepIcon(item: StretchItem): ReactNode {
   if (item.kind === "plan") return <ListTodo />;
@@ -1083,7 +1090,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
         {row.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{row.text}</div>}
       </div>
     </div>;
-    if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
+    if (row.kind === "text") return <div key={row.id} className={cn(PROSE, row.block.id.startsWith("media-") ? THREAD_MEDIA : THREAD_SHOWN)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
     if (row.kind === "plan") return <PlanCard key={row.id} plan={row.plan} running={running} />;
     if (row.kind === "compaction") return <CompactionLine key={row.id} block={row.block} running={running} />;

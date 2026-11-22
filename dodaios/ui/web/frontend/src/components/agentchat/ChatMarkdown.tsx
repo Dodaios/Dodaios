@@ -1,4 +1,4 @@
-import { Children, createContext, lazy, Suspense, useContext, useMemo } from "react";
+import { Children, createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { translate } from "@/i18n";
@@ -21,6 +21,9 @@ export { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
 export type { MediaKind } from "./MediaPreview";
 
 const RenderedFence = lazy(() => import("@/components/outputs/RenderedFence").then(module => ({ default: module.RenderedFence })));
+const RenderedFencePending = lazy(() => import("@/components/outputs/RenderedFence").then(module => ({ default: module.RenderedFencePending })));
+// The diagram library is large too: it loads with the first diagram.
+const MermaidFence = lazy(() => import("@/components/outputs/MermaidFence").then(module => ({ default: module.MermaidFence })));
 // The chart library is large and most answers carry no chart, so it loads with the first one.
 const ChartFence = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFence })));
 const ChartFencePending = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFencePending })));
@@ -72,8 +75,29 @@ export function normalizeMediaMarkup(text: string): string {
 }
 
 const ImageKeysContext = createContext<ReadonlySet<string>>(new Set());
-/** Whether the text ends inside a fence, i.e. its last block is still being written. */
-const OpenFenceContext = createContext(false);
+/**
+ * Where the text ends when it ends inside a fence, i.e. its last block is
+ * still being written: a block that reaches this offset is that one. -1 when
+ * every fence is closed.
+ */
+const OpenFenceContext = createContext(-1);
+
+/** How long an open block must stand still before it is drawn as it is. */
+const SETTLE_MS = 4000;
+
+/**
+ * A visual whose block is not closed yet. While its text keeps arriving its
+ * place is held, so no half-written markup flickers by. A block that stands
+ * still was never closed (the answer ended inside it) and is drawn as it is.
+ */
+function WhenSettled({ code, children }: { code: string; children: ReactNode }) {
+  const [settled, setSettled] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(code), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [code]);
+  return settled === code ? <>{children}</> : <Suspense fallback={null}><RenderedFencePending /></Suspense>;
+}
 
 /**
  * A fenced `chart` block as the chart it describes. While the block is still
@@ -82,7 +106,7 @@ const OpenFenceContext = createContext(false);
  * the code it is.
  */
 function ChartBlock({ code }: { code: string }) {
-  const writing = useContext(OpenFenceContext);
+  const writing = useContext(OpenFenceContext) >= 0;
   const spec = useMemo(() => parseChartSpec(code), [code]);
   if (spec) return <Suspense fallback={null}><ChartFence spec={spec} /></Suspense>;
   if (writing) return <Suspense fallback={null}><ChartFencePending /></Suspense>;
@@ -110,6 +134,12 @@ function openLocal(event: { preventDefault(): void }, href: string, label: strin
 // Stable component identities are essential: changing these on each streamed
 // token would unmount videos, reset playback and discard image error state.
 const MARKDOWN_COMPONENTS: Components = {
+  // A page an answer shows is a figure, and a figure cannot stand inside a paragraph.
+  p: function ChatParagraph({ node, children, ...props }) {
+    const page = node?.children.some(child => child.type === "element" && child.tagName === "img"
+      && mediaKind(String(child.properties?.src ?? "")) === "page");
+    return page ? <div {...props}>{children}</div> : <p {...props}>{children}</p>;
+  },
   img: function ChatImage({ src = "", alt = translate("chat_media.image_fallback") }) {
     const openBeside = useContext(ChatPathOpener);
     const local = localPathFromChatHref(src);
@@ -152,7 +182,8 @@ const MARKDOWN_COMPONENTS: Components = {
       <code {...props}>{children}</code>
     </a>;
   },
-  pre: ({ children, node: _node, ...props }) => {
+  pre: function ChatPre({ children, node, ...props }) {
+    const openFrom = useContext(OpenFenceContext);
     const fence = readFence(children);
     if (fence) {
       if (fence.language === CHART_FENCE) return <ChartBlock code={fence.code} />;
@@ -161,7 +192,14 @@ const MARKDOWN_COMPONENTS: Components = {
         if (result) return <ToolResultCard result={result} code={fence.code} />;
       }
       const language = visualFenceLanguage(fence.language, fence.code);
-      if (language) return <Suspense fallback={<pre>{children}</pre>}><RenderedFence language={language} code={fence.code} /></Suspense>;
+      if (language) {
+        const drawn = <Suspense fallback={<pre>{children}</pre>}>
+          {language === "mermaid" ? <MermaidFence code={fence.code} /> : <RenderedFence language={language} code={fence.code} />}
+        </Suspense>;
+        // The block the text ends in is still being written.
+        const open = openFrom >= 0 && (node?.position?.end.offset ?? 0) >= openFrom;
+        return open ? <WhenSettled code={fence.code}>{drawn}</WhenSettled> : drawn;
+      }
       // Any other fenced code: its language on top, a copy button, highlighting.
       return <CodeBlock language={fence.language} code={fence.code} dense />;
     }
@@ -172,10 +210,10 @@ const MARKDOWN_COMPONENTS: Components = {
 export function ChatMarkdown({ text, className }: { text: string; className?: string }) {
   const body = useMemo(() => normalizeMediaMarkup(text), [text]);
   const imageKeys = useMemo(() => new Set(Array.from(body.matchAll(/!\[[^\]]*\]\(<?([^)>]+)>?\)/g), match => assetKey(match[1]))), [body]);
-  const writing = useMemo(() => body.includes(CHART_FENCE) && endsInOpenFence(body), [body]);
+  const openFrom = useMemo(() => /```|~~~/.test(body) && endsInOpenFence(body) ? body.trimEnd().length : -1, [body]);
   return <div className={cn("min-w-0 [overflow-wrap:anywhere]", className)}>
     <ImageKeysContext.Provider value={imageKeys}>
-      <OpenFenceContext.Provider value={writing}>
+      <OpenFenceContext.Provider value={openFrom}>
         <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith("data:") ? safeMediaUrl(url) ?? "" : chatUrlTransform(url)} components={MARKDOWN_COMPONENTS}>{body}</ReactMarkdown>
       </OpenFenceContext.Provider>
     </ImageKeysContext.Provider>

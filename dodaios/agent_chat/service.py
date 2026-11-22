@@ -1631,7 +1631,7 @@ class AgentChatService:
                 self._tool_call_names.clear()
             self._tool_call_names[call_key] = str(payload.get("name") or "")
         if event.get("kind") in {"assistant_text", "tool_result", "user_message"}:
-            from dodaios.agent_chat.media import normalize_media_event
+            from dodaios.agent_chat.media import normalize_media_event, temp_roots
 
             tool_name = (
                 self._tool_call_names.pop(call_key, "")
@@ -1651,6 +1651,9 @@ class AgentChatService:
                         outputs_root=resolve_outputs_root(repo_root()),
                         scope=session_id,
                         tool_name=tool_name,
+                        # A coding agent saves what it only wants to show
+                        # outside the person's repository.
+                        extra_roots=temp_roots() if session.surface == "agent" else (),
                     )
                 except (OSError, ValueError):
                     log.warning("agent chat: media normalization failed", exc_info=True)

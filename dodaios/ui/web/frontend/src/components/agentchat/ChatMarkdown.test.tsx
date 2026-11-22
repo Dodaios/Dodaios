@@ -1,9 +1,18 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatMarkdown, mediaKind, normalizeMediaMarkup, safeMediaUrl } from "./ChatMarkdown";
 import { PictureDisplayContext } from "./MediaPreview";
 
-afterEach(cleanup);
+// The diagram library needs a real layout engine; what it is asked to draw is checked here.
+const renderMermaid = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/mermaidRender", () => ({ renderMermaid }));
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  renderMermaid.mockReset();
+});
 
 describe("chat visual fences", () => {
   it.each(["HTML", "htm", "text/html"])("previews %s instead of leaving source", async language => {
@@ -13,8 +22,10 @@ describe("chat visual fences", () => {
 
   it.each(["SVG", "xml", "image/svg+xml", ""])("previews SVG with the %s label", async language => {
     render(<ChatMarkdown text={`\`\`\`${language}\n<svg width="80" height="40"><rect width="80" height="40"/></svg>\n\`\`\``} />);
-    const image = await screen.findByTestId("inline-svg");
-    expect(decodeURIComponent(image.getAttribute("src")!)).toContain('xmlns="http://www.w3.org/2000/svg"');
+    const frame = await screen.findByTestId("inline-html-frame");
+    // Drawn in the sandboxed frame, and able to scale down to the conversation's width.
+    expect(frame.getAttribute("srcdoc")).toContain('<svg viewBox="0 0 80 40" width="80" height="40">');
+    expect((await screen.findByTestId("rendered-fence")).getAttribute("data-language")).toBe("svg");
   });
 
   it.each(["~~~", "````", "```"])("preserves HTML media during streaming in %s fences", async marker => {
@@ -23,9 +34,51 @@ describe("chat visual fences", () => {
     expect(normalizeMediaMarkup(text)).toBe(text);
     expect(normalizeMediaMarkup(text + marker)).toBe(text + marker);
     const { rerender } = render(<ChatMarkdown text={text} />);
-    expect((await screen.findByTestId("inline-html-frame")).getAttribute("srcdoc")).toContain(code);
+    // Still being written: its place is held, no half-drawn markup and no code.
+    expect(await screen.findByTestId("rendered-fence-pending")).toBeTruthy();
+    expect(screen.queryByTestId("inline-html-frame")).toBeNull();
+    expect(screen.queryByText(/chart\.png/)).toBeNull();
     rerender(<ChatMarkdown text={text + marker} />);
-    expect(screen.getByTestId("inline-html-frame").getAttribute("srcdoc")).toContain(code);
+    expect((await screen.findByTestId("inline-html-frame")).getAttribute("srcdoc")).toContain(code);
+    expect(screen.queryByTestId("rendered-fence-pending")).toBeNull();
+  });
+
+  it("holds only the block that is still being written", async () => {
+    const done = "```svg\n<svg viewBox=\"0 0 4 4\"><title>Done</title></svg>\n```";
+    render(<ChatMarkdown text={`${done}\n\nNext:\n\n\`\`\`html\n<div>half`} />);
+    expect(await screen.findByTestId("rendered-fence-pending")).toBeTruthy();
+    expect((await screen.findAllByTestId("rendered-fence")).map(fence => fence.getAttribute("data-language"))).toEqual(["svg"]);
+  });
+
+  it("draws a block the answer never closed once it stands still", async () => {
+    vi.useFakeTimers();
+    render(<ChatMarkdown text={"```html\n<div>Never closed</div>"} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(screen.queryByTestId("inline-html-frame")).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    vi.useRealTimers();
+    expect((await screen.findByTestId("inline-html-frame")).getAttribute("srcdoc")).toContain("Never closed");
+  });
+
+  it("draws a mermaid block as a diagram, with its text behind Source", async () => {
+    renderMermaid.mockResolvedValue('<svg viewBox="0 0 10 10" id="diagram"><g/></svg>');
+    render(<ChatMarkdown text={"```mermaid\nflowchart LR\n  A --> B\n```"} />);
+    const frame = await screen.findByTestId("inline-html-frame");
+    expect(renderMermaid.mock.calls[0][0]).toBe("flowchart LR\n  A --> B");
+    expect(frame.getAttribute("srcdoc")).toContain('id="diagram"');
+    // Drawn in the app's own colours, so it sits on the conversation's surface.
+    expect(frame.getAttribute("data-look")).toBe("themed");
+    const fence = screen.getByTestId("rendered-fence");
+    expect(fence.getAttribute("data-language")).toBe("mermaid");
+    fireEvent.click(within(fence).getByRole("button", { name: "Source" }));
+    expect(within(fence).getByText(/A --> B/)).toBeTruthy();
+  });
+
+  it("leaves a mermaid block that is no diagram as the code it is", async () => {
+    renderMermaid.mockRejectedValue(new Error("Parse error"));
+    render(<ChatMarkdown text={"```mermaid\nnot a diagram\n```"} />);
+    expect(await screen.findByText("not a diagram")).toBeTruthy();
+    expect(screen.queryByTestId("rendered-fence")).toBeNull();
   });
 
   it("gives fenced code its language and a copy button", async () => {
@@ -192,6 +245,54 @@ describe("shared chat media", () => {
       body: JSON.stringify({ url: "https://example.test/notes" }),
     }));
     vi.unstubAllGlobals();
+  });
+});
+
+describe("a page an answer shows", () => {
+  const stored = "/api/outputs/chat-media-abc/files/tasks/chat/artifacts/files/media.html/download?disposition=inline";
+  const page = "<!doctype html><html><head><title>Inner</title></head><body><h1>Latency</h1><script>go()</script></body></html>";
+
+  it("draws the stored page in the sandboxed frame, not as a picture and not as a page of the app", async () => {
+    const fetched = vi.fn(async () => new Response(page));
+    vi.stubGlobal("fetch", fetched);
+    const { container } = render(<ChatMarkdown text={`Here it is:\n\n![Latency report](<${stored}>)`} />);
+    const frame = await screen.findByTestId("inline-html-frame");
+    expect(fetched).toHaveBeenCalledWith(stored);
+    expect(frame.getAttribute("srcdoc")).toContain("<h1>Latency</h1>");
+    expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+    expect(frame.getAttribute("data-scripts")).toBe("off");
+    expect(frame.hasAttribute("src")).toBe(false);
+    expect(container.querySelector("img")).toBeNull();
+    // The answer's own words for it are the caption; its scripts wait for a click.
+    const fence = screen.getByTestId("rendered-fence");
+    expect(within(fence).getByText("Latency report")).toBeTruthy();
+    expect(within(fence).getByTestId("inline-html-run-scripts")).toBeTruthy();
+    expect(within(fence).getByTestId("page-download").getAttribute("href")).toBe(stored);
+    // A figure cannot stand inside a paragraph.
+    expect(fence.closest("p")).toBeNull();
+  });
+
+  it("says so when the stored page cannot be read", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("gone", { status: 404 })));
+    render(<ChatMarkdown text={`![Report](<${stored}>)`} />);
+    expect(await screen.findByRole("status")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("cannot be loaded"));
+    expect(screen.queryByTestId("inline-html-frame")).toBeNull();
+  });
+
+  it("lists the page as a file where the transcript lists files", () => {
+    const fetched = vi.fn();
+    vi.stubGlobal("fetch", fetched);
+    render(<PictureDisplayContext.Provider value="files"><ChatMarkdown text={`![Report](<${stored}>)`} /></PictureDisplayContext.Provider>);
+    expect(screen.getByRole("link", { name: /Report/ }).getAttribute("href")).toBe(stored);
+    expect(fetched).not.toHaveBeenCalled();
+  });
+
+  it("draws only what the chat stored itself", () => {
+    expect(mediaKind(stored)).toBe("page");
+    expect(mediaKind("https://example.test/index.html")).toBeNull();
+    expect(mediaKind("/api/outputs/run-1/files/report.html/download")).toBeNull();
+    expect(mediaKind("/api/outputs/chat-media-abc/files/tasks/chat/artifacts/files/media.png/download")).toBe("image");
   });
 });
 

@@ -4769,8 +4769,11 @@ async def run_cli_turn(
         and not user_text.lstrip().startswith("/")
     ):
         # No mid-turn channel to ask on: the agent asks at the end of its turn
-        # and the chat shows the block as a question card (turn_prompts).
-        user_text = ASK_PROTOCOL + user_text
+        # and the chat shows the block as a question card (turn_prompts). The
+        # thread also draws pictures, which a terminal CLI cannot know.
+        from dodaios.agent_chat.thread_visuals import VISUALS_GUIDE
+
+        user_text = ASK_PROTOCOL + VISUALS_GUIDE + "\n\n" + user_text
     tool_context = register_turn(session.session_id) if identity else None
     try:
         outcome = await _run_cli_once(
@@ -5155,6 +5158,11 @@ async def _run_cli_once(
                 apply_speed(plan.argv, runner, getattr(session, "speed", ""))
                 # A thread that plans may go on in "Bypass permissions".
                 allow_bypass_after_plan(plan.argv, runner, session)
+                if runner in _CLAUDE_CODE_RUNNERS:
+                    from dodaios.agent_chat.thread_visuals import tell_claude_code
+
+                    # A coding thread draws pictures; its agent is told so.
+                    tell_claude_code(plan.argv, session)
                 await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
             apply_child_env_drops(session.session_id, plan.env)
             if getattr(handle, "tools_disabled", False):
