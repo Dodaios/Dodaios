@@ -442,6 +442,8 @@ def job_id_for_key(key: str) -> str | None:
         return jobs.job_id_for("team_thread", rest)
     if kind == "coding":
         return jobs.job_id_for("ide_submission", key)
+    if kind == "coding-thread" and rest:
+        return rest  # ChatThreads keys a thread's turn by its own job id
     if kind == "async" and rest:
         return rest
     return None
@@ -460,6 +462,7 @@ def _ledger_work(key: str, name: str) -> DelegatedWork | None:
         "dodaios.society.delegation_wait",
         "dodaios.orchestrator.mission_jobs",
         "dodaios.orchestrator.async_tools",
+        "dodaios.agentic_ide.chat_threads",
     ):
         try:
             importlib.import_module(module)
@@ -472,7 +475,10 @@ def _ledger_work(key: str, name: str) -> DelegatedWork | None:
             return {"status": "interrupted", "report": f"{name}: its record is gone."}
         job = await jobs.refresh(job)
         if not job.settled:
-            return {"status": "running", "progress": job.detail or job.state}
+            # The probe's own progress moves while the work runs, so the wait
+            # keeps its deadline for real silence.
+            moved = jobs.progress_of(job_id) or job.detail or job.state
+            return {"status": "running", "progress": moved}
         report = job.summary or job.error or f"{name} ended as {job.state}."
         if job.kind == "async_tool":
             from dodaios.orchestrator import async_tools

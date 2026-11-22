@@ -56,6 +56,9 @@ RECENT_S: Final[float] = 24 * 3600
 MAX_STATUS_THREADS: Final[int] = 20
 #: How many of a thread's newest events its state is read from.
 _STATE_EVENTS: Final[int] = 400
+#: After a restart a thread's turn may be carried over and reattached; one that
+#: has not shown up again this long after the first look is taken to be lost.
+_REATTACH_GRACE_S: Final[float] = 90.0
 _REPORT_CHARS: Final[int] = 4000
 _JOB_CHARS: Final[int] = 200
 _DONE: Final[frozenset[str]] = frozenset({"done", "complete", "completed", "ok", "success"})
@@ -1039,6 +1042,59 @@ class ChatThreads:
                 await value
         except Exception:  # noqa: BLE001 - the thread keeps its own record either way
             logger.opt(exception=True).warning("Chat thread result delivery failed")
+
+
+def _rehydrate(job: Any) -> Any:
+    """The probe of a thread job an earlier boot started, read from the thread itself.
+
+    A thread keeps its own record, and a turn the turn host carried across the
+    restart ends there too, so a lead's wait finds the result again instead of
+    reporting the work as interrupted. A turn that neither ended nor came back
+    is reported as interrupted after a grace. Jobs of grid panes have no such
+    record and stay ``None`` (interrupted).
+    """
+    from dodaios.orchestrator import jobs
+
+    target = str(getattr(job, "target", "") or "")
+    if not target.startswith(THREAD_PREFIX):
+        return None
+    session_id = target[len(THREAD_PREFIX):]
+    started_ms = int(getattr(job, "created_ms", 0) or 0)
+    threads = ChatThreads()
+    first_look: list[float] = []
+
+    def read() -> dict[str, Any] | None:
+        from dodaios.orchestrator.verification.probe import shape
+
+        if threads.service() is None:
+            return None  # the chat is not up yet: no evidence either way
+        found = threads._evidence(session_id, started_ms)
+        if found is None:
+            service = threads.service()
+            running = bool(service is not None and service.is_running(session_id))
+            if not first_look:
+                first_look.append(time.monotonic())
+            if not running and time.monotonic() - first_look[0] >= _REATTACH_GRACE_S:
+                found = {
+                    "status": "interrupted",
+                    "report": "The app restarted while the thread worked, and its turn did "
+                              "not come back. Its folder keeps what it did.",
+                }
+        return shape(job.id, found)
+
+    async def probe() -> dict[str, Any] | None:
+        return await asyncio.to_thread(read)
+
+    return jobs.ledgered(job.id, probe)
+
+
+def _register() -> None:
+    from dodaios.orchestrator import jobs
+
+    jobs.register_rehydrator("ide_submission", _rehydrate)
+
+
+_register()
 
 
 __all__ = [

@@ -444,6 +444,8 @@ _ledger_lock = threading.Lock()
 Probe = Callable[[], Awaitable[dict[str, Any] | None]]
 #: job id -> the read-only evidence probe of THIS process.
 _probes: dict[str, Probe] = {}
+#: job id -> the ``progress`` its probe read last (what moves while work runs).
+_progress: dict[str, str] = {}
 #: kind -> rebuilds a probe for a job from an earlier boot, when its evidence is
 #: durable (a mission's own store). Kinds without one become ``interrupted``.
 _rehydrators: dict[str, Callable[[Job], Probe | None]] = {}
@@ -588,6 +590,8 @@ def ledgered(job_id: str, probe: Callable[[], Awaitable[dict[str, Any] | None]])
 
     async def read() -> dict[str, Any] | None:
         result = await probe()
+        if result is not None and result.get("progress"):
+            _progress[job_id] = str(result["progress"])
         try:
             apply_result(job_id, result)
         except Exception:  # noqa: BLE001 - recording is not the work
@@ -595,6 +599,11 @@ def ledgered(job_id: str, probe: Callable[[], Awaitable[dict[str, Any] | None]])
         return result
 
     return read
+
+
+def progress_of(job_id: str) -> str:
+    """What the job's probe last read as its progress; ``""`` when none."""
+    return _progress.get(job_id, "")
 
 
 def start(
@@ -652,6 +661,8 @@ async def refresh(job: Job) -> Job:
     if probe is None and job.boot_id != BOOT_ID:
         if job.kind in ("mission", "artifact"):
             from dodaios.orchestrator import mission_jobs  # noqa: F401 - registers its rehydrator
+        elif job.kind == "ide_submission":
+            from dodaios.agentic_ide import chat_threads  # noqa: F401 - registers its rehydrator
         build = _rehydrators.get(job.kind)
         probe = build(job) if build is not None else None
         if probe is not None:
@@ -707,6 +718,7 @@ __all__ = [
     "new_job_id",
     "owner_of",
     "probe_for",
+    "progress_of",
     "refresh",
     "register_end_listener",
     "register_rehydrator",

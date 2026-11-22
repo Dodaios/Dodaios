@@ -206,9 +206,14 @@ turn ends -> scan -> GitHub -> decide
   `superseded`, `needs_decision`. The jobs ledger shows them as `done` with the
   detail `verified` or `unverified`, `failed`, `cancelled` and `blocked`.
 
-Not done yet: the lead's own text after it delegated is still shown at once, a
-thread's other events still wake the lead, and a job held across an app
-restart is not picked up again by the lead's wait.
+**Across an app restart** the lead's wait finds a thread's job again: the job's
+probe is rebuilt from the thread's own record (a turn the turn host carried
+over ends there), its progress reaches the wait, and a turn that neither ended
+nor came back within 90 seconds of the first look is reported as interrupted.
+This holds in every mode, not only with enforced checks.
+
+Not done yet: the lead's own text after it delegated is still shown at once,
+and a thread's other events still wake the lead.
 
 ## What the lead can ask
 
