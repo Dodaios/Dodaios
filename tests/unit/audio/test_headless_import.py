@@ -20,7 +20,6 @@ _AUDIO_MODULES = [
     "dodaios.audio.player",
     "dodaios.audio.capture",
     "dodaios.speech.diagnose",
-    "dodaios.speech.voice_compare",
 ]
 
 

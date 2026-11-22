@@ -189,19 +189,6 @@ def test_desktop_build_overlay_surface_windows_orb_stays_in_process(
     assert started  # the in-process Tk thread spawn was requested (AD-7)
 
 
-def test_overlay_factory_selects_tray_floor_on_macos() -> None:
-    # make_overlay_surface runs on the desktop backend WORKER thread; a Tk
-    # surface on darwin would abort the process natively. The tray floor is
-    # the designed degrade (AD-11) — and the tray itself no-ops on darwin
-    # (BUG-056), so macOS gets no crash and no stray window.
-    from dodaios.overlay.surface import make_overlay_surface
-    from dodaios.overlay.tray_surface import TrayOnlySurface
-    from tests.fakes.fake_capabilities import fake_macos_capabilities
-
-    surface = make_overlay_surface(capabilities=fake_macos_capabilities())
-    assert isinstance(surface, TrayOnlySurface)
-
-
 def test_thread_spawners_still_run_on_windows(monkeypatch) -> None:
     # AD-7 guard: the darwin gates must not leak onto other platforms.
     from dodaios.ui.dodaiosbar import overlay as bar_mod

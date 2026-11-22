@@ -79,8 +79,7 @@ def _resolve_run_cu_loop():
     ``"v2"`` is the only action-capable engine: it owns live permission,
     monitor-topology and foreground-window guards. Historical ``current``,
     ``june13`` and ``stable`` values remain readable for config compatibility
-    but route to v2; their frozen loops can still be imported by forensic tests
-    and must never dispatch live desktop input. Read per mission so config
+    but route to v2. Read per mission so config
     recovery applies without restart. Never raises: a config-read problem also
     falls back to v2.
     """
@@ -100,12 +99,11 @@ def _resolve_run_cu_loop():
             sys.platform,
         )
         engine = "v2"
-    # One engine, one import. The frozen loops (screenshot_only_loop.py and its
-    # _stable / _june13 snapshots) are deliberately NOT reachable from here:
-    # every value above normalizes to v2, so a branch per engine would be code
-    # that can never run while reading as if the choice were live. They remain
-    # in the tree as forensic restore points (see cu-restore-points/ and each
-    # file's header) and are imported only by tests.
+    # One engine, one import. The frozen loop (screenshot_only_loop.py) is
+    # deliberately NOT reachable from here: every value above normalizes to v2,
+    # so a branch per engine would be code that can never run while reading as
+    # if the choice were live. Its former _stable / _june13 snapshots are in the
+    # git history only.
     from dodaios.cu.engine import run_cu_loop as _loop  # noqa: PLC0415
 
     _log.debug("[cu] ENGINE = v2 (rebuilt perceive->act->verify engine)")

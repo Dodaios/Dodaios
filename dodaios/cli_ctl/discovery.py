@@ -1,16 +1,15 @@
 """Discover a locally running Jarvis instance from its single-instance session file.
 
-The desktop app's ``SingleInstance`` writes ``{port, token, pid}`` to
-``<user-app-dir>/session.json`` while it runs (authoritative writer:
-``dodaios/ui/shell/single_instance.py``). A CLI on the same machine can read it to
-reach the live server with zero configuration — even when the server bound a
-non-default ``admin_api_port``.
+A running instance may publish ``{port, token, pid}`` in
+``<user-app-dir>/session.json``. A CLI on the same machine can read it to reach
+the live server with zero configuration — even when the server bound a
+non-default ``admin_api_port``. The pywebview shell that wrote the file was
+removed; no process writes it at the moment, so ``discover()`` usually answers
+None and the caller falls back to its configured address.
 
 This module is intentionally decoupled from the UI shell at runtime: it only
 imports ``dodaios.core.paths`` (a base-install module) to locate the per-user app
-directory, and never pulls in any desktop/UI dependency. A parity test
-(``tests/unit/cli_ctl/test_discovery.py``) guards the filename and directory
-against drift from the authoritative writer.
+directory, and never pulls in any desktop/UI dependency.
 
 Liveness: a clean shutdown removes the session file, so a leftover file means the
 process crashed. ``discover()`` best-effort verifies the recorded PID is still
@@ -27,9 +26,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Authoritative writer constant lives in dodaios/ui/shell/single_instance.py
-# (SESSION_FILENAME). Kept as a local literal to avoid importing the UI layer;
-# test_discovery.py asserts the two never drift.
+# The file name a writer must use (the removed pywebview shell used it too).
 SESSION_FILENAME = "session.json"
 
 

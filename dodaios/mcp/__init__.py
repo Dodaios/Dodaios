@@ -1,7 +1,7 @@
-"""MCP integration: client, registry, bootstrap, and tool adapter.
+"""MCP integration: client, registry, and tool adapter.
 
 Exposes `MCPClient`, `MCPRegistry`, the `BOOTSTRAP_SERVERS` list, and
-`MCPToolAdapter`. Bootstrap helpers live in `dodaios.mcp.bootstrap`.
+`MCPToolAdapter`.
 """
 from __future__ import annotations
 

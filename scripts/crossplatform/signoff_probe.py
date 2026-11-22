@@ -20,7 +20,6 @@ Usage::
     python scripts/crossplatform/signoff_probe.py --feature terminal
     python scripts/crossplatform/signoff_probe.py --feature applaunch
     python scripts/crossplatform/signoff_probe.py --feature ax
-    python scripts/crossplatform/signoff_probe.py --feature orb
     python scripts/crossplatform/signoff_probe.py --feature hotkey
     python scripts/crossplatform/signoff_probe.py --feature admin
 
@@ -121,32 +120,6 @@ _CATALOG: tuple[ProbeEntry, ...] = (
             "a real Linux desktop session."
         ),
     ),
-    # --- Orb overlay — live sign-off gated (transparency) ---------------
-    ProbeEntry(
-        feature="orb",
-        title="Orb overlay — transparent surface (macOS)",
-        target_os="macOS (display present)",
-        ci_provable=False,
-        behavior=(
-            "make_overlay_surface() returns a TkColorKeyOverlay; launch the desktop "
-            "app and confirm a *transparent* orb (no opaque magenta/black backing "
-            "box) that visibly changes to LISTENING then back to IDLE. A "
-            "transparency mask cannot be proven on a headless runner."
-        ),
-    ),
-    ProbeEntry(
-        feature="orb",
-        title="Orb overlay — best-effort transparency + tray fallback (Linux)",
-        target_os="Linux (X11 compositor; Wayland/headless -> tray)",
-        ci_provable=False,
-        behavior=(
-            "On a Linux compositor, make_overlay_surface() returns a "
-            "LinuxBestEffortOverlay; confirm transparency. On Wayland / no "
-            "compositor it returns a TrayOnlySurface — confirm a state-colored tray "
-            "icon (IDLE/LISTENING/THINKING/SPEAKING), never an opaque magenta box, "
-            "never a crash."
-        ),
-    ),
     # --- Hotkey capture — live sign-off gated ---------------------------
     ProbeEntry(
         feature="hotkey",
@@ -202,7 +175,7 @@ _CATALOG: tuple[ProbeEntry, ...] = (
     ),
 )
 
-_FEATURES: tuple[str, ...] = ("ax", "orb", "hotkey", "admin", "terminal", "applaunch")
+_FEATURES: tuple[str, ...] = ("ax", "hotkey", "admin", "terminal", "applaunch")
 
 
 # ----------------------------------------------------------------------
@@ -380,37 +353,6 @@ def _probe_ax() -> None:
     _needs_real_desktop("ax")
 
 
-def _probe_orb() -> None:
-    """Orb (live-gated): construct the surface, describe the transparency sign-off."""
-    from dodaios.overlay.surface import make_overlay_surface
-
-    surface = make_overlay_surface()
-    cls = type(surface).__name__
-    print(f"make_overlay_surface() -> {cls}")
-    if cls == "TkColorKeyOverlay":
-        print(
-            "Transparent-overlay surface constructed (Windows/macOS path). "
-            "OPERATOR: on macOS, launch the desktop app and confirm a *transparent* "
-            "orb (no opaque magenta/black box) cycling IDLE->LISTENING->...->IDLE."
-        )
-    elif cls == "LinuxBestEffortOverlay":
-        print(
-            "Linux best-effort transparent surface constructed. OPERATOR: on a "
-            "compositor confirm transparency; verify it degrades to the tray on "
-            "Wayland / no compositor."
-        )
-    elif cls == "TrayOnlySurface":
-        print(
-            "Tray-only floor surface constructed (headless/Wayland/no-Tk). "
-            "OPERATOR: confirm a state-colored tray icon shows the four states — "
-            "never an opaque magenta box, never a crash (this is the graceful "
-            "degrade, a PASS for the contract)."
-        )
-    else:
-        print(f"Unexpected surface type {cls} — record for sign-off.")
-    _needs_real_desktop("orb")
-
-
 def _probe_hotkey() -> None:
     """Hotkey (live-gated): construct the backend, describe the capture sign-off."""
     from dodaios.trigger.backends import make_hotkey_backend
@@ -476,7 +418,6 @@ _PROBES = {
     "terminal": _probe_terminal,
     "applaunch": _probe_applaunch,
     "ax": _probe_ax,
-    "orb": _probe_orb,
     "hotkey": _probe_hotkey,
     "admin": _probe_admin,
 }

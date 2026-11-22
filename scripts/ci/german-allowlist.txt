@@ -337,8 +337,6 @@ tests/unit/ui/test_tray.py
 #     kept as a reversible fallback ([computer_use].engine = "june13"). Its German
 #     comments/strings are faithful captured history, not new artifacts — exempt
 #     as a frozen reference, same spirit as the forensic deep-dive docs. ---
-dodaios/harness/screenshot_only_loop_june13.py
-dodaios/harness/screenshot_only_loop_stable.py
 
 # --- German drain (2026-07-01): product-surface files where an inline i18n-allow
 #     marker is impossible (multiline prompt strings / JSON / YAML front-matter /

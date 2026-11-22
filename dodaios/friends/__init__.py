@@ -6,9 +6,7 @@ pure status observer). The identity is cross-channel — the same friend can
 be linked simultaneously via a Telegram chat ID and via a Jarvis public key.
 
 Status-sharing permissions are persisted here (per-friend profile
-``minimal``/``standard``/``detailed``); the hard blacklist (which bus events
-NEVER leave the instance) lives in :mod:`dodaios.friends.status_filter` as a
-hard-coded allowlist (see plan AP-1/AP-11).
+``minimal``/``standard``/``detailed``).
 """
 from __future__ import annotations
 
