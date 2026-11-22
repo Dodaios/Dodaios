@@ -77,6 +77,10 @@ Kinds (``payload`` keys in brackets):
                         status: done | cancelled | error
 ``session_updated``    [title?, provider?, model?, effort?, cwd?, permission_mode?,
                         build_mode?]
+``conversation_cleared`` []                            — ``/clear`` in a coding thread: the
+                        conversation starts over here. The events before it stay stored,
+                        but no reader gets them any more (``store.list_events``), and the
+                        agent's next turn opens a new conversation of its CLI
 ``error``              [turn_id?, message]
 ``notice``              [kind, ...]                      — a system line outside a turn
 
@@ -102,6 +106,10 @@ from typing import Any, Final
 TRANSIENT_KINDS: Final[frozenset[str]] = frozenset(
     {"text_delta", "reasoning_delta", "reasoning_started", "usage_delta", "subagent_progress"}
 )
+
+
+#: ``/clear`` in a coding thread: the event a conversation starts over at.
+CLEARED_KIND: Final[str] = "conversation_cleared"
 
 
 def now_ms() -> int:

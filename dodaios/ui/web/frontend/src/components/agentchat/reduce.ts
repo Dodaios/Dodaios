@@ -462,6 +462,8 @@ export const SIDE_THREAD_FINISHED = "side_thread_finished";
  * `ANSWERED` / `DISMISSED` in `dodaios/agent_chat/aside.py`.
  */
 export const ASIDE_ASKED = "aside_asked";
+/** `/clear` in a coding thread: the event its conversation starts over at, and the line that says so. */
+export const CONVERSATION_CLEARED = "conversation_cleared";
 export const ASIDE_ANSWERED = "aside_answered";
 export const ASIDE_DISMISSED = "aside_dismissed";
 
@@ -1706,6 +1708,23 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
 
     case "session_updated":
       return { ...base, sessionPatch: { ...p } };
+
+    case CONVERSATION_CLEARED: {
+      // "/clear" in a coding thread: the conversation starts over here.
+      // Nothing from before shows any more, and one quiet line says so. A
+      // message still waiting behind the command keeps its waiting line.
+      const waiting = base.items.filter((item) => item.type === "notice" && item.kind === "message_queued");
+      const line: NoticeItem = {
+        type: "notice", id: `n-${seq || ev.ts_ms}`, kind: CONVERSATION_CLEARED, text: "", agentName: "",
+        agentId: "", status: "", tsMs: ev.ts_ms, data: {}, resolved: "",
+      };
+      return {
+        ...EMPTY_TIMELINE,
+        ...(base.control ? { control: base.control } : {}),
+        lastSeq: base.lastSeq,
+        items: [line, ...waiting],
+      };
+    }
 
     case "error": {
       const text = str(p.message);

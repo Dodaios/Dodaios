@@ -38,6 +38,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Final
 
+from dodaios.agent_chat import thread_clear
+
 log = logging.getLogger(__name__)
 
 __all__ = [
@@ -189,6 +191,10 @@ async def try_steer(
         return False
     if tool_choices or not (text.strip() or attachments):
         return False
+    if thread_clear.wants_clear(session, text, attachments):
+        # "/clear" is the thread's own command, never words for the running
+        # turn: it waits and clears once the turn is over.
+        return False
     if (has_waiting(svc, session_id) and not overtake) or not svc.is_running(session_id):
         return False
     steer = getattr(svc, "steer", None)
@@ -217,6 +223,8 @@ async def steer_waiting(svc: Any, session_id: str, queue_id: str) -> bool:
     item = pending.items[index]
     if item.tool_choices:
         return False
+    if not item.attachments and thread_clear.is_clear_command(item.text):
+        return False  # the thread's own command, not words for the turn (try_steer)
     # Out of the queue while the CLI takes it, so a turn ending meanwhile
     # cannot also start it as the next turn.
     del pending.items[index]

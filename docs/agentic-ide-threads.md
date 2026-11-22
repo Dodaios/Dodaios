@@ -120,7 +120,8 @@ news since it was last opened.
   takes after its name. A thread that has not run a turn asks the CLI for the
   list (about a second, no model call, no session kept, no hook run); a turn
   refreshes it as it runs. The message goes to the CLI as typed, so the
-  command runs there and its answer is the turn's answer. Nothing is put in
+  command runs there and its answer is the turn's answer (`/btw` and `/clear`
+  are the two Dodaios carries out itself, below). Nothing is put in
   front of a message that opens with a command (not even the effort note),
   because the CLI runs a command only as the message's first word. The list is plain,
   like the CLI's own: one line per entry, no icons, files by their whole path.
@@ -147,6 +148,24 @@ news since it was last opened.
   thread, marked as not part of the conversation, with a Close button; the
   agent never sees either. A question that needs tools says so and should be
   sent as a normal message. Other coding agents get `/btw` as plain text.
+- **Clear (`/clear`):** `/clear` (also `/reset` and `/new`, the names Claude
+  Code lists for it) starts the thread's conversation over, on every coding
+  agent. The thread shows empty with one line, "Conversation cleared", and
+  the agent's next turn opens a new conversation of its CLI with an empty
+  context. Dodaios does this itself (`dodaios/agent_chat/thread_clear.py`):
+  no turn runs and no message is written. Run as a turn, the CLI's own
+  `/clear` answered with a new, empty conversation while the thread went on
+  resuming the old one, so nothing was cleared. A `conversation_cleared`
+  event marks where the conversation starts; the events before it stay in
+  the chat database, and no reader returns them (the timeline, the thread
+  search, a report on the thread, a fork). A name after the command
+  (`/clear login bug`) becomes the thread's title; without one, a title the
+  first message gave makes room for the next first message, and a title the
+  person typed stays. Typed while the agent works, the command waits like any
+  other message and clears once the turn is over; it is never typed into the
+  running turn. In a thread that does not exist yet it does nothing. Only the
+  person's own command clears: a `/clear` another agent writes into the
+  thread, or one sent with a file, is a message.
 - **Under the composer:** a strip that says where the agent works — the
   current checkout or a fresh git worktree for a new thread — and on which
   branch (the base of the worktree, or the branch to switch the checkout to).

@@ -47,7 +47,8 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, localStopEvent, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
+import { CONVERSATION_CLEARED, EMPTY_TIMELINE, localStopEvent, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
+import { isClearCommand } from "@/lib/threadClear";
 import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
@@ -1311,6 +1312,11 @@ export function createAgentChatStore(
         // Enter is a complete gesture — but never nothing at all.
         if (!content && attachments.length === 0) return "failed";
         const st = get();
+        // "/clear" in a coding thread starts its conversation over: no message
+        // is written for it, so none is drawn on its way either.
+        const clears = surface === "agent" && attachments.length === 0 && isClearCommand(content);
+        // A thread that does not exist yet has nothing to clear.
+        if (clears && !st.activeSessionId && newChatLane.pending === 0) return "sent";
         const lane = st.activeSessionId
           ? sendLanes.get(st.activeSessionId) ?? { ...emptySendLane(), sessionId: st.activeSessionId }
           : newChatLane;
@@ -1323,7 +1329,7 @@ export function createAgentChatStore(
         lane.pending += 1;
         // The message shows in the chat now, not when the backend has
         // prepared its turn and the socket brought it back a second later.
-        const outgoing = isVisible() ? outboxEntry(lane.sessionId, content, attachments, Date.now()) : null;
+        const outgoing = isVisible() && !clears ? outboxEntry(lane.sessionId, content, attachments, Date.now()) : null;
         set({ busy: true, lastError: null, ...(outgoing ? { outbox: [...(get().outbox ?? []), outgoing] } : {}) });
         // Serialize transport admission, not agent execution. A second send
         // shares an unfinished session creation and reaches the server in order.
@@ -1373,10 +1379,10 @@ export function createAgentChatStore(
           // waiting in a queue is drawn there, never as a message of its own.
           if (outgoing && (sent.ritual || sent.steered || sent.queued || sent.side_thread || sent.aside)) dropOutgoing(outgoing.id);
           else if (outgoing) setTimeout(() => dropOutgoing(outgoing.id), OUTBOX_GIVE_UP_MS);
-          if (sent.ritual || sent.aside) {
-            // The message was a ritual's phrase or a side question (/btw): its
-            // card is the answer and no turn is on the way, so nothing here
-            // pretends one is.
+          if (sent.ritual || sent.aside || sent.cleared) {
+            // The message was a ritual's phrase, a side question (/btw) or a
+            // thread's /clear: its card (or the emptied thread) is the answer
+            // and no turn is on the way, so nothing here pretends one is.
             if (surface === "jarvis") writeDraft(DRAFT_KEY, st.draft);
             return isVisible() ? "sent" as const : "stale" as const;
           }
@@ -1566,12 +1572,13 @@ export function createAgentChatStore(
           const running = runningForTimeline(tl, true, { sentAtMs: sentAt.get(sid) }) === true;
           announceRunning(sid, running);
         }
-        if (event.kind === "turn_finished" || event.kind === "user_message") {
+        // A cleared thread may have given up the title its first message gave it.
+        if (event.kind === "turn_finished" || event.kind === "user_message" || event.kind === CONVERSATION_CLEARED) {
           invalidateAgentChatSessions();
           void st.loadSessions();
           // Every other list of this surface (the thread list, when this is a
           // side column's store) reads again too; one shared request serves them.
-          if (event.kind === "turn_finished") tellPeers(peer, (other) => other.refresh());
+          if (event.kind === "turn_finished" || event.kind === CONVERSATION_CLEARED) tellPeers(peer, (other) => other.refresh());
         }
       },
 

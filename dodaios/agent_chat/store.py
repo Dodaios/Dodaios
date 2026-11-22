@@ -12,7 +12,9 @@ asyncio loop; the lock keeps a future worker-thread caller safe). Three tables:
 
 ``agent_chat_events``
     The append-only event log (see :mod:`dodaios.agent_chat.events`), ordered
-    by ``seq`` per session. Transient kinds are never written.
+    by ``seq`` per session. Transient kinds are never written. A conversation
+    the person cleared (``/clear`` in a coding thread) keeps its rows, and its
+    session's ``cleared_seq`` names the event the readers start at.
 
 ``agent_chat_permission_overrides``
     A user's explicit Society chat stance, kept apart from the roster ceiling.
@@ -37,7 +39,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.agent_chat.events import is_transient, now_ms, shown_text
+from dodaios.agent_chat.events import CLEARED_KIND, is_transient, now_ms, shown_text
 from dodaios.agent_chat.permissions import PLAN_MODES as _PLAN_MODES
 
 log = logging.getLogger(__name__)
@@ -63,7 +65,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     last_message_ms  INTEGER NOT NULL DEFAULT 0,
     speed            TEXT NOT NULL DEFAULT '',
     started_by       TEXT NOT NULL DEFAULT '',
-    build_mode       TEXT NOT NULL DEFAULT ''
+    build_mode       TEXT NOT NULL DEFAULT '',
+    cleared_seq      INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -239,6 +242,10 @@ class AgentChatSession:
     #: pill names. Set only while the session is in Plan; empty there means
     #: the ladder's default.
     build_mode: str = ""
+    #: The seq of the ``conversation_cleared`` event the conversation starts at
+    #: (``/clear`` in a coding thread); 0 = never cleared. The events before it
+    #: stay stored and no reader gets them (``AgentChatStore.list_events``).
+    cleared_seq: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -364,6 +371,12 @@ class AgentChatStore:
             # which is what a session from before the column returned to.
             self._conn.execute(
                 "ALTER TABLE agent_chat_sessions ADD COLUMN build_mode TEXT NOT NULL DEFAULT ''"
+            )
+        if "cleared_seq" not in have:
+            # Where a cleared conversation starts; 0 = never cleared, which is
+            # every session from before the column.
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN cleared_seq INTEGER NOT NULL DEFAULT 0"
             )
 
     def close(self) -> None:
@@ -553,24 +566,40 @@ class AgentChatStore:
         """Whether ``session``'s title is still the one its first message gave it.
 
         A title the person typed differs from that; a session with no message
-        yet has nothing to compare and counts as automatic.
+        yet has nothing to compare and counts as automatic. In a cleared
+        conversation the first message is the first one since the clear.
         """
         with self._lock:
-            row = self._conn.execute(
-                "SELECT payload FROM agent_chat_events WHERE session_id = ? "
-                "AND kind IN ('user_message', 'agent_message') ORDER BY seq ASC LIMIT 1",
-                (session.session_id,),
-            ).fetchone()
+            given = self._opening_titles(session.session_id)
+        return given is None or session.title in given
+
+    def _opening_titles(self, session_id: str) -> tuple[str, str] | None:
+        """The titles the conversation's first message gives it (lock held by the caller).
+
+        ``None`` when there is no message yet, or it cannot be read.
+        """
+        row = self._conn.execute(
+            "SELECT payload FROM agent_chat_events WHERE session_id = ? AND seq >= ? "
+            "AND kind IN ('user_message', 'agent_message') ORDER BY seq ASC LIMIT 1",
+            (session_id, self._cleared_seq(session_id)),
+        ).fetchone()
         if row is None:
-            return True
+            return None
         try:
             payload = json.loads(row["payload"]) or {}
             text = str(payload.get("text") or "")
             shown = shown_text(payload)
         except (TypeError, ValueError, AttributeError):  # unreadable: keep auto-titling
-            return True
+            return None
         # A title given before 2026-11-12 came from the composed prompt.
-        return session.title in (_title_from(shown), _title_from(text))
+        return _title_from(shown), _title_from(text)
+
+    def _cleared_seq(self, session_id: str) -> int:
+        """The seq the session's conversation starts at, 0 = its first event (lock held)."""
+        row = self._conn.execute(
+            "SELECT cleared_seq FROM agent_chat_sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+        return int(row[0] or 0) if row is not None else 0
 
     def list_sessions_matching(
         self, prefix: str, suffix: str = "", *, limit: int = 200
@@ -612,6 +641,8 @@ class AgentChatStore:
                 "FROM agent_chat_events e JOIN agent_chat_sessions s "
                 "ON s.session_id = e.session_id "
                 "WHERE s.surface = ? AND e.kind IN ('user_message', 'agent_message', 'assistant_text') "
+                # A cleared conversation is found by what was said since.
+                "AND e.seq >= s.cleared_seq "
                 f"AND s.{_NOT_A_SIDE_THREAD} "
                 "AND instr(dodaios_fold(json_extract(e.payload, '$.text')), ?) > 0 "
                 "ORDER BY e.seq DESC",
@@ -867,7 +898,9 @@ class AgentChatStore:
 
         Transient kinds are returned unchanged and never written. A
         ``user_message`` bumps the session's counters and, on the first one,
-        becomes its title; an ``assistant_text`` refreshes the preview.
+        becomes its title; an ``assistant_text`` refreshes the preview. A
+        ``conversation_cleared`` starts the conversation over at itself: the
+        readers begin there and the CLI's own conversation is left behind.
         """
         if is_transient(event):
             return event
@@ -915,6 +948,20 @@ class AgentChatStore:
                         "WHERE session_id = ?",
                         (ts_ms, text[:_PREVIEW_MAX_CHARS], session_id),
                     )
+            elif kind == CLEARED_KIND:
+                # A title the first message gave goes with that message, so the
+                # next first message names the thread; a typed title stays.
+                held = self._conn.execute(
+                    "SELECT title FROM agent_chat_sessions WHERE session_id = ?", (session_id,)
+                ).fetchone()
+                given = self._opening_titles(session_id)
+                from_message = held is not None and given is not None and held[0] in given
+                self._conn.execute(
+                    "UPDATE agent_chat_sessions SET cleared_seq = ?, vendor_session = '', "
+                    "preview = '', updated_ms = ?, "
+                    "title = CASE WHEN ? THEN '' ELSE title END WHERE session_id = ?",
+                    (seq, ts_ms, int(from_message), session_id),
+                )
             else:
                 self._conn.execute(
                     "UPDATE agent_chat_sessions SET updated_ms = ? WHERE session_id = ?",
@@ -1297,23 +1344,39 @@ class AgentChatStore:
         return int(row[0] or 0)
 
     def list_events(
-        self, session_id: str, *, after_seq: int = 0, tail: int | None = None
+        self,
+        session_id: str,
+        *,
+        after_seq: int = 0,
+        tail: int | None = None,
+        include_cleared: bool = False,
     ) -> list[dict[str, Any]]:
-        """Events in order; ``tail`` keeps only the newest N (still oldest first)."""
+        """Events in order; ``tail`` keeps only the newest N (still oldest first).
+
+        A conversation the person cleared starts at its ``conversation_cleared``
+        event: that event comes first and nothing before it is returned, so
+        every reader (the timeline, a report on the thread, a search) sees the
+        conversation as it shows. A reader that had events from before the
+        clear still gets the event itself and drops them. ``include_cleared``
+        returns the stored rows from the first one on.
+        """
         with self._lock:
+            floor = int(after_seq)
+            if not include_cleared:
+                floor = max(floor, self._cleared_seq(session_id) - 1)
             if tail is not None:
                 rows = self._conn.execute(
                     "SELECT seq, ts_ms, kind, payload FROM ("
                     "SELECT seq, ts_ms, kind, payload FROM agent_chat_events "
                     "WHERE session_id = ? AND seq > ? ORDER BY seq DESC LIMIT ?"
                     ") ORDER BY seq ASC",
-                    (session_id, int(after_seq), max(0, int(tail))),
+                    (session_id, floor, max(0, int(tail))),
                 ).fetchall()
             else:
                 rows = self._conn.execute(
                     "SELECT seq, ts_ms, kind, payload FROM agent_chat_events "
                     "WHERE session_id = ? AND seq > ? ORDER BY seq ASC",
-                    (session_id, int(after_seq)),
+                    (session_id, floor),
                 ).fetchall()
         out: list[dict[str, Any]] = []
         for r in rows:
@@ -1358,4 +1421,5 @@ class AgentChatStore:
             speed=str(row["speed"] or "") if "speed" in row.keys() else "",
             started_by=str(row["started_by"] or "") if "started_by" in row.keys() else "",
             build_mode=str(row["build_mode"] or "") if "build_mode" in row.keys() else "",
+            cleared_seq=int(row["cleared_seq"] or 0) if "cleared_seq" in row.keys() else 0,
         )

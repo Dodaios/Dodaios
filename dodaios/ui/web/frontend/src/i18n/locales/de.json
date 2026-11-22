@@ -8011,6 +8011,7 @@
     "compacted": "Unterhaltung komprimiert",
     "compacted_tokens": "Unterhaltung komprimiert · {before} → {after} Tokens",
     "compacted_from": "Unterhaltung von {before} Tokens komprimiert",
+    "cleared": "Unterhaltung geleert",
     "compaction_failed": "Unterhaltung konnte nicht komprimiert werden",
     "compaction_hint": "Das Kontextfenster war voll: Der Agent hat die bisherige Unterhaltung zusammengefasst und macht mit dieser Zusammenfassung weiter.",
     "compaction_manual_hint": "Auf Wunsch hat der Agent die bisherige Unterhaltung zusammengefasst und macht mit dieser Zusammenfassung weiter.",
