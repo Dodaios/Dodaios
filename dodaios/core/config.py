@@ -4576,6 +4576,21 @@ class SelfBuildConfig(BaseModel):
     code_land_repos: list[str] = Field(default_factory=list)
 
 
+class RsiConfig(BaseModel):
+    """``[rsi]`` — measuring how well handing work to coding agents goes.
+
+    While ``enabled``, every order the lead gives a coding thread is recorded as
+    a run in ``verification.db``: repository and commit, domain, requested and
+    answering model, CLI version, how the turn ended and what it cost
+    (``dodaios.orchestrator.verification``). Recording only: nothing is checked,
+    sent or held. Off by default.
+    """
+
+    model_config = {"extra": "allow"}
+
+    enabled: bool = False
+
+
 class JarvisConfig(BaseModel):
     """Root config model."""
 
@@ -4596,6 +4611,7 @@ class JarvisConfig(BaseModel):
     google: GoogleAuthConfig = Field(default_factory=GoogleAuthConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     self_build: SelfBuildConfig = Field(default_factory=SelfBuildConfig)
+    rsi: RsiConfig = Field(default_factory=RsiConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     harness: HarnessConfig = Field(default_factory=HarnessConfig)

@@ -471,6 +471,12 @@ class ChatThreads:
         )
         if started is None:
             return None
+        # The run's record (a no-op unless ``[rsi] enabled``): it only reads.
+        from dodaios.orchestrator.verification.recorder import note_submission
+
+        note_submission(
+            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms
+        )
         if tracked is not None:
             tracked.job_id = job_id
         register_delegated_work(
