@@ -1155,3 +1155,59 @@ async def test_after_a_restart_the_wait_sees_a_carried_turn_move(rig: Rig, app_c
     assert first["progress"] != second["progress"]
     rig.service.hold.set()
     await rig.settle()
+
+
+# ------------------------------------- an approved domain block in the first brief
+
+
+async def test_an_approved_domain_block_rides_in_the_first_brief_and_not_in_the_bubble(
+    rig: Rig, tmp_path, monkeypatch
+):
+    from dodaios.agent_chat.service import resolve_runner
+    from dodaios.orchestrator.verification import recorder as run_recorder
+    from dodaios.orchestrator.verification.store import VerificationStore
+    from dodaios.rsi import bind, domains, harness_probe, selector
+    from dodaios.rsi.policy import ACTIVE, Policy, PolicyStore, target_for
+
+    monkeypatch.setattr(
+        harness_probe, "for_runner", lambda runner: harness_probe.Harness(runner, "1.2.3", "1.2")
+    )
+    store = VerificationStore(tmp_path / "verification.db")
+    policies = PolicyStore(tmp_path / "rsi.db")
+    made = run_recorder.RunRecorder(store, rig.service, verify="enforce")
+    rig.service.add_event_listener(made.on_event)
+    run_recorder.set_recorder(made)
+    bind.set_store(policies)
+    prompt = "Fix the failing tests"
+    cell = selector.cell_of({
+        "primary_domain": domains.pre_classify(prompt)[1], "model_requested": "",
+        "runner": resolve_runner("openai-codex", surface="agent"), "harness_line": "1.2",
+    })
+    block = "Run the tests that cover your change before you commit, and make them pass."
+    policies.write(target_for(cell, ACTIVE), Policy(domain_block=block).to_text())
+    try:
+        result = await create(rig, prompt=prompt)
+        await rig.settle()
+        made.process_pending()
+    finally:
+        bind.set_store(None)
+        run_recorder.set_recorder(None)
+
+    [(sid, sent)] = rig.service.prompts
+    assert sent == f"{prompt}\n\n{block}"
+    [shown] = [
+        e["payload"] for e in rig.service.store.list_events(sid) if e["kind"] == "user_message"
+    ]
+    # The bubble draws what was typed; the agent got the brief with the block.
+    assert shown["typed"] == prompt
+    assert shown["text"] == f"{prompt}\n\n{block}"
+    run = store.get(result["deliveries"][0]["job_id"])
+    assert run["policy_id"] == Policy(domain_block=block).id
+    store.close()
+    policies.close()
+
+
+async def test_without_enforced_checks_the_brief_goes_out_as_the_lead_wrote_it(rig: Rig):
+    await create(rig)
+    await rig.settle()
+    assert [text for _sid, text in rig.service.prompts] == ["Fix the failing tests"]

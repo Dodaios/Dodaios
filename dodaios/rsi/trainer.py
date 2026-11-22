@@ -16,8 +16,11 @@ Driven by verdicts, never by a timer: after a run in a cell got its verdict,
 3. **A new active policy on probation:** the first run under it whose final
    output weakened a check rolls it back to the exact previous policy.
 
-Only steering parameters are proposed here; nothing writes text for agents
-(decision 5.4). Every change shows in Trust → Self-changes with its reason.
+Steering parameters go on trial by themselves. When none of them survives the
+replay, the miner (:mod:`mining`) may propose one fixed line for the first
+brief, citing the follow-up orders it would have spared; that proposal waits
+for the person's approval (decision 5.4), and its trial starts only after it.
+Every change shows in Trust → Self-changes with its reason.
 """
 
 from __future__ import annotations
@@ -163,12 +166,65 @@ class Trainer:
         with self._lock:
             now = int(self._clock() * 1000)
             trial = self._open(cell)
+            if trial is None:
+                trial = self._claim_approved(cell, now)
             if trial is not None:
                 return self._judge(trial, now)
             done = self._watch_probation(cell)
             if done:
                 return done
             return self._propose(cell, now)
+
+    def _claim_approved(self, cell: str, now: int) -> Open | None:
+        """A candidate the owner approved (text for agents) gets its claim now, before data."""
+        candidate = self._policies.policy(cell, CANDIDATE)
+        if candidate is None:
+            return None
+        with self._policies._lock:
+            known = self._policies._conn.execute(
+                "SELECT 1 FROM claims WHERE cell = ? AND candidate = ? LIMIT 1",
+                (cell, candidate.id),
+            ).fetchone()
+        if known is not None:
+            return None  # its trial ended; the store will be cleared by that proposal
+        claim = {"cell": cell, "candidate": candidate.id, "branch": "B", "target": "p"}
+        digest = hashlib.sha256(json.dumps(claim, sort_keys=True).encode()).hexdigest()
+        with self._policies._lock:
+            self._policies._conn.execute(
+                "INSERT INTO claims (cell, candidate, branch, target, t0_ms, digest) "
+                "VALUES (?, ?, 'B', 'p', ?, ?)",
+                (cell, candidate.id, now, digest),
+            )
+            self._policies._conn.commit()
+        return Open(cell, candidate.id, "B", "p", now, "")
+
+    def _waits_for_owner(self, cell: str) -> bool:
+        target = target_for(cell, CANDIDATE)
+        return any(
+            c.surface.value == "coding_policy" and c.target == target
+            and c.state.value == "proposed"
+            for c in self._registry().store.list(limit=200)
+        )
+
+    def _propose_text(
+        self, cell: str, active: Policy, recorded: list[tuple[dict[str, Any], list[Any]]]
+    ) -> str:
+        """One line for the first brief, mined from recurring follow-ups; it waits for the owner."""
+        from .mining import suggest
+
+        if self._waits_for_owner(cell):
+            return "a text candidate waits for the owner"
+        found = suggest(active, recorded)
+        if found is None:
+            return "no candidate survived the replay"
+        candidate = found.policy(active)
+        change = self._registry().propose(self._draft(
+            target_for(cell, CANDIDATE), candidate,
+            f"one line for the first brief of {cell}: {found.line!r}. It would have spared "
+            f"the follow-up orders of {len(found.cited)} runs "
+            f"({', '.join(found.cited[:8])}{', ...' if len(found.cited) > 8 else ''}).",
+        ))
+        return f"text candidate {candidate.id} proposed ({change.state.value})"
 
     def _propose(self, cell: str, now: int) -> str:
         active = self._policies.policy(cell, ACTIVE) or DEFAULT
@@ -192,7 +248,7 @@ class Trainer:
                 return f"candidate {candidate.id} not applied ({change.state.value})"
             self._claim(cell, candidate, change.id, now)
             return f"candidate {candidate.id} on trial"
-        return "no candidate survived the replay"
+        return self._propose_text(cell, active, recorded)
 
     def _judge(self, trial: Open, now: int) -> str:
         active = self._policies.policy(trial.cell, ACTIVE) or DEFAULT

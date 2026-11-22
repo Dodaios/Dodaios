@@ -249,3 +249,36 @@ def test_without_a_registry_nothing_changes(runs, tmp_path):
 def test_the_grid_only_steers_and_never_writes_text_for_agents():
     assert all(not p.domain_block for p in trainer.GRID)
     assert all(p.p_max <= DEFAULT.p_max for p in trainer.GRID)
+
+
+# ---------------------------------------------------- text candidates (Phase 5)
+
+
+def _record_with_follow_up(store: VerificationStore, reason: str, template: str = "T2") -> None:
+    run_id = record(store, outputs=[{}, {"cost": 0.5}])  # the follow-up made it pass
+    store.add_step(run_id, 0, "follow_up_intent", status=template, ts_ms=1,
+                   detail={"reason": reason})
+
+
+def test_when_no_steering_candidate_survives_a_mined_line_waits_for_the_owner(world):
+    for _ in range(50):
+        record(world.runs, outputs=[{}])
+    for _ in range(15):
+        _record_with_follow_up(world.runs, "the change weakens the checks (C1 tests/test_a.py)")
+
+    done = world.trainer.consider(CELL)
+
+    assert done.startswith("text candidate") and done.endswith("(proposed)"), done
+    [change] = [c for c in world.registry.store.list() if c.target.endswith("#candidate")]
+    assert change.state.value == "proposed"
+    assert "it changes what coding agents are told" in change.core_reasons
+    assert "spared the follow-up orders of 15 runs" in change.reason
+    assert world.policies.policy(CELL, CANDIDATE) is None  # nothing changes before approval
+    assert world.trainer.consider(CELL) == "a text candidate waits for the owner"
+
+    world.registry.approve(change.id)
+
+    assert world.trainer.consider(CELL) == "trial goes on"
+    [claim] = world.trainer.claims()
+    assert (claim["branch"], claim["target"], claim["outcome"]) == ("B", "p", "")
+    assert world.policies.policy(CELL, CANDIDATE).domain_block.startswith("Keep every")

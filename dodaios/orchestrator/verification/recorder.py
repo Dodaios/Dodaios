@@ -167,9 +167,19 @@ class RunRecorder:
     # ----------------------------------------------------- inline entry points
 
     def note_submission(
-        self, *, job_id: str, session_id: str, prompt: str, started_ms: int
+        self,
+        *,
+        job_id: str,
+        session_id: str,
+        prompt: str,
+        started_ms: int,
+        policy: dict[str, Any] | None = None,
     ) -> None:
-        """A thread took an order. Inline: remembers the thread and queues the rest."""
+        """A thread took an order. Inline: remembers the thread and queues the rest.
+
+        ``policy`` is the binding the order was sent under, when the sender
+        bound it first (a domain block went into the brief).
+        """
         try:
             # The loop the chat service runs on: a follow-up order is sent on it.
             self._loop = asyncio.get_running_loop()
@@ -178,7 +188,7 @@ class RunRecorder:
         with self._watched_lock:
             self._watched.add(session_id)
             self._noted.add(job_id)
-        self._queue.put(("start", job_id, session_id, prompt, int(started_ms)))
+        self._queue.put(("start", job_id, session_id, prompt, int(started_ms), policy or {}))
 
     def is_noted(self, job_id: str) -> bool:
         """True for an order that was noted and whose run is not on record yet."""
@@ -284,14 +294,20 @@ class RunRecorder:
 
     # --------------------------------------------------------------- writing
 
-    def _start_run(self, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+    def _start_run(
+        self, job_id: str, session_id: str, prompt: str, started_ms: int,
+        policy: dict[str, Any] | None = None,
+    ) -> None:
         try:
-            self._bind(job_id, session_id, prompt, started_ms)
+            self._bind(job_id, session_id, prompt, started_ms, policy or {})
         finally:
             with self._watched_lock:
                 self._noted.discard(job_id)
 
-    def _bind(self, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+    def _bind(
+        self, job_id: str, session_id: str, prompt: str, started_ms: int,
+        policy: dict[str, Any],
+    ) -> None:
         earlier = self._open.pop(session_id, None)
         if earlier is not None:
             # One thread runs one turn at a time: a new order means the earlier
@@ -324,6 +340,7 @@ class RunRecorder:
             effort=str(getattr(session, "effort", "") or ""),
             boot_id=self._boot_id,
             started_ms=started_ms,
+            **{k: v for k, v in policy.items() if k in ("policy_id", "arm", "policy_json")},
         )
         if not created:
             return  # this order is already on record (a repeated note)
@@ -973,14 +990,22 @@ def set_recorder(value: RunRecorder | None) -> None:
     _recorder = value
 
 
-def note_submission(*, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+def note_submission(
+    *,
+    job_id: str,
+    session_id: str,
+    prompt: str,
+    started_ms: int,
+    policy: dict[str, Any] | None = None,
+) -> None:
     """Tell the recorder a thread took an order. A no-op while recording is off."""
     current = _recorder
     if current is None:
         return
     try:
         current.note_submission(
-            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms
+            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms,
+            policy=policy,
         )
     except Exception:  # noqa: BLE001 - recording must never fail the hand-off
         log.warning("run recorder: order %s not noted", job_id, exc_info=True)

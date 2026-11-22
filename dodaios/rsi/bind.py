@@ -20,7 +20,7 @@ from .policy import ACTIVE, CANDIDATE, DEFAULT, Policy, PolicyStore
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Binding", "arm_of", "bind", "set_store", "store"]
+__all__ = ["Binding", "arm_of", "before_send", "bind", "binding_fields", "set_store", "store"]
 
 _ARM_SALT: Final[str] = "rsi-canary-1"
 
@@ -66,6 +66,37 @@ def store() -> PolicyStore | None:
 def set_store(value: PolicyStore | None) -> None:
     global _store
     _store = value
+
+
+def before_send(session: Any, prompt: str, root: str) -> tuple[dict[str, Any], str]:
+    """``(run columns, domain block)`` for an order about to go to a coding thread.
+
+    The cell is known before the turn starts (domain of the brief, requested
+    model, the runner and CLI line this machine would use), so a policy with a
+    domain block is bound here and the block rides in the first brief. Blocks
+    on ``git`` and the CLI's version: call it off the event loop. ``({}, "")``
+    while output is not enforced.
+    """
+    from dodaios.orchestrator.verification.recorder import recorder
+
+    current = recorder()
+    if current is None or not current.enforcing:
+        return {}, ""
+    from dodaios.agent_chat.service import resolve_runner
+
+    from . import domains, harness_probe, selector
+
+    provider = str(getattr(session, "provider", "") or "")
+    runner = resolve_runner(provider, surface="agent")
+    _found, primary, _source = domains.pre_classify(prompt)
+    cell = selector.cell_of({
+        "primary_domain": primary,
+        "model_requested": str(getattr(session, "model", "") or ""),
+        "runner": runner,
+        "harness_line": harness_probe.for_runner(runner).line,
+    })
+    fields = binding_fields(cell, root)
+    return fields, Policy.from_text(fields["policy_json"]).domain_block
 
 
 def binding_fields(cell: str, root: str) -> dict[str, Any]:

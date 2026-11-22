@@ -79,8 +79,23 @@ After each verdict the trainer (`dodaios/rsi/trainer.py`) looks at that cell:
 3. The first run under a new active policy whose final output weakened a
    check rolls it back to the exact previous policy.
 
-The trainer only proposes steering parameters. Text for agents is never
-written by it (decision 5.4).
+## Text for agents (Phase 5)
+
+When no steering candidate survives the replay, the miner
+(`dodaios/rsi/mining.py`) reads the follow-up orders recorded under the cell's
+active policy. When one of a few fixed patterns cost a follow-up order in at
+least five runs (a check or test configuration was changed, tests were
+deleted, skipped or loosened, linters failed, tests failed), it suggests
+exactly one fixed sentence to add to the domain block, citing those runs. The
+sentences are written in the code, not by a model, and none asks an agent to
+check less.
+
+Such a proposal waits for the owner in Trust → Self-changes, with the cited
+runs in its reason. Only after approval does it go on trial: its claim
+(branch B, fewer follow-up orders) is fixed then, half of the person's
+requests in that cell carry the block in their first brief, and the gate
+decides as for any candidate. The thread shows the lead's words in its bubble;
+the block is only in what the agent reads.
 
 ## What it takes, honestly
 
@@ -95,4 +110,7 @@ in 30 tasks is p = 1/8), calibration under equal arms, blocking, and each part
 of the rule. `tests/unit/rsi/test_policy.py`: limits, storage, the canary
 split, the registry (trial, owner approval for text, blocking, rollback) and
 binding in a recorded run. `tests/unit/rsi/test_replay_and_trainer.py`: replay
-cuts and coverage, and the whole loop with a real registry.
+cuts and coverage, and the whole loop with a real registry, including a mined
+line that waits for the owner. `tests/unit/rsi/test_mining.py`: the patterns.
+`tests/contract/test_workspace_chat_threads.py`: an approved block in a real
+first brief.
