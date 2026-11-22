@@ -1,7 +1,8 @@
 /**
  * The board's own controls, drawn over the canvas: the tool dock at the
  * bottom, the inspector for the selection on the right, the menu, undo and
- * the zoom in the corners, and the line that says the assistant is drawing.
+ * the zoom in the corners. That the assistant is drawing is said by its own
+ * cursor's tag (`BoardPresence`).
  *
  * The editor's own toolbars are hidden (`whiteboard.css`); these replace them
  * with one calm set of floating panels in the app's own look. They read the
@@ -883,16 +884,6 @@ export function BoardInspector({
 /* ------------------------------------------------------------------------ */
 /* The assistant at work, and the empty board                                */
 /* ------------------------------------------------------------------------ */
-
-export function LiveBadge({ name }: { name: string }) {
-  const t = useT();
-  return (
-    <Panel className="flex items-center gap-2 px-3 py-1.5 text-sm" data-testid="board-live" role="status">
-      <span className="inline-flex h-2 w-2 rounded-full bg-[hsl(var(--presence-ink))]" />
-      {t("nodes.whiteboard.live.drawing").replace("{assistant}", () => name)}
-    </Panel>
-  );
-}
 
 export function EmptyHint({ name }: { name: string }) {
   const t = useT();

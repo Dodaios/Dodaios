@@ -55,9 +55,28 @@ describe("figures", () => {
     expect(parseFigure("n/a")).toBeNull();
   });
 
+  it("reads a decimal comma and a thousands dot", () => {
+    expect(parseFigure("48,2k €")).toMatchObject({ value: 48.2, decimals: 1, suffix: "k €", decimal: "," });
+    expect(parseFigure("1.204")).toMatchObject({ value: 1204, decimals: 0, grouped: true, group: "." });
+    expect(parseFigure("1.234,56 €")).toMatchObject({ value: 1234.56, decimals: 2, group: ".", decimal: "," });
+    expect(parseFigure("0.125")).toMatchObject({ value: 0.125, decimals: 3 });
+    expect(parseFigure("1,240")).toMatchObject({ value: 1240, grouped: true });
+  });
+
+  it("counts a figure in its own way of writing, never through a wrong magnitude", () => {
+    const mid = countText(null, "48,2k €", 0.5)!;
+    expect(mid).toMatch(/^\d{1,2},\dk €$/);
+    expect(Number(mid.replace("k €", "").replace(",", "."))).toBeLessThan(48.2);
+    const orders = countText(null, "1.204", 0.5)!;
+    expect(orders).toMatch(/^(\d{1,3}|1\.\d{3})$/);
+    expect(Number(orders.replace(".", ""))).toBeLessThan(1204);
+    expect(countText(null, "+12 %", 0.5)).toMatch(/^\+\d+ %$/);
+  });
+
   it("writes a figure the way the target writes it", () => {
     const like = parseFigure("$1,240")!;
     expect(formatFigure(1234567, like)).toBe("$1,234,567");
+    expect(formatFigure(1234567.5, parseFigure("1.234,56 €")!)).toBe("1.234.567,50 €");
   });
 
   it("counts from the old value to the new and ends on the exact text", () => {

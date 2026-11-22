@@ -86,8 +86,13 @@ export interface RevealStep {
 export interface RevealAdapter<S = unknown> {
   /** The batch's steps in the order they play. Called once the body shows `next`. */
   steps: (input: RevealInput<S>) => RevealStep[];
-  /** Which corner of the frame the name tag sits on (default: the top-left). */
-  tagCorner?: "top" | "bottom";
+  /**
+   * DOM changes in the body shortly after the batch started join it as units
+   * (`LIVE_TIMING.captureMs`). Only for an editor that draws after React's
+   * commit (the text editor): elsewhere such changes are the editor's own
+   * chrome (a time readout, a ruler, a counter), not the agent's writing.
+   */
+  lateJoin?: boolean;
 }
 
 /**
@@ -97,4 +102,5 @@ export interface RevealAdapter<S = unknown> {
  */
 export const defaultReveal: RevealAdapter = {
   steps: ({ initial }) => [{ target: initial ? { blocks: true } : { changed: true } }],
+  lateJoin: true,
 };

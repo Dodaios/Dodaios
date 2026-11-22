@@ -78,13 +78,11 @@ import {
   BoardMenu,
   EmptyHint,
   FONTS,
-  LiveBadge,
   TOOLS_THAT_DRAW,
   ZoomBar,
   type ChromeState,
   type DockTool,
 } from "./canvas/BoardChrome";
-import { authorName, useNodeLive } from "../live/liveStore";
 import { BoardPresence } from "./canvas/BoardPresence";
 import { CANVAS_OFFSETS, LiveBuild, freshAssistantIds } from "./canvas/liveBuild";
 import { applyStyle, sendEditorKey, type StylePatch } from "./canvas/styleOps";
@@ -380,8 +378,6 @@ function BoardCanvas({
   const { onChat } = useNodeBarCommon();
   const assistant = useEventStore((s) => s.assistantName) || "Dodaios";
   const connected = useEventStore((s) => s.connected);
-  // The name on the tag and the badge is the one the event carried.
-  const drawer = authorName(useNodeLive((s) => s.nodes[nodeId]?.author), assistant);
   const root = useRef<HTMLDivElement>(null);
   const ground = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -1000,7 +996,6 @@ function BoardCanvas({
           />
         </div>
         <div className="absolute right-3 top-3 flex items-center gap-2">
-          {drawing ? <LiveBadge name={drawer} /> : null}
           <SaveStatus state={save.state} detail={save.detail} />
           {!wide ? (
             <ZoomBar

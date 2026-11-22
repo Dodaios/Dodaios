@@ -25,7 +25,6 @@ export function piecePath(ids: readonly string[]): string {
 }
 
 export const whiteboardReveal: RevealAdapter = {
-  tagCorner: "top",
   steps: (input) => {
     const { next } = input as RevealInput<WhiteboardPlan>;
     return next.pieces.filter((ids) => ids.length > 0).map((ids): RevealStep => ({ target: { path: piecePath(ids) } }));

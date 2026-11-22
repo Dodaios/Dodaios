@@ -12,30 +12,63 @@
  */
 import { LIVE_TIMING } from "../playback";
 
-/** A figure such as "$1,240", "98.5%" or "12k", cut into what counts and what stays. */
+/**
+ * A figure such as "$1,240", "98.5%", "48,2k €" or "1.204", cut into what
+ * counts and what stays. Both ways of writing numbers are read: the mark
+ * that splits off the decimals is "." or ",", and the other one groups the
+ * thousands. A single mark followed by exactly three digits groups ("1,240",
+ * "1.204"); otherwise it splits off the decimals ("48,2", "0.125").
+ */
 export interface Figure {
   prefix: string;
   value: number;
   suffix: string;
   decimals: number;
   grouped: boolean;
+  /** The mark that groups thousands ("," or "."), when the figure groups. */
+  group: "," | ".";
+  /** The mark before the decimals. */
+  decimal: "." | ",";
+  /** Written with a "+" in front. */
+  plus: boolean;
 }
 
-const FIGURE = /^([^\d+\-.]*)([+-]?\d[\d,]*(?:\.\d+)?)(.*)$/;
+const FIGURE = /^([^\d+-]*?)([+-]?\d(?:[\d.,]*\d)?)(.*)$/;
+
+/** Which mark splits off the decimals in `digits` (sign removed), or null for a whole number. */
+function decimalMark(digits: string): "." | "," | null {
+  const dots = digits.split(".").length - 1;
+  const commas = digits.split(",").length - 1;
+  if (dots === 0 && commas === 0) return null;
+  if (dots > 0 && commas > 0) return digits.lastIndexOf(".") > digits.lastIndexOf(",") ? "." : ",";
+  const mark = dots > 0 ? "." : ",";
+  if (dots + commas > 1) return null;
+  const [whole, rest] = digits.split(mark);
+  // "1,240" and "1.204" group thousands; "48,2", "98.5" and "0.125" have decimals.
+  return rest.length === 3 && whole.length <= 3 && !/^0+$/.test(whole) ? null : mark;
+}
 
 export function parseFigure(text: string): Figure | null {
   const match = FIGURE.exec(text.trim());
   if (!match) return null;
-  const digits = match[2].replace(/,/g, "");
-  const value = Number(digits);
+  const token = match[2];
+  const sign = token[0] === "-" || token[0] === "+" ? token[0] : "";
+  const digits = sign ? token.slice(1) : token;
+  const decimal = decimalMark(digits);
+  const group: "," | "." = decimal === "," ? "." : decimal === "." ? "," : digits.includes(".") ? "." : ",";
+  const [whole, fraction = ""] = decimal ? [digits.slice(0, digits.lastIndexOf(decimal)), digits.slice(digits.lastIndexOf(decimal) + 1)] : [digits, ""];
+  if (/[.,]/.test(fraction) || (whole.includes(group === "," ? "." : ",") && decimal === null)) return null;
+  const value = Number(`${sign === "-" ? "-" : ""}${whole.split(group).join("")}${fraction ? `.${fraction}` : ""}`);
   if (!Number.isFinite(value)) return null;
-  const dot = digits.indexOf(".");
   return {
     prefix: match[1],
     value,
     suffix: match[3],
-    decimals: dot < 0 ? 0 : digits.length - dot - 1,
-    grouped: match[2].includes(","),
+    decimals: fraction.length,
+    grouped: whole.includes(group),
+    group,
+    decimal: decimal ?? (group === "," ? "." : ","),
+    plus: sign === "+",
   };
 }
 
@@ -43,9 +76,9 @@ export function parseFigure(text: string): Figure | null {
 export function formatFigure(value: number, like: Figure, decimals = like.decimals): string {
   const fixed = Math.abs(value).toFixed(decimals);
   const [whole, fraction] = fixed.split(".");
-  const body = like.grouped ? whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : whole;
-  const sign = value < 0 ? "-" : "";
-  return `${like.prefix}${sign}${body}${fraction ? `.${fraction}` : ""}${like.suffix}`;
+  const body = like.grouped ? whole.replace(/\B(?=(\d{3})+(?!\d))/g, like.group) : whole;
+  const sign = value < 0 ? "-" : like.plus && value > 0 ? "+" : "";
+  return `${like.prefix}${sign}${body}${fraction ? `${like.decimal}${fraction}` : ""}${like.suffix}`;
 }
 
 /**

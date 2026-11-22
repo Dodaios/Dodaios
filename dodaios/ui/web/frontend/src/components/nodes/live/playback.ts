@@ -16,13 +16,12 @@
  * Nothing here touches the editor's own styles or attributes: hiding and
  * fading are Web Animations on the units, so React's next render of the
  * editor never fights them. docs/node-live-build.md, "Timings".
+ *
+ * The cursor moves the way a person's does in a shared document: it sets off
+ * at once and settles softly (an exponential ease-out, re-aimed every frame),
+ * so it keeps up with a caret that moves every few milliseconds instead of
+ * restarting a slow glide each time.
  */
-import {
-  aimCursor,
-  beginCursor,
-  stepCursor,
-  type CursorMotion,
-} from "@/components/society/card/agentCursorMotion";
 import type { RevealStep } from "./reveal";
 
 export const LIVE_TIMING = {
@@ -241,11 +240,16 @@ export function schedule(units: readonly RevealUnit[], timing = LIVE_TIMING): { 
 const VIEW_FOOT = 104;
 const VIEW_HEAD = 24;
 
-/** Scroll `scroller` the least that brings `rect` (viewport pixels) into its free area. */
+/**
+ * Scroll `scroller` the least that brings `rect` (viewport pixels) into its
+ * free area. Only a tall scroller (an editor's body) keeps room for the
+ * floating bar at its foot; a short one (a timeline, a cell) keeps none.
+ */
 function bringIntoView(scroller: Element, rect: DOMRect, instant: boolean): void {
   const box = scroller.getBoundingClientRect();
-  const bottom = box.bottom - VIEW_FOOT;
-  const top = box.top + VIEW_HEAD;
+  const roomy = box.height > 3 * (VIEW_FOOT + VIEW_HEAD);
+  const bottom = box.bottom - (roomy ? VIEW_FOOT : 0);
+  const top = box.top + (roomy ? VIEW_HEAD : 0);
   let delta = 0;
   if (rect.height > bottom - top || rect.top < top) delta = rect.top - top;
   else if (rect.bottom > bottom) delta = rect.bottom - bottom;
@@ -342,8 +346,8 @@ export function unitsFor(steps: readonly RevealStep[], root: Element, changed: r
 export interface PresenceElements {
   cursor: HTMLElement;
   frame: HTMLElement;
+  /** The name tag, carried by the cursor; the player only turns it to the side with room. */
   tag: HTMLElement;
-  pill: HTMLElement;
 }
 
 interface Box {
@@ -353,11 +357,24 @@ interface Box {
   h: number;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 const FRAME_PAD = 6;
-/** Where the cursor waits before anything was written: the content's top left. */
-const HOME = { x: 28, y: 28 };
 const PENDING_KEYFRAMES: Keyframe[] = [{ opacity: 0 }, { opacity: 0 }];
 const HOLD_MS = 600_000;
+/** How long the cursor takes to cover most of the way to the caret (ms; ease-out time constant). */
+const CARET_EASE_MS = 35;
+/** The same for a move from one written block to the next. */
+const HOP_EASE_MS = 110;
+/** The frame's ease toward what has been written. */
+const FRAME_EASE_MS = 90;
+/** Quiet this long after a batch before the tag says the agent is working: no flash between quick batches. */
+export const THINKING_AFTER_MS = 600;
+/** Room the tag keeps from the layer's edges before it turns to the other side. */
+const TAG_EDGE = 6;
 
 function canAnimate(el: Element): el is Element & { animate: Element["animate"] } {
   return typeof (el as { animate?: unknown }).animate === "function";
@@ -365,6 +382,48 @@ function canAnimate(el: Element): el is Element & { animate: Element["animate"] 
 
 export function prefersReducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function overlaps(a: Box, b: Box): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/** Text that is not the content itself: an editor's own controls, a chart's axis labels. */
+const NOT_CONTENT = "button, [role='button'], select, svg, [aria-hidden='true']";
+
+/**
+ * The end of the last line of written text in `el`, in viewport pixels; null
+ * when it holds no laid-out text of its own (a picture, a chart, an input, a
+ * marker). An editor's controls inside it ("Add row") are not its text.
+ */
+export function textEnd(el: Element): { x: number; y: number; h: number } | null {
+  if (typeof document.createRange !== "function" || typeof document.createTreeWalker !== "function") return null;
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if ((node as Text).data.trim() === "") continue;
+    const control = node.parentElement?.closest(NOT_CONTENT) ?? null;
+    if (control && control !== el && el.contains(control)) continue;
+    texts.push(node as Text);
+  }
+  // From the last one back: a hidden label (a screen-reader text) has no box to rest on.
+  for (let i = texts.length - 1; i >= 0 && i >= texts.length - 12; i -= 1) {
+    const text = texts[i];
+    let end = text.data.length;
+    while (end > 0 && /\s/.test(text.data[end - 1] ?? "")) end -= 1;
+    const range = document.createRange();
+    try {
+      range.setStart(text, Math.max(0, end - 1));
+      range.setEnd(text, end);
+    } catch {
+      continue;
+    }
+    if (typeof range.getClientRects !== "function") return null;
+    const rects = range.getClientRects();
+    const rect = rects.length > 0 ? rects[rects.length - 1] : null;
+    if (rect && (rect.width > 0 || rect.height > 0)) return { x: rect.right, y: rect.top, h: rect.height };
+  }
+  return null;
 }
 
 /**
@@ -382,17 +441,18 @@ export class LivePlayer {
   private hidden = new Map<Element, Animation>();
   /** Units with their own motion that are prepared and not yet over. */
   private moving = new Set<UnitMotion>();
-  private tagAt: { x: number; y: number } | null = null;
   private frameBox: Box | null = null;
-  private motion: CursorMotion | null = null;
+  /** Where the cursor's tip is, and where it heads, inside the layer. */
+  private at: Point | null = null;
+  private goal: Point | null = null;
+  /** The element the cursor was last sent to, to tell a scroll (it rides along) from a new aim. */
   private aimed: Element | null = null;
+  private thinkTimer = 0;
   private loop = 0;
   private last = 0;
   private alive = true;
   /** The view scrolls to what is written; off once the person scrolled or worked. */
   following = true;
-  /** Which corner of the frame the name tag sits on; a type's adapter chooses. */
-  tagCorner: "top" | "bottom" = "top";
 
   constructor(
     private readonly host: HTMLElement,
@@ -400,12 +460,13 @@ export class LivePlayer {
     private readonly reduced: () => boolean = prefersReducedMotion,
     private readonly timing = LIVE_TIMING,
   ) {
+    this.host.dataset.placed = "false";
     this.loop = window.requestAnimationFrame((now) => this.tick(now));
   }
 
-  /** A batch is playing. */
+  /** A batch is playing: units still to reveal, or text still being written. */
   get playing(): boolean {
-    return this.revealed < this.units.length;
+    return this.revealed < this.units.length || this.moving.size > 0;
   }
 
   /** Play `units`, finishing the batch before at once. */
@@ -428,6 +489,7 @@ export class LivePlayer {
     if (fresh.length === 0) return;
     const start = this.units.length;
     this.units = [...this.units, ...grouped(fresh, Math.max(1, this.timing.maxUnits - start))];
+    this.writing();
     if (this.reduced()) {
       this.revealUpTo(this.units.length);
       return;
@@ -453,7 +515,6 @@ export class LivePlayer {
       }
     });
     this.slotAt = now + base + (starts[starts.length - 1] ?? 0);
-    this.host.dataset.phase = "writing";
   }
 
   /** One sub-step of a unit's own motion; its last one ends the unit. */
@@ -465,6 +526,7 @@ export class LivePlayer {
       this.moving.delete(motion);
     }
     this.followCaret(motion);
+    this.settle();
   }
 
   /** The view keeps the writing in sight (until the person scrolled or worked). */
@@ -482,6 +544,7 @@ export class LivePlayer {
     this.revealUpTo(this.units.length, true);
     for (const motion of this.moving) motion.finish();
     this.moving.clear();
+    this.settle();
   }
 
   /** The person acted in the node: the batch shows at once and the view stays where they put it. */
@@ -493,9 +556,27 @@ export class LivePlayer {
   destroy(): void {
     this.alive = false;
     this.finish();
+    window.clearTimeout(this.thinkTimer);
     for (const animation of this.hidden.values()) animation.cancel();
     this.hidden.clear();
     window.cancelAnimationFrame(this.loop);
+    this.host.dataset.placed = "false";
+  }
+
+  /** The agent is writing: the tag shows its name. */
+  private writing(): void {
+    window.clearTimeout(this.thinkTimer);
+    this.thinkTimer = 0;
+    this.host.dataset.phase = "writing";
+  }
+
+  /** The batch is over: after a quiet moment the tag says the agent is working on. */
+  private settle(): void {
+    if (this.playing || this.host.dataset.phase === "thinking" || this.thinkTimer !== 0) return;
+    this.thinkTimer = window.setTimeout(() => {
+      this.thinkTimer = 0;
+      if (!this.playing) this.host.dataset.phase = "thinking";
+    }, this.reduced() ? 0 : THINKING_AFTER_MS);
   }
 
   private hide(el: Element): void {
@@ -547,7 +628,7 @@ export class LivePlayer {
         else lead.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
       }
     }
-    if (!this.playing) this.host.dataset.phase = "thinking";
+    this.settle();
   }
 
   /** The nearest scrolling ancestor of an element inside the host's parent: what clips the written part. */
@@ -621,26 +702,31 @@ export class LivePlayer {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
-  /** Where the arrow points for a caret given in viewport pixels: just under its line's end. */
-  private caretPoint(caret: { x: number; y: number; h: number }): { x: number; y: number } {
+  /** Where the arrow's tip goes for a text point in viewport pixels: just after it, low on its line. */
+  private textPoint(point: { x: number; y: number; h: number }): Point {
     const outer = this.host.getBoundingClientRect();
+    return this.clampPoint({ x: point.x - outer.left + 2, y: point.y - outer.top + point.h * 0.8 });
+  }
+
+  private clampPoint(point: Point): Point {
     return {
-      x: Math.min(Math.max(caret.x - outer.left + 2, 8), Math.max(8, this.host.clientWidth - 24)),
-      y: Math.min(Math.max(caret.y - outer.top + caret.h * 0.85, 8), Math.max(8, this.host.clientHeight - 24)),
+      x: Math.min(Math.max(point.x, 8), Math.max(8, this.host.clientWidth - 16)),
+      y: Math.min(Math.max(point.y, 8), Math.max(8, this.host.clientHeight - 16)),
     };
   }
 
-  /** Where the arrow points for `el`: the end of what was written, inside the layer. */
-  private anchor(el: Element | null): { x: number; y: number } {
-    if (!el || !el.isConnected) return HOME;
+  /**
+   * Where the arrow points for a written element: the end of its last line of
+   * text, where a writer's hand would rest; for a picture, a chart or a
+   * shape, its lower right corner.
+   */
+  private anchor(el: Element): Point | null {
+    if (!el.isConnected) return null;
+    const end = textEnd(el);
+    if (end) return this.textPoint(end);
     const b = this.local(el, false);
-    const tall = b.h > this.host.clientHeight * 0.6;
-    const x = tall ? b.x + 24 : b.x + Math.max(8, b.w - 10);
-    const y = tall ? b.y + 24 : b.y + Math.max(8, b.h - 6);
-    return {
-      x: Math.min(Math.max(x, 8), Math.max(8, this.host.clientWidth - 24)),
-      y: Math.min(Math.max(y, 8), Math.max(8, this.host.clientHeight - 24)),
-    };
+    if (b.w === 0 && b.h === 0) return null;
+    return this.clampPoint({ x: b.x + Math.max(8, b.w - 12), y: b.y + Math.max(8, b.h - 8) });
   }
 
   private tick(now: number): void {
@@ -649,14 +735,20 @@ export class LivePlayer {
     this.last = now;
     const reduced = this.reduced();
 
-    /* The frame grows toward what has been written, and follows it when the body scrolls. */
+    /* The frame grows toward what has been written, and follows it when the body scrolls.
+       A jump to a place apart from it (the next slide, a new column) is not a flight across
+       the editor: the frame lands there and fades in. */
     const target = this.frameTarget();
+    const frame = this.view.frame;
     if (target === null) {
       this.frameBox = null;
     } else if (this.frameBox === null || reduced) {
       this.frameBox = target;
+    } else if (!overlaps(this.frameBox, target)) {
+      this.frameBox = target;
+      if (canAnimate(frame)) frame.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
     } else {
-      const k = 1 - Math.exp(-dt / 90);
+      const k = 1 - Math.exp(-dt / FRAME_EASE_MS);
       const f = this.frameBox;
       this.frameBox = {
         x: f.x + (target.x - f.x) * k,
@@ -665,7 +757,6 @@ export class LivePlayer {
         h: f.h + (target.h - f.h) * k,
       };
     }
-    const frame = this.view.frame;
     if (this.frameBox === null) {
       frame.dataset.shown = "false";
     } else {
@@ -676,80 +767,36 @@ export class LivePlayer {
       frame.style.height = `${f.h.toFixed(1)}px`;
     }
 
-    /* The cursor glides to the last unit written; it rides along when the body scrolls. */
-    const lastUnit = this.revealed > 0 ? this.units[this.revealed - 1] : null;
-    const el = lastUnit ? lastUnit.elements[lastUnit.elements.length - 1] : null;
-    /* A unit with its own motion may know a finer point (the caret of the text being written). */
+    /* The cursor: at the caret while text is being written, else at the end of the last unit written. */
     if (this.moving.size > 0) {
       const outer = this.host.getBoundingClientRect();
       for (const own of this.moving) own.update?.(outer);
     }
-    const writing = lastUnit?.motion && this.moving.has(lastUnit.motion) ? (lastUnit.motion.caret?.() ?? null) : null;
-    const point = writing
-      ? this.caretPoint(writing)
-      : this.anchor(el);
-    if (this.motion === null) this.motion = beginCursor(point.x, point.y, now);
-    if (writing) {
-      // The caret moves a little at a time: each move is a short glide of its own.
-      if (Math.abs(point.x - this.motion.toX) > 2 || Math.abs(point.y - this.motion.toY) > 2) {
-        this.aimed = el;
-        const distance = Math.hypot(point.x - this.motion.x, point.y - this.motion.y);
-        this.motion = aimCursor(this.motion, { x: point.x, y: point.y, clickId: 0, clickX: 0, clickY: 0 }, distance, now, reduced).motion;
+    const lastUnit = this.revealed > 0 ? this.units[this.revealed - 1] : null;
+    const el = lastUnit ? lastUnit.elements[lastUnit.elements.length - 1] : null;
+    const caret = lastUnit?.motion && this.moving.has(lastUnit.motion) ? (lastUnit.motion.caret?.() ?? null) : null;
+    const point = caret ? this.textPoint(caret) : el ? this.anchor(el) : null;
+    if (point) {
+      if (this.at === null || this.goal === null || reduced) {
+        this.at = { ...point };
+      } else if (!caret && el === this.aimed) {
+        // The same element moved (a scroll, a reflow): the cursor rides along instead of trailing it.
+        this.at = { x: this.at.x + point.x - this.goal.x, y: this.at.y + point.y - this.goal.y };
       }
-    } else if (el !== this.aimed) {
-      this.aimed = el;
-      const distance = Math.hypot(point.x - this.motion.x, point.y - this.motion.y);
-      this.motion = aimCursor(this.motion, { x: point.x, y: point.y, clickId: 0, clickX: 0, clickY: 0 }, distance, now, reduced).motion;
-    } else if (Math.abs(point.x - this.motion.toX) > 0.5 || Math.abs(point.y - this.motion.toY) > 0.5) {
-      // The same unit moved (a scroll, a reflow): the whole glide moves with it.
-      const dx = point.x - this.motion.toX;
-      const dy = point.y - this.motion.toY;
-      const m = this.motion;
-      this.motion = { ...m, x: m.x + dx, y: m.y + dy, fromX: m.fromX + dx, fromY: m.fromY + dy, ctrlX: m.ctrlX + dx, ctrlY: m.ctrlY + dy, toX: point.x, toY: point.y };
-    }
-    this.motion = stepCursor(this.motion, now).motion;
-    const { x, y } = this.motion;
-    this.view.cursor.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    /* Beside the cursor, on whichever side has room: never cut off at the layer's edge. */
-    const width = this.host.clientWidth;
-    const beside = (el: HTMLElement, left: number) => {
-      const w = el.offsetWidth;
-      if (left + w <= width - 6) return left;
-      return Math.max(6, Math.min(x - w - 10, width - w - 6));
-    };
-    const pill = this.view.pill;
-    pill.style.transform = `translate3d(${beside(pill, x + 18).toFixed(1)}px, ${(y + 22).toFixed(1)}px, 0)`;
+      this.goal = point;
+      this.aimed = caret ? null : el;
+      const k = 1 - Math.exp(-dt / (caret ? CARET_EASE_MS : HOP_EASE_MS));
+      this.at = { x: this.at.x + (point.x - this.at.x) * k, y: this.at.y + (point.y - this.at.y) * k };
+      this.view.cursor.style.transform = `translate3d(${this.at.x.toFixed(1)}px, ${this.at.y.toFixed(1)}px, 0)`;
+      if (this.host.dataset.placed !== "true") this.host.dataset.placed = "true";
 
-    /* The name tag sits on the frame's top-left corner, or beside the cursor before there is one. */
-    const tag = this.view.tag;
-    let goal: { x: number; y: number };
-    if (this.frameBox !== null && !writing) {
-      const f = this.frameBox;
-      const left = Math.max(0, Math.min(f.x, width - tag.offsetWidth - 2));
-      let top: number;
-      if (this.tagCorner === "bottom") {
-        // On the lower-left corner, below the frame; inside it when there is no room below.
-        const below = f.y + f.h + 2;
-        top = below + tag.offsetHeight <= this.host.clientHeight ? below : f.y + f.h - tag.offsetHeight - 4;
-      } else {
-        const above = f.y - tag.offsetHeight - 2;
-        top = above >= 0 ? above : f.y + 4;
-      }
-      goal = { x: left, y: top };
-      tag.dataset.on = "frame";
-    } else {
-      // Before there is a frame, and while text is written at the caret, the tag rides beside the cursor.
-      goal = { x: beside(tag, x + 18), y: y + 2 };
-      tag.dataset.on = "cursor";
+      /* The tag rides beside the arrow, on whichever side has room. */
+      const tag = this.view.tag;
+      const side = this.at.x + 12 + tag.offsetWidth > this.host.clientWidth - TAG_EDGE ? "left" : "right";
+      const vside = this.at.y + 14 + tag.offsetHeight > this.host.clientHeight - TAG_EDGE ? "up" : "down";
+      if (tag.dataset.side !== side) tag.dataset.side = side;
+      if (tag.dataset.vside !== vside) tag.dataset.vside = vside;
     }
-    /* The tag eases to its place, so moving from the frame to the caret never jumps. */
-    const at = this.tagAt;
-    if (at === null || reduced) this.tagAt = goal;
-    else {
-      const k = 1 - Math.exp(-dt / 70);
-      this.tagAt = { x: at.x + (goal.x - at.x) * k, y: at.y + (goal.y - at.y) * k };
-    }
-    tag.style.transform = `translate3d(${this.tagAt.x.toFixed(1)}px, ${this.tagAt.y.toFixed(1)}px, 0)`;
     this.loop = window.requestAnimationFrame((time) => this.tick(time));
   }
 }

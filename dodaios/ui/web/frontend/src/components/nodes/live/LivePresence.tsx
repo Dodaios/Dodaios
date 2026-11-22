@@ -1,31 +1,33 @@
 /**
  * An agent's presence over a node it is building: one look for every type.
  *
- * An arrow cursor that glides to what is being written, a thin frame around
- * that region (growing as content arrives) with the agent's name tag on its
- * corner, and a small status pill beside the cursor while the agent thinks
- * between edits. Black and white from the `--presence-*` tokens; a muted tint
- * only when several agents work at once.
+ * A small arrow cursor with the agent's name tag fixed to it, the way a
+ * colleague's cursor looks in a shared document, and a thin frame around the
+ * region being written. While the agent thinks between edits the tag says so
+ * ("Dodaios is working…") with a slow sheen over the words; there is no
+ * separate status pill. Black and white from the `--presence-*` tokens; a
+ * muted tint only when several agents work at once.
  *
  * This component only draws the pieces. The player (`playback.ts`) moves
- * them, frame by frame, without re-rendering React.
+ * them, frame by frame, without re-rendering React. Nothing shows before the
+ * player has placed the cursor on something written (`data-placed`).
  */
 import { forwardRef, useLayoutEffect, useRef, type CSSProperties } from "react";
 
 import type { PresenceElements } from "./playback";
 import "./live.css";
 
-/** The arrow, the same outline as the agent's cursor over its browser. */
-const ARROW = "M7.2 2.4 L4.6 28.8 L11.2 24.2 L15.4 39.2 L20.2 36.6 L16.2 22.2 L31.2 21.2 Z";
+/** The arrow, tip at (2, 1.5) in its own 16 x 18 box. */
+const ARROW = "M2 1.5 L2 14.2 L5.3 11.1 L7.5 15.9 L9.7 14.9 L7.6 10.2 L12 10 Z";
 
 export interface LivePresenceProps {
   /** The name on the tag. */
   name: string;
-  /** What the pill says while the agent thinks between edits. */
+  /** What the tag says while the agent thinks between edits. */
   status: string;
   /** Shown at all (fades in and out). */
   visible: boolean;
-  /** The agent is still at work: the pill may show between edits. */
+  /** The agent is still at work: the tag may say so between edits. */
   building: boolean;
   /** A muted per-agent ink, only when several agents work at once (HSL channels). */
   tint?: string | null;
@@ -40,10 +42,9 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
   const cursor = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const tag = useRef<HTMLDivElement>(null);
-  const pill = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (cursor.current && frame.current && tag.current && pill.current) {
-      onReady({ cursor: cursor.current, frame: frame.current, tag: tag.current, pill: pill.current });
+    if (cursor.current && frame.current && tag.current) {
+      onReady({ cursor: cursor.current, frame: frame.current, tag: tag.current });
     }
     return () => onReady(null);
   }, [onReady]);
@@ -57,20 +58,20 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
       data-visible={visible ? "true" : "false"}
       data-building={building ? "true" : "false"}
       data-phase="thinking"
+      data-placed="false"
       style={style}
     >
       <div ref={frame} className="live-presence-frame" data-shown="false" data-testid="live-presence-frame" />
       <div ref={cursor} className="live-presence-cursor" data-testid="live-presence-cursor">
-        <svg width="34" height="42" viewBox="0 0 34 42" fill="none">
-          <path d={ARROW} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+        <svg width="16" height="18" viewBox="0 0 16 18" fill="none">
+          <path d={ARROW} strokeWidth="1.2" strokeLinejoin="round" />
         </svg>
-      </div>
-      <div ref={tag} className="live-presence-tag" data-testid="live-presence-tag">
-        {name}
-      </div>
-      <div ref={pill} className="live-presence-pill" data-testid="live-presence-status">
-        <span className="live-presence-dot" />
-        <span>{status}</span>
+        <div ref={tag} className="live-presence-tag" data-side="right" data-vside="down" data-testid="live-presence-tag">
+          <span className="live-presence-name" data-testid="live-presence-name">{name}</span>
+          <span className="live-presence-status" data-testid="live-presence-status">
+            {status}
+          </span>
+        </div>
       </div>
     </div>
   );

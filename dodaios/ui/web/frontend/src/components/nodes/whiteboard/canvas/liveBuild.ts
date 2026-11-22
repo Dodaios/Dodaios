@@ -271,10 +271,11 @@ export class LiveBuild {
     const state = editor.getAppState();
     const [x1, y1, x2, y2] = getCommonBounds(elements as never);
     const zoom = state.zoom.value;
-    const left = -state.scrollX;
-    const top = -state.scrollY;
-    const right = left + state.width / zoom;
-    const bottom = top + state.height / zoom;
+    // In view means clear of the board's own controls (the menu, the dock), not only on the canvas.
+    const left = -state.scrollX + CANVAS_OFFSETS.left / zoom;
+    const top = -state.scrollY + CANVAS_OFFSETS.top / zoom;
+    const right = -state.scrollX + (state.width - CANVAS_OFFSETS.right) / zoom;
+    const bottom = -state.scrollY + (state.height - CANVAS_OFFSETS.bottom) / zoom;
     const inView = x1 >= left && y1 >= top && x2 <= right && y2 <= bottom;
     if (inView) return;
     const all = editor.getSceneElements();

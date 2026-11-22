@@ -9,7 +9,7 @@
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 300ms ease-out;
+  transition: opacity 200ms ease-out;
 }
 
 .live-presence[data-visible="true"] {
@@ -17,9 +17,7 @@
 }
 
 .live-presence-frame,
-.live-presence-tag,
-.live-presence-cursor,
-.live-presence-pill {
+.live-presence-cursor {
   position: absolute;
   left: 0;
   top: 0;
@@ -37,31 +35,25 @@
   opacity: 1;
 }
 
-.live-presence-tag {
-  max-width: 220px;
-  overflow: hidden;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: hsl(var(--presence-ink));
-  color: hsl(var(--presence-on-ink));
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 17px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* The cursor stands at its arrow's tip; the tag rides with it. Nothing shows
+   before the player has put it on something written. */
 .live-presence-cursor {
   width: 0;
   height: 0;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.live-presence[data-placed="false"] .live-presence-cursor {
+  opacity: 0;
 }
 
 .live-presence-cursor svg {
   display: block;
   overflow: visible;
-  /* The arrow's tip (7.2, 2.4 in its own pixels) is the point it stands on. */
-  transform: translate(-7.2px, -2.4px) scale(0.62);
-  transform-origin: 7.2px 2.4px;
+  /* The arrow's tip (2, 1.5 in its own pixels) is the point it stands on. */
+  transform: translate(-2px, -1.5px);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
 }
 
 .live-presence-cursor path {
@@ -69,45 +61,76 @@
   stroke: hsl(var(--presence-on-ink));
 }
 
-.live-presence-pill {
+.live-presence-tag {
+  position: absolute;
+  left: 12px;
+  top: 14px;
   display: inline-flex;
-  max-width: 280px;
+  max-width: 260px;
   align-items: center;
-  gap: 6px;
-  padding: 2px 9px;
-  border: 1px solid hsl(var(--presence-ink) / 0.16);
+  padding: 1px 7px;
   border-radius: 999px;
-  background: hsl(var(--presence-pill-bg));
-  color: hsl(var(--presence-pill-ink));
-  font-size: 11.5px;
-  line-height: 18px;
+  background: hsl(var(--presence-ink));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  color: hsl(var(--presence-on-ink));
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity 200ms ease-out;
 }
 
-.live-presence-pill > span:last-child {
+/* Near the right edge the tag sits left of the arrow; near the foot, above it. */
+.live-presence-tag[data-side="left"] {
+  left: auto;
+  right: 4px;
+}
+
+.live-presence-tag[data-vside="up"] {
+  top: auto;
+  bottom: 6px;
+}
+
+.live-presence-name,
+.live-presence-status {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.live-presence[data-phase="thinking"][data-building="true"] .live-presence-pill {
-  opacity: 1;
+.live-presence-status {
+  display: none;
 }
 
-.live-presence-dot {
-  width: 5px;
-  height: 5px;
-  flex: none;
-  border-radius: 50%;
-  background: currentColor;
-  animation: live-presence-breathe 1.6s ease-in-out infinite;
+/* Between edits the tag says what the agent is doing, under a slow sheen. */
+.live-presence[data-phase="thinking"][data-building="true"] .live-presence-name {
+  display: none;
 }
 
-@keyframes live-presence-breathe {
-  0%,
-  100% { opacity: 0.35; }
-  50% { opacity: 1; }
+.live-presence[data-phase="thinking"][data-building="true"] .live-presence-status {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--presence-on-ink) / 0.55) 0%,
+    hsl(var(--presence-on-ink)) 50%,
+    hsl(var(--presence-on-ink) / 0.55) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: live-presence-sheen 1.45s linear infinite;
+}
+
+@keyframes live-presence-sheen {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-presence[data-phase="thinking"][data-building="true"] .live-presence-status {
+    animation: none;
+    background: none;
+    color: hsl(var(--presence-on-ink));
+  }
 }
 
 /* --- skeletons ------------------------------------------------------------ */
