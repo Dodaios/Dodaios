@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
 import { AlertCircle, Download, Maximize2, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 
@@ -6,7 +6,14 @@ import { useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { cn } from "@/lib/utils";
 
-export type MediaKind = "image" | "video" | "audio";
+/** `page` is a self-contained HTML file an answer shows: drawn in the visual frame, never loaded as a page of the app. */
+export type MediaKind = "image" | "video" | "audio" | "page";
+
+// The visual frame loads with the first page an answer shows.
+const PagePreview = lazy(() => import("@/components/outputs/PagePreview").then(module => ({ default: module.PagePreview })));
+
+/** Where the chat keeps the files an answer showed (`dodaios/agent_chat/media.py`). */
+const CHAT_MEDIA_PREFIX = "/api/outputs/chat-media-";
 
 /**
  * How a transcript draws its pictures: the picture itself, or only its name
@@ -46,7 +53,10 @@ export function mediaKind(raw: string): MediaKind | null {
   let path: string;
   try { path = decodeURIComponent(url.pathname); } catch { return null; }
   path = path.replace(/\/(download|raw|view)$/, "");
-  return EXTENSIONS[path.split(".").pop()?.toLowerCase() ?? ""] ?? null;
+  const extension = path.split(".").pop()?.toLowerCase() ?? "";
+  // Only a page the chat stored itself is drawn; a web address ending in .html stays a link.
+  if ((extension === "html" || extension === "htm") && raw.startsWith(CHAT_MEDIA_PREFIX)) return "page";
+  return EXTENSIONS[extension] ?? null;
 }
 
 /**
@@ -97,8 +107,12 @@ export function MediaPreview({ src, label, kind, bare = false, thumb = false }: 
       }
     };
   }, [safe, kind, failed, revision]);
-  if (kind === "image" && display === "files" && safe) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind="image" data-display="files">
+  if ((kind === "image" || kind === "page") && display === "files" && safe) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind={kind} data-display="files">
     <MediaDownloadLink href={safe} label={label} />
+  </span>;
+  // The page's figure brings its own margins, caption and download.
+  if (kind === "page" && safe) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind="page">
+    <Suspense fallback={null}><PagePreview src={safe} label={label} /></Suspense>
   </span>;
   return <Dialog.Root open={expanded} onOpenChange={setExpanded}><span className={cn("block min-w-0 max-w-full", !bare && "my-3")} data-testid="chat-media" data-kind={kind}>
     {failed ? thumb ? <span role="status" title={`${label}: ${unavailable}`}

@@ -57,6 +57,11 @@ news since it was last opened.
   sub-agent, a `monitor`); when it waits on work none of them named, the
   wait shows one task called "background work". While tasks are open the turn
   waits as long as they run; there is no clock.
+- **Visuals:** an answer can show a picture instead of describing it. A
+  fenced `mermaid`, `svg` or `html` block is drawn as a figure, and a picture
+  or a self-contained HTML page the agent saved is shown where it is linked
+  with image syntax. Every coding agent is told so
+  ([`thread-visuals.md`](thread-visuals.md)).
 - **To-do list:** a coding agent may keep a to-do list for a longer job and
   tick its entries off as it goes. The conversation shows the list as one
   checklist card: a check on what is done, a turning ring on the entry in

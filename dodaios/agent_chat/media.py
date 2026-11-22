@@ -3,6 +3,14 @@
 Only explicitly returned files inside the chat workspace are archived. Remote
 URLs stay remote: this code never fetches an arbitrary tool-supplied address.
 Binary tool content is removed from the persisted debug output after archiving.
+
+A coding thread also shows what its agent saved in the computer's temp
+folders (:func:`temp_roots`): an agent that only wants to show a chart does
+not put it into the person's repository. And an answer can show a
+self-contained HTML page: a local ``.html`` file linked with image syntax
+(``![title](page.html)``) is archived like a picture, and the chat draws it
+in its sandboxed visual frame. A page is never picked up from a mention, a
+plain link or a tool result, only from that explicit "show this".
 """
 
 from __future__ import annotations
@@ -14,6 +22,7 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlsplit
@@ -51,6 +60,13 @@ MEDIA_TYPES = {
     ".flac": "audio/flac",
     ".aac": "audio/aac",
 }
+#: A self-contained page an answer shows (see the module text). Not one of
+#: ``MEDIA_TYPES``: those are also found in prose and in tool results.
+PAGE_TYPE = "text/html"
+PAGE_SUFFIXES = (".html", ".htm")
+#: The chat draws a page as a figure; anything larger is no figure
+#: (``MAX_PAGE_CHARS`` in ``PagePreview.tsx``).
+MAX_PAGE_BYTES = 2_000_000
 MAX_FILE_BYTES = 512 * 1024 * 1024
 MAX_INLINE_BYTES = 24 * 1024 * 1024
 MAX_REFERENCES = 128
@@ -164,6 +180,30 @@ def media_type(reference: str, hint: str = "") -> str | None:
     return MEDIA_TYPES.get(Path(path).suffix.lower())
 
 
+def is_local_page(reference: str) -> bool:
+    """True for ``report.html`` and ``file:///tmp/report.html``, never for a web address."""
+    ref = reference.strip().removeprefix("<").removesuffix(">")
+    drive = re.match(r"^[A-Za-z]:[\\/]", ref)
+    if not drive and re.match(r"^(?!file:)[a-z][a-z0-9+.-]*:", ref, re.I):
+        return False  # a web address, a data: URL, any other scheme
+    if ref.startswith(("/api/", "//", "\\\\")):
+        return False
+    return ref.split("#", 1)[0].split("?", 1)[0].lower().endswith(PAGE_SUFFIXES)
+
+
+def temp_roots() -> tuple[Path, ...]:
+    """The computer's scratch folders, resolved: where an agent saves what it only shows."""
+    roots: list[Path] = []
+    for raw in (tempfile.gettempdir(), "/tmp"):  # noqa: S108 - read from, never written to
+        try:
+            root = Path(raw).resolve(strict=True)
+        except OSError:  # no such folder on this system (``/tmp`` on Windows)
+            continue
+        if root.is_dir() and root not in roots:
+            roots.append(root)
+    return tuple(roots)
+
+
 def display_url(url: str, mime: str) -> str:
     if media_type(url):
         return url
@@ -207,6 +247,7 @@ class MediaNormalizer:
         *,
         prose: bool = True,
         binary_only: bool = False,
+        extra_roots: Sequence[Path] = (),
     ) -> None:
         # ``prose`` scans free text for mentioned files. Only the agent's own
         # words get that; tool output is full of paths and URLs it merely saw.
@@ -215,6 +256,9 @@ class MediaNormalizer:
         # capture tool's screenshot), never a path or URL it mentions.
         self.binary_only = binary_only
         self.cwd = cwd.expanduser().resolve()
+        # Folders beside the workspace an explicit reference may name. Files
+        # merely mentioned in prose are still looked for in the workspace only.
+        self.roots = (self.cwd, *(root.resolve() for root in extra_roots))
         self.outputs_root = outputs_root.resolve()
         self.scope = scope
         self.receipts: dict[str, str] = {}
@@ -266,11 +310,21 @@ class MediaNormalizer:
             "/download?disposition=inline"
         )
 
-    def reference(self, raw: str, hint: str = "") -> str:
+    def _inside(self, file: Path) -> bool:
+        return any(file.is_relative_to(root) for root in self.roots)
+
+    def reference(self, raw: str, hint: str = "", *, page: bool = False) -> str:
+        """``raw`` as an address the chat can load, or ``raw`` itself.
+
+        ``page`` is set for the target of image syntax only: there a local
+        HTML file is something the answer shows.
+        """
         ref = raw.strip().removeprefix("<").removesuffix(">")
         if ref in self._resolved:
             return self._resolved[ref]
         mime = media_type(ref, hint)
+        if not mime and page and is_local_page(ref):
+            mime = PAGE_TYPE
         if not mime:
             return raw
         try:
@@ -308,16 +362,20 @@ class MediaNormalizer:
                         ref = ref[1:]
                 if ref.startswith(("\\\\", "//")):
                     raise ValueError("Network file locations are not chat artifacts")
-                file = Path(ref)
+                if mime == PAGE_TYPE:
+                    ref = ref.split("#", 1)[0].split("?", 1)[0]
+                file = Path(ref).expanduser()
                 file = (file if file.is_absolute() else self.cwd / file).resolve()
-                if not file.is_relative_to(self.cwd):
+                if not self._inside(file):
                     raise ValueError("Media file is outside this chat workspace")
                 if "%" in ref and not file.exists():
-                    decoded = Path(unquote(ref))
+                    decoded = Path(unquote(ref)).expanduser()
                     file = (decoded if decoded.is_absolute() else self.cwd / decoded).resolve()
-                    if not file.is_relative_to(self.cwd):
+                    if not self._inside(file):
                         raise ValueError("Media file is outside this chat workspace")
                 before = file.stat()
+                if mime == PAGE_TYPE and before.st_size > MAX_PAGE_BYTES:
+                    raise ValueError("Page is too large to show in the chat")
                 with file.open("rb") as source:
                     url = self._archive(source, file.suffix.lower(), before)
             self._resolved[raw] = self._remember(url, mime)
@@ -342,7 +400,8 @@ class MediaNormalizer:
 
             def link(match: re.Match[str]) -> str:
                 raw = match[2].strip()
-                url = self.reference(raw)
+                # Image syntax says "show this": there a local page counts too.
+                url = self.reference(raw, page=match[1].startswith("!"))
                 return match[0] if url == raw else match[1] + "<" + url + ">" + match[3]
 
             part = _LINK.sub(link, part)
@@ -493,6 +552,7 @@ def normalize_media_event(
     outputs_root: Path,
     scope: str,
     tool_name: str = "",
+    extra_roots: Sequence[Path] = (),
 ) -> list[dict[str, Any]]:
     kind = event.get("kind")
     payload = event.get("payload") or {}
@@ -506,7 +566,12 @@ def normalize_media_event(
     if looked and not capture:
         return [event]
     normalizer = MediaNormalizer(
-        cwd, outputs_root, scope, prose=kind != "tool_result", binary_only=capture
+        cwd,
+        outputs_root,
+        scope,
+        prose=kind != "tool_result",
+        binary_only=capture,
+        extra_roots=extra_roots,
     )
     if kind == "user_message":
         from dodaios.agentic_ide.drops import dereference

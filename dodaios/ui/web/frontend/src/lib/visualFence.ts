@@ -10,9 +10,13 @@ export function readFence(children: ReactNode): { language: string; code: string
   };
 }
 
+/** What a fenced block is drawn as. */
+export type VisualFenceLanguage = "html" | "svg" | "mermaid";
+
 /** Infer only complete visual roots; ordinary code and explicit text stay source. */
-export function visualFenceLanguage(language: string, code: string): "html" | "svg" | null {
+export function visualFenceLanguage(language: string, code: string): VisualFenceLanguage | null {
   const tag = language.toLowerCase();
+  if (tag === "mermaid" || tag === "mmd") return code.trim() ? "mermaid" : null;
   if (["html", "htm", "text/html"].includes(tag)) return "html";
   if (["svg", "image/svg+xml"].includes(tag)) return "svg";
   if (tag !== "" && tag !== "xml") return null;

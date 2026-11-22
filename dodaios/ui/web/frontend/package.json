@@ -51,6 +51,7 @@
     "lucide-react": "^0.445.0",
     "markdown-it": "15.0.3",
     "material-icon-theme": "5.37.0",
+    "mermaid": "11.17.2",
     "monaco-editor": "^0.57.0",
     "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
     "qrcode.react": "^4.2.0",

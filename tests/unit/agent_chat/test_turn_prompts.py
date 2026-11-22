@@ -307,8 +307,11 @@ def _prompt_seen(
 def test_every_cli_without_a_question_channel_learns_the_protocol(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, runner: str, provider: str
 ) -> None:
+    from dodaios.agent_chat.thread_visuals import VISUALS_GUIDE
+
     prompt = _prompt_seen(monkeypatch, tmp_path, runner, provider, "agent")
-    assert prompt == turn_prompts.ASK_PROTOCOL + "build the thing"
+    # The question block, then what the thread draws, then the person's words.
+    assert prompt == turn_prompts.ASK_PROTOCOL + VISUALS_GUIDE + "\n\nbuild the thing"
 
 
 def test_claude_and_other_surfaces_keep_their_own_prompt(

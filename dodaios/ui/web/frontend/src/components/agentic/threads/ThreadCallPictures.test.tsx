@@ -43,3 +43,16 @@ describe("pictures a tool brought back", () => {
     expect(screen.getByTestId("thread-steps").querySelector("img")?.getAttribute("src")).toContain("/api/outputs/s/files/shot.png");
   });
 });
+
+describe("pictures in the agent's own words", () => {
+  const shown: TurnBlock = { kind: "text", id: "m2", text: "The chart:\n\n![Build times](</api/outputs/s/files/chart.png/download?disposition=inline>)" };
+  const pickedUp: TurnBlock = { ...picture, id: "media-def" };
+
+  it("show a picture the answer sets in itself larger than one the chat only picked up", () => {
+    render(<ThreadTimeline items={[turn([shown, pickedUp])]} sessionId="s1" bottomInset={0} />);
+    const [own, found] = [...document.querySelectorAll("[data-testid=chat-media]")].map((media) => media.closest(".prose")?.className ?? "");
+    expect(own).toContain("max-h-[360px]");
+    expect(own).not.toContain("max-h-48");
+    expect(found).toContain("max-h-48");
+  });
+});
