@@ -4168,7 +4168,10 @@ class WebServer:
         # while ``[rsi] enabled`` is set.
         from dodaios.orchestrator.verification.recorder import install as install_run_recorder
 
-        install_run_recorder(service, data_dir, self.cfg)
+        install_run_recorder(
+            service, data_dir, self.cfg,
+            self_change=lambda: getattr(self.app.state, "self_change", None),
+        )
         # The lead's repository index, only while ``[rsi] repo_index`` is set.
         from dodaios.rsi.repo_cards import install as install_repo_board
 

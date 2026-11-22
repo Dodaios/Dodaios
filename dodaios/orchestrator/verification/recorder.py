@@ -596,6 +596,10 @@ class RunRecorder:
             detail={
                 "status": status, "error": str(payload.get("error") or "")[:400],
                 "changed_files": len(changed),
+                # This turn's own share, so a replay can cut the run at any output.
+                "tokens_out": tokens_out,
+                "cost_usd": _float(payload.get("cost_usd")),
+                "duration_ms": _int(payload.get("duration_ms")),
             },
             ts_ms=int(ts_ms),
         )
@@ -1034,7 +1038,13 @@ def _restore_only(service: Any, data_dir: Path | str, section: Any) -> None:
         log.warning("run recorder: worktrees put away earlier cannot be restored", exc_info=True)
 
 
-def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | None:
+def install(
+    service: Any,
+    data_dir: Path | str,
+    config: Any,
+    *,
+    self_change: Callable[[], Any] | None = None,
+) -> RunRecorder | None:
     """Start run recording for ``service`` when ``[rsi] enabled`` is set.
 
     Returns the recorder, or ``None`` when recording is off or could not start.
@@ -1063,6 +1073,12 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
         from dodaios.rsi import bind
         from dodaios.rsi.policy import store_for
 
-        bind.set_store(store_for(data_dir))
+        policies = store_for(data_dir)
+        bind.set_store(policies)
+        if self_change is not None:
+            from dodaios.rsi.trainer import Trainer
+
+            # Steering policies change only through measured, reversible self-changes.
+            made.add_verdict_listener(Trainer(store, policies, self_change).on_verdict)
     log.info("run recorder: recording delegated coding runs to %s", store.path)
     return made
