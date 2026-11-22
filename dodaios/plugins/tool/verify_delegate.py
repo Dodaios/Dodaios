@@ -130,6 +130,12 @@ async def _resolve_ledger(job_id: str) -> Resolved:
             record.test_command = str(job.meta.get("test_command") or record.test_command)
             record.test_result = str(job.meta.get("test_result") or record.test_result)
         return record
+    if job.kind == "ide_submission" and job.target.startswith("thread:"):
+        from dodaios.orchestrator.verification.verdict import for_job
+
+        recorded = await asyncio.to_thread(for_job, job_id)
+        if recorded is not None:
+            return recorded
     if job.kind == "society_assignment" and job.meta.get("event_id"):
         return await _resolve_society(job_id, str(job.meta["event_id"]))
     if job.kind == "artifact":

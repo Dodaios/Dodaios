@@ -45,6 +45,13 @@ CORE_PATHS: Final[tuple[str, ...]] = (
     "dodaios/trust/*",
     "dodaios/safety/*",
     "dodaios/evals/*",
+    # What judges a coding run's output, and what that judge reads through.
+    "dodaios/orchestrator/verification/*",
+    "dodaios/rsi/*",
+    "dodaios/self_build/code/judge.py",
+    "dodaios/self_build/code/commands.py",
+    "dodaios/missions/safety/path_guard.py",
+    "dodaios/agent_chat/team/workspace.py",
     "dodaios/core/self_mod/*",  # the provider lock and the settings allowlist
     "dodaios/self_build/judge.py",
     "dodaios/self_build/policy.py",
