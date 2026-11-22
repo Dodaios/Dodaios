@@ -357,6 +357,26 @@ def _seen_directly(cwd: str, attached: list[Any], images: tuple[str, ...]) -> li
     ]
 
 
+def _opened_by(session: Any, author: dict[str, str] | None, history: list[Any]) -> str:
+    """The agent that opened a coding thread, ``""`` when the person did.
+
+    The store names it from the thread's first message on (``started_by``). On
+    that first turn the session object is older than the message, so the
+    author of a message into an empty thread stands in: the same value on
+    every turn, which keeps the thread's system prompt the same.
+    """
+    if str(getattr(session, "surface", "") or "") != "agent":
+        return ""
+    from dodaios.briefs import settings as brief_settings
+
+    if not brief_settings.current().standing_rules:
+        return ""
+    known = str(getattr(session, "started_by", "") or "")
+    if known or history or not author:
+        return known
+    return str(author.get("agent_id") or "")
+
+
 def _attachment_receipts(attached: list[Any]) -> list[dict[str, Any]]:
     """What a ``user_message`` event keeps of the files that came with it."""
     return [
@@ -2416,6 +2436,7 @@ class AgentChatService:
                 stance=session.permission_mode if kit.uses_stance else "",
                 output_language=output_language,
                 goal_turn=native_goal,
+                opened_by=_opened_by(session, author, history),
                 control_service=self,
                 on_steer=lambda writer, _sid=session_id, _tid=turn_id: self._set_steerer(
                     _sid, _tid, writer
@@ -4003,11 +4024,14 @@ class AgentChatService:
         option_index: int | None = None,
         option_indices: list[int] | None = None,
         text: str | None = None,
+        source: str = "person",
     ) -> bool:
         """The person's answer to question ``index`` of the card.
 
-        False for an unknown, foreign, closed or already answered question.
-        Raises ``ValueError`` for an answer that does not fit the question.
+        ``source`` says who gave it when that is not the person (the assistant
+        that handed the agent its work, ``questions.DELEGATOR``). False for an
+        unknown, foreign, closed or already answered question. Raises
+        ``ValueError`` for an answer that does not fit the question.
         """
         open_q = self._open_card(session_id, question_id)
         if open_q is None:
@@ -4016,7 +4040,7 @@ class AgentChatService:
             return False
         open_q.answers[index] = answer_from(
             open_q.specs[index], option_index=option_index, option_indices=option_indices,
-            text=text,
+            text=text, source=source,
         )
         open_q.wake.set()
         return True
@@ -4339,12 +4363,14 @@ class AgentChatService:
         text: str | None = None,
         author: dict[str, str] | None = None,
         option_indices: list[int] | None = None,
+        source: str = "person",
     ) -> bool:
         """The person's answer to one question of an end-of-turn card.
 
-        False for an unknown, closed or already answered question; raises
-        ``ValueError`` for an answer that does not fit. The last answer closes
-        the card and sends the answers to the agent as the next message.
+        ``source`` as for :meth:`resolve_question`. False for an unknown,
+        closed or already answered question; raises ``ValueError`` for an
+        answer that does not fit. The last answer closes the card and sends the
+        answers to the agent as the next message.
         """
         async with self._turn_prompt_lock():
             card = turn_prompts.open_ask(self.store.list_events(session_id), question_id)
@@ -4353,7 +4379,7 @@ class AgentChatService:
             try:
                 answers = turn_prompts.answer(
                     card, index, option_index=option_index, text=text,
-                    option_indices=option_indices,
+                    option_indices=option_indices, source=source,
                 )
             except IndexError:  # a stale option index is a no-op click; the caller reports False
                 return False

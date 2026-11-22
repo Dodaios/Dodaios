@@ -563,7 +563,7 @@ Delete an installed user skill by name — removes its folder for good (built-in
 
 ## `agent-briefs-get` — Show agent brief wishes
 
-Show how Dodaios briefs the person's coding agents: their standing wishes, the default when there are none (the agent checks its own work and, with tests and CI green, pushes and merges) and the limits that always stay.
+Show how Dodaios briefs the person's coding agents: their standing wishes, the default when there are none (the agent checks its own work and, with tests and CI green, pushes and merges), the limits that always stay, and per project what it learned their own words stand for.
 
 - **Endpoint:** `GET /api/settings/agent-briefs`
 - **Arguments:** none
@@ -580,6 +580,16 @@ Save how the person wants every future brief to a coding agent written, when the
 - **Requires confirmation:** no
 - **Desktop UI section:** `settings`
 - **Voice example (EN):** "let agents merge on their own"
+
+## `agent-briefs-forget-word` — Forget a learned word
+
+Forget what one of the person's own words stands for in one project, when they say the meaning Dodaios learned is wrong or no longer wanted. project and said are the values agent-briefs-get lists under glossary. A new meaning is learned with the next brief (delegate, options.resolved).
+
+- **Endpoint:** `POST /api/settings/agent-briefs/glossary/unlearn`
+- **Arguments:** `project` (string; required); `said` (string; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `settings`
+- **Voice example (EN):** "forget what that word means"
 
 ## `agentic-ide-status` — Agentic IDE status
 

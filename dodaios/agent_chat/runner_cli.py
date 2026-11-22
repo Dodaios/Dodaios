@@ -101,6 +101,8 @@ from dodaios.agent_chat.permissions import (
 from dodaios.agent_chat.questions import (
     CANCELLED,
     DEFAULTED,
+    DELEGATOR,
+    DELEGATOR_NOTE,
     UNATTENDED,
     as_line,
     parse_questions,
@@ -4774,6 +4776,12 @@ async def run_cli_turn(
         from dodaios.agent_chat.thread_visuals import VISUALS_GUIDE
 
         user_text = ASK_PROTOCOL + VISUALS_GUIDE + "\n\n" + user_text
+    if runner not in _CLAUDE_CODE_RUNNERS:
+        from dodaios.briefs import standing
+
+        # A thread an agent opened takes work orders. A CLI without a system
+        # prompt reads the rules for them once, at the start of its conversation.
+        user_text = standing.for_first_message(user_text, handle, new_conversation=resume is None)
     tool_context = register_turn(session.session_id) if identity else None
     try:
         outcome = await _run_cli_once(
@@ -4803,6 +4811,11 @@ async def run_cli_turn(
                     with_file=(runner in _CLAUDE_CODE_RUNNERS),
                     prompt_override=prompt_override,
                 )
+            if runner not in _CLAUDE_CODE_RUNNERS:
+                from dodaios.briefs import standing
+
+                # The fresh conversation remembers nothing, its work-order rules included.
+                user_text = standing.for_first_message(user_text, handle, new_conversation=True)
             outcome = await _run_cli_once(
                 handle, user_text, runner, None, identity=ident, bridge=bridge
             )
@@ -5163,6 +5176,10 @@ async def _run_cli_once(
 
                     # A coding thread draws pictures; its agent is told so.
                     tell_claude_code(plan.argv, session)
+                    from dodaios.briefs import standing
+
+                    # A thread an agent opened takes work orders: the rules for them.
+                    standing.tell_claude_code(plan.argv, handle)
                 await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
             apply_child_env_drops(session.session_id, plan.env)
             if getattr(handle, "tools_disabled", False):
@@ -5781,7 +5798,7 @@ async def _drive_cli(
                 (" (the person did not answer; your default)" if a.answer else
                  " (the person did not answer)")
                 if a.source in DEFAULTED else ""
-            )
+            ) + (f" ({DELEGATOR_NOTE})" if a.source == DELEGATOR else "")
             for row, a in zip(rows, answers, strict=True)
         }
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}
