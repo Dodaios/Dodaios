@@ -30,6 +30,8 @@ POLL_SECONDS = 2.0
 PROBE_TIMEOUT_SECONDS = 5.0
 WAIT_TIMEOUT_SECONDS = 30 * 60.0  # No new evidence, not a limit on active work.
 MAX_WAVES = 8
+#: Delegated-work keys of coding-thread turns (``ChatThreads._ledger``).
+CHECKED_WORK = "coding-thread:"
 
 
 class SeatYielded(Exception):  # noqa: N818 - a hand-over, not an error
@@ -130,9 +132,41 @@ class DelegationWait:
             self.deadlines[work.key] = time.monotonic() + WAIT_TIMEOUT_SECONDS
             self._changed()
 
+    def _holds_text(self) -> bool:
+        """True while coding work whose output the app checks is still out.
+
+        Then the lead's further words in this turn are not its answer: the
+        checked result is, and the continuation speaks it. Only while
+        ``[rsi] verify = "enforce"``; text written before the delegation was
+        already shown and stays.
+        """
+        if not any(
+            key.startswith(CHECKED_WORK) and key not in self.delivered for key in self.work
+        ):
+            return False
+        from dodaios.orchestrator.verification.recorder import recorder
+
+        checking = recorder()
+        return checking is not None and checking.enforcing
+
+    def _held(self, event: dict[str, Any]) -> dict[str, Any]:
+        """``event`` as the person sees it: text written after the hand-off as thought."""
+        kind = event.get("kind")
+        if kind not in ("text_delta", "assistant_text") or not self._holds_text():
+            return event
+        payload = event.get("payload") or {}
+        quiet = {"turn_id": payload.get("turn_id"), "text": str(payload.get("text") or "")}
+        if kind == "assistant_text" and payload.get("message_id"):
+            quiet["message_id"] = payload["message_id"]
+        return {
+            **event,
+            "kind": "reasoning_delta" if kind == "text_delta" else "reasoning",
+            "payload": {**quiet, "held_for": "checked_work"},
+        }
+
     async def emit(self, event: dict[str, Any]) -> None:
         if event.get("kind") != "turn_finished":
-            await self.handle.emit(event)
+            await self.handle.emit(self._held(event))
             return
         self.finish = event
         payload = event.get("payload") or {}

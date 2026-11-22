@@ -1044,3 +1044,114 @@ async def test_with_enforced_checks_a_failure_brings_one_order_and_no_report(rig
     assert enforcing.store.get(job_id)["state"] == "running"
     job = await jobs.refresh(jobs.get_ledger().get(job_id))
     assert job.state == "running"
+
+
+# --------------------------------------------- a thread's job after an app restart
+
+
+@pytest.fixture
+def app_chat(rig: Rig, monkeypatch):
+    """The app's own chat service, as a rebuilt probe looks it up."""
+    monkeypatch.setattr(chat_threads, "_default_chat", lambda: rig.service)
+
+
+def _as_from_an_earlier_boot(job_id: str) -> None:
+    """What a restart leaves: the job's row from another boot, and no probe in memory."""
+    ledger = jobs.get_ledger()
+    with ledger._lock:
+        ledger._conn.execute("UPDATE jobs SET boot_id = 'earlier' WHERE id = ?", (job_id,))
+        ledger._conn.commit()
+    jobs._probes.pop(job_id, None)
+
+
+def test_the_wait_key_of_a_thread_turn_names_its_job():
+    from dodaios.agent_chat.parked_work import job_id_for_key
+
+    assert job_id_for_key("coding-thread:job_0123456789ab") == "job_0123456789ab"
+    assert job_id_for_key("coding-thread:") is None
+
+
+async def test_after_a_restart_the_job_of_a_thread_is_read_from_the_thread(rig: Rig, app_chat):
+    from dodaios.agent_chat.parked_work import _ledger_work
+
+    rig.service.hold = asyncio.Event()
+    result = await create(rig)
+    job_id = result["deliveries"][0]["job_id"]
+    _as_from_an_earlier_boot(job_id)
+    # The turn was carried across the restart and ends now.
+    rig.service.hold.set()
+    await rig.settle()
+
+    work = _ledger_work(f"coding-thread:{job_id}", "Codex")
+    assert work is not None
+    answer = await work.probe()
+
+    assert answer["status"] == "done", answer
+    job = jobs.get_ledger().get(job_id)
+    assert (job.state, job.boot_id) == ("done", "earlier")
+    assert "done" in (job.summary or "")
+
+
+async def test_after_a_restart_a_turn_that_never_came_back_is_interrupted(
+    rig: Rig, app_chat, monkeypatch
+):
+    # A thread at rest, and the job of a turn that died with the process.
+    result = await create(rig, prompt="")
+    sid = result["agents"][0]["terminal_id"].removeprefix("thread:")
+    jobs.start("ide_submission", job_id="job_lost00000001", target=f"thread:{sid}", title="x")
+    _as_from_an_earlier_boot("job_lost00000001")
+
+    # The first look waits: the turn host may still bring the turn back.
+    job = await jobs.refresh(jobs.get_ledger().get("job_lost00000001"))
+    assert job.state == "running"
+    monkeypatch.setattr(chat_threads, "_REATTACH_GRACE_S", 0.0)
+    job = await jobs.refresh(job)
+
+    assert job.state == "interrupted"
+    assert "did not come back" in (job.summary or "")
+
+
+async def test_after_a_restart_a_pane_submission_is_still_interrupted(rig: Rig):
+    jobs.start("ide_submission", job_id="job_pane000001", target="pane:t1", title="A pane")
+    _as_from_an_earlier_boot("job_pane000001")
+    job = await jobs.refresh(jobs.get_ledger().get("job_pane000001"))
+    assert job.state == "interrupted"
+
+
+async def test_before_the_chat_is_up_a_rebuilt_probe_says_nothing(rig: Rig, monkeypatch):
+    result = await create(rig, prompt="")
+    sid = result["agents"][0]["terminal_id"].removeprefix("thread:")
+    jobs.start("ide_submission", job_id="job_early0000001", target=f"thread:{sid}", title="x")
+    _as_from_an_earlier_boot("job_early0000001")
+
+    def not_up() -> Any:
+        raise RuntimeError("the web server is still starting")
+
+    monkeypatch.setattr(chat_threads, "_default_chat", not_up)
+    monkeypatch.setattr(chat_threads, "_REATTACH_GRACE_S", 0.0)
+    job = await jobs.refresh(jobs.get_ledger().get("job_early0000001"))
+    # Not "deleted", not "interrupted": it is simply not known yet.
+    assert job.state == "running"
+
+
+async def test_after_a_restart_the_wait_sees_a_carried_turn_move(rig: Rig, app_chat):
+    from dodaios.agent_chat.parked_work import _ledger_work
+
+    rig.service.hold = asyncio.Event()
+    result = await create(rig)
+    job_id = result["deliveries"][0]["job_id"]
+    _as_from_an_earlier_boot(job_id)
+    work = _ledger_work(f"coding-thread:{job_id}", "Codex")
+    assert work is not None
+
+    first = await work.probe()
+    [thread] = rig.threads()
+    rig.service.store.append_event(
+        thread.session_id, make_event("assistant_text", {"text": "still at it"})
+    )
+    second = await work.probe()
+
+    assert first["status"] == second["status"] == "running"
+    assert first["progress"] != second["progress"]
+    rig.service.hold.set()
+    await rig.settle()

@@ -275,3 +275,62 @@ async def test_delayed_coding_dispatch_registers_jobs_before_wait_can_finish(mon
             await task
     finally:
         current_chat_turn.reset(token)
+
+
+# ------------------------------- the lead's words while checked coding work is out
+
+
+@pytest.fixture
+def enforcing():
+    from dodaios.orchestrator.verification import recorder as rec
+
+    rec.set_recorder(SimpleNamespace(enforcing=True))
+    try:
+        yield
+    finally:
+        rec.set_recorder(None)
+
+
+def _texts(events):
+    return [(e["kind"], e["payload"].get("text")) for e in events]
+
+
+async def test_text_after_handing_coding_work_over_is_held_as_thought(enforcing):
+    events = []
+    gate = delegation_wait.DelegationWait(handle(events))
+    await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "I'll ask Codex."}))
+    gate.add(DelegatedWork("coding-thread:job_1", "Codex", lambda: None))
+    await gate.emit(make_event("text_delta", {"turn_id": "t", "message_id": "m2", "text": "On it"}))
+    await gate.emit(make_event(
+        "assistant_text", {"turn_id": "t", "message_id": "m2", "text": "On it, I'll report."}
+    ))
+    await gate.emit(make_event("tool_call", {"turn_id": "t", "call_id": "c1", "name": "x"}))
+
+    assert _texts(events) == [
+        ("assistant_text", "I'll ask Codex."),
+        ("reasoning_delta", "On it"),
+        ("reasoning", "On it, I'll report."),
+        ("tool_call", None),
+    ]
+    assert events[2]["payload"]["message_id"] == "m2"
+    assert events[2]["payload"]["held_for"] == "checked_work"
+
+    # Once the checked result is in, the lead speaks again.
+    gate.delivered.add("coding-thread:job_1")
+    await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Codex finished."}))
+    assert _texts(events)[-1] == ("assistant_text", "Codex finished.")
+
+
+async def test_without_enforced_checks_or_coding_work_nothing_is_held(enforcing):
+    from dodaios.orchestrator.verification import recorder as rec
+
+    events = []
+    gate = delegation_wait.DelegationWait(handle(events))
+    gate.add(DelegatedWork("society:e1", "Nova", lambda: None))
+    await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Asked Nova."}))
+    rec.set_recorder(SimpleNamespace(enforcing=False))
+    gate.add(DelegatedWork("coding-thread:job_1", "Codex", lambda: None))
+    await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Asked Codex."}))
+    rec.set_recorder(None)
+    await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Still here."}))
+    assert [kind for kind, _ in _texts(events)] == ["assistant_text"] * 3

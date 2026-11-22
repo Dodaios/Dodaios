@@ -149,7 +149,11 @@ async def sweep_open_jobs() -> int:
     from dodaios.orchestrator import jobs
 
     try:
-        for module in ("dodaios.society.delegation_wait", "dodaios.orchestrator.mission_jobs"):
+        for module in (
+            "dodaios.society.delegation_wait",
+            "dodaios.orchestrator.mission_jobs",
+            "dodaios.agentic_ide.chat_threads",
+        ):
             importlib.import_module(module)  # registers the rehydrators
         ledger = jobs.get_ledger()
         stale = [
