@@ -438,6 +438,58 @@ def note_submission(*, job_id: str, session_id: str, prompt: str, started_ms: in
         log.warning("run recorder: order %s not noted", job_id, exc_info=True)
 
 
+def _install_workdirs(store: VerificationStore, service: Any, section: Any) -> None:
+    """Give new threads a worktree of their own while their output is verified.
+
+    With the setting off nothing new is made; a worktree made earlier and put
+    away is still restored for its thread.
+    """
+    from . import workdir
+
+    making = (
+        bool(getattr(section, "enabled", False))
+        and str(getattr(section, "verify", "off")) != "off"
+        and bool(getattr(section, "worktree_per_run", False))
+    )
+
+    def idle_ms(session_id: str) -> int:
+        if service.is_running(session_id):
+            return 0
+        session = service.store.get_session(session_id)
+        if session is None:
+            return 0
+        last = max(
+            int(getattr(session, "updated_ms", 0) or 0),
+            int(getattr(session, "last_message_ms", 0) or 0),
+        )
+        return max(0, int(time.time() * 1000) - last)
+
+    workdir.set_dirs(
+        workdir.WorkDirs(
+            store,
+            thread_exists=lambda sid: service.store.get_session(sid) is not None,
+            idle_ms=idle_ms,
+            shared=getattr(section, "shared_checkout_repos", ()) or (),
+            making=making,
+        )
+    )
+
+
+def _restore_only(service: Any, data_dir: Path | str, section: Any) -> None:
+    """Recording is off: keep restoring the worktrees that were put away while it was on."""
+    path = Path(data_dir) / "verification.db"
+    if not path.is_file():
+        return
+    try:
+        store = VerificationStore(path)
+        if store.workdirs_away() == 0:
+            store.close()
+            return
+        _install_workdirs(store, service, section)
+    except Exception:  # noqa: BLE001 - an unreadable record leaves the chat as it was
+        log.warning("run recorder: worktrees put away earlier cannot be restored", exc_info=True)
+
+
 def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | None:
     """Start run recording for ``service`` when ``[rsi] enabled`` is set.
 
@@ -445,6 +497,7 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
     """
     section = getattr(config, "rsi", None)
     if section is None or not getattr(section, "enabled", False):
+        _restore_only(service, data_dir, section)
         return None
     try:
         from dodaios.orchestrator.jobs import BOOT_ID
@@ -459,5 +512,6 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
         log.warning("run recorder: not started", exc_info=True)
         return None
     set_recorder(made)
+    _install_workdirs(store, service, section)
     log.info("run recorder: recording delegated coding runs to %s", store.path)
     return made

@@ -166,11 +166,14 @@ def work_area(
     count as the run's work.
     """
     folder = str(run.get("workdir") or "")
-    if not folder or not _toplevel(folder):
+    own = _toplevel(folder) if folder else ""
+    if not own:
         return None
     base = str(run.get("base_sha") or "")
-    if run.get("isolated") and base:
-        return WorkArea(folder=_toplevel(folder), base=base, how="thread_worktree")
+    # A thread that started in a linked worktree has that one, unless ...
+    given = WorkArea(folder=own, base=base, how="thread_worktree") if (
+        run.get("isolated") and base
+    ) else None
     if worked is None:
         from dodaios.agentic_ide.session_branches import worked_folders as worked
     started_s = float(run.get("started_ms") or 0) / 1000
@@ -179,13 +182,16 @@ def work_area(
         for written, _at in worked(list(events), folder, not_before=started_s)
         if (top := _toplevel(written))
     }
+    if given is not None and (not touched or own in touched):
+        return given
     if len(touched) != 1:
-        return None  # nothing written, or writes in more than one checkout
+        return given  # nothing written, or writes in more than one checkout
     (only,) = touched
     if not _is_linked(only) or _common_dir(only) != _common_dir(folder):
-        return None  # it wrote into the shared checkout, or into another repository
+        return given  # it wrote into the shared checkout, or into another repository
+    # ... it made a worktree of its own and did all its work there.
     fork = _fork_point(only, base)
-    return WorkArea(folder=only, base=fork, how="session_worktree") if fork else None
+    return WorkArea(folder=only, base=fork, how="session_worktree") if fork else given
 
 
 # --------------------------------------------------------------------- gate

@@ -64,12 +64,13 @@ When a run's turn has ended, its changed files are checked. The result is
 recorded; nothing is sent to the agent and no turn is held.
 
 **Only a run with a checkout of its own is judged.** That is a thread running
-in a linked worktree, or a session that made a worktree itself and wrote
-nowhere else. The scan takes a snapshot of that folder (tracked and untracked
-files, through a throwaway index, so the folder is untouched) and diffs it
-against the run's start, which also shows what was changed from a shell. A run
-in a shared checkout is recorded as `unattributed`: the difference to the start
-holds other runs' edits too.
+in a linked worktree (the app makes one for every thread the lead opens, see
+below), or a session that made a worktree itself and wrote nowhere else. The
+scan takes a snapshot of that folder (tracked and untracked files, through a
+throwaway index, so the folder is untouched) and diffs it against the run's
+start, which also shows what was changed from a shell. A run in a shared
+checkout is recorded as `unattributed`: the difference to the start holds other
+runs' edits too.
 
 | Rule | Reports | Severity |
 | --- | --- | --- |
@@ -90,6 +91,45 @@ prompt or a policy can tune.
 
 Statuses: `clean`, `findings` (only ambiguous ones), `violations`,
 `unattributed`, `unreadable`.
+
+## A worktree of its own per thread
+
+While the output scan is on, every coding thread the lead opens gets a linked
+git worktree on a new branch: `<repository>/.worktrees/agent-<name>-<id>`,
+branch `agent/<name>-<id>`, started from the remote default branch (fetched
+first, at most once a minute), else from the checked-out commit. The thread
+list still shows the thread under its project, with the worktree's name.
+
+```toml
+[rsi]
+worktree_per_run = true                              # the default
+shared_checkout_repos = ["github.com/acme/legacy"]   # these keep the project folder
+```
+
+- **The brief follows the folder.** An absolute path into the project folder in
+  the lead's brief becomes the same file in the worktree, and two lines tell
+  the agent where it is and that the main checkout is other agents' place.
+- **It never fails the order.** The thread opens in the project folder as
+  before when the folder is no repository, has no commit, opted out, is a
+  sub-folder of its repository or itself a worktree (the thread list places a
+  thread by its folder), when less than 2 GB are free, or when git fails.
+- **A fresh worktree holds no installed dependencies.** `node_modules`, a
+  virtual environment and other ignored files are not in it; the agent sets up
+  what it needs, as in any new checkout.
+- **Worktrees are put away, never their work.** A worktree without an
+  uncommitted or untracked file is removed when its thread was deleted, or when
+  its thread got no message for 12 hours (1 hour while less than 4 GB are
+  free). Its commits stay on their branch; a branch without a commit goes with
+  a deleted thread. A worktree with unfinished work always stays; the Git panel
+  of the IDE lists it for cleaning up by hand. Putting away happens when the
+  next worktree of that repository is made, never on a timer.
+- **A thread finds its folder again.** Before a thread's turn starts, a
+  worktree that was put away is made again at the same path, on the branch it
+  was on (also one the agent renamed), so a later message to the thread works
+  as before. That holds after the settings were switched off, too.
+
+Only threads opened through the lead get one. A thread the person starts in the
+IDE runs where the person put it.
 
 ## What the lead can ask
 
@@ -127,7 +167,8 @@ mean duration, and what the scan said (`scanned`, `violations`,
 
 ## Tests
 
-`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict}.py`,
-`tests/unit/rsi/`, and one test through the real hand-off path in
+`tests/unit/orchestrator/test_verification_{store,recorder,cheat_scan,gates,verdict,workdir}.py`,
+`tests/unit/rsi/`, and tests through the real hand-off path in
 `tests/contract/test_workspace_chat_threads.py`. The cheat-scan tests feed the
-scan diffs that git itself wrote.
+scan diffs that git itself wrote; the worktree tests make, put away and restore
+worktrees of real temporary repositories.

@@ -1899,6 +1899,13 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
+        if session.surface == "agent":
+            # A worktree the app made for this thread and put away while the
+            # thread rested is back before the turn needs its folder.
+            from dodaios.orchestrator.verification import workdir
+
+            if workdir.away(session.cwd):
+                await asyncio.to_thread(workdir.restore, session.cwd)
         # Nothing was typed for a background result: it passes the gates a
         # control-owned message passes, and keeps the person's standing.
         control_owned = control_owned or background_result

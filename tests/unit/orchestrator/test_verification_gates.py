@@ -95,6 +95,35 @@ def test_a_worktree_the_session_made_itself_is_its_work_area(repo: Path, worktre
     assert area.base == run["base_sha"]
 
 
+def test_a_thread_in_its_own_worktree_that_moved_into_another_is_followed(
+    repo: Path, worktree: Path, tmp_path: Path
+):
+    """Told to work in worktrees, an agent may make one more: its work is there."""
+    nested = tmp_path / "nested"
+    _git(worktree, "worktree", "add", "-q", "-b", "deeper", str(nested))
+    run = _run(worktree, isolated=True)
+    (nested / "app" / "calc.py").write_text(CODE + "\n# more\n", encoding="utf-8")
+    area = gates.work_area(run, _write("c1", nested / "app" / "calc.py"))
+    assert area is not None
+    assert (Path(area.folder).resolve(), area.how) == (nested.resolve(), "session_worktree")
+    assert area.base == run["base_sha"]
+
+
+def test_a_thread_in_its_own_worktree_keeps_it_whatever_else_it_touched(
+    repo: Path, worktree: Path, tmp_path: Path
+):
+    nested = tmp_path / "nested"
+    _git(worktree, "worktree", "add", "-q", "-b", "deeper", str(nested))
+    run = _run(worktree, isolated=True)
+    here = _write("c1", worktree / "app" / "calc.py")
+    there = _write("c2", nested / "app" / "calc.py", ts_ms=20)
+    shared = _write("c3", repo / "app" / "calc.py", ts_ms=30)
+    for events in ([*here, *there], shared, [*there, *shared]):
+        area = gates.work_area(run, events)
+        assert area is not None
+        assert (Path(area.folder).resolve(), area.how) == (worktree.resolve(), "thread_worktree")
+
+
 def test_writes_in_two_checkouts_cannot_be_pinned_on_the_run(repo: Path, worktree: Path):
     events = [
         *_write("c1", worktree / "app" / "calc.py"),

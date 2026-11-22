@@ -794,3 +794,150 @@ async def test_an_order_to_a_thread_is_recorded_as_a_run_when_recording_is_on(ri
     finally:
         run_recorder.set_recorder(None)
         store.close()
+
+
+# ------------------------------------------------- a worktree of its own per thread
+
+
+def _as_repository(folder: str) -> None:
+    import subprocess
+    from pathlib import Path
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=folder, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "T")
+    Path(folder, "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "first")
+
+
+@pytest.fixture
+def own_worktrees(rig: Rig, tmp_path):
+    """The project is a repository, and the app gives each new thread a worktree."""
+    from dodaios.orchestrator.verification import workdir
+    from dodaios.orchestrator.verification.store import VerificationStore
+
+    _as_repository(rig.workspace.folder)
+    store = VerificationStore(tmp_path / "verification.db")
+    idle: dict[str, int] = {}
+    dirs = workdir.WorkDirs(
+        store,
+        thread_exists=lambda sid: rig.service.store.get_session(sid) is not None,
+        idle_ms=lambda sid: idle.get(sid, 0),
+    )
+    workdir.set_dirs(dirs)
+    try:
+        yield dirs, store, idle
+    finally:
+        workdir.set_dirs(None)
+        store.close()
+
+
+async def test_a_new_thread_works_in_a_worktree_of_its_own_and_is_told_so(
+    rig: Rig, own_worktrees, tmp_path
+):
+    from pathlib import Path
+
+    from dodaios.orchestrator.verification import recorder as run_recorder
+    from dodaios.rsi.harness_probe import Harness
+
+    _dirs, store, _idle = own_worktrees
+    made = run_recorder.RunRecorder(
+        store, rig.service, probe=lambda runner: Harness(runner, "1.2.3", "1.2")
+    )
+    rig.service.add_event_listener(made.on_event)
+    run_recorder.set_recorder(made)
+    project = rig.workspace.folder
+    try:
+        result = await create(
+            rig, agents=[{"cli": "Codex", "count": 2}],
+            prompt=f"Fix the value in {Path(project) / 'app.py'}",
+        )
+        await rig.settle()
+        made.process_pending()
+    finally:
+        run_recorder.set_recorder(None)
+
+    assert result["success"] is True, result
+    # The receipt still names the project; each agent's row names where it works.
+    assert result["folder"] == project
+    threads = {t.session_id: t for t in rig.threads()}
+    assert len(threads) == 2
+    folders = set()
+    for agent, delivery in zip(result["agents"], result["deliveries"], strict=True):
+        thread = threads[agent["terminal_id"].removeprefix("thread:")]
+        folder = Path(thread.cwd)
+        folders.add(thread.cwd)
+        assert folder.parent.resolve() == (Path(project) / ".worktrees").resolve()
+        assert agent["folder"] == thread.cwd
+        assert agent["branch"].startswith("agent/codex-")
+        assert (folder / "app.py").is_file()
+        [prompt] = [text for sid, text in rig.service.prompts if sid == thread.session_id]
+        assert prompt.startswith(f"Fix the value in {folder / 'app.py'}\n\n")
+        assert f"on the new branch `{agent['branch']}`: {thread.cwd}" in prompt
+        assert store.workdir(thread.cwd)["session_id"] == thread.session_id
+        # The run is on record as one with a checkout of its own.
+        run = store.get(delivery["job_id"])
+        assert run is not None
+        assert (run["workdir"], run["isolated"]) == (thread.cwd, 1)
+    assert len(folders) == 2
+
+
+async def test_a_thread_whose_worktree_was_put_away_has_it_back_for_its_next_turn(
+    rig: Rig, own_worktrees
+):
+    from pathlib import Path
+
+    from dodaios.orchestrator.verification.workdir import REST_AFTER_MS
+    from dodaios.rsi import repo_identity
+
+    dirs, _store, idle = own_worktrees
+    result = await create(rig)
+    target = result["agents"][0]["terminal_id"]
+    await rig.settle()
+    [thread] = rig.threads()
+    idle[thread.session_id] = REST_AFTER_MS
+    project = rig.workspace.folder
+    put_away = await asyncio.to_thread(dirs.sweep, repo_identity.repo_id(project), project)
+    assert put_away == [thread.cwd]
+    assert not await asyncio.to_thread(Path(thread.cwd).exists)
+
+    there: list[bool] = []
+
+    class Seen(list):
+        def append(self, item: Any) -> None:
+            there.append(Path(thread.cwd, "app.py").is_file())
+            super().append(item)
+
+    rig.service.prompts = Seen(rig.service.prompts)
+    receipt = await rig.orchestrator.run(
+        {"action": "send", "terminal_id": target, "prompt": "Also update the docs"}
+    )
+    await rig.settle()
+
+    assert receipt["status"] == "accepted", receipt
+    assert there == [True]
+
+
+async def test_a_project_that_is_no_repository_keeps_its_threads_in_the_folder(
+    rig: Rig, tmp_path
+):
+    """The worktree maker is on, the folder is not a repository: all as before."""
+    from dodaios.orchestrator.verification import workdir
+    from dodaios.orchestrator.verification.store import VerificationStore
+
+    store = VerificationStore(tmp_path / "verification.db")
+    workdir.set_dirs(workdir.WorkDirs(store))
+    try:
+        result = await create(rig)
+        await rig.settle()
+    finally:
+        workdir.set_dirs(None)
+        store.close()
+    [thread] = rig.threads()
+    assert thread.cwd == rig.workspace.folder
+    assert "folder" not in result["agents"][0] and "branch" not in result["agents"][0]
+    assert rig.service.prompts == [(thread.session_id, "Fix the failing tests")]

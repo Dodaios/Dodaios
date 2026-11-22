@@ -4596,6 +4596,14 @@ class RsiConfig(BaseModel):
 
     enabled: bool = False
     verify: Literal["off", "observe"] = "off"
+    #: While the output is verified (``verify`` is not ``off``), every coding
+    #: thread the lead opens gets a git worktree of its own on a new branch, so
+    #: what the run changed can be told from what its neighbours changed
+    #: (``dodaios.orchestrator.verification.workdir``).
+    worktree_per_run: bool = True
+    #: Repositories whose threads keep running in the project folder, by the
+    #: id the run report shows (``github.com/owner/name``).
+    shared_checkout_repos: list[str] = Field(default_factory=list)
     #: Hand the lead a compact index of the repositories in play with its
     #: messages (``dodaios.rsi.repo_index``). Independent of ``enabled``.
     repo_index: bool = False
