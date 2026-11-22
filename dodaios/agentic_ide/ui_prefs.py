@@ -32,7 +32,7 @@ from loguru import logger
 #: Terminal text size, in pixels. The bounds are not taste — below the floor
 #: xterm's glyphs stop being legible on a normal display, above the ceiling a
 #: pane holds too few columns for a coding agent's output to stay readable.
-#: Mirrored in the grid's toolbar (``AgenticGrid.tsx``) and pinned by
+#: Mirrored in the frontend's ``paneFont.ts`` and pinned by
 #: ``tests/unit/agentic_ide/test_ui_prefs.py`` so the two cannot drift.
 FONT_MIN = 10
 FONT_MAX = 20

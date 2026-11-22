@@ -17,8 +17,7 @@
  * assistant, so for them the rule is the negative half: no name is written
  * into what they render or into any string of the section's locale files.
  */
-import { cleanup, render, screen } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import enJson from "@/i18n/locales/en.json";
@@ -114,12 +113,11 @@ vi.mock("@/hooks/useDictation", async (importOriginal) => {
   return { ...actual, useDictation: () => state };
 });
 
-import { DockRail } from "@/components/layout/DockRail";
 import { ApiKeysTab } from "@/views/voice/ApiKeysTab";
 import { LanguageTab } from "@/views/voice/LanguageTab";
 import type { ProviderDescriptor } from "@/hooks/useProviders";
 import { loadLocaleChunk } from "@/i18n";
-import { useEventStore, type SectionId } from "@/store/events";
+import { useEventStore } from "@/store/events";
 
 /**
  * A deliberately name-free speech-to-text provider: every occurrence of the
@@ -165,26 +163,6 @@ function expectNoHardcodedBrand(text: string, where: string): void {
   }
 }
 
-/**
- * Rendered output only: the raw locale value is SUPPOSED to carry `{name}`, so
- * this is the check that the substitution actually ran on the way to the DOM.
- */
-function expectBrandInterpolated(text: string, where: string): void {
-  expectNoHardcodedBrand(text, where);
-  expect(text, `${where} must interpolate the {name} token`).not.toContain("{name}");
-}
-
-function renderRail() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <DockRail />
-    </QueryClientProvider>,
-  );
-}
-
 /** The product's own name is held to the same rule on the section's screens. */
 const FORBIDDEN_ON_VOICE_SCREENS = [...FORBIDDEN_NAMES, "dodaios"] as const;
 
@@ -198,71 +176,6 @@ function expectNoNameOnVoiceScreen(text: string, where: string): void {
   // A `{name}` left in the output is a token nobody filled in.
   expect(text, `${where} must not show a raw {name} token`).not.toContain("{name}");
 }
-
-/** Every section the one voice row fronts. */
-const VOICE_SECTIONS: readonly SectionId[] = [
-  "dictation",
-  "dictionary",
-  "voice-language",
-  "voice-api-keys",
-];
-
-describe("voice section row brand", () => {
-  beforeEach(() => {
-    useEventStore.setState({
-      voiceState: "idle",
-      transcription: "",
-      transcriptionFinal: true,
-      connected: true,
-      activeSection: "chats",
-      assistantName: PINNED_BRAND,
-    });
-  });
-
-  afterEach(() => {
-    cleanup();
-    useEventStore.setState({ assistantName: "Assistant" });
-  });
-
-  it("names the row after the configured assistant", () => {
-    renderRail();
-
-    // The rail shows icons; a row's name is its accessible name.
-    const label = screen.getByTestId("nav-row-dictation").getAttribute("aria-label") ?? "";
-    expect(label).toBe(`${PINNED_BRAND} Voice`);
-    expectBrandInterpolated(label, "the voice row");
-  });
-
-  it("falls back to the neutral default when no name is configured", () => {
-    useEventStore.setState({ assistantName: "Assistant" });
-    renderRail();
-
-    const label = screen.getByTestId("nav-row-dictation").getAttribute("aria-label") ?? "";
-    expect(label).toBe("Assistant Voice");
-    expectBrandInterpolated(label, "the neutral-default voice row");
-  });
-
-  it("collapses the former Dictation and Dictionary rows into one", () => {
-    renderRail();
-
-    expect(screen.queryByTestId("nav-row-dictionary")).toBeNull();
-    expect(screen.getByTestId("nav-row-dictation")).toBeTruthy();
-  });
-
-  it("stays highlighted for every section it fronts", () => {
-    for (const section of VOICE_SECTIONS) {
-      useEventStore.setState({ activeSection: section });
-      renderRail();
-      // The active row carries the inset primary bar; asserting on the class
-      // keeps this independent of the (translated) label.
-      expect(
-        screen.getByTestId("nav-row-dictation").className,
-        `active section ${section} must highlight the voice row`,
-      ).toContain("jarvis-nav-active");
-      cleanup();
-    }
-  });
-});
 
 describe("voice tab brand", () => {
   // The tabs are painted only once the section's strings are resident; without

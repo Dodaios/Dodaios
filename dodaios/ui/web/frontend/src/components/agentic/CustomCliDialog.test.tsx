@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   cleanup,
   fireEvent,
@@ -8,9 +7,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentAccount } from "@/lib/agentAccountsApi";
-import type { AgentStatus } from "@/lib/agenticIdeApi";
-import { AgentAllocation, type PlannedTerminal } from "./AgentAllocation";
 import { CustomCliDialog, runsThroughShell } from "./CustomCliDialog";
 
 vi.mock("@/i18n", () => ({
@@ -50,48 +46,6 @@ const STORED: api.CustomCli = {
   runs_through_shell: false,
   binary: "helix",
 };
-
-const AGENTS: AgentStatus[] = [
-  {
-    name: "claude",
-    display_name: "Claude Code",
-    installed: true,
-    version: "2.1",
-    install_command: null,
-  },
-  {
-    name: "helix",
-    display_name: "Helix",
-    installed: true,
-    version: null,
-    install_command: null,
-    custom: true,
-    description: "A user-added terminal CLI.",
-  },
-];
-
-function Harness({ count = 4 }: { count?: number }) {
-  const [planned, setPlanned] = useState<PlannedTerminal[]>(
-    Array.from({ length: count }, (_, index) => ({
-      agent: index === 0 ? "helix" : "",
-      name: `T${index + 1}`,
-    })),
-  );
-  const [reloads, setReloads] = useState(0);
-  return (
-    <>
-      <AgentAllocation
-        planned={planned}
-        agents={AGENTS}
-        accountsFor={(): AgentAccount[] => []}
-        onPlanned={(update) => setPlanned((previous) => update(previous))}
-        onAgentsChanged={() => setReloads((n) => n + 1)}
-      />
-      <output data-testid="plan">{JSON.stringify(planned)}</output>
-      <output data-testid="reloads">{reloads}</output>
-    </>
-  );
-}
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -258,61 +212,5 @@ describe("CustomCliDialog", () => {
     expect(field("custom-cli-name").value).toBe("Helix");
     expect(field("custom-cli-command").value).toBe("helix");
     expect(screen.getByTestId("custom-cli-at-reference").getAttribute("aria-checked")).toBe("true");
-  });
-});
-
-describe("AgentAllocation with a CLI of your own", () => {
-  it("offers editing only on the rows that have something to edit", () => {
-    render(<Harness />);
-    expect(screen.getByTestId("custom-cli-edit-helix")).toBeTruthy();
-    expect(screen.queryByTestId("custom-cli-edit-claude")).toBeNull();
-  });
-
-  it("loads the stored record before opening the editor", async () => {
-    // `/agents` carries what a picker shows; the dialog needs the command.
-    vi.mocked(api.fetchCustomClis).mockResolvedValue({
-      clis: [STORED],
-      max_name_length: 60,
-      max_command_length: 500,
-      max_logo_bytes: 1024,
-      logo_extensions: [".svg"],
-    });
-    render(<Harness />);
-    fireEvent.click(screen.getByTestId("custom-cli-edit-helix"));
-
-    await waitFor(() =>
-      expect(field("custom-cli-command").value).toBe("helix"),
-    );
-  });
-
-  it("frees the slots a removed CLI held", async () => {
-    vi.mocked(api.deleteCustomCli).mockResolvedValue({ ok: true });
-    render(<Harness />);
-    expect(JSON.parse(screen.getByTestId("plan").textContent ?? "[]")[0]).toEqual(
-      { agent: "helix", name: "T1" },
-    );
-
-    fireEvent.click(screen.getByTestId("custom-cli-remove-helix"));
-
-    await waitFor(() =>
-      expect(
-        JSON.parse(screen.getByTestId("plan").textContent ?? "[]")[0],
-      ).toEqual({ agent: "", name: "T1" }),
-    );
-    // And the list is re-read, or the entry stays on screen after removal.
-    expect(text("reloads")).toBe("1");
-  });
-
-  it("reports a failed removal instead of pretending it worked", async () => {
-    vi.mocked(api.deleteCustomCli).mockRejectedValue(new Error("store is busy"));
-    render(<Harness />);
-    fireEvent.click(screen.getByTestId("custom-cli-remove-helix"));
-
-    await waitFor(() =>
-      expect(text("custom-cli-list-error")).toContain("store is busy"),
-    );
-    expect(JSON.parse(screen.getByTestId("plan").textContent ?? "[]")[0]).toEqual(
-      { agent: "helix", name: "T1" },
-    );
   });
 });

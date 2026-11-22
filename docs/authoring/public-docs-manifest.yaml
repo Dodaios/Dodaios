@@ -132,7 +132,6 @@ pages:
       - dodaios/speech/pipeline.py
       - dodaios/realtime/session.py
       - dodaios/ui/web/voice_runtime.py
-      - dodaios/ui/web/frontend/src/components/VoiceIndicator.tsx
     related:
       - voice-conversations
       - audio-and-wake-word
@@ -276,7 +275,6 @@ pages:
     summary: Keep your own preferences and the people you mention organized, and understand how both support more relevant conversations.
     authoritative_sources:
       - dodaios/ui/web/frontend/src/views/ProfileView.tsx
-      - dodaios/ui/web/frontend/src/views/contacts/ContactsView.tsx
       - dodaios/ui/web/profile_routes.py
       - dodaios/ui/web/contacts_routes.py
       - dodaios/contacts/store.py
@@ -692,7 +690,6 @@ pages:
     diataxis: explanation
     summary: See how reusable workflows, natural-language actions, REST routes, and CLI commands connect to the same underlying capability.
     authoritative_sources:
-      - dodaios/ui/web/frontend/src/views/WorkflowsView.tsx
       - dodaios/ui/web/workflows_routes.py
       - dodaios/workflows/runner.py
       - dodaios/commands/registry.py
@@ -716,7 +713,6 @@ pages:
     summary: Open a project workspace, coordinate coding agents in live terminal panes, and keep every instruction and result visible.
     authoritative_sources:
       - dodaios/ui/web/frontend/src/views/AgenticIdeView.tsx
-      - dodaios/ui/web/frontend/src/components/agentic/AgenticGrid.tsx
       - dodaios/ui/web/agentic_ide_routes.py
       - dodaios/agentic_ide/session.py
       - dodaios/agentic_ide/resume_store.py
