@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentChatApiError, type AgentChatEvent } from "@/lib/agentChatApi";
 import { createAgentChatStore } from "@/store/agentChat";
+import { useEventStore } from "@/store/events";
 import { AgentChatStoreProvider } from "./AgentChatStoreContext";
 import { QuestionCard } from "./QuestionCard";
 import { EMPTY_TIMELINE, reduceEvents, type QuestionState, type ToolBlock, type TurnItem } from "./reduce";
@@ -506,6 +507,22 @@ describe("QuestionCard", () => {
     fireEvent.click(within(card).getByRole("button", { name: /^next$/i }));
     expect(card.querySelector(".qc-step[data-active] .qc-title")?.textContent).toBe(HOST.question);
     expect(card.textContent).toMatch(/no answer came/i);
+  });
+
+  it("says when the assistant answered for the person", () => {
+    useEventStore.setState({ assistantName: "Nova" });
+    draw(questionOf(asking([
+      ev("question_resolved", {
+        turn_id: "t1", question_id: "q1",
+        answers: [{ answer: "SQLite", option_index: 0, source: "delegator" }],
+      }),
+    ], [DB])));
+    const card = screen.getByTestId("question-card");
+    expect(card.getAttribute("data-state")).toBe("delegator");
+    expect(card.textContent).toContain("SQLite");
+    fireEvent.click(within(card).getByRole("button", { name: /show the answers/i }));
+    expect(card.textContent).toContain("Nova answered this for you.");
+    expect(card.textContent).not.toMatch(/no answer came|recommendation/i);
   });
 
   it("reads a dismissed card as muted", () => {

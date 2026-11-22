@@ -7900,6 +7900,7 @@
     "note_declined": "Omitida. {agent} decide esta.",
     "note_moved_on": "Pasaste a otro tema, así que se usó la recomendación.",
     "note_message": "Respondida en el chat.",
+    "note_delegator": "{name} lo respondió por ti.",
     "unanswered": "Sin respuesta: el turno terminó.",
     "composer_placeholder": "Responde a {agent} o escribe sobre otra cosa"
   },

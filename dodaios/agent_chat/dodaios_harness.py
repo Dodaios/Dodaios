@@ -179,10 +179,19 @@ EFFORT_LINE: Final[str] = (
 #: (2026-11-17). So the line says the default end of a change and the limits that
 #: stay, and ``brief_line`` adds the person's own wishes when they set some.
 BRIEF_LINE: Final[str] = (
-    "\nIf you hand work to an agent this turn: the brief is all it sees. Lead with the "
-    "outcome and why, then what it cannot see (the person's words, files, decisions), a "
-    "checkable done and only their limits; no list of suspected causes, no step-by-step "
-    "procedure, no prescribed fix. By default the agent finishes: it reviews its own work "
+    "\nIf you hand work to an agent this turn: the brief is all it sees. For a new job for "
+    "a coding agent, look first: call delegate with options.prepare true and what they "
+    "want as task. It returns the files that fit, the project's own checks, what their "
+    "words leave open and how the recipient wants to be written to; nothing is sent. Then "
+    "brief from that, in English unless their brief wishes name another language: lead "
+    "with the outcome and why, then what it cannot see (real files, "
+    "decisions), the fact for each word of theirs that leaves one open, a done the agent "
+    "can check itself and only their limits; no list of suspected causes, no step-by-step "
+    "procedure, no prescribed fix, nothing about how to report (the agent has standing "
+    "rules for that). Put what a word of theirs stands for into options.resolved "
+    "([{said, means}]); it is remembered for this project. A brief that the check finds "
+    "fault with comes back once with what to fix. By default the agent finishes: it reviews "
+    "its own work "
     "and, with tests and CI green, commits, pushes and merges itself; write no git limits "
     "(no push or merge, hold labels, worktree or folder rules) they did not ask for. Name "
     "the real limits only when the task touches them: nothing posted or sent in their name, "

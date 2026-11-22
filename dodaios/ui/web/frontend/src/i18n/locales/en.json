@@ -7900,6 +7900,7 @@
     "note_declined": "Skipped. {agent} decides this one.",
     "note_moved_on": "You moved on, so the recommendation was used.",
     "note_message": "Answered in the chat.",
+    "note_delegator": "{name} answered this for you.",
     "unanswered": "Not answered: the turn ended.",
     "composer_placeholder": "Answer {agent}, or write about something else"
   },

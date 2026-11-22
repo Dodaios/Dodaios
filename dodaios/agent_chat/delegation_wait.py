@@ -69,6 +69,25 @@ def is_continuation_prompt(prompt: str) -> bool:
     return prompt.startswith((_CONTINUATION_LEAD, CONNECTED_LEAD))
 
 
+#: Added when a coding agent waits for an answer: its question goes to the one
+#: who handed the work over first (``ChatThreads.answer``).
+AGENT_ASKS = (
+    "A row with 'question' is a coding agent waiting for an answer. Answer it yourself "
+    "(workspace-orchestrate, action respond, terminal_id = the row's thread, prompt = the "
+    "answer, one line per question) only when the person's own words, a decision they "
+    "made, their memory or the repository settles it, and say in your reply what you "
+    "answered for them. Otherwise put the question to the person. An approval or a plan "
+    "decision is theirs alone. "
+)
+#: Added when a finished order carries the app's own check of its done-when points.
+DONE_WHEN_CHECKED = (
+    "A row with 'done_when_check' carries Dodaios' own check of the order's done-when "
+    "points against the thread's record and the repository; it outranks the agent's "
+    "report. Send what it found contradicted back to the same agent before you call the "
+    "work done, and say plainly what is still open. "
+)
+
+
 def continuation_prompt(rows: list[dict[str, Any]], original: str, *, later: bool = False) -> str:
     """Hand the delegates' results back to the model as the rest of its task."""
     # The reply is an ordinary chat reply (the reply style's length): the
@@ -83,6 +102,8 @@ def continuation_prompt(rows: list[dict[str, Any]], original: str, *, later: boo
         "Do not resend completed assignments. "
         "Ask for user input only for a concrete blocker. "
         "Treat dispatched as delivery only, never task completion. "
+        + (AGENT_ASKS if any(row.get("question") for row in rows) else "")
+        + (DONE_WHEN_CHECKED if any(row.get("done_when_check") for row in rows) else "")
         + (
             "The user has sent other messages since that request. Answer only for the "
             "original request below, and name it in a few words at the start. "

@@ -76,3 +76,31 @@ def test_a_list_past_the_limit_is_refused(client: TestClient) -> None:
     resp = client.put(URL, json={"wishes": "x" * (brief_wishes.MAX_WISHES_CHARS + 1)})
     assert resp.status_code == 400
     assert brief_wishes.read_wishes() == ""
+
+
+def test_get_lists_what_the_persons_words_stand_for_per_project(
+    client: TestClient, tmp_path
+) -> None:
+    from dodaios.briefs import glossary
+
+    assert client.get(URL).json()["glossary"] == []
+    glossary.learn(tmp_path, "side bar", "the left rail, Rail.tsx")
+    listed = client.get(URL).json()["glossary"]
+    assert listed[0]["project"]
+    assert listed[0]["entries"] == [
+        {"said": "side bar", "means": "the left rail, Rail.tsx", "hits": 0}
+    ]
+
+
+def test_a_learned_word_can_be_unlearned_without_a_confirmation(
+    client: TestClient, tmp_path
+) -> None:
+    from dodaios.briefs import glossary
+
+    glossary.learn(tmp_path, "side bar", "the left rail")
+    project = client.get(URL).json()["glossary"][0]["project"]
+    gone = client.post(URL + "/glossary/unlearn", json={"project": project, "said": "side bar"})
+    assert gone.status_code == 200
+    assert gone.json()["removed"] is True and gone.json()["glossary"] == []
+    again = client.post(URL + "/glossary/unlearn", json={"project": project, "said": "side bar"})
+    assert again.json()["removed"] is False

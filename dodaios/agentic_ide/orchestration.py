@@ -77,7 +77,9 @@ _WORKSPACE_ACTIONS = frozenset({"open_workspace", "restore", "show"})
 # Chat threads one request may open. Each is a coding CLI working at once.
 MAX_THREADS_PER_REQUEST = 16
 # What a chat thread takes besides a task; the rest belongs to terminal panes.
-_THREAD_ACTIONS = frozenset({"resolve", "send", "observe", "context", "interrupt", "watch"})
+_THREAD_ACTIONS = frozenset(
+    {"resolve", "send", "observe", "context", "interrupt", "watch", "respond"}
+)
 # How much of an agent's last prompt the status board repeats.
 _STATUS_JOB_CHARS = 200
 # How many times one request may be re-attempted after receipts proving that
@@ -973,6 +975,9 @@ class WorkspaceOrchestrator:
                                 "prompt": prompt,
                                 "image_refs": args.get("image_refs", []),
                                 "_image_scope": args.get("_image_scope", ""),
+                                # Decided once for the creation; a new pane's
+                                # first prompt is not checked a second time.
+                                "_brief": args.get("_brief"),
                             },
                             trace_id=trace_id,
                         )
@@ -1004,6 +1009,16 @@ class WorkspaceOrchestrator:
         groups = self._thread_groups(args, service)
         if not isinstance(groups, list):
             return groups
+        decision = args.get("_brief")
+        efforts: dict[str, Any] = {}
+        if decision is not None:
+            # No effort was named: each agent starts on the one its job size
+            # calls for on its model (``dodaios.briefs.effort``).
+            sized = []
+            for row, count, picks in groups:
+                picks, efforts[str(row.id)] = self._effort_pick(decision, row, picks)
+                sized.append((row, count, picks))
+            groups = sized
         graph = await asyncio.to_thread(self.graph)
         place = self._thread_place(args, graph)
         if "folder" not in place:
@@ -1113,19 +1128,49 @@ class WorkspaceOrchestrator:
             images = get_store().resolve(
                 str(args.get("_image_scope") or ""), args.get("image_refs", [])
             )
+            briefs: list[Any] = [None] * len(created)
+            if decision is not None:
+                from dodaios.briefs import handoff
+
+                # Each new agent reads the brief as its own model wants it. The
+                # standing rules reach a thread Dodaios opens through its runner.
+                briefs = [
+                    handoff.delivery_for(
+                        decision,
+                        cli=str(row.agent or ""),
+                        model=str(thread.get("model") or getattr(row, "default_model", "") or ""),
+                        effort=efforts.get(str(row.id)),
+                    )
+                    for (row, _picks), thread in zip(wanted, created, strict=False)
+                ]
+            # A thread in its own worktree is told so, and reads the files the
+            # brief names there: what it is shown and what it reads alike.
+            sent: list[str] = []
+            for index, thread in enumerate(created):
+                made = worktrees.get(thread["terminal_id"])
+                if made is None:
+                    sent.append(prompt)
+                    continue
+                sent.append(workdir.localize(prompt, made))
+                if briefs[index] is not None:
+                    from dataclasses import replace
+
+                    briefs[index] = replace(
+                        briefs[index], text=workdir.localize(briefs[index].text, made)
+                    )
             deliveries = await asyncio.gather(
                 *(
                     self.threads.send(
-                        session_of(thread["terminal_id"]),
-                        # A thread in its own worktree is told so, and reads
-                        # the files the brief names there.
-                        workdir.localize(prompt, worktrees[thread["terminal_id"]])
-                        if thread["terminal_id"] in worktrees else prompt,
-                        name=thread["name"], origin=origin, images=images,
+                        session_of(thread["terminal_id"]), text, name=thread["name"],
+                        origin=origin, images=images, brief=brief,
                     )
-                    for thread in created
+                    for thread, text, brief in zip(created, sent, briefs, strict=True)
                 )
             )
+            if decision is not None:
+                result["brief"] = handoff.receipt(
+                    decision, [made for made in briefs if made is not None]
+                )
             result["deliveries"] = [
                 {**delivery, "target": target, "request_id": request_id, "trace_id": trace_id}
                 for delivery, target, request_id in zip(
@@ -1308,8 +1353,20 @@ class WorkspaceOrchestrator:
             return {
                 "status": "not_accepted", "target": target,
                 "reason": f"{action} belongs to terminal panes. A chat thread takes send, "
-                          "observe, interrupt and watch; the person answers its question, "
-                          "plan and approval cards and archives it in the Agentic IDE.",
+                          "observe, interrupt, watch and respond (an answer to its open "
+                          "question); the person answers its plan and approval cards and "
+                          "archives it in the Agentic IDE.",
+            }
+        if action == "respond":
+            # An agent's question goes to the one who handed the work over first.
+            answer = str(args.get("prompt") or "").strip()
+            if not answer:
+                raise ValueError("Responding requires the answer as prompt.")
+            return {
+                **await self.threads.answer(
+                    session_id, answer.splitlines(), origin=current_delegation_origin.get(),
+                ),
+                "target": target,
             }
         if action in {"observe", "context", "resolve"}:
             skip = None
@@ -1364,13 +1421,27 @@ class WorkspaceOrchestrator:
                 break
         if previous is not None:
             return {"target": target, "request_id": request_id, **previous}
+        decision, brief = args.get("_brief"), None
+        if decision is not None:
+            from dodaios.briefs import handoff
+
+            known = decision.order.recipient
+            brief = handoff.delivery_for(
+                decision,
+                cli=known.cli,
+                model=known.model,
+                # A thread the person opened has no other way to the standing rules.
+                rules_in_message=known.first_order and not known.system_channel,
+            )
         result = {
             **await self.threads.send(
                 session_id, prompt, origin=current_delegation_origin.get(),
                 images=get_store().resolve(image_scope, refs),
                 when_busy="refuse" if while_busy == "queue" else while_busy,
+                brief=brief,
             ),
             "target": target, "request_id": request_id, "trace_id": trace_id,
+            **({"brief": handoff.receipt(decision)} if decision is not None else {}),
         }
         await asyncio.to_thread(
             self.ledger.finish, "workspace-orchestration", receipt_id, result
@@ -1770,6 +1841,7 @@ class WorkspaceOrchestrator:
                 request_ids=delivery_ids,
                 image_refs=args.get("image_refs", []),
                 image_scope=args.get("_image_scope", ""),
+                brief=args.get("_brief"),
             )
             result["success"] = all(d.get("status") == "accepted" for d in result["deliveries"])
         return result
@@ -1812,9 +1884,133 @@ class WorkspaceOrchestrator:
             ))
         return groups or [(_default_cli(), 1, {})]
 
+    async def _brief_recipients(self, args: dict[str, Any], action: str) -> list[Any]:
+        """Who would receive this hand-off's brief, as far as it can be told now.
+
+        Read-only, and never the reason a hand-off fails: what cannot be
+        resolved here (a name that needs a question, a missing folder) comes
+        back as a recipient with fewer facts, and the hand-off itself then
+        gives its own answer.
+        """
+        from dodaios.briefs import standing
+        from dodaios.briefs.model import Recipient
+
+        if action == "send":
+            terminal_id = str(args.get("terminal_id") or "")
+            if is_thread(terminal_id):
+                return [await asyncio.to_thread(self.threads.recipient, session_of(terminal_id))]
+            try:
+                target, _ = self._reconcile(args, action)
+            except ValueError:  # an unresolved target is refused by the send itself
+                return [Recipient(kind="pane")]
+            owner = self.registry.get(target["workspace_id"])
+            found = (
+                self.registry.find_terminal(target["terminal_id"], target["workspace_id"])
+                if owner is not None else None
+            )
+            if owner is None or found is None:
+                return [Recipient(kind="pane")]
+            term = found[1]
+            return [Recipient(
+                kind="pane",
+                cli=str(term.agent or ""),
+                model=str(getattr(term, "model", "") or ""),
+                effort=str(getattr(term, "effort", "") or ""),
+                folder=str(term.cwd(owner.folder) or ""),
+                first_order=not any(
+                    standing.has_rules(entry.text) for entry in term.prompt_records
+                ),
+            )]
+        graph = await asyncio.to_thread(self.graph)
+        place = self._thread_place(args, graph)
+        folder = str(place.get("folder") or "")
+        service = self.threads.service()
+        groups = self._thread_groups(args, service) if service is not None else None
+        if isinstance(groups, list) and groups:
+            return [
+                Recipient(
+                    kind="coding_agent",
+                    cli=str(row.agent or ""),
+                    model=str(picks.get("model") or getattr(row, "default_model", "") or ""),
+                    effort=str(picks.get("effort") or ""),
+                    folder=folder,
+                )
+                for row, _count, picks in groups
+            ]
+        raw = args.get("agents")
+        entries = raw if isinstance(raw, list) and raw else [args]
+        return [
+            Recipient(
+                kind="coding_agent",
+                cli=str(_coding_cli(str(entry.get("cli") or "")) or ""),
+                model=str(entry.get("model") or args.get("model") or ""),
+                effort=str(entry.get("effort") or args.get("effort") or ""),
+                folder=folder,
+            )
+            for entry in entries
+            if isinstance(entry, dict)
+        ] or [Recipient(kind="coding_agent", folder=folder)]
+
+    async def _brief_gate(
+        self, args: dict[str, Any], action: str,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        """Pass a hand-off's brief through the shared check (``dodaios.briefs``).
+
+        Returns the arguments with the decision under ``_brief`` and ``None``,
+        or the reply for a brief that goes back to its writer. Runs before
+        anything is claimed, created or typed, so a brief that is sent back has
+        cost nothing. A fault here lets the hand-off through as it was.
+        """
+        from dodaios.briefs import handoff
+
+        if not handoff.enabled():
+            return args, None
+        try:
+            recipients = await self._brief_recipients(args, action)
+            decision = await handoff.check(args, recipients)
+        except Exception:  # noqa: BLE001 - the check must not cost the person their hand-off
+            from loguru import logger
+
+            logger.opt(exception=True).warning("Brief check failed; the hand-off goes on")
+            return args, None
+        if not decision.send:
+            return args, decision.reply()
+        handoff.learn_words(decision.order.recipient.folder, args.get("_resolved_words"))
+        return {**args, "_brief": decision}, None
+
+    async def _brief_kit(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The facts for a request before its brief is written; sends nothing."""
+        from dodaios.briefs import handoff
+
+        action = "send" if str(args.get("terminal_id") or "").strip() else "create"
+        if action == "send":
+            coded = await self._coded_thread(args)
+            if isinstance(coded, dict):
+                return coded
+            if coded:
+                args = {**args, "terminal_id": coded}
+        recipients = await self._brief_recipients(args, action)
+        return await handoff.kit_for(args, recipients)
+
+    @staticmethod
+    def _effort_pick(decision: Any, row: Any, picks: dict[str, str]) -> tuple[dict[str, str], Any]:
+        """A group's picks with the effort its job size calls for, when none was named."""
+        from dodaios.agent_chat.effort import normalize_effort
+        from dodaios.briefs import handoff
+
+        model = str(picks.get("model") or getattr(row, "default_model", "") or "")
+        choice = handoff.effort_for(
+            decision, str(row.agent or ""), model, named=str(picks.get("effort") or "")
+        )
+        if picks.get("effort") or not choice.level:
+            return picks, choice
+        level = normalize_effort(str(row.id), choice.level)
+        return ({**picks, "effort": level} if level else picks), choice
+
     async def _brief(
         self, targets: list[dict[str, str]], prompt: str, trace_id: str,
         *, request_ids: list[str], image_refs: list[str] | None = None, image_scope: str = "",
+        brief: Any = None,
     ) -> list[dict[str, Any]]:
         return list(
             await asyncio.gather(
@@ -1827,6 +2023,9 @@ class WorkspaceOrchestrator:
                             "prompt": prompt,
                             "image_refs": image_refs or [],
                             "_image_scope": image_scope,
+                            # Decided once for the creation; a new pane's first
+                            # prompt is not checked a second time.
+                            "_brief": brief,
                         },
                         trace_id=trace_id,
                     )
@@ -2019,6 +2218,12 @@ class WorkspaceOrchestrator:
 
         # A thread's result reaches the conversation over the same bus as a pane's.
         self.threads.publish = self.publish
+        if action == "brief_kit":
+            # What a brief writer should know before it writes. A read: it
+            # creates nothing and sends nothing, so none of the gates below
+            # (new panes only, one creation per request) apply to it.
+            self.threads.service()
+            return await self._brief_kit(args)
         # Built here, on the loop, when this is its first use: the reads below
         # that leave the loop must only ever find it, never build it.
         self.threads.service()
@@ -2074,6 +2279,16 @@ class WorkspaceOrchestrator:
                 return coded
             if coded:
                 args = {**args, "terminal_id": coded}
+        if (
+            action in {"create", "open_workspace", "send"}
+            and str(args.get("prompt") or "").strip()
+            and "_brief" not in args
+            # A creation this request already made answers with its receipt.
+            and not (creation and action != "send")
+        ):
+            args, sent_back = await self._brief_gate(args, str(action))
+            if sent_back is not None:
+                return sent_back
         if is_thread(args.get("terminal_id")) and action not in {"create", "open_workspace"}:
             return await self._thread_action(args, trace_id=trace_id)
         if action in {"inspect", "resolve"}:
@@ -2185,6 +2400,7 @@ class WorkspaceOrchestrator:
             "image_scope": image_scope, "trace_id": trace_id, "request_id": request_id,
             "limit": args.get("limit", 30),
             "cursor": args.get("cursor"),
+            "brief": args.get("_brief"),
         }
         result = await self._deliver(
             delivery, when_busy="refuse" if while_busy == "queue" else while_busy,
@@ -2249,6 +2465,24 @@ class WorkspaceOrchestrator:
                         "continues the agent's own conversation and stops nothing), then "
                         "resend this request with the same request_id and prompt.",
             }
+        made, decision = None, delivery.get("brief") if action == "send" else None
+        if decision is not None:
+            from dodaios.briefs import handoff, standing
+
+            from .session import MAX_PROMPT_CHARS
+
+            # What is typed is the brief as this pane's model wants it, with the
+            # standing rules the first time Dodaios sends into this pane. The
+            # receipt and the pane's history keep the writer's own brief.
+            made = handoff.delivery_for(
+                decision,
+                cli=str(found[1].agent or ""),
+                model=str(getattr(found[1], "model", "") or ""),
+                rules_in_message=not any(
+                    standing.has_rules(entry.text) for entry in found[1].prompt_records
+                ),
+                max_chars=MAX_PROMPT_CHARS - 600,
+            )
         # The low-level gateway enforces idle/asking state and refuses exited
         # agents. It never falls through to a shell or a different pane.
         try:
@@ -2259,18 +2493,24 @@ class WorkspaceOrchestrator:
                     "terminal_id": terminal_id,
                     **(
                         {"prompt": delivery["prompt"], "image_refs": delivery["refs"],
-                         "_image_scope": delivery["image_scope"], "when_busy": when_busy}
+                         "_image_scope": delivery["image_scope"], "when_busy": when_busy,
+                         **({"_brief_text": made.text} if made is not None else {})}
                         if action == "send"
                         else {"limit": delivery["limit"], "cursor": delivery.get("cursor")}
                     ),
                 }
             )
+            if made is not None and decision is not None:
+                handoff.note_delivery(
+                    made, f"pane:{delivery['request_id']}", thread_id=terminal_id
+                )
             return {
                 **reply,
                 "status": reply.get("delivery", reply.get("status", "observed")),
                 "target": target,
                 "trace_id": delivery["trace_id"],
                 "request_id": delivery["request_id"],
+                **({"brief": handoff.receipt(decision)} if decision is not None else {}),
             }
         except AgentBusyError as exc:
             # Pre-write, like every SessionError, and the one refusal the

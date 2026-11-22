@@ -167,6 +167,10 @@ class TurnHandle:
     gateway_only: bool = False
     output_language: str = ""
     goal_turn: bool = False
+    #: The id of the agent that opened this coding thread (the lead, a society
+    #: agent), empty when the person did. Such a thread takes work orders, and
+    #: its agent gets the standing rules for them (``dodaios.briefs.standing``).
+    opened_by: str = ""
     control_service: Any = None
     #: A continuation keeps the turn's already resolved language and identity.
     continuation: bool = False

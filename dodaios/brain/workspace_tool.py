@@ -85,8 +85,10 @@ class WorkspaceOrchestrationTool:
         "when the user explicitly asked for a terminal, a pane or the grid: then they open as "
         "terminal panes in the named or visible workspace. A chat thread's terminal_id starts "
         "with 'thread:'; send, observe, interrupt, watch and status take it directly, with no "
-        "resolve, and the person answers its question and approval cards in the IDE. respond, "
-        "keys, restart, close and fork are for panes. "
+        "resolve. respond answers a thread's open question card (prompt = the answer, one "
+        "line per question): only when the person's own words, a decision they made or the "
+        "repository settles it, otherwise they answer it in the IDE; plan and approval cards "
+        "are always theirs. keys, restart, close and fork are for panes. "
         "Never reuse an existing agent and never use spawn_worker for that. "
         "Mixed CLIs in one request ('five Claude Code and three Codex') go in agents: "
         "[{cli, count, model, effort}, ...]. open_workspace starts agents in a folder "
@@ -391,6 +393,9 @@ class WorkspaceOrchestrationTool:
         try:
             result = await self.gateway.run(
                 {**args, "_image_scope": scope,
+                 # What the person said, for a caller without a chat turn (a
+                 # voice call): the brief check reads it (``dodaios.briefs``).
+                 **({"_person_words": ctx.user_utterance} if ctx.user_utterance else {}),
                  **dispatch_context(ctx.user_utterance, ctx.config, str(ctx.trace_id))},
                 trace_id=str(ctx.trace_id),
             )
@@ -403,6 +408,8 @@ class WorkspaceOrchestrationTool:
         result = _point_at_jarvis_agent(args, result)
         return ToolResult(
             success=result.get("success") is not False
-            and status not in {"uncertain", "unavailable", "stale_target", "not_accepted"},
+            and status not in {
+                "uncertain", "unavailable", "stale_target", "not_accepted", "needs_revision",
+            },
             output=result,
         )
