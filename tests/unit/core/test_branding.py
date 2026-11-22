@@ -50,8 +50,6 @@ _CURRENT_IDENTITY = {
     "LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES": ("Jarvis-Output",),
     "DELIVERABLES_DIR_NAME": "Dodaios-Outputs",
     "LEGACY_DELIVERABLES_DIR_NAMES": ("Jarvis-Outputs",),
-    "OBSIDIAN_VAULT_FOLDER_NAME": "Dodaios",
-    "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES": ("Jarvis",),
     "WINDOWS_MUTEX_NAME": r"Global\Dodaios_v1",
     "LEGACY_WINDOWS_MUTEX_NAMES": (r"Global\PersonalJarvis_v1",),
     "WINDOWS_APP_USER_MODEL_ID": "PersonalJarvis.PersonalJarvis",
@@ -108,7 +106,6 @@ _MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
         "FALLBACK_USER_DATA_DIR_NAME",
         "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
         "DELIVERABLES_DIR_NAME",
-        "OBSIDIAN_VAULT_FOLDER_NAME",
         "MANAGED_INSTALL_MARKER",
         "DEFAULT_INSTALL_DIR_NAME",
         # The Windows identity: launcher, shortcut, logon task, mutex.

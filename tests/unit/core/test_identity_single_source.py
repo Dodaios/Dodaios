@@ -582,7 +582,6 @@ _ROLES: tuple[tuple[str, str, str], ...] = (
     # Both folders can land on the Desktop (deliverables fall back to it).
     ("desktop-dir", "output-mirror", "DESKTOP_OUTPUT_MIRROR_DIR_NAME"),
     ("desktop-dir", "deliverables", "DELIVERABLES_DIR_NAME"),
-    ("vault-dir", "wiki", "OBSIDIAN_VAULT_FOLDER_NAME"),
 )
 
 
