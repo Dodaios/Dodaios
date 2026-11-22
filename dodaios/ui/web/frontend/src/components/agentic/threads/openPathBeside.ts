@@ -5,7 +5,7 @@ import { useIdeChatStore } from "@/store/ideChat";
 import { revealInExplorer } from "@/store/ideExplorer";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
-import { matchProjectPath } from "./projectPathMatch";
+import { matchProjectPath, type ProjectPathMatch } from "./projectPathMatch";
 
 /** A path with no drive, no leading slash and no `~`: an answer named it from some folder. */
 function isRelative(path: string): boolean {
@@ -25,7 +25,7 @@ const LOOKUP_LIMIT = 1000;
  * the thread's own folder, whichever workspace is open, and the server keeps
  * the listing warm.
  */
-async function findInProject(path: string, folder: string): Promise<string | null> {
+async function findInProject(path: string, folder: string): Promise<ProjectPathMatch | null> {
   const target = path.trim().replace(/\\/g, "/").replace(/\/+$/, "");
   const name = target.slice(target.lastIndexOf("/") + 1);
   if (!name) return null;
@@ -34,7 +34,7 @@ async function findInProject(path: string, folder: string): Promise<string | nul
     // Folders come back as `path/`, which is how the match tells them from files.
     const entries = found.items.filter((item) => item.kind === "file" || item.kind === "folder").map((item) => item.value);
     const match = matchProjectPath(path, folder, entries);
-    return match ? absoluteFilePath(match.path, folder) : null;
+    return match ? { ...match, path: absoluteFilePath(match.path, folder) } : null;
   } catch {
     return null; // The lookup is a second chance; without it the path reads as missing.
   }
@@ -74,14 +74,17 @@ export async function openPathBeside(path: string, folder: string, line?: number
     else show();
     return;
   }
+  // A project folder the open workspace has no tree for opens on the computer.
+  let elsewhere = absolute;
   if (isRelative(path) && folder) {
     const inProject = await findInProject(path, folder);
-    const found = inProject ? await lookUp(inProject) : null;
+    const found = inProject ? await lookUp(inProject.path) : null;
     if (inProject && found) {
       if (found.kind === "directory") revealInExplorer({ workspaceId, path: found.path });
-      else show(inProject);
+      else show(inProject.path);
       return;
     }
+    if (inProject?.kind === "directory") elsewhere = inProject.path;
     const home = `~/${path.trim().replace(/^\.[\\/]/, "").replace(/\\/g, "/")}`;
     const atHome = await lookUp(home);
     if (atHome) {
@@ -93,6 +96,6 @@ export async function openPathBeside(path: string, folder: string, line?: number
   }
   // Not a file, and not a folder of the project: a folder elsewhere opens
   // on the computer; anything else reads as unavailable in the File tab.
-  if (!/\.[A-Za-z0-9]{1,10}$/.test(absolute.replace(/[\\/]+$/, "")) && await openLocalPath(absolute)) return;
+  if (!/\.[A-Za-z0-9]{1,10}$/.test(elsewhere.replace(/[\\/]+$/, "")) && await openLocalPath(elsewhere)) return;
   show();
 }

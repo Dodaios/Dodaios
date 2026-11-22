@@ -80,6 +80,24 @@ describe("a path an answer names", () => {
     expect(useSideFileStore.getState().file).toBeNull();
   });
 
+  it("opens a project folder the open workspace has no tree for on the computer", async () => {
+    // The open workspace is another project's, so its Files tab cannot show the folder.
+    useIdeChatStore.setState({ workspace: { id: "w1", name: "web", path: "/Users/me/web" } });
+    fetchMock
+      .mockResolvedValueOnce(missing())
+      .mockResolvedValueOnce(listing(["web/src/components/arcade/", "web/src/components/arcade/Arcade.tsx"]))
+      .mockResolvedValueOnce(missing())
+      .mockResolvedValueOnce(missing())
+      .mockResolvedValueOnce(answer({ opened: true }));
+    await openPathBeside("components/arcade/", "/Users/me/Dodaios");
+    expect(asked(fetchMock)).toEqual([
+      "/Users/me/Dodaios/components/arcade/", "search /Users/me/Dodaios arcade",
+      "/Users/me/Dodaios/web/src/components/arcade", "~/components/arcade/", "/Users/me/Dodaios/web/src/components/arcade",
+    ]);
+    expect(String(fetchMock.mock.calls[4][0])).toBe("/api/settings/open-path");
+    expect(useSideFileStore.getState().file).toBeNull();
+  });
+
   it("does not guess between two project files that both fit", async () => {
     useIdeChatStore.setState({ workspace: { id: "w1", name: "Dodaios", path: "/Users/me/Dodaios" } });
     fetchMock
