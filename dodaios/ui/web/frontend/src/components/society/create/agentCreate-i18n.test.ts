@@ -12,7 +12,6 @@ import de from "@/i18n/locales/de.json";
 import es from "@/i18n/locales/es.json";
 import pt from "@/i18n/locales/pt.json";
 import zh from "@/i18n/locales/zh.json";
-import { KNOWN_STARTER_ICONS } from "./starterIcons";
 
 const LOCALES: Record<string, Record<string, unknown>> = { en, de, es, pt, zh };
 const STARTER_DIR = join(__dirname, "..", "..", "..", "..", "..", "..", "..", "society", "starters");
@@ -95,7 +94,6 @@ describe("agent_create locale block", () => {
         expect(lookup(locale, `${base}.routine`) !== undefined, `${lang}: ${base}.routine`).toBe(Boolean(entry.routine));
         if (entry.routine) expect(lookup(locale, `agent_create.when.${entry.routine.when}`)).toBeTypeOf("string");
       }
-      expect(KNOWN_STARTER_ICONS, entry.icon).toContain(entry.icon);
     }
   });
 

@@ -1,24 +1,19 @@
 /**
- * The retirement ceremony's curves and geometry (`retirement.ts`), plus the
- * one thing about the route that can actually break: whether a body can be
- * carried from the town to the mine at all (`retirementRoute.ts`).
+ * The retirement ceremony's curves and geometry (`retirement.ts`).
  *
  * The animation itself is not tested here — that is pixels. What is tested is
  * everything a bug in would put a figure in the wrong place: which way the
- * two face each other, which way a body topples, where the throw lands, and
- * that the mine is reachable from the square.
+ * two face each other, which way a body topples, and where the throw
+ * lands.
  */
 import { describe, expect, it } from "vitest";
 
 import {
-  BEARER_ENTRY_M,
   EXECUTION_RANGE_M,
-  MINE_APPROACH_M,
   PHASE_ORDER,
   PHASE_SECONDS,
   STRETCHER_HALF_M,
   TOSS_APEX_M,
-  TOSS_STANDOFF_M,
   aimBlend,
   bearerSlots,
   facingHeading,
@@ -35,8 +30,6 @@ import {
   tossFade,
   tossProgress,
 } from "./retirement";
-import { planRetirement } from "./retirementRoute";
-import { CENTER_TILE, buildIsland, tileToWorld } from "./islandLayout";
 
 describe("the ceremony's beats", () => {
   it("runs every phase once and ends on done", () => {
@@ -203,59 +196,5 @@ describe("the stretcher", () => {
     const [front] = bearerSlots([0, 0], Math.PI / 2);
     expect(front[0]).toBeCloseTo(STRETCHER_HALF_M);
     expect(front[1]).toBeCloseTo(0, 5);
-  });
-});
-
-describe("planning a retirement on the island", () => {
-  // The one route failure that would strand a body forever: the mine being
-  // unreachable from the town. Everything else in the plan derives from it.
-  const square = tileToWorld(CENTER_TILE + 3, CENTER_TILE + 3);
-  const nearby = tileToWorld(CENTER_TILE + 8, CENTER_TILE + 6);
-
-  it("routes a body from the square to the mine's portal", () => {
-    const plan = planRetirement(square, nearby);
-    expect(plan).not.toBeNull();
-    if (!plan) return;
-    const end = plan.carryPath[plan.carryPath.length - 1];
-    // The crew stops the standoff short of the mouth, on the forecourt.
-    expect(Math.hypot(end[0] - plan.portal[0], end[1] - plan.portal[2])).toBeCloseTo(
-      TOSS_STANDOFF_M,
-      1,
-    );
-    expect(pathLength(plan.carryPath)).toBeGreaterThan(MINE_APPROACH_M);
-  });
-
-  it("stands the executioner at firing range and walks it there", () => {
-    const plan = planRetirement(square, nearby);
-    expect(plan).not.toBeNull();
-    if (!plan) return;
-    expect(Math.hypot(plan.stand.x - plan.body.x, plan.stand.z - plan.body.z)).toBeCloseTo(
-      EXECUTION_RANGE_M,
-      5,
-    );
-    const last = plan.leadPath[plan.leadPath.length - 1];
-    expect(last).toEqual([plan.stand.x, plan.stand.z]);
-  });
-
-  it("brings the bearers on from the mine road and walks them to the body", () => {
-    const plan = planRetirement(square, nearby);
-    expect(plan).not.toBeNull();
-    if (!plan) return;
-    const entry = plan.bearerPath[0];
-    const end = plan.bearerPath[plan.bearerPath.length - 1];
-    expect(end).toEqual([plan.body.x, plan.body.z]);
-    // They come on from up the road, not on top of the body.
-    expect(Math.hypot(entry[0] - plan.body.x, entry[1] - plan.body.z)).toBeGreaterThan(
-      BEARER_ENTRY_M / 3,
-    );
-  });
-
-  it("keeps the body on walkable ground", () => {
-    const { map } = buildIsland();
-    const plan = planRetirement(square, nearby);
-    expect(plan).not.toBeNull();
-    if (!plan) return;
-    expect(Number.isFinite(map.level[0])).toBe(true);
-    expect(Number.isFinite(plan.portal[1])).toBe(true);
   });
 });

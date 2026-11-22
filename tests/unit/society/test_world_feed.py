@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -15,9 +14,6 @@ from dodaios.society.world_feed import ROOM_TYPES, VISIBLE_TYPES, WorldFeed, pre
 from dodaios.ui.web.schema import event_to_ws_envelope
 
 _REPO = Path(__file__).resolve().parents[3]
-_CONVERSATION_TS = _REPO / "dodaios/ui/web/frontend/src/components/society/world/conversation.ts"
-
-
 @pytest.fixture
 async def rt(tmp_path: Path):
     pushed: list[Any] = []
@@ -204,15 +200,6 @@ async def test_the_event_survives_the_websocket_sanitizer(rt):
 def test_the_world_only_reacts_to_types_the_board_can_produce():
     assert (VISIBLE_TYPES | ROOM_TYPES) <= set(MsgType)
     assert VISIBLE_TYPES.isdisjoint(ROOM_TYPES)
-
-
-@pytest.mark.skipif(not _CONVERSATION_TS.exists(), reason="the world layer is not built yet")
-def test_the_typescript_half_lists_the_same_types():
-    source = _CONVERSATION_TS.read_text(encoding="utf-8")
-    match = re.search(r"WORLD_MSG_TYPES[^=]*=\s*\[(.*?)\]", source, re.S)
-    assert match, "conversation.ts must export WORLD_MSG_TYPES"
-    listed = set(re.findall(r'"([A-Z_]+)"', match.group(1)))
-    assert listed == {str(t) for t in VISIBLE_TYPES | ROOM_TYPES}
 
 
 def test_the_relay_is_wired_into_the_runtime(tmp_path: Path):

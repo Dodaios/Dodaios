@@ -3,7 +3,7 @@
 Why this module exists
 ======================
 
-``relationship`` is an enum-like value that lives in five places at once
+``relationship`` is an enum-like value that lives in four places at once
 (see ``docs/anti-drift-three-layer.md``):
 
 1. **Producer** — :mod:`dodaios.contacts.store` writes it into the ``<slug>.md``
@@ -13,15 +13,11 @@ Why this module exists
 3. **Pydantic** — :mod:`dodaios.ui.web.contacts_routes` types the field with the
    :data:`Relationship` ``Literal`` so an unknown value is a 422/400, not a
    silent write.
-4. **TypeScript** — ``frontend/src/views/contacts/constants.ts`` mirrors the
-   tuple in ``RELATIONSHIPS``.
-5. **UI label** — ``RELATIONSHIP_LABELS`` in the same TS file + the
-   ``contacts.rel.*`` i18n keys.
+4. **UI label** — the ``contacts.rel.*`` i18n keys.
 
-A parity test (``tests/unit/contacts/test_relationship_parity.py``) asserts the
-Python tuple equals the TS array, and the import-time assertion below fails the
-process at boot if the ``Literal`` ever drifts from the tuple — the cheap
-insurance against the BUG-008 multi-layer-enum-drift class (AP-4).
+The import-time assertion below fails the process at boot if the ``Literal``
+ever drifts from the tuple — the cheap insurance against the BUG-008
+multi-layer-enum-drift class (AP-4).
 """
 from __future__ import annotations
 

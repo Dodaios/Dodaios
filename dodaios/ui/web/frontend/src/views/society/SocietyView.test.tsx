@@ -12,7 +12,6 @@ beforeEach(() => {
   quick.create.mockReset(); quick.create.mockResolvedValue({ agentId: "specialist" });
 });
 
-vi.mock("@/lib/mapFullscreen", () => ({ setMapFullscreen: vi.fn(async () => undefined) }));
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-query")>()),
   useQueryClient: () => ({ invalidateQueries: async () => undefined }),
@@ -25,7 +24,6 @@ vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.c
   { agentId: "lead", name: "Lead", tier: "lead", state: "idle" },
   { agentId: "specialist", name: "Specialist", tier: "specialist", state: "idle" },
 ] }, isLoading: false }) }));
-vi.mock("@/components/society/mars/MarsStationPanel", () => ({ MarsStationPanel: ({ onClose }: any) => <aside aria-label="Mars station"><button onClick={onClose}>Close station</button></aside> }));
 vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay: ({ agent, embedded, onSelectAgent, onSelectGroup, onCreate, railHeader }: any) => (
   <div data-testid="workspace" data-embedded={String(embedded)}>
     {railHeader}
@@ -36,7 +34,6 @@ vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay:
   </div>
 ) }));
 vi.mock("@/components/society/roster/RosterRail", () => ({ RosterRail: () => <div data-testid="roster" /> }));
-vi.mock("@/components/society/card/BuildingCardOverlay", () => ({ BuildingCardOverlay: () => null }));
 
 const initialUrl = window.location.href;
 afterEach(() => { cleanup(); window.history.replaceState(null, "", initialUrl); localStorage.removeItem(LAST_AGENT_STORAGE_KEY); });

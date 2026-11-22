@@ -13,7 +13,7 @@ handler sits behind the same capability gate as the pull routes —
 with a sentence, never a silent empty table.
 
 Response bodies are Pydantic models: the Python half of the five-layer
-parity contract (AP-4); the TS mirror lives in ``src/hooks/useLocalModels.ts``.
+parity contract (AP-4).
 
 Deleting is the one destructive action, and it is refused — 409 with the
 reason — while a configured role still points at the model, unless the
@@ -1065,8 +1065,7 @@ async def get_server_log(
 
 
 class OverviewResponse(BaseModel):
-    """ONE payload for the section's first paint (TS mirror ``OverviewResponse``
-    in ``src/hooks/useLocalModels.ts``; parity-tested).
+    """ONE payload for the section's first paint (field set parity-tested).
 
     ``server`` / ``roles`` / ``inventory`` / ``recommended`` are exactly what
     the four single endpoints answer; ``source`` says whether this is a live

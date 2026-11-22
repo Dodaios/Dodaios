@@ -110,36 +110,6 @@
         }
       ]
     },
-    "react-arborist": {
-      "version": "3.5.0",
-      "documents": [
-        {
-          "file": "third_party/react-arborist/LICENSE",
-          "source": "https://raw.githubusercontent.com/jameskerr/react-arborist/7272564052d1cea78383b03d683c352cba3b7157/LICENSE",
-          "sha256": "f1dcfe846608164333e4662013cd41adcee862327ca0b93228fbc11418b299c8"
-        }
-      ]
-    },
-    "react-force-graph-2d": {
-      "version": "1.29.1",
-      "documents": [
-        {
-          "file": "third_party/react-force-graph/LICENSE",
-          "source": "https://raw.githubusercontent.com/vasturiano/react-force-graph/5ee21b693d83f62da569cba6e3cdf31e028406e1/LICENSE",
-          "sha256": "5b6dc9ce44c7b73620b191c567339212bd00537af46fdedaf98304c34214cc9c"
-        }
-      ]
-    },
-    "react-force-graph-3d": {
-      "version": "1.29.1",
-      "documents": [
-        {
-          "file": "third_party/react-force-graph/LICENSE",
-          "source": "https://raw.githubusercontent.com/vasturiano/react-force-graph/5ee21b693d83f62da569cba6e3cdf31e028406e1/LICENSE",
-          "sha256": "5b6dc9ce44c7b73620b191c567339212bd00537af46fdedaf98304c34214cc9c"
-        }
-      ]
-    },
     "victory-vendor": {
       "version": "37.3.6",
       "documents": [

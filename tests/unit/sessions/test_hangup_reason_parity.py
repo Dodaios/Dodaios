@@ -12,17 +12,15 @@ from ``Literal`` to plain ``str`` (see ``models.py`` Z. 22-43), and
 the TypeScript side mirrored that to plain ``string``.
 
 What stayed is the *documenting* set of known reasons in three places —
-they need to agree so the Transcription view's label switch covers
-every value the pipeline can emit, and the schema.sql doc comment is
-not lying. The coordination layers under test are:
+they need to agree so the frontend's types cover every value the
+pipeline can emit, and the schema.sql doc comment is not lying. The
+coordination layers under test are:
 
 1. ``dodaios/sessions/constants.py``           — the Python tuple (source of truth)
 2. ``dodaios/sessions/models.py``              — ``KNOWN_HANGUP_REASONS`` frozenset (mirror)
 3. ``dodaios/ui/web/frontend/src/components/sessions/types.ts``
                                               — ``KNOWN_HANGUP_REASONS`` const tuple
-4. ``dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx``
-                                              — the user-facing label switch
-5. ``dodaios/sessions/schema.sql``             — the doc comment
+4. ``dodaios/sessions/schema.sql``             — the doc comment
 
 A drift introduces a single failing test instead of shipping a missing
 label, an empty Transcription cell, or a stale schema comment.
@@ -37,9 +35,6 @@ from dodaios.sessions.models import KNOWN_HANGUP_REASONS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TYPES_TS = REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/types.ts"
-SESSION_LIST_TSX = (
-    REPO_ROOT / "dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx"
-)
 SCHEMA_SQL = REPO_ROOT / "dodaios/sessions/schema.sql"
 
 
@@ -77,28 +72,6 @@ def test_types_ts_known_set_matches_constants_tuple() -> None:
     assert found == _expected_set(), (
         f"types.ts drift: extra={found - _expected_set()}, "
         f"missing={_expected_set() - found}"
-    )
-
-
-def test_session_list_tsx_switch_covers_all_reasons() -> None:
-    """SessionList.tsx ``hangupLabel`` must have a case for every non-empty value.
-
-    The empty string is the running-session marker and never reaches
-    ``hangupLabel`` (the caller falls back to a "läuft" badge); we  # i18n-allow: quotes the actual German UI badge label under test
-    therefore exclude it from the required cases.
-    """
-    text = SESSION_LIST_TSX.read_text(encoding="utf-8")
-    fn = re.search(
-        r"function\s+hangupLabel\s*\([^)]*\)\s*:\s*string\s*\{([\s\S]+?)\n\}",
-        text,
-    )
-    assert fn is not None, "could not locate hangupLabel function in SessionList.tsx"
-    body = fn.group(1)
-    cases = set(re.findall(r'case\s+"([^"]+)"\s*:', body))
-    required = _expected_set() - {""}
-    assert cases == required, (
-        f"SessionList.tsx switch drift: extra={cases - required}, "
-        f"missing={required - cases}"
     )
 
 

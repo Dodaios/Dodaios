@@ -1,15 +1,13 @@
 """Parity for the overview wire contract (five-layer pattern, AP-4).
 
-``OverviewResponse`` in ``local_models_routes.py`` (the Python half) and the
-TS interface of the same name in ``src/hooks/useLocalModels.ts`` must carry
-exactly the same six fields, and the route must actually answer them from
-the disk snapshot when the server is silent.
+``OverviewResponse`` in ``local_models_routes.py`` must carry exactly these
+six fields, and the route must actually answer them from the disk snapshot
+when the server is silent.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import httpx
@@ -25,33 +23,14 @@ from dodaios.ui.web.server import WebServer
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-TS_FILE = REPO_ROOT / "dodaios/ui/web/frontend/src/hooks/useLocalModels.ts"
 ROOT = "http://localhost:11434"
 BASE = "/api/providers/ollama/local-models"
 
 EXPECTED = ("server", "roles", "inventory", "recommended", "source", "fetched_at")
 
 
-def _ts_interface_keys(name: str) -> list[str] | None:
-    src = TS_FILE.read_text(encoding="utf-8")
-    match = re.search(rf"export interface {name}\s*\{{([^}}]*)\}}", src)
-    if not match:
-        return None
-    return re.findall(r"^\s*([a-z_]+)\??:", match.group(1), flags=re.MULTILINE)
-
-
 def test_pydantic_fields_are_the_six_the_frontend_builds_against() -> None:
     assert tuple(OverviewResponse.model_fields) == EXPECTED
-
-
-def test_typescript_mirror_matches_the_pydantic_model() -> None:
-    keys = _ts_interface_keys("OverviewResponse")
-    if keys is None:
-        pytest.skip(
-            "interface OverviewResponse is not in useLocalModels.ts yet — the frontend "
-            "chunk (A4/A5) adds it; this test then compares the six fields."
-        )
-    assert keys == list(OverviewResponse.model_fields)
 
 
 @pytest.fixture
