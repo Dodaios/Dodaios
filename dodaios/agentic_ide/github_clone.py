@@ -94,10 +94,9 @@ def _destination(repo: str) -> tuple[Path, bool]:
             return candidate, False
         # Only the top of a repository of its own counts: git answers for a
         # plain folder inside another checkout with that checkout's remote.
-        if (
-            (candidate / ".git").exists()
-            and github_link.remote_repository(candidate).lower() == repo.lower()
-        ):
+        if not (candidate / ".git").exists():
+            continue
+        if github_link.remote_repository(candidate).lower() == repo.lower():
             return candidate, True
     raise GitError(
         f"{home / name} already holds something else. Move it, or connect the folder you want.",

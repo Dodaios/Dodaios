@@ -52,6 +52,10 @@ This documentation uses **Dodaios-Agents** for that separate feature.
 
 1. Open **Agentic IDE** from the sidebar and choose **New workspace**.
 2. Select or paste the project folder. Agent briefs use this folder as context.
+   A GitHub repository works as a folder too: open **GitHub** under **Places**,
+   type its name, or paste its address. A repository that is not on this
+   computer yet is downloaded once into `~/Dodaios` (beside it, into
+   `~/Dodaios-repos`, when that folder holds Dodaios's own source).
 3. Choose the workspace shape and number of panes.
 4. Assign an available coding CLI, optional account, and call-sign to each
    pane. You can also choose a plain terminal for commands you want to type

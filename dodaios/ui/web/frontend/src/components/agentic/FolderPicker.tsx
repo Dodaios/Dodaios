@@ -613,6 +613,13 @@ export function FolderPicker({
           },
         ]
       : [];
+    // The places with GitHub among them: after the folders in the home folder,
+    // before the disks, because it is somewhere to work, like Desktop.
+    const placeRows = (entries: FolderItem[], place: Row[]): Row[] => {
+      const rows = folderRows(entries, true);
+      const disk = entries.findIndex((entry) => isRootPath(entry.path));
+      return disk < 0 ? [...rows, ...place] : [...rows.slice(0, disk), ...place, ...rows.slice(disk)];
+    };
     // A bare word finds repositories from two letters on, like the search of
     // the whole machine; one letter would match most of them.
     const repoHits = word.length >= SEARCH_MIN ? matchRepos(repos, word).slice(0, HITS_SHOWN) : [];
@@ -628,7 +635,7 @@ export function FolderPicker({
         add(null, repoRows(repos));
       } else if (listing.path === null) {
         add(t("ide_folder_picker.recent_folders"), recentRows(recents));
-        add(t("ide_folder_picker.places"), [...folderRows(listing.entries, true), ...githubPlace]);
+        add(t("ide_folder_picker.places"), placeRows(listing.entries, githubPlace));
       } else {
         add(null, folderRows(listing.entries));
       }
@@ -661,10 +668,10 @@ export function FolderPicker({
         // lives on the Desktop above the Desktop itself, and "cd Desktop"
         // followed by Enter opened one of them.
         add(t("ide_folder_picker.recent_folders"), recentRows(matchByName(recents, word)));
-        add(t("ide_folder_picker.places"), [
-          ...folderRows(matchByName(listing.entries, word), true),
-          ...matchByName(githubPlace, word),
-        ]);
+        add(
+          t("ide_folder_picker.places"),
+          placeRows(matchByName(listing.entries, word), matchByName(githubPlace, word)),
+        );
         if (livePreview && !livePreview.error) {
           contextDir = { path: livePreview.path, entries: livePreview.entries };
           add(t("ide_folder_picker.in_home"), folderRows(matchByName(livePreview.entries, word)));
