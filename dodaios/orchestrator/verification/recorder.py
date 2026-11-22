@@ -39,6 +39,7 @@ from typing import Any, Final
 
 from dodaios.rsi import domains, harness_probe, repo_identity
 
+from . import evidence
 from .store import ENDED, INTERRUPTED, VerificationStore
 
 log = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ _KINDS: Final[frozenset[str]] = frozenset(
 #: How far back the catch-up read looks in a thread's log.
 _CATCH_UP_EVENTS: Final[int] = 2_000
 _STOP: Final[object] = object()
+#: The writer thread wakes for due evidence no sooner and no later than this.
+_MIN_WAIT_S: Final[float] = 1.0
+_MAX_WAIT_S: Final[float] = 300.0
 
 
 def _int(value: Any) -> int | None:
@@ -104,6 +108,8 @@ class RunRecorder:
         describe: Callable[[str], repo_identity.RepoRef] = repo_identity.describe,
         boot_id: str = "",
         verify: str = "off",
+        read_evidence: Callable[[str, str], evidence.Evidence] = evidence.read,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         self.store = store
         self._service = service
@@ -112,6 +118,10 @@ class RunRecorder:
         self._boot_id = boot_id
         #: ``observe``: scan what an ended run left behind and record the result.
         self._verify = verify
+        self._read_evidence = read_evidence
+        self._clock = clock
+        #: When the landing and checks of a run are read again (``run_id`` -> ms).
+        self._due: dict[str, int] = {}
         self._queue: queue.SimpleQueue[Any] = queue.SimpleQueue()
         self._watched: set[str] = set()
         self._watched_lock = threading.Lock()
@@ -156,10 +166,21 @@ class RunRecorder:
 
     def _drain(self) -> None:
         while True:
-            item = self._queue.get()
+            try:
+                item = self._queue.get(timeout=self._wait_s())
+            except queue.Empty:  # nothing was queued: evidence that is due gets its turn
+                self.read_due()
+                continue
             if item is _STOP:
                 return
             self._handle(item)
+
+    def _wait_s(self) -> float | None:
+        """How long the thread may sleep: until the next evidence is due, else for good."""
+        if not self._due:
+            return None
+        ahead = (min(self._due.values()) - self._clock() * 1000) / 1000
+        return min(max(ahead, _MIN_WAIT_S), _MAX_WAIT_S)
 
     def process_pending(self) -> int:
         """Handle everything queued so far in the calling thread (tests, shutdown)."""
@@ -243,6 +264,9 @@ class RunRecorder:
 
     def _resume(self) -> None:
         """Take runs an earlier boot left open back under watch, or close them."""
+        if self._verify != "off":
+            for row in self.store.evidence_due():
+                self._due[str(row["run_id"])] = int(row["evidence_due_ms"])
         for row in self.store.open_runs():
             session_id = str(row["session_id"])
             if session_id in self._open:
@@ -398,6 +422,73 @@ class RunRecorder:
             )
         except Exception:  # noqa: BLE001 - an unscanned run stays recorded as it ended
             log.warning("run recorder: output of %s not scanned", run.run_id, exc_info=True)
+            return
+        try:
+            self._first_evidence(row, result)
+        except Exception:  # noqa: BLE001 - a run without evidence stays "unverified"
+            log.warning("run recorder: evidence of %s not read", run.run_id, exc_info=True)
+
+    # -------------------------------------------------------------- evidence
+
+    def _first_evidence(self, row: dict[str, Any], result: Any) -> None:
+        """Right after the scan: what became of the commit the run left behind."""
+        if result.area is None or not result.tree_id:
+            return  # nothing could be pinned on the run, so no commit is its own
+        run_id = str(row["run_id"])
+        head = str(result.head_sha or "")
+        self.store.update_run(run_id, head_sha=head)
+        if not result.files:
+            found = evidence.Evidence(
+                evidence.NONE, evidence.NONE, head, reason="the run changed no file"
+            )
+        elif not head or head == str(result.area.base or ""):
+            found = evidence.Evidence(
+                evidence.NONE, evidence.NONE, head, reason="the work is not committed"
+            )
+        else:
+            found = self._read_evidence(str(row.get("repo_id") or ""), head)
+        self._note_evidence({**row, "head_sha": head}, found)
+
+    def read_due(self, now_ms: int | None = None) -> int:
+        """Read again what is due. Returns how many runs were asked about."""
+        now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
+        asked = 0
+        for run_id in [run_id for run_id, due in self._due.items() if due <= now]:
+            self._due.pop(run_id, None)
+            try:
+                row = self.store.get(run_id)
+                if row is None or not row.get("head_sha"):
+                    self.store.update_run(run_id, evidence_due_ms=None)
+                    continue
+                found = self._read_evidence(str(row.get("repo_id") or ""), str(row["head_sha"]))
+                self._note_evidence(row, found, now_ms=now)
+                asked += 1
+            except Exception:  # noqa: BLE001 - the record keeps what was read before
+                log.warning("run recorder: evidence of %s not read again", run_id, exc_info=True)
+        return asked
+
+    def _note_evidence(
+        self, row: dict[str, Any], found: evidence.Evidence, *, now_ms: int | None = None
+    ) -> None:
+        run_id = str(row["run_id"])
+        now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
+        due = _next_read(found, int(row.get("ended_ms") or now), now)
+        self.store.update_run(
+            run_id, landing=found.landing, ci_status=found.checks, evidence_due_ms=due
+        )
+        if due is None:
+            self._due.pop(run_id, None)
+        else:
+            self._due[run_id] = due
+        earlier = [s for s in self.store.steps(run_id) if evidence.is_step(s)]
+        detail = found.to_detail()
+        if earlier and _same_evidence(earlier[-1].get("detail") or {}, detail):
+            return  # nothing new to tell
+        # One row per reading that told something new: "evidence", "evidence:1", ...
+        name = "evidence" if not earlier else f"evidence:{len(earlier)}"
+        self.store.add_step(
+            run_id, 0, name, status=f"{found.landing}/{found.checks}", detail=detail, ts_ms=now,
+        )
 
     def _changed_files(self, run: _Open) -> list[str]:
         from dodaios.society.coding_threads import changed_files
@@ -407,6 +498,28 @@ class RunRecorder:
         except Exception:  # noqa: BLE001 - the domain after the fact is a nicety
             log.debug("run recorder: changed files of %s unreadable", run.run_id, exc_info=True)
             return []
+
+
+def _next_read(found: evidence.Evidence, ended_ms: int, now_ms: int) -> int | None:
+    """When ``found`` is to be read again, or ``None`` when the record keeps it."""
+    if found.settled:
+        return None
+    waited_s = (now_ms - ended_ms) / 1000
+    no_checks_yet = found.checks == evidence.NONE and found.landing in (
+        evidence.PUSHED, evidence.MERGED,
+    )
+    if no_checks_yet and waited_s >= evidence.NO_CHECKS_GIVE_UP_S:
+        return None  # CI would have started by now: the commit has no checks
+    for after_s in evidence.RECHECK_AFTER_S:
+        due = ended_ms + after_s * 1000
+        if due > now_ms:
+            return due
+    return None
+
+
+def _same_evidence(before: dict[str, Any], after: dict[str, Any]) -> bool:
+    keys = ("landing", "checks", "pr", "draft", "checked_sha", "failing")
+    return all(before.get(key) == after.get(key) for key in keys)
 
 
 # ----------------------------------------------------------- process wiring

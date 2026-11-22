@@ -59,6 +59,22 @@ def test_the_cells_say_how_often_the_scan_found_something(tmp_path: Path):
     assert "violations" in report.render([backend], total=3).splitlines()[0]
 
 
+def test_the_cells_say_what_github_said_about_the_commits(tmp_path: Path):
+    db = tmp_path / "verification.db"
+    _record(db)
+    store = VerificationStore(db)
+    try:
+        store.update_run("job_0", landing="merged", ci_status="passing")
+        store.update_run("job_1", landing="pr_open", ci_status="failing")
+        store.update_run("job_2", landing="merged", ci_status="running")
+    finally:
+        store.close()
+    backend = report.cells(report.load_runs(db))[0]
+    assert (backend["merged"], backend["checks_passing"], backend["checks_failing"]) == (2, 1, 1)
+    head = report.render([backend], total=3).splitlines()[0]
+    assert "merged" in head and "ci ok" in head and "ci red" in head
+
+
 def test_since_leaves_older_runs_out(tmp_path: Path):
     db = tmp_path / "verification.db"
     _record(db)

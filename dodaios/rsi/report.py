@@ -16,7 +16,8 @@ say which.
 checks, ``violations`` those where a check was weakened or an off-limits path
 changed, and ``unattributed`` those that shared their checkout, so nothing
 could be pinned on them. Together they say how often such events happen under
-the way of working as it is.
+the way of working as it is. ``merged``, ``ci ok`` and ``ci red`` count what
+GitHub said about the commit a run left behind.
 """
 
 from __future__ import annotations
@@ -101,6 +102,10 @@ def cells(runs: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
                 "unattributed": sum(
                     1 for r in members if r.get("gate_status") == "unattributed"
                 ),
+                # What GitHub said about the commit a run left behind.
+                "merged": sum(1 for r in members if r.get("landing") == "merged"),
+                "checks_passing": sum(1 for r in members if r.get("ci_status") == "passing"),
+                "checks_failing": sum(1 for r in members if r.get("ci_status") == "failing"),
                 "mean_minutes": round(wall / 60_000, 1) if wall is not None else None,
                 "mean_tokens_out": _mean(r.get("tokens_out") for r in ended),
             }
@@ -114,7 +119,7 @@ def render(rows: Sequence[dict[str, Any]], *, total: int) -> str:
         return "No coding runs on record. Set `[rsi] enabled = true` to record them."
     head = (
         "domain", "model", "harness", "runs", "done", "error", "cancelled", "open", "min",
-        "scanned", "violations", "unattributed",
+        "scanned", "violations", "unattributed", "merged", "ci ok", "ci red",
     )
     table = [
         (
@@ -122,6 +127,7 @@ def render(rows: Sequence[dict[str, Any]], *, total: int) -> str:
             str(c["error"]), str(c["cancelled"]), str(c["open"]),
             "-" if c["mean_minutes"] is None else f"{c['mean_minutes']:.1f}",
             str(c["scanned"]), str(c["violations"]), str(c["unattributed"]),
+            str(c["merged"]), str(c["checks_passing"]), str(c["checks_failing"]),
         )
         for c in rows
     ]
