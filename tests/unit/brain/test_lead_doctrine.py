@@ -111,3 +111,52 @@ async def test_render_surface_prompt_adds_the_doctrine_only_for_the_lead() -> No
     assert LEAD_DOCTRINE in lead and "ECOSYSTEM MAP" in lead
     assert LEAD_DOCTRINE not in other
     assert LEAD_TURN.get() is False, "the marker never leaks out of the prompt build"
+
+
+class _Index:
+    def text(self, **_: object) -> str:
+        return "[Repos, rev 1: 1 of 3 in play.]\nnotes: 2 busy"
+
+
+def _context_manager() -> BrainManager:
+    m = _manager()
+    m._config.performance.cache_optimized_prompt = True
+    m._upcoming_block = lambda: ""  # type: ignore[method-assign]
+    m._agentic_focus_block = lambda: ""  # type: ignore[method-assign]
+    return m
+
+
+def test_the_repository_index_rides_in_the_turn_context_of_a_lead_turn_only() -> None:
+    from dodaios.rsi import repo_cards
+
+    m = _context_manager()
+    repo_cards.set_board(_Index())  # type: ignore[arg-type]
+    try:
+        assert "notes: 2 busy" not in m._build_turn_context()
+        token = LEAD_TURN.set(True)
+        try:
+            assert "notes: 2 busy" in m._build_turn_context()
+        finally:
+            LEAD_TURN.reset(token)
+    finally:
+        repo_cards.set_board(None)
+
+
+async def test_the_prompt_handed_to_a_cli_seat_never_holds_the_repository_index() -> None:
+    """A CLI seat re-reads that prompt as its system prompt on every turn."""
+    from dodaios.rsi import repo_cards
+
+    m = _context_manager()
+
+    async def no_recall(_text: str) -> str:
+        return ""
+
+    m._vault_recall = no_recall  # type: ignore[method-assign]
+    without = await m.render_surface_prompt(user_text="hi", lead=True)
+    repo_cards.set_board(_Index())  # type: ignore[arg-type]
+    try:
+        with_index = await m.render_surface_prompt(user_text="hi", lead=True)
+    finally:
+        repo_cards.set_board(None)
+    assert "notes: 2 busy" not in "".join(with_index)
+    assert with_index[0] == without[0]

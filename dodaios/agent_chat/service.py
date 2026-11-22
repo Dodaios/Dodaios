@@ -2504,12 +2504,21 @@ class AgentChatService:
 
                         # A side thread's brief, or the side threads running
                         # beside this main-thread turn.
+                        # The repositories in play, for the lead's own
+                        # conversation and only when it differs from what that
+                        # conversation was last handed ([rsi] repo_index).
+                        repo_note = ""
+                        if not side_threads.is_side_thread(self, session_id):
+                            from dodaios.rsi.repo_cards import cli_note
+
+                            repo_note = cli_note(session_id, text)
                         background = "\n\n".join(
                             note
                             for note in (
                                 background,
                                 side_threads.context_note(self, session_id),
                                 side_threads.running_note(self, session_id),
+                                repo_note,
                             )
                             if note
                         )
