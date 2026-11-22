@@ -263,7 +263,17 @@ def _as_copy(argv: list[str], *, has_conversation: bool) -> None:
 
 
 async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
-    """Run the copy; ``(answer, status)`` where status is ``done`` or ``tools``."""
+    """Run the copy; ``(answer, status)`` where status is ``done`` or ``tools``.
+
+    The copy resumes a conversation whose own process is still at work, so a
+    background task of the thread (a shell command, a sub-agent) is open in
+    it. Claude Code reports such a task as stopped (``task_notification``)
+    and answers that notice first with an empty ``result``: no model turn, no
+    answer. Only the ``result`` after it answers the question. Taken as the
+    answer, that empty line made every side question to a thread with a
+    background task fail with "The agent gave no answer." (2026-11-22).
+    """
+    from dodaios.agent_chat.turn_host import claude_result_without_model_turn
     from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     proc = await asyncio.create_subprocess_exec(
@@ -282,6 +292,8 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
     texts: list[str] = []
     result: dict[str, Any] | None = None
     wanted_tool = False
+    # A task notice came: an empty, model-less result answers it, not the question.
+    notice = False
 
     async def write(line: str) -> None:
         assert proc.stdin is not None
@@ -304,7 +316,9 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
             if not isinstance(obj, dict):
                 continue
             kind = obj.get("type")
-            if kind == "control_request":
+            if kind == "system" and obj.get("subtype") == "task_notification":
+                notice = True
+            elif kind == "control_request":
                 request = obj.get("request") if isinstance(obj.get("request"), dict) else {}
                 if request.get("subtype") == "can_use_tool":
                     wanted_tool = True
@@ -330,6 +344,10 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
                     elif block.get("type") == "tool_use":
                         wanted_tool = True
             elif kind == "result":
+                if notice and claude_result_without_model_turn(obj):
+                    # The answer to a task notice; the question's turn comes next.
+                    # The question always takes a model turn, so it is never skipped.
+                    continue
                 result = obj
                 break
     except BaseException:
@@ -353,9 +371,23 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
         tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] or ["the agent stopped"]
         raise RuntimeError(f"No answer: {tail[0][:300]}")
     answer = str(result.get("result") or "").strip() or "\n\n".join(texts).strip()
-    if result.get("is_error") and result.get("subtype") == "success" and answer:
-        # A failed request reports its message as the result.
-        raise RuntimeError(answer[:500])
     if wanted_tool and (result.get("subtype") == "error_max_turns" or not answer):
         return "", "tools"
+    if result.get("is_error"):
+        # A failed request reports its message as the result, a failed run in
+        # ``errors``. The card says it instead of "The agent gave no answer."
+        raise RuntimeError(_failure(result, answer)[:500])
     return answer, "done"
+
+
+def _failure(result: dict[str, Any], answer: str) -> str:
+    """What a failed ``result`` line says went wrong."""
+    if answer:
+        return answer
+    errors = [str(error).strip() for error in result.get("errors") or [] if str(error).strip()]
+    if errors:
+        return "; ".join(errors)
+    subtype = str(result.get("subtype") or "")
+    if subtype and subtype != "success":
+        return f"The agent stopped with an error ({subtype})."
+    return "The agent stopped with an error."

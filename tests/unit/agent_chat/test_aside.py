@@ -97,6 +97,72 @@ def test_the_copy_runs_once_and_every_tool_call_is_refused(tmp_path):
     assert answer == "The parser now reads tabs. (deny)"
 
 
+def _fake_plan(tmp_path, source: str) -> SimpleNamespace:
+    script = tmp_path / "fake_cli.py"
+    script.write_text(textwrap.dedent(source), encoding="utf-8")
+    return SimpleNamespace(
+        argv=[sys.executable, str(script)],
+        env=None,
+        control_init=json.dumps(
+            {"type": "control_request", "request_id": "init", "request": {"subtype": "initialize"}}
+        )
+        + "\n",
+        stdin_text=json.dumps({"type": "user", "message": {"content": "q"}}) + "\n",
+    )
+
+
+#: The order Claude Code 2.1.330 wrote when resumed on a thread whose
+#: background shell was still running (measured 2026-11-22): the stopped task's
+#: notice, then an empty result with no model turn, and only then the question.
+_FAKE_CLI_WITH_TASK_NOTICE = """
+    import json, sys
+    def say(obj):
+        print(json.dumps(obj), flush=True)
+    say({"type": "system", "subtype": "task_notification", "task_id": "b1",
+         "status": "stopped",
+         "summary": "Background shell command didn't finish before the previous session ended"})
+    for line in sys.stdin:
+        obj = json.loads(line)
+        if obj.get("type") == "control_request":
+            say({"type": "control_response", "response": {"subtype": "success",
+                 "request_id": "init", "response": {"commands": []}}})
+            say({"type": "system", "subtype": "init"})
+            say({"type": "result", "subtype": "success", "is_error": False, "result": "",
+                 "num_turns": 0, "duration_api_ms": 0})
+        if obj.get("type") == "user":
+            say({"type": "assistant", "message": {"content": [
+                {"type": "text", "text": "Still planning, nothing built yet."}]}})
+            say({"type": "result", "subtype": "success", "is_error": False,
+                 "result": "Still planning, nothing built yet.", "num_turns": 1})
+"""
+
+
+def test_the_answer_to_a_stopped_task_notice_is_not_taken_for_the_answer(tmp_path):
+    plan = _fake_plan(tmp_path, _FAKE_CLI_WITH_TASK_NOTICE)
+    answer, status = asyncio.run(asyncio.wait_for(aside._run(plan, tmp_path), timeout=20))
+    assert (answer, status) == ("Still planning, nothing built yet.", "done")
+
+
+def test_a_failed_run_says_why_instead_of_no_answer(tmp_path):
+    plan = _fake_plan(
+        tmp_path,
+        """
+        import json, sys
+        for line in sys.stdin:
+            if json.loads(line).get("type") == "user":
+                print(json.dumps({"type": "result", "subtype": "error_during_execution",
+                                  "is_error": True, "num_turns": 1,
+                                  "errors": ["Prompt is too long"]}), flush=True)
+        """,
+    )
+    try:
+        asyncio.run(asyncio.wait_for(aside._run(plan, tmp_path), timeout=20))
+    except RuntimeError as exc:
+        assert str(exc) == "Prompt is too long"
+    else:
+        raise AssertionError("a failed run must not pass as an answer")
+
+
 def _thread(tmp_path):
     store = AgentChatStore(tmp_path / "chat.db")
     sid = store.create_session(
