@@ -309,3 +309,20 @@ it("derives the board: roles in a step nobody has filed for, rounds as bands of 
   expect(gist("# Title\n\n- **Bold** point with `code`\n```\nskipped()\n```\n[link](http://x)")).toBe("Title · Bold point with code · link");
   expect(gist("x".repeat(400)).length).toBe(320);
 });
+
+it("brings a member that left back into the team (#1881)", async () => {
+  const calls = mount("t1", thread);
+  fireEvent.click(await screen.findByTestId("team-node-m3"));
+  const chat = await screen.findByTestId("team-chat-m3");
+  fireEvent.click(within(chat).getByTestId("team-member-rejoin"));
+  await waitFor(() => expect(calls.some((call) => call.method === "POST" && call.url.endsWith("/t1/members/m3/rejoin"))).toBe(true));
+  // A member still in the team has nothing to come back from.
+  fireEvent.click(screen.getByTestId("team-node-m2"));
+  expect(within(await screen.findByTestId("team-chat-m2")).queryByTestId("team-member-rejoin")).toBeNull();
+});
+
+it("offers no way back once the team thread is over", async () => {
+  mount("t1", { ...thread, state: "done", reason: "done" });
+  fireEvent.click(await screen.findByTestId("team-node-m3"));
+  expect(within(await screen.findByTestId("team-chat-m3")).queryByTestId("team-member-rejoin")).toBeNull();
+});

@@ -161,9 +161,20 @@ waits with a short account of the open points:
 - **A turn did not finish:** Continue asks that member again.
 
 A turn that fails is tried once more. A member whose seat keeps failing (not
-signed in, quota, crash) leaves the team and the others go on; when the
+signed in, crash) leaves the team and the others go on; when the
 builder leaves, another member takes over. When that would leave fewer than
 two members, nobody is dropped: the thread waits and Continue asks again.
+
+A seat that is out of credit, over its spending cap or over its plan's usage
+limit is not tried again at once, and its member never leaves for it. The
+thread waits and says which member hit which limit. Top the seat up (or wait
+for the limit to reset), then press Continue or write that it is done: the
+same member goes on in its own thread, and what the others already did is
+kept.
+
+A member that left can be brought back: open its tab and press **Bring back**.
+It takes part from the next step on. A thread that ended because fewer than
+two members were left waits again once one is back, and Continue goes on.
 
 A turn counts against the bounds when it starts, so one that Pause cut short
 is not free. An answer that has arrived is filed before a pause takes effect,

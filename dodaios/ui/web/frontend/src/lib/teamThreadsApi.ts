@@ -344,5 +344,9 @@ export type TeamCommand = "pause" | "resume" | "accept" | "stop";
 export const commandTeamThread = (teamId: string, command: TeamCommand) =>
   json<TeamThread>(`${one(teamId)}/${command}`, post());
 
+/** A member that left comes back into the team, with its own thread (#1881). */
+export const rejoinTeamMember = (teamId: string, memberId: string) =>
+  json<TeamThread>(`${one(teamId)}/members/${encodeURIComponent(memberId)}/rejoin`, post());
+
 export const deleteTeamThread = (teamId: string) =>
   json<{ deleted: boolean }>(one(teamId), { method: "DELETE" });

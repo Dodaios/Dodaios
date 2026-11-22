@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from dodaios.agent_chat.team import TeamThreads, TeamThreadStore
+from dodaios.agent_chat.team.port import TurnResult
 from dodaios.ui.web import team_thread_routes
 from dodaios.ui.web.team_thread_routes import default_team, router
 from tests.fakes.fake_team_turns import FakeTurns, FakeWorkspace, object_to
@@ -176,6 +177,36 @@ def test_a_disagreement_is_settled_over_the_api(client: TestClient, tmp_path: Pa
     assert client.post(f"/api/team-threads/{team_id}/accept").status_code == 200
     client.portal.call(client.app.state.team_threads.settled, team_id)
     assert client.get(f"/api/team-threads/{team_id}").json()["state"] == "done"
+
+
+def test_a_member_that_left_is_brought_back_over_the_api(
+    client: TestClient, tmp_path: Path
+) -> None:
+    # Issue #1881: a member dropped from the team could not come back.
+    def script(provider, step, nth):
+        if provider == "antigravity" and step == "draft":
+            return TurnResult("failed", error="not signed in")
+        if step == "vote" and provider == "openai-codex":
+            return object_to("No rollback.")
+        return None
+
+    client.app.state.turns.script = script
+    team_id = client.post(
+        "/api/team-threads",
+        json={"task": "Migrate the table", "cwd": str(tmp_path), "limits": {"plan_rounds": 1}},
+    ).json()["team_id"]
+    client.portal.call(client.app.state.team_threads.settled, team_id)
+    waiting = client.get(f"/api/team-threads/{team_id}").json()
+    left = next(m for m in waiting["members"] if m["state"] == "left")
+
+    back = client.post(f"/api/team-threads/{team_id}/members/{left['member_id']}/rejoin")
+    assert back.status_code == 200, back.text
+    assert next(m for m in back.json()["members"] if m["member_id"] == left["member_id"])[
+        "state"
+    ] == "active"
+    again = client.post(f"/api/team-threads/{team_id}/members/{left['member_id']}/rejoin")
+    assert again.status_code == 409
+    assert client.post(f"/api/team-threads/{team_id}/members/m9/rejoin").status_code == 404
 
 
 def test_requests_a_thread_cannot_take_are_refused(client: TestClient, tmp_path: Path) -> None:

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowLeftRight, ArrowRight, ChevronLeft, ChevronRight, Crosshair, ExternalLink, ListChecks, MessagesSquare, ShieldAlert, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowDown, ArrowLeftRight, ArrowRight, ChevronLeft, ChevronRight, Crosshair, ExternalLink, ListChecks, MessagesSquare, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import type { TimelineItem, UserItem } from "@/components/agentchat/reduce";
 import { plural } from "@/components/agentchat/traceEntries";
 import { fill, useT } from "@/i18n";
-import type { TeamMember, TeamThread } from "@/lib/teamThreadsApi";
+import { rejoinTeamMember, TEAM_THREADS_KEY, teamThreadKey, type TeamMember, type TeamThread } from "@/lib/teamThreadsApi";
 import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
 import { ThreadFolder, ThreadTurn } from "../ThreadTimeline";
 import { useMemberTimeline } from "./memberStreams";
 import { useMemberStatus } from "./memberLive";
@@ -180,6 +182,34 @@ function ChatItem({ item }: { item: TimelineItem }) {
   return <div className={PROSE_COMPACT}>{item.message.text}</div>;
 }
 
+/** Whether a member that left can be brought back: the team still works, or ended short of members. */
+const canRejoin = (thread: TeamThread) =>
+  !["done", "stopped", "failed"].includes(thread.state) || (thread.state === "failed" && thread.reason === "not_enough_members");
+
+/** Brings a member that left back into the team; it goes on in its own thread. */
+function RejoinButton({ thread, member }: { thread: TeamThread; member: TeamMember }) {
+  const t = useT();
+  const client = useQueryClient();
+  const pushToast = useEventStore((state) => state.pushToast);
+  const [busy, setBusy] = useState(false);
+  const bring = async () => {
+    setBusy(true);
+    try {
+      client.setQueryData(teamThreadKey(thread.team_id), await rejoinTeamMember(thread.team_id, member.member_id));
+      void client.invalidateQueries({ queryKey: TEAM_THREADS_KEY });
+    } catch (error) {
+      pushToast("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <button type="button" onClick={() => void bring()} disabled={busy} data-testid="team-member-rejoin"
+    title={t("team_threads.room.rejoin_hint")}
+    className="flex shrink-0 items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-medium text-foreground hover:bg-secondary/70 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <RotateCcw aria-hidden className="h-3 w-3" />{t("team_threads.room.rejoin")}
+  </button>;
+}
+
 /** One member's own conversation, live, read-only: the team speaks to it, the person steps in below. */
 function MemberChat({ member, thread, names, folder, onOpenFull }: {
   member: TeamMember; thread: TeamThread; names: RoomNames; folder: string; onOpenFull: () => void;
@@ -220,6 +250,7 @@ function MemberChat({ member, thread, names, folder, onOpenFull }: {
           {status.text}
         </span>
       </span>
+      {member.state === "left" && canRejoin(thread) && <RejoinButton thread={thread} member={member} />}
       <button type="button" onClick={onOpenFull} data-testid="team-chat-open-full"
         className={cn(
           "flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
