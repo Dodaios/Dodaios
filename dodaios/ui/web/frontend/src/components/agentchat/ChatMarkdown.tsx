@@ -15,7 +15,9 @@ import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
 import { CodeBlock } from "@/components/docs/CodeBlock";
 import { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
-import { ChatPathOpener, pathInCode } from "./chatPaths";
+import { ChatPathOpener, fileRefInCode, splitLocation } from "./chatPaths";
+import { FileRefChip } from "./FileRefChip";
+import { fileRefKey, fileRefsInMarkdown, fileRefSuffixes } from "./fileRefs";
 
 export { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
 export type { MediaKind } from "./MediaPreview";
@@ -75,6 +77,8 @@ export function normalizeMediaMarkup(text: string): string {
 }
 
 const ImageKeysContext = createContext<ReadonlySet<string>>(new Set());
+/** Per answer: the parent folder that tells a named file from a same-named one (fileRefs). */
+const FileRefSuffixContext = createContext<ReadonlyMap<string, string>>(new Map());
 /**
  * Where the text ends when it ends inside a fence, i.e. its last block is
  * still being written: a block that reaches this offset is that one. -1 when
@@ -124,11 +128,26 @@ function onChatLinkClick(event: { preventDefault(): void }, href: string, label 
 }
 
 /** A local link opens beside the conversation when a thread offers that, else on the computer. */
-function openLocal(event: { preventDefault(): void }, href: string, label: string, openBeside: ((path: string) => void) | null) {
+function openLocal(event: { preventDefault(): void }, href: string, label: string, openBeside: ((path: string, line?: number) => void) | null) {
   const local = openBeside ? localPathFromChatHref(href) : null;
   if (!local || !openBeside) return onChatLinkClick(event, href, label);
   event.preventDefault();
-  openBeside(local);
+  const { path, line } = splitLocation(local);
+  if (line) openBeside(path, line);
+  else openBeside(path);
+}
+
+/**
+ * Whether a link's words are the file it links to (`[app.ts:42](src/app.ts#L42)`):
+ * then it reads as a file reference. A link worded as prose stays a link.
+ */
+function namesItsTarget(words: string, target: string): boolean {
+  const label = splitLocation(words);
+  const destination = splitLocation(target);
+  if (label.line !== undefined && label.line !== destination.line) return false;
+  const named = fileRefKey(label.path).replace(/^\.\//, "");
+  const linked = fileRefKey(destination.path).replace(/^\.\//, "");
+  return Boolean(named) && (linked === named || linked.endsWith(`/${named}`));
 }
 
 // Stable component identities are essential: changing these on each streamed
@@ -166,21 +185,24 @@ const MARKDOWN_COMPONENTS: Components = {
     // A web page: its site's logo and a short name; the full address is on the hover card.
     const web = local ? null : webLinkInfo(href, Children.toArray(children).every(child => typeof child === "string") ? label : null);
     if (web) return <WebLink info={web} onOpen={event => onChatLinkClick(event, href, label)}>{children}</WebLink>;
+    const words = Children.toArray(children).every(child => typeof child === "string") ? label : "";
+    if (local && openBeside && words && namesItsTarget(words, local)) {
+      const fileRef = splitLocation(local);
+      const open = () => (fileRef.line ? openBeside(fileRef.path, fileRef.line) : openBeside(fileRef.path));
+      return <FileRefChip fileRef={fileRef} written={local} onOpen={open} />;
+    }
     return <a href={href} title={local || undefined} onClick={event => openLocal(event, href, label, openBeside)}>{children}</a>;
   },
   // A file or folder the answer names in code (`todo.md`, `C:\…\clip.mp4`)
   // opens beside the conversation, where a thread offers that.
   code: function ChatCode({ node: _node, className, children, ...props }) {
     const openBeside = useContext(ChatPathOpener);
+    const suffixes = useContext(FileRefSuffixContext);
     const text = Children.toArray(children).every(child => typeof child === "string") ? Children.toArray(children).join("") : "";
-    const path = openBeside && !className && text ? pathInCode(text) : null;
-    if (!path) return <code className={className} {...props}>{children}</code>;
-    return <a href={`#jarvis-local=${encodeURIComponent(path)}`} title={translate("thread_turn.open_beside")} data-testid="chat-path-link"
-      // A quiet dotted line says it opens; it firms up under the pointer.
-      className="cursor-pointer underline decoration-foreground/35 decoration-dotted underline-offset-[3px] hover:decoration-foreground/80 hover:decoration-solid"
-      onClick={event => { event.preventDefault(); openBeside?.(path); }}>
-      <code {...props}>{children}</code>
-    </a>;
+    const fileRef = openBeside && !className && text ? fileRefInCode(text) : null;
+    if (!fileRef || !openBeside) return <code className={className} {...props}>{children}</code>;
+    const open = () => (fileRef.line ? openBeside(fileRef.path, fileRef.line) : openBeside(fileRef.path));
+    return <FileRefChip fileRef={fileRef} written={text.trim()} suffix={suffixes.get(fileRefKey(fileRef.path))} onOpen={open} />;
   },
   pre: function ChatPre({ children, node, ...props }) {
     const openFrom = useContext(OpenFenceContext);
@@ -209,12 +231,17 @@ const MARKDOWN_COMPONENTS: Components = {
 
 export function ChatMarkdown({ text, className }: { text: string; className?: string }) {
   const body = useMemo(() => normalizeMediaMarkup(text), [text]);
+  // Only a thread draws file references, so only a thread needs their labels.
+  const referencing = useContext(ChatPathOpener) !== null;
+  const suffixes = useMemo(() => (referencing ? fileRefSuffixes(fileRefsInMarkdown(body)) : new Map<string, string>()), [referencing, body]);
   const imageKeys = useMemo(() => new Set(Array.from(body.matchAll(/!\[[^\]]*\]\(<?([^)>]+)>?\)/g), match => assetKey(match[1]))), [body]);
   const openFrom = useMemo(() => /```|~~~/.test(body) && endsInOpenFence(body) ? body.trimEnd().length : -1, [body]);
   return <div className={cn("min-w-0 [overflow-wrap:anywhere]", className)}>
     <ImageKeysContext.Provider value={imageKeys}>
       <OpenFenceContext.Provider value={openFrom}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith("data:") ? safeMediaUrl(url) ?? "" : chatUrlTransform(url)} components={MARKDOWN_COMPONENTS}>{body}</ReactMarkdown>
+        <FileRefSuffixContext.Provider value={suffixes}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith("data:") ? safeMediaUrl(url) ?? "" : chatUrlTransform(url)} components={MARKDOWN_COMPONENTS}>{body}</ReactMarkdown>
+        </FileRefSuffixContext.Provider>
       </OpenFenceContext.Provider>
     </ImageKeysContext.Provider>
   </div>;

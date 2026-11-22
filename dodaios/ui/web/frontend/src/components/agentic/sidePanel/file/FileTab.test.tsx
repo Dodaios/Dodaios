@@ -86,6 +86,20 @@ describe("the side panel's File tab", () => {
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");
   });
 
+  it("opens at the line a reference named, marked and in view", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    fetchMock
+      .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/notes.cfg2", kind: "file" }))
+      .mockResolvedValueOnce(answer(textFile("first\nsecond\nthird\n", { path: "C:/demo/notes.cfg2" })));
+    act(() => useSideFileStore.getState().show({ path: "C:/demo/notes.cfg2", folder: "", diff: null, line: 2 }));
+    const { container } = render(<FileTab />);
+    await waitFor(() => expect(container.querySelector(".code-line-marked")?.textContent).toBe("second"));
+    expect(screen.getByTestId("side-file-line").textContent).toBe("L2");
+    expect(scrolled).toHaveBeenCalledWith({ block: "center" });
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
   it("names a binary file instead of drawing it", async () => {
     fetchMock
       .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/a.bin", kind: "file" }))

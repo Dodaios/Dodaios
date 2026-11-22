@@ -4,7 +4,7 @@ import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView 
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { MediaViewerContent } from "@/components/agentchat/MediaPreview";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChatPathOpener } from "@/components/agentchat/chatPaths";
+import { ChatFileIcon, ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
 import { ASIDE_ASKED, STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
@@ -1344,12 +1344,12 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
     return () => observer.disconnect();
   }, []);
 
-  // A file or folder the answers name opens beside the conversation.
-  const openPath = useCallback((path: string) => {
-    void import("./openPathBeside").then((module) => module.openPathBeside(path, folder));
+  // A file or folder the answers name opens beside the conversation, at the line they name.
+  const openPath = useCallback((path: string, line?: number) => {
+    void import("./openPathBeside").then((module) => module.openPathBeside(path, folder, line));
   }, [folder]);
 
-  return <ThreadFolder.Provider value={folder}><ChatPathOpener.Provider value={openPath}><div className="relative min-h-0 flex-1">
+  return <ThreadFolder.Provider value={folder}><ChatPathOpener.Provider value={openPath}><ChatFileIcon.Provider value={FileTypeIcon}><div className="relative min-h-0 flex-1">
     <div ref={scroller} data-testid="thread-timeline"
       onScroll={(event) => {
         const box = event.currentTarget;
@@ -1374,5 +1374,5 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="absolute left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground shadow-float hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ArrowDown className="h-4 w-4" />
     </button>}
-  </div></ChatPathOpener.Provider></ThreadFolder.Provider>;
+  </div></ChatFileIcon.Provider></ChatPathOpener.Provider></ThreadFolder.Provider>;
 }
