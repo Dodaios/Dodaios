@@ -286,7 +286,34 @@ def test_the_config_section_is_off_by_default_and_closed_to_self_change():
     from dodaios.core.self_mod.forbidden import is_forbidden
 
     assert JarvisConfig().rsi.enabled is False
+    assert JarvisConfig().rsi.verify == "off"
     assert is_forbidden("rsi.enabled")
+    assert is_forbidden("rsi.verify")
+
+
+def test_the_recorder_takes_its_verify_mode_from_the_setting(service, tmp_path):
+    config = SimpleNamespace(rsi=SimpleNamespace(enabled=True, verify="observe"))
+    made = rec.install(service, tmp_path, config)
+    try:
+        assert made is not None
+        assert made._verify == "observe"
+    finally:
+        if made is not None:
+            made.stop()
+            made.store.close()
+        rec.set_recorder(None)
+
+
+def test_the_judges_of_a_run_are_core_paths_of_the_app():
+    from dodaios.self_change.surfaces import is_core_path
+
+    for path in (
+        "dodaios/orchestrator/verification/cheat_scan.py",
+        "dodaios/rsi/domains.py",
+        "dodaios/self_build/code/judge.py",
+        "dodaios/agent_chat/team/workspace.py",
+    ):
+        assert is_core_path(path), path
 
 
 def test_a_thread_order_is_noted_with_the_id_of_its_job(ledger):

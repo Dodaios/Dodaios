@@ -10,7 +10,9 @@ the thread's own events and writes one row per run into ``verification.db``:
 * at the end, how the turn ended, what it cost, which model really answered and
   which domain the changed files belong to.
 
-It only records. Nothing here judges the work, sends a prompt or holds a turn.
+With ``[rsi] verify = "observe"`` the changed files of an ended run are also
+put through the deterministic checks (:mod:`gates`) and the result is recorded.
+Nothing here sends a prompt or holds a turn.
 
 The chat service calls listeners inline on its emit path, so :meth:`on_event`
 and :meth:`note_submission` only put an item on a queue; one daemon thread does
@@ -101,12 +103,15 @@ class RunRecorder:
         probe: Callable[[str], harness_probe.Harness] = harness_probe.for_runner,
         describe: Callable[[str], repo_identity.RepoRef] = repo_identity.describe,
         boot_id: str = "",
+        verify: str = "off",
     ) -> None:
         self.store = store
         self._service = service
         self._probe = probe
         self._describe = describe
         self._boot_id = boot_id
+        #: ``observe``: scan what an ended run left behind and record the result.
+        self._verify = verify
         self._queue: queue.SimpleQueue[Any] = queue.SimpleQueue()
         self._watched: set[str] = set()
         self._watched_lock = threading.Lock()
@@ -371,6 +376,28 @@ class RunRecorder:
             del self._open[run.session_id]
         with self._watched_lock:
             self._watched.discard(run.session_id)
+        if state == ENDED and self._verify == "observe":
+            self._check_output(run)
+
+    def _check_output(self, run: _Open) -> None:
+        """Scan what the ended run left behind. Recorded only; nothing is sent."""
+        from . import gates
+
+        try:
+            row = self.store.get(run.run_id) or {}
+            result = gates.check_run(row, self._events(run.session_id))
+            self.store.update_run(
+                run.run_id,
+                gate_status=result.status,
+                churn_lines=result.churn if result.area is not None else None,
+                tree_id=result.tree_id,
+            )
+            self.store.add_step(
+                run.run_id, 0, "gates", turn_id=run.turn_id, status=result.status,
+                detail=result.to_detail(),
+            )
+        except Exception:  # noqa: BLE001 - an unscanned run stays recorded as it ended
+            log.warning("run recorder: output of %s not scanned", run.run_id, exc_info=True)
 
     def _changed_files(self, run: _Open) -> list[str]:
         from dodaios.society.coding_threads import changed_files
@@ -423,7 +450,9 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
         from dodaios.orchestrator.jobs import BOOT_ID
 
         store = VerificationStore(Path(data_dir) / "verification.db")
-        made = RunRecorder(store, service, boot_id=BOOT_ID)
+        made = RunRecorder(
+            store, service, boot_id=BOOT_ID, verify=str(getattr(section, "verify", "off"))
+        )
         service.add_event_listener(made.on_event)
         made.start()
     except Exception:  # noqa: BLE001 - a recorder that cannot start leaves the chat as it was

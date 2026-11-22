@@ -4582,13 +4582,18 @@ class RsiConfig(BaseModel):
     While ``enabled``, every order the lead gives a coding thread is recorded as
     a run in ``verification.db``: repository and commit, domain, requested and
     answering model, CLI version, how the turn ended and what it cost
-    (``dodaios.orchestrator.verification``). Recording only: nothing is checked,
-    sent or held. Off by default.
+    (``dodaios.orchestrator.verification``). Off by default.
+
+    ``verify`` says what happens to a run's output when its turn has ended:
+    ``off`` nothing, ``observe`` the changed files are scanned for weakened
+    checks and off-limits paths and the result is recorded. Nothing is sent to
+    the agent and no turn is held in either mode.
     """
 
     model_config = {"extra": "allow"}
 
     enabled: bool = False
+    verify: Literal["off", "observe"] = "off"
 
 
 class JarvisConfig(BaseModel):
