@@ -270,6 +270,13 @@ hiddenimports: list[str] = []
 # analysis and must be collected explicitly.
 hiddenimports += collect_submodules("dodaios.plugins")
 hiddenimports += collect_submodules("dodaios.channels")
+# The app's own modules, all of them. Several are loaded by name from a table
+# (the node kinds behind whiteboards, documents, decks and sheets; lazy
+# attributes; rehydrators; realtime and brain factories), and import analysis
+# cannot read a name built at run time. Missing them broke every whiteboard and
+# document a chat made in the installer builds ("No module named
+# 'dodaios.nodes.kinds.whiteboard'", issue #1879).
+hiddenimports += collect_submodules("dodaios")
 
 # Uvicorn standard installs version-specific backends through dynamic imports.
 for pkg in (
