@@ -3875,6 +3875,7 @@
     "fence_scripts_off": "This page has scripts. They are off.",
     "visual_pending": "Drawing",
     "visual_expand": "Open large",
+    "visual_name": "Visual",
     "open_action": "Open",
     "open_with_title": "Open with…",
     "open_with_remember": "Remember as default",

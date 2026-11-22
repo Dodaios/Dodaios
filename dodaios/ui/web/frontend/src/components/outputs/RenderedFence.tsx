@@ -117,15 +117,19 @@ export function appSurface(theme: Theme): string {
   }
 }
 
-const THEME_AWARE = new RegExp(`var\\(\\s*--(?:${VISUAL_TOKENS.join("|")})\\b|data-theme|prefers-color-scheme|light-dark\\(`, "i");
+const TOKEN_NAMES = VISUAL_TOKENS.join("|");
+const USES_TOKEN = new RegExp(`var\\(\\s*--(?:${TOKEN_NAMES})\\b`, "i");
+/** A visual that sets `--fg` itself means its own colour by that name, not the chat's. */
+const DEFINES_TOKEN = new RegExp(`--(?:${TOKEN_NAMES})\\s*:`, "i");
+const OWN_PALETTES = /data-theme|prefers-color-scheme|light-dark\(/i;
 
 /**
- * Whether a visual follows the palette it is shown in: it names the colours
- * above, or brings a light and a dark look of its own. Such a visual draws
+ * Whether a visual follows the palette it is shown in: it names the chat's
+ * colours, or brings a light and a dark look of its own. Such a visual draws
  * straight on the app's surface; any other one draws on a white page.
  */
 export function isThemeAware(code: string): boolean {
-  return THEME_AWARE.test(code);
+  return OWN_PALETTES.test(code) || (USES_TOKEN.test(code) && !DEFINES_TOKEN.test(code));
 }
 
 /** The words in a visual's `<title>`, when it has one: the figure's caption. */
@@ -196,6 +200,8 @@ export interface VisualDocumentOptions {
   /** Draws on the app's surface in its colours; left out, the visual says so itself (`isThemeAware`). */
   themed?: boolean;
   skin?: VisualSkin;
+  /** The full view: a drawing stands in the middle of the room it is given. */
+  fill?: boolean;
 }
 
 /**
@@ -234,6 +240,9 @@ export function visualDocument(code: string, options: VisualDocumentOptions): st
     "body>:first-child{margin-top:0}body>:last-child{margin-bottom:0}" +
     "svg,img,canvas,video{max-width:100%;height:auto}" +
     (language === "svg" ? "body>svg{display:block;margin:0 auto}" : "") +
+    (language === "svg" && options.fill
+      ? "html{height:100%}body{box-sizing:border-box;min-height:100%;display:flex;align-items:center;justify-content:center}body>svg{margin:0}"
+      : "") +
     `</style></head><body>${body}</body></html>`
   );
 }
@@ -287,8 +296,8 @@ export function InlineHtmlFrame({
   }, [token, fill]);
 
   const doc = useMemo(
-    () => visualDocument(html, { language, theme, token, nonce, scripts, themed: onSurface }),
-    [html, language, theme, token, nonce, scripts, onSurface],
+    () => visualDocument(html, { language, theme, token, nonce, scripts, themed: onSurface, fill }),
+    [html, language, theme, token, nonce, scripts, onSurface, fill],
   );
 
   return (
@@ -354,7 +363,7 @@ export function RenderedFence({
   const [expanded, setExpanded] = useState(false);
   const written = source ?? code;
   const caption = title ?? visualTitle(code);
-  const name = caption || (sourceLanguage ?? language).toUpperCase();
+  const name = caption || t("outputs_view.visual_name");
   const runnable = language === "html" && hasScripts(code);
   const offersRun = runnable && !scripts && mode === "rendered";
 

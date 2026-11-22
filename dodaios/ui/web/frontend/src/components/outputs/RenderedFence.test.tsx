@@ -111,6 +111,9 @@ describe("what a visual says about itself", () => {
     expect(isThemeAware('<rect stroke="var(--line)"/>')).toBe(true);
     expect(isThemeAware("@media (prefers-color-scheme: dark) {}")).toBe(true);
     expect(isThemeAware('<rect stroke="#333" fill="var(--brand)"/>')).toBe(false);
+    // A page that sets `--fg` itself means its own colour by that name.
+    expect(isThemeAware("<style>:root{--fg:#1a1d21}p{color:var(--fg)}</style><p>x</p>")).toBe(false);
+    expect(isThemeAware("<style>:root{--fg:#1a1d21}@media (prefers-color-scheme:dark){:root{--fg:#eee}}</style>")).toBe(true);
   });
 
   it("answers a palette query for the look it is drawn in", () => {
@@ -230,6 +233,14 @@ describe("MarkdownProse fences", () => {
     fireEvent.click(screen.getByTestId("visual-expand"));
     const large = within(screen.getByTestId("visual-full-view")).getByTestId("inline-html-frame") as HTMLIFrameElement;
     expect(large.style.height).toBe("100%");
+    // There the drawing stands in the middle; in the conversation it starts at the top.
+    expect(large.getAttribute("srcdoc")).toContain("align-items:center");
+    expect(screen.getAllByTestId("inline-html-frame")[0].getAttribute("srcdoc")).not.toContain("align-items:center");
+  });
+
+  it("names a visual without a title by a plain word, not by its markup language", () => {
+    render(<MarkdownProse slug="r" path="r.md" files={[]} text={"```html\n<b>bold</b>\n```\n"} />);
+    expect(screen.getByTestId("inline-html-frame").getAttribute("title")).toBe("Visual");
   });
 
   it("leaves every other fence to the code block", () => {
