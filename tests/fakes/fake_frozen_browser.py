@@ -36,6 +36,13 @@ class FrozenBrowserApp:
             }
         raise AssertionError(f"Unexpected probe request: {method} {path}")
 
+    def mcp(self, port, key, method, params, **_kwargs):
+        self.requests.append(("MCP", method, key))
+        if method == "tools/list":
+            names = ("whiteboard", "node", "create_artifact")
+            return {"tools": [{"name": name} for name in names]}
+        return {"isError": False, "content": [{"type": "text", "text": "done"}]}
+
     def capture(self, port, key, output):
         assert self.installed, "The probe must await installation before checking frames"
         self.frames.append(output)
