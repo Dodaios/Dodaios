@@ -57,6 +57,19 @@ EARLIER_INSTALLERS = {earlier for _current, earlier in INSTALLER_NAME_PAIRS}
 INSTALLERS = CURRENT_INSTALLERS | (
     EARLIER_INSTALLERS if PUBLISH_EARLIER_INSTALLER_NAMES else set()
 )
+#: The SLSA L3 provenance under its ``(current, earlier)`` release names.
+#: ``sign-installer.yml`` emits it under the current name and attaches a
+#: byte-identical copy under the earlier one, which ``install-verify.sh`` and
+#: ``install-verify.ps1`` of every release before the alias look up. The copy
+#: is published, required and digest-checked while
+#: ``PUBLISH_EARLIER_INSTALLER_NAMES`` is on, so it retires with the installer
+#: copies on the same one-line switch (docs/rename/migration-plan.md step 1).
+PROVENANCE_NAME_PAIRS = (("dodaios.intoto.jsonl", "personal-jarvis.intoto.jsonl"),)
+PROVENANCE_CURRENT = PROVENANCE_NAME_PAIRS[0][0]
+PROVENANCE_EARLIER = {earlier for _current, earlier in PROVENANCE_NAME_PAIRS}
+PROVENANCE_ASSETS = {PROVENANCE_CURRENT} | (
+    PROVENANCE_EARLIER if PUBLISH_EARLIER_INSTALLER_NAMES else set()
+)
 SIGNED = {
     "install.sh",
     "install.ps1",
@@ -74,10 +87,10 @@ REQUIRED_ASSETS = (
         for name in SIGNED
         for suffix in (".sig", ".pem", ".bundle", ".cosign.sig", ".mldsa.sig")
     }
+    | PROVENANCE_ASSETS
     | {
         "installers-SHA256SUMS.txt",
         "checksums.txt",
-        "personal-jarvis.intoto.jsonl",
         "hashes-cross-runner-verified.json",
         "layout-content-anchor.json",
         "offline-ceremony.pub",
@@ -320,17 +333,28 @@ def parse_manifest(text: str) -> tuple[dict[str, str], list[str]]:
     return digests, errors
 
 
-def asset_errors(assets: list[dict], manifests: dict[str, str]) -> list[str]:
+def asset_errors(
+    assets: list[dict], manifests: dict[str, str], *, required: set[str] | None = None
+) -> list[str]:
     """Validate required nonempty assets and manifests against GitHub's stored digest."""
     by_name = {asset["name"]: asset for asset in assets}
     errors = []
     if len(by_name) != len(assets):
         errors.append("duplicate release asset names")
-    for name in sorted(REQUIRED_ASSETS):
+    for name in sorted(REQUIRED_ASSETS if required is None else required):
         asset = by_name.get(name, {})
         if asset.get("size", 0) <= 0 or asset.get("state") != "uploaded":
             errors.append(f"missing or incomplete asset: {name}")
-    for manifest, required in (
+    # Both names of the provenance carry the same bytes (sign-installer.yml
+    # attaches a copy under the earlier name), so a release where the server
+    # digests differ is not the alias it claims to be.
+    for current, earlier in PROVENANCE_NAME_PAIRS:
+        new_asset, old_asset = by_name.get(current, {}), by_name.get(earlier, {})
+        if new_asset.get("digest") and old_asset.get("digest") and (
+            new_asset["digest"] != old_asset["digest"]
+        ):
+            errors.append(f"provenance names differ in content: {current} and {earlier}")
+    for manifest, wanted in (
         ("installers-SHA256SUMS.txt", INSTALLERS),
         ("checksums.txt", SIGNED - {"payload-commit.txt"}),
     ):
@@ -339,7 +363,7 @@ def asset_errors(assets: list[dict], manifests: dict[str, str]) -> list[str]:
         for name, digest in digests.items():
             if by_name.get(name, {}).get("digest") != f"sha256:{digest}":
                 errors.append(f"release asset checksum mismatch: {name}")
-        if required - digests.keys():
+        if wanted - digests.keys():
             errors.append(f"incomplete manifest: {manifest}")
         if manifest == "installers-SHA256SUMS.txt":
             errors.extend(alias_errors(digests))
@@ -526,14 +550,19 @@ def published_errors(repo: str, tag: str) -> list[str]:
     if info.get("tagName") != tag or info.get("isDraft"):
         return [f"{tag} is not a published release"]
     assets = api_pages(f"repos/{repo}/releases/{info['databaseId']}/assets?per_page=100", "")
+    present = {asset["name"] for asset in assets}
+    # Releases published before the provenance alias carry the earlier name
+    # alone; only the drafts finalized from now on must have both.
+    required = set(REQUIRED_ASSETS)
+    if PROVENANCE_CURRENT not in present:
+        required.discard(PROVENANCE_CURRENT)
     with tempfile.TemporaryDirectory(prefix="jarvis-release-smoke-") as raw:
         folder = Path(raw)
         manifests = {
             name: _download(repo, tag, name, folder).read_text(encoding="utf-8")
             for name in ("checksums.txt", "installers-SHA256SUMS.txt", "source-SHA256SUMS.txt")
         }
-        errors = asset_errors(assets, manifests)
-        present = {asset["name"] for asset in assets}
+        errors = asset_errors(assets, manifests, required=required)
         if all(name in present for name in UPDATE_MANIFEST_ASSETS):
             manifest, signature = (_download(repo, tag, n, folder) for n in UPDATE_MANIFEST_ASSETS)
             errors.extend(
