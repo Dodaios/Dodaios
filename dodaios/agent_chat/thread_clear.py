@@ -30,10 +30,21 @@ from __future__ import annotations
 import re
 from typing import Any, Final
 
-__all__ = ["CLEAR_COMMANDS", "clear_name", "is_clear_command", "wants_clear"]
+__all__ = [
+    "CLEAR_COMMANDS",
+    "COMMAND",
+    "clear_name",
+    "is_clear_command",
+    "suggestion",
+    "wants_clear",
+]
 
-#: The command and the names Claude Code lists for it (its ``aliases``).
-CLEAR_COMMANDS: Final[frozenset[str]] = frozenset({"clear", "reset", "new"})
+#: The command's own name.
+COMMAND: Final[str] = "clear"
+#: The names Claude Code lists for it besides (its ``aliases``).
+_ALIASES: Final[tuple[str, ...]] = ("reset", "new")
+#: Every name that clears.
+CLEAR_COMMANDS: Final[frozenset[str]] = frozenset({COMMAND, *_ALIASES})
 #: The longest thread title a name after the command gives (as long as a rename allows).
 _NAME_MAX_CHARS: Final[int] = 120
 
@@ -63,5 +74,25 @@ def wants_clear(session: Any, text: str, attachments: Any = None) -> bool:
         getattr(session, "surface", "") == "agent"
         and not attachments
         and is_clear_command(text)
+    )
+
+
+def suggestion() -> Any:
+    """The ``/clear`` row of a coding thread's ``/`` list.
+
+    The CLI's own line describes its terminal (the old session "stays in
+    /resume"); the thread carries the command out itself, so the row says
+    what happens here.
+    """
+    from dodaios.agent_chat.typeahead import GROUP_CLI, Suggestion
+
+    return Suggestion(
+        value=COMMAND,
+        label=COMMAND,
+        hint="Clear this thread and start the agent with an empty context",
+        kind="command",
+        group=GROUP_CLI,
+        argument_hint="[name]",
+        aliases=_ALIASES,
     )
 

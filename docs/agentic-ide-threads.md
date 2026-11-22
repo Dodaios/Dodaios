@@ -165,7 +165,9 @@ news since it was last opened.
   other message and clears once the turn is over; it is never typed into the
   running turn. In a thread that does not exist yet it does nothing. Only the
   person's own command clears: a `/clear` another agent writes into the
-  thread, or one sent with a file, is a message.
+  thread, or one sent with a file, is a message. In the `/` list its line
+  says what the thread does with it, not what the CLI's terminal does (the
+  CLI's own line points to `/resume`, which a thread does not have).
 - **Under the composer:** a strip that says where the agent works — the
   current checkout or a fresh git worktree for a new thread — and on which
   branch (the base of the worktree, or the branch to switch the checkout to).

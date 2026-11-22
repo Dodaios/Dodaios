@@ -192,8 +192,14 @@ def suggest(
             rows = cli_commands(runner, folder)
             if surface == "agent":
                 # Print mode has no ``/btw``; Dodaios answers it (``aside``).
-                from dodaios.agent_chat import aside
+                # ``/clear`` is the thread's own too (``thread_clear``): its
+                # row says what the thread does with it.
+                from dodaios.agent_chat import aside, thread_clear
 
+                rows = [
+                    thread_clear.suggestion() if r.value == thread_clear.COMMAND else r
+                    for r in rows
+                ]
                 rows = [aside.suggestion()] + [r for r in rows if r.value != aside.COMMAND]
         else:
             rows = claude_slash(folder)

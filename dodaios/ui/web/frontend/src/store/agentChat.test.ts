@@ -705,6 +705,32 @@ describe("thread running state stays in step with the turn", () => {
     expect(store.getState().activeSession?.running).toBe(true);
   });
 
+  it("leaves a finished turn idle when its turn_started came before the send's answer", async () => {
+    // The socket is often quicker than the HTTP answer. The send's mark came
+    // after the turn_started that should have cleared it, and the finished
+    // turn kept its stop control and spinner for the whole grace (seen
+    // 2026-11-22 right after a thread's /clear).
+    const row = { ...session("c-race", "agent"), running: false };
+    stubFetch([row]);
+    let answer!: () => void;
+    const fetchFn = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => String(input).endsWith("/messages")
+      ? new Promise<Response>((resolve) => { answer = () => resolve(new Response(JSON.stringify({ turn_id: "t2", session_id: row.session_id }), { status: 202 })); })
+      : fetchFn(input, init)));
+    const store = make("c-race");
+    openWith(store, row, [at(1, "user_message", { text: "one" }), at(2, "turn_started", { turn_id: "t1" }), at(3, "turn_finished", { turn_id: "t1", status: "done" })]);
+    const sending = store.getState().send("two");
+    await vi.waitFor(() => expect(answer).toBeTypeOf("function"));
+    store.getState().ingest(at(4, "user_message", { text: "two" }));
+    store.getState().ingest(at(5, "turn_started", { turn_id: "t2" }));
+    answer();
+    await sending;
+    expect(store.getState().activeSession?.running).toBe(true);
+    store.getState().ingest(at(6, "turn_finished", { turn_id: "t2", status: "done" }));
+    expect(store.getState().activeSession?.running).toBe(false);
+    expect(store.getState().sessions[0]?.running).toBe(false);
+  });
+
   it("marks the row idle on turn_finished without waiting for the list", () => {
     const row = { ...session("e-row", "agent"), running: true };
     // A list read that fails: only the local patch can clear the row.

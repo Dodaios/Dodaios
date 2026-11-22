@@ -88,6 +88,34 @@ def test_only_a_bare_command_in_a_coding_thread_clears(store):
     assert not thread_clear.wants_clear(chat, "/clear")
 
 
+def test_the_slash_list_says_what_the_thread_does_with_it(tmp_path):
+    from dodaios.agent_chat import typeahead
+
+    typeahead.remember_cli_commands("claude-cli", tmp_path, [
+        {
+            "name": "clear",
+            "description": "Start a new session; the old one stays in /resume",
+            "argumentHint": "[name]",
+            "aliases": ["reset", "new"],
+        },
+        {"name": "deploy", "description": "Ship it"},
+    ])
+
+    def rows(surface: str) -> dict[str, dict]:
+        listed = typeahead.suggest(
+            runner="claude-cli", cwd=tmp_path, trigger="/", surface=surface, limit=1000
+        )["items"]
+        return {row["value"]: row for row in listed}
+
+    in_thread = rows("agent")["clear"]
+    assert in_thread["hint"] == "Clear this thread and start the agent with an empty context"
+    assert in_thread["argument_hint"] == "[name]"
+    assert in_thread["aliases"] == ["reset", "new"]
+    assert rows("agent")["deploy"]["hint"] == "Ship it"
+    # Any other chat on a Claude Code seat keeps the CLI's own line.
+    assert rows("society")["clear"]["hint"].startswith("Start a new session")
+
+
 # ------------------------------------------------------------------ the store
 
 

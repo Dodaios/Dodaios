@@ -1312,6 +1312,8 @@ export function createAgentChatStore(
         // Enter is a complete gesture — but never nothing at all.
         if (!content && attachments.length === 0) return "failed";
         const st = get();
+        // The turns already on screen: none of them is this message's turn.
+        const turnsBefore = new Set(st.timeline.items.flatMap((item) => item.type === "turn" ? [item.id] : []));
         // "/clear" in a coding thread starts its conversation over: no message
         // is written for it, so none is drawn on its way either.
         const clears = surface === "agent" && attachments.length === 0 && isClearCommand(content);
@@ -1388,7 +1390,14 @@ export function createAgentChatStore(
           }
           // The message is in: its turn is on the way even before the socket
           // says so, and the stop control and the row's spinner show it.
-          sentAt.set(sid, Date.now());
+          // Unless the socket was quicker and the turn already started: its
+          // `turn_started` cleared the mark, and one set now would keep the
+          // finished turn "working" for the whole grace (stop control and
+          // spinner up to a minute after the answer).
+          const started = Boolean(sent.turn_id) && get().activeSessionId === sid
+            && !turnsBefore.has(sent.turn_id)
+            && get().timeline.items.some((item) => item.type === "turn" && item.id === sent.turn_id);
+          if (!started) sentAt.set(sid, Date.now());
           if (get().activeSessionId === sid) {
             set((state) => {
               const active = state.activeSession ? aligned(state.activeSession, state.timeline) : null;
