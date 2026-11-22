@@ -494,6 +494,16 @@ label,
 .dark .code-block-body .shiki span {
   background-color: transparent !important;
 }
+/* The line a file reference pointed at (CodeBlock `markLine`, the side
+   panel's File tab). Plain CSS for the same reason: Shiki writes the class
+   at runtime. The second selector outranks the transparent rule above. */
+.code-line-marked,
+.dark .code-block-body .shiki span.code-line-marked {
+  display: inline-block;
+  min-width: 100%;
+  background-color: rgb(var(--accent-rgb) / 0.14) !important;
+  box-shadow: inset 2px 0 0 rgb(var(--accent-rgb) / 0.85);
+}
 
 /* xterm.js viewport scrollbar — PLAIN (non-@layer) CSS on purpose. Tailwind
    tree-shakes `@layer utilities` by class usage, and `.xterm-viewport` is

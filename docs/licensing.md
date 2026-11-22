@@ -143,6 +143,14 @@ Apache License 2.0, Copyright 2025 Pierre Computer Company, full text in
 [`third_party/pierre-trees/LICENSE`](../third_party/pierre-trees/LICENSE), plus a
 colour table adapted from T3 Code @ `31f9d83` under the MIT license above.
 
+The files and folders a thread's answer names are drawn as file references
+(`dodaios/ui/web/frontend/src/components/agentchat/FileRefChip.tsx` and
+`fileRefs.ts`), and a path that is not in the thread's folder as written is
+looked up in the project (`components/agentic/threads/projectPathMatch.ts`).
+The reference's look, its label rules and the lookup rules are adapted from
+T3 Code @ `2c4310eb` under the MIT license above; each file names its source
+in a header comment.
+
 A few well-separated portions of NousResearch/hermes-agent (MIT, Copyright (c)
 2025 Nous Research) are adapted into the agent code. Each adapted block names
 its upstream file and commit in a header comment; the license text and the list

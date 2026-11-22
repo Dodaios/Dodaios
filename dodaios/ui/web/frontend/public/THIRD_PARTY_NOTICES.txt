@@ -10,8 +10,9 @@ complete notices of the packages that actually contribute code or assets.
 T3 Code adapted portions
 
 Source: https://github.com/pingdotgg/t3code
-Pinned revisions: 31f9d83 and e22c880.
-Applies to the file-icon tables and sprite, work-log presentation, and shine CSS.
+Pinned revisions: 31f9d83, e22c880 and 2c4310eb.
+Applies to the file-icon tables and sprite, work-log presentation, shine CSS,
+and the file references in thread answers with their project lookup.
 Modified files retain their upstream attribution and describe the changes.
 
 MIT License

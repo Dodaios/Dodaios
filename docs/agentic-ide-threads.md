@@ -57,6 +57,23 @@ news since it was last opened.
   sub-agent, a `monitor`); when it waits on work none of them named, the
   wait shows one task called "background work". While tasks are open the turn
   waits as long as they run; there is no clock.
+- **Files an answer names:** a path in inline code (`core/config.py:3134`,
+  `docs/`) or a link worded as its file (`[app.ts:42](src/app.ts#L42)`) is
+  drawn as a file reference: the explorer's file-type glyph (a folder glyph
+  for a folder), then the name and the line in the accent colour
+  (`config.py · L3134`). Two named files with the same name get the parent
+  folder that tells them apart (`memory.py · society`). The path as written
+  shows on hover. A click opens a file in the side panel's File tab at that
+  line, marked and in view, and a folder of the project in the Files tab.
+  A relative path that is not in the thread's folder as written is looked
+  for in the project: the one file or folder whose path ends in it (agents
+  often name a file from inside a package, `core/config.py` for
+  `dodaios/core/config.py`), with the project folder's own name in front
+  removed, or the one file of that bare name. Several that fit open
+  nothing, so no guess opens the wrong file. After that the home folder is
+  tried. The project's file list is the one Go to File uses
+  (`components/agentic/editor/fileListCache.ts`), and the lookup lives in
+  `components/agentic/threads/projectPathMatch.ts`.
 - **Visuals:** an answer can show a picture instead of describing it. A
   fenced `mermaid`, `svg` or `html` block is drawn as a figure, and a picture
   or a self-contained HTML page the agent saved is shown where it is linked

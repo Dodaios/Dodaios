@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatMarkdown } from "./ChatMarkdown";
-import { ChatPathOpener, pathInCode } from "./chatPaths";
+import { ChatFileIcon, ChatPathOpener, fileRefInCode, pathInCode } from "./chatPaths";
 
 afterEach(cleanup);
 
@@ -12,6 +12,8 @@ describe("pathInCode", () => {
     [".env", ".env"],
     ["src/app.ts:42", "src/app.ts"],
     ["src/app.ts:42:7", "src/app.ts"],
+    ["src/app.ts:42-64", "src/app.ts"],
+    ["src/app.ts#L42C7", "src/app.ts"],
     ["docs/ci-pipeline.md#L12", "docs/ci-pipeline.md"],
     ["./scripts/run.py", "./scripts/run.py"],
     ["src/components/", "src/components/"],
@@ -33,6 +35,24 @@ describe("pathInCode", () => {
   });
 });
 
+describe("fileRefInCode", () => {
+  it.each([
+    ["src/app.ts", { path: "src/app.ts" }],
+    ["memory/vault/legacy_import.py:321", { path: "memory/vault/legacy_import.py", line: 321 }],
+    ["src/app.ts:42:7", { path: "src/app.ts", line: 42, column: 7 }],
+    ["src/app.ts:42-64", { path: "src/app.ts", line: 42, endLine: 64 }],
+    ["docs/ci.md#L12-L20", { path: "docs/ci.md", line: 12, endLine: 20 }],
+    ["docs/ci.md#L12C3", { path: "docs/ci.md", line: 12, column: 3 }],
+    ["main.c(7,2)", { path: "main.c", line: 7, column: 2 }],
+  ])("reads %s with its place in the file", (code, ref) => {
+    expect(fileRefInCode(code)).toEqual(ref);
+  });
+
+  it("is null for code", () => {
+    expect(fileRefInCode("localhost:8080")).toBeNull();
+  });
+});
+
 describe("paths in a thread's answer", () => {
   it("opens a path in code beside the conversation", () => {
     const open = vi.fn();
@@ -43,6 +63,45 @@ describe("paths in a thread's answer", () => {
     expect(links.map((link) => link.textContent)).toEqual(["todo.md"]);
     fireEvent.click(links[0]);
     expect(open).toHaveBeenCalledWith("todo.md");
+  });
+
+  it("draws a path as a file reference: glyph, name and line, never as code", () => {
+    const open = vi.fn();
+    const Glyph = ({ path }: { path: string }) => <svg data-testid="glyph" data-path={path} />;
+    render(<ChatPathOpener.Provider value={open}><ChatFileIcon.Provider value={Glyph}>
+      <ChatMarkdown text={"See `core/config.py:3134` and `wiki/obsidian-vault/`."} />
+    </ChatFileIcon.Provider></ChatPathOpener.Provider>);
+    const [file, folder] = screen.getAllByTestId("chat-path-link");
+    expect(file.textContent).toBe("config.py · L3134");
+    expect(file.querySelector("code")).toBeNull();
+    expect(file.dataset.fileRef).toBe("file");
+    expect(screen.getByTestId("glyph").dataset.path).toBe("core/config.py");
+    // A folder wears the folder glyph and its own name.
+    expect(folder.textContent).toBe("obsidian-vault");
+    expect(folder.dataset.fileRef).toBe("folder");
+    fireEvent.click(file);
+    expect(open).toHaveBeenCalledWith("core/config.py", 3134);
+  });
+
+  it("tells two files of the same name apart by their folders", () => {
+    render(<ChatPathOpener.Provider value={vi.fn()}>
+      <ChatMarkdown text={"`society/memory.py:3` differs from `core/memory.py`; `state.py` is alone."} />
+    </ChatPathOpener.Provider>);
+    expect(screen.getAllByTestId("chat-path-link").map((link) => link.textContent))
+      .toEqual(["memory.py · society · L3", "memory.py · core", "state.py"]);
+  });
+
+  it("draws a link worded as its file as a reference, at the linked line", () => {
+    const open = vi.fn();
+    render(<ChatPathOpener.Provider value={open}>
+      <ChatMarkdown text={"In [app.ts:42](src/app.ts#L42), see [the notes](<C:/Users/me/notes.md>)."} />
+    </ChatPathOpener.Provider>);
+    const [reference] = screen.getAllByTestId("chat-path-link");
+    expect(reference.textContent).toBe("app.ts · L42");
+    fireEvent.click(reference);
+    expect(open).toHaveBeenCalledWith("src/app.ts", 42);
+    // A link worded as prose stays a link.
+    expect(screen.getByText("the notes").closest("[data-testid=chat-path-link]")).toBeNull();
   });
 
   it("opens a linked local file beside the conversation instead of on the computer", () => {

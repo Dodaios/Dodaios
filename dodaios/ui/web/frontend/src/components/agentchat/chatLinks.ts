@@ -1,5 +1,7 @@
 import { defaultUrlTransform } from "react-markdown";
 
+import { splitLocation } from "./chatPaths";
+
 const LOCAL_PREFIX = "#jarvis-local=";
 const THREAD_PREFIX = "#jarvis-thread=";
 const PAGE_PREFIX = "#jarvis-page=";
@@ -88,6 +90,15 @@ export function openableLinkTarget(raw: string): string | null {
   return nativePathFromMarkdownUrl(raw) || (looksLikeLocalFile(raw) ? stripAngles(raw) : null);
 }
 
+/** A local file with the line it points at (`src/app.ts#L42`, `notes.md:3`), kept as written. */
+function locatedLinkTarget(raw: string): string | null {
+  const text = stripAngles(raw);
+  const { path, line } = splitLocation(text);
+  if (!line) return null;
+  const target = openableLinkTarget(path);
+  return target ? target + text.slice(path.length) : null;
+}
+
 /**
  * The coding thread a chat link names: `thread:<session id>`, or `thread:` and
  * the thread's code. This is how an answer points at a coding agent; the chat
@@ -122,7 +133,7 @@ export function chatUrlTransform(url: string): string {
   if (thread) return THREAD_PREFIX + thread;
   const page = pageRefFromMarkdownUrl(url);
   if (page) return PAGE_PREFIX + encodeURIComponent(page);
-  const local = openableLinkTarget(url);
+  const local = openableLinkTarget(url) || locatedLinkTarget(url);
   if (local) return LOCAL_PREFIX + encodeURIComponent(local);
   return defaultUrlTransform(url);
 }
@@ -152,7 +163,9 @@ export function localPathFromChatHref(href: string): string | null {
  * the current page, and a relative file name is served back as the app itself.
  */
 export function chatLinkAction(href: string, label = ""): ChatLinkAction {
-  const local = localPathFromChatHref(href) || openableLinkTarget(href);
+  // The computer opens a file, not a line in it: `app.ts:42` opens `app.ts`.
+  const linked = localPathFromChatHref(href);
+  const local = (linked && splitLocation(linked).path) || openableLinkTarget(href);
   if (local) return { type: "local", path: local };
   if (/^https?:\/\//i.test(href)) return { type: "external", url: href };
   if (href.startsWith("//")) return { type: "external", url: `https:${href}` };

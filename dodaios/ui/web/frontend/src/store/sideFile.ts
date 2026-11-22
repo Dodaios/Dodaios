@@ -16,6 +16,8 @@ export interface SideFile {
   folder: string;
   /** What the clicked call changed in the file, when it was an edit. */
   diff: DiffFile[] | null;
+  /** The line the answer pointed at (`config.py:3134`); the tab opens there. */
+  line?: number;
 }
 
 interface SideFileState {
