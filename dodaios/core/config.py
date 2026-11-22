@@ -4597,6 +4597,9 @@ class RsiConfig(BaseModel):
 
     enabled: bool = False
     verify: Literal["off", "observe"] = "off"
+    #: Hand the lead a compact index of the repositories in play with its
+    #: messages (``dodaios.rsi.repo_index``). Independent of ``enabled``.
+    repo_index: bool = False
 
 
 class JarvisConfig(BaseModel):

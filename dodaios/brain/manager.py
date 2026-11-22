@@ -4421,6 +4421,13 @@ class BrainManager:
             from dodaios.society.lead_card import lead_live_tail
 
             parts.append(lead_live_tail())
+        if self._is_lead_turn():
+            # The repositories in play ([rsi] repo_index). Only inside a lead
+            # turn: the prompt a CLI seat is handed is built outside one, and
+            # that seat gets the index with its message instead.
+            from dodaios.rsi.repo_cards import turn_context_note
+
+            parts.append(turn_context_note())
         agentic_block = self._agentic_focus_block()
         if agentic_block:
             parts.append(agentic_block)

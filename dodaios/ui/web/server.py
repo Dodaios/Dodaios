@@ -4169,6 +4169,10 @@ class WebServer:
         from dodaios.orchestrator.verification.recorder import install as install_run_recorder
 
         install_run_recorder(service, data_dir, self.cfg)
+        # The lead's repository index, only while ``[rsi] repo_index`` is set.
+        from dodaios.rsi.repo_cards import install as install_repo_board
+
+        install_repo_board(service, self.cfg)
         # "Needs you" list and notifier: one event listener, nothing on boot.
         from dodaios.agent_chat.attention import install as install_attention
 

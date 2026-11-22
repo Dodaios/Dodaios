@@ -442,3 +442,39 @@ async def test_a_conversation_that_is_not_the_lead_keeps_its_single_pass(tmp_pat
     await svc.send(session.session_id, "/note-skill hi")
     await asyncio.wait_for(svc._running[session.session_id].task, 10)
     assert seen.prompts == ["/note-skill hi"]
+
+
+class _Index:
+    """A repository board that always has the same thing to say."""
+
+    def __init__(self) -> None:
+        self.asked: list[tuple[str, str]] = []
+
+    def note_for(self, session_id: str, *, message: str = "") -> str:
+        self.asked.append((session_id, message))
+        return "[Repos, rev 1: 1 of 3 in play.]\nnotes: 2 busy"
+
+
+@pytest.mark.parametrize("seat", ["claude-cli", "codex-cli"])
+async def test_a_cli_seat_gets_the_repository_index_with_the_message(seat, tmp_path, monkeypatch):
+    from dodaios.rsi import repo_cards
+
+    index = _Index()
+    repo_cards.set_board(index)  # type: ignore[arg-type]
+    try:
+        seen, _ = await _run(seat, tmp_path, monkeypatch, "How is the notes repo?", ["Fine."])
+    finally:
+        repo_cards.set_board(None)
+    assert "notes: 2 busy" in seen.prompts[0]
+    # It rides after the person's words, and the board saw those words.
+    assert seen.prompts[0].index("How is the notes repo?") < seen.prompts[0].index("[Repos,")
+    assert index.asked[0][1] == "How is the notes repo?"
+
+
+@pytest.mark.parametrize("seat", ["claude-cli", "codex-cli"])
+async def test_a_cli_seat_prompt_is_unchanged_while_the_index_is_off(seat, tmp_path, monkeypatch):
+    from dodaios.rsi import repo_cards
+
+    repo_cards.set_board(None)
+    seen, _ = await _run(seat, tmp_path, monkeypatch, "How is the notes repo?", ["Fine."])
+    assert "[Repos," not in seen.prompts[0]
