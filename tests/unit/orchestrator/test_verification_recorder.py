@@ -43,6 +43,9 @@ class _Service:
     def add_event_listener(self, listener: Any) -> None:
         self.listeners.append(listener)
 
+    def is_running(self, session_id: str) -> bool:
+        return session_id in getattr(self, "running", set())
+
     def emit(self, kind: str, payload: dict[str, Any], ts_ms: int, session: str = THREAD):
         log = self.store.events.setdefault(session, [])
         event = {"seq": len(log) + 1, "ts_ms": ts_ms, "kind": kind, "payload": payload}
@@ -63,6 +66,15 @@ def _describe(_folder: str) -> RepoRef:
 @pytest.fixture
 def service() -> _Service:
     return _Service()
+
+
+@pytest.fixture(autouse=True)
+def _no_worktree_maker_left_behind():
+    """``install`` sets the process's worktree maker; no test hands it to the next."""
+    from dodaios.orchestrator.verification import workdir
+
+    yield
+    workdir.set_dirs(None)
 
 
 @pytest.fixture
@@ -302,6 +314,105 @@ def test_the_recorder_takes_its_verify_mode_from_the_setting(service, tmp_path):
             made.stop()
             made.store.close()
         rec.set_recorder(None)
+
+
+def _installed(service, tmp_path, **settings):
+    return rec.install(service, tmp_path, SimpleNamespace(rsi=SimpleNamespace(**settings)))
+
+
+def _uninstall(made) -> None:
+    from dodaios.orchestrator.verification import workdir
+
+    held = workdir.dirs()
+    workdir.set_dirs(None)
+    if made is not None:
+        made.stop()
+        made.store.close()
+    elif held is not None:
+        held._store.close()
+    rec.set_recorder(None)
+
+
+@pytest.mark.parametrize(
+    ("settings", "making"),
+    [
+        ({"enabled": True, "verify": "observe", "worktree_per_run": True}, True),
+        ({"enabled": True, "verify": "off", "worktree_per_run": True}, False),
+        ({"enabled": True, "verify": "observe", "worktree_per_run": False}, False),
+        ({"enabled": True}, False),
+    ],
+)
+def test_threads_get_their_own_worktree_only_while_output_is_verified(
+    service, tmp_path, settings, making
+):
+    from dodaios.orchestrator.verification import workdir
+
+    made = _installed(service, tmp_path, **settings)
+    try:
+        dirs = workdir.dirs()
+        assert dirs is not None
+        assert dirs._making is making
+    finally:
+        _uninstall(made)
+
+
+def test_the_settings_for_worktrees_reach_the_one_that_makes_them(service, tmp_path):
+    from dodaios.core.config import RsiConfig
+    from dodaios.orchestrator.verification import workdir
+
+    assert RsiConfig().worktree_per_run is True
+    assert RsiConfig().shared_checkout_repos == []
+    section = RsiConfig(
+        enabled=True, verify="observe", shared_checkout_repos=["github.com/Acme/Notes"]
+    )
+    made = rec.install(service, tmp_path, SimpleNamespace(rsi=section))
+    try:
+        dirs = workdir.dirs()
+        assert dirs is not None
+        assert dirs._making is True
+        assert dirs._shared == {"github.com/acme/notes"}
+        # What the one that puts worktrees away asks about a thread.
+        service.running = {THREAD}
+        assert dirs._thread_exists(THREAD) is True
+        assert dirs._thread_exists("gone") is False
+        assert dirs._idle_ms(THREAD) == 0
+        service.running = set()
+        service.store.sessions[THREAD].updated_ms = 1_000
+        service.store.sessions[THREAD].last_message_ms = 2_000
+        assert dirs._idle_ms(THREAD) > 60_000
+        assert dirs._idle_ms("gone") == 0
+    finally:
+        _uninstall(made)
+
+
+def test_with_recording_off_only_worktrees_put_away_earlier_are_served(service, tmp_path):
+    from dodaios.orchestrator.verification import workdir
+
+    off = {"enabled": False, "verify": "observe", "worktree_per_run": True}
+    # Never switched on: no record, nothing to restore, nothing opened.
+    assert _installed(service, tmp_path, **off) is None
+    assert workdir.dirs() is None
+    # Switched on once, with nothing put away: still nothing to serve.
+    store = VerificationStore(tmp_path / "verification.db")
+    store.add_workdir(
+        "/repos/notes/.worktrees/agent-a", repo_id="r", root="/repos/notes", branch="agent/a",
+        base_sha="abc", created_ms=1,
+    )
+    store.bind_workdir("/repos/notes/.worktrees/agent-a", THREAD)
+    assert _installed(service, tmp_path, **off) is None
+    assert workdir.dirs() is None
+    # One was put away: its thread must find it again, and nothing new is made.
+    store.close_workdir("/repos/notes/.worktrees/agent-a", 5, branch="agent/a", head_sha="abc")
+    store.close()
+    try:
+        assert _installed(service, tmp_path, **off) is None
+        dirs = workdir.dirs()
+        assert dirs is not None
+        assert dirs._making is False
+        assert rec.recorder() is None
+        assert service.listeners == []
+    finally:
+        _uninstall(None)
 
 
 def test_the_judges_of_a_run_are_core_paths_of_the_app():

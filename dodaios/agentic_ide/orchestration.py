@@ -1036,6 +1036,9 @@ class WorkspaceOrchestrator:
         created: list[dict[str, Any]] = []
         creation_error = ""
         seen: dict[str, int] = {}
+        from dodaios.orchestrator.verification import workdir
+
+        worktrees: dict[str, Any] = {}
         try:
             for row, picks in wanted:
                 # The CLI's own name as the IDE shows it ("Claude Code"),
@@ -1046,11 +1049,20 @@ class WorkspaceOrchestrator:
                 label = name if name and len(rows) == 1 else (
                     f"{shown} {seen[shown]}" if several else shown
                 )
-                created.append(self.threads.create(
-                    folder=folder, row=row, name=label,
+                # A checkout of its own for the thread, while the app verifies
+                # what coding runs leave behind ([rsi] worktree_per_run); else
+                # ``None`` and the thread runs in the project folder.
+                made = await asyncio.to_thread(workdir.for_new_thread, folder, label)
+                thread = self.threads.create(
+                    folder=made.folder if made is not None else folder, row=row, name=label,
                     title=name if name and len(rows) == 1 else "",
                     **picks,
-                ))
+                )
+                if made is not None:
+                    workdir.bind(made, session_of(thread["terminal_id"]))
+                    thread = {**thread, "folder": made.folder, "branch": made.branch}
+                    worktrees[thread["terminal_id"]] = made
+                created.append(thread)
         except Exception as exc:  # noqa: BLE001 - earlier threads exist; keep their IDs
             from loguru import logger
 
@@ -1104,8 +1116,12 @@ class WorkspaceOrchestrator:
             deliveries = await asyncio.gather(
                 *(
                     self.threads.send(
-                        session_of(thread["terminal_id"]), prompt, name=thread["name"],
-                        origin=origin, images=images,
+                        session_of(thread["terminal_id"]),
+                        # A thread in its own worktree is told so, and reads
+                        # the files the brief names there.
+                        workdir.localize(prompt, worktrees[thread["terminal_id"]])
+                        if thread["terminal_id"] in worktrees else prompt,
+                        name=thread["name"], origin=origin, images=images,
                     )
                     for thread in created
                 )

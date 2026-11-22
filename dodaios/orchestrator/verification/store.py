@@ -96,6 +96,18 @@ CREATE TABLE IF NOT EXISTS steps (
     ts_ms           INTEGER NOT NULL,
     PRIMARY KEY (run_id, iteration, step)
 );
+CREATE TABLE IF NOT EXISTS workdirs (
+    folder      TEXT PRIMARY KEY,
+    repo_id     TEXT NOT NULL DEFAULT '',
+    root        TEXT NOT NULL DEFAULT '',
+    branch      TEXT NOT NULL DEFAULT '',
+    base_sha    TEXT NOT NULL DEFAULT '',
+    head_sha    TEXT NOT NULL DEFAULT '',
+    session_id  TEXT NOT NULL DEFAULT '',
+    created_ms  INTEGER NOT NULL,
+    removed_ms  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_workdirs_repo ON workdirs(repo_id, removed_ms);
 CREATE TRIGGER IF NOT EXISTS steps_no_update BEFORE UPDATE ON steps
 BEGIN SELECT RAISE(ABORT, 'steps are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS steps_no_delete BEFORE DELETE ON steps
@@ -233,6 +245,85 @@ class VerificationStore:
                 (int(since_ms), int(limit)),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    # -------------------------------------------------------------- workdirs
+
+    def add_workdir(
+        self,
+        folder: str,
+        *,
+        repo_id: str,
+        root: str,
+        branch: str,
+        base_sha: str,
+        created_ms: int,
+    ) -> None:
+        """Record a worktree the app made for a thread that is about to be opened.
+
+        ``root`` is the repository's main checkout, ``base_sha`` the commit the
+        worktree started from.
+        """
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO workdirs (folder, repo_id, root, branch, base_sha, "
+                "head_sha, session_id, created_ms, removed_ms) VALUES (?,?,?,?,?,'','',?,NULL)",
+                (folder, repo_id, root, branch, base_sha, int(created_ms)),
+            )
+            self._conn.commit()
+
+    def bind_workdir(self, folder: str, session_id: str) -> None:
+        """Name the thread that runs in an app-made worktree."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE workdirs SET session_id = ? WHERE folder = ?", (session_id, folder)
+            )
+            self._conn.commit()
+
+    def workdir(self, folder: str) -> dict[str, Any] | None:
+        """The record of the app-made worktree at ``folder``, there or put away."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM workdirs WHERE folder = ?", (folder,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def workdirs(self, *, repo_id: str = "") -> list[dict[str, Any]]:
+        """App-made worktrees that are on disk (not put away), oldest first."""
+        query = "SELECT * FROM workdirs WHERE removed_ms IS NULL"
+        args: tuple[Any, ...] = ()
+        if repo_id:
+            query += " AND repo_id = ?"
+            args = (repo_id,)
+        with self._lock:
+            rows = self._conn.execute(query + " ORDER BY created_ms", args).fetchall()
+        return [dict(row) for row in rows]
+
+    def workdirs_away(self) -> int:
+        """How many app-made worktrees are put away and may be asked for again."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM workdirs WHERE removed_ms IS NOT NULL AND session_id != ''"
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def close_workdir(
+        self, folder: str, removed_ms: int, *, branch: str = "", head_sha: str = ""
+    ) -> None:
+        """Note that an app-made worktree was put away, and what it was on then."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE workdirs SET removed_ms = ?, "
+                "branch = CASE WHEN ? != '' THEN ? ELSE branch END, "
+                "head_sha = CASE WHEN ? != '' THEN ? ELSE head_sha END WHERE folder = ?",
+                (int(removed_ms), branch, branch, head_sha, head_sha, folder),
+            )
+            self._conn.commit()
+
+    def reopen_workdir(self, folder: str) -> None:
+        """Note that a worktree that was put away is on disk again."""
+        with self._lock:
+            self._conn.execute("UPDATE workdirs SET removed_ms = NULL WHERE folder = ?", (folder,))
+            self._conn.commit()
 
     # ----------------------------------------------------------------- steps
 
