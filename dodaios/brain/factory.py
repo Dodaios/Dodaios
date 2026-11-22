@@ -1,7 +1,7 @@
 """Brain factory: delivers a `BrainCallback` (async (str) -> str) for the pipeline.
 
 The factory is the only authorised entry point for Phase-1b launchers
-(`speech/pipeline.py` + `speech/watchdog.py`). It attempts in order:
+(`speech/pipeline.py`). It attempts in order:
 
 1. **BrainManager** (Phase 5.5, tier-aware) — Router tier (Haiku) or sub tier (Opus).
 2. **GeminiTestBrain** — Phase-1b fallback if BrainManager is missing/crashed.
