@@ -120,7 +120,7 @@ def test_helper_preserves_overrides_cwd_and_venv_without_repinning(monkeypatch, 
     command, kwargs = spawned[0]
     assert command == [executable, "-m", relauncher.LAUNCHER_MODULE, "--instance", "dev", *args]
     assert kwargs["cwd"] == str(tmp_path)
-    assert kwargs["env"] == {"VIRTUAL_ENV": "preserved"}
+    assert kwargs["env"] == {"VIRTUAL_ENV": "preserved", relauncher.DESKTOP_SPAWN_ENV_VAR: "1"}
     assert probes and all(p == {"cwd": str(tmp_path), "port": 47869} for p in probes)
 
 
