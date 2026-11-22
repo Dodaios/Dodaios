@@ -144,10 +144,14 @@ news since it was last opened.
   runs the thread's own command line (model, system prompt, tools, MCP
   servers), so it reads the conversation from the prompt cache the thread
   already warmed; only its permission mode is `default`, and every tool call
-  it tries is refused. The question and its answer are one card in the
-  thread, marked as not part of the conversation, with a Close button; the
-  agent never sees either. A question that needs tools says so and should be
-  sent as a normal message. Other coding agents get `/btw` as plain text.
+  it tries is refused. A background task the thread has open (a shell
+  command, a sub-agent) shows up in the copy as a stopped task; Claude Code
+  answers its notice first with an empty result, which the copy skips, so the
+  answer is always the one to the question. The question and its answer are
+  one card in the thread, marked as not part of the conversation, with a
+  Close button; the agent never sees either. A question that needs tools says
+  so and should be sent as a normal message; a run that fails names its error
+  on the card. Other coding agents get `/btw` as plain text.
 - **Clear (`/clear`):** `/clear` (also `/reset` and `/new`, the names Claude
   Code lists for it) starts the thread's conversation over, on every coding
   agent. The thread shows empty with one line, "Conversation cleared", and
