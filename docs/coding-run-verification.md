@@ -212,8 +212,12 @@ over ends there), its progress reaches the wait, and a turn that neither ended
 nor came back within 90 seconds of the first look is reported as interrupted.
 This holds in every mode, not only with enforced checks.
 
-Not done yet: the lead's own text after it delegated is still shown at once,
-and a thread's other events still wake the lead.
+**A quiet chat until the verdict.** While coding work whose output the app
+checks is still out, what the lead writes in that turn after the hand-off is
+shown as its thinking, not as its answer; the continuation with the checked
+result speaks again. Text written before the hand-off was already shown and
+stays. Threads an agent opened with `coding-session` are not checked and keep
+their own wake-ups.
 
 ## What the lead can ask
 
