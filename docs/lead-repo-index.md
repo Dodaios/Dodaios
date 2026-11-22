@@ -9,9 +9,9 @@ facts).
 
 ```
 [Repos, rev 41: 3 of 23 in play. Detail: workspace-orchestrate status project=<name>; pull-requests-list.]
-shop-web: 2 wait for you
-notes: 3 busy; main dirty
-billing-api: idle
+shop-web: 2 wait for you; PR 1 passing
+notes: 3 busy; PR 2, 1 failing; main dirty
+billing-api: idle; PR 1 running; conflict
 Quiet: 20 repos.
 ```
 
@@ -22,10 +22,14 @@ One line per repository *in play*, a count for the rest. In play, in this order:
 1. a coding thread there waits for the person (a question, an approval);
 2. a coding thread there is working;
 3. the current message names the repository;
-4. it is among the last five repositories this conversation handed work to.
+4. it is among the last five repositories this conversation handed work to;
+5. one of the person's open pull requests there fails its checks or is in
+   conflict.
 
 A repository is its `origin`, so a thread in a worktree counts for its
-repository. `main dirty` and `conflict` describe the main checkout.
+repository. `PR n` counts the person's open pull requests there with how their
+checks stand (`failing`, `running`, `passing`). `main dirty` describes the main
+checkout; `conflict` is a conflict in it or in an open pull request.
 
 The index stays within 1,200 characters. A repository that waits for the
 person is never dropped, only shortened; the others give way into
@@ -51,11 +55,15 @@ When no repository is in play, nothing is sent.
 Which coding threads work or wait is read from the app's memory when the index
 is rendered. What needs `git` (which repository a folder belongs to, the state
 of a main checkout) is read by a background refresh, started when a coding
-thread's turn ends, and at most every three seconds. Rendering never starts a
-`git` process and never touches the network, so it can be one refresh behind.
+thread's turn ends, and at most every three seconds. The open pull requests
+come from one GitHub call for all repositories, with the person's own GitHub
+connection, in the same refresh, at most once a minute and only while a
+repository on GitHub is in play. Rendering never starts a `git` process and
+never touches the network, so it can be one refresh behind. When GitHub does
+not answer, the last known state stays.
 
-Pull requests and the done gate are not in the index yet; `pull-requests-list`
-answers for them.
+The done gate is not in the index yet; `pull-requests-list` answers for the
+details of a pull request.
 
 ## Tests
 

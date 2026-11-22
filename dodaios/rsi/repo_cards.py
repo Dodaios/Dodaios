@@ -2,11 +2,13 @@
 
 Two kinds of fact go into the index (:mod:`repo_index`):
 
-* **Slow facts** need ``git``: which repository a folder belongs to (so a
-  worktree counts for its repository) and whether a main checkout has
-  uncommitted changes or conflicts. They are read by a background refresh,
-  started when a coding thread's turn ends or the index is first asked for,
-  and kept in memory. Nothing is polled.
+* **Slow facts** need ``git`` or GitHub: which repository a folder belongs to
+  (so a worktree counts for its repository), whether a main checkout has
+  uncommitted changes or conflicts, and the open pull requests with their
+  checks (one GitHub call for all repositories, at most once a minute, only
+  while a repository on GitHub is in play). They are read by a background
+  refresh, started when a coding thread's turn ends or the index is first
+  asked for, and kept in memory. Nothing is polled.
 * **Fast facts** are in the app's own memory or one indexed query: which
   coding threads are working, which wait for the person, and which
   repositories this conversation handed work to last. They are read when the
@@ -44,6 +46,8 @@ RECENT_REPOS: Final[int] = 5
 RESEND_EVERY: Final[int] = 20
 #: Two refreshes are at least this far apart.
 MIN_REFRESH_GAP_S: Final[float] = 3.0
+#: GitHub is asked about open pull requests at most this often.
+PULL_REQUESTS_TTL_S: Final[float] = 60.0
 _THREAD_SURFACE: Final[str] = "agent"
 _SESSIONS_READ: Final[int] = 200
 _JOBS_READ: Final[int] = 40
@@ -65,6 +69,34 @@ def _git_state(folder: str) -> tuple[bool, bool]:
     return bool(state.get("changed_files")), bool(state.get("conflicted"))
 
 
+#: ``(prs, failing, running, in conflict)`` of one repository's open pull requests.
+PullRequestCounts = tuple[int, int, int, bool]
+
+
+def _pull_requests() -> dict[str, PullRequestCounts] | None:
+    """The person's open pull requests per repository id; ``None`` when GitHub says nothing."""
+    from dodaios.agentic_ide import github_link
+
+    cred = github_link.credential()
+    if cred is None:
+        return None
+    try:
+        _login, mine, _review = github_link.open_pull_requests(cred)
+    except github_link.GitHubError as exc:
+        log.info("repo board: no pull requests read (%s)", exc)
+        return None
+    counts: dict[str, list[Any]] = {}
+    for row in mine:
+        repo = f"github.com/{row.repo.lower()}"
+        entry = counts.setdefault(repo, [0, 0, 0, False])
+        entry[0] += 1
+        entry[1] += row.checks == "failing"
+        entry[2] += row.checks == "running"
+        entry[3] = entry[3] or row.conflicts
+    return {repo: (n, failing, running, conflict) for repo, (n, failing, running, conflict)
+            in counts.items()}
+
+
 def _recent_jobs(owner_session: str) -> list[Any]:
     from dodaios.orchestrator import jobs
 
@@ -82,6 +114,7 @@ class RepoBoard:
         repo_of: Callable[[str], str] = repo_identity.repo_id,
         git_state: Callable[[str], tuple[bool, bool]] = _git_state,
         recent_jobs: Callable[[str], list[Any]] = _recent_jobs,
+        pull_requests: Callable[[], dict[str, PullRequestCounts] | None] | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._service = service
@@ -89,7 +122,11 @@ class RepoBoard:
         self._repo_of = repo_of
         self._git_state = git_state
         self._recent_jobs = recent_jobs
+        # Looked up when called, so a test can stand in for GitHub.
+        self._pull_requests = pull_requests or (lambda: _pull_requests())
         self._clock = clock
+        self._prs: dict[str, PullRequestCounts] = {}
+        self._prs_at: float | None = None
         self._lock = threading.Lock()
         #: folder -> repository id, for project folders and thread folders seen so far.
         self._repo_by_folder: dict[str, str] = {}
@@ -158,13 +195,29 @@ class RepoBoard:
                 name.setdefault(repo, Path(folder).name)
                 main.setdefault(repo, folder)
         flags = {repo: self._git_state(main[repo]) for repo in sorted(watch) if repo in main}
+        prs = self._read_pull_requests(watch)
         with self._lock:
             self._repo_by_folder = repo_by_folder
             self._name = name
             self._main = main
             self._flags = flags
+            if prs is not None:
+                self._prs = prs
             self._unresolved.difference_update(unresolved)
             self._refreshed_at = self._clock()
+
+    def _read_pull_requests(self, watch: set[str]) -> dict[str, PullRequestCounts] | None:
+        """Open pull requests per repository, when one in play is on GitHub and it is time."""
+        if not any(repo.split("/", 1)[0] == "github.com" for repo in watch):
+            return None  # no repository in play is on GitHub
+        with self._lock:
+            last = self._prs_at
+        if last is not None and self._clock() - last < PULL_REQUESTS_TTL_S:
+            return None
+        found = self._pull_requests()
+        with self._lock:
+            self._prs_at = self._clock()
+        return found
 
     # --------------------------------------------------------- fast facts
 
@@ -224,14 +277,18 @@ class RepoBoard:
         with self._lock:
             names = dict(self._name)
             flags = dict(self._flags)
+            prs = dict(self._prs)
         named = _named(message, names.values())
         states = [
             RepoState(
                 name=label,
                 busy=busy.get(repo, 0),
                 waits=waits.get(repo, 0),
+                prs=prs.get(repo, (0, 0, 0, False))[0],
+                prs_failing=prs.get(repo, (0, 0, 0, False))[1],
+                prs_running=prs.get(repo, (0, 0, 0, False))[2],
                 dirty=flags.get(repo, (False, False))[0],
-                conflict=flags.get(repo, (False, False))[1],
+                conflict=flags.get(repo, (False, False))[1] or prs.get(repo, (0, 0, 0, False))[3],
                 named=label in named,
                 recent=repo in recent,
             )
