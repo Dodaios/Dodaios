@@ -75,7 +75,10 @@ CREATE TABLE IF NOT EXISTS runs (
     person_intervened INTEGER NOT NULL DEFAULT 0,
     boot_id           TEXT NOT NULL DEFAULT '',
     started_ms        INTEGER NOT NULL,
-    ended_ms          INTEGER
+    ended_ms          INTEGER,
+    gate_status       TEXT NOT NULL DEFAULT '',
+    churn_lines       INTEGER,
+    tree_id           TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -99,13 +102,20 @@ CREATE TRIGGER IF NOT EXISTS steps_no_delete BEFORE DELETE ON steps
 BEGIN SELECT RAISE(ABORT, 'steps are append-only'); END;
 """
 
+#: Columns added after the first release; an older ``verification.db`` gains them on open.
+_ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
+    ("gate_status", "TEXT NOT NULL DEFAULT ''"),
+    ("churn_lines", "INTEGER"),
+    ("tree_id", "TEXT NOT NULL DEFAULT ''"),
+)
+
 #: The run columns a caller may set after the run started.
 _MUTABLE: Final[frozenset[str]] = frozenset(
     {
         "domain_post", "provider", "runner", "model_requested", "model_resolved", "effort",
         "harness_version", "harness_line", "state", "turn_id", "turn_status", "tokens_in",
         "tokens_out", "tokens_cached", "cost_usd", "wall_ms", "mixed_model",
-        "person_intervened", "ended_ms",
+        "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
     }
 )
 #: Every column a new run may carry.
@@ -135,6 +145,10 @@ class VerificationStore:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            have = {row[1] for row in self._conn.execute("PRAGMA table_info(runs)")}
+            for column, kind in _ADDED_COLUMNS:
+                if column not in have:
+                    self._conn.execute(f"ALTER TABLE runs ADD COLUMN {column} {kind}")  # noqa: S608
             self._conn.commit()
 
     @property

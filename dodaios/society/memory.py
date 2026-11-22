@@ -1,7 +1,8 @@
 """The society's one memory service — the Memory House's backend.
 
-``docs/agent-society/memory-house.md`` §3. The Obsidian vault is the memory;
-this service is the only code path an agent's memory goes through:
+``docs/agent-society/memory-house.md`` §3. The memory is plain Markdown in the
+society folder (``resolve_society_vault``); this service is the only code path
+an agent's memory goes through:
 
 * ``head``            the agent's own memory in the briefing
 * ``recall``          a ranked, bounded lookup in the agent's own notes only

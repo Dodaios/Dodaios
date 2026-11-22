@@ -3641,11 +3641,14 @@ class DictationConfig(BaseModel):
     #: ``dodaios.dictation.formatting``. No model call, no rephrasing.
     remove_fillers: bool = True
 
-    #: Break a long dictation into paragraphs: where the speaker paused for
-    #: a while between two sentences, before a sentence that opens a new
-    #: topic, and once a paragraph has grown long. A dictation under about 50
-    #: words stays one paragraph. Rules only, no model call. Spoken commands
-    #: ("new paragraph") work either way.
+    #: Break a long dictation into paragraphs the way German and English
+    #: writing does: only after a finished sentence (a full stop the
+    #: recognizer put at a pause inside a sentence does not count), where the
+    #: speaker paused for a while or a sentence opens a new point, never
+    #: before a sentence that leans on the one before, and so that no
+    #: paragraph is a scrap or a wall (``dodaios.dictation.paragraphs``). A
+    #: dictation under about 50 words stays one paragraph. Rules only, no
+    #: model call. Spoken commands ("new paragraph") work either way.
     auto_paragraphs: bool = True
 
     #: Safety ceiling for the cleanup: if the rules would drop more than this
@@ -4582,13 +4585,18 @@ class RsiConfig(BaseModel):
     While ``enabled``, every order the lead gives a coding thread is recorded as
     a run in ``verification.db``: repository and commit, domain, requested and
     answering model, CLI version, how the turn ended and what it cost
-    (``dodaios.orchestrator.verification``). Recording only: nothing is checked,
-    sent or held. Off by default.
+    (``dodaios.orchestrator.verification``). Off by default.
+
+    ``verify`` says what happens to a run's output when its turn has ended:
+    ``off`` nothing, ``observe`` the changed files are scanned for weakened
+    checks and off-limits paths and the result is recorded. Nothing is sent to
+    the agent and no turn is held in either mode.
     """
 
     model_config = {"extra": "allow"}
 
     enabled: bool = False
+    verify: Literal["off", "observe"] = "off"
 
 
 class JarvisConfig(BaseModel):

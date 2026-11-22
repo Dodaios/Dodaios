@@ -290,6 +290,58 @@ async def test_no_part_is_kept_when_the_text_is_not_the_segments_text(short_part
 
 
 @pytest.mark.asyncio
+async def test_a_reading_that_stops_inside_a_german_clause_is_not_kept(short_parts: None) -> None:
+    """The speaker paused before the verb, and the recognizer closed the
+    sentence at the end of the audio it had. Kept, the piece would end in
+    the middle of the sentence; read again, the sentence comes out whole."""
+    whole = "Ich glaube, dass die Absätze nicht wirklich sinnvoll entstehen."  # i18n-allow
+    engine = _Engine("Ich glaube, dass die Absätze nicht wirklich sinnvoll.", whole)  # i18n-allow
+    take = Take(_on_this_computer(engine))
+
+    await _record(take, _speech(3.0) + _silence(0.6) + _speech(2.0))
+    result = await take.finish()
+
+    assert result.text == whole
+    assert result.pieces == 1
+    assert result.reads_ahead_kept == 0
+    assert engine.seconds_heard[-1] > 5.0
+
+
+@pytest.mark.asyncio
+async def test_a_reading_that_stops_on_a_word_no_sentence_ends_with_is_not_kept(
+    short_parts: None,
+) -> None:
+    engine = _Engine(
+        "We take the red one and.", "We take the red one and the blue one.", language="en"
+    )
+    take = Take(_on_this_computer(engine))
+
+    await _record(take, _speech(3.0) + _silence(0.6) + _speech(2.0))
+    result = await take.finish()
+
+    assert result.text == "We take the red one and the blue one."
+    assert result.reads_ahead_kept == 0
+
+
+@pytest.mark.parametrize(
+    ("text", "following", "finished"),
+    [
+        ("Das ist fertig.", "", True),  # i18n-allow
+        ("Das ist fertig.", "Und das Nächste kommt.", True),  # i18n-allow
+        ("Ich glaube, dass das sinnvoll.", "", False),  # i18n-allow
+        ("Wir brauchen das.", "Entstehen. Und weiter.", False),  # i18n-allow
+        ("Wir brauchen das.", "welche wir noch haben.", False),  # i18n-allow
+        ("Kein Satzende", "", False),  # i18n-allow
+    ],
+)
+def test_where_a_reading_may_be_cut(text: str, following: str, finished: bool) -> None:
+    assert (
+        take_module._ends_finished_sentence(text, language="de", following=following)
+        is finished
+    )
+
+
+@pytest.mark.asyncio
 async def test_a_full_stop_before_words_that_carry_on_becomes_a_comma(short_parts: None) -> None:
     """The recognizer wrote the next piece as the rest of the sentence."""
     engine = _Engine("It is set up like this.", "so that two of them show.")
