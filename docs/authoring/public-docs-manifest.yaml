@@ -304,6 +304,8 @@ pages:
       - dodaios/dictation/history.py
       - dodaios/dictation/take.py
       - dodaios/dictation/formatting.py
+      - dodaios/dictation/paragraphs.py
+      - dodaios/dictation/grammar.py
       - dodaios/dictation/recognizers.py
       - dodaios/speech/pipeline.py
     related:

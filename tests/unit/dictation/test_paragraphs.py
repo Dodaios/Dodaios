@@ -1,7 +1,9 @@
 """A long dictation is broken into paragraphs where they make sense.
 
-Three cues, all without a model: a long pause between two sentences, a
-sentence that opens a new topic, and a paragraph that has grown long. A short
+The rules of German and English writing, without a model: a paragraph ends
+only with a finished sentence, starts where the text turns to a new point (a
+long pause of the speaker, a word like "Another thing"), not with a sentence
+that leans on the one before, and is neither a scrap nor a wall. A short
 dictation stays one paragraph, a sentence is never split, and a spoken list
 keeps its lines.
 """
@@ -16,6 +18,7 @@ import pytest
 
 from dodaios.dictation import take as take_module
 from dodaios.dictation.formatting import (
+    LONG_PAUSE,
     PARAGRAPH_MIN_WORDS,
     auto_paragraphs,
     break_before_sentences,
@@ -128,6 +131,47 @@ def test_a_long_paragraph_is_closed_at_a_sentence_end() -> None:
     assert out.replace("\n\n", " ") == text
 
 
+def test_a_long_dictation_without_cues_gets_paragraphs_of_even_length() -> None:
+    """Not 70 words and the rest: the breaks share the text out."""
+    text = _sentences(30, words=10)
+
+    out, _made = auto_paragraphs(text, language="en")
+
+    sizes = _paragraph_sizes(out)
+    assert len(sizes) >= 3
+    assert max(sizes) - min(sizes) <= 20, sizes
+    assert all(40 <= size <= 100 for size in sizes), sizes
+
+
+def test_the_break_goes_where_the_text_turns_not_at_a_word_count() -> None:
+    text = (
+        _sentences(4, words=12)
+        + " Another thing we should look at is the way the list is sorted today."
+        + " "
+        + _sentences(4, words=12)
+    )
+
+    out, made = auto_paragraphs(text, language="en")
+
+    assert made == 1
+    assert out.split("\n\n")[1].startswith("Another thing")
+
+
+def test_a_sentence_that_points_back_does_not_start_a_paragraph() -> None:
+    """With a neutral boundary next to it, the break goes there instead."""
+    text = (
+        _sentences(6, words=12)
+        + " This is why we need it. Here it is again with words."
+        + " "
+        + _sentences(5, words=12)
+    )
+
+    out, _made = auto_paragraphs(text, language="en")
+
+    starts = [part.split()[0] for part in out.split("\n\n")]
+    assert "This" not in starts, out
+
+
 def test_no_tiny_last_paragraph_is_split_off() -> None:
     text = _sentences(8, words=10)  # 80 words: 70 and a rest of 10 is too little
 
@@ -155,12 +199,111 @@ def test_a_spoken_list_keeps_its_lines() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_a_blank_line_from_the_recording_survives_formatting() -> None:
+def _long_german(count: int) -> str:
+    return " ".join(
+        f"Wir haben heute den Teil {n} gebaut und ihn danach gründlich getestet."  # i18n-allow
+        for n in range(count)
+    )
+
+
+def test_a_long_pause_between_finished_sentences_of_a_long_dictation_is_a_paragraph() -> None:
+    raw = (
+        _long_german(4)
+        + " Ähm, das lief gut.\n\nMorgen kümmern wir uns um die Oberfläche"  # i18n-allow
+        + " und schauen, was noch fehlt. "  # i18n-allow
+        + _long_german(3)
+    )
+
+    out = format_dictation(raw, language="de").text
+
+    assert LONG_PAUSE not in out
+    first, second = out.split("\n\n")
+    assert first.endswith("Das lief gut.")  # i18n-allow
+    assert second.startswith("Morgen kümmern wir uns")  # i18n-allow
+
+
+def test_a_long_pause_in_a_short_dictation_is_no_paragraph() -> None:
     raw = "First topic here. Ähm, more of it.\n\nSecond topic... starts here."  # i18n-allow
 
     out = format_dictation(raw, language="de").text
 
-    assert out == "First topic here. More of it.\n\nSecond topic starts here."
+    assert out == "First topic here. More of it. Second topic starts here."
+
+
+def test_a_pause_inside_a_sentence_joins_its_halves_again() -> None:
+    """The speaker stopped to think before the verb; the recognizer closed the
+    sentence there and opened a new one with the verb."""
+    raw = (
+        _long_german(3)
+        + " Ich habe das Gefühl, dass die Absätze nicht wirklich sinnvoll.\n\n"  # i18n-allow
+        + "Entstehen. "  # i18n-allow
+        + _long_german(3)
+    )
+
+    out = format_dictation(raw, language="de").text
+
+    assert "dass die Absätze nicht wirklich sinnvoll entstehen." in out  # i18n-allow
+    assert "\n\nEntstehen" not in out  # i18n-allow
+
+
+def test_a_pause_before_the_rest_of_a_sentence_is_no_paragraph() -> None:
+    raw = (
+        _long_german(3)
+        + " Verbessere den Algorithmus so, wie ein Absatz.\n\nDann steht. "  # i18n-allow
+        + _long_german(3)
+    )
+
+    out = format_dictation(raw, language="de").text
+
+    assert "\n\nDann steht." not in out  # i18n-allow
+    assert "Absatz. Dann steht." in out  # i18n-allow
+
+
+def test_a_short_first_sentence_is_no_paragraph_of_its_own() -> None:
+    raw = "Hallo, kurz eine Frage.\n\n" + _long_german(6)  # i18n-allow
+
+    out = format_dictation(raw, language="de").text
+
+    assert not out.startswith("Hallo, kurz eine Frage.\n\n")  # i18n-allow
+
+
+def test_an_english_dictation_is_laid_out_by_its_turns() -> None:
+    raw = (
+        "The login page breaks on Safari when you come from the link in the mail."
+        " It only happens on the first visit, and a reload fixes it."
+        " I checked the cookies and they look fine to me, so it might be the redirect."
+        "\n\nAnother thing is the error message, which says nothing useful at the moment"
+        " and should tell people what to do next."
+        " Could you look into both and add a test for the Safari case,"
+        " so that we notice when it breaks again?"
+    )
+
+    out = format_dictation(raw, language="en").text
+
+    parts = out.split("\n\n")
+    assert parts[0].endswith("so it might be the redirect.")
+    assert parts[1].startswith("Another thing is the error message")
+
+
+def test_the_layout_of_a_very_long_dictation_is_quick() -> None:
+    import time
+
+    text = _sentences(600, words=12)  # about 7,000 words, half an hour of speech
+
+    started = time.perf_counter()
+    out, made = auto_paragraphs(text, language="en")
+
+    assert time.perf_counter() - started < 2.0
+    assert made > 50
+    assert out.replace("\n\n", " ") == text
+
+
+def test_a_spoken_paragraph_stays_whatever_its_length() -> None:
+    raw = "Kurz vorab. Neuer Absatz. Jetzt der Rest."  # i18n-allow
+
+    out = format_dictation(raw, language="de").text
+
+    assert out == "Kurz vorab.\n\nJetzt der Rest."  # i18n-allow
 
 
 def test_paragraphs_off_keeps_one_paragraph_but_spoken_commands_work() -> None:
@@ -267,7 +410,7 @@ class _TimedRecognizer:
 
 @pytest.mark.usefixtures("_loud_is_speech")
 @pytest.mark.parametrize(("pause_s", "expected"), [(3.0, "\n\n"), (0.8, " ")])
-async def test_a_long_pause_between_sentences_is_a_paragraph(
+async def test_a_long_pause_between_sentences_is_marked_for_the_paragraphs(
     pause_s: float, expected: str
 ) -> None:
     recording = _loud(2.0) + _silent(pause_s) + _loud(2.0)
@@ -291,7 +434,7 @@ async def test_a_recognizer_without_times_gets_no_pause_paragraph() -> None:
 
 
 @pytest.mark.usefixtures("_loud_is_speech")
-async def test_a_long_pause_between_two_pieces_is_a_paragraph(
+async def test_a_long_pause_between_two_pieces_is_marked_for_the_paragraphs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(take_module, "PIECE_MIN_S", 1.9)

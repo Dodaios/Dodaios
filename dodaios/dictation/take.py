@@ -11,8 +11,11 @@ A take records everything, and no text exists before the stop:
   up to a break the recognizer marked itself is kept as final, once the
   reading has heard enough speech behind that break and the part holds
   enough of it (:data:`KEEP_MIN_S`). The next piece begins in the gap after
-  it. The end of a sentence is the preferred break. What is behind the break
-  is read again with what follows.
+  it. The end of a sentence is the preferred break, and only a finished one
+  counts: a full stop the recognizer put where the audio it had ran out, in
+  the middle of a sentence the speaker paused in, is no end
+  (:mod:`dodaios.dictation.grammar`). What is behind the break is read again
+  with what follows.
 * **After the stop only the rest is left.** A reading the speaker added
   nothing to is the text of the last piece. Otherwise what was said since
   the last kept part is read once more, so the wait does not grow with the
@@ -136,7 +139,8 @@ _SENTENCE_GAP_MIN_S = 0.09
 _SENTENCE_END = (".", "!", "?", "。", "！", "？")
 _CLOSING_MARKS = "\"'»“”’)]"
 
-#: A pause between two sentences at least this long starts a new paragraph.
+#: A pause between two sentences at least this long is marked as a cue for a
+#: paragraph (a blank line in the take's text); the paragraph rules decide.
 PARAGRAPH_PAUSE_S = 2.0
 #: How far a long pause may lie outside the gap between two recognized
 #: sentences and still belong to it: recognizer times are approximate.
@@ -357,7 +361,7 @@ def _paragraphs_at_pauses(text: str, transcript: Any, pauses: Sequence[float]) -
         return text
     timed.sort(key=lambda item: item[0])
 
-    from dodaios.dictation.formatting import break_before_sentences, sentence_spans
+    from dodaios.dictation.paragraphs import break_before_sentences, sentence_spans
 
     breaks: set[int] = set()
     sentences_so_far = 0
@@ -396,6 +400,36 @@ def _ends_sentence(text: str) -> bool:
     if not tail or tail.endswith(("...", "…")):
         return False
     return tail.endswith(_SENTENCE_END)
+
+
+def _ends_finished_sentence(text: str, *, language: str, following: str = "") -> bool:
+    """Whether recognized text stops at the end of a finished sentence.
+
+    A recognizer closes a reading with a full stop where the audio it was
+    given stops, also in the middle of a sentence the speaker paused in to
+    think. The sentence rules (:mod:`dodaios.dictation.grammar`) tell such a
+    stop from a real end: the last sentence may not hang on a word no
+    sentence ends with, nor be a German clause still waiting for its verb.
+    ``following`` is what the recognizer heard after the stop, when it heard
+    anything: a sentence that only carries the last one on means the stop was
+    none.
+    """
+    if not _ends_sentence(text):
+        return False
+    from dodaios.dictation.grammar import continues_previous, unfinished
+    from dodaios.dictation.paragraphs import sentence_spans
+
+    spans = sentence_spans(text)
+    last = text[spans[-1][0] :] if spans else text
+    if unfinished(last, language=language):
+        return False
+    after = following.strip()
+    if after:
+        first = sentence_spans(after)
+        opening = after[first[0][0] : first[0][1]] if first else after
+        if continues_previous(opening, language=language):
+            return False
+    return True
 
 
 def _reported_confidence(transcript: Any) -> float:
@@ -667,8 +701,14 @@ class Take:
             and piece.in_gap
             and self._mapper.pause_around(piece.end) >= AHEAD_PAUSE_S
             and self._mapper.speech_between(piece.start, piece.end) >= KEEP_MIN_S
-            and _ends_sentence(piece.text)
+            and _ends_finished_sentence(piece.text, language=self._grammar_language(piece))
         )
+
+    def _grammar_language(self, piece: _Piece) -> str:
+        """The language a piece's text is judged in by the sentence rules."""
+        if self._language != "auto":
+            return self._language
+        return piece.language or self._take_language or self._language_hint
 
     def _keep(self, piece: _Piece) -> None:
         """Make a reading made at a pause the text of its piece."""
@@ -729,6 +769,7 @@ class Take:
             return False  # the text is no longer the segments' text, word for word
         ranges = list(piece.ranges)
         total = self._mapper.total_samples
+        language = self._grammar_language(piece)
         sentence: tuple[int, int] | None = None
         other: tuple[int, int] | None = None
         # At least the last segment stays: it is what is still being said.
@@ -749,7 +790,11 @@ class Take:
             if self._mapper.speech_between(cut, total) < _TAIL_ALONE_MIN_S:
                 continue
             heard_behind = self._mapper.speech_between(cut, piece.end)
-            ends = _ends_sentence("".join(text for _s, _e, text in timed[:keep]))
+            ends = _ends_finished_sentence(
+                " ".join(text.strip() for _s, _e, text in timed[:keep]),
+                language=language,
+                following=" ".join(text.strip() for _s, _e, text in timed[keep:]),
+            )
             if ends and heard_behind >= _AFTER_SENTENCE_S:
                 sentence = (keep, cut)
                 break
