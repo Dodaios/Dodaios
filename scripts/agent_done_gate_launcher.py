@@ -3,10 +3,18 @@
 
 Installed by ``scripts/install_agent_done_gate.py`` into the user's home and
 registered as the Stop hook of CLIs whose hooks live in the user config
-(Codex, Kimi CLI). It finds the git repository of the session's working
-directory and runs that repository's own ``scripts/agent_done_gate.py``.
-A repository without the gate is left alone, so the hook is harmless
-everywhere else.
+(Codex, Kimi CLI). A user-level hook fires in every folder a session runs in,
+so this launcher runs the gate of a REGISTERED checkout only:
+
+* the installer writes the primary checkout it was run from into
+  ``~/.agent-done-gate/repos.json``;
+* for a session, the launcher finds the primary checkout of the session's
+  repository (the parent of its git common dir) and runs
+  ``<primary checkout>/scripts/agent_done_gate.py`` with the session's folder
+  as ``--cwd``. A linked worktree is therefore checked by the gate of the
+  checkout it belongs to, never by its own copy of the script;
+* a repository that is not registered is left alone, whatever files it has.
+  Nothing inside the session's folder is ever executed.
 
 Usage (from a hook config): ``python <home>/.agent-done-gate/hook.py codex``
 """
@@ -20,18 +28,66 @@ import sys
 import time
 from pathlib import Path
 
-LOG = Path.home() / ".agent-done-gate" / "hook.log"
+MARKER = ".agent-done-gate"
+REGISTRY_NAME = "repos.json"
+GATE = ("scripts", "agent_done_gate.py")
+
+
+def home() -> Path:
+    return Path(os.environ.get("AGENT_DONE_GATE_HOME") or Path.home())
 
 
 def log(line: str) -> None:
+    path = home() / MARKER / "hook.log"
     try:
-        LOG.parent.mkdir(parents=True, exist_ok=True)
-        if LOG.exists() and LOG.stat().st_size > 1_000_000:
-            LOG.write_text("", encoding="utf-8")
-        with LOG.open("a", encoding="utf-8") as handle:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.stat().st_size > 1_000_000:
+            path.write_text("", encoding="utf-8")
+        with path.open("a", encoding="utf-8") as handle:
             handle.write(time.strftime("%Y-%m-%dT%H:%M:%S ") + line + "\n")
     except OSError:
         pass
+
+
+def same_path(path: str | Path) -> str:
+    """A form of ``path`` two spellings of one folder share (case, links, 8.3 names)."""
+    return os.path.normcase(os.path.realpath(str(path)))
+
+
+def registered() -> set[str]:
+    """The primary checkouts whose gate may run, as the installer recorded them."""
+    try:
+        data = json.loads((home() / MARKER / REGISTRY_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    repos = data.get("repos") if isinstance(data, dict) else None
+    if not isinstance(repos, list):
+        return set()
+    return {same_path(item) for item in repos if isinstance(item, str) and item}
+
+
+def _git(cwd: str, *args: str) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", cwd, *args],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def primary_checkout(cwd: str) -> Path | None:
+    """The checkout that owns the repository ``cwd`` is in: the parent of its
+    git common dir. ``None`` outside a repository, and for a layout with no
+    such checkout (a bare repository, a submodule, a separate git dir)."""
+    common = _git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not common or Path(common).name != ".git":
+        return None
+    return Path(common).parent
 
 
 def main() -> int:
@@ -39,22 +95,20 @@ def main() -> int:
     raw = sys.stdin.read()
     try:
         cwd = str(json.loads(raw or "{}").get("cwd") or os.getcwd())
-    except ValueError:
+    except (ValueError, AttributeError):
         cwd = os.getcwd()
     cwd = cwd.removeprefix("file:///") if cwd.startswith("file:///") else cwd
-    try:
-        top = subprocess.run(
-            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+    primary = primary_checkout(cwd)
+    if primary is None:
         return 0
-    if top.returncode != 0:
+    if same_path(primary) not in registered():
+        top = _git(cwd, "rev-parse", "--show-toplevel")
+        if top and Path(top, *GATE).is_file():
+            # A checkout that carries the gate but never registered: say so
+            # once per stop in the log, and run nothing of it.
+            log(f"{dialect} {cwd}: {primary} is not registered; its gate was not run")
         return 0
-    gate = Path(top.stdout.strip()) / "scripts" / "agent_done_gate.py"
+    gate = primary.joinpath(*GATE)
     if not gate.is_file():
         return 0
     try:
