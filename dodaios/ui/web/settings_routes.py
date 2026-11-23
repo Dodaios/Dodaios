@@ -2776,7 +2776,26 @@ def _agent_briefs_payload() -> dict[str, object]:
         "limits": REAL_LIMITS,
         "char_count": len(wishes),
         "max_chars": MAX_WISHES_CHARS,
+        # What the person's own words stand for, per project, as the assistant
+        # learned it while briefing (``dodaios.briefs.glossary``).
+        "glossary": _brief_glossary(),
     }
+
+
+def _brief_glossary() -> list[dict[str, object]]:
+    from dodaios.briefs import glossary
+
+    try:
+        return glossary.all_projects()
+    except Exception:  # noqa: BLE001 - the wishes are shown without the glossary
+        log.warning("agent briefs: glossary not readable", exc_info=True)
+        return []
+
+
+class BriefGlossaryWord(BaseModel):
+    # The project as the glossary names it, and the word to forget.
+    project: str = Field(default="", max_length=400)
+    said: str = Field(min_length=1, max_length=200)
 
 
 @router.get("/agent-briefs")
@@ -2806,6 +2825,22 @@ def delete_agent_briefs() -> dict[str, object]:
 
     removed = reset_wishes()
     return {"ok": True, "removed": removed, "restart_required": False, **_agent_briefs_payload()}
+
+
+@router.post("/agent-briefs/glossary/unlearn")
+def unlearn_brief_glossary_word(body: BriefGlossaryWord) -> dict[str, object]:
+    """Forget what one of the person's words stands for in one project.
+
+    A word learned wrong is learned again with the next brief, so this is no
+    destructive step and takes no confirmation.
+    """
+    from dodaios.briefs import glossary
+
+    try:
+        removed = glossary.forget_in_project(body.project, body.said)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not save: {exc}") from exc
+    return {"ok": True, "removed": removed, **_agent_briefs_payload()}
 
 
 async def _running_mission_summaries(

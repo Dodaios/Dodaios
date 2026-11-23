@@ -93,6 +93,8 @@ _BARE_KINDS: Final[Mapping[str, str]] = {
     "routine": "routine",
     "agent": "agent",
 }
+#: The kinds whose task is a brief for a coding agent (``dodaios.briefs``).
+_BRIEFED_KINDS: Final[frozenset[str]] = frozenset({"coding_agent", "pane", "team_thread"})
 _MAX_WAIT_S: Final[float] = 540.0
 _SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _JOB_TEXT_RE = re.compile(r"job_id:\s*(job_[0-9a-f]+)")
@@ -319,6 +321,10 @@ class DelegateTool:
             return _answer(
                 target, "failed", None, False, error=f"The {kind} hand-off is not available here."
             )
+        options = args.get("options") if isinstance(args.get("options"), dict) else {}
+        if options.get("prepare") and kind in _BRIEFED_KINDS:
+            # Look first, then brief: the facts for this request, nothing sent.
+            return await self._prepare(kind, ref, tool, args, ctx)
         dispatch_args = {
             k: args.get(k)
             for k in ("target", "task", "context", "completion_criteria", "reply", "options")
@@ -422,12 +428,19 @@ class DelegateTool:
             under = {
                 "action": "create",
                 "prompt": _brief(task, context, criteria),
+                **_brief_extras(task, context, criteria, options),
                 **({"cli": ref} if ref else {}),
                 **{k: options[k] for k in _CODING_AGENT_OPTIONS if options.get(k)},
             }
         elif kind == "pane":
             return await self._route_pane(ref, tool, task, criteria, context, options, ctx)
         elif kind == "team_thread":
+            sent_back = await _check_team_brief(task, context, criteria, options)
+            if sent_back is not None:
+                return _answer(
+                    target, "needs_revision", None, False,
+                    error=str(sent_back.get("reason") or ""), detail=sent_back,
+                )
             under = {
                 "action": "start",
                 "task": _brief(task, context, criteria),
@@ -503,9 +516,64 @@ class DelegateTool:
             **found,
             "request_id": options.get("request_id") or data.get("request_id"),
             "prompt": _brief(task, context, criteria),
+            **_brief_extras(task, context, criteria, options),
             **{k: options[k] for k in ("while_busy", "image_refs") if k in options},
         }
         return await self._call("pane", target, tool, send, ctx, summary_task=task)
+
+    async def _prepare(
+        self, kind: str, ref: str, tool: Any, args: dict[str, Any], ctx: ExecutionContext
+    ) -> ToolResult:
+        """The brief kit for a request: what to know before the brief is written.
+
+        Starts nothing and writes no job: the result is facts for the writer
+        (files that fit, the project's checks, what the person's words leave
+        open, how the recipient wants to be written to).
+        """
+        task = str(args.get("task") or "").strip()
+        options = dict(args.get("options") or {})
+        target = f"{kind}:{ref}" if ref else kind
+        # The kit is read by the workspace tool, whatever the target kind is.
+        workspace = self._implementation("coding_agent")
+        if workspace is None:
+            return _answer(
+                target, "failed", None, False, error="The brief kit is not available here."
+            )
+        tool = workspace
+        under: dict[str, Any] = {"action": "brief_kit", "prompt": task}
+        if kind == "coding_agent":
+            under.update({k: options[k] for k in _CODING_AGENT_OPTIONS if options.get(k)})
+            if ref:
+                under["cli"] = ref
+        elif kind == "pane":
+            scope = {k: options[k] for k in ("workspace_id", "workspace", "project_id", "project")
+                     if options.get(k)}
+            resolved = await _run(tool, {"action": "resolve", "terminal_id": ref, **scope}, ctx)
+            data = resolved.output if isinstance(resolved.output, dict) else {}
+            found = data.get("target") if isinstance(data.get("target"), dict) else {}
+            if not resolved.success or not found:
+                return _answer(
+                    target, "needs_clarification", None, False,
+                    error=_first_text(data.get("reason"), resolved.error)
+                    or "The pane did not resolve.",
+                    detail=data or None,
+                )
+            under.update(found)
+        else:  # team_thread
+            under["folder"] = str(options.get("cwd") or "")
+        try:
+            result = await _run(tool, under, ctx)
+        except Exception as exc:  # noqa: BLE001 - no kit is a result, the brief is written without
+            log.warning("delegate: brief kit failed", exc_info=True)
+            return _answer(target, "failed", None, False, error=f"{type(exc).__name__}: {exc}")
+        data = result.output if isinstance(result.output, dict) else {}
+        if not result.success or data.get("status") != "prepared":
+            return _answer(
+                target, "failed", None, False,
+                error=_first_text(data.get("reason"), result.error) or "No brief kit.",
+                detail=data or None,
+            )
+        return _answer(target, "prepared", None, True, detail=data)
 
     async def _call(
         self,
@@ -528,9 +596,9 @@ class DelegateTool:
         if not result.success:
             status = str((data or {}).get("status") or (data or {}).get("state") or "")
             state = (
-                "needs_clarification"
-                if status == "needs_clarification"
-                else "refused" if status == "refused" else "failed"
+                status
+                if status in ("needs_clarification", "needs_revision", "refused")
+                else "failed"
             )
             return _answer(
                 target, state, job_id, False,
@@ -600,6 +668,50 @@ def _brief(task: str, context: str, criteria: str) -> str:
     return brief
 
 
+def _brief_extras(
+    task: str, context: str, criteria: str, options: dict[str, Any]
+) -> dict[str, Any]:
+    """What the brief pipeline reads beside the joined prompt (``dodaios.briefs``).
+
+    The brief's three parts unjoined, so its done-when points are known as
+    such, and what the writer says the person's words stand for
+    (``options.resolved``), which the project's glossary keeps.
+    """
+    from dodaios.briefs.handoff import PARTS_KEY
+
+    extras: dict[str, Any] = {
+        PARTS_KEY: {"task": task, "context": context, "criteria": criteria}
+    }
+    if isinstance(options.get("resolved"), list):
+        extras["_resolved_words"] = options["resolved"]
+    return extras
+
+
+async def _check_team_brief(
+    task: str, context: str, criteria: str, options: dict[str, Any]
+) -> dict[str, Any] | None:
+    """The reply for a team thread's brief that goes back to its writer, else ``None``.
+
+    A team thread is briefed like any coding agent; its seats are picked by
+    the team, so only the folder is known of the recipient. A fault in the
+    check lets the hand-off through.
+    """
+    from dodaios.briefs import handoff
+    from dodaios.briefs.model import Recipient
+
+    if not handoff.enabled():
+        return None
+    try:
+        decision = await handoff.check(
+            _brief_extras(task, context, criteria, options),
+            [Recipient(kind="team_thread", folder=str(options.get("cwd") or ""))],
+        )
+    except Exception:  # noqa: BLE001 - the check must not cost the person their hand-off
+        log.warning("delegate: team brief check failed; the hand-off goes on", exc_info=True)
+        return None
+    return None if decision.send else decision.reply()
+
+
 async def _run(tool: Any, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
     clean = {k: v for k, v in args.items() if v is not None}
     return await tool.execute(clean, ctx)
@@ -635,6 +747,16 @@ def _answer(
     elif success and job_id:
         output["next_step"] = (
             "Handed over, not done. Check job_status or await_jobs before you say it is finished."
+        )
+    elif state == "needs_revision":
+        output["next_step"] = (
+            "Nothing was sent. Revise the brief with detail.fix and detail.brief_kit, then "
+            "call delegate again with the same target; the revised brief is sent as it is."
+        )
+    elif state == "prepared":
+        output["next_step"] = (
+            "Nothing was sent. Write the brief from detail.brief_kit and call delegate again "
+            "without options.prepare."
         )
     return ToolResult(
         success=success, output=output, error=None if success else (error or state),

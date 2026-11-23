@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { ArrowRight, Check, ChevronDown, Clock3, Copy, CornerUpRight, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Clock3, Copy, CornerUpRight, Reply, Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
 import type { SocietyAgent } from "@/components/society/data";
 import type { QuestionItem, QuestionState } from "../reduce";
@@ -23,11 +23,12 @@ const NOTE_KEY: Partial<Record<SettledNote, string>> = {
   declined: "question_card.note_declined",
   moved_on: "question_card.note_moved_on",
   message: "question_card.note_message",
+  delegator: "question_card.note_delegator",
   unanswered: "question_card.unanswered",
   own: "question_card.own_words",
 };
 
-const QUIET_MARK = { auto: Clock3, agent: Sparkles, moved_on: CornerUpRight } as const;
+const QUIET_MARK = { auto: Clock3, agent: Sparkles, moved_on: CornerUpRight, delegator: Reply } as const;
 
 /** A short line under each answer: how it came about, when that is not obvious. */
 function useNoteText() {

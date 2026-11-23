@@ -331,6 +331,44 @@ def _authenticated_test_clients(request, monkeypatch):  # noqa: ANN001
 
 
 @pytest.fixture(autouse=True)
+def _brief_pipeline_quiet():
+    """Hand-offs in tests go out as written unless a test turns the brief pipeline on.
+
+    The pipeline (``dodaios.briefs``) checks every brief for a coding agent, may
+    send it back once, reads the target folder and writes ``briefs.db``. A test of
+    something else that hands a one-line prompt to a fake agent wants none of
+    that. The pipeline's own tests switch it on with ``briefs_on``.
+    """
+    from dodaios.briefs import gate, settings
+    from dodaios.briefs import log as brief_log
+
+    settings._CURRENT = settings.BriefSettings(
+        check="off", auto_effort=False, standing_rules=False, record=False
+    )
+    yield
+    settings.reset()
+    gate.forget_pending()
+    brief_log.reset_log()
+
+
+@pytest.fixture
+def briefs_on(tmp_path, monkeypatch):  # noqa: ANN001
+    """The brief pipeline as the app ships it, with its record in a temp data folder."""
+    from dodaios.briefs import gate, settings
+    from dodaios.briefs import log as brief_log
+    from dodaios.core import config as core_config
+
+    monkeypatch.setattr(core_config, "DATA_DIR", tmp_path / "data", raising=False)
+    # A test revises at once; a writer model needs seconds (see the gate).
+    monkeypatch.setattr(gate, "_REVISION_MIN_AGE_S", 0.0)
+    brief_log.reset_log()
+    gate.forget_pending()
+    settings.reset()
+    yield settings.current()
+    brief_log.reset_log()
+
+
+@pytest.fixture(autouse=True)
 def _browser_lock_pinned_on():
     """Pin the optional browser lock ON for every test, deterministic.
 

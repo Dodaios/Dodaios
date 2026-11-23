@@ -56,6 +56,11 @@ class ScriptedService(AgentChatService):
                 if event == "error":
                     status = "error"
                     continue
+                if callable(event):
+                    # A step that acts inside the turn, as a CLI does: it may
+                    # ask a live question and wait for the answer.
+                    await event(handle)
+                    continue
                 if isinstance(event, str):
                     event = make_event("assistant_text", {"text": event})
                 event["payload"].setdefault("turn_id", handle.turn_id)

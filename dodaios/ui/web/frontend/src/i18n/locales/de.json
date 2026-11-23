@@ -7900,6 +7900,7 @@
     "note_declined": "Übersprungen. {agent} entscheidet diese Frage.",
     "note_moved_on": "Du hast weitergeschrieben, darum gilt die Empfehlung.",
     "note_message": "Im Chat beantwortet.",
+    "note_delegator": "{name} hat das für dich beantwortet.",
     "unanswered": "Nicht beantwortet: Der Durchlauf wurde beendet.",
     "composer_placeholder": "Antworte {agent} oder schreib über etwas anderes"
   },

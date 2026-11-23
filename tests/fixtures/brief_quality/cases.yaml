@@ -1,0 +1,111 @@
+# Golden cases for the brief pipeline (dodaios/briefs).
+#
+# Each case is a request the way a person dictates it (German, unpunctuated),
+# written for this set in the manner of real requests to the lead, plus a brief
+# as the lead used to write it and one as it should be written. The test
+# (tests/eval/test_brief_quality.py) holds the pipeline to all three:
+#   kit   - what it must tell the writer before the brief is written
+#   weak  - what the check must find in the old kind of brief
+#   strong - the good brief must pass without anything to revise
+# The project the briefs are about is the small fixture in the test.
+
+- id: reminder-look
+  said: >-
+    die erinnerungen links in der leiste gefallen mir so nicht das sieht nicht gut aus und
+    wenn man mit der maus drüber geht versteht man nicht was gemeint ist mach die ui da
+    bitte deutlich besser
+  kit:
+    kind: implement
+    lenses: [interface]
+    leaves_open: [look, better]
+    open_points: [which_faults]
+  weak: |
+    The person likes that reminders show in the left rail, but the UI of those reminder
+    items looks bad. Investigate and clearly improve it.
+    1. First open ui/src/Rail.tsx.
+    2. Then run `npm test`.
+    3. Finally commit and push.
+    Tests and typecheck. Report back in short, plain German.
+  weak_finds: [path_not_found, step_script, left_open, no_done]
+  strong: |
+    The reminder items in the left rail (`ReminderRail` in ui/src/ReminderRail.tsx) are hard
+    to read: each one is a bare calendar icon, and its hover card shows a raw ISO date
+    ("2026-11-14 10:15") under the label "Busy". Show the reminder's own title on the item,
+    the date as "today 10:15", and say in the hover card where the reminder comes from.
+
+    Done when: a test of ReminderRail renders the title and the relative time for a reminder
+    due today, and `python scripts/done_gate.py` says DONE.
+
+- id: upload-broken
+  said: >-
+    da soll sich bitte ein agent drum kümmern der upload ist irgendwie kaputt und die
+    notizen sind danach weg das muss repariert werden
+  kit:
+    kind: implement
+    lenses: [defect]
+    leaves_open: [broken, thing]
+    open_points: [expected_behaviour]
+  weak: |
+    The upload is broken somehow, notes are lost. The cause is most likely the retry loop in
+    sync/clients.py. IMPORTANT: fix it properly. NEVER push without asking.
+  weak_finds: [path_not_found, guess_as_fact, shouting, git_brake, left_open, no_done]
+  strong: |
+    An upload of a note fails on a slow connection with `UploadError: timed out after 10s`
+    (raised in sync/client.py, `upload`), and the note is lost. An upload has to survive a
+    slow or interrupted connection: the note is neither lost nor stored twice.
+    Unverified hypothesis: nothing retries after the timeout.
+
+    Done when: a test that simulates the timeout fails before the change and passes after it,
+    and `python -m pytest -q` is green.
+
+- id: slow-list
+  said: >-
+    die liste mit den notizen lädt total langsam das dauert ewig mach das bitte schneller
+  kit:
+    kind: implement
+    lenses: [speed]
+    leaves_open: [slow]
+    open_points: [measure]
+  weak: |
+    The notes list is very slow. Make it faster as appropriate and make sure everything
+    works. Explain your reasoning step by step.
+  weak_finds: [reasoning_request, left_open, no_done]
+  strong: |
+    Opening the notes list (`NotesList` in ui/src/NotesList.tsx) takes several seconds with
+    2,000 notes. Assumption: under half a second is fast enough. Measure the time from
+    opening the list to the first row with 2,000 notes, find what it is spent on, and bring
+    it under 500 ms.
+
+    Done when: the measurement with 2,000 notes is under 500 ms, the command you measured
+    with and its output are in your report, and `python scripts/done_gate.py` says DONE.
+
+- id: analysis-only
+  said: >-
+    schau dir bitte nur an warum der upload bei langsamer verbindung abbricht nichts ändern
+    ich will erst wissen woran es liegt
+  kit:
+    kind: investigate
+    lenses: [defect]
+  weak: |
+    Fix the upload on slow connections in sync/client.py and merge it.
+  weak_finds: [change_not_asked]
+  strong: |
+    Find out why an upload in sync/client.py stops on a slow connection. Report the cause
+    with the lines it comes from and how you established it. Change nothing: the person wants
+    to know the cause first.
+
+- id: merge-themselves
+  said: >-
+    bau bitte ein dass man notizen exportieren kann als markdown aber nicht mergen ich will
+    das selbst freigeben
+  kit:
+    kind: implement
+  weak: |
+    Add an export of notes as Markdown. Make it better than the old one somehow.
+  weak_finds: [left_open, no_done]
+  strong: |
+    Add an export of all notes as one Markdown file, a heading per note with its date. Open
+    a pull request and do not merge it: the person approves it themselves.
+
+    Done when: a test exports three notes and finds three headings in the file, and the pull
+    request is open with green checks.

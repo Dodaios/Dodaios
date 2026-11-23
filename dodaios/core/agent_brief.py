@@ -13,6 +13,13 @@ guidance sat only on ``delegate``; the lead called ``workspace-orchestrate``
 directly and kept writing long German step scripts with prescribed fixes.
 One rule, shared by every surface, so they cannot drift apart.
 
+The rule is what a writer is told. What a writer is told and still gets wrong
+is caught in code: every brief for a coding agent passes the check in
+``dodaios.briefs`` before it is sent, the agent gets the rules that hold for
+every order once (how to report, that nobody is watching) instead of in each
+brief, and the person's own words are added to the brief verbatim. So the rule
+no longer asks for those.
+
 A brief also used to hold the agent back at the end. The lead wrote git
 brakes of its own into it ("do not merge", "do not push", "open the PR with
 the needs-human label", "work in your own worktree, change nothing in the main
@@ -50,11 +57,12 @@ REAL_LIMITS: Final[str] = (
 #: which has a byte budget (``dodaios.live.tools._CATALOG_BYTE_BUDGET``).
 AGENT_BRIEF_RULE: Final[str] = (
     "The agent sees only this brief, never this chat. Lead with the "
-    "outcome and why it matters, give what it cannot see (the person's words and errors "
-    "verbatim, files, decisions made), a checkable done and only the limits the person set; "
-    "state the goal, never a step script or a guessed fix (full guide: skill:agent-brief). "
-    "It is a work order: find the cause, make the change, verify, then report back what "
-    "changed and any decision the user has to make; when blocked, report that too. 'Check' "
+    "outcome and why it matters, give what it cannot see (errors verbatim, real files to "
+    "start from, decisions made), the fact where the person's words leave one open ('looks "
+    "bad': which fault), a done the agent can check itself and only the limits the person "
+    "set; state the goal, never a step script, and mark a suspected cause as unverified "
+    "(full guide: skill:agent-brief). A brief is checked before it is sent and comes back "
+    "once with what to fix. It is a work order: find the cause and make the change. 'Check' "
     "or 'deep dive' include fixing; never add read-only limits unless the user explicitly "
     "asked for analysis only. " + SHIP_DEFAULT + " " + REAL_LIMITS
 )

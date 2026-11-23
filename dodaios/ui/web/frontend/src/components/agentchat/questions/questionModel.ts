@@ -105,6 +105,7 @@ export type SettledNote =
   | "declined"
   | "moved_on"
   | "message"
+  | "delegator"
   | "unanswered";
 
 export function settledNote(answer: QuestionAnswerState | null): SettledNote {
@@ -121,6 +122,9 @@ export function settledNote(answer: QuestionAnswerState | null): SettledNote {
       return "moved_on";
     case "message":
       return "message";
+    case "delegator":
+      // The assistant answered for the person, who did not pick it.
+      return "delegator";
     case "cancelled":
     case "closed":
       return "unanswered";

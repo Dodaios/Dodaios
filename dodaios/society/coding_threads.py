@@ -499,10 +499,19 @@ class CodingThreadTool:
                     return {**_thread_card(service, session), "note": "Already open."}
         await asyncio.to_thread(_ensure_project, folder)
         runner = resolve_runner(row.id, surface=THREAD_SURFACE)
+        model = match_model(row, str(args.get("model") or ""))
+        # The same check every brief for a coding agent passes; a brief with a
+        # fault goes back to this agent once, before a thread exists.
+        made = await _checked_brief(
+            prompt, self._owner_session,
+            cli=str(row.agent or ""), model=model or str(getattr(row, "default_model", "") or ""),
+            effort=str(args.get("effort") or ""), folder=folder, provider=str(row.id),
+        )
         session = service.create_session(
             provider=row.id,
-            model=match_model(row, str(args.get("model") or "")),
-            effort=(str(args["effort"]).strip() or None) if args.get("effort") else None,
+            model=model,
+            effort=(made.effort if made is not None else str(args.get("effort") or "")).strip()
+            or None,
             cwd=folder,
             # The maintainer's choice: an agent's coding threads never stop for
             # approvals, so they always run in the runner's bypass mode.
@@ -519,7 +528,7 @@ class CodingThreadTool:
         )
         coordinator = self.runtime.coding_threads
         coordinator.track(session.session_id, self._owner_session)
-        await service.send(session.session_id, prompt, author=_author(agent))
+        await _send_brief(service, session.session_id, prompt, made, author=_author(agent))
         card = _thread_card(service, service.store.get_session(session.session_id) or session)
         await coordinator.announce(self._owner_session, card)
         return {
@@ -542,8 +551,18 @@ class CodingThreadTool:
             service.store.list_events(session.session_id, tail=60)
         ):
             raise ValueError("The thread waits for an answer to its question: use answer.")
+        from dodaios.agent_chat.catalog import provider_row
+
+        provider = provider_row(session.provider)
+        made = await _checked_brief(
+            prompt, self._owner_session,
+            cli=str(getattr(provider, "agent", "") or ""),
+            model=str(session.model or getattr(provider, "default_model", "") or ""),
+            effort=str(session.effort or ""), folder=str(session.cwd or ""),
+            provider=str(session.provider or ""), first_order=False,
+        )
         try:
-            await service.send(session.session_id, prompt, author=_author(agent))
+            await _send_brief(service, session.session_id, prompt, made, author=_author(agent))
         except SessionBusy as exc:
             raise ValueError(
                 "The thread is still working. Wait for its report, or stop it first."
@@ -675,6 +694,74 @@ class CodingThreadTool:
         if is_error:
             raise ValueError(_clip(str(output), 600))
         return {"folder": str(root), "op": op, "output": _clip(str(output), 12000)}
+
+
+async def _checked_brief(
+    prompt: str,
+    owner_session: str,
+    *,
+    cli: str,
+    model: str,
+    effort: str,
+    folder: str,
+    provider: str,
+    first_order: bool = True,
+) -> Any | None:
+    """Pass a society agent's brief through the shared check (``dodaios.briefs``).
+
+    Returns what the coding agent receives (``handoff.Delivery``), or ``None``
+    when the check could not run and the brief goes out as written. A brief
+    with a fault is sent back once: the error names the points to fix and the
+    facts to fix them with, and nothing was started.
+    """
+    import json
+
+    from dodaios.agent_chat.effort import normalize_effort
+    from dodaios.briefs import WRITER_SOCIETY, Recipient, handoff
+
+    if not handoff.enabled():
+        return None
+    try:
+        recipient = Recipient(
+            kind="thread", cli=cli, model=model, effort=effort, folder=folder,
+            first_order=first_order, system_channel=True,
+        )
+        decision = await handoff.check(
+            {"prompt": prompt}, [recipient], writer=WRITER_SOCIETY, session=owner_session
+        )
+    except Exception:  # noqa: BLE001 - the check must not cost the agent its hand-off
+        log.warning("coding session: brief check failed; the brief goes out", exc_info=True)
+        return None
+    if not decision.send:
+        reply = decision.reply()
+        raise ValueError(
+            str(reply["reason"]) + "\n"
+            + json.dumps(
+                {"fix": reply["fix"], "brief_kit": reply["brief_kit"]}, ensure_ascii=False
+            )
+        )
+    choice = handoff.effort_for(decision, cli, model, named=effort)
+    made = handoff.delivery_for(decision, cli=cli, model=model, effort=choice)
+    if not effort and made.effort:
+        from dataclasses import replace
+
+        made = replace(made, effort=normalize_effort(provider, made.effort) or made.effort)
+    return made
+
+
+async def _send_brief(
+    service: Any, session_id: str, prompt: str, made: Any | None, *, author: dict[str, str]
+) -> None:
+    """Send a brief into a thread: the agent reads its assembled text, the thread shows it."""
+    if made is None or made.text == prompt:
+        await service.send(session_id, prompt, author=author)
+        return
+    await service.send(session_id, made.text, author=author, display_text=prompt)
+    from dodaios.briefs import handoff
+
+    handoff.note_delivery(
+        made, f"society-thread:{session_id}:{int(time.time() * 1000)}", thread_id=session_id
+    )
 
 
 def _option_index(spec: dict[str, Any], text: str) -> int | None:

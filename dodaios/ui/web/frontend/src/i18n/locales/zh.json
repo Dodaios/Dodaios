@@ -7900,6 +7900,7 @@
     "note_declined": "已跳过，由 {agent} 决定。",
     "note_moved_on": "你转到了别的话题，因此采用了推荐选项。",
     "note_message": "已在聊天中回答。",
+    "note_delegator": "{name} 替你回答了这个问题。",
     "unanswered": "未回答：本轮已结束。",
     "composer_placeholder": "回答 {agent}，或聊点别的"
   },

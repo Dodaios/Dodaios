@@ -79,11 +79,16 @@ def test_the_executing_model_knows_the_status_board_on_every_engine():
     assert 'conversation_rules("your tools")' in source
 
 
-def test_a_brief_asks_the_agent_to_report_status_decisions_and_blockers():
-    rule = AGENT_BRIEF_RULE.lower()
-    assert "report back what changed" in rule
-    assert "any decision the user has to make" in rule
-    assert "when blocked, report that too" in rule
+def test_an_agent_is_asked_to_report_outcome_decisions_and_what_is_open():
+    # No longer asked for in each brief: it is one of the standing rules every
+    # agent Dodaios starts gets once (``dodaios.briefs.standing``).
+    from dodaios.briefs.standing import WORK_ORDER_RULES
+
+    rules = WORK_ORDER_RULES.lower()
+    assert "report for a reader who saw none of your work" in rules
+    assert "any decision the person has to make" in rules
+    assert "what is open" in rules
+    assert "report back" not in AGENT_BRIEF_RULE.lower()
 
 
 def test_the_prompts_leave_room_for_tools_and_history_on_small_wires():

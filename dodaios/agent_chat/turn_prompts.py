@@ -35,10 +35,13 @@ from typing import Any, Final
 
 from dodaios.agent_chat.questions import (
     DECLINED,
+    DELEGATOR,
+    DELEGATOR_NOTE,
     MAX_OPTIONS,
     MAX_QUESTIONS,
     MIN_OPTIONS,
     MOVED_ON,
+    PERSON,
     SKIPPED,
     QuestionAnswer,
     QuestionSpec,
@@ -219,8 +222,9 @@ def answer(
     option_index: int | None,
     text: str | None,
     option_indices: list[int] | None = None,
+    source: str = PERSON,
 ) -> list[QuestionAnswer | None]:
-    """The card's answers with question ``index`` answered by the person.
+    """The card's answers with question ``index`` answered by the person (or ``source``).
 
     Raises ``ValueError`` for an answer that does not fit, ``IndexError`` for a
     question that does not exist or was already answered.
@@ -229,7 +233,8 @@ def answer(
         raise IndexError(index)
     answers = list(card.answers)
     answers[index] = answer_from(
-        card.specs[index], option_index=option_index, text=text, option_indices=option_indices
+        card.specs[index], option_index=option_index, text=text, option_indices=option_indices,
+        source=source,
     )
     return answers
 
@@ -253,6 +258,8 @@ def answers_prompt(specs: Sequence[QuestionSpec], answers: Sequence[QuestionAnsw
             )
         elif picked.source == DECLINED or not answer_text:
             lines.append(f"- {spec.question} -> skipped; decide it yourself.")
+        elif picked.source == DELEGATOR:
+            lines.append(f"- {spec.question} -> {answer_text} ({DELEGATOR_NOTE})")
         else:
             lines.append(f"- {spec.question} -> {answer_text}")
     return "\n".join(lines)

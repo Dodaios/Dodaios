@@ -74,6 +74,14 @@ MOVED_ON: Final[str] = "moved_on"
 RECALLED: Final[str] = "recalled"
 #: The ask-gate found the answer in memory; no card was shown (ask_gate.py).
 MEMORY: Final[str] = "memory"
+#: The assistant that handed the agent its work answered on the person's behalf
+#: (``ChatThreads.answer``): the person did not pick it.
+DELEGATOR: Final[str] = "delegator"
+#: How an answer of the delegator reads where the agent gets it.
+DELEGATOR_NOTE: Final[str] = (
+    "Dodaios, which handed you this work, answered this on the person's behalf; the person "
+    "did not pick it"
+)
 #: Sources where nobody picked the answer: the agent's own recommendation applies.
 DEFAULTED: Final[frozenset[str]] = frozenset({TIMEOUT, SKIPPED, MOVED_ON, UNATTENDED})
 
@@ -542,6 +550,11 @@ def for_agent(answer: QuestionAnswer) -> dict[str, Any]:
             "person_answered": False,
             "note": "This comes from the person's memory, not from a new answer.",
         }
+    if answer.source == DELEGATOR:
+        return {
+            "person_answered": False,
+            "note": DELEGATOR_NOTE + ". Say that Dodaios answered it; never say they chose it.",
+        }
     return {}
 
 
@@ -554,6 +567,8 @@ __all__ = [
     "CANCELLED",
     "DECLINED",
     "DEFAULTED",
+    "DELEGATOR",
+    "DELEGATOR_NOTE",
     "KINDS",
     "MEMORY",
     "MESSAGE",
