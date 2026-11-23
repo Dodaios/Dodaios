@@ -29,10 +29,16 @@ export function PlanDraftMarks({ cardId, className }: { cardId: string; classNam
   return <span data-testid="plan-draft-marks" className={cn("text-xs text-muted-foreground", className)}>{marks}</span>;
 }
 
-export function PlanReviewButton({ cardId, plan, onAnswer, pending = null, error, buildHint, className }: {
+export function PlanReviewButton({ cardId, plan, supported, onAnswer, pending = null, error, buildHint, className }: {
   cardId: string;
   /** The agent's plan, as Markdown. */
   plan: string;
+  /**
+   * Whether the backend takes a review with the answer (the catalog's
+   * `plan_review`). False on a backend older than this window: the plan is
+   * read only until the app has restarted, so no edit is made that would be lost.
+   */
+  supported: boolean;
   /** Absent where the card cannot be answered: the window only shows the plan. */
   onAnswer?: (answer: PlanAnswer) => void;
   pending?: PlanAnswer | null;
@@ -56,7 +62,8 @@ export function PlanReviewButton({ cardId, plan, onAnswer, pending = null, error
     </button>
     {loaded && <Suspense fallback={null}>
       <PlanReviewDialog cardId={cardId} plan={plan} open={open} onOpenChange={setOpen}
-        onAnswer={onAnswer} pending={pending} error={error} buildHint={buildHint} />
+        onAnswer={supported ? onAnswer : undefined} pending={pending} error={error} buildHint={buildHint}
+        readOnlyNote={supported || !onAnswer ? undefined : t("plan_review.needs_restart")} />
     </Suspense>}
   </>;
 }

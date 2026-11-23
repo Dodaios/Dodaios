@@ -43,6 +43,7 @@ const CATALOG: AgentChatCatalog = {
   default_cwd: "/home",
   shell: "bash",
   selection: null,
+  plan_review: true,
   providers: [{
     id: "openai-codex", label: "OpenAI Codex", family: "openai", runner: "codex-cli", agent: "codex",
     models_source: "curated", curated_models: [], default_model: "",

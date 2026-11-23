@@ -645,6 +645,10 @@ async def get_catalog(
         "providers": rows,
         "default_cwd": svc.default_cwd(surface),
         "shell": shell_label(),
+        # This backend takes a plan's review with its answer (plan_review.py).
+        # A window newer than its backend reads the missing flag and keeps the
+        # plan read-only, instead of sending edits that would be dropped.
+        "plan_review": True,
         "selection": (
             selection.to_dict()
             if surface == "jarvis" and (selection := svc.store.chat_selection()) is not None

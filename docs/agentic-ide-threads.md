@@ -250,7 +250,15 @@ the pill does.
 into it to change it, and comments on a passage: select the text, then press
 **Comment**. A field at the bottom takes a note on the whole plan. The window
 can be closed and opened again; what the person did stays with the card until
-it is answered, and the card shows it ("Edited · 2 comments").
+it is answered, and the card shows it ("Edited · 2 comments"). The draft is
+kept in the browser's storage (`planDraft.ts`), so it also survives a reload
+of the window and a restart of the app, and no automatic reload happens while
+the window is open.
+
+The backend says in its catalog that it takes a review (`plan_review`). A
+window newer than its backend (the app not yet restarted after an update)
+shows the plan read only and says that a restart is needed: an edit sent to
+the older backend would be dropped without a word.
 
 Both answers carry the review (`dodaios/agent_chat/plan_review.py`):
 

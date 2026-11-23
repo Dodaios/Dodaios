@@ -10968,7 +10968,8 @@
     "sends": "Keep planning sends your edits and comments to the agent. Build it builds this version, with your comments as notes.",
     "untouched": "Type into the plan to change it. Select text to comment on it.",
     "read_only": "This plan is answered in the chat it belongs to. Here you can read it.",
-    "approved_edited": "This is the plan as you approved it, with your changes."
+    "approved_edited": "This is the plan as you approved it, with your changes.",
+    "needs_restart": "Editing and comments need a newer app. Restart Dodaios once, then open the plan again."
   },
   "ide_view": {
     "split_right": "Right",

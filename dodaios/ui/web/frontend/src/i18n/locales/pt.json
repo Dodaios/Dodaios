@@ -10968,7 +10968,8 @@
     "sends": "Continuar a planear envia as tuas alterações e comentários ao agente. Construir constrói esta versão, com os teus comentários como notas.",
     "untouched": "Escreve no plano para o alterar. Seleciona texto para o comentar.",
     "read_only": "Este plano é respondido no chat a que pertence. Aqui podes lê-lo.",
-    "approved_edited": "Este é o plano como o aprovaste, com as tuas alterações."
+    "approved_edited": "Este é o plano como o aprovaste, com as tuas alterações.",
+    "needs_restart": "Editar e comentar precisam de uma app mais recente. Reinicia o Dodaios uma vez e abre o plano de novo."
   },
   "ide_view": {
     "split_right": "Direita",

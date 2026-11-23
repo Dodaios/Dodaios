@@ -10968,7 +10968,8 @@
     "sends": "Weiter planen schickt deine Änderungen und Kommentare an den Agenten. Bauen baut diese Fassung, deine Kommentare gehen als Notizen mit.",
     "untouched": "Schreib in den Plan, um ihn zu ändern. Markiere Text, um ihn zu kommentieren.",
     "read_only": "Dieser Plan wird in dem Chat beantwortet, zu dem er gehört. Hier kannst du ihn lesen.",
-    "approved_edited": "Das ist der Plan, wie du ihn freigegeben hast, mit deinen Änderungen."
+    "approved_edited": "Das ist der Plan, wie du ihn freigegeben hast, mit deinen Änderungen.",
+    "needs_restart": "Bearbeiten und Kommentieren brauchen eine neuere App. Starte Dodaios einmal neu und öffne den Plan dann wieder."
   },
   "ide_view": {
     "split_right": "Rechts",

@@ -3,8 +3,10 @@
  * left it, their comments on passages, a note on the whole plan.
  *
  * It lives outside the card on purpose. The review window closes and opens
- * again, the card itself is redrawn when the thread is switched, and none of
- * that may lose a half-written comment. A draft ends when its card is answered.
+ * again, the card itself is redrawn when the thread is switched, the window
+ * reloads after a rebuild and the app restarts, and none of that may lose a
+ * half-written review: the drafts are kept in this browser's storage. A draft
+ * ends when its card is answered.
  */
 import { create } from "zustand";
 import type { PlanReviewPayload } from "@/lib/agentChatApi";
@@ -23,9 +25,71 @@ export interface PlanDraft {
   plan: string | null;
   comments: PlanComment[];
   note: string;
+  /** When the person last touched it: the oldest drafts leave the storage first. */
+  savedMs?: number;
 }
 
 export const EMPTY_DRAFT: PlanDraft = { plan: null, comments: [], note: "" };
+
+export const PLAN_DRAFTS_KEY = "dodaios.planDrafts.v1";
+/** A card nobody answered (a thread left behind) does not keep its draft for ever. */
+const KEEP_MS = 14 * 24 * 60 * 60 * 1000;
+const KEEP_DRAFTS = 8;
+
+function isBlank(draft: PlanDraft): boolean {
+  return draft.plan === null && draft.comments.length === 0 && !draft.note;
+}
+
+function readComment(raw: unknown): PlanComment | null {
+  const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!row || typeof row.id !== "string" || typeof row.quote !== "string" || typeof row.text !== "string") return null;
+  return { id: row.id, quote: row.quote, at: typeof row.at === "number" ? row.at : 0, text: row.text };
+}
+
+/** The drafts this browser kept, without the ones too old to matter. */
+export function loadPlanDrafts(now = Date.now()): Record<string, PlanDraft> {
+  const out: Record<string, PlanDraft> = {};
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(PLAN_DRAFTS_KEY) ?? "{}");
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+    for (const [cardId, value] of Object.entries(raw as Record<string, unknown>)) {
+      const row = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+      if (!row) continue;
+      const savedMs = typeof row.savedMs === "number" ? row.savedMs : 0;
+      if (now - savedMs > KEEP_MS) continue;
+      const draft: PlanDraft = {
+        plan: typeof row.plan === "string" ? row.plan : null,
+        comments: Array.isArray(row.comments) ? row.comments.flatMap((entry) => readComment(entry) ?? []) : [],
+        note: typeof row.note === "string" ? row.note : "",
+        savedMs,
+      };
+      if (!isBlank(draft)) out[cardId] = draft;
+    }
+  } catch {
+    // Storage blocked or an unreadable copy: the person starts without drafts.
+  }
+  return out;
+}
+
+function savePlanDrafts(drafts: Record<string, PlanDraft>): void {
+  try {
+    const newest = Object.entries(drafts)
+      .sort(([, a], [, b]) => (b.savedMs ?? 0) - (a.savedMs ?? 0))
+      .slice(0, KEEP_DRAFTS);
+    if (newest.length) localStorage.setItem(PLAN_DRAFTS_KEY, JSON.stringify(Object.fromEntries(newest)));
+    else localStorage.removeItem(PLAN_DRAFTS_KEY);
+  } catch {
+    // Storage full or blocked: the draft still lives as long as this window does.
+  }
+}
+
+let lastStamp = 0;
+
+/** Now, and never the same twice: two drafts touched in one millisecond still have an order. */
+function stamp(): number {
+  lastStamp = Math.max(Date.now(), lastStamp + 1);
+  return lastStamp;
+}
 
 interface PlanDraftStore {
   drafts: Record<string, PlanDraft>;
@@ -34,14 +98,19 @@ interface PlanDraftStore {
 }
 
 export const usePlanDrafts = create<PlanDraftStore>((set) => ({
-  drafts: {},
+  drafts: loadPlanDrafts(),
   patch: (cardId, change) => set((state) => {
-    const next = { ...(state.drafts[cardId] ?? EMPTY_DRAFT), ...change };
-    return { drafts: { ...state.drafts, [cardId]: next } };
+    const next: PlanDraft = { ...(state.drafts[cardId] ?? EMPTY_DRAFT), ...change, savedMs: stamp() };
+    const { [cardId]: _was, ...rest } = state.drafts;
+    // A draft the person emptied again is no draft.
+    const drafts = isBlank(next) ? rest : { ...rest, [cardId]: next };
+    savePlanDrafts(drafts);
+    return { drafts };
   }),
   clear: (cardId) => set((state) => {
     if (!(cardId in state.drafts)) return state;
     const { [cardId]: _gone, ...rest } = state.drafts;
+    savePlanDrafts(rest);
     return { drafts: rest };
   }),
 }));

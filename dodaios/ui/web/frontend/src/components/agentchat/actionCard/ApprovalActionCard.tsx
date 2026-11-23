@@ -137,6 +137,7 @@ function OpenApproval({ block, approval, info, onDecide }: {
   const isPlan = kind === "plan";
   // What the person did to the plan in its review window; it goes with the card.
   const review = usePlanDraft(approval.approvalId);
+  const reviewSupported = useAgentChat((s) => Boolean(s.catalog?.plan_review));
   const answered = useRef(false);
   useEffect(() => () => {
     if (answered.current) usePlanDrafts.getState().clear(approval.approvalId);
@@ -234,7 +235,7 @@ function OpenApproval({ block, approval, info, onDecide }: {
       })} /> : null}
     {plan ? <div className="max-h-72 overflow-auto rounded-lg bg-secondary px-3 py-2 text-sm scrollbar-jarvis"><ChatMarkdown text={shownPlan} /></div> : null}
     {plan ? <div className="mt-2 flex flex-wrap items-center gap-2.5">
-      <PlanReviewButton cardId={approval.approvalId} plan={plan} error={error ?? undefined}
+      <PlanReviewButton cardId={approval.approvalId} plan={plan} supported={reviewSupported} error={error ?? undefined}
         pending={pending === "allow" ? "build" : pending === "deny" ? "keep" : null}
         onAnswer={onDecide ? (answer) => void decide(answer === "build" ? "allow" : "deny") : undefined} />
       <PlanDraftMarks cardId={approval.approvalId} />

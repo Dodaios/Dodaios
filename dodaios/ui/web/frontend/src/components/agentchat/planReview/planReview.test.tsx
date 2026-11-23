@@ -13,7 +13,7 @@ import { DocMarkdown } from "@/components/nodes/editors/docs/markdown/document";
 import PlanReviewDialog from "./PlanReviewDialog";
 import { PlanDraftMarks, PlanReviewButton } from "./PlanReviewButton";
 import { findQuote, inReadingOrder, planText, quoteBetween, rangesOf } from "./planComments";
-import { EMPTY_DRAFT, planAnswer, planDraftOf, reviewOf, usePlanDrafts } from "./planDraft";
+import { EMPTY_DRAFT, PLAN_DRAFTS_KEY, loadPlanDrafts, planAnswer, planDraftOf, reviewOf, usePlanDrafts } from "./planDraft";
 
 vi.mock("@/i18n", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/i18n")>();
@@ -45,6 +45,7 @@ function docOf(markdown: string): ProseNode {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   usePlanDrafts.setState({ drafts: {} });
 });
 
@@ -119,6 +120,39 @@ describe("what a plan card's answer carries", () => {
     const review = { plan: "# New plan", comments: [{ quote: "Wire the route", text: "which one?" }], note: "ok" };
     expect(planAnswer("card", "deny")).toEqual({ review });
     expect(planAnswer("card", "allow")).toEqual({ review });
+  });
+});
+
+describe("a draft that outlives the window", () => {
+  it("is kept in the browser and read back after a reload", () => {
+    usePlanDrafts.getState().patch("card", { plan: "# New plan", comments: [{ id: "1", quote: "Steps", at: 3, text: "why?" }] });
+    const kept = loadPlanDrafts();
+    expect(kept.card).toMatchObject({ plan: "# New plan", note: "", comments: [{ id: "1", quote: "Steps", at: 3, text: "why?" }] });
+    // Answered: nothing of it stays behind.
+    usePlanDrafts.getState().clear("card");
+    expect(localStorage.getItem(PLAN_DRAFTS_KEY)).toBeNull();
+  });
+
+  it("forgets a draft the person emptied again, an old one, and anything unreadable", () => {
+    usePlanDrafts.getState().patch("card", { note: "x" });
+    usePlanDrafts.getState().patch("card", { note: "" });
+    expect(usePlanDrafts.getState().drafts.card).toBeUndefined();
+    expect(localStorage.getItem(PLAN_DRAFTS_KEY)).toBeNull();
+    const month = 31 * 24 * 60 * 60 * 1000;
+    localStorage.setItem(PLAN_DRAFTS_KEY, JSON.stringify({
+      old: { plan: "# Old", comments: [], note: "", savedMs: Date.now() - month },
+      fresh: { plan: null, comments: [{ id: "1", quote: "a", text: "b" }, { nonsense: true }], note: 7, savedMs: Date.now() },
+    }));
+    expect(loadPlanDrafts()).toEqual({ fresh: { plan: null, comments: [{ id: "1", quote: "a", at: 0, text: "b" }], note: "", savedMs: expect.any(Number) } });
+    localStorage.setItem(PLAN_DRAFTS_KEY, "not json");
+    expect(loadPlanDrafts()).toEqual({});
+  });
+
+  it("keeps only the newest few", () => {
+    for (let index = 0; index < 12; index += 1) usePlanDrafts.getState().patch(`card-${index}`, { note: `note ${index}` });
+    const kept = Object.keys(loadPlanDrafts());
+    expect(kept.length).toBe(8);
+    expect(kept).toContain("card-11");
   });
 });
 
@@ -234,10 +268,21 @@ describe("the plan review window", () => {
   });
 });
 
+describe("a window newer than its backend", () => {
+  it("keeps the plan read only and says why, so no edit is made that would be lost", async () => {
+    render(<PlanReviewButton cardId="card" plan={PLAN} supported={false} onAnswer={() => {}} />);
+    fireEvent.click(screen.getByTestId("plan-review-open"));
+    const text = (await screen.findByTestId("plan-review-text", undefined, { timeout: 15000 })) as HTMLElement & { editor: Editor };
+    expect(text.editor.isEditable).toBe(false);
+    expect(screen.queryByTestId("plan-review-build")).toBeNull();
+    expect(screen.getByTestId("plan-review-read-only").textContent).toBe("plan_review.needs_restart");
+  }, 20000);
+});
+
 describe("the way into the window from a plan card", () => {
   it("opens the window and says what the person did to the plan", async () => {
     render(<>
-      <PlanReviewButton cardId="card" plan={PLAN} onAnswer={() => {}} />
+      <PlanReviewButton cardId="card" plan={PLAN} supported onAnswer={() => {}} />
       <PlanDraftMarks cardId="card" />
     </>);
     expect(screen.queryByTestId("plan-draft-marks")).toBeNull();

@@ -97,6 +97,12 @@ export interface AgentChatCatalog {
   default_cwd: string;
   shell: string;
   selection?: ChatSelection | null;
+  /**
+   * The backend takes a plan's review (edits, comments) with the card's
+   * answer. Absent on a backend older than this window: the plan is then read
+   * only, since edits sent to it would be dropped without a word.
+   */
+  plan_review?: boolean;
 }
 
 export interface ChatSelection {

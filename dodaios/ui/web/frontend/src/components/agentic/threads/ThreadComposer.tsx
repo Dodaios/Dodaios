@@ -151,6 +151,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
   // What the person did to the plan in its review window: their text, their
   // comments, and the note this card's own field writes too.
   const review = usePlanDraft(pending.approvalId);
+  const reviewSupported = chat((state) => Boolean(state.catalog?.plan_review));
   // The card stands behind the review window while the person types there:
   // it follows their text when the page has time, never per keystroke.
   const shownPlan = useDeferredValue(review.plan ?? plan);
@@ -206,7 +207,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
     </div>
     <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
       {plan && <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2.5">
-        <PlanReviewButton cardId={pending.approvalId} plan={plan} error={error}
+        <PlanReviewButton cardId={pending.approvalId} plan={plan} supported={reviewSupported} error={error}
           pending={sending === "allow" ? "build" : sending === "deny" ? "keep" : null}
           onAnswer={(answer) => void decide(answer === "build" ? "allow" : "deny")} />
         <PlanDraftMarks cardId={pending.approvalId} />
@@ -243,6 +244,7 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
   const t = useT();
   const chat = useThreadChat();
   const turn = waitingPlan(timeline);
+  const reviewSupported = chat((state) => Boolean(state.catalog?.plan_review));
   const [sending, setSending] = useState<PlanDecision | null>(null);
   const [error, setError] = useState("");
   const cardId = turn ? `plan:${turn.id}` : "";
@@ -286,7 +288,7 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
     </div>
     <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
       {plan && <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2.5">
-        <PlanReviewButton cardId={cardId} plan={plan} error={error} pending={sending} buildHint={buildHint}
+        <PlanReviewButton cardId={cardId} plan={plan} supported={reviewSupported} error={error} pending={sending} buildHint={buildHint}
           onAnswer={(answer) => void decide(answer)} />
         <PlanDraftMarks cardId={cardId} />
       </div>}

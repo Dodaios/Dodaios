@@ -20,6 +20,7 @@ import { Bold, Code, Heading2, Italic, List, ListChecks, ListOrdered, Loader2, M
 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { setReloadHold } from "@/lib/reloadHold";
 import { plural } from "@/components/agentchat/traceEntries";
 import { docExtensions } from "@/components/nodes/editors/docs/extensions";
 import { DocMarkdown } from "@/components/nodes/editors/docs/markdown/document";
@@ -44,6 +45,8 @@ export interface PlanReviewDialogProps {
   error?: string;
   /** What "Build it" does next, in the card's words. */
   buildHint?: string;
+  /** Why the plan is only read here, when it is not the card's place that decides. */
+  readOnlyNote?: string;
 }
 
 /** Two plan texts that read the same (line ends and outer blank lines aside). */
@@ -60,8 +63,13 @@ function isEditable(target: EventTarget | null): target is HTMLElement {
   return target instanceof HTMLElement && Boolean(target.closest("textarea, input, [contenteditable='true']"));
 }
 
-export default function PlanReviewDialog({ cardId, plan, open, onOpenChange, onAnswer, pending = null, error, buildHint }: PlanReviewDialogProps) {
+export default function PlanReviewDialog({ cardId, plan, open, onOpenChange, onAnswer, pending = null, error, buildHint, readOnlyNote }: PlanReviewDialogProps) {
   const t = useT();
+  // A rebuild of the app must not reload the window out from under a review.
+  useEffect(() => {
+    setReloadHold("plan-review", open);
+    return () => setReloadHold("plan-review", false);
+  }, [open]);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -85,7 +93,7 @@ export default function PlanReviewDialog({ cardId, plan, open, onOpenChange, onA
             "data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none",
           )}
         >
-          <PlanDocument cardId={cardId} plan={plan} onAnswer={onAnswer} pending={pending} error={error} buildHint={buildHint}
+          <PlanDocument cardId={cardId} plan={plan} onAnswer={onAnswer} pending={pending} error={error} buildHint={buildHint} readOnlyNote={readOnlyNote}
             title={<Dialog.Title className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground-strong">
               <ListChecks aria-hidden className="h-4 w-4 shrink-0 text-accent" />
               <span className="truncate">{t("plan_review.title")}</span>
@@ -102,9 +110,9 @@ export default function PlanReviewDialog({ cardId, plan, open, onOpenChange, onA
   );
 }
 
-function PlanDocument({ cardId, plan, onAnswer, pending, error, buildHint, title, close }: {
+function PlanDocument({ cardId, plan, onAnswer, pending, error, buildHint, readOnlyNote, title, close }: {
   cardId: string; plan: string; onAnswer?: (answer: PlanAnswer) => void; pending: PlanAnswer | null;
-  error?: string; buildHint?: string; title: ReactNode; close: ReactNode;
+  error?: string; buildHint?: string; readOnlyNote?: string; title: ReactNode; close: ReactNode;
 }) {
   const t = useT();
   const lang = t("trace_report.locale");
@@ -366,7 +374,7 @@ function PlanDocument({ cardId, plan, onAnswer, pending, error, buildHint, title
           {pending === "build" && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}{t("ide_threads.build_it")}
         </button>
       </footer>
-      : <footer className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">{t("plan_review.read_only")}</footer>}
+      : <footer data-testid="plan-review-read-only" className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">{readOnlyNote ?? t("plan_review.read_only")}</footer>}
   </>;
 }
 
