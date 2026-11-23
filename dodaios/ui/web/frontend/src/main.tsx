@@ -14,11 +14,16 @@ import { browserSafeReloadDeps, reloadWhenServable } from "./lib/safeReload";
 import { loadUiLocale, useI18nStore } from "./i18n";
 import { installDomMutationGuard } from "./lib/domMutationGuard";
 import { installSelectAllScope } from "./lib/selectAllScope";
+import { installExternalLinkGuard } from "./lib/externalLinkGuard";
 import "./index.css";
 
 // Before React touches the page: a translator or extension that rewrites
 // nodes under the app must cost one stale label, not the whole view.
 installDomMutationGuard();
+
+// A link in text written elsewhere (a model's reasoning, a README) opens in
+// the person's browser instead of replacing this window with another site.
+installExternalLinkGuard();
 
 // When the frontend is rebuilt while the window is open, the old main bundle
 // still references lazy chunks by their previous content hash; those URLs now

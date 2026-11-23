@@ -368,6 +368,31 @@ def _install_crash_hooks() -> None:
 # ---------------------------------------------------------------------------
 
 
+def page_is_foreign(current: object, app_url: str) -> bool:
+    """Whether the address ``current`` is a page outside the app at ``app_url``.
+
+    Only a readable web address of another origin counts; ``about:blank``
+    during a load, an empty or missing address do not.
+    """
+    if not isinstance(current, str) or not current.strip():
+        return False
+    from urllib.parse import urlsplit
+
+    try:
+        page = urlsplit(current.strip())
+        app = urlsplit(app_url)
+        page_port, app_port = page.port, app.port
+    except ValueError:  # an address that does not parse is not the app's own
+        return True
+    if page.scheme.lower() not in ("http", "https"):
+        return False
+    return (page.scheme.lower(), (page.hostname or "").lower(), page_port) != (
+        app.scheme.lower(),
+        (app.hostname or "").lower(),
+        app_port,
+    )
+
+
 def _generate_session_token() -> str:
     """Cryptographically random URL-safe token for the WebView auth."""
     return secrets.token_urlsafe(32)
@@ -5812,8 +5837,24 @@ class DesktopApp:
 
     # ---- WebView hooks -------------------------------------------------------
 
+    def _shows_foreign_page(self, window: Any) -> bool:
+        """Whether ``window`` verifiably shows a page that is not the app.
+
+        The ``loaded`` hooks below hand the page its tokens. They fire for
+        every page the window loads, so a window that was led to another
+        site must get nothing. ``False`` when the address cannot be read:
+        the hooks then behave as before.
+        """
+        try:
+            current = window.get_current_url()
+        except Exception:  # noqa: BLE001 — an unreadable address is not a foreign one
+            return False
+        return page_is_foreign(current, self._url())
+
     def _inject_reopened_main(self, window: Any) -> None:
         """Reopen with the shared cookie, without replaying the consumed boot token."""
+        if self._shows_foreign_page(window):
+            return
         broker_token = json.dumps(self.realtime_transport_broker_token)
         try:
             window.evaluate_js(
@@ -5838,6 +5879,8 @@ class DesktopApp:
         HWND via FindWindowW (a unique title is guaranteed by the
         single-instance lock).
         """
+        if self._shows_foreign_page(window):
+            return
         token_literal = json.dumps(self.session_token)
         broker_token_literal = json.dumps(self.realtime_transport_broker_token)
         js = (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBrowserAddress, readBrowserInput, wordFromBrokenAddress } from "./browserAddress";
+import { browserFrameSandbox, normalizeBrowserAddress, readBrowserInput, wordFromBrokenAddress } from "./browserAddress";
 
 describe("normalizeBrowserAddress", () => {
   it("sends bare ports and local hosts over http", () => {
@@ -54,6 +54,24 @@ describe("wordFromBrokenAddress", () => {
     for (const url of ["https://github.com/", "http://localhost:5173/", "https://nas:5000/",
       "http://intranet/", "https://wiki/page", "https://localhost/", "not a url"]) {
       expect(wordFromBrokenAddress(url)).toBeNull();
+    }
+  });
+});
+
+describe("browserFrameSandbox", () => {
+  const APP = "http://127.0.0.1:47821";
+
+  it("keeps a dev server's own origin", () => {
+    for (const url of ["http://localhost:5173/", "http://127.0.0.1:3000/app", "https://example.test/"]) {
+      expect(browserFrameSandbox(url, APP).split(" ")).toContain("allow-same-origin");
+    }
+  });
+
+  it("never gives a page of the app's own address its origin", () => {
+    for (const url of [`${APP}/`, `${APP}/api/outputs/1/raw`, "HTTP://127.0.0.1:47821/x", "not a url"]) {
+      const tokens = browserFrameSandbox(url, APP).split(" ");
+      expect(tokens).not.toContain("allow-same-origin");
+      expect(tokens).toContain("allow-scripts");
     }
   });
 });

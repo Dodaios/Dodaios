@@ -83,3 +83,23 @@ export function isLocalBrowserAddress(url: string): boolean {
     return false;
   }
 }
+
+const FRAME_SANDBOX = "allow-scripts allow-forms allow-popups allow-modals allow-downloads";
+
+/**
+ * The `sandbox` of the frame that shows `url`.
+ *
+ * A dev server needs its own origin (storage, its API), so a framed page
+ * keeps it. The one exception is an address of the app itself: a frame with
+ * both scripts and its origin is no sandbox at all there, and whatever the
+ * app's address serves would run with the app's own rights.
+ */
+export function browserFrameSandbox(url: string, appOrigin: string = window.location.origin): string {
+  let own = true;
+  try {
+    own = new URL(url).origin === appOrigin;
+  } catch {
+    // An address that does not parse gets the tighter sandbox.
+  }
+  return own ? FRAME_SANDBOX : `${FRAME_SANDBOX} allow-same-origin`;
+}
