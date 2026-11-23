@@ -471,7 +471,6 @@ async def _run_headless(args) -> int:
                 elif message["type"] == "lifespan.shutdown":
                     await send({"type": "lifespan.shutdown.complete"})
                     return
-            return
         # Websocket while warming: answer NOW with accept-then-close 1013.
         # Holding the handshake open makes browsers time out after tens of
         # seconds and report an opaque 1006, so a headless boot watched from a

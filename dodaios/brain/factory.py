@@ -1157,10 +1157,8 @@ def _phase2_full_brain(
                 # Primary action tools — without these every plan from the
                 # CU loop otherwise fails with the historical error below:
                 # "Tool '<name>' nicht im Computer-Use-Tool-Set verdrahtet".  # i18n-allow
-                # action_registry.py:278-368 maps the corresponding action
-                # names (type_text, click, hotkey, move_mouse, open_app) to
-                # the tool.name attribute on these classes, so they must
-                # be present in cu_tools.
+                # The CU loop addresses these by their tool.name attribute,
+                # so they must be present in cu_tools.
                 "type-text",
                 "click",
                 "hotkey",
@@ -1169,8 +1167,7 @@ def _phase2_full_brain(
                 # Multi-step robustness primitives (Set-of-Marks ReAct loop):
                 # click by UIA name (no coordinate guessing), mouse-wheel scroll
                 # to reveal off-screen list items, and poll-until-element for
-                # app-launch/load waits. Map to action_registry actions
-                # click_element / scroll / wait_for_element.
+                # app-launch/load waits.
                 "click-element",
                 "scroll",
                 "wait-for-element",
