@@ -35,7 +35,16 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Final
 
-__all__ = ["FACTORY", "Overlay", "active", "current", "for_session", "now_ms", "replaying"]
+__all__ = [
+    "FACTORY",
+    "Overlay",
+    "active",
+    "current",
+    "for_session",
+    "hidden_memories",
+    "now_ms",
+    "replaying",
+]
 
 _EMPTY: Final[Mapping[str, Any]] = MappingProxyType({})
 
@@ -54,10 +63,14 @@ class Overlay:
     without: frozenset[str] = frozenset()
     #: The clock the run sees; ``None`` is the real one.
     now_ms: int | None = None
+    #: Ids of memories the run must not see (notes the assistant wrote for itself,
+    #: when the run measures the assistant as it ships).
+    hidden_memories: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "params", MappingProxyType(dict(self.params)))
         object.__setattr__(self, "without", frozenset(self.without))
+        object.__setattr__(self, "hidden_memories", frozenset(self.hidden_memories))
 
     def excludes(self, change_id: str) -> bool:
         """True when this run must not see the learned change ``change_id``."""
@@ -79,6 +92,12 @@ def current(session_id: str = "") -> Overlay | None:
         return found
     with _sessions_lock:
         return _sessions.get(session_id)
+
+
+def hidden_memories(session_id: str = "") -> frozenset[str]:
+    """Ids of memories the running benchmark run must not see; empty outside a run."""
+    found = current(session_id)
+    return found.hidden_memories if found is not None else frozenset()
 
 
 def replaying(session_id: str = "") -> bool:
