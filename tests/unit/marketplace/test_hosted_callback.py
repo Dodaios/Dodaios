@@ -202,8 +202,12 @@ async def test_loopback_provider_error_is_sanitized_and_state_checked(state) -> 
         )
     assert response.status_code == 400
     assert "secret" not in response.text
+    if state == "wrong":
+        # Not the redirect this flow waits for: refused, and the flow goes on
+        # waiting. Anything on the machine can send a request here, so a
+        # wrong state must not be able to end the person's sign-in.
+        assert not srv._future.done()
+        return
     with pytest.raises(RuntimeError) as failure:
         await srv.await_callback()
     assert "secret" not in str(failure.value)
-    if state == "wrong":
-        assert "state mismatch" in str(failure.value)

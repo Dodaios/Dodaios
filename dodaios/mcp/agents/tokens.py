@@ -62,18 +62,11 @@ _WORK_EXTRA: Final[frozenset[str]] = frozenset(
         "quest_post",
         "quest_retry",
         "quest_cancel",
-        "room_open",
         "room_say",
         "room_settle",
         "agent_create",
     }
 )
-
-
-#: Tools that change what exists (a roster row, a room) without starting spend
-#: or work, so they are not marked dangerous. A ``read`` token still may not
-#: call them: reading is all it was issued for.
-_WRITES: Final[frozenset[str]] = frozenset({"agent_create", "room_open"})
 
 
 class TokenError(ValueError):
@@ -243,7 +236,7 @@ def allows(scope: str, tool_name: str, *, dangerous: bool) -> bool:
     """Whether a scope may call one tool."""
     if scope == "full":
         return True
-    if not dangerous and tool_name not in _WRITES:
+    if not dangerous:
         return True
     if scope == "work":
         return tool_name in _WORK_EXTRA

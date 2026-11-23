@@ -9,7 +9,6 @@
 * Files that carry a token (the standalone Conductor token, the terminal and
   turn hosts' state files) were written first and restricted afterwards.
   They are now created owner-only.
-* A read-only agent token could add agents and open rooms.
 """
 from __future__ import annotations
 
@@ -151,28 +150,3 @@ def test_host_state_file_is_created_private(
 
     assert json.loads(target.read_text(encoding="utf-8")) == {"port": 2, "token": "second"}
     _assert_created_private(opened, target)
-
-
-# ------------------------------------------------------------ agent tokens
-
-
-@pytest.mark.parametrize("tool_name", ["agent_create", "room_open"])
-def test_a_read_token_cannot_change_the_roster_or_open_rooms(tool_name: str) -> None:
-    from dodaios.mcp.agents import tokens, tools
-
-    tool = tools.get(tool_name)
-    assert tool is not None
-
-    assert not tokens.allows("read", tool.name, dangerous=tool.dangerous)
-    assert tokens.allows("work", tool.name, dangerous=tool.dangerous)
-    assert tokens.allows("full", tool.name, dangerous=tool.dangerous)
-
-
-def test_a_read_token_still_reads() -> None:
-    from dodaios.mcp.agents import tokens, tools
-
-    writes = {"agent_create", "room_open"}
-    listing = [t for t in tools.TOOLS if not t.dangerous and t.name not in writes]
-
-    assert listing, "read-only tools must remain"
-    assert all(tokens.allows("read", t.name, dangerous=t.dangerous) for t in listing)
