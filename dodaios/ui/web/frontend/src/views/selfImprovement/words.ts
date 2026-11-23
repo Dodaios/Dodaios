@@ -79,6 +79,9 @@ export function fmtValue(value: unknown, locale: string): string {
   return String(value);
 }
 
+/** Registry targets of notes the assistant wrote for itself (`PREFIX` in dodaios/rsi/adopt.py). */
+export const NOTE_TARGET_PREFIX = "lesson:";
+
 /** The catalog key of a parameter: dots cannot sit inside one key segment. */
 export function paramKey(name: string): string {
   return name.replace(/[^\w]/g, "_");
@@ -86,6 +89,8 @@ export function paramKey(name: string): string {
 
 /** A parameter's plain title, from the page's strings; the catalog's `doc` when it has none. */
 export function paramTitle(t: T, name: string, doc = ""): string {
+  // A note the assistant wrote for itself is named by the page, never by its id.
+  if (name.startsWith(NOTE_TARGET_PREFIX)) return t("self_improvement.stack.note_title");
   const key = `self_improvement.param.${paramKey(name)}.title`;
   const title = t(key);
   if (title !== key) return title;

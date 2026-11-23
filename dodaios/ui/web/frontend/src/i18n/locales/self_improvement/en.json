@@ -74,7 +74,11 @@
       "take_back": "Take back",
       "values": "{before} → {after}",
       "since": "since {when}",
-      "held": "held again on {n} tasks"
+      "held": "held again on {n} tasks",
+      "kinds": "Two kinds of change: values it tuned and proved on tasks, and notes it wrote for itself, which are in effect but not measured yet.",
+      "note_title": "A note it wrote for itself",
+      "note_gone": "This note is gone from the memory.",
+      "not_measured": "not measured yet"
     },
     "state_word": {
       "proposed": "Waiting",
@@ -105,11 +109,14 @@
       "dates": "Dates",
       "date_admitted": "Let in: {date}",
       "date_since": "In effect since: {date}",
-      "date_checked": "Last checked: {date}"
+      "date_checked": "Last checked: {date}",
+      "measurement": "Measurement",
+      "note_unmeasured": "Not measured yet: nothing can tell yet whether this note helps. It is in effect until you take it back."
     },
     "author": {
       "tuner": "The tuner, which tries nearby values on practice tasks",
-      "owner": "You"
+      "owner": "You",
+      "memory-learner": "The assistant, after a tool failed and a later call worked"
     },
     "nights": {
       "title": "The last nights",

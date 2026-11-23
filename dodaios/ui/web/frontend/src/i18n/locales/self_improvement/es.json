@@ -74,7 +74,11 @@
       "take_back": "Deshacer",
       "values": "{before} → {after}",
       "since": "desde {when}",
-      "held": "confirmado de nuevo en {n} tareas"
+      "held": "confirmado de nuevo en {n} tareas",
+      "kinds": "Dos tipos de cambio: valores que ajustó y demostró con tareas, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
+      "note_title": "Una nota que se escribió a sí mismo",
+      "note_gone": "Esta nota ya no está en la memoria.",
+      "not_measured": "aún sin medir"
     },
     "state_word": {
       "proposed": "En espera",
@@ -105,11 +109,14 @@
       "dates": "Fechas",
       "date_admitted": "Aceptado: {date}",
       "date_since": "En vigor desde: {date}",
-      "date_checked": "Última comprobación: {date}"
+      "date_checked": "Última comprobación: {date}",
+      "measurement": "Medición",
+      "note_unmeasured": "Aún sin medir: todavía no se puede saber si esta nota ayuda. Está en vigor hasta que la deshagas."
     },
     "author": {
       "tuner": "El ajustador, que prueba valores cercanos en tareas de práctica",
-      "owner": "Tú"
+      "owner": "Tú",
+      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara"
     },
     "nights": {
       "title": "Las últimas noches",

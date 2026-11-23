@@ -20,6 +20,7 @@ import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { useSelfImprovement, useSelfImprovementPause, useSelfImprovementUndo } from "@/hooks/useSelfImprovement";
 import {
+  NOTE_SURFACE,
   SelfImprovementApiError,
   type AdvantagePoint,
   type DomainSummary,
@@ -193,19 +194,24 @@ export function SelfImprovementView() {
 
                 <Section id="si-stack" title={t("self_improvement.stack.title")} count={data.stack.length || undefined}>
                   {data.stack.length ? (
-                    <ul className={LIST}>
-                      {data.stack.map((change) => (
-                        <ChangeRow
-                          key={change.id}
-                          change={change}
-                          locale={locale}
-                          selected={change.id === selectedId}
-                          onSelect={() => setSelectedId(change.id === selectedId ? null : change.id)}
-                          busy={busyId === change.id}
-                          onUndo={() => takeBack(change)}
-                        />
-                      ))}
-                    </ul>
+                    <>
+                      <p className="mb-2.5 px-1 text-sm leading-relaxed text-muted-foreground" data-testid="si-stack-kinds">
+                        {t("self_improvement.stack.kinds")}
+                      </p>
+                      <ul className={LIST}>
+                        {data.stack.map((change) => (
+                          <ChangeRow
+                            key={change.id}
+                            change={change}
+                            locale={locale}
+                            selected={change.id === selectedId}
+                            onSelect={() => setSelectedId(change.id === selectedId ? null : change.id)}
+                            busy={busyId === change.id}
+                            onUndo={() => takeBack(change)}
+                          />
+                        ))}
+                      </ul>
+                    </>
                   ) : (
                     <p className="px-1 text-sm text-muted-foreground" data-testid="si-stack-none">{t("self_improvement.stack.none")}</p>
                   )}
@@ -445,6 +451,25 @@ function Figure({
 
 // ------------------------------------------------------------------ rows
 
+/** A how-to note the assistant wrote for itself, rather than a tuned value. */
+function isNote(change: LearnedChange): boolean {
+  return change.surface === NOTE_SURFACE;
+}
+
+/** The note's words in full, as the person can read them; or that the note is gone from the memory. */
+function NoteWords({ text }: { text: string }) {
+  const t = useT();
+  return text.trim() ? (
+    <span className="mb-1 block whitespace-pre-line text-[15px] leading-snug text-foreground" data-testid="si-note-text">
+      {text}
+    </span>
+  ) : (
+    <span className="mb-1 block whitespace-normal italic text-muted-foreground" data-testid="si-note-gone">
+      {t("self_improvement.stack.note_gone")}
+    </span>
+  );
+}
+
 function ChangeRow({
   change,
   locale,
@@ -463,8 +488,9 @@ function ChangeRow({
   candidate?: boolean;
 }) {
   const t = useT();
+  const note = isNote(change);
   const before = change.before ?? change.default;
-  const values = fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
+  const values = note ? "" : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
   const when = relativeTime(change.since_ms, locale);
   // Two lines: where the change stands, then what proved it. The proof is the
   // line a person reads for, so it never shares its width with anything else.
@@ -474,24 +500,34 @@ function ChangeRow({
   if (!candidate && change.last_check && change.last_check.verdict === "accept") {
     standing.push(fill(t("self_improvement.stack.held"), { n: change.last_check.n }));
   }
-  const proof = candidate ? "" : effectWords(t, change.admitted, locale);
+  // A note it wrote for itself has no measurement: it says so instead of a proof.
+  const proof = candidate ? "" : note ? t("self_improvement.stack.not_measured") : effectWords(t, change.admitted, locale);
   return (
     <Row
       testId="si-change-row"
-      data={{ "change-id": change.id, state: change.state }}
+      data={{ "change-id": change.id, state: change.state, surface: change.surface }}
       selected={selected}
       onClick={onSelect}
       title={
-        <>
-          {paramTitle(t, change.target, change.doc)}
-          <span className="ml-2 tabular-nums text-muted-foreground">{values}</span>
-        </>
+        note ? (
+          t("self_improvement.stack.note_title")
+        ) : (
+          <>
+            {paramTitle(t, change.target, change.doc)}
+            <span className="ml-2 tabular-nums text-muted-foreground">{values}</span>
+          </>
+        )
       }
       sub={
         <>
+          {note && <NoteWords text={change.text ?? ""} />}
           <span className="block truncate">{standing.join(" · ")}</span>
           {proof && (
-            <span className="mt-0.5 block truncate tabular-nums text-foreground" data-testid="si-change-proof" title={proof}>
+            <span
+              className={cn("mt-0.5 block truncate tabular-nums", note ? "text-muted-foreground" : "text-foreground")}
+              data-testid="si-change-proof"
+              title={proof}
+            >
               {proof}
             </span>
           )}

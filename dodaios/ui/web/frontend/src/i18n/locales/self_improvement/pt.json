@@ -74,7 +74,11 @@
       "take_back": "Desfazer",
       "values": "{before} → {after}",
       "since": "desde {when}",
-      "held": "confirmado de novo em {n} tarefas"
+      "held": "confirmado de novo em {n} tarefas",
+      "kinds": "Dois tipos de alteração: valores que afinou e provou em tarefas, e notas que escreveu para si próprio, que estão em vigor mas ainda não foram medidas.",
+      "note_title": "Uma nota que escreveu para si próprio",
+      "note_gone": "Esta nota já não está na memória.",
+      "not_measured": "ainda não medido"
     },
     "state_word": {
       "proposed": "Em espera",
@@ -105,11 +109,14 @@
       "dates": "Datas",
       "date_admitted": "Aceite: {date}",
       "date_since": "Em vigor desde: {date}",
-      "date_checked": "Última verificação: {date}"
+      "date_checked": "Última verificação: {date}",
+      "measurement": "Medição",
+      "note_unmeasured": "Ainda não medido: ainda não é possível dizer se esta nota ajuda. Está em vigor até a desfazer."
     },
     "author": {
       "tuner": "O afinador, que experimenta valores próximos em tarefas de treino",
-      "owner": "O utilizador"
+      "owner": "O utilizador",
+      "memory-learner": "O assistente, depois de uma ferramenta falhar e uma chamada posterior resultar"
     },
     "nights": {
       "title": "As últimas noites",

@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import { Loader2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
-import type { LearnedChange, Measurement } from "@/lib/selfImprovementApi";
+import { NOTE_SURFACE, type LearnedChange, type Measurement } from "@/lib/selfImprovementApi";
 import { relativeTime } from "../selfBuild/shared";
 import { effectWords, fmtValue, paramAbout, paramTitle, wordFor } from "./words";
 
@@ -28,6 +28,8 @@ export function ChangeDetail({
   const title = paramTitle(t, change.target, change.doc);
   const about = paramAbout(t, change.target, change.doc);
   const before = change.before ?? change.default;
+  // A note it wrote for itself has words instead of values, and no measurement yet.
+  const note = change.surface === NOTE_SURFACE;
   const author = wordFor(t, "author", change.author || "unknown");
   return (
     <article
@@ -52,12 +54,26 @@ export function ChangeDetail({
           </button>
         </div>
         <h2 className="mt-3 font-display text-xl leading-snug text-foreground-strong">{title}</h2>
-        <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground-strong" data-testid="si-detail-values">
-          {fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) })}
-        </p>
-        <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-          {fill(t("self_improvement.detail.shipped"), { value: fmtValue(change.default, locale) })}
-        </p>
+        {note ? (
+          change.text?.trim() ? (
+            <p className="mt-3 whitespace-pre-line text-base leading-relaxed text-foreground" data-testid="si-detail-note">
+              {change.text}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm italic text-muted-foreground" data-testid="si-detail-note-gone">
+              {t("self_improvement.stack.note_gone")}
+            </p>
+          )
+        ) : (
+          <>
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground-strong" data-testid="si-detail-values">
+              {fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) })}
+            </p>
+            <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+              {fill(t("self_improvement.detail.shipped"), { value: fmtValue(change.default, locale) })}
+            </p>
+          </>
+        )}
         {onUndo && (
           <button
             type="button"
@@ -74,21 +90,29 @@ export function ChangeDetail({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         <dl className="space-y-6">
-          {about && (
-            <Field label={t("self_improvement.detail.what")}>
-              <p className="text-base leading-relaxed text-foreground">{about}</p>
+          {note ? (
+            <Field label={t("self_improvement.detail.measurement")}>
+              <p className="text-base text-foreground" data-testid="si-detail-unmeasured">{t("self_improvement.detail.note_unmeasured")}</p>
             </Field>
+          ) : (
+            <>
+              {about && (
+                <Field label={t("self_improvement.detail.what")}>
+                  <p className="text-base leading-relaxed text-foreground">{about}</p>
+                </Field>
+              )}
+              <Field label={t("self_improvement.detail.admitted")}>
+                <MeasurementBlock found={change.admitted} kind="admitted" locale={locale} />
+              </Field>
+              <Field label={t("self_improvement.detail.checked")}>
+                {change.last_check ? (
+                  <MeasurementBlock found={change.last_check} kind="checked" locale={locale} />
+                ) : (
+                  <Quiet>{t("self_improvement.detail.not_checked")}</Quiet>
+                )}
+              </Field>
+            </>
           )}
-          <Field label={t("self_improvement.detail.admitted")}>
-            <MeasurementBlock found={change.admitted} kind="admitted" locale={locale} />
-          </Field>
-          <Field label={t("self_improvement.detail.checked")}>
-            {change.last_check ? (
-              <MeasurementBlock found={change.last_check} kind="checked" locale={locale} />
-            ) : (
-              <Quiet>{t("self_improvement.detail.not_checked")}</Quiet>
-            )}
-          </Field>
           <Field label={t("self_improvement.detail.proposed_by")}>
             <p className="text-base text-foreground">{author}</p>
             {change.reason && (

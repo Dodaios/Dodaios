@@ -30,6 +30,9 @@ export interface Measurement {
 
 export type ChangeState = "proposed" | "trial" | "live" | "reverted" | "blocked";
 
+/** A how-to note the assistant wrote for itself after a tool failed and a later call worked. */
+export const NOTE_SURFACE = "lesson";
+
 export interface LearnedChange {
   id: string;
   surface: string;
@@ -38,6 +41,13 @@ export interface LearnedChange {
   state: ChangeState | string;
   author: string;
   reason: string;
+  /**
+   * A note's own words (`surface: "lesson"`), read live from the memory; "" for a
+   * parameter, and "" for a note the person has just forgotten.
+   */
+  text?: string;
+  /** False when nothing can tell yet whether the change helps (a note it wrote for itself). */
+  measured?: boolean;
   since_ms: number;
   /** The value before the change; null means the shipped default was in effect. */
   before: unknown;

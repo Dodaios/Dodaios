@@ -74,7 +74,11 @@
       "take_back": "Zurücknehmen",
       "values": "{before} → {after}",
       "since": "seit {when}",
-      "held": "auf {n} Aufgaben erneut bestätigt"
+      "held": "auf {n} Aufgaben erneut bestätigt",
+      "kinds": "Zwei Arten von Änderungen: Werte, die er eingestellt und an Aufgaben belegt hat, und Notizen, die er sich selbst geschrieben hat; die sind in Kraft, aber noch nicht gemessen.",
+      "note_title": "Eine Notiz an sich selbst",
+      "note_gone": "Diese Notiz ist nicht mehr im Gedächtnis.",
+      "not_measured": "noch nicht gemessen"
     },
     "state_word": {
       "proposed": "Wartet",
@@ -105,11 +109,14 @@
       "dates": "Daten",
       "date_admitted": "Aufgenommen: {date}",
       "date_since": "In Kraft seit: {date}",
-      "date_checked": "Zuletzt geprüft: {date}"
+      "date_checked": "Zuletzt geprüft: {date}",
+      "measurement": "Messung",
+      "note_unmeasured": "Noch nicht gemessen: Noch lässt sich nicht sagen, ob diese Notiz hilft. Sie ist in Kraft, bis du sie zurücknimmst."
     },
     "author": {
       "tuner": "Der Tuner, der benachbarte Werte an Übungsaufgaben ausprobiert",
-      "owner": "Du"
+      "owner": "Du",
+      "memory-learner": "Der Assistent, nachdem ein Werkzeug versagt hat und ein späterer Aufruf geklappt hat"
     },
     "nights": {
       "title": "Die letzten Nächte",

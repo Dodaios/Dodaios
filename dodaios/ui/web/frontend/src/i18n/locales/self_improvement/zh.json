@@ -74,7 +74,11 @@
       "take_back": "撤回",
       "values": "{before} → {after}",
       "since": "自{when}起",
-      "held": "在 {n} 个任务上再次确认"
+      "held": "在 {n} 个任务上再次确认",
+      "kinds": "改动分两类：它调整并在任务上验证过的值，以及它为自己写下的笔记；笔记已经生效，但尚未测量。",
+      "note_title": "它为自己写下的笔记",
+      "note_gone": "这条笔记已不在记忆中。",
+      "not_measured": "尚未测量"
     },
     "state_word": {
       "proposed": "等待中",
@@ -105,11 +109,14 @@
       "dates": "日期",
       "date_admitted": "采纳：{date}",
       "date_since": "生效自：{date}",
-      "date_checked": "最近检查：{date}"
+      "date_checked": "最近检查：{date}",
+      "measurement": "测量",
+      "note_unmeasured": "尚未测量：目前还无法判断这条笔记是否有帮助。在你撤回之前，它一直生效。"
     },
     "author": {
       "tuner": "调节器，它在练习任务上尝试相邻的值",
-      "owner": "你"
+      "owner": "你",
+      "memory-learner": "助手，在某个工具失败而之后的调用成功之后"
     },
     "nights": {
       "title": "最近几夜",

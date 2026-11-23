@@ -472,6 +472,78 @@ describe("SelfImprovementView, in daily use", () => {
   });
 });
 
+describe("SelfImprovementView, notes it wrote for itself", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_improvement");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  const NOTE = "The calendar tool needs the date as 2026-03-14, not as 14 March.";
+
+  function withNotes(): SelfImprovementOverview {
+    const data = fullOverview();
+    const note = (id: string, text: string): LearnedChange =>
+      change({
+        id,
+        surface: "lesson",
+        target: `lesson:${id}`,
+        state: "live",
+        author: "memory-learner",
+        reason: "",
+        text,
+        measured: false,
+        before: null,
+        after: null,
+        default: null,
+        doc: "",
+        admitted: null,
+        last_check: null,
+      });
+    data.stack = [note("n1", NOTE), note("n2", ""), ...data.stack];
+    return data;
+  }
+
+  it("shows a note's words in full, says when one is gone, and never a value or an arrow", async () => {
+    installFetch(withNotes());
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    expect(rows).toHaveLength(4);
+    const [withText, gone] = rows;
+    expect(withText.dataset.surface).toBe("lesson");
+    expect(withText.textContent).toContain("A note it wrote for itself");
+    expect(within(withText).getByTestId("si-note-text").textContent).toBe(NOTE);
+    expect(within(withText).getByTestId("si-change-proof").textContent).toBe("not measured yet");
+    expect(withText.textContent).toContain("Kept");
+    expect(within(gone).getByTestId("si-note-gone").textContent).toBe("This note is gone from the memory.");
+    for (const row of [withText, gone]) {
+      expect(row.textContent).not.toMatch(/null|undefined|→|lesson:/);
+      expect(within(row).getByTestId("si-undo")).toBeTruthy();
+    }
+    // Parameter rows keep their look.
+    expect(rows[2].textContent).toContain("0 → 4");
+    expect(screen.getByTestId("si-stack-kinds").textContent).toContain("notes it wrote for itself");
+  });
+
+  it("takes a note back like any change, and its sheet says it is not measured", async () => {
+    const calls = installFetch(withNotes());
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    fireEvent.click(rows[0]);
+    const detail = await screen.findByTestId("si-change-detail");
+    expect(within(detail).getByTestId("si-detail-note").textContent).toBe(NOTE);
+    expect(within(detail).getByTestId("si-detail-unmeasured").textContent).toContain("Not measured yet");
+    expect(within(detail).queryByTestId("si-detail-values")).toBeNull();
+    expect(detail.textContent).not.toMatch(/null|undefined|→/);
+    fireEvent.click(within(detail).getByTestId("si-detail-undo"));
+    await waitFor(() => expect(screen.getAllByTestId("si-change-row")).toHaveLength(3));
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-improvement/changes/n1/undo")).toBe(true);
+  });
+});
+
 describe("self-improvement words", () => {
   const t = (key: string) => key;
 
