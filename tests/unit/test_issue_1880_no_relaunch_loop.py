@@ -210,7 +210,7 @@ def test_a_real_detached_child_on_nul_is_no_terminal(tmp_path) -> None:
     ``isatty()`` True, and the console check says it is no terminal."""
     import json
 
-    from dodaios.ui.relauncher import detached_popen_kwargs
+    from dodaios.ui.relauncher import spawn_detached
 
     out = tmp_path / "seen.json"
     probe = (
@@ -221,9 +221,9 @@ def test_a_real_detached_child_on_nul_is_no_terminal(tmp_path) -> None:
         "    'terminal': _is_terminal(sys.stdin, sys.platform),\n"
         "}))\n"
     )
-    kwargs = detached_popen_kwargs()
-    child = subprocess.Popen([sys.executable, "-c", probe], **kwargs)  # type: ignore[call-overload]  # noqa: S603
-    assert child.wait(timeout=120) == 0
+    # The app's own spawn: it retries without breakaway where the job refuses it.
+    child = spawn_detached([sys.executable, "-c", probe])
+    assert child.wait(timeout=120) == 0  # type: ignore[attr-defined]
     seen = json.loads(out.read_text())
     assert seen["isatty"] is True, seen  # what made every copy start the next one
     assert seen["terminal"] is False, seen
