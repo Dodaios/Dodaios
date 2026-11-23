@@ -4,7 +4,10 @@ Conductor is a **standalone open-source tool** that originated in this
 monorepo but is not tied to Jarvis:
 
 - Standalone mode: ``python -m conductor serve`` starts its own
-  FastAPI server on port 7777 with SQLite in ``~/.conductor/``.
+  FastAPI server on port 7777 with SQLite in ``~/.conductor/``. Every
+  request needs ``Authorization: Bearer <token>`` (written to
+  ``~/.conductor/api-token`` at start, or set ``CONDUCTOR_API_TOKEN``);
+  browser origins are refused unless listed in ``CONDUCTOR_CORS_ORIGINS``.
 - Embedded mode: Jarvis imports the package, mounts the router in
   its own FastAPI server, and shows a dashboard view.
 
