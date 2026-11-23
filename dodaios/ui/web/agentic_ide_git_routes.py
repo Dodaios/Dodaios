@@ -14,7 +14,7 @@ Endpoints (all under ``/api/agentic-ide/git``)::
     POST /branch/open         Open a branch's checkout in the file manager or an editor
     GET  /github/repos        The person's GitHub repositories, for the one-time pick
     PUT  /github/binding      Remember which GitHub repository a workspace folder is
-    GET  /github/linked       Which connected folder is which GitHub repository
+    GET  /github/linked       Which connected folder is which GitHub repository, and where
     POST /github/clone        Bring a GitHub repository onto this computer
     POST /prepare             Git half of opening a workspace or an agent
     POST /commit              Stage everything and commit
@@ -582,9 +582,15 @@ class CloneRequest(BaseModel):
 
 @router.get("/github/linked", summary="Which connected folder is which GitHub repository")
 def linked_github_repositories() -> dict:
-    """What the thread composer's folder list needs to tell a repository that
-    is already on this computer from one it would have to download."""
-    return {"linked": github_clone.linked_repositories()}
+    """What the thread composer's folder list and the folder picker need to
+    tell a repository that is already on this computer from one they would
+    have to download: ``linked`` maps project ids to repositories, ``folders``
+    maps each repository (lower case) to its folder."""
+    linked = github_clone.linked_projects()
+    return {
+        "linked": github_clone.linked_repositories(linked),
+        "folders": github_clone.linked_folders(linked),
+    }
 
 
 @router.post("/github/clone", summary="Bring a GitHub repository onto this computer")

@@ -10066,7 +10066,18 @@
     "no_match": "Kein Ordner passt zu „{query}“.",
     "folder_list": "Ordner",
     "loading": "Lädt…",
-    "truncated": "Es werden nur die ersten {count} Ordner angezeigt. Um einen anderen zu öffnen, gib seinen Namen ein und drücke Enter."
+    "truncated": "Es werden nur die ersten {count} Ordner angezeigt. Um einen anderen zu öffnen, gib seinen Namen ein und drücke Enter.",
+    "github_place": "GitHub",
+    "github_title": "Deine GitHub-Repositories als Ordner",
+    "github_not_connected_detail": "Nicht verbunden",
+    "from_github": "Von GitHub",
+    "github_not_connected": "GitHub ist nicht verbunden. Verbinde es unter Plugins, um deine Repositories hier zu sehen, oder füge oben die Adresse eines Repositorys ein.",
+    "github_empty": "Dieses GitHub-Konto hat noch keine Repositories.",
+    "no_repo_match": "Kein Repository passt zu „{query}“.",
+    "download_title": "Lädt {repo} auf diesen Computer und öffnet seinen Ordner",
+    "downloading": "Wird geladen…",
+    "private_repo": "Privat",
+    "search_placeholder_github": "Ordner und Repositories suchen oder einen Pfad wie cd Desktop eingeben"
   },
   "shell_events": {
     "empty": "Noch keine Events. Sende ein Test-Event aus dem Debug-Tab.",

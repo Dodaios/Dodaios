@@ -10066,7 +10066,18 @@
     "no_match": "No folder matches “{query}”.",
     "folder_list": "Folders",
     "loading": "Loading…",
-    "truncated": "Only the first {count} folders are listed. To open another one, type its name and press Enter."
+    "truncated": "Only the first {count} folders are listed. To open another one, type its name and press Enter.",
+    "github_place": "GitHub",
+    "github_title": "Your GitHub repositories, as folders",
+    "github_not_connected_detail": "Not connected",
+    "from_github": "From GitHub",
+    "github_not_connected": "GitHub is not connected. Connect it in Plugins to list your repositories here, or paste a repository's address into the field above.",
+    "github_empty": "This GitHub account has no repositories yet.",
+    "no_repo_match": "No repository matches “{query}”.",
+    "download_title": "Downloads {repo} to this computer and opens its folder",
+    "downloading": "Downloading…",
+    "private_repo": "Private",
+    "search_placeholder_github": "Search folders and repositories, or type a path like cd Desktop"
   },
   "shell_events": {
     "empty": "No events yet. Emit a test event from the Debug tab.",
