@@ -254,11 +254,24 @@ turn ends -> scan -> GitHub -> decide
   did not write since. It carries the app as author ("Output check"), so the
   thread shows who wrote it. Its intent is on record before it goes, and an
   order whose sending cannot be confirmed is never sent again.
-- **The person always wins.** For a run that holds, a message from the person
-  into the thread, a turn nobody here started, or a new order of the lead ends
-  the run as `superseded`; nothing is sent after that. For a run that does not
-  hold, a message from the person while its turn runs marks it. The turn's end
-  is still recorded, and the run ends `superseded`.
+- **The person always wins, and that is recorded.** A message from the
+  person counts as taking the run over (`taken_over`, a step and a column) in
+  two cases. Either it arrives while the run's turn still works, or it reads
+  as a correction, a repeat or an undo of the result. The wording rules are
+  the ones the agent score uses (`dodaios/evals/agent_score/signals.py`).
+  - A takeover during the turn ends the run `superseded`: at once for a run
+    that holds, at the end of the turn for one that does not (the turn's cost
+    and scan are still recorded).
+  - A takeover after the result ends a run that holds as `superseded`. A run
+    that does not hold is detached and still judged from its own commit.
+  - Either way the selector counts the run as failed; it is not left out.
+  - A new and unrelated request after the result ("now also add X"), from the
+    person or as the lead's next order, is not a takeover. The run is
+    detached and judged from its own commit. A run that holds gets no
+    follow-up order after that: its thread moved on.
+  - When the lead's next order into the thread repeats or corrects the
+    earlier order, the earlier run is marked `asked_again`.
+  - Nothing here holds a turn or sends anything.
 - **The lead's wait** (`probe.py`). Until the verdict, the job reports
   `running`, with a progress that moves while the check is alive, so the wait
   neither ends early nor gives up. A question, an approval or a plan in the
@@ -281,10 +294,24 @@ turn ends -> scan -> GitHub -> decide
   request of the person and 50 a day; a due review that the budget stops leaves
   the output `unverified`. A review started before an app restart is not run
   again.
-- **Leaks.** A `verified` run whose work merged is read again on GitHub 24 and
-  72 hours after its end. If the checks on its merge commit fail by then, the
-  run is marked `leaked`: the selector no longer counts it as passed, and a
-  new policy it ran under is rolled back. Nothing is sent to the agent.
+- **The watch after the verdict.** Every judged run (all verdicts but
+  `superseded`) is looked at again 24 and 72 hours after its end. Each finding
+  is a step on the run and a column the selector reads. Any of them means the
+  run does not count as passed:
+  - `leaked`: the run was `verified`, its work merged, and the checks on the
+    merge commit fail now. A new policy it ran under is rolled back.
+  - `pr_closed`: its pull request was closed without merging.
+  - `reverted`: a commit in the run's repository says "This reverts commit"
+    with the run's commit (read with `git log` in its folder; a revert that
+    exists only on GitHub and was not fetched is not seen).
+  - `asked_again`: after the run, and before the thread's next order, the
+    person corrected, repeated or undid the request in the thread, or the
+    next order itself repeats or corrects it.
+
+  The watch reads GitHub once per look, and only for a run that left a commit
+  on GitHub, plus `git log` and the thread's record. A GitHub or git failure
+  leaves the record as it was and looks again an hour later. Nothing is sent
+  to the agent and nothing holds the chat.
 - **The agent's own checks** (`self_checks.py`). Where no repository check
   could be read (no GitHub, no checks, nothing committed), the app reads the
   test, lint and type commands the agent ran itself in its turn, and whether

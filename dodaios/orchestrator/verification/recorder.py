@@ -68,7 +68,8 @@ from .store import CHECKING, ENDED, INTERRUPTED, RUNNING, VerificationStore
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "RunRecorder", "holds_policy", "install", "note_submission", "recorder", "set_recorder",
+    "AFTER_SIGNALS", "RunRecorder", "holds_policy", "install", "note_submission", "recorder",
+    "set_recorder",
 ]
 
 #: The event kinds a run's record is built from; everything else is ignored inline.
@@ -91,6 +92,14 @@ _REASON_MAX: Final[int] = 600
 _HOLDING_KEPT: Final[int] = 4_096
 #: Why an order the driver wanted was not given.
 _NOT_HELD: Final[str] = "the run's coding policy does not hold it"
+#: Why an order is not given to a run whose thread moved on to other work.
+_MOVED_ON: Final[str] = "the thread moved on to other work"
+#: How much of the person's message a step keeps.
+_SAID_KEPT: Final[int] = 300
+#: The signals the watch after a verdict records, as run columns.
+AFTER_SIGNALS: Final[tuple[str, ...]] = (
+    "leaked", "taken_over", "asked_again", "pr_closed", "reverted",
+)
 
 
 def holds_policy(text: Any) -> bool:
@@ -389,9 +398,19 @@ class RunRecorder:
         policy: dict[str, Any],
     ) -> None:
         earlier = self._open.get(session_id)
-        if earlier is not None and earlier.checking and not self._run_holds(earlier.run_id):
-            # Its turn is over and nothing waits for it: it is still decided
-            # from what it left behind, while the thread takes the new order.
+        # The run this order follows: the open one, or one already detached
+        # when the order's turn started a moment before it was noted.
+        previous = earlier or max(
+            (r for r in self._background.values() if r.session_id == session_id),
+            key=lambda r: r.started_ms, default=None,
+        )
+        asked = self._asked_again(previous, prompt, job_id) if previous is not None else ""
+        if earlier is not None and earlier.checking and not (
+            asked and self._run_holds(earlier.run_id)
+        ):
+            # Its turn is over: it is still decided from what it left behind,
+            # while the thread takes the new order. A new, unrelated order is
+            # not a verdict on it.
             self._detach(earlier, f"the thread took a new order ({job_id})")
         elif earlier is not None:
             # One thread runs one turn at a time: a new order means the earlier
@@ -604,22 +623,84 @@ class RunRecorder:
             # One steered into the turn can also be a watchdog nudge, so only a
             # plain message counts as the person stepping in.
             if not payload.get("author") and not payload.get("steered"):
-                holding = self._run_holds(run.run_id)
-                if run.checking and not holding:
-                    # The run's turn was over before the person wrote: its
-                    # output is still judged; what follows is the person's.
-                    self._detach(run, "the person wrote into the thread")
-                    return
-                self.store.update_run(run.run_id, person_intervened=True)
-                if holding:
-                    # The thread is the person's from here on: no check, no order.
-                    self._finish(run, driver.SUPERSEDED, "the person wrote into the thread")
-                # Else the turn runs on: its end, cost and scan are still recorded,
-                # and the driver ends the run as superseded.
+                self._person_wrote(run, str(payload.get("text") or ""), int(ts_ms))
         elif kind == "turn_finished" and not run.checking and (
             not run.turn_id or turn_id == run.turn_id
         ):
             self._output_ended(run, payload, ts_ms)
+
+    # ------------------------------------------------- what the person did next
+
+    def _person_wrote(self, run: _Open, text: str, at: int) -> None:
+        """The person wrote into the run's thread. Writer thread; sends nothing.
+
+        In the middle of the turn, or as a correction, a repeat or an undo of
+        the result, it is a takeover: a negative outcome on the run. A new and
+        unrelated request after the result is not; the run is still judged
+        from its own commit.
+        """
+        holding = self._run_holds(run.run_id)
+        if not run.checking:
+            self._taken_over(
+                run, "", "the person wrote into the thread while it worked", text, at,
+                midturn=True,
+            )
+            if holding:
+                # The thread is the person's from here on: no check, no order.
+                self._finish(run, driver.SUPERSEDED, "the person wrote into the thread")
+            # Else the turn runs on: its end, cost and scan are still recorded,
+            # and the driver ends the run as superseded.
+            return
+        row = self.store.get(run.run_id) or {}
+        kind = _follow_up_kind(str(row.get("brief_text") or ""), text)
+        if not kind:
+            self._detach(run, "the person wrote a new request into the thread")
+            return
+        self._taken_over(
+            run, kind, f"the person's next message reads as a {kind} of the result", text, at
+        )
+        if holding:
+            self._finish(run, driver.SUPERSEDED, f"the person took the result over ({kind})")
+        else:
+            self._detach(run, f"the person took the result over ({kind})")
+
+    def _taken_over(
+        self, run: _Open, kind: str, why: str, text: str, at: int, *, midturn: bool = False
+    ) -> None:
+        """Record a takeover. Only one in the middle of the turn makes the person part
+        of the run's own work (``person_intervened``); one after the result leaves
+        the run judged from its commit, and the takeover counts against it."""
+        if midturn:
+            self.store.update_run(run.run_id, person_intervened=True, taken_over=True)
+        else:
+            self.store.update_run(run.run_id, taken_over=True)
+        self.store.add_step(
+            run.run_id, run.iteration, "taken_over", turn_id=run.turn_id, status=kind or "midturn",
+            detail={"why": why, "kind": kind, "said": text[:_SAID_KEPT]}, ts_ms=at,
+        )
+
+    def _asked_again(self, earlier: _Open, prompt: str, job_id: str) -> str:
+        """Mark ``earlier`` when the thread's new order repeats or corrects it. Returns the kind."""
+        try:
+            row = self.store.get(earlier.run_id) or {}
+            kind = _follow_up_kind(str(row.get("brief_text") or ""), prompt)
+            if kind:
+                self._note_asked_again(earlier.run_id, int(row.get("iteration") or 0), kind,
+                                       f"the next order ({job_id})", prompt)
+            return kind
+        except Exception:  # noqa: BLE001 - a missed signal leaves the record as it was
+            log.warning("run recorder: next order of %s not read", earlier.run_id, exc_info=True)
+            return ""
+
+    def _note_asked_again(
+        self, run_id: str, iteration: int, kind: str, source: str, text: str
+    ) -> None:
+        self.store.update_run(run_id, asked_again=True)
+        self.store.add_step(
+            run_id, iteration, "asked_again", status=kind,
+            detail={"kind": kind, "source": source, "said": text[:_SAID_KEPT]},
+            ts_ms=int(self._clock() * 1000),
+        )
 
     def _turn_started(
         self, run: _Open, turn_id: str, payload: dict[str, Any], ts_ms: float
@@ -762,7 +843,10 @@ class RunRecorder:
             run = self._background.get(run_id)
         if run is None:
             return
-        holding = holds_policy(row.get("policy_json"))
+        # A detached run's thread moved on: no order goes into it any more.
+        moved_on = run_id in self._background
+        holding = holds_policy(row.get("policy_json")) and not moved_on
+        why_not = _MOVED_ON if moved_on else _NOT_HELD
         now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
         output = int(row.get("iteration") or 0)
         steps = self.store.steps(run_id)
@@ -813,7 +897,9 @@ class RunRecorder:
         if decision.action == driver.REVIEW and not holding:
             # A review is a model call made to steer the run; this run is not
             # steered. Judged as if no review were due.
-            self._withheld(run, output, "review_withheld", {"trigger": decision.reason}, now)
+            self._withheld(
+                run, output, "review_withheld", {"trigger": decision.reason}, now, why_not
+            )
             decision = decided("")
         self.store.update_run(run_id, heartbeat_ms=now)
         if decision.action == driver.FOLLOW_UP and not holding:
@@ -823,11 +909,11 @@ class RunRecorder:
                     "template": decision.template, "signature": decision.signature,
                     "reason": decision.reason, "prompt": decision.prompt,
                 },
-                now,
+                now, why_not,
             )
             self._finish(
                 run, driver.FAILED,
-                f"{decision.reason}; no follow-up order was sent because {_NOT_HELD}",
+                f"{decision.reason}; no follow-up order was sent because {why_not}",
                 now_ms=now,
             )
         elif decision.action == driver.WAIT:
@@ -847,12 +933,13 @@ class RunRecorder:
             self._finish(run, decision.verdict, decision.reason, now_ms=now)
 
     def _withheld(
-        self, run: _Open, output: int, step: str, detail: dict[str, Any], now: int
+        self, run: _Open, output: int, step: str, detail: dict[str, Any], now: int,
+        why: str = _NOT_HELD,
     ) -> None:
-        """Record an order the driver wanted and this run's policy does not give."""
+        """Record an order the driver wanted and the run does not get."""
         self.store.add_step(
             run.run_id, output, step, turn_id=run.turn_id, status="withheld",
-            detail={**detail, "why": _NOT_HELD}, ts_ms=now,
+            detail={**detail, "why": why}, ts_ms=now,
         )
 
     def _said(self, session_id: str) -> str:
@@ -980,49 +1067,134 @@ class RunRecorder:
         run.checking = False
         self._let_go(run)
         self._tell(run)
-        if verdict == driver.VERIFIED:
-            self._watch_for_leak(run.run_id, now)
+        if verdict != driver.SUPERSEDED:
+            self._watch_after(run.run_id, now)
 
-    # -------------------------------------------------------------- leaks
+    # ------------------------------------------------- the watch after a verdict
 
-    def _watch_for_leak(self, run_id: str, now: int, after_h: int = LEAK_CHECKS_H[0]) -> None:
-        """Look at a verified run's merged work again later: it may turn red after all."""
+    def _watch_after(self, run_id: str, now: int, after_h: int = LEAK_CHECKS_H[0]) -> None:
+        """Look at a judged run again later: what the person and the repository did next.
+
+        At 24 and 72 hours after its end (``LEAK_CHECKS_H``): whether its merged
+        work turned red (a leak), its pull request was closed without merging,
+        its commit was reverted, or the person corrected or repeated the
+        request in the thread. Each is a step and a column the selector reads.
+        """
         row = self.store.get(run_id) or {}
-        if row.get("landing") != evidence.MERGED or not row.get("head_sha"):
-            return  # only merged work can leak into the default branch
         due = int(row.get("ended_ms") or now) + after_h * 3600 * 1000
         self.store.update_run(run_id, leak_due_ms=due)
         self._leak_at[run_id] = due
 
     def read_leaks(self, now_ms: int | None = None) -> int:
-        """Read the merged work of verified runs again where due. Returns how many were read."""
+        """Run the watch after the verdict where it is due. Returns how many runs were read.
+
+        Reads only: GitHub (one call, for a run with a commit on it), ``git log``
+        in the run's folder, and the thread's record. Never sends anything; a
+        failure leaves the record as it was.
+        """
         now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
         asked = 0
         for run_id in [r for r, due in self._leak_at.items() if due <= now]:
             self._leak_at.pop(run_id, None)
             try:
                 row = self.store.get(run_id) or {}
-                found = self._read_evidence(str(row.get("repo_id") or ""), str(row["head_sha"]))
                 asked += 1
+                transient = self._look_again(row, now)
                 ended = int(row.get("ended_ms") or now)
                 later = [h for h in LEAK_CHECKS_H if ended + h * 3600 * 1000 > now]
-                if found.landing == evidence.MERGED and found.checks == evidence.FAILING:
-                    self.store.update_run(run_id, leaked=True, leak_due_ms=None)
-                    self.store.add_step(
-                        run_id, int(row.get("iteration") or 0), "leak", status="failing",
-                        detail=found.to_detail(), ts_ms=now,
-                    )
-                    log.warning("run recorder: %s was verified, and its merged work fails now",
-                                run_id)
-                elif later or found.transient:
+                if later or transient:
                     due = ended + later[0] * 3600 * 1000 if later else now + 3600 * 1000
                     self.store.update_run(run_id, leak_due_ms=due)
                     self._leak_at[run_id] = due
                 else:
                     self.store.update_run(run_id, leak_due_ms=None)
             except Exception:  # noqa: BLE001 - the record keeps the verdict as it stood
-                log.warning("run recorder: %s not looked at for a leak", run_id, exc_info=True)
+                log.warning("run recorder: %s not looked at again", run_id, exc_info=True)
         return asked
+
+    #: The generalised name of :meth:`read_leaks`.
+    read_after = read_leaks
+
+    def _look_again(self, row: dict[str, Any], now: int) -> bool:
+        """One look after the verdict. True when GitHub could not answer (look again soon)."""
+        run_id = str(row["run_id"])
+        output = int(row.get("iteration") or 0)
+        head = str(row.get("head_sha") or "")
+        transient = False
+        if head and str(row.get("landing") or "") in (
+            evidence.PUSHED, evidence.PR_OPEN, evidence.PR_CLOSED, evidence.MERGED,
+        ):
+            try:
+                found = self._read_evidence(str(row.get("repo_id") or ""), head)
+            except Exception:  # noqa: BLE001 - GitHub out of reach: look again later
+                log.info("run recorder: GitHub not read for %s", run_id, exc_info=True)
+                found = None
+                transient = True
+            if found is not None:
+                transient = bool(found.transient)
+                merged_red = found.landing == evidence.MERGED and found.checks == evidence.FAILING
+                if merged_red and row.get("verdict") == driver.VERIFIED and not row.get("leaked"):
+                    self.store.update_run(run_id, leaked=True)
+                    self.store.add_step(
+                        run_id, output, "leak", status="failing", detail=found.to_detail(),
+                        ts_ms=now,
+                    )
+                    log.warning(
+                        "run recorder: %s was verified, and its merged work fails now", run_id
+                    )
+                if found.landing == evidence.PR_CLOSED and not row.get("pr_closed"):
+                    self.store.update_run(run_id, pr_closed=True)
+                    self.store.add_step(
+                        run_id, output, "pr_closed", status="closed", detail=found.to_detail(),
+                        ts_ms=now,
+                    )
+        if head and not row.get("reverted"):
+            revert = _revert_of(str(row.get("workdir") or ""), head)
+            if revert:
+                self.store.update_run(run_id, reverted=True)
+                self.store.add_step(
+                    run_id, output, "reverted", status="reverted",
+                    detail={"revert_sha": revert, "head_sha": head}, ts_ms=now,
+                )
+        if not row.get("asked_again") and not row.get("taken_over"):
+            self._read_what_came_next(row)
+        return transient
+
+    def _read_what_came_next(self, row: dict[str, Any]) -> None:
+        """The thread after the run: did the person (or the lead's next order) ask again?"""
+        run_id, session_id = str(row["run_id"]), str(row["session_id"])
+        brief = str(row.get("brief_text") or "")
+        since = int(row.get("ended_ms") or 0)
+        following = [
+            r for r in self.store.runs(since_ms=since, limit=50)
+            if str(r.get("session_id") or "") == session_id and str(r["run_id"]) != run_id
+        ]
+        until = min((int(r["started_ms"]) for r in following), default=None)
+        nxt = min(following, key=lambda r: int(r["started_ms"]), default=None)
+        if nxt is not None:
+            kind = _follow_up_kind(brief, str(nxt.get("brief_text") or ""))
+            if kind:
+                self._note_asked_again(
+                    run_id, int(row.get("iteration") or 0), kind,
+                    f"the next order ({nxt['run_id']})", str(nxt.get("brief_text") or ""),
+                )
+                return
+        for event in self._events(session_id):
+            at = int(event.get("ts_ms") or 0)
+            if at <= since or (until is not None and at >= until):
+                continue
+            payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+            if event.get("kind") != "user_message" or payload.get("author") or payload.get(
+                "steered"
+            ):
+                continue
+            text = str(payload.get("text") or "")
+            kind = _follow_up_kind(brief, text)
+            if kind:
+                self._note_asked_again(
+                    run_id, int(row.get("iteration") or 0), kind, "the person", text
+                )
+                return
 
     def tick(self, now_ms: int | None = None) -> None:
         """What the writer thread does when nothing was queued: read and decide what is due."""
@@ -1225,6 +1397,30 @@ def _next_read(found: evidence.Evidence, ended_ms: int, now_ms: int) -> int | No
         if due > now_ms:
             return due
     return None
+
+
+def _follow_up_kind(request: str, text: str) -> str:
+    """``repeat``, ``correction``, ``undo`` or ``""`` for a message after a result."""
+    from dodaios.evals.agent_score.signals import follow_up_kind
+
+    try:
+        return follow_up_kind(request, text)
+    except Exception:  # noqa: BLE001 - an unreadable message is no signal
+        log.debug("run recorder: message not classified", exc_info=True)
+        return ""
+
+
+def _revert_of(folder: str, head: str) -> str:
+    """The commit that reverted ``head`` in ``folder``'s repository, or ``""``. Reads only."""
+    if not folder or not head or not Path(folder).is_dir():
+        return ""
+    from .gates import _git
+
+    found = _git(
+        folder, "log", "--all", "-F", f"--grep=This reverts commit {head}", "--format=%H",
+        "-n", "1",
+    )
+    return found.splitlines()[0].strip() if found else ""
 
 
 def _same_evidence(before: dict[str, Any], after: dict[str, Any]) -> bool:
