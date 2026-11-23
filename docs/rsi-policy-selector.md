@@ -23,7 +23,7 @@ request: the runs of one request are averaged.
 
 | | |
 | --- | --- |
-| pass | 1 when the run ended `verified` and its merged work did not turn red within 72 hours, else 0; a run the person took over is left out |
+| pass | 1 when the run ended `verified` and its merged work did not turn red within 72 hours, else 0 (`self_checked` is 0); a run the person took over is left out |
 | one-shot | passed with no follow-up order and without the person stepping in |
 | P | follow-up orders; a run that hit the limit counts the limit |
 | cost | USD plus 0.001 USD per second of turn time |

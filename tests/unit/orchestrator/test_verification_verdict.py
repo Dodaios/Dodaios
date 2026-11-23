@@ -104,8 +104,8 @@ def test_an_ended_run_is_scanned_and_the_result_recorded(rig, worktree: Path):
     assert run["tree_id"]
     steps = it.store.steps("job_1")
     assert [s["step"] for s in steps] == [
-        "bound", "turn_started", "turn_finished", "gates", "evidence", "follow_up_withheld",
-        "verdict",
+        "bound", "turn_started", "turn_finished", "gates", "self_checks", "evidence",
+        "follow_up_withheld", "verdict",
     ]
     assert steps[3]["detail"]["findings"][0]["rule"] == "C1"
     # Judged, and nothing sent: the factory policy does not hold the run.
@@ -271,9 +271,9 @@ def test_github_is_asked_about_the_commit_the_run_left_behind(rig, worktree: Pat
     assert (run["head_sha"], run["landing"], run["ci_status"]) == (head, "merged", "passing")
     assert run["evidence_due_ms"] is None
     steps = it.store.steps("job_1")
-    assert [s["step"] for s in steps][-3:] == ["gates", "evidence", "verdict"]
-    assert steps[-3]["detail"]["head_sha"] == head
-    assert steps[-3]["detail"]["committed"] is True
+    assert [s["step"] for s in steps][-4:] == ["gates", "self_checks", "evidence", "verdict"]
+    assert steps[-4]["detail"]["head_sha"] == head
+    assert steps[-4]["detail"]["committed"] is True
     assert steps[-2]["status"] == "merged/passing"
     assert steps[-2]["detail"]["pr"] == 12
     assert run["verdict"] == "verified"
@@ -302,7 +302,7 @@ def test_a_run_that_changed_nothing_has_nothing_to_land(rig, worktree: Path):
     assert it.store.steps("job_1")[-1]["detail"]["reason"] == "the run changed no file"
 
 
-def test_a_run_without_a_checkout_of_its_own_has_no_commit_to_ask_about(
+def test_a_run_in_the_shared_checkout_is_judged_from_two_snapshots(
     rig, worktree: Path, tmp_path: Path
 ):
     main = tmp_path / "main"
@@ -310,9 +310,13 @@ def test_a_run_without_a_checkout_of_its_own_has_no_commit_to_ask_about(
     github = _GitHub(MERGED_PASSING)
     it = rig(folder=main, read_evidence=github)
     run = it.run_a_turn(work=lambda: _commit(main))
-    assert run["gate_status"] == gates.UNATTRIBUTED
-    assert github.asked == []
-    assert (run["head_sha"], run["landing"]) == ("", "")
+    assert run["start_tree"]
+    assert run["gate_status"] == gates.CLEAN
+    scan = next(s for s in it.store.steps("job_1") if s["step"] == "gates")["detail"]
+    assert (scan["work_area"], scan["paths"]) == ("shared_snapshot", ["calc.py"])
+    head = _git(main, "rev-parse", "HEAD")
+    assert github.asked == [("github.com/acme/notes", head)]
+    assert (run["head_sha"], run["landing"]) == (head, "merged")
 
 
 def test_checks_that_still_run_are_read_again_when_they_are_due(rig, worktree: Path):

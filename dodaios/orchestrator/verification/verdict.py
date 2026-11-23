@@ -11,7 +11,9 @@ the run left behind.
   area held nothing beyond the commit, and the checks on that commit (for
   merged work: on the merge commit) pass.
 * ``unverified``: everything else. A clean scan alone does not prove the change
-  works.
+  works. A run the record judged ``self_checked`` (no repository checks, a
+  clean scan, and the agent's own checks passed) is ``unverified`` here too,
+  and the summary says exactly what it rests on.
 """
 
 from __future__ import annotations
@@ -100,6 +102,26 @@ def from_run(run: dict[str, Any], steps: list[dict[str, Any]]) -> Verification:
         return Verification(
             job_id, "coding", "unverified", f"{said}: {reason}.",
             [Check("turn", None, reason)],
+        )
+    if judged == driver.SELF_CHECKED:
+        own = next(
+            (step for step in reversed(steps) if step.get("step") == "self_checks"), None
+        )
+        detail = (own or {}).get("detail") or {}
+        ran = "; ".join(
+            f"{r.get('kind')}: {r.get('command')}" for r in detail.get("runs") or []
+        ) or "none recorded"
+        return Verification(
+            job_id, "coding", "unverified",
+            "Not verified by the app. It rests only on the agent's own checks, read from "
+            f"its turn and not run again ({ran}), on a scan that found nothing, and on no "
+            "repository checks: " + str(run.get("verdict_reason") or "") + ".",
+            [
+                Check("turn", True, "the thread's turn ended as done"),
+                Check("output_scan", True, "the scan found nothing"),
+                Check("own_checks", True, f"the agent's own checks passed: {ran}"),
+                Check("checks", None, "no repository checks could be read"),
+            ],
         )
     turn = str(run.get("turn_status") or "")
     checks = [Check("turn", turn == "done", f"the thread's turn ended as {turn or 'unknown'}")]

@@ -10,11 +10,18 @@ A run has a work area when
 
 * its thread runs in a linked worktree (the folder is the run's alone), or
 * the thread runs in the shared project folder but everything the session
-  changed lies in ONE linked worktree of that repository, which it made itself.
+  changed lies in ONE linked worktree of that repository, which it made itself,
+  or
+* the thread runs in a shared checkout and a snapshot of it was taken when the
+  run was bound (``start_tree``). Then the run's change is the difference
+  between that snapshot and one taken now, limited to the files the run's own
+  tool calls wrote where it reported any, so what the person or others changed
+  meanwhile in other files is not the run's.
 
-A run without one is ``unattributed``: in a shared checkout the difference to
-the start holds other runs' edits too, and edits made through a shell show up
-in no tool record, so nothing found there could be pinned on this run.
+In a shared checkout a run is ``unattributed`` only when another run was open
+in the same checkout during its turn and the two touched a common file: then
+the difference holds the other run's edits too. A run without any of these
+work areas is ``unattributed`` as well.
 
 Reads only, calls no model and runs none of the project's commands.
 """
@@ -22,6 +29,7 @@ Reads only, calls no model and runs none of the project's commands.
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,7 +50,9 @@ __all__ = [
     "GateResult",
     "WorkArea",
     "check_run",
+    "shared_area",
     "work_area",
+    "written_paths",
 ]
 
 #: Nothing found.
@@ -74,9 +84,12 @@ class WorkArea:
 
     folder: str
     base: str
-    #: ``thread_worktree`` (the thread's own folder) or ``session_worktree``
-    #: (a worktree the session made).
+    #: ``thread_worktree`` (the thread's own folder), ``session_worktree``
+    #: (a worktree the session made) or ``shared_snapshot`` (a shared checkout,
+    #: from the snapshot taken when the run was bound).
     how: str
+    #: For a shared checkout: the files that are the run's (``None``: all).
+    paths: tuple[str, ...] | None = None
 
 
 @dataclass(slots=True)
@@ -113,6 +126,7 @@ class GateResult:
             "committed": self.committed,
             "files": len(self.files),
             "paths": self.files[:_PATHS_KEPT],
+            "limited": self.area is not None and self.area.paths is not None,
             "added": self.added,
             "deleted": self.deleted,
             "truncated": self.truncated,
@@ -206,10 +220,22 @@ def work_area(
 # --------------------------------------------------------------------- gate
 
 
-def _numstat(folder: str, base: str, tree: str) -> tuple[list[str], int, int]:
+def _limited(args: list[str], paths: tuple[str, ...] | None) -> list[str]:
+    """``args`` for git, limited to ``paths`` (a literal pathspec) when given."""
+    if paths is None:
+        return args
+    return [*args, "--", *(f":(literal){path}" for path in paths)]
+
+
+def _numstat(
+    folder: str, base: str, tree: str, paths: tuple[str, ...] | None = None
+) -> tuple[list[str], int, int]:
     files: list[str] = []
     added = deleted = 0
-    for line in _git(folder, "diff", "--numstat", "-M", base, tree).splitlines():
+    if paths is not None and not paths:
+        return files, added, deleted
+    args = _limited(["diff", "--numstat", "-M", base, tree], paths)
+    for line in _git(folder, *args).splitlines():
         parts = line.split("\t")
         if len(parts) < 3:
             continue
@@ -245,7 +271,91 @@ def diff_of(detail: dict[str, Any]) -> str:
     base, tree = str(detail.get("base") or ""), str(detail.get("tree_id") or "")
     if not (folder and base and tree) or not Path(folder).is_dir():
         return ""
-    return _git(folder, "diff", "-M", base, tree)
+    paths = tuple(detail.get("paths") or ()) if detail.get("limited") else None
+    if paths is not None and not paths:
+        return ""
+    return _git(folder, *_limited(["diff", "-M", base, tree], paths))
+
+
+# ------------------------------------------------------------ shared checkout
+
+
+def _norm(path: str) -> str:
+    return os.path.normcase(path.replace("\\", "/")).replace("\\", "/")
+
+
+def _relative(paths: Iterable[str], cwd: str, top: str) -> set[str]:
+    """``paths`` (absolute, or relative to ``cwd``) as paths inside ``top``, normalised."""
+    out: set[str] = set()
+    for raw in paths:
+        if not raw:
+            continue
+        full = Path(raw) if Path(raw).is_absolute() else Path(cwd) / raw
+        try:
+            rel = os.path.relpath(os.path.normpath(str(full)), os.path.normpath(top))
+        except ValueError:  # another drive: not in this checkout
+            continue
+        if rel.startswith(".."):
+            continue
+        out.add(_norm(rel))
+    return out
+
+
+def written_paths(events: Iterable[dict[str, Any]], since_ms: int = 0) -> list[str]:
+    """Files a thread's own tool calls wrote or edited from ``since_ms`` on."""
+    from dodaios.society.coding_threads import _WRITING_TOOLS
+
+    out: list[str] = []
+    for event in events:
+        if event.get("kind") != "tool_call" or int(event.get("ts_ms") or 0) < since_ms:
+            continue
+        payload = event.get("payload") or {}
+        if str(payload.get("name") or "").lower() not in _WRITING_TOOLS:
+            continue
+        args = payload.get("input") or {}
+        path = str(args.get("file_path") or args.get("path") or "")
+        if path and path not in out:
+            out.append(path)
+    return out
+
+
+def shared_area(
+    run: dict[str, Any],
+    reported: Iterable[str],
+    tree: str,
+    neighbours: dict[str, Iterable[str]] | None = None,
+) -> tuple[WorkArea | None, str]:
+    """The run's own part of a shared checkout, or ``(None, why not)``.
+
+    ``reported`` are the files the run's tool calls wrote (empty: it named
+    none, so the whole difference counts), ``tree`` the snapshot taken now,
+    ``neighbours`` the files each other run open in the checkout meanwhile
+    touched.
+    """
+    cwd = str(run.get("workdir") or "")
+    start = str(run.get("start_tree") or "")
+    top = _toplevel(cwd) if cwd and start else ""
+    if not top:
+        return None, "the run had no checkout of its own, so nothing can be pinned on it"
+    own = _relative(reported, cwd, top)
+    changed: list[str] = []
+    for line in _git(top, "diff", "--name-status", "-M", start, tree).splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        names = parts[1:]
+        if not own or any(_norm(name) in own for name in names):
+            changed.extend(name for name in names if name not in changed)
+    for other, touched in (neighbours or {}).items():
+        theirs = _relative(touched, cwd, top)
+        common = sorted(theirs & ({_norm(name) for name in changed} | own))
+        if common:
+            shown = ", ".join(common[:3])
+            return None, (
+                f"another run ({other}) worked in the same checkout at the same time and "
+                f"touched the same files ({shown}), so the change cannot be pinned on this run"
+            )
+    return WorkArea(folder=top, base=start, how="shared_snapshot", paths=tuple(changed)), ""
 
 
 def check_run(
@@ -253,23 +363,42 @@ def check_run(
     events: Iterable[dict[str, Any]] = (),
     *,
     snapshot: Callable[[str], str | None] | None = None,
+    reported: Iterable[str] = (),
+    neighbours: dict[str, Iterable[str]] | None = None,
 ) -> GateResult:
-    """Run the deterministic checks on what ``run`` left in its work area."""
+    """Run the deterministic checks on what ``run`` left in its work area.
+
+    ``reported`` and ``neighbours`` matter only for a run in a shared checkout
+    (see :func:`shared_area`).
+    """
+    events = list(events)
     area = work_area(run, events)
-    if area is None:
-        return GateResult(
-            UNATTRIBUTED,
-            reason="the run had no checkout of its own, so nothing can be pinned on it",
-        )
     if snapshot is None:
         from dodaios.agent_chat.team.workspace import GitWorkspace
 
         snapshot = GitWorkspace().snapshot
-    tree = snapshot(area.folder) or ""
+    if area is None:
+        folder = str(run.get("workdir") or "")
+        if not run.get("start_tree") or not folder:
+            return GateResult(
+                UNATTRIBUTED,
+                reason="the run had no checkout of its own, so nothing can be pinned on it",
+            )
+        tree = snapshot(folder) or ""
+        if not tree:
+            return GateResult(UNREADABLE, reason="the checkout could not be read")
+        area, why = shared_area(run, reported, tree, neighbours)
+        if area is None:
+            return GateResult(UNATTRIBUTED, reason=why)
+    else:
+        tree = snapshot(area.folder) or ""
     if not tree:
         return GateResult(UNREADABLE, area=area, reason="the work area could not be read")
-    files, added, deleted = _numstat(area.folder, area.base, tree)
-    patch = _git(area.folder, "diff", "-M", area.base, tree)
+    files, added, deleted = _numstat(area.folder, area.base, tree, area.paths)
+    patch = (
+        _git(area.folder, *_limited(["diff", "-M", area.base, tree], area.paths))
+        if area.paths is None or area.paths else ""
+    )
     truncated = len(patch) > _PATCH_MAX
     own_repo = (Path(area.folder) / "dodaios" / "self_change" / "surfaces.py").is_file()
     found = [
@@ -283,9 +412,18 @@ def check_run(
     else:
         status = CLEAN
     head_tree = _git(area.folder, "rev-parse", "--verify", "--quiet", "HEAD^{tree}")
+    if area.paths is None:
+        committed = bool(head_tree) and head_tree == tree
+    elif not area.paths:
+        committed = bool(head_tree)
+    else:
+        # In a shared checkout only the run's own files have to be in the commit.
+        committed = bool(head_tree) and not _git(
+            area.folder, *_limited(["diff", "--name-only", head_tree, tree], area.paths)
+        )
     return GateResult(
         status, area=area, tree_id=tree, files=files, added=added, deleted=deleted,
         findings=found, truncated=truncated,
         head_sha=_git(area.folder, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"),
-        committed=bool(head_tree) and head_tree == tree,
+        committed=committed,
     )

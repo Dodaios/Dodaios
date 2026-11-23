@@ -156,7 +156,7 @@ def test_a_run_is_bound_at_the_start_and_closed_when_its_turn_ends(service, stor
     # Every run is judged: its output is scanned and it gets a verdict. This
     # folder is no checkout, so nothing proves the work.
     assert [s["step"] for s in store.steps("job_1")] == [
-        "bound", "turn_started", "turn_finished", "gates", "verdict",
+        "bound", "turn_started", "turn_finished", "gates", "self_checks", "verdict",
     ]
     assert run["verdict"] == "unverified"
     from dodaios.rsi.policy import DEFAULT

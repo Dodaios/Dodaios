@@ -77,15 +77,31 @@ enough for `database` and `infra_ci`.
 When a run's turn has ended, its changed files are checked and the result is
 recorded.
 
-**Only a run with a checkout of its own can be pinned down.** That is a thread
-running in a linked worktree (the app makes one for a thread the lead opens
-when `worktree_per_run` is on, see below), or a session that made a worktree
-itself and wrote nowhere else. The
-scan takes a snapshot of that folder (tracked and untracked files, through a
-throwaway index, so the folder is untouched) and diffs it against the run's
-start, which also shows what was changed from a shell. A run in a shared
-checkout is recorded as `unattributed`: the difference to the start holds other
-runs' edits too, and its verdict is `unverified`.
+**Where the run's change comes from.** The scan takes a snapshot of a folder
+(tracked and untracked files, through a throwaway index, so the folder is
+untouched) and diffs it against a starting point.
+
+- **A checkout of its own.** A thread in a linked worktree (the app makes one
+  for a thread the lead opens when `worktree_per_run` is on, see below), or a
+  session that made a worktree itself and wrote nowhere else. The diff runs
+  from the run's starting commit, so it also shows what was changed from a
+  shell.
+- **A shared checkout.** When the run is bound, the app takes a snapshot of
+  the checkout as it is (`start_tree`), with the person's unfinished work in
+  it. When the turn ends it takes a second one. The run's change is the
+  difference between the two, limited to the files the run's own tool calls
+  wrote. When the run's tools named no file (a CLI that reports none), the
+  whole difference counts. "Committed" then means the run's own files are in
+  the checkout's current commit.
+- **Unattributed.** A run in a shared checkout is `unattributed` only when
+  another run was open in the same checkout during its turn and the two
+  touched a common file. The reason names the other run and the files. A run
+  without a snapshot (git failed) is `unattributed` too. Its verdict is
+  `unverified`.
+
+In a shared checkout an edit made only through a shell, in a file the run's
+tools never wrote, is not seen when the tools named other files. A worktree
+of its own does not have this gap.
 
 | Rule | Reports | Severity |
 | --- | --- | --- |
@@ -133,9 +149,8 @@ shared_checkout_repos = ["github.com/acme/legacy"]   # these keep the project fo
 
 It is off by default for two reasons. The worktree starts from the remote
 default branch, so the person's uncommitted and unpushed work is not in it.
-And no dependencies are installed there. Until the app can take a snapshot of
-the shared checkout at a run's start, a run in the shared checkout is recorded
-as unattributed.
+And no dependencies are installed there. A run in the shared checkout is
+judged from two snapshots instead (see "The output scan").
 
 - **The brief follows the folder.** An absolute path into the project folder in
   the lead's brief becomes the same file in the worktree, and two lines tell
@@ -270,9 +285,18 @@ turn ends -> scan -> GitHub -> decide
   72 hours after its end. If the checks on its merge commit fail by then, the
   run is marked `leaked`: the selector no longer counts it as passed, and a
   new policy it ran under is rolled back. Nothing is sent to the agent.
-- **Verdicts**: `verified`, `unverified` (with the reason), `failed`,
-  `superseded`, `needs_decision`. The jobs ledger shows them as `done` with the
-  detail `verified` or `unverified`, `failed`, `cancelled` and `blocked`.
+- **The agent's own checks** (`self_checks.py`). Where no repository check
+  could be read (no GitHub, no checks, nothing committed), the app reads the
+  test, lint and type commands the agent ran itself in its turn, and whether
+  each ended in an error, from the thread's events. It runs nothing. Only the
+  newest run of each kind counts, and at least one must have run after the
+  last file the agent's tools wrote. When they all passed and the scan found
+  nothing, the run ends `self_checked`: weaker than `verified`, because the
+  agent chose what to check and the app ran nothing.
+- **Verdicts**: `verified`, `self_checked`, `unverified` (with the reason),
+  `failed`, `superseded`, `needs_decision`. The jobs ledger shows them as
+  `done` with the detail `verified`, `self_checked` or `unverified`, `failed`,
+  `cancelled` and `blocked`. The selector counts only `verified` as passed.
 
 **Across an app restart** the lead's wait finds a thread's job again: the job's
 probe is rebuilt from the thread's own record (a turn the turn host carried
@@ -297,7 +321,9 @@ their own wake-ups.
   area held nothing beyond the commit, and the checks on that commit pass;
 - `unverified` otherwise, with the reason: checks still run, the commit has
   none, the work is not on GitHub, or the scan left points to look at. A clean
-  scan alone does not prove the change works.
+  scan alone does not prove the change works. A `self_checked` run is
+  `unverified` here as well, and the answer says what it rests on: the
+  agent's own commands (named), a clean scan, and no repository checks.
 
 Without a record (the recorder could not start) the tool answers as before.
 
@@ -317,7 +343,10 @@ read-only and calls no model.
 ## Limits
 
 - It runs no tests itself. A repository without checks on GitHub, or one hosted
-  elsewhere, never yields `verified`.
+  elsewhere, never yields `verified`; at best `self_checked`.
+- A shared checkout is read twice per run (a snapshot at the start and at the
+  end). The start snapshot is taken when the recorder binds the run, a moment
+  after the order went out, so a very fast first edit can already be in it.
 - Passing checks say the repository's own tests pass, no more. Whether a red
   check was red before the run is not looked at yet.
 - Coding agents run as the same user as the app and have a shell, so nothing
