@@ -611,8 +611,15 @@ A release happens **only** when the maintainer asks for one.
   download:
 
   ```bash
-  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios
+  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios \
+    --signer-workflow Dodaios/Dodaios/.github/workflows/desktop-installers.yml \
+    --source-ref refs/tags/v<version>
   ```
+
+  The signer workflow and the tag belong to the check. Without them the
+  command accepts an attestation from any workflow run of the repository, not
+  only from the tag build of the installers. `release-smoke.yml` checks every
+  release with the same options (`scripts/ci/release_assets.py`).
 
   Releases up to and including v2.9.0 predate this and have no attestation.
 * **`release-smoke.yml`** (read-only) checks a published release the way a

@@ -1727,3 +1727,17 @@ def test_the_rerere_cache_is_saved_before_pull_request_code_runs():
     assert restore < merge < save < pr_code
     assert steps[restore]["with"]["path"] == steps[save]["with"]["path"] == ".git/rr-cache"
     assert not [action for action in uses[pr_code:] if action.startswith("actions/cache")]
+
+
+@pytest.mark.parametrize(
+    "path", ["docs/ci-pipeline.md", ".github/workflows/desktop-installers.yml"]
+)
+def test_the_provenance_check_users_are_given_names_the_workflow_and_the_tag(path):
+    """Without both, an attestation from any workflow run of the repository passes."""
+    lines = (ROOT / path).read_text(encoding="utf-8").splitlines()
+    commands = [i for i, line in enumerate(lines) if "gh attestation verify " in line]
+    assert commands, "the hint for users is gone"
+    for at in commands:
+        command = " ".join(lines[at : at + 3])
+        assert "--signer-workflow Dodaios/Dodaios/" + release_assets.DESKTOP_WORKFLOW in command
+        assert "--source-ref refs/tags/v" in command

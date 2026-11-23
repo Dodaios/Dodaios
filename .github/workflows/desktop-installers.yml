@@ -834,7 +834,12 @@ jobs:
       # identity and stored in GitHub's attestation store. It runs before the
       # upload so a release can never carry installers without provenance, and
       # it attests the final (signed) bytes that the OS jobs uploaded.
-      # Verify a download: gh attestation verify <file> -R Dodaios/Dodaios
+      # Verify a download. The signer workflow and the tag belong to the check:
+      # without them any workflow run of this repository would do.
+      #   gh attestation verify <file> -R Dodaios/Dodaios \
+      #     --signer-workflow Dodaios/Dodaios/.github/workflows/desktop-installers.yml \
+      #     --source-ref refs/tags/v<version>
+      # (scripts/ci/release_assets.py checks every release the same way.)
       - name: Attest build provenance for the native installers
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
