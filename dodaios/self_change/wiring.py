@@ -84,6 +84,19 @@ def make_publisher(get_loop: Any, publish: Any) -> Any:
     return changed
 
 
+#: ``dodaios.rsi.adopt.PREFIX`` (named here so the registry's wiring imports no memory code).
+_LESSON_PREFIX = "lesson:"
+
+
+def _revert_lesson(change: Change) -> None:
+    """Take back a note the assistant wrote for itself: end it in the live memory."""
+    from dodaios.memory.vault import runtime as vault_runtime
+    from dodaios.rsi import adopt
+
+    adopt.revert(change, vault_runtime.active())
+    vault_runtime.changed()
+
+
 def _install_params(data_dir: Path) -> Any:
     """Make the learned parameter values the ones the app reads.
 
@@ -116,6 +129,7 @@ def install(
     learned = _install_params(data_dir)
     if learned is not None:
         registry.register_handler(Surface.PARAMETER, learned)
+    registry.register_reverter(_LESSON_PREFIX, _revert_lesson)
     set_current(registry)
     return registry
 

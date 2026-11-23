@@ -260,6 +260,23 @@ shown at all). Their defaults are the constants the code had; the last one is
 new and ships switched off (0), so nothing changes until a night proves a
 value for it.
 
+## Notes the assistant wrote for itself
+
+The memory learner keeps two kinds of rule for the assistant. A lesson is the
+person's correction in the person's words: an instruction. It applies at once,
+nothing measures whether to obey it, and it is the same on both sides of every
+comparison. A how-to is different: the assistant watched a tool fail and a
+later call work, and wrote itself a note that rides in later prompts. That is
+the assistant changing its own behaviour.
+
+Each night every current how-to note gets an entry of the surface `lesson` in
+the registry (`dodaios/rsi/adopt.py`). So it shows in the list of what the
+assistant changed in itself, the person can take it back with one click (the
+note is ended in the memory), and a run of the assistant as it ships does not
+see it. The entry holds the memory's id and none of its words: a note the
+person forgot leaves nothing behind. A how-to is not measured yet; the list
+says so.
+
 ## The gate's answer
 
 The gate compares two states on the same tasks and answers with **evidence**
