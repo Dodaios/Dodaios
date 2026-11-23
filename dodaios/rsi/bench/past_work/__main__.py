@@ -14,7 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 from dodaios.rsi.bench.model import Domain, Split
-from dodaios.rsi.bench.past_work.history import merged_changes
+from dodaios.rsi.bench.past_work.intake import read_changes
 from dodaios.rsi.bench.past_work.sessions import read_sessions
 from dodaios.rsi.bench.past_work.tasks import LeftOut, Mined, logged_briefs, mine
 
@@ -24,6 +24,7 @@ _WHY = {
     LeftOut.AMBIGUOUS: "several things said since the previous pull request",
     LeftOut.NOT_MERGED: "not merged on the default branch of a given repository",
     LeftOut.REVERTED: "merged and taken back",
+    LeftOut.EMPTY: "merged without changing a file",
     LeftOut.CREDENTIAL: "the person's words hold credential-shaped text",
     LeftOut.DUPLICATE: "another session already accounts for it",
 }
@@ -69,17 +70,49 @@ def render(report: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def _store(folders: list[str], *, as_json: bool) -> int:
+    from dodaios.core import config as core_config
+    from dodaios.rsi.bench.past_work.intake import take_in
+    from dodaios.rsi.bench.store import DB_NAME, BenchStore
+
+    store = BenchStore(Path(core_config.DATA_DIR) / DB_NAME)
+    try:
+        if store.readonly:
+            sys.stdout.write("the store was written by a newer app: nothing stored\n")
+            return 1
+        taken = take_in(store, folders, composed=logged_briefs())
+    finally:
+        store.close()
+    report = {
+        "new": taken.new,
+        "in_use": dict(taken.in_use),
+        "retired": taken.retired,
+        "left_out": dict(taken.left_out),
+    }
+    if as_json:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+        return 0
+    in_use = ", ".join(f"{count} {domain}" for domain, count in taken.in_use.items())
+    sys.stdout.write(
+        f"stored {taken.new} new tasks from past coding work; in use: {in_use};"
+        f" retired: {taken.retired}\n"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m dodaios.rsi.bench.past_work")
     parser.add_argument("--repo", action="append", default=[], help="a local clone (repeatable)")
     parser.add_argument("--json", action="store_true", help="print the counts as JSON")
+    parser.add_argument(
+        "--store", action="store_true", help="put the tasks into the benchmark's store"
+    )
     args = parser.parse_args(argv)
-    changes = {}
-    for folder in args.repo or ["."]:
-        merged = merged_changes(Path(folder))
-        if merged:
-            changes[next(iter(merged.values())).repo] = merged
-    report = summary(mine(read_sessions(), changes, composed=logged_briefs()))
+    if args.store:
+        return _store(args.repo or ["."], as_json=args.json)
+    sessions = list(read_sessions())
+    changes = read_changes(sessions, args.repo or ["."])
+    report = summary(mine(sessions, changes, composed=logged_briefs()))
     sys.stdout.write((json.dumps(report, indent=2) if args.json else render(report)) + "\n")
     return 0
 
