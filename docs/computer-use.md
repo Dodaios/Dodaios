@@ -65,17 +65,17 @@ the actuation — but the structural defects of the legacy monolith are fixed:
 | `dodaios/cu/actuate/` | Platform-native input: Windows SendInput with absolute virtual-desktop positioning, macOS/Linux-X11 via pynput (points/pixels, no primary-screen clamping), Wayland/headless refuse honestly. `verified_move` turns silent misses into diagnosable failures; cursor animation remains configurable but adds no delay by default. |
 | `dodaios/cu/verify.py` | Pixel/UI comparison primitives, accessibility read-back after typing, focus confirmation, and human-handoff detection. The engine polls compact local/global probes and requires a persistent second observation before accepting a visual effect. |
 | `dodaios/cu/ledger.py` | Idempotency ledger: an action that already executed against a visually identical screen is refused deterministically — the double-type/double-click killer. |
-| `dodaios/cu/engine.py` | The perceive->act->verify state machine; one pointer action per frame; a failed effect check truncates the batch and forces re-perception; verified-done judge with the proof spoken in the user's language. Exit codes and readback contract match the legacy engine. |
+| `dodaios/cu/engine.py` | The perceive->act->verify state machine; one pointer action per frame; a failed effect check truncates the batch and forces re-perception; verified-done judge with the proof spoken in the user's language. Exit codes and readback contract are unchanged from the retired legacy engine. |
 
 There is no live rollback any more: every `[computer_use].engine` value,
 the retired `"current"`, `"stable"` and `"june13"` included, runs a mission on
 v2, because only v2 has the permission, monitor-topology and foreground-window
-guards. The frozen `stable` and `june13` snapshots are in the git history only.
+guards. The legacy loop (`dodaios/harness/screenshot_only_loop.py`) and the frozen `stable` and `june13` snapshots were deleted and are in the git history only.
 
 **Measurement rig:** `python scripts/cu_test_rig.py --mode raw` proves the
 coordinate pipeline on the current machine (known-geometry tkinter targets,
-runs on Windows/macOS/Linux); `--mode engine --engine v2|current`
-compares the v2 engine with the last legacy loop with a scripted brain (accuracy, duplicate-action
+runs on Windows/macOS/Linux); `--mode engine --engine v2`
+runs the v2 engine with a scripted brain (accuracy, duplicate-action
 rate, per-step latency). `scripts/cu_bench.py` remains the end-to-end
 benchmark with live models.
 

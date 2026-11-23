@@ -692,6 +692,7 @@ pages:
       - dodaios/ui/web/workflows_routes.py
       - dodaios/workflows/runner.py
       - dodaios/commands/registry.py
+      - dodaios/commands/defs/
       - docs/commands-reference.md
     related:
       - tasks-and-reminders
@@ -982,6 +983,7 @@ pages:
     authoritative_sources:
       - docs/commands-reference.md
       - dodaios/commands/registry.py
+      - dodaios/commands/defs/
       - dodaios/ui/web/commands_routes.py
       - scripts/ci/gen_commands_reference.py
     related:

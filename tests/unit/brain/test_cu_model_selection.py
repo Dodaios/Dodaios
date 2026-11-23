@@ -10,7 +10,6 @@ from __future__ import annotations
 from dodaios.brain.manager import BrainManager, get_tier_default_model
 from dodaios.core.bus import EventBus
 from dodaios.core.config import BrainProviderConfig, BrainTierConfig, load_config
-from dodaios.harness import screenshot_only_loop as sol
 
 # --- config field -----------------------------------------------------------
 
@@ -73,36 +72,3 @@ def test_cu_model_falls_back_to_router_default_for_absent_provider():
     assert mgr._cu_model("openrouter") == get_tier_default_model(
         "router", "openrouter"
     )
-
-
-# --- _select_cu_model helper (loop-side, provider-agnostic) ------------------
-
-
-def test_select_cu_model_prefers_cu_model():
-    class _M:
-        def _cu_model(self, p):
-            return "cu-model-x"
-
-        def _fast_model(self, p):
-            return "fast-model-x"
-
-    assert sol._select_cu_model(_M(), "gemini") == "cu-model-x"
-
-
-def test_select_cu_model_falls_back_to_fast_when_no_cu_model():
-    class _M:
-        def _fast_model(self, p):
-            return "fast-model-x"
-
-    assert sol._select_cu_model(_M(), "gemini") == "fast-model-x"
-
-
-def test_select_cu_model_falls_back_when_cu_model_returns_empty():
-    class _M:
-        def _cu_model(self, p):
-            return None
-
-        def _fast_model(self, p):
-            return "fast-model-x"
-
-    assert sol._select_cu_model(_M(), "gemini") == "fast-model-x"
