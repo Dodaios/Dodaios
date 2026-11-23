@@ -32,7 +32,7 @@ versioning per [SemVer](https://semver.org/).
 
 ### Changed
 
-- Dodaios is licensed under the MIT License from this release on. Releases 2.0.0 to 5.6.0 stay under the Apache License 2.0, releases up to 1.6.0 stay MIT (#PR)
+- Dodaios is licensed under the MIT License from this release on. Releases 2.0.0 to 5.6.0 stay under the Apache License 2.0, releases up to 1.6.0 stay MIT (#1918)
 - The README says it in one line: all your coding agents in one chat (#1874)
 
 ### Removed
