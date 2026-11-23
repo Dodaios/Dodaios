@@ -94,6 +94,8 @@ function composer() {
 }
 
 function composerWithEditMenu() {
+  // Desktop window without the native text menu: the app menu handles fields.
+  (window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean }).__JARVIS_EMBEDDED_DESKTOP = true;
   return render(
     <AgentChatStoreProvider store={useAgentChatStore}>
       <AgentComposer />
@@ -134,6 +136,7 @@ describe("chat composer attachments", () => {
   });
 
   afterEach(() => {
+    delete (window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean }).__JARVIS_EMBEDDED_DESKTOP;
     cleanup();
     // Held files outlive the composer; a test's picture must not leak into the next.
     forgetHeldFiles(useAgentChatStore);
