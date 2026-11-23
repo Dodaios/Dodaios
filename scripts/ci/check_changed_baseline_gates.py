@@ -131,7 +131,9 @@ def added_findings(base: str, changed: set[str], gate: str) -> list[str]:
 
 
 def reference_drift_is_new(changed: set[str]) -> bool:
-    return bool(changed & REFERENCE_PATHS)
+    return bool(changed & REFERENCE_PATHS) or any(
+        path.startswith("dodaios/commands/defs/") for path in changed
+    )
 
 
 def main() -> int:

@@ -144,7 +144,6 @@
     "dodaios/harness/computer_use_planner.py": 3,
     "dodaios/harness/manager.py": 3,
     "dodaios/harness/native_computer_use.py": 1,
-    "dodaios/harness/screenshot_only_loop.py": 24,
     "dodaios/local_models/assistant_prompt.py": 1,
     "dodaios/local_models/assistant_session.py": 1,
     "dodaios/local_models/assistant_test.py": 4,
