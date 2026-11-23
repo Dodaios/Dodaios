@@ -110,7 +110,7 @@ def test_refresh_clears_cache(tmp_path, monkeypatch):
 def test_two_server_origins_keep_separate_fresh_and_offline_schemas(tmp_path, monkeypatch):
     monkeypatch.setenv("JARVISCTL_CACHE_HOME", str(tmp_path))
     first_url, second_url = "http://127.0.0.1:47821", "http://127.0.0.1:47869"
-    second_spec = {**SPEC, "info": {"version": "mars"}}
+    second_spec = {**SPEC, "info": {"version": "extra"}}
     calls = []
 
     def handler(request):
@@ -206,46 +206,46 @@ def test_http_credential_refusal_is_not_offline_cache_fallback(tmp_path, monkeyp
 
 def test_two_base_paths_on_one_origin_keep_separate_schemas(tmp_path, monkeypatch):
     monkeypatch.setenv("JARVISCTL_CACHE_HOME", str(tmp_path))
-    primary_url, mars_url = "http://127.0.0.1:47869/primary", "http://127.0.0.1:47869/mars"
-    mars_spec = {**SPEC, "info": {"version": "mars"}}
+    primary_url, extra_url = "http://127.0.0.1:47869/primary", "http://127.0.0.1:47869/extra"
+    extra_spec = {**SPEC, "info": {"version": "extra"}}
     requests = []
 
     def handler(request):
         requests.append(request.url.path)
         return httpx.Response(
-            200, json=SPEC if request.url.path.startswith("/primary/") else mars_spec
+            200, json=SPEC if request.url.path.startswith("/primary/") else extra_spec
         )
 
     with (
         _client(handler, base_url=primary_url) as primary,
-        _client(handler, base_url=mars_url) as mars,
+        _client(handler, base_url=extra_url) as extra,
     ):
         assert oc.load_spec(primary) == SPEC
-        assert oc.load_spec(mars) == mars_spec
+        assert oc.load_spec(extra) == extra_spec
         assert oc.load_spec(primary) == SPEC
-        assert oc.load_spec(mars) == mars_spec
-    assert requests == ["/primary/api/openapi.json", "/mars/api/openapi.json"]
-    assert oc._cache_path(primary_url) != oc._cache_path(mars_url)
+        assert oc.load_spec(extra) == extra_spec
+    assert requests == ["/primary/api/openapi.json", "/extra/api/openapi.json"]
+    assert oc._cache_path(primary_url) != oc._cache_path(extra_url)
 
     def offline(_request):
         raise httpx.ConnectError("fixture offline")
 
     with (
         _client(offline, base_url=primary_url + "/") as primary,
-        _client(offline, base_url=mars_url) as mars,
+        _client(offline, base_url=extra_url) as extra,
     ):
         assert oc.load_spec(primary, ttl_seconds=0) == SPEC
-        assert oc.load_spec(mars, ttl_seconds=0) == mars_spec
+        assert oc.load_spec(extra, ttl_seconds=0) == extra_spec
     with _client(offline, base_url="http://127.0.0.1:47869/another") as unseen:
         assert oc.load_spec(unseen) is None
 
 
 def test_base_path_normalization_preserves_httpx_request_boundaries():
-    assert oc._cache_path("https://example.test/mars") == oc._cache_path(
-        "https://EXAMPLE.test:443/mars/"
+    assert oc._cache_path("https://example.test/extra") == oc._cache_path(
+        "https://EXAMPLE.test:443/extra/"
     )
-    assert oc._cache_path("https://example.test/mars/") != oc._cache_path(
-        "https://example.test/mars//"
+    assert oc._cache_path("https://example.test/extra/") != oc._cache_path(
+        "https://example.test/extra//"
     )
     assert oc._cache_path("https://example.test/a%2Fb") != oc._cache_path(
         "https://example.test/a/b"

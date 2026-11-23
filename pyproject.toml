@@ -983,7 +983,6 @@ dodaios = [
     "brain/DODAIOS_PERSONA.md",
     "skills/safe_imports.txt",
     "core/review/verdict_schema.json",
-    "society/mars/definition.json",
     # The New-agent dialog's starter gallery (society/starters.py).
     "society/starters/*.json",
     # The Hermes / OpenClaw releases setup installs and accepts
