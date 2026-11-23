@@ -262,10 +262,15 @@ PyInstaller bootloaders, and can be added the same way.
 manually via `workflow_dispatch`):
 
 1. `windows`, `macos` (arm64 + x64) and `linux` each install Python 3.12 and
-   Node 22, `pip install -e ".[desktop,dev]"` (macOS adds `desktop-macos`), run
-   their OS build script and upload the artifact. The macOS jobs also read the
-   finished `.app` with `scripts/ci/check_frozen_macos_app.py` before the
-   headless smoke test.
+   Node 22, then the project's `desktop` and `dev` extras (macOS adds
+   `desktop-macos`) from `uv.lock` with every hash enforced
+   (`python scripts/ci/install_locked.py --extra desktop --extra dev`), run
+   their OS build script and upload the artifact. The frozen app therefore
+   carries the dependency set the lock names and CI tests, not whatever a
+   fresh `pip install -e ".[desktop,dev]"` would resolve on release day; a
+   file that does not match its hash in the lock stops the build. The macOS
+   jobs also read the finished `.app` with
+   `scripts/ci/check_frozen_macos_app.py` before the headless smoke test.
 2. `checksums` downloads all of them, refuses to continue if any promised
    asset is missing, and writes `installers-SHA256SUMS.txt` (plain `sha256sum`
    format, flat file names), re-verified with `sha256sum -c`.
