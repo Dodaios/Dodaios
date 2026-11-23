@@ -26,6 +26,16 @@
 # (packaging/<os>/build.*), so a green run here means the documented command
 # works - not that CI has its own private build path.
 #
+# Dependencies. The Python packages that end up inside a frozen app are the
+# set uv.lock names, each wheel checked against its hash in the lock
+# (scripts/ci/install_locked.py, the installer CI tests with). The jobs do NOT
+# run `pip install -e ".[desktop,dev]"`: that resolves every version range
+# anew on release day and checks no hash, so a release would freeze whatever
+# was newest that hour, tested by nobody. They call the script, not the
+# install-locked action, because the action restores a build cache and a
+# release build restores none. Only uv itself comes from PyPI by pinned
+# version; the lock is its job.
+#
 # Signing is optional and secret-gated. GitHub forbids secrets in a job-level
 # `if:`, so the credentials are exported as job-level `env` and the steps test
 # the environment variable instead. Without the secrets the build still
@@ -144,11 +154,11 @@ jobs:
           # A release build never restores a cache another run could have written.
           package-manager-cache: false
 
-      - name: Install Dodaios (desktop + dev)
+      - name: Install Dodaios (desktop + dev) from uv.lock, hashes enforced
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python scripts/pip_install.py -e ".[desktop,dev]"
+          python -m pip install --disable-pip-version-check uv==0.11.19
+          python scripts/ci/install_locked.py --extra desktop --extra dev
 
       - name: Install Inno Setup
         shell: pwsh
@@ -367,11 +377,14 @@ jobs:
       # desktop-macos carries the pyobjc frameworks the permission port loads by
       # name (AVFoundation, ScreenCaptureKit, ...); without them the frozen app
       # cannot even read its microphone permission (BUG-222).
-      - name: Install Dodaios (desktop + macOS frameworks + dev)
+      # The Intel Mac has no upstream cryptography wheel: install_locked.py adds
+      # the project's native wheel page for it, and the lock holds that wheel's
+      # hash too, so the page cannot hand this build a different file.
+      - name: Install Dodaios (desktop + macOS frameworks + dev) from uv.lock, hashes enforced
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python scripts/pip_install.py -e ".[desktop,desktop-macos,dev]"
+          python -m pip install --disable-pip-version-check uv==0.11.19
+          python scripts/ci/install_locked.py --extra desktop --extra desktop-macos --extra dev
 
       - name: Import the Developer ID certificate into a temporary keychain
         if: env.HAS_APPLE_SIGNING == 'true'
@@ -539,11 +552,11 @@ jobs:
           # A release build never restores a cache another run could have written.
           package-manager-cache: false
 
-      - name: Install Dodaios (desktop + dev)
+      - name: Install Dodaios (desktop + dev) from uv.lock, hashes enforced
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python scripts/pip_install.py -e ".[desktop,dev]"
+          python -m pip install --disable-pip-version-check uv==0.11.19
+          python scripts/ci/install_locked.py --extra desktop --extra dev
 
       - name: Build the AppImage
         shell: bash
