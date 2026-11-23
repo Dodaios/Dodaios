@@ -329,6 +329,7 @@ export function RunGraphPanel({ run }: { run: OutputSummary }) {
                 panning ? "cursor-grabbing" : "cursor-grab",
               )}
               data-testid="visualization-canvas"
+              data-own-wheel-zoom=""
               onPointerDown={onPanStart}
               onPointerMove={onPanMove}
               onPointerUp={onPanEnd}

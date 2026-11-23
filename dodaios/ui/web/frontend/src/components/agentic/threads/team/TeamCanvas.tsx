@@ -304,6 +304,7 @@ function Canvas({ thread, graph, agentOf, selectedNode, selectedEdge, onOpenNode
   }, [flow, count]);
 
   return <div ref={frame} className="team-canvas relative h-full w-full" data-testid="team-canvas"
+    data-own-wheel-zoom=""
     role="group" aria-label={t("team_threads.room.canvas")}>
     <Arrows />
     <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}

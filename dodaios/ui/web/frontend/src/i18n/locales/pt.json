@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Torna tudo na janela do Dodaios maior ou menor, como o Ctrl + Mais faz zoom num browser. Funciona com teclados alemães e ingleses: Mais e Menos são lidos como os caracteres que escreves, onde quer que estejam.",
+      "description": "Torna tudo na janela do Dodaios maior ou menor, como o Ctrl + Mais faz zoom num browser. Ctrl + roda do rato faz o mesmo. Funciona com teclados alemães e ingleses: Mais e Menos são lidos como os caracteres que escreves, onde quer que estejam.",
       "level_label": "Tamanho atual",
       "in_label": "Aumentar zoom",
       "out_label": "Diminuir zoom",

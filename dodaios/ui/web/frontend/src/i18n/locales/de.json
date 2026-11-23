@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Macht alles im Dodaios-Fenster größer oder kleiner, so wie Strg + Plus im Browser. Funktioniert mit deutscher und englischer Tastatur: Plus und Minus werden als das Zeichen gelesen, das du tippst, egal wo die Taste liegt.",
+      "description": "Macht alles im Dodaios-Fenster größer oder kleiner, so wie Strg + Plus im Browser. Strg + Mausrad geht auch. Funktioniert mit deutscher und englischer Tastatur: Plus und Minus werden als das Zeichen gelesen, das du tippst, egal wo die Taste liegt.",
       "level_label": "Aktuelle Größe",
       "in_label": "Hineinzoomen",
       "out_label": "Herauszoomen",
