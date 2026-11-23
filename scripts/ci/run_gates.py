@@ -56,6 +56,11 @@ def _gates(base: str) -> list[Gate]:
         Gate("dead-config-switches", ((PY, ci + "check_config_switches_wired.py"),)),
         Gate("silent-exceptions", ((PY, ci + "check_silent_exception_handlers.py"),)),
         Gate("async-routes", ((PY, ci + "check_async_routes.py"),)),
+        Gate("file-size", ((PY, ci + "check_file_size.py"),)),
+        Gate("function-size", ((PY, ci + "check_function_size.py"),)),
+        Gate("broad-except", ((PY, ci + "check_broad_except.py"),)),
+        Gate("type-ignore", ((PY, ci + "check_type_ignore.py"),)),
+        Gate("source-text-tests", ((PY, ci + "check_source_text_tests.py"),)),
         Gate("webgl-contexts", ((PY, ci + "check_webgl_contexts_released.py"),)),
         Gate("plugin-auth-contract", ((PY, ci + "check_plugin_auth_contract.py"),)),
         Gate(

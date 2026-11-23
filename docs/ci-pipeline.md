@@ -177,6 +177,22 @@ python scripts/ci/ratchet_tests.py prune --baseline scripts/ci/test-baseline-lin
 A missing list means no failures have been approved for that OS; new failures
 block immediately. Missing, empty or malformed reports also block.
 
+### Count ratchets: size, broad excepts, type ignores, source-text tests
+
+Five gates in `scripts/ci/` grandfather today's debt and block new debt:
+`file-size` (Python files in `dodaios/` max 2000 lines, TS/TSX max 1000),
+`function-size` (functions max 300 lines, complexity max 20),
+`broad-except` (`except Exception`, `BaseException`, bare `except:`),
+`type-ignore` (a bare `# type: ignore` without an error code) and
+`source-text-tests` (tests that read product source text). Each has a
+`*-baseline.json` listing every current violation with its current value. The gate
+fails when a violation is new, when one grew, or when one shrank and the baseline
+was not lowered. The failure text says how to fix the code; after an improvement
+run `python scripts/ci/check_<name>.py --update` and commit the baseline.
+`--update` refuses to raise a value unless you pass `--allow-increase` and say why
+in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
+`except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
+
 ### Flaky tests
 
 A file that fails inside its batch and passes when re-run alone is reported
