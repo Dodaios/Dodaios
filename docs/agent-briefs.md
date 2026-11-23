@@ -54,6 +54,12 @@ dictate. When a writer works out what a word of the person stands for, it
 passes that with the hand-off (`options.resolved`), and it is kept per project.
 The next request that uses the word, also misheard, starts from it.
 
+An entry is a word or a short name of up to four words. In real use writers
+also stored sentences and rules ("the agent should ask you first", stored with
+a wrong reason as its meaning); such an entry would be matched into later
+briefs and carry its decision along. Longer entries are not remembered, and
+one stored before the limit is left out of the kit.
+
 The assistant shows the learned words with `agent-briefs-get` and forgets one
 with `agent-briefs-forget-word`. They are stored in the app's data folder, one
 file per project.

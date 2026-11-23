@@ -32,6 +32,8 @@ from typing import Any, Final
 
 __all__ = [
     "MAX_ENTRIES",
+    "MAX_SAID_WORDS",
+    "is_term",
     "Entry",
     "all_projects",
     "entries",
@@ -48,6 +50,12 @@ log = logging.getLogger(__name__)
 _DIRNAME: Final[str] = "brief_glossary"
 MAX_ENTRIES: Final[int] = 200
 _MAX_SAID: Final[int] = 80
+#: A glossary entry is one of the person's words or a short name for a thing.
+#: Real use (2026-11-23) showed writers storing whole sentences and rules
+#: ("the agent should ask you first" -> "agents cannot ask live, write the
+#: answer into the brief"); such an entry is matched into later kits and
+#: carries a decision, possibly a wrong one, into every next brief.
+MAX_SAID_WORDS: Final[int] = 4
 _MAX_MEANS: Final[int] = 240
 #: A said word shorter than this is matched exactly only: short words collide.
 _FUZZY_MIN_CHARS: Final[int] = 6
@@ -167,6 +175,9 @@ def learn(folder: str | Path, said: str, means: str) -> Entry | None:
     said, means = _clean(said, _MAX_SAID), _clean(means, _MAX_MEANS)
     if not said or not means or said.lower() == means.lower():
         return None
+    if not is_term(said):
+        log.info("brief glossary: %r is no word or short name and is not remembered", said[:60])
+        return None
     path = store_path(folder)
     with _LOCK:
         rows = _load(path)
@@ -179,6 +190,11 @@ def learn(folder: str | Path, said: str, means: str) -> Entry | None:
             kept = kept[len(kept) - MAX_ENTRIES:]
         _save(path, kept, project_of(folder))
     return entry
+
+
+def is_term(said: str) -> bool:
+    """Whether ``said`` is a word or a short name, which is all an entry may be."""
+    return 0 < len((said or "").split()) <= MAX_SAID_WORDS
 
 
 def forget(folder: str | Path, said: str) -> bool:
@@ -229,7 +245,8 @@ def lookup(folder: str | Path, words: str, *, count: bool = True) -> list[Entry]
     path = store_path(folder)
     with _LOCK:
         rows = _load(path)
-        found = [e for e in rows if _occurs(e.said, sentence, tokens)]
+        # An entry stored before the limit and longer than it is left out.
+        found = [e for e in rows if is_term(e.said) and _occurs(e.said, sentence, tokens)]
         if found and count:
             names = {e.said.lower() for e in found}
             bumped = [
