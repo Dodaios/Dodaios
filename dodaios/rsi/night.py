@@ -371,6 +371,8 @@ class NightService:
         if not self.night.due() or not self._idle():
             return None
         self.last = self.night.run()
+        # One line in the log per night: names and numbers only, never a memory's words.
+        log.info("self-improvement night: %s", " | ".join(self.last.lines()))
         return self.last
 
     async def _watch(self) -> None:
