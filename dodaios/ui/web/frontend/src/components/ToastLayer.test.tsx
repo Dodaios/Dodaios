@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useI18nStore } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { useNodePeek } from "@/store/nodePeek";
+import { useNativeBrowserArea } from "@/components/agentic/sidePanel/browser/nativeBrowserArea";
 import { ToastLayer } from "./ToastLayer";
 
 beforeEach(() => {
@@ -121,6 +122,31 @@ describe("ToastLayer placement", () => {
 
     expect(container.querySelector("[role=status]")).toBeNull();
     expect(document.body.querySelector(":scope > div.fixed.z-\\[115\\] [role=status]")).not.toBeNull();
+  });
+});
+
+describe("ToastLayer beside the native browser panel", () => {
+  afterEach(() => {
+    cleanup();
+    act(() => useNativeBrowserArea.setState({ areas: {} }));
+  });
+
+  it("stands left of a browser panel on the right side", () => {
+    const width = window.innerWidth;
+    act(() => useNativeBrowserArea.getState().setArea("ide", { left: width - 500, top: 40, right: width, bottom: 900 }));
+    render(<ToastLayer />);
+    const layer = document.body.querySelector<HTMLElement>("[data-testid=toast-layer]")!;
+    expect(layer.style.right).toBe(`${500 + 16}px`);
+    expect(layer.hasAttribute("data-hides-native-browser")).toBe(false);
+  });
+
+  it("asks the browser to step back when no room is left beside it", () => {
+    const width = window.innerWidth;
+    act(() => useNativeBrowserArea.getState().setArea("ide", { left: 50, top: 40, right: width, bottom: 900 }));
+    render(<ToastLayer />);
+    const layer = document.body.querySelector<HTMLElement>("[data-testid=toast-layer]")!;
+    expect(layer.getAttribute("data-hides-native-browser")).toBe("true");
+    expect(layer.style.right).toBe("");
   });
 });
 
