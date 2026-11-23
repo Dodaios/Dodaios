@@ -903,6 +903,7 @@ function BoardCanvas({
       ref={root}
       className="dodaios-board h-full w-full"
       data-testid="whiteboard-editor"
+      data-own-wheel-zoom=""
       data-theme={theme === "dark" ? "dark" : "light"}
       data-tool={dockTool}
       onBlur={(event) => {

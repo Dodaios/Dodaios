@@ -1,6 +1,7 @@
 /**
  * Ctrl + `+` / `-` / `0` (or whatever chords are set under Settings →
  * Keyboard shortcuts) zoom the whole app window, the way they zoom a browser.
+ * So does Ctrl + mouse wheel (see `lib/appZoomWheel.ts`).
  *
  * ## Real window zoom, not CSS
  *
@@ -27,7 +28,8 @@ import { useEffect } from "react";
 import { create } from "zustand";
 
 import { hasEmbeddedDesktopBridge } from "@/components/voice/BrowserRealtimeControl";
-import { appZoomIntentFor, nextAppZoom } from "@/lib/appZoom";
+import { appZoomIntentFor, nextAppZoom, type AppZoomIntent } from "@/lib/appZoom";
+import { installAppZoomWheel } from "@/lib/appZoomWheel";
 import { armZoomTransition, installZoomTransition } from "@/lib/zoomTransition";
 import { useAppZoomSettings } from "@/store/appZoomSettings";
 import { useEventStore } from "@/store/events";
@@ -55,6 +57,16 @@ export function showZoomIndicator(): void {
 
 export function hideZoomIndicator(): void {
   useZoomIndicator.setState({ open: false });
+}
+
+/** One step up or down the ladder from a key or the wheel, with the size bubble. */
+function stepAppZoom(intent: AppZoomIntent): void {
+  const { level: current, setLevel } = useAppZoomSettings.getState();
+  const next = nextAppZoom(current, intent);
+  if (next !== current) setLevel(next);
+  // Shown even at the ends of the range, like Chrome: the bubble is how the
+  // user learns that 300 % is as far as it goes.
+  showZoomIndicator();
 }
 
 function windowView(): string | null {
@@ -151,14 +163,21 @@ export function useAppZoom(): void {
       // Not stopped from propagating: the key tester on the Keyboard shortcuts
       // page listens further down and names what the chord did.
       event.preventDefault();
-      const { level: current, setLevel } = useAppZoomSettings.getState();
-      const next = nextAppZoom(current, intent);
-      if (next !== current) setLevel(next);
-      // Shown even at the ends of the range, like Chrome: the bubble is how
-      // the user learns that 300 % is as far as it goes.
-      showZoomIndicator();
+      stepAppZoom(intent);
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [embedded, enabled, bindings]);
+
+  // Ctrl + wheel. Installed whether zoom is on or off: switched off, the
+  // gesture must not fall through to the engine's own zoom either.
+  useEffect(() => {
+    if (!embedded) return;
+    return installAppZoomWheel(window, {
+      claims: () => useAppZoomSupport.getState().support !== "unsupported",
+      enabled: () => useAppZoomSettings.getState().enabled,
+      level: () => useAppZoomSettings.getState().level,
+      apply: stepAppZoom,
+    });
+  }, [embedded]);
 }

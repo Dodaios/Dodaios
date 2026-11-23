@@ -597,6 +597,7 @@ export function TrackTimeline(props: TrackTimelineProps) {
       className="relative min-h-0 flex-1 overflow-auto border-t border-border bg-sidebar/60 select-none"
       onWheel={onWheel}
       data-testid="clip-timeline"
+      data-own-wheel-zoom=""
       role="listbox"
       aria-multiselectable="true"
       aria-label={t("nodes.editor.motion.video.timeline")}

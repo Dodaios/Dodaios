@@ -83,6 +83,34 @@ describe("useAppZoom", () => {
     pending.shift()?.();
   });
 
+  it("zooms the window in on Ctrl + wheel away and out on Ctrl + wheel back", async () => {
+    const fetchMock = answer({ ok: true, zoom: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useAppZoom());
+    await waitFor(() => expect(useAppZoomSupport.getState().support).toBe("native"));
+
+    expect(fireEvent.wheel(document.body, { deltaY: -100, ctrlKey: true })).toBe(false);
+    expect(useAppZoomSettings.getState().level).toBe(1.1);
+    expect(useZoomIndicator.getState().open).toBe(true);
+    fireEvent.wheel(document.body, { deltaY: 100, ctrlKey: true });
+    fireEvent.wheel(document.body, { deltaY: 100, ctrlKey: true });
+    expect(useAppZoomSettings.getState().level).toBe(0.9);
+    await waitFor(() => expect(sentFactors(fetchMock).at(-1)).toBe(0.9));
+
+    // Plain scrolling stays scrolling.
+    expect(fireEvent.wheel(document.body, { deltaY: 100 })).toBe(true);
+    expect(useAppZoomSettings.getState().level).toBe(0.9);
+  });
+
+  it("leaves Ctrl + wheel to the browser in a browser tab", () => {
+    delete (window as Host).__JARVIS_EMBEDDED_DESKTOP;
+    vi.stubGlobal("fetch", answer({ ok: false }));
+    renderHook(() => useAppZoom());
+
+    expect(fireEvent.wheel(document.body, { deltaY: -100, ctrlKey: true })).toBe(true);
+    expect(useAppZoomSettings.getState().level).toBe(1);
+  });
+
   it("re-applies a remembered level when the window opens", async () => {
     useAppZoomSettings.getState().setLevel(1.25);
     const fetchMock = answer({ ok: true, zoom: 1.25 });
