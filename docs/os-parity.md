@@ -752,13 +752,17 @@ Linux branches are unit-tested with fakes only. Tests:
 `tests/unit/ui/test_window_zoom.py`, `src/lib/appZoom.test.ts`,
 `src/hooks/useAppZoom.test.tsx`.
 
-Ctrl + mouse wheel (or turning the wheel while it is held down) steps the same
-ladder: away from you zooms in, towards you zooms out (`lib/appZoomWheel.ts`).
+Ctrl + mouse wheel steps the same ladder: away from you zooms in, towards you
+zooms out (`lib/appZoomWheel.ts`). Pressing the wheel button and then turning
+the wheel does the same, whether the button is still held or was let go: a
+press arms the wheel for zoom until a pause of 1.5 s, a pointer move, another
+button or a key. On Windows the press is cancelled so Chromium does not start
+its middle-click auto-scroll; on Linux it is left alone, because it pastes.
 The engine's own Ctrl + wheel zoom is cancelled everywhere, because it would
 skip the ladder, the size bubble and the stored level. Surfaces that zoom
 their own content on Ctrl + wheel (whiteboard, run graph, team canvas, clip
-timeline) carry `data-own-wheel-zoom` and keep the gesture. Tests:
-`src/lib/appZoomWheel.test.ts`.
+timeline) carry `data-own-wheel-zoom` and keep both gestures. Tests:
+`src/lib/appZoomWheel.test.ts`; checked on Windows in a WebView2 window.
 
 ## Window caption (2026-09-21, T2)
 

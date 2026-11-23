@@ -1,7 +1,8 @@
 /**
  * Ctrl + `+` / `-` / `0` (or whatever chords are set under Settings →
  * Keyboard shortcuts) zoom the whole app window, the way they zoom a browser.
- * So does Ctrl + mouse wheel (see `lib/appZoomWheel.ts`).
+ * So does Ctrl + mouse wheel, or pressing the wheel and turning it (see
+ * `lib/appZoomWheel.ts`).
  *
  * ## Real window zoom, not CSS
  *
@@ -169,8 +170,9 @@ export function useAppZoom(): void {
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [embedded, enabled, bindings]);
 
-  // Ctrl + wheel. Installed whether zoom is on or off: switched off, the
-  // gesture must not fall through to the engine's own zoom either.
+  // Ctrl + wheel, and wheel press + wheel. Installed whether zoom is on or
+  // off: switched off, the gesture must not fall through to the engine's own
+  // zoom either.
   useEffect(() => {
     if (!embedded) return;
     return installAppZoomWheel(window, {
@@ -178,6 +180,7 @@ export function useAppZoom(): void {
       enabled: () => useAppZoomSettings.getState().enabled,
       level: () => useAppZoomSettings.getState().level,
       apply: stepAppZoom,
+      cancelPress: /Windows/i.test(navigator.userAgent),
     });
   }, [embedded]);
 }
