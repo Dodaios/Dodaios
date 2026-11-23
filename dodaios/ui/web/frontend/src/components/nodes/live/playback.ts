@@ -356,7 +356,11 @@ export interface PresenceElements {
   art?: HTMLElement;
   /** Opens where the cursor lands after a longer move. */
   ring?: HTMLElement;
+  /** The chip at the layer's edge that points to the agent when its work is out of view. */
+  edge?: HTMLElement;
 }
+
+type Side = "up" | "down" | "left" | "right";
 
 interface Box {
   x: number;
@@ -481,6 +485,16 @@ export class LivePlayer {
   private leanShown = 0;
   /** A longer move is under way: a ring opens where it lands. */
   private ringDue = false;
+  /** The scroller the cursor's work sits in, and its offsets at the last frame: a scroll moves frame and cursor rigidly. */
+  private scrollRef: { el: Element; left: number; top: number } | null = null;
+  /** The frame's target at the last frame: a target that only moved (a pan, a reflow) takes the frame along at once. */
+  private lastTarget: Box | null = null;
+  /** Where the work is when it is out of view ("" when in view). */
+  private offscreen: Side | "" = "";
+  /** The element the cursor last worked on, for a jump back to it. */
+  private workEl: Element | null = null;
+  /** The person asked to see the work again (the edge chip): bring the work into view this way instead of scrolling the body. */
+  onJump: ((el: Element) => void) | null = null;
   private thinkTimer = 0;
   private loop = 0;
   private last = 0;
@@ -509,6 +523,7 @@ export class LivePlayer {
     this.units = [];
     this.revealed = 0;
     this.frameBox = null;
+    this.lastTarget = null;
     // The last batch's frame goes at once, not one tick later.
     this.view.frame.dataset.shown = "false";
     this.add(units);
@@ -585,6 +600,20 @@ export class LivePlayer {
   interrupt(): void {
     this.following = false;
     this.finish();
+  }
+
+  /** The person asked to see the agent again (the edge chip): the view goes to its work and follows it again. */
+  resume(): void {
+    this.following = true;
+    const el = this.workEl;
+    if (!el || !el.isConnected) return;
+    if (this.onJump) {
+      this.onJump(el);
+      return;
+    }
+    const scroller = scrollParent(el);
+    if (scroller) bringIntoView(scroller, el.getBoundingClientRect(), this.reduced());
+    else if (el instanceof HTMLElement) el.scrollIntoView({ block: "nearest", behavior: this.reduced() ? "auto" : "smooth" });
   }
 
   destroy(): void {
@@ -694,6 +723,25 @@ export class LivePlayer {
     return found;
   }
 
+  /** The nearest ancestor of `el` inside the host's parent that scrolls (or can): its offsets move the work. */
+  private scrollers = new WeakMap<Element, Element | null>();
+
+  private scrollerOf(el: Element): Element | null {
+    if (this.scrollers.has(el)) return this.scrollers.get(el) ?? null;
+    let found: Element | null = null;
+    const stop = this.host.parentElement;
+    for (let at = el.parentElement; at && at !== stop; at = at.parentElement) {
+      if (typeof window.getComputedStyle !== "function") break;
+      const style = window.getComputedStyle(at);
+      if (/(auto|scroll)/.test(style.overflowY) || /(auto|scroll)/.test(style.overflowX)) {
+        found = at;
+        break;
+      }
+    }
+    this.scrollers.set(el, found);
+    return found;
+  }
+
   /** The element's box inside the layer, cut to the scrolling area it sits in; w and h are 0 when it is scrolled out of view. */
   private local(el: Element, clipped = true): Box {
     const outer = this.host.getBoundingClientRect();
@@ -746,31 +794,85 @@ export class LivePlayer {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
-  /** Where the arrow's tip goes for a text point in viewport pixels: just after it, low on its line. */
+  /** Where the arrow's tip goes for a text point in viewport pixels: just after it, low on its line (a gesture's point, h 0, exactly). */
   private textPoint(point: { x: number; y: number; h: number }): Point {
     const outer = this.host.getBoundingClientRect();
-    return this.clampPoint({ x: point.x - outer.left + 2, y: point.y - outer.top + point.h * 0.8 });
+    return { x: point.x - outer.left + (point.h > 0 ? 2 : 0), y: point.y - outer.top + point.h * 0.8 };
   }
 
-  private clampPoint(point: Point): Point {
-    return {
-      x: Math.min(Math.max(point.x, 8), Math.max(8, this.host.clientWidth - 16)),
-      y: Math.min(Math.max(point.y, 8), Math.max(8, this.host.clientHeight - 16)),
-    };
+  /** The part of the layer where `el` can be seen: its scrolling area cut to the layer, inside the layer. */
+  private visibleArea(el: Element | null): Box {
+    const width = this.host.clientWidth;
+    const height = this.host.clientHeight;
+    let box: Box = { x: 0, y: 0, w: width, h: height };
+    const clip = el ? this.clipOf(el) : null;
+    if (clip) {
+      const outer = this.host.getBoundingClientRect();
+      const view = clip.getBoundingClientRect();
+      const x0 = Math.max(0, view.left - outer.left);
+      const y0 = Math.max(0, view.top - outer.top);
+      const x1 = Math.min(width, view.right - outer.left);
+      const y1 = Math.min(height, view.bottom - outer.top);
+      if (x1 > x0 && y1 > y0) box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    return box;
   }
 
   /**
    * Where the arrow points for a written element: the end of its last line of
    * text, where a writer's hand would rest; for a picture, a chart or a
-   * shape, its lower right corner.
+   * shape, its lower right corner, or the corner of the part of it in view.
    */
-  private anchor(el: Element): Point | null {
+  private anchor(el: Element, view: Box): { point: Point; box: Box | null } | null {
     if (!el.isConnected) return null;
     const end = textEnd(el);
-    if (end) return this.textPoint(end);
+    if (end) return { point: this.textPoint(end), box: null };
     const b = this.local(el, false);
     if (b.w === 0 && b.h === 0) return null;
-    return this.clampPoint({ x: b.x + Math.max(8, b.w - 12), y: b.y + Math.max(8, b.h - 8) });
+    const x0 = Math.max(b.x, view.x);
+    const y0 = Math.max(b.y, view.y);
+    const x1 = Math.min(b.x + b.w, view.x + view.w);
+    const y1 = Math.min(b.y + b.h, view.y + view.h);
+    // Partly in view (a tall chart, a wide table): the corner of what can be seen.
+    if (x1 > x0 && y1 > y0) return { point: { x: x0 + Math.max(4, x1 - x0 - 12), y: y0 + Math.max(4, y1 - y0 - 8) }, box: b };
+    return { point: { x: b.x + Math.max(8, b.w - 12), y: b.y + Math.max(8, b.h - 8) }, box: b };
+  }
+
+  /** Which way the point lies when it is out of the visible area, or "" when it can be seen. */
+  private sideOf(point: Point, view: Box): Side | "" {
+    const pad = 2;
+    if (point.y < view.y - pad) return "up";
+    if (point.y > view.y + view.h + pad) return "down";
+    if (point.x < view.x - pad) return "left";
+    if (point.x > view.x + view.w + pad) return "right";
+    return "";
+  }
+
+  /** The chip at the edge toward the work, beside where it is; hidden when the work can be seen. */
+  private placeEdge(side: Side | "", point: Point | null, view: Box): void {
+    const edge = this.view.edge;
+    if (this.offscreen !== side) {
+      this.offscreen = side;
+      this.host.dataset.offscreen = side;
+      if (edge) edge.dataset.side = side;
+    }
+    if (!edge || !side || !point) return;
+    const w = edge.offsetWidth || 120;
+    const h = edge.offsetHeight || 24;
+    const clampX = (x: number) => Math.min(Math.max(x, view.x + 8), view.x + view.w - w - 8);
+    const clampY = (y: number) => Math.min(Math.max(y, view.y + 8), view.y + view.h - h - 8);
+    // Clear of the floating bar at the body's foot.
+    const foot = view.h > 3 * (VIEW_FOOT + VIEW_HEAD) ? VIEW_FOOT - 24 : 8;
+    // The middle of the edge: a chip that follows every line the agent writes would wander.
+    const middleX = clampX(view.x + (view.w - w) / 2);
+    const middleY = clampY(view.y + (view.h - h) / 2);
+    let x = middleX;
+    let y = middleY;
+    if (side === "up") y = view.y + 10;
+    else if (side === "down") y = view.y + view.h - h - foot;
+    else if (side === "left") x = view.x + 10;
+    else x = view.x + view.w - w - 10;
+    edge.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
   }
 
   private tick(now: number): void {
@@ -779,11 +881,40 @@ export class LivePlayer {
     this.last = now;
     const reduced = this.reduced();
 
+    /* The person scrolled (or the view followed the writing): what is drawn over the work moves
+       with it at once, rigidly. Only the presence's own moves are eased, never a scroll. */
+    const lastShown = this.revealed > 0 ? this.units[this.revealed - 1] : null;
+    const workEl = lastShown ? lastShown.elements[lastShown.elements.length - 1] : null;
+    const scroller = workEl && workEl.isConnected ? this.scrollerOf(workEl) : null;
+    if (scroller) {
+      const left = scroller.scrollLeft;
+      const top = scroller.scrollTop;
+      const ref = this.scrollRef;
+      if (ref && ref.el === scroller && (ref.left !== left || ref.top !== top)) {
+        const dx = left - ref.left;
+        const dy = top - ref.top;
+        if (this.frameBox) this.frameBox = { ...this.frameBox, x: this.frameBox.x - dx, y: this.frameBox.y - dy };
+        if (this.lastTarget) this.lastTarget = { ...this.lastTarget, x: this.lastTarget.x - dx, y: this.lastTarget.y - dy };
+        if (this.at) this.at = { x: this.at.x - dx, y: this.at.y - dy };
+        if (this.goal) this.goal = { x: this.goal.x - dx, y: this.goal.y - dy };
+      }
+      this.scrollRef = { el: scroller, left, top };
+    }
+
     /* The frame grows toward what has been written, and follows it when the body scrolls.
        A jump to a place apart from it (the next slide, a new column) is not a flight across
        the editor: the frame lands there and fades in. */
     const target = this.frameTarget();
     const frame = this.view.frame;
+    // The same box, only moved (the board panned, the window resized, an inner area scrolled):
+    // the frame goes with it at once; only its growth is eased.
+    const moved = this.lastTarget;
+    if (target && moved && this.frameBox && Math.abs(target.w - moved.w) < 0.5 && Math.abs(target.h - moved.h) < 0.5) {
+      const dx = target.x - moved.x;
+      const dy = target.y - moved.y;
+      if (dx !== 0 || dy !== 0) this.frameBox = { ...this.frameBox, x: this.frameBox.x + dx, y: this.frameBox.y + dy };
+    }
+    this.lastTarget = target;
     if (target === null) {
       this.frameBox = null;
     } else if (this.frameBox === null || reduced) {
@@ -819,7 +950,32 @@ export class LivePlayer {
     const lastUnit = this.revealed > 0 ? this.units[this.revealed - 1] : null;
     const el = lastUnit ? lastUnit.elements[lastUnit.elements.length - 1] : null;
     const caret = lastUnit?.motion && this.moving.has(lastUnit.motion) ? (lastUnit.motion.caret?.() ?? null) : null;
-    const point = caret ? this.textPoint(caret) : el ? this.anchor(el) : null;
+    const view = this.visibleArea(caret ? caret.within : el);
+    let point: Point | null = null;
+    let side: Side | "" = "";
+    if (caret) {
+      point = this.textPoint(caret);
+      side = this.sideOf(point, view);
+    } else if (el) {
+      const anchored = this.anchor(el, view);
+      if (anchored) {
+        point = anchored.point;
+        side = anchored.box
+          ? (anchored.box.y + anchored.box.h < view.y ? "up" : anchored.box.y > view.y + view.h ? "down"
+            : anchored.box.x + anchored.box.w < view.x ? "left" : anchored.box.x > view.x + view.w ? "right" : "")
+          : this.sideOf(point, view);
+      }
+    }
+    if (el) this.workEl = caret ? caret.within : el;
+    /* Out of view (the person scrolled away, or the view stopped following): no cursor stuck at
+       the edge, but a chip there that points to the work and brings it back. */
+    this.placeEdge(point ? side : "", point, view);
+    if (point && side) {
+      // It reappears where the work is, not after a flight from where it was hidden.
+      this.at = null;
+      this.goal = null;
+      point = null;
+    }
     if (point) {
       const before = this.at ? { ...this.at } : null;
       let ride = { x: 0, y: 0 };

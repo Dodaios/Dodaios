@@ -90,6 +90,52 @@
   pointer-events: none;
 }
 
+/* Out of view, the cursor is not drawn at the edge: a chip there points to the work. */
+.live-presence:is([data-offscreen="up"], [data-offscreen="down"], [data-offscreen="left"], [data-offscreen="right"]) .live-presence-cursor {
+  opacity: 0;
+  transition-duration: 120ms;
+}
+
+.live-presence-edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #0a0a0a;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(255 255 255 / 0.9), 0 0 12px hsl(var(--agent-glow, var(--accent)) / 0.45);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  will-change: transform;
+}
+
+.live-presence[data-visible="true"] .live-presence-edge:is([data-side="up"], [data-side="down"], [data-side="left"], [data-side="right"]) {
+  display: inline-flex;
+  animation: live-presence-edge-in 180ms ease-out;
+}
+
+.live-presence-edge svg {
+  flex: none;
+}
+
+.live-presence-edge[data-side="up"] svg { transform: rotate(180deg); }
+.live-presence-edge[data-side="left"] svg { transform: rotate(90deg); }
+.live-presence-edge[data-side="right"] svg { transform: rotate(-90deg); }
+
+@keyframes live-presence-edge-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* The name tag hangs under the tip, its corner nearest the arrow drawn sharp. */
 .live-presence-tag {
   position: absolute;

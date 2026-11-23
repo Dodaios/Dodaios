@@ -12276,7 +12276,8 @@
     },
     "live": {
       "working": "{name} 正在处理…",
-      "card_building": "{name} 正在构建…"
+      "card_building": "{name} 正在构建…",
+      "jump": "显示 {agent} 正在处理的位置"
     }
   },
   "agent_browser": {

@@ -16,6 +16,10 @@
 import { CLIP_LIVE_SEEK, type ClipLiveSeekDetail } from "../../editors/motion/clipLive";
 import type { MotionSpec, Scene, Track, TrackItem } from "../../editors/motion/motionModel";
 import type { RevealAdapter, RevealInput, RevealStep } from "../reveal";
+import { gesture } from "../writing";
+
+/** How long the hand takes to pull a new clip out to its length. */
+const PULL_MS = 460;
 
 /** A clip as it stood: where it started and how long it ran, in seconds. */
 interface Span {
@@ -154,10 +158,36 @@ export function clipSteps(previous: MotionSpec | null, next: MotionSpec): Reveal
   return steps;
 }
 
+/**
+ * A new clip is pulled out to its length by the agent's hand: the cursor
+ * takes the clip's right edge from its start and drags it along as the clip
+ * grows, the way a person draws a clip out on a timeline.
+ */
+function pulled(step: RevealStep, root: HTMLElement): RevealStep {
+  if (step.enter !== grow || !("path" in step.target)) return step;
+  const el = root.querySelector(`[data-live-path="${step.target.path}"]`);
+  if (!el) return step;
+  return {
+    ...step,
+    target: { element: el },
+    enter: undefined,
+    motion: gesture({
+      element: el,
+      durationMs: PULL_MS,
+      keyframes: grow(),
+      hide: true,
+      path: (box) => [
+        { x: box.left + 2, y: box.top + box.height / 2 },
+        { x: box.right - 2, y: box.top + box.height / 2 },
+      ],
+    }),
+  };
+}
+
 export const motionReveal: RevealAdapter = {
   steps: (input: RevealInput) => {
-    const { previous, next } = input as RevealInput<MotionSpec>;
+    const { previous, next, root } = input as RevealInput<MotionSpec>;
     if (!next || typeof next !== "object" || !Array.isArray(next.scenes)) return [];
-    return clipSteps(previous && typeof previous === "object" ? previous : null, next);
+    return clipSteps(previous && typeof previous === "object" ? previous : null, next).map((step) => pulled(step, root));
   },
 };

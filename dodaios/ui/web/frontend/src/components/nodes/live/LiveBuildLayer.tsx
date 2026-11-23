@@ -23,6 +23,7 @@ import { fill, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import type { NodeSpecEditor } from "../editors/useNodeSpecEditor";
 import { revealAdapter } from "./adapters";
+import { useAgentActivity } from "./agentActivity";
 import { LivePresence, presenceTint } from "./LivePresence";
 import { changesBetween, presenceActive } from "./liveChanges";
 import { PRESENCE_LINGER_MS, authorName, useNodeLive } from "./liveStore";
@@ -63,6 +64,8 @@ export function LiveBuildLayer({
       .join("\n"),
   );
   const assistantName = useEventStore((s) => s.assistantName);
+  // What the agent does between its edits, read from the conversation it builds from.
+  const activity = useAgentActivity(live?.sessionId ?? "");
 
   /* Presence lingers a moment after the build ended, then fades. */
   const [clock, setClock] = useState(() => Date.now());
@@ -79,6 +82,8 @@ export function LiveBuildLayer({
   const host = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<PresenceElements | null>(null);
   const player = useRef<LivePlayer | null>(null);
+  /* The edge chip: back to the agent's work, and follow it again. */
+  const jump = useCallback(() => player.current?.resume(), []);
   const ensurePlayer = useCallback((): LivePlayer | null => {
     if (player.current) return player.current;
     if (!host.current || !body.current || !view) return null;
@@ -237,7 +242,7 @@ export function LiveBuildLayer({
 
   if (!live || live.author === null) return null;
   const name = authorName(live.author, assistantName);
-  const status = live.step || fill(t("nodes.live.working"), { name });
+  const status = live.step || (activity ? `${name} · ${activity}` : fill(t("nodes.live.working"), { name }));
   const tint = presenceTint(live.author.id, authors ? authors.split("\n") : [], theme === "dark");
   return (
     <LivePresence
@@ -248,6 +253,8 @@ export function LiveBuildLayer({
       building={live.building}
       tint={tint}
       onReady={setView}
+      onJump={jump}
+      jumpLabel={t("nodes.live.jump").replace("{agent}", () => name)}
     />
   );
 }

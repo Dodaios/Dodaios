@@ -33,10 +33,14 @@ export interface LivePresenceProps {
   tint?: string | null;
   /** The pieces, once drawn, for the player. */
   onReady: (elements: PresenceElements | null) => void;
+  /** The edge chip was pressed: bring the agent's work into view and follow it again. */
+  onJump?: () => void;
+  /** What the edge chip says to assistive tech and in its tooltip. */
+  jumpLabel?: string;
 }
 
 export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(function LivePresence(
-  { name, status, visible, building, tint, onReady },
+  { name, status, visible, building, tint, onReady, onJump, jumpLabel },
   layer,
 ) {
   const cursor = useRef<HTMLDivElement>(null);
@@ -45,6 +49,7 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
   const art = useRef<HTMLDivElement>(null);
   const arrow = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
+  const edge = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     if (cursor.current && frame.current && tag.current) {
       onReady({
@@ -54,6 +59,7 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
         art: art.current ?? undefined,
         arrow: arrow.current ?? undefined,
         ring: ring.current ?? undefined,
+        edge: edge.current ?? undefined,
       });
     }
     return () => onReady(null);
@@ -69,6 +75,7 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
       data-building={building ? "true" : "false"}
       data-phase="thinking"
       data-placed="false"
+      data-offscreen=""
       style={style}
     >
       <div ref={frame} className="live-presence-frame" data-shown="false" data-testid="live-presence-frame" />
@@ -86,6 +93,23 @@ export const LivePresence = forwardRef<HTMLDivElement, LivePresenceProps>(functi
           </span>
         </div>
       </div>
+      {/* Out of view: a chip at the edge toward the work; pressing it brings the work back. */}
+      <button
+        ref={edge}
+        type="button"
+        tabIndex={-1}
+        className="live-presence-edge"
+        data-side=""
+        data-testid="live-presence-edge"
+        title={jumpLabel}
+        aria-label={jumpLabel}
+        onClick={onJump}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M2 3.5 L5 6.5 L8 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span>{name}</span>
+      </button>
     </div>
   );
 });

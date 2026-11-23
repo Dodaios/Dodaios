@@ -18,6 +18,13 @@ import { columnTotal, computeRows, formulaPlan, totalAllowed } from "../../edito
 import { columnKind, type Row, type Sheet, type SheetColumn, type SheetsSpec } from "../../editors/sheets/model";
 import { LIVE_TIMING, prefersReducedMotion, revealDelays } from "../playback";
 import type { RevealAdapter, RevealInput, RevealStep } from "../reveal";
+import { cellsWriting } from "../writing";
+
+/** A row (or the header) typed along cell by cell when it is drawn; else the row by its path. */
+function typedRow(root: HTMLElement, path: string, cells: string): RevealStep {
+  const el = root.querySelector(`[data-live-path="${path}"]`);
+  return el ? { target: { element: el }, motion: cellsWriting(el, cells) } : { target: { path } };
+}
 
 /** How long the quiet highlight on a changed total lasts. */
 const MARK_MS = 900;
@@ -123,11 +130,11 @@ export const sheetsReveal: RevealAdapter = {
     const prev = before?.sheets[sheet];
     const cur = next.sheets[sheet];
     if (!prev || !same(shapeOf(prev.columns), shapeOf(cur.columns)) || !same(prev.freeze, cur.freeze)) {
-      steps.push({ target: { path: `/sheets/${sheet}/columns` } });
+      steps.push(typedRow(root, `/sheets/${sheet}/columns`, "th[role=columnheader]"));
     }
 
     // 3. The body, row by row from the top, each with its values and formatting.
-    for (const row of changedRows(before, next, sheet)) steps.push({ target: { path: `/sheets/${sheet}/rows/${row}` } });
+    for (const row of changedRows(before, next, sheet)) steps.push(typedRow(root, `/sheets/${sheet}/rows/${row}`, "td"));
 
     // 4. Totals that moved with the new rows update in place, once the rows are in.
     const cols = changedTotals(before, next, sheet);

@@ -279,3 +279,183 @@ export function skeletonReveal(element: Element, fromOpacity = 0.3): UnitMotion 
     update: place,
   };
 }
+
+/* --- the hand at work: gestures and cells ----------------------------------- */
+
+/** A point in viewport pixels. */
+export interface GesturePoint {
+  x: number;
+  y: number;
+}
+
+/** Starts gently and settles: a hand that drags. */
+function easeInOut(t: number): number {
+  const c = Math.min(1, Math.max(0, t));
+  return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+}
+
+/** The point at share `t` (0..1) of the length of a polyline. */
+export function alongPath(points: readonly GesturePoint[], t: number): GesturePoint | null {
+  if (points.length === 0) return null;
+  if (points.length === 1) return points[0];
+  const lengths: number[] = [];
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const length = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    lengths.push(length);
+    total += length;
+  }
+  if (total <= 0) return points[points.length - 1];
+  let left = Math.min(1, Math.max(0, t)) * total;
+  for (let i = 0; i < lengths.length; i += 1) {
+    if (left <= lengths[i] || i === lengths.length - 1) {
+      const k = lengths[i] > 0 ? Math.min(1, left / lengths[i]) : 1;
+      return {
+        x: points[i].x + (points[i + 1].x - points[i].x) * k,
+        y: points[i].y + (points[i + 1].y - points[i].y) * k,
+      };
+    }
+    left -= lengths[i];
+  }
+  return points[points.length - 1];
+}
+
+export interface GestureOptions {
+  /** What the hand works on: it is measured when the gesture starts. */
+  element: Element;
+  /** The hand's path over the element, in viewport pixels, from its box at the start. */
+  path: (box: DOMRect) => GesturePoint[];
+  /** How long the gesture takes at natural speed. */
+  durationMs: number;
+  /** How many times the hand moves on (more is smoother; the cursor eases between). */
+  steps?: number;
+  /** Keyframes the element plays over the gesture as it arrives (a clip growing to its length). */
+  keyframes?: Keyframe[];
+  /** Hold the element unseen until the gesture starts. */
+  hide?: boolean;
+  /** Called with the share done (0..1) at each step, to grow what the hand draws. */
+  progress?: (share: number) => void;
+}
+
+/**
+ * A hand at work: the cursor follows `path` over the element while the
+ * element arrives (its `keyframes`, or whatever `progress` grows), the way a
+ * person drags out a shape or pulls a clip to its length. Like `textWriting`
+ * it never changes the editor's own DOM; the element's motion is a Web
+ * Animation that `finish` cancels.
+ */
+export function gesture(options: GestureOptions): UnitMotion {
+  const steps = Math.max(2, options.steps ?? 14);
+  let points: GesturePoint[] = [];
+  let share = 0;
+  let hold: Animation | null = null;
+  let play: Animation | null = null;
+  let done = false;
+  const canAnimate = typeof (options.element as { animate?: unknown }).animate === "function";
+
+  const measure = () => {
+    if (!options.element.isConnected) return;
+    points = options.path(options.element.getBoundingClientRect());
+  };
+
+  return {
+    durationMs: options.durationMs,
+    steps,
+    prepare() {
+      if (options.hide && canAnimate) {
+        hold = options.element.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 600_000, fill: "forwards" });
+      }
+      measure();
+    },
+    start() {
+      hold?.cancel();
+      hold = null;
+      measure();
+      share = 0;
+      if (options.keyframes && canAnimate) {
+        // The same ease as the hand (`easeInOut`), so an edge being pulled stays under the cursor.
+        play = options.element.animate(options.keyframes, { duration: options.durationMs, easing: "cubic-bezier(0.65, 0, 0.35, 1)" });
+      }
+      options.progress?.(0);
+    },
+    advance(step) {
+      if (done) return;
+      share = easeInOut(step / steps);
+      options.progress?.(share);
+    },
+    finish() {
+      done = true;
+      share = 1;
+      hold?.cancel();
+      hold = null;
+      play?.cancel();
+      play = null;
+      options.progress?.(1);
+    },
+    update() {
+      // The element may move while the hand works (a scroll, a reflow): the path goes with it.
+      measure();
+    },
+    caret() {
+      const at = alongPath(points, share);
+      return at ? { x: at.x, y: at.y, h: 0, within: options.element } : null;
+    },
+  };
+}
+
+/** How long one cell of a row takes to be typed in. */
+export const CELL_MS = 120;
+
+/**
+ * A row filled in cell by cell from the left, the way a person types along
+ * it: each cell appears as the hand reaches it, the cursor resting at the end
+ * of what that cell holds. Cells are held unseen with Web Animations only.
+ */
+export function cellsWriting(row: Element, cellSelector = "td"): UnitMotion {
+  const cells = [...row.querySelectorAll(cellSelector)].filter((cell) => (cell.textContent ?? "").trim() !== "" || cell.querySelector("img, svg, input"));
+  const holds = new Map<Element, Animation>();
+  let typed = 0;
+  const canAnimate = (el: Element) => typeof (el as { animate?: unknown }).animate === "function";
+
+  const show = (cell: Element, fade: boolean) => {
+    holds.get(cell)?.cancel();
+    holds.delete(cell);
+    if (fade && canAnimate(cell)) cell.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+  };
+
+  return {
+    durationMs: Math.max(1, cells.length) * CELL_MS,
+    steps: Math.max(1, cells.length),
+    prepare() {
+      for (const cell of cells) {
+        if (canAnimate(cell)) holds.set(cell, cell.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 600_000, fill: "forwards" }));
+      }
+    },
+    start() {
+      typed = 0;
+    },
+    advance(step) {
+      for (let i = typed; i < Math.min(step, cells.length); i += 1) show(cells[i], true);
+      typed = Math.max(typed, Math.min(step, cells.length));
+    },
+    finish() {
+      for (const cell of cells) show(cell, false);
+      typed = cells.length;
+    },
+    caret() {
+      const cell = cells[Math.max(0, Math.min(typed, cells.length) - 1)] ?? cells[0];
+      if (!cell || !cell.isConnected) return null;
+      const box = cell.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) return null;
+      // The end of what the cell holds: right after its text, low on its line.
+      const range = typeof document.createRange === "function" ? document.createRange() : null;
+      if (range && cell.textContent && typeof range.getClientRects === "function") {
+        range.selectNodeContents(cell);
+        const rects = range.getClientRects();
+        const last = rects.length > 0 ? rects[rects.length - 1] : null;
+        if (last && (last.width > 0 || last.height > 0)) return { x: last.right, y: last.top, h: last.height, within: cell };
+      }
+      return { x: box.right - 8, y: box.top + 4, h: box.height - 8, within: cell };
+    },
+  };
+}
