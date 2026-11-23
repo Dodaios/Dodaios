@@ -100,7 +100,8 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
         await asyncio.sleep(0.005)
     assert svc.is_running(session.session_id)
     assert len(prompts) == 1
-    assert waiting_noted()  # A reconnected UI can reconstruct the actual wait from persisted events.
+    # A reconnected UI can reconstruct the actual wait from persisted events.
+    assert waiting_noted()
     # The turn itself says that it only waits, so a chat does not draw it as typing.
 
     def waits() -> list[list[str]]:
