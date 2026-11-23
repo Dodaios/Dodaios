@@ -59,14 +59,25 @@ def resolve_api_token(explicit: str | None = None) -> str:
     return token or secrets.token_urlsafe(32)
 
 
+def _write_private(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` so that no other account can ever read it.
+
+    The file is created owner-only (never written first and restricted after)
+    under a fresh name, then moved into place. ``O_EXCL`` also refuses a name
+    someone else prepared.
+    """
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.unlink(missing_ok=True)
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.replace(tmp, path)
+
+
 def write_token_file(token: str, path: Path) -> None:
     """Store the token for local clients; readable by the owner only."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(token + "\n", encoding="utf-8")
-    try:
-        os.chmod(path, 0o600)
-    except OSError:  # pragma: no cover - best effort on Windows
-        pass
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _write_private(path, token + "\n")
 
 
 def _host_name(raw: str) -> str:

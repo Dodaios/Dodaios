@@ -534,9 +534,13 @@ async def _run_headless(args) -> int:
 
         assert_bind_safe(_host, _control_key.get_control_key())
     _port = args.port if args.port is not None else _fast_admin_port()
+    # Requests from here arrive on a real socket: local open access is for
+    # this user's own processes, not for every account on loopback.
+    from dodaios.ui.web import peer_owner as _peer_owner
+
     _bootstrap_server = uvicorn.Server(
         uvicorn.Config(
-            app=_bootstrap_app,
+            app=_peer_owner.from_socket(_bootstrap_app),
             host=_host,
             port=_port,
             log_level="warning",

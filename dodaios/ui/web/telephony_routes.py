@@ -47,8 +47,10 @@ from dodaios.telephony.constants import (
 )
 from dodaios.telephony.provisioning import TelephonyProvisionError
 from dodaios.telephony.security import (
+    caller_allowed,
     constant_time_equals,
     generate_call_secret,
+    normalize_caller,
     public_url_for,
     public_wss_url,
     validate_twilio_signature,
@@ -155,6 +157,7 @@ def _config_payload(twilio, *, auth_token_set: bool) -> dict[str, object]:
         "enabled": bool(getattr(twilio, "enabled", False)),
         "account_sid": getattr(twilio, "account_sid", "") or "",
         "phone_number": getattr(twilio, "phone_number", "") or "",
+        "allowed_callers": [str(n) for n in getattr(twilio, "allowed_callers", None) or []],
         "public_base_url": getattr(twilio, "public_base_url", "") or "",
         "greeting": getattr(twilio, "greeting", "") or "",
         "language_code": getattr(twilio, "language_code", "de-DE") or "de-DE",
@@ -210,6 +213,7 @@ async def get_config(request: Request) -> JSONResponse:
 class ConfigUpdate(BaseModel):
     enabled: bool | None = None
     phone_number: str | None = None
+    allowed_callers: list[str] | None = Field(default=None, max_length=50)
     public_base_url: str | None = None
     greeting: str | None = None
     language_code: str | None = None
@@ -229,6 +233,18 @@ async def post_config(request: Request, body: ConfigUpdate) -> JSONResponse:
                 status_code=422,
             )
         updates["phone_number"] = pn
+    if body.allowed_callers is not None:
+        callers: list[str] = []
+        for entry in body.allowed_callers:
+            number = normalize_caller(entry)
+            if not _E164_RE.match(number):
+                return JSONResponse(
+                    {"error": "allowed_callers must be E.164 numbers, e.g. +4915112345678"},
+                    status_code=422,
+                )
+            if number not in callers:
+                callers.append(number)
+        updates["allowed_callers"] = callers
     if body.public_base_url is not None:
         url = body.public_base_url.strip().rstrip("/")
         if url and not _URL_RE.match(url):
@@ -720,8 +736,6 @@ async def post_voice(request: Request) -> Response:
     call_sid = params.get("CallSid", "")
     from_number = params.get("From", "")
     to_number = params.get("To", "")
-    secret = generate_call_secret()
-    mgr.register_pending(call_sid, secret, from_number=from_number, to_number=to_number)
 
     # Outbound branch (Chunk C): a call placed via ``place_call`` reaches this same
     # webhook with ``Direction=outbound-api`` and an ``opening`` query param. We
@@ -729,6 +743,18 @@ async def post_voice(request: Request) -> Response:
     # speaks it first. Inbound (no query, Direction=inbound) is unchanged.
     opening = request.query_params.get("opening", "")
     is_outbound = bool(opening) or params.get("Direction", "").lower().startswith("outbound")
+
+    # A call someone else dialled: talking to the number is prompting the
+    # assistant with its tools, so only the owner's listed numbers get a
+    # session. Everyone else is hung up on before anything is built for them.
+    if not is_outbound and not caller_allowed(
+        from_number, getattr(twilio, "allowed_callers", None)
+    ):
+        log.warning("telephony: refused an inbound call from a number that is not allowed")
+        return Response(content=build_reject_twiml(), media_type="text/xml")
+
+    secret = generate_call_secret()
+    mgr.register_pending(call_sid, secret, from_number=from_number, to_number=to_number)
 
     wss_url = public_wss_url(public_base_url, "/api/telephony/media")
     twiml = build_connect_stream_twiml(

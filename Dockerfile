@@ -11,7 +11,7 @@
 #   docker build -t dodaios .
 #   docker run --rm -p 127.0.0.1:8000:8000 \
 #       -v jarvis-data:/app/data \
-#       -e JARVIS_CONTROL_API_KEY=jctl_change_me \
+#       -e JARVIS_CONTROL_API_KEY="$(openssl rand -hex 32)" \
 #       -e ANTHROPIC_API_KEY=sk-ant-... \
 #       dodaios
 #   # then open http://localhost:8000

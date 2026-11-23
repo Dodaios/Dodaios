@@ -51,4 +51,31 @@ describe("openExternalUrl", () => {
     vi.spyOn(window, "open").mockImplementation(() => null);
     await expect(openExternalUrl("https://example.test/auth")).resolves.toBe(false);
   });
+
+  it("never hands the fallback tab anything but a web or mail address", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ opened: false }),
+      })) as unknown as typeof fetch,
+    );
+    const winOpen = vi
+      .spyOn(window, "open")
+      .mockImplementation(() => ({}) as unknown as Window);
+    for (const url of [
+      "javascript:alert(1)",
+      "JaVaScRiPt:alert(1)",
+      " javascript:alert(1)",
+      "data:text/html,<script>1</script>",
+      "file:///C:/Windows/win.ini",
+      "ms-msdt:/id",
+      "//example.test/no-scheme",
+    ]) {
+      await expect(openExternalUrl(url)).resolves.toBe(false);
+    }
+    expect(winOpen).not.toHaveBeenCalled();
+    await expect(openExternalUrl("mailto:someone@example.test")).resolves.toBe(true);
+    expect(winOpen).toHaveBeenCalledTimes(1);
+  });
 });

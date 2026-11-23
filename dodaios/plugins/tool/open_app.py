@@ -398,14 +398,15 @@ class OpenAppTool:
                         [value], shell=False, creationflags=no_window
                     )
             else:  # kind == "startfile" — Windows-only shell verb (AD-7).
-                if cli_args:
-                    subprocess.Popen(  # noqa: ASYNC220, S606
-                        ["cmd", "/c", "start", "", value, cli_args],
-                        shell=False,
-                        creationflags=no_window,
-                    )
-                elif hasattr(os, "startfile"):
-                    os.startfile(value)  # type: ignore[attr-defined]  # noqa: S606
+                if hasattr(os, "startfile"):
+                    if cli_args:
+                        # The shell verb takes the arguments itself. They used
+                        # to go through ``cmd /c start``, where the command
+                        # interpreter reads ``&``, ``|`` and quotes in them as
+                        # its own syntax and runs what follows.
+                        os.startfile(value, "open", cli_args)  # type: ignore[attr-defined]  # noqa: S606
+                    else:
+                        os.startfile(value)  # type: ignore[attr-defined]  # noqa: S606
                 else:
                     # POSIX: URLs/paths resolve to "startfile" on every OS
                     # (the resolver's escape hatch runs before the platform

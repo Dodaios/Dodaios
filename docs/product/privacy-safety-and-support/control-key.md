@@ -47,6 +47,10 @@ one-use startup token for an app session instead.
 browser connection on the Dodaios computer can open the interface without a
 credential. Both the browser connection and the requested host must be
 loopback, and the request must not contain a standard forwarding indicator.
+On Windows and Linux the connecting program must also run under the same
+user account as Dodaios: a program of another account on the same computer
+has to present the Control Key, like a caller from another device. macOS has
+no such check, so turn the lock on there when other people use the computer.
 
 Another device or a non-loopback address still has to authenticate. An HTTP
 proxy also stays locked when it preserves the remote host or adds standard

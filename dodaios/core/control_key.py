@@ -85,6 +85,11 @@ class ControlKeyValidationError(ValueError):
 # no key were configured at all.
 SHIPPED_PLACEHOLDER_KEY = "jctl_local_sandbox_change_me_before_any_real_use"
 
+#: Every example value this repository has ever printed for the key. The
+#: Dockerfile's usage comment used to show ``jctl_change_me``; a copied
+#: example is as public as the compose default.
+PUBLIC_EXAMPLE_KEYS = frozenset({SHIPPED_PLACEHOLDER_KEY, "jctl_change_me"})
+
 _warned_shipped_placeholder = False
 
 
@@ -414,7 +419,7 @@ def get_control_key() -> str | None:
         # dedicated file/env checks below preserve this module's older contract.
         value = cfg.get_secret(KEYRING_SLOT)
         if value:
-            if value != SHIPPED_PLACEHOLDER_KEY:
+            if value not in PUBLIC_EXAMPLE_KEYS:
                 _adopt_legacy_macos_keychain_item(value)
                 _cached_control_key = value
                 # Migration is itself a secret write, so capture the revision
@@ -425,7 +430,7 @@ def get_control_key() -> str | None:
 
         value = _read_file_key()
         if value:
-            if value != SHIPPED_PLACEHOLDER_KEY:
+            if value not in PUBLIC_EXAMPLE_KEYS:
                 _cached_control_key = value
                 _cached_secret_revision = cfg.secret_revision(KEYRING_SLOT)
                 return value
@@ -433,7 +438,7 @@ def get_control_key() -> str | None:
 
         value = _env_key()
         if value:
-            if value != SHIPPED_PLACEHOLDER_KEY:
+            if value not in PUBLIC_EXAMPLE_KEYS:
                 _cached_control_key = value
                 _cached_secret_revision = cfg.secret_revision(KEYRING_SLOT)
                 return value
@@ -513,7 +518,7 @@ def validate_custom_control_key(value: str) -> str:
             "The control key may only contain letters, digits, and . _ ~ - "
             "(no spaces) so it works as an HTTP Bearer token."
         )
-    if candidate == SHIPPED_PLACEHOLDER_KEY:
+    if candidate in PUBLIC_EXAMPLE_KEYS:
         raise ControlKeyValidationError(
             "This value is the publicly shipped placeholder key and cannot be used."
         )

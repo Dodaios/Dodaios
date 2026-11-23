@@ -3770,6 +3770,8 @@
       "language": "Language code",
       "greeting": "Greeting (optional)",
       "greeting_placeholder": "Leave empty for the default {name} greeting",
+      "allowed_callers": "Numbers that may call",
+      "allowed_callers_hint": "Only these numbers reach the assistant; every other call is hung up on. Empty means nobody can call in.",
       "test_connection": "Test connection",
       "self_test": "Self-test voice",
       "setup_script": "Setup script",

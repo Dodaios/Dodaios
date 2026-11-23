@@ -78,11 +78,20 @@ Then in the app's **Telephony** section (or in `dodaios.toml`) set:
 enabled = true
 account_sid = "AC..."                # your Account SID (not a secret)
 phone_number = "+49301234567"        # your Twilio number, E.164
+allowed_callers = ["+4915112345678"] # the numbers that may call in (yours)
 public_base_url = "https://dodaios.example.com"   # no trailing slash
 language_code = "de-DE"
 greeting = ""                        # empty = default greeting with the assistant name
 max_call_seconds = 600
 ```
+
+**Who may call.** A call to the number is a conversation with the assistant
+and its tools, and anyone can dial a number. Only the numbers in
+`allowed_callers` (**Numbers that may call** in the Telephony section) get
+through; every other caller is hung up on. An empty list takes no inbound
+call. Calls the app places itself are not affected. A caller's number is
+reported by the phone network and can be forged by a determined caller, so
+treat the list as a filter against strangers, not as proof of who is calling.
 
 Finally point the number's **Voice webhook** at Dodaios:
 

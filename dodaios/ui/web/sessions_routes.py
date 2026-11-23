@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -319,8 +318,14 @@ async def open_session_with(
 
     first_user = next((t.user_text for t in turns if t.user_text), "")
     filename = _build_filename(session, first_user, export_format)
-    transcripts_dir = Path(tempfile.gettempdir()) / "jarvis-transcripts"
-    transcripts_dir.mkdir(parents=True, exist_ok=True)
+    # Private per user: the temp directory is shared on Linux, and a
+    # transcript is the person's conversation.
+    from dodaios.core.private_tmp import private_temp_folder
+
+    try:
+        transcripts_dir = private_temp_folder("jarvis-transcripts")
+    except OSError as exc:
+        raise HTTPException(status_code=409, detail=f"no private folder: {exc}") from exc
     target = transcripts_dir / filename
     target.write_text(rendered, encoding="utf-8")
 

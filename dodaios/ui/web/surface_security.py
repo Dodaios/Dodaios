@@ -28,6 +28,7 @@ from typing import Any, ClassVar, Literal
 from urllib.parse import parse_qs, urlsplit
 
 from dodaios.core.branding import CONFIG_FILE_NAME, SESSION_COOKIE_NAME
+from dodaios.ui.web.peer_owner import peer_is_local_user
 
 log = logging.getLogger(__name__)
 
@@ -536,7 +537,10 @@ def open_access_granted(scope: Scope) -> bool:
 
     "Local" means BOTH ends are loopback (see :func:`is_loopback_request`)
     AND the request carries no forwarding-indicator header — so a LAN, VPS,
-    or well-behaved reverse-proxy surface never opens. Honest limitation: a
+    or well-behaved reverse-proxy surface never opens — AND, where the
+    listener can tell (``peer_owner``), the connecting process runs under
+    this user's account: loopback is shared by every account on the machine,
+    and another account is not "the machine's own user". Honest limitation: a
     raw TCP relay that adds no headers (``ssh -L``, ``socat``, an L4 tunnel)
     is indistinguishable from a local client at this layer; whoever forwards
     the Jarvis port to a network re-exposes the instance and must turn the
@@ -548,6 +552,7 @@ def open_access_granted(scope: Scope) -> bool:
         not browser_login_required()
         and is_loopback_request(scope)
         and not _relay_indicator_present(scope)
+        and peer_is_local_user(scope)
     )
 
 

@@ -379,14 +379,13 @@ def resolve_deliverables_dir(override: str | None = None) -> Path:
         target.mkdir(parents=True, exist_ok=True)
         return target
     except OSError as exc:
-        import tempfile
+        from dodaios.core.private_tmp import private_temp_folder
 
-        fallback = Path(tempfile.gettempdir()) / _DELIVERABLES_FOLDER_NAME
+        fallback = private_temp_folder(_DELIVERABLES_FOLDER_NAME)
         logger.warning(
             "deliverables dir %s not writable (%s) — using %s",
             target, exc, fallback,
         )
-        fallback.mkdir(parents=True, exist_ok=True)
         return fallback
 
 

@@ -95,7 +95,9 @@ def test_open_with_default_uses_open_file(
     assert body["opener"] == "default"
     # Transcript was materialized under the temp dir and handed to open_file.
     assert len(calls) == 1
-    assert calls[0].parent == tmp_path / "jarvis-transcripts"
+    # Per user: the temp directory is shared on Linux (private_temp_folder).
+    assert calls[0].parent.parent == tmp_path
+    assert calls[0].parent.name.startswith("jarvis-transcripts")
     assert calls[0].exists()
     assert calls[0].suffix == ".md"
 

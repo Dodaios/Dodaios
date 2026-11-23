@@ -217,6 +217,32 @@ describe("TelephonyView — save handler", () => {
       "new-secret-token",
     );
   });
+
+  it("shows the numbers that may call and saves the edited list", async () => {
+    const routes = okRoutes();
+    routes["/api/telephony/config"] = () => ({
+      body: { ...CONFIG_OK, allowed_callers: ["+4915112345678"] },
+    });
+    const { calls } = installFetchMock(routes);
+
+    render(<TelephonyView />);
+
+    const field = (await screen.findByTestId("telephony-allowed-callers")) as HTMLInputElement;
+    expect(field.value).toBe("+4915112345678");
+
+    fireEvent.change(field, { target: { value: "+4915112345678,  +14155550100 ;" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    await waitFor(() => {
+      const configPost = calls.find(
+        (c) => c.url.startsWith("/api/telephony/config") && c.method === "POST",
+      );
+      expect((configPost?.body as { allowed_callers?: string[] }).allowed_callers).toEqual([
+        "+4915112345678",
+        "+14155550100",
+      ]);
+    });
+  });
 });
 
 describe("TelephonyView — self-test voice", () => {

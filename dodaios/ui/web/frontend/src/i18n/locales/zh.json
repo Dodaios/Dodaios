@@ -3770,6 +3770,8 @@
       "language": "语言代码",
       "greeting": "问候语（可选）",
       "greeting_placeholder": "留空则使用{name}的默认问候语",
+      "allowed_callers": "允许来电的号码",
+      "allowed_callers_hint": "只有这些号码能接通助手，其他来电会被挂断。留空表示任何人都无法呼入。",
       "test_connection": "测试连接",
       "self_test": "语音自检",
       "setup_script": "设置脚本",

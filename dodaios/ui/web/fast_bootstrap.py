@@ -73,6 +73,28 @@ ASSET_SUFFIXES = frozenset(
 )
 
 
+def dist_file(dist_root: Path, rel: str) -> Path | None:
+    """The real file ``rel`` names under ``dist_root``, or ``None``.
+
+    ``rel`` comes straight from a request path that needs no credential. A
+    backslash, a colon or a leading slash can turn it into an absolute path,
+    and on Windows into a network path, which the system would contact with
+    the user's login merely to answer "is this a file?". Such a name is
+    refused before any filesystem call; the resolved target must then still
+    lie under ``dist_root``. Shared with the real app's SPA fallback.
+    """
+    if not rel or rel.startswith("/") or any(ch in rel for ch in "\\:\x00"):
+        return None
+    try:
+        root = dist_root.resolve()
+        target = (root / rel).resolve()
+        if target.is_file() and root in target.parents:
+            return target
+    except (OSError, ValueError):  # unreadable or malformed name: not a file to serve
+        pass
+    return None
+
+
 class FastBootstrap:
     """Hold-and-delegate ASGI bootstrap server. See module docstring."""
 
@@ -438,12 +460,9 @@ class FastBootstrap:
         index = self._dist_dir / "index.html"
         rel = path.lstrip("/")
         if rel:
-            try:
-                target = (self._dist_dir / rel).resolve()
-                if target.is_file() and self._dist_dir in target.parents:
-                    return target
-            except (OSError, ValueError):
-                pass
+            target = dist_file(self._dist_dir, rel)
+            if target is not None:
+                return target
             # A missing asset file (image/script/font) must not degrade to the
             # SPA index: returning None makes the caller HOLD the request until
             # the real app answers it honestly (file or 404) instead of feeding
@@ -508,6 +527,12 @@ class FastBootstrap:
 
         async def _asgi3(scope: dict, receive: Any, send: Any) -> None:
             await _self.app(scope, receive, send)
+
+        # Requests from here arrive on a real socket: local open access is
+        # for this user's own processes, not for every account on loopback.
+        from . import peer_owner
+
+        _asgi3 = peer_owner.from_socket(_asgi3)
 
         self._server = uvicorn.Server(
             uvicorn.Config(

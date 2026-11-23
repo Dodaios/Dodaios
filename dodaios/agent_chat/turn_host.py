@@ -739,13 +739,13 @@ async def _read_frame(reader: asyncio.StreamReader) -> dict[str, Any] | None:
 
 def _write_state(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Created owner-only under a fresh name, then moved into place: the file
+    # carries the host's token and must never be readable in between.
     tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(data), encoding="utf-8")
-    try:
-        os.chmod(tmp, 0o600)
-    except OSError as exc:
-        # Windows keeps per-user ACLs on the data dir; chmod is a POSIX nicety.
-        logger.debug("Turn host: could not restrict the state file: {}", exc)
+    tmp.unlink(missing_ok=True)
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(data))
     os.replace(tmp, path)
 
 

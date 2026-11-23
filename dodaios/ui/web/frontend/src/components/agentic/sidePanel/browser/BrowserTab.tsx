@@ -3,7 +3,7 @@ import { AppWindow, ExternalLink, Globe, Loader2, RotateCw } from "lucide-react"
 import { fill, useT } from "@/i18n";
 import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { openExternalUrl } from "@/lib/openExternal";
-import { isLocalBrowserAddress, readBrowserInput, wordFromBrokenAddress } from "./browserAddress";
+import { browserFrameSandbox, isLocalBrowserAddress, readBrowserInput, wordFromBrokenAddress } from "./browserAddress";
 import { persistBuiltin, storedBuiltin, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { NativeBrowserPanel } from "./NativeBrowserPanel";
 import { useFrameCheck, useNativeBrowserStatus } from "./nativeBrowserApi";
@@ -225,7 +225,7 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
           src={url}
           title={t("ide_side_panel.tabs.browser")}
           data-testid="ide-browser-frame"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
+          sandbox={browserFrameSandbox(url)}
           referrerPolicy="no-referrer"
           className="min-h-0 w-full flex-1 border-0 bg-white"
         />

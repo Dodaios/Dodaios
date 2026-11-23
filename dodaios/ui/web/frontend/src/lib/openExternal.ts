@@ -16,7 +16,20 @@
  * keep working — without depending on a shell-detection flag that can be unset.
  */
 
+/**
+ * Whether `url` may be handed to `window.open` of this window.
+ *
+ * The backend bridge checks an address itself before it opens anything. The
+ * fallback tab has no such check, and addresses reach it from outside the app
+ * (a marketplace entry, a skill's homepage, a link in an answer): only web
+ * and mail addresses open there.
+ */
+export function opensInATab(url: string): boolean {
+  return /^(https?:\/\/|mailto:)/i.test(url.trim());
+}
+
 function openInThisBrowser(url: string): Window | null {
+  if (!opensInATab(url)) return null;
   try {
     return window.open(url, "_blank", "noopener,noreferrer");
   } catch {

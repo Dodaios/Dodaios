@@ -23,7 +23,38 @@ from __future__ import annotations
 
 import hmac
 import secrets
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+
+#: Characters a person may type around the digits of a phone number.
+_NUMBER_PUNCTUATION = frozenset("+ -()./")
+
+
+def normalize_caller(number: str | None) -> str:
+    """A phone number as bare E.164 (``+4930123456``), or ``""``.
+
+    ``""`` for anything that is not a plain number: a withheld caller id
+    (``anonymous``), a ``client:`` or ``sip:`` address.
+    """
+    raw = (number or "").strip()
+    if not raw or any(not (ch.isdigit() or ch in _NUMBER_PUNCTUATION) for ch in raw):
+        return ""
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if raw.startswith("00"):
+        digits = digits[2:]
+    return f"+{digits}" if digits else ""
+
+
+def caller_allowed(from_number: str | None, allowed: Iterable[str] | None) -> bool:
+    """Whether an inbound call's caller id is on the owner's list.
+
+    An empty list allows nobody. A caller id is asserted by the calling
+    network and can be forged by a determined caller, so this keeps strangers
+    and robocalls away from the assistant; it is not proof of identity.
+    """
+    caller = normalize_caller(from_number)
+    if not caller:
+        return False
+    return any(caller == normalize_caller(str(item)) for item in allowed or ())
 
 
 def generate_call_secret() -> str:
@@ -100,8 +131,10 @@ def public_wss_url(public_base_url: str, path: str) -> str:
 
 
 __all__ = [
+    "caller_allowed",
     "constant_time_equals",
     "generate_call_secret",
+    "normalize_caller",
     "public_url_for",
     "public_wss_url",
     "validate_twilio_signature",
