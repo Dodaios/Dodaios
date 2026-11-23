@@ -34,6 +34,7 @@ from starlette.routing import Match
 from starlette.types import Scope
 
 from dodaios import __version__
+from dodaios.core import module_health
 from dodaios.core.bus import EventBus, get_default_bus
 from dodaios.core.config import JarvisConfig, resolve_config_path
 from dodaios.core.events import (
@@ -1286,7 +1287,16 @@ class WebServer:
         async def health() -> dict[str, Any]:
             # ``instance`` lets the frontend badge a dev window as such
             # (``dodaios.core.instance``): "default" or "dev".
-            return {"ok": True, "version": __version__, "instance": _instance_name()}
+            # ``degraded`` names the optional modules that failed to start or
+            # load; the app answers without them (reasons: /api/diagnostics/modules).
+            from dodaios.core import module_health
+
+            return {
+                "ok": True,
+                "version": __version__,
+                "instance": _instance_name(),
+                "degraded": module_health.degraded_names(),
+            }
 
         @app.post("/api/ui/shell-painted", status_code=204, response_model=None)
         async def shell_painted() -> Response:
@@ -3068,7 +3078,8 @@ class WebServer:
         # own file data/missions.db). Recovery runs in start().
         try:
             await self._init_mission_stack()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — missions
+            module_health.report_failure("missions", exc)
             logger.opt(exception=exc).warning(
                 "MissionManager init failed — /api/missions returns 503"
             )
@@ -3079,7 +3090,8 @@ class WebServer:
         # one-shot boot sweep plus a periodic background task.
         try:
             await self._init_screenshot_retention()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — screenshot-retention
+            module_health.report_failure("screenshot-retention", exc)
             logger.opt(exception=exc).warning(
                 "Screenshot retention init failed — blobs will not be auto-pruned"
             )
@@ -3091,7 +3103,8 @@ class WebServer:
         # boot, so telemetry.flight_recorder=true logged nothing (audit #14).
         try:
             await self._init_flight_recorder()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — flight-recorder
+            module_health.report_failure("flight-recorder", exc)
             logger.opt(exception=exc).warning(
                 "Flight recorder init failed — the audit log will be inactive"
             )
@@ -3112,7 +3125,8 @@ class WebServer:
                 publish=self.bus.publish,
             )
             self.app.state.self_change = _self_change
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — self-change
+            module_health.report_failure("self-change", exc)
             logger.opt(exception=exc).warning(
                 "self-change registry init failed — self-changes are not gated this run"
             )
@@ -3131,7 +3145,8 @@ class WebServer:
                 )
                 _nights.start()
                 self.app.state.self_improvement = _nights
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — self-improvement
+                module_health.report_failure("self-improvement", exc)
                 logger.opt(exception=exc).warning(
                     "self-improvement nights not started — nothing is measured this run"
                 )
@@ -3166,7 +3181,8 @@ class WebServer:
                 _self_change.register_external_reverter(
                     lambda change: _sc_wiring.revert_build(_self_build, change)
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — self-build
+            module_health.report_failure("self-build", exc)
             logger.opt(exception=exc).warning(
                 "self-build ledger init failed — nothing will be self-built this run"
             )
@@ -3177,7 +3193,8 @@ class WebServer:
             from dodaios.memory.learning.loop import start_learning
 
             start_learning(self.cfg, self.bus)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — learning-loop
+            module_health.report_failure("learning-loop", exc)
             logger.opt(exception=exc).warning(
                 "Learning loop init failed — the assistant will not learn this run"
             )
@@ -3187,7 +3204,8 @@ class WebServer:
         # run in start() so the EventBus is guaranteed to be alive.
         try:
             self._init_session_stack()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — sessions
+            module_health.report_failure("sessions", exc)
             logger.opt(exception=exc).warning(
                 "SessionRecorder init failed — /api/sessions returns 503"
             )
@@ -3198,7 +3216,8 @@ class WebServer:
         # terminated by the CancelToken in stop().
         try:
             await self._init_task_stack()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — tasks
+            module_health.report_failure("tasks", exc)
             logger.opt(exception=exc).warning("TaskStack init failed — /api/tasks returns 503")
         _boot_mark("task_stack")
 
@@ -3206,7 +3225,8 @@ class WebServer:
         if self._skill_registry is not None:
             try:
                 self._skill_registry.start_watcher(asyncio.get_running_loop())
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — skill-watcher
+                module_health.report_failure("skill-watcher", exc)
                 logger.opt(exception=exc).warning(
                     "SkillRegistry watcher start failed — no hot-reload"
                 )
@@ -3216,7 +3236,8 @@ class WebServer:
         if self._doc_registry is not None:
             try:
                 self._doc_registry.start_watcher(asyncio.get_running_loop())
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — doc-watcher
+                module_health.report_failure("doc-watcher", exc)
                 logger.opt(exception=exc).warning(
                     "DocRegistry watcher start failed — no hot-reload"
                 )
@@ -3236,7 +3257,8 @@ class WebServer:
         if self._board_evaluator is not None:
             try:
                 self._board_evaluator.attach()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — achievements
+                module_health.report_failure("achievements", exc)
                 logger.opt(exception=exc).warning("AchievementEvaluator.attach() failed")
 
         # Level system on the bus: pays XP for finished turns, tasks and quests.
@@ -3244,7 +3266,8 @@ class WebServer:
         if progression is not None:
             try:
                 progression.attach()
-            except Exception as exc:  # noqa: BLE001 - levels are optional, the app is not
+            except Exception as exc:  # noqa: BLE001 - levels are optional, the app is not  # broad-except: module boundary — progression
+                module_health.report_failure("progression", exc)
                 logger.opt(exception=exc).warning("ProgressionService.attach() failed")
 
         # Bio scheduler — subscribes to achievement unlocks only. It starts no
@@ -3253,7 +3276,8 @@ class WebServer:
         if self._bio_scheduler is not None:
             try:
                 self._bio_scheduler.start()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — bio-scheduler
+                module_health.report_failure("bio-scheduler", exc)
                 logger.opt(exception=exc).warning("BioScheduler.start() failed")
 
         # Friends-Stack: FriendRegistry + ChannelManager. Started as a BACKGROUND
@@ -3266,7 +3290,8 @@ class WebServer:
         async def _init_channel_stack_guarded() -> None:
             try:
                 await self._init_channel_stack()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001  # broad-except: module boundary — channels
+                module_health.report_failure("channels", exc)
                 logger.opt(exception=exc).warning(
                     "ChannelStack init failed — /api/friends returns 503"
                 )
@@ -3294,14 +3319,16 @@ class WebServer:
                 start_scheduler=owns or dev_reminders,
                 desktop_reminders=owns,
             )
-        except Exception as exc:  # noqa: BLE001 — the app runs without notifications
+        except Exception as exc:  # noqa: BLE001 — the app runs without notifications  # broad-except: module boundary — notify
+            module_health.report_failure("notify", exc)
             logger.opt(exception=exc).warning("notify: not started")
 
         try:
             from dodaios.lead_triggers import wiring as trigger_wiring
 
             trigger_wiring.install(self.bus)
-        except Exception as exc:  # noqa: BLE001 — the app runs without event triggers
+        except Exception as exc:  # noqa: BLE001 — the app runs without event triggers  # broad-except: module boundary — lead-triggers
+            module_health.report_failure("lead-triggers", exc)
             logger.opt(exception=exc).warning("lead triggers: not started")
 
         try:
@@ -3309,7 +3336,8 @@ class WebServer:
 
             # What a ritual gathered after it was started by voice is said in the open call.
             ritual_said.install(self.bus)
-        except Exception as exc:  # noqa: BLE001 — rituals still start; a late result is only written
+        except Exception as exc:  # noqa: BLE001 — rituals still start; a late result is only written  # broad-except: module boundary — rituals
+            module_health.report_failure("rituals", exc)
             logger.opt(exception=exc).warning("rituals: voice not wired")
 
         # Run the deferred registry disk scans (skill + doc reload_sync) off the
