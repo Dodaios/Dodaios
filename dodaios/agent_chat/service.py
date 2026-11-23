@@ -1753,7 +1753,6 @@ class AgentChatService:
             finished_id = str((event.get("payload") or {}).get("turn_id") or "")
             if run is not None and run.turn_id == finished_id:
                 run.finished = True
-            self._announce_jarvis_turn(session_id, event)
         self._deliver_event(session_id, stored)
 
     def _deliver_event(self, session_id: str, stored: dict[str, Any]) -> None:
@@ -1800,47 +1799,6 @@ class AgentChatService:
         if details:
             new_payload["error_details"] = details
         return {**event, "payload": new_payload}
-
-    def _announce_jarvis_turn(self, session_id: str, event: dict[str, Any]) -> None:
-        """Publish ``JarvisChatTurnFinished`` for a finished turn of a Jarvis chat."""
-        bus = self._bus()
-        session = self.store.get_session(session_id)
-        if bus is None or session is None or session.surface != "jarvis":
-            return
-        payload = event.get("payload") or {}
-        status = str(payload.get("status") or "done")
-        if status == "cancelled":
-            return
-        turn_id = str(payload.get("turn_id") or "")
-        user_text = ""
-        replies: list[str] = []
-        for item in reversed(self.store.list_events(session_id, tail=80)):
-            kind = item["kind"]
-            data = item.get("payload") or {}
-            if kind == "assistant_text" and (not turn_id or data.get("turn_id") == turn_id):
-                replies.append(str(data.get("text") or ""))
-            elif kind == "user_message":
-                # What the person wrote, not the composed prompt around it.
-                user_text = shown_text(data)
-                break
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return  # no loop, no bus delivery: the chat itself already has the turn
-        from dodaios.core.events import JarvisChatTurnFinished
-
-        loop.create_task(
-            bus.publish(
-                JarvisChatTurnFinished(
-                    session_id=session_id,
-                    turn_id=turn_id,
-                    status="error" if status == "error" else "done",
-                    user_text=user_text,
-                    reply_text=" ".join(reversed(replies)).strip(),
-                    source_layer="agent_chat",
-                )
-            )
-        )
 
     # ---------------------------------------------------------------- turns
 
