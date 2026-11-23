@@ -1,0 +1,1428 @@
+[
+ {
+  "id": "society-create-agent",
+  "title": "Create a persistent team agent",
+  "method": "POST",
+  "path": "/api/society/agents",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "28a69d56d8fd32cdb3262b7fa9152c25e18064a8206f224bb1de6f13889ab5d4",
+  "params_sha256": "9051fbbcea697a28580df5649270f1efb5cc9a871c5559faa921d556a4158333",
+  "voice_aliases": {
+   "de": "7a548fc50efe609dc2f4b5208b93df6679d0a013daad4da480c5a54e55854f13",
+   "en": [
+    "create an agent for researching suppliers"
+   ],
+   "es": "263b2f6b1e0d365b9f202c6fa4e2711fcc5e639051568b7858a43162dbed7363",
+   "pt": "beb875b799a02f1d9909245fee1c291afc3ed133c0f02d27c56e861105073d21"
+  }
+ },
+ {
+  "id": "society-update-agent",
+  "title": "Update a persistent team agent",
+  "method": "PATCH",
+  "path": "/api/society/agents/{agent_id}",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "796e29453e867d87fbea0602f199cfafd7e8acf6a0a36d7f74a0e5528e770e45",
+  "params_sha256": "4ce0454dbba2548754e653d82f330caaa94df18cb7964490be05e297a3f2a7e7",
+  "voice_aliases": {
+   "de": "e07f9e7057786a0177b8dbdfeb3a7f7b012de56624391bc828b3573f36a464d9",
+   "en": [
+    "update Scout's responsibilities"
+   ],
+   "es": "08fbedc5f91509a89cbcf190773d0e72bf0a63410dc8019bda897c6218ed0bd2",
+   "pt": "d44d813de8bb9d29a5e25fbd07f3ff215752500ad957a2a6ca9d955fcf6dffc6"
+  }
+ },
+ {
+  "id": "society-capability-catalog",
+  "title": "Read the team's capability catalog",
+  "method": "GET",
+  "path": "/api/society/capabilities",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "b0b5f458177e69ba3c3abcb148ee083bddcae3a95045928c581fd52c5b980f51",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "c0e0b14a94578e268738f598d8cdba41d7f60e93eacd39b6c32dce0113b480b7",
+   "en": [
+    "which capabilities can my agents use"
+   ],
+   "es": "71365926581817e5b20e76c960705a97eb0a29fe130214d873519a55f0884394",
+   "pt": "0f9164031c573467f5b066e38e8b4601037edb106e3a9c00dbb52cffbf424a20"
+  }
+ },
+ {
+  "id": "society-agent-catalog",
+  "title": "Read available agent models",
+  "method": "GET",
+  "path": "/api/agent-chat/catalog",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "8b26958dbd763ca1f5b49ba924c6801cdca3ba0170fcf6c1eb0ee234064814ca",
+  "params_sha256": "5d53f6fd77fd0963e6f9d22a00a16075bb4168fe6e2082b28edfb7d36cf3ca57",
+  "voice_aliases": {
+   "de": "f4ad6ca7350e47269a5411e584259a898dd951948a04b253a1bb01ae5ffbf2ae",
+   "en": [
+    "which models are available for my agents"
+   ],
+   "es": "c67c089088612519bc17af76f0f548d723193313927c59d2f25bf2e6f0b059a1",
+   "pt": "4ee6c955f07fcf6bc81db573a9822e19667cd9d12d77bd737c8a6eb0e417f7de"
+  }
+ },
+ {
+  "id": "society-switch-agent-model",
+  "title": "Change one team agent's model",
+  "method": "POST",
+  "path": "/api/society/agents/{agent_id}/model",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "ea33d96d81be6daa2216978012448390831c4aa3bf2c7db488563c64aaaf96cb",
+  "params_sha256": "75927950982a16180caa498d3f73be0adffb3d491fe323e72a9fdee229c2c40f",
+  "voice_aliases": {
+   "de": "287dd69635d730efc3fd85c55f2c2bb87177ebfe8fce8da9a164cc5c55d6d378",
+   "en": [
+    "change Scout's model"
+   ],
+   "es": "f8ab9c64e2766d98166961b0a1972ac0235a36834a5b4cb834b13964f8dcceb6",
+   "pt": "97ef00ccc28a8729c6d917163ed405d17ed6619fa7b7aca0d92ca2bd94594343"
+  }
+ },
+ {
+  "id": "society-archive-agent",
+  "title": "Archive a team agent",
+  "method": "DELETE",
+  "path": "/api/society/agents/{agent_id}",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "5e799d29ad2efce81de9ff6137f7e5a9a3393dee27d6515a144d4351d1283acd",
+  "params_sha256": "cb6a1f3d05d5f5024f2131513eafc7d09d90bf1e06d9c80d0aad0add9f1e9b72",
+  "voice_aliases": {
+   "de": "f067348127fb8479dbc5701f5c24d89bca77893dc1c7002765336b8454263de1",
+   "en": [
+    "delete the agent Scout"
+   ],
+   "es": "b4a3b8c3b6b8d7f7c91d5ef80b67964f4562ede0c7a6fa3821ab572d781feb99",
+   "pt": "c7469fe89c4e7861fd0656814f075a53a21f39d82fc709f831de75d2a7dcf7e1"
+  }
+ },
+ {
+  "id": "society-list-routines",
+  "title": "List an agent's routines",
+  "method": "GET",
+  "path": "/api/society/agents/{agent_id}/routines",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "fd50611926d7fc3a9d78391c12fe9da73ce1f27826254291649bc72c620d3641",
+  "params_sha256": "cb6a1f3d05d5f5024f2131513eafc7d09d90bf1e06d9c80d0aad0add9f1e9b72",
+  "voice_aliases": {
+   "de": "0adf7ebece14a48fac07a12221971a8bf5ccefd912e4de41db32ac68fdc9e9a7",
+   "en": [
+    "which routines does Scout have"
+   ],
+   "es": "b41afe0be111d0b8f984cdefa7c8da0ea6cd9d99e91a10aeea41ca8ccbc0e08d",
+   "pt": "cfa163d361236e8a057b3ce2f6a0435aac782e45c123c7e32acf284bea782a8b"
+  }
+ },
+ {
+  "id": "society-check-readiness",
+  "title": "Check that an agent's work can run",
+  "method": "POST",
+  "path": "/api/society/agents/{agent_id}/readiness",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "80b80fb8331c7aa45a660e5f143022b7bdadb998f7b0a448a4797302080d5e85",
+  "params_sha256": "4fc330b4d400cbcb0fc4c00923d6479fdc3f48702f8bd16deda631c15e7c3027",
+  "voice_aliases": {
+   "de": "1c24a5285262fd6856c41bcdb368a0553c64c04786d33a39b67fdc09c0799feb",
+   "en": [
+    "is Scout ready to run"
+   ],
+   "es": "d8e8f20ae31a5ecfd49bd73f66a5426f79982904b7c34d043fc4e55411e1db24",
+   "pt": "dfb7e728d064f2ae2790d5c9de7afa56071a39b685938ad841469e38aa7e5a2a"
+  }
+ },
+ {
+  "id": "society-create-routine",
+  "title": "Schedule a routine for an agent",
+  "method": "POST",
+  "path": "/api/society/agents/{agent_id}/routines",
+  "path_params": [
+   "agent_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "6b6d0491f9b6c9a6444195f940f244eae72a0d74124989006b042a27ab1d728c",
+  "params_sha256": "bc81620bda99e2f1602e3056f828f9b0e342565101bfa1cbb4dedb5145f60b3d",
+  "voice_aliases": {
+   "de": "9f59d332c74d65f49dad6c9524abaeceeb74af8c23ca721a3ac25ca4e8ca9340",
+   "en": [
+    "give me a briefing every morning at eight"
+   ],
+   "es": "01a93106f6481fe88f3db580aba23fbd0955dece15b7bf4b68790814e68faac4",
+   "pt": "5431f24440e56d96f9c20dc5e9ace1fbcf4fd4d3d2ebbc19901360eba5cfe613"
+  }
+ },
+ {
+  "id": "society-update-routine",
+  "title": "Change an agent's routine",
+  "method": "PATCH",
+  "path": "/api/society/agents/{agent_id}/routines/{task_id}",
+  "path_params": [
+   "agent_id",
+   "task_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "8d1bc03b903d3df236f3f7c9ff09a508fcb3eff03cfff7734482cd6d2b858fc9",
+  "params_sha256": "54a07a6f751b8d4a2b554df20eb6269d85d513dc7c0788587ebf28173cb18305",
+  "voice_aliases": {
+   "de": "16f296ae1d11ab2a28e058e441f064fc6cb52e66e069b5fe4354cdf238291b1f",
+   "en": [
+    "move the briefing to seven"
+   ],
+   "es": "85e3880f205d26941384e50e5b267047dff79eb237d86133da8555cb71d65c3c",
+   "pt": "ca4f52515feadfeac7e34aa735128bae9226e4f417cd41f4e9df0fff9aea9d79"
+  }
+ },
+ {
+  "id": "society-routine-operation",
+  "title": "Pause, resume, delete or run a routine",
+  "method": "POST",
+  "path": "/api/society/agents/{agent_id}/routines/{task_id}/operation",
+  "path_params": [
+   "agent_id",
+   "task_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "deffc1b1c9c191b0c5364c25dcbfbd3dbf17475e3b623a7718b2359722e3e417",
+  "params_sha256": "b31c2c4084adf1ab6cece4228b32f475328852838ed6d03755a04af0da85ebf2",
+  "voice_aliases": {
+   "de": "d3906d4c2aefb4226a81f314f5aacb003b26224b4ac797552babe5452a5bf31d",
+   "en": [
+    "pause the morning briefing"
+   ],
+   "es": "9c111df63be7eee16e08ed0589c27de9e5be54ad2dd385749fcdf25cdf109b11",
+   "pt": "4c2d6c4385f57daceef34af9f4829f295773c6530f0ebe3f6a5ab00adf5b4e05"
+  }
+ },
+ {
+  "id": "ritual-list",
+  "title": "List the user's rituals",
+  "method": "GET",
+  "path": "/api/agent-chat/lead/rituals",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "chats",
+  "description_sha256": "dbe3391185480a1cc02c66235f08e7a063d404c2c67860eef5acd374d9d958ed",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "c58cc4164f4df89204269bfa63f78993612dccaa0ac3ad2cd6751e814c7a7c0d",
+   "en": [
+    "which rituals do i have"
+   ],
+   "es": "23efdda496bfe63f90cf8b920045f80a5d7936b9d48a6c1ba26ab398911a0174",
+   "pt": "e873d4d41b744ee60717ef519c1998e31019009bfbc01465854212484410d8ee"
+  }
+ },
+ {
+  "id": "ritual-create",
+  "title": "Write a ritual for the user",
+  "method": "POST",
+  "path": "/api/agent-chat/lead/rituals",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "chats",
+  "description_sha256": "1404b3106e7294e67279bdc0c27fd5193173ef59d61ad0b7c58d0c1f7c9b2be7",
+  "params_sha256": "4b7f15ca95d64da79e0e9ab778348e715f0a79be69c1671a7299f78c8eedc019",
+  "voice_aliases": {
+   "de": "c6fcd52710692ec45296e29d3f10ee7b39500e5b42369e87c59a08240cd9ec36",
+   "en": [
+    "set up a ritual for good morning"
+   ],
+   "es": "a7fc1730b8426fe4fc6dc276a031a0065ebb6b030d8b6cbcca3075b3f7fe9cee",
+   "pt": "78ccf299537dc6549657f6870fb9fc4cdc0f031cca276731eaeda87fb9ba5db8"
+  }
+ },
+ {
+  "id": "ritual-update",
+  "title": "Change a ritual",
+  "method": "PATCH",
+  "path": "/api/agent-chat/lead/rituals/{ritual_id}",
+  "path_params": [
+   "ritual_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "chats",
+  "description_sha256": "c79da66bebf76c09e05cfa39883c8fb1df487ef8683467fa7dbaf1b006b9eec6",
+  "params_sha256": "e04171e722369d434c7d219c1aea24e863d0e48419fd813020c9ff33312b8f23",
+  "voice_aliases": {
+   "de": "1224fec4b75c82782c1a5fdb32093f51c29e825c531790447d7aca98eb9f0b02",
+   "en": [
+    "take the news out of my morning ritual"
+   ],
+   "es": "19ab33a6a4f8f4d960a3fc0c29255783bdd05ca0eab2c6cdd38ab53edbb315e2",
+   "pt": "5ffccd4922377124d7c5f7c61c4a9e4491a3f1a4f99b7e5a40eedf529e9a14a1"
+  }
+ },
+ {
+  "id": "ritual-remove",
+  "title": "Remove a ritual",
+  "method": "DELETE",
+  "path": "/api/agent-chat/lead/rituals/{ritual_id}",
+  "path_params": [
+   "ritual_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "chats",
+  "description_sha256": "f2e0d74a911e7a6d78d588be8414c964250c2ee1c163c1899794a38e295d9f0a",
+  "params_sha256": "eb97e4c087932474b4878b075c39982f7f592c82d14f569eb5f51fa4ee5aeb61",
+  "voice_aliases": {
+   "de": "dcc981f81bbf9f05d4f267ccd3df6e1d52ace8fb046c78b0d0b9f3b72fb53eeb",
+   "en": [
+    "delete my morning ritual"
+   ],
+   "es": "3d8cc5d6bcdb54a38c91814947dcb3cbb183a4b6acf7d2ca811a41bdff643f16",
+   "pt": "80507d272f9533d1a3e977530423c5e9145d3ca9f5e9185e08e96dabf044d68a"
+  }
+ },
+ {
+  "id": "ritual-run",
+  "title": "Start a ritual now",
+  "method": "POST",
+  "path": "/api/agent-chat/lead/rituals/{ritual_id}/run",
+  "path_params": [
+   "ritual_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "chats",
+  "description_sha256": "bde041ce5ad6dba43f0054831f4f668c85af32deed08a527254374b6e3e0b714",
+  "params_sha256": "eb97e4c087932474b4878b075c39982f7f592c82d14f569eb5f51fa4ee5aeb61",
+  "voice_aliases": {
+   "de": "7a35ed419dcb8e6b8fef51d6a1f35b78b409b0b2227039642b7ac4f7b9cc7af5",
+   "en": [
+    "start my morning ritual"
+   ],
+   "es": "29b2a53a13b0926c07e03753ff6390d8293b3187958f75596b0b3a97728bb1fa",
+   "pt": "c04dc0b65a8135fecfe047081a3d6b465d927f103b82c4f5f9d9da2afb391992"
+  }
+ },
+ {
+  "id": "pull-requests-list",
+  "title": "List the user's open pull requests",
+  "method": "GET",
+  "path": "/api/agentic-ide/git/github/pull-requests",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "5f08f5d077f527cfd37ccbed9c4bdf85d3e7d997252dcc5a9460f0856186e4d7",
+  "params_sha256": "8396287e93d5cf67e5f910e6d4ba6ccfbc871e07c52fa7b60405872db7d62345",
+  "voice_aliases": {
+   "de": "4c6724119e4dddcf07672e9880e56a9fc65163664ae1075e1e019cc6958343b1",
+   "en": [
+    "how are my pull requests"
+   ],
+   "es": "5cdee594da3e920e8532f2d80bf9bfcb366ff9f2d5e400be83a0d19f54b31fc5",
+   "pt": "58eb3b997eab62fb3b9b64931602a246680548369a4ace1377c03e2335ab115e"
+  }
+ },
+ {
+  "id": "brain-switch",
+  "title": "Switch brain provider",
+  "method": "POST",
+  "path": "/api/brain/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "50cf30d70ff15d2868bf7d18db34f7fcad7f1839aebf428365aa0236c284ddd8",
+  "params_sha256": "646f6306425b0710f036d0f51e8bca706cb9a1eae0d353a8ba60cc128cbb602c",
+  "voice_aliases": {
+   "de": "74f37963e9a5a44230e6ebc48c4b223c5f9558b0cb0e7383e36bf94771ae16aa",
+   "en": [
+    "switch the brain provider to claude"
+   ],
+   "es": "bb4ef0412709928e9648ed9a015be03776ba99a419a4ff0092313bbeea7d800f",
+   "pt": "2a65894f9e9a7b69694b87649020a86d76a72a09fca1733c9a49f79152121ddc"
+  }
+ },
+ {
+  "id": "tts-switch",
+  "title": "Switch voice (TTS) provider",
+  "method": "POST",
+  "path": "/api/tts/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "e44d029a6f9064a8d049c9982b11bd97a3ab12510076d480dd3c884f04f82c9a",
+  "params_sha256": "4f0fdffb4146f5aeb27990420958666ae192f1ec728e6f8cba29e2824a9b1e32",
+  "voice_aliases": {
+   "de": "ffc2925ffd4228797e6fe818c9cbab3269ebdf0a3686017527522b46b07783a4",
+   "en": [
+    "switch the voice to elevenlabs"
+   ],
+   "es": "4711a7a6c73462238dbed71c876d8c313b8e8d6f713a1d018a3cb235aea55d3e",
+   "pt": "bbe35e0fb8513cda9bae9e57ee2678947a7242ce354c911c579ec32b1735d8f3"
+  }
+ },
+ {
+  "id": "stt-switch",
+  "title": "Switch speech-recognition (STT) provider",
+  "method": "POST",
+  "path": "/api/stt/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "d57a2594e0b51ff8cb1c6b0bf5ab1e4f6594593b45464735d7a48b206d3cf01f",
+  "params_sha256": "01cd04ef2250c908a0a77df5713ef857c33a8323aa8db5e2d720bdeac35f82e8",
+  "voice_aliases": {
+   "de": "8bb6eeace32316f98b581e91f63d1f2b727251f38cd8137878beed7597c211ae",
+   "en": [
+    "switch speech recognition to deepgram"
+   ],
+   "es": "a320ec26e9fae6fba204fb598db0ff8e0ffb795139374760e4022bf81af1ea24",
+   "pt": "e2525bd46a0551b73f5094f7d4ddcc9bf7cd26c49eeb3a54f3dc718ad18f0eb9"
+  }
+ },
+ {
+  "id": "realtime-switch",
+  "title": "Switch realtime voice provider",
+  "method": "POST",
+  "path": "/api/realtime/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "7356cbe37f99db360b64c5c5ced293cf5e79f32d6773173d1893d78f5ba4cb66",
+  "params_sha256": "fbfc833986c6c2606bb49fd81a74dff48952a19cc39b811a4a09d730ea753918",
+  "voice_aliases": {
+   "de": "22c95a7d413b13031fd0044017f5b22891a96789537bf38005318ca4f5893851",
+   "en": [
+    "switch the realtime model to gemini"
+   ],
+   "es": "1a0be84494ab5b31760e2b2a1771df98c881d485feeac1ed42f6bfe941c41998",
+   "pt": "7fd69d0e55288d7b2c81a2998e69567bbd6f2b8f8a4e8da0874ca45e1f713701"
+  }
+ },
+ {
+  "id": "local-realtime-models-set",
+  "title": "Configure local realtime models",
+  "method": "POST",
+  "path": "/api/providers/local-realtime/managed-server/setup",
+  "path_params": [],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "bec40224fddde88d62b9ad2837729319d8c087daf04bb0bce8efa521dc098881",
+  "params_sha256": "62c43859d42014da29cc508798f51b501cb463b6df38a738eaf37899eb367023",
+  "voice_aliases": {
+   "de": "1beb9b77a13fb6a20a1b07e545c28062efef199bac4cd6be394329d1091184cd",
+   "en": [
+    "change the local realtime models"
+   ],
+   "es": "d2b066d530214830c3bf64e6d40a10b8d12e0a1c88c7882e5222db6f247f71af",
+   "pt": "4d2f6f37d909ea755682148fe8f13e9d4c1ff81ceb72b9a706ee8fde7350e0d4"
+  }
+ },
+ {
+  "id": "computer-use-switch",
+  "title": "Switch Computer-Use provider",
+  "method": "POST",
+  "path": "/api/computer-use/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "apikeys",
+  "description_sha256": "7a8057cb0e4e9d1ba61d9f0a57298881b6ea5e41e311b7ef7477dab00504462c",
+  "params_sha256": "11c210f3b7ca5647282e850ad404dbbc20abf5719a4120d6c9b9c803adf70c5d",
+  "voice_aliases": {
+   "de": "4a05d10b5dededc5349e41b9beba0e1ee966a6f033a2bdca8f5324e227913579",
+   "en": [
+    "switch the computer use provider to gemini"
+   ],
+   "es": "2c8d4e8b59ec4c247e58678f88a7cd776ca781cb2666a83d414cb495ac8dd037",
+   "pt": "4f5232dc3cb5621bd5a290c3652fe965f71f07f40d4d672657402a4ea48831c0"
+  }
+ },
+ {
+  "id": "jarvis-agent-switch",
+  "title": "Switch mission-worker provider",
+  "method": "POST",
+  "path": "/api/jarvis-agent/switch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "26ce81c29d64a5efd7945692090efa66e626d14d425289e4655bbca000620b54",
+  "params_sha256": "11c210f3b7ca5647282e850ad404dbbc20abf5719a4120d6c9b9c803adf70c5d",
+  "voice_aliases": {
+   "de": "e6ff2a25c37422f20dab5a011b96b31ddd791eca9101df4d7514f204dddb284a",
+   "en": [
+    "switch the agent provider to openai"
+   ],
+   "es": "e6b604b764e52b37c9c1b818e54d3c517b0a984a059f14bd244a5b164696e810",
+   "pt": "c6fbe5bac7dc0f8f5c71a24b4a897d8bec30ccd4445269661821ce1398c31c63"
+  }
+ },
+ {
+  "id": "providers-list",
+  "title": "List providers",
+  "method": "GET",
+  "path": "/api/providers",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "apikeys",
+  "description_sha256": "34070ae7435d3dba04171c1ec0741dd4bdaab10dde852c8022c00d090c965287",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "a05ea4621156037e3241ce1c5ec5fa891c6caae352a26b8b98a01d08505f32ba",
+   "en": [
+    "which providers are configured"
+   ],
+   "es": "36b724e4d834dd3f1dbe2a52489b8b7eae901482255f05cbbae5c0fcc5944a26",
+   "pt": "9abbf0ba7fee3fa9b8e1aeef36d72a1b66cce5b5561dfbd6dfa1b33ceea9ae9b"
+  }
+ },
+ {
+  "id": "provider-test",
+  "title": "Test a provider",
+  "method": "POST",
+  "path": "/api/providers/{provider_id}/test",
+  "path_params": [
+   "provider_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "apikeys",
+  "description_sha256": "593dc31149251cf01af44125cfd879f7f7dc5d078a57bf589f1d905b4170e28d",
+  "params_sha256": "fc72efd0dde137a36486aa040d84a412434509048f5c1cbbf81de41e45011af8",
+  "voice_aliases": {
+   "de": "d12fff77c55857e67e57c2a8a3d297aface6766705573648779301ca7aff856b",
+   "en": [
+    "test the openai provider"
+   ],
+   "es": "5cb7c05c9ffca84b4a6637a116ec4cad3513fd99033e7a8239146023dd11f20e",
+   "pt": "9c84acd0875d1d6652a05b016cb2467e274c69706ed072d7eb7c642db1eb8128"
+  }
+ },
+ {
+  "id": "reply-language-set",
+  "title": "Set reply language",
+  "method": "PUT",
+  "path": "/api/settings/reply-language",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "languages",
+  "description_sha256": "e52723cb82b41a486b090d7efcdfe9ea4d17a87b3ba982020d07085a9a2f7a29",
+  "params_sha256": "b01c60d288f4c545d4f2eb357d1bc39131b8bc17b03b27a91efee22aa0f03d5c",
+  "voice_aliases": {
+   "de": "1f2f5abdd45e952dd08e105d7172517372079bd9295a6646b61acc197f40d46f",
+   "en": [
+    "answer in german from now on"
+   ],
+   "es": "8a5e3dd5a20a9c90c5e8823a158aad9a62c35168b3fad09fa7523a2eca1da28c",
+   "pt": "09019710f4fd1a0d2f1d22a536d0b431be2bd21ed354d5691e452709366334e7"
+  }
+ },
+ {
+  "id": "voice-mode-set",
+  "title": "Set voice mode (pipeline / realtime)",
+  "method": "PUT",
+  "path": "/api/settings/voice-mode",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "c6f64f390b541a225b77d7daaeb528e0f7e80027ba1aa567900c3d5f996b8bad",
+  "params_sha256": "554ec6910aba9bdaa9dd4694707d6705864c0fadd481e8f793ea9002033c51c1",
+  "voice_aliases": {
+   "de": "56640854bb28d895c05e0464b8ccf59f792ff950447c5d21162b92a4abe71472",
+   "en": [
+    "switch to realtime mode"
+   ],
+   "es": "cda356a2cab8eb5bb843d4704e496c3d9c33276f5049ccf8b66367e7f411a322",
+   "pt": "b5ddcc43ef6777aa5ddf08a7f1a6b7b1c0f35bb8e12acc3ffb454b0175525042"
+  }
+ },
+ {
+  "id": "wake-word-get",
+  "title": "Show wake word",
+  "method": "GET",
+  "path": "/api/settings/wake-word",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "settings",
+  "description_sha256": "fcf1a48c4f8421c47c61aaf10c826990e4d21018ba632bbcd150275f33db6bed",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "b5b2a2c1c611f55e404cc5364a96446b55c62d1e2197073513f17682d60af66c",
+   "en": [
+    "what is my wake word"
+   ],
+   "es": "f94ebf675a0882f5bc3102f206d3866eb731ff3825e15d2e3c58e50e9ffe7a95",
+   "pt": "9110105a64e9231528d6208e67852f3a660cc53696b3479ab12044448da5c8d6"
+  }
+ },
+ {
+  "id": "wake-word-set",
+  "title": "Change wake word",
+  "method": "PUT",
+  "path": "/api/settings/wake-word",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "0e89a64d68ce28f3f01a1a1a7a3f4ca7c1a690c55ab15ae7128dd75a00add826",
+  "params_sha256": "43f8c67f0d44f263a64d2007fa8eac94bd63f92d120f581095a2f15eda0c877d",
+  "voice_aliases": {
+   "de": "23ab360cac685f5a846d440ea101edbf65348fd2fa7bcb63cbd7a1399dd1856a",
+   "en": [
+    "change my wake word to nova"
+   ],
+   "es": "a0b30fe1e109886d159f72ec99eb98a9040c488ef19aa394779523f2e7588072",
+   "pt": "b2260b0c44db76b395fadf8f5eed3c73ceefa381468d43370032a5dee29dd1cb"
+  }
+ },
+ {
+  "id": "tts-volume-set",
+  "title": "Set voice volume",
+  "method": "PUT",
+  "path": "/api/settings/tts-volume",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "08f66a458b13e61329435b338e929677d7d68cdb9755ac0b0a0482628411a672",
+  "params_sha256": "34ae9bf7e101e7d439f5c686f49359821fed06f5553f404b038ed0ca7d74154a",
+  "voice_aliases": {
+   "de": "17b825c61bd494e28f078b9534b1d7e037160357b11c6f36f0178a53e10bc84e",
+   "en": [
+    "set the voice volume to 50 percent"
+   ],
+   "es": "f8dd622670dc48125725b4478ee5d11e5ddca4cfe54bc5e2b807993d94d402ec",
+   "pt": "ad934371feac6f5b8b5ce59fc2d4940af01c087d7de8b3087f54331b493285b9"
+  }
+ },
+ {
+  "id": "design-list",
+  "title": "List designs",
+  "method": "GET",
+  "path": "/api/designs",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "designs",
+  "description_sha256": "a21fd3cbc6390225819df448ac154b69dd28db7e188ae825cd1e9ba0c38fcd1c",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "d7bf104c89518e0a2b84dcec844f4d1d1036d57be116e5139cd62c29f2bcd614",
+   "en": [
+    "which designs do i have"
+   ],
+   "es": "0a0ede00a65de6f6e0875c35a8a6b91b74b9a65ec7cc24e88bd940942cc2a0fb",
+   "pt": "a65a580ac790da34f7cee466d1590fbb50f80950c051e913d0a7f7532f0da4c5"
+  }
+ },
+ {
+  "id": "design-save",
+  "title": "Make or change a design",
+  "method": "POST",
+  "path": "/api/designs",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "designs",
+  "description_sha256": "ccffdf3ab60063fa9e3f66757737ddce9cb5a00d34a259c243785c74b102281e",
+  "params_sha256": "6e3233b7a196daabc7a38d22ae3278f15d1133188adf2cab4cc3bbd4c72905d6",
+  "voice_aliases": {
+   "de": "555189fb73280b637bae8da41067a40c6b3ee2bb3487975d89042402dcb6bcf3",
+   "en": [
+    "make me a dark blue design",
+    "make the app green"
+   ],
+   "es": "c50bb62a2f3e550f963c5285ef4827aab09fff0cb4eaa81e2c622ca8e1890cc2",
+   "pt": "bb30a49b875620d282611121cc59d6749054326eb13435cb63ad833aee0ab14f"
+  }
+ },
+ {
+  "id": "design-apply",
+  "title": "Switch design",
+  "method": "PUT",
+  "path": "/api/designs/active",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "designs",
+  "description_sha256": "122c4862f53e66ecf383d25e886112d8ab2bdc430d55759591c01e8a8ce95327",
+  "params_sha256": "0fa160f8f6e011041c0a19f7dba06c70d19532ccdf697ab64dd7eda292ec9b6c",
+  "voice_aliases": {
+   "de": "da410a8e57db48a56a4a971e495997e69a1bb5eef5f8be7da2cb67625d53c4ff",
+   "en": [
+    "switch to the deep sea design"
+   ],
+   "es": "39de90fc3fb8b57d17c59798a6a8eefeb7603afefa7ffb7d8c13da09c3717597",
+   "pt": "fb3430863ae17e87f7e77bdff234a1d4c74c214d849c21dcb271979e08053915"
+  }
+ },
+ {
+  "id": "design-reset",
+  "title": "Back to the standard look",
+  "method": "POST",
+  "path": "/api/designs/reset",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "designs",
+  "description_sha256": "a19239c12aea4e49c91e4d7cae1c4a76081953305abb8babda24de95f292cc37",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "66ece43920b0d572c23a009bcb34572e0211f7c76759855c12aa45eaba096a9b",
+   "en": [
+    "reset the design"
+   ],
+   "es": "21a1fe73e54f128ca97443bd8200b68974ab880c12b4124652ac579e3e31dc20",
+   "pt": "7630f39c09dc0635615dc81a7af6ad93cf61104f52f496c0a263a410955871d5"
+  }
+ },
+ {
+  "id": "design-delete",
+  "title": "Delete a design",
+  "method": "DELETE",
+  "path": "/api/designs/{design_id}",
+  "path_params": [
+   "design_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "designs",
+  "description_sha256": "cacd2742b6b3dd7170be75bad1a7a147c13f8675ab6ae62e130be7183e0451e6",
+  "params_sha256": "9ebab28677357cf4465a6235f2df588e089d7b4ce614bb2fe60d050664edd6ca",
+  "voice_aliases": {
+   "de": "30ca0ea3c5bdde6791beabf07dec328132e07093292edcf98771a2c33029369d",
+   "en": [
+    "delete my design"
+   ],
+   "es": "42146d9cc1094d7127368660eb37001ee887ee19f78c60b13f933b9cca9e6b18",
+   "pt": "8d4c23f794086fac8b94c87d0d1d95218111b0065c87906dbe3761e80f1d3867"
+  }
+ },
+ {
+  "id": "audio-devices-list",
+  "title": "List audio devices",
+  "method": "GET",
+  "path": "/api/settings/audio-devices",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "settings",
+  "description_sha256": "0ce5a2e18aa4121a38ae1f65854671534941e35a9d1ea7513d8c386d8ceb6ae8",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "907de24e829340d83b222fe795d8363332c898349b8cad6e1616f3d3f33113e8",
+   "en": [
+    "list my audio devices"
+   ],
+   "es": "56027eec42ccae74f0880d6fcb1e0ce5ef456238f723de16484d43e3049ddbed",
+   "pt": "4801dbd2d80ba905a93fb69d511cafe82783587cfc375f7efd9572042508d188"
+  }
+ },
+ {
+  "id": "session-latest-turn",
+  "title": "Show latest voice turn",
+  "method": "GET",
+  "path": "/api/sessions/latest-turn",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "sessions",
+  "description_sha256": "654ca7ea64c2f0f761da60e1cba2c8d0bd9bf42a3521c5d7a7726c60d2ab0555",
+  "params_sha256": "a7c6fb46076b3216a7cb2bb5b1c1d2f55ae8984a7a7f0060076ae1f277db3c8c",
+  "voice_aliases": {
+   "de": "911dca5a25e2ce691dd3efb70db419605e1c682de2ae08a9b9d9bd373ca5ba76",
+   "en": [
+    "read the latest transcript"
+   ],
+   "es": "de05f85b883d76f64436ed0332bc7d304118463458dece9ef1b73fd8b3c468ca",
+   "pt": "f5001a1be4dfa7b24ac5f8fceb6cf3c96fe1f0fa4f6c8786591a1893296d09df"
+  }
+ },
+ {
+  "id": "tools-list",
+  "title": "List effective tools",
+  "method": "GET",
+  "path": "/api/tools/brief",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "settings",
+  "description_sha256": "de43fdc4393bf53b13d0d8a9587688fded1a935d4d2eb28e6ab50b7a973fa745",
+  "params_sha256": "9e2fcd061b033258d31fc0f42563ff024009ee9307c7cb2bb3f9911422010efb",
+  "voice_aliases": {
+   "de": "3d7335967897d6f080a635301646498dbb7354e06152bb002bb9dddf6928ec25",
+   "en": [
+    "list the connected tools mcps and clis"
+   ],
+   "es": "fc1504285d7a81f4d0911111e652eeb129fb48db509919c5be6cebd8f6f3974b",
+   "pt": "7d1a7f06814a95c817e2fcb76ae7b8538d2465dd717717270c3c6086f17bda8b"
+  }
+ },
+ {
+  "id": "marketplace-browse",
+  "title": "Browse the marketplace",
+  "method": "GET",
+  "path": "/api/marketplace/community",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "plugins",
+  "description_sha256": "88d2074394948149e1ec39954025bfb756a166c9b0bc1689dc10d5e7531d0187",
+  "params_sha256": "9e2fcd061b033258d31fc0f42563ff024009ee9307c7cb2bb3f9911422010efb",
+  "voice_aliases": {
+   "de": "6b8147cc729092cdfadab919f7f6c92a6b57ed4507867473be1b0513c8bd346a",
+   "en": [
+    "what is in the marketplace",
+    "which skills can i install"
+   ],
+   "es": "2e06accf7d536e049f02eee9c65cf3402191aa805d09bb9773dff0b27e7222eb",
+   "pt": "ec39827b87b577e18ce3f28c2aa2d95d80a18513f688906a69ed7e2b0b783491"
+  }
+ },
+ {
+  "id": "marketplace-install",
+  "title": "Install from the marketplace",
+  "method": "POST",
+  "path": "/api/marketplace/community/install/{item_id}",
+  "path_params": [
+   "item_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "plugins",
+  "description_sha256": "935b9f445830e18cb5c1a0e8733fe76e5878691a0b4587f87d456a43f38540f4",
+  "params_sha256": "f165499b2a9ae8d0def1ae515b549874eb0d1e1a211c8685f93cd8dddfb8255c",
+  "voice_aliases": {
+   "de": "9a2c238b5d78905435f9b8c0f449b050b85a9723234402b886a3dcd44a273d20",
+   "en": [
+    "install that skill",
+    "install that plugin from the marketplace"
+   ],
+   "es": "aa646f9e92d1392bbd78080a51a486b8beba94ed4a4397e35ce23e74890ca440",
+   "pt": "0f80686ccb560727c6c20708be3306f93f6cae906c5d44583b5c42eaa094823d"
+  }
+ },
+ {
+  "id": "marketplace-remove",
+  "title": "Remove a marketplace entry",
+  "method": "DELETE",
+  "path": "/api/marketplace/community/install/{item_id}",
+  "path_params": [
+   "item_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "plugins",
+  "description_sha256": "38e5f17d6b5061671e87833487cdbf5883dd4428a560c6bbba5e6aa045eb5935",
+  "params_sha256": "d5890af5a8fe92886e77fbee03bce7c66cc4bc2a53e059569d6962bb722a6eb0",
+  "voice_aliases": {
+   "de": "8864254b86ccab63faebf62cefae5c726419b0d64581f0b231f9fd736226b134",
+   "en": [
+    "remove that marketplace skill",
+    "uninstall that marketplace plugin"
+   ],
+   "es": "a6479961c8d284570cffbb0e0e2856cdc438680616771059c8d8f604e207b7bf",
+   "pt": "967a3617b9b3cfb20cb14293d8bbf41012ab54a5ec2a965b02a31c27839add0a"
+  }
+ },
+ {
+  "id": "dictation-start",
+  "title": "Start dictation",
+  "method": "POST",
+  "path": "/api/dictation/start",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "dictation",
+  "description_sha256": "a96d3340132e6aeb1002452573661a22b906a60c92b2a67176df8b3df50f15e3",
+  "params_sha256": "c5806a5ff585498d87cde12861e9d7af27850ca8872587ec4abd18fa1befd6e1",
+  "voice_aliases": {
+   "de": "2eed45af81a2bd0a0cbabd6dbacfbf5859313ce7aa25afd8a866aab4709bd7f2",
+   "en": [
+    "start dictation",
+    "turn on dictation mode"
+   ],
+   "es": "a5475f2540416e073a14ad8fd37dde039b648f14651a89e621f34b401690a216",
+   "pt": "b1ad551b4167b6ad4e0793e05e7c0cedf6806353239b741fc3f7750efc648b4d"
+  }
+ },
+ {
+  "id": "dictation-stop",
+  "title": "Stop dictation",
+  "method": "POST",
+  "path": "/api/dictation/stop",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "dictation",
+  "description_sha256": "2beaea284db4d126e6e736bd0baa5a9fbda5f2f519c944903a8a1769a59662a5",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "339c577ecb247aae098758f9d7b9ac2dbbb550f57919407024cf3f5ca90862b0",
+   "en": [
+    "stop dictation",
+    "turn off dictation mode"
+   ],
+   "es": "6819b3dfa8f5c528b55eeebcf7b78447962c22b802f87b75fcaeead9213a5063",
+   "pt": "fd82d670a9bdfb9c9efff6ea69d931995ddd1eca86b9366106ab27ad56656e8a"
+  }
+ },
+ {
+  "id": "app-restart",
+  "title": "Restart Dodaios",
+  "method": "POST",
+  "path": "/api/settings/restart-app",
+  "path_params": [],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "7201246cde61eea840f1ea0a2f5ba5651d9dd1cb384150a9f584be97bd7281f1",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "785f32bf914a7b0730bbeb476d8baa644829fd37feeb397df0759563ccdac867",
+   "en": [
+    "restart jarvis"
+   ],
+   "es": "0c39c6e8af809cd9dbaa53e79d5b89bc8eac1748c28d5bfe858bedd40522d5e3",
+   "pt": "c416324c89a88dae4d544e4d32ce0b699fc2e494b826feef41ade7266422ce9b"
+  }
+ },
+ {
+  "id": "missions-list",
+  "title": "List missions",
+  "method": "GET",
+  "path": "/api/missions",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "agents",
+  "description_sha256": "b680930b413b978d2e95ca34faaa353d152e886cf643f60e6e68d317c7b16202",
+  "params_sha256": "632dae5c0117409228a539db433ab352dc8c4d258ee9b337967cd545fad5246b",
+  "voice_aliases": {
+   "de": "e96bdc8ba18a377f82d1c24c13731d2dc507029a9fb24bea4370e9b0fbe7fb10",
+   "en": [
+    "show me the missions"
+   ],
+   "es": "5e67a78489fa3b9b77128b29633a5cbe5cdb603145aa2b11b61b946e84f0a994",
+   "pt": "6090242454396f683a1a93f9c3da7748903911391e50ee7e1143cd9e30ffa2fb"
+  }
+ },
+ {
+  "id": "mission-result",
+  "title": "Read a mission result",
+  "method": "GET",
+  "path": "/api/missions/{mission_id}/result",
+  "path_params": [
+   "mission_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "agents",
+  "description_sha256": "c7c46c283da4b8e30477c70d6fff8a0331a19cb3a522d6a06a69b7fe63f1e63b",
+  "params_sha256": "27b9fa4f2dd4342f148ead116fcd1f1f3b0336517b4dce83549fc884848165a0",
+  "voice_aliases": {
+   "de": "359593f734f0751db1869566a5dd7587304a11fb302679214981471cb064026c",
+   "en": [
+    "what did the mission find"
+   ],
+   "es": "4c9e0b6d1d1c0c8acf3a15d3509ccc9b235156541adfd9214de06684f63af05b",
+   "pt": "a494f234006e3a7baef8949669fcc7ef715b6348888e8a07064641787e879a49"
+  }
+ },
+ {
+  "id": "mission-cancel",
+  "title": "Cancel a mission",
+  "method": "POST",
+  "path": "/api/missions/{mission_id}/cancel",
+  "path_params": [
+   "mission_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "e6fe584ca826e8556e6e5032da6f3454e48df6f3fe8f514d59b6988b760f663a",
+  "params_sha256": "237def2453b46edca8968b8d589f92f9453fcd711b59a239c03557928ec018f4",
+  "voice_aliases": {
+   "de": "3ce1e8698bcf0aebb9158443c21a1a88b8b0daaffe2a5889d28e56fd37343960",
+   "en": [
+    "cancel the mission"
+   ],
+   "es": "d5a91d2009a75dcab1dc473e3e7b8efd58e37098f830302f5ffa8ee6908f1b23",
+   "pt": "421fda90edcbe2ec8e2283248d7367826a6d6188c831e5a1d4fda65aad09cdc4"
+  }
+ },
+ {
+  "id": "mission-amend",
+  "title": "Correct a running mission",
+  "method": "POST",
+  "path": "/api/missions/{mission_id}/amend",
+  "path_params": [
+   "mission_id"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "1481d0317f3062be86c72124eecd24004b1f213cefec3c793b11445a4d4b78e1",
+  "params_sha256": "a546d95dd47da6017ec40cd12a03efe1dda05e30e91506d8e34f8e9f95699acd",
+  "voice_aliases": {
+   "de": "c93a41dde1d8c089b8e3b881636c122b24b9bee692d2b3f6f67e1fb272091ea6",
+   "en": [
+    "tell the mission to do it differently"
+   ],
+   "es": "b4fbb96b971a6326fe815d25cece5b5ef671774527c709949ab217d900c80c9d",
+   "pt": "846a7928ccfe2671ee7e8e0ce5d0a6ddcd2fdf55ee33a560930e0666865fe716"
+  }
+ },
+ {
+  "id": "tasks-list",
+  "title": "List tasks",
+  "method": "GET",
+  "path": "/api/tasks",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": true,
+  "ui_section": "agents",
+  "description_sha256": "33f177db19e28b1eacdbb39b511161aa0411247c1cffd6dccf07fe7f1d26a7c1",
+  "params_sha256": "d51c0499c7cb80df2fc81f705e481592d969abf86ba7bda51e19644c4a0eeb91",
+  "voice_aliases": {
+   "de": "0a92e5b153321e0e822061da453344cf374f3be95a5854e372c0a3c014c58ac5",
+   "en": [
+    "show me my tasks"
+   ],
+   "es": "e1c7858be543f0259f9beefdd96cb6a472645ac8cf147940bb19637a82f50a5a",
+   "pt": "5f1cadf269e7229b1843f61515bbd12d959d3563200abfd98b28c297f4560e33"
+  }
+ },
+ {
+  "id": "task-cancel",
+  "title": "Cancel a task",
+  "method": "POST",
+  "path": "/api/tasks/{task_id}/cancel",
+  "path_params": [
+   "task_id"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "agents",
+  "description_sha256": "bc5a814c62fdaf2187b9ecbbd4daf39a32592bf2d51e193ed908c238e886fad1",
+  "params_sha256": "49dd5836e0377bcba82398b266853b1d1e98903c5d002a94cea5a2caaf84ecea",
+  "voice_aliases": {
+   "de": "8b686c5c0f7330173c6f3bce21844e3077423dd01ca739789e9c1d59a0e77238",
+   "en": [
+    "cancel the task"
+   ],
+   "es": "c6aa87ab926b0c01b6a2c7de4e416d006aadab4b593c1cbb8a25e5daffe66583",
+   "pt": "3baea1d392d86ff5210804796ab2a732438c2cf5a15365157e07ea4e23d22f5b"
+  }
+ },
+ {
+  "id": "skills-list",
+  "title": "List installed skills",
+  "method": "GET",
+  "path": "/api/skills/brief",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "skills",
+  "description_sha256": "2965c212778b7f1be221c732d93ac408430b62a74cf33f9eda4f28cb9fa1d240",
+  "params_sha256": "9e2fcd061b033258d31fc0f42563ff024009ee9307c7cb2bb3f9911422010efb",
+  "voice_aliases": {
+   "de": "292e76f98eacc53ca9b25847e254b66be4c074f53e8b1bea3fa5611fbbc8a9dc",
+   "en": [
+    "which skills do i have",
+    "show me my skills"
+   ],
+   "es": "0e1677f0d69bc19c8ae574f80773021e7c90c32f397894838232d18cc23d7119",
+   "pt": "6de0ed5fce6c89c722675043e0a6a6a00f8b11ff6ec7f745be51a9c0b2a990c4"
+  }
+ },
+ {
+  "id": "skill-enable",
+  "title": "Enable a skill",
+  "method": "POST",
+  "path": "/api/skills/{name}/enable",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "skills",
+  "description_sha256": "0279547d7a8ce54e6bcbd374651695e2de91d7fcecbbc6ee118983e86f1bd2a7",
+  "params_sha256": "361386a7d0b3232d388e4a298a7b5149b15e11d172df26e1f9a18b21062e74dd",
+  "voice_aliases": {
+   "de": "6ad23fed4bd53337ab10f8bed28cb0c4c627b3fd42aafb54b7e4051f5a6a858c",
+   "en": [
+    "enable the skill",
+    "switch the skill on"
+   ],
+   "es": "da33727c4c87ac8ed1b54bffe7a02292843ffe4f7f3fe6dd447e69168375f606",
+   "pt": "eb7d5dfaa0e7e0d91e5bed6c651feabe8c691fb3809dcd72db055231db35ef93"
+  }
+ },
+ {
+  "id": "skill-disable",
+  "title": "Disable a skill",
+  "method": "POST",
+  "path": "/api/skills/{name}/disable",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "skills",
+  "description_sha256": "8a1369d05e6de837697d42a885a36822d03fcf488a9a37202078869e5a1f4516",
+  "params_sha256": "3e6e6bc99cc676da73a86027fd9e10cf4b97a9c836e112ed6a030c81fc220024",
+  "voice_aliases": {
+   "de": "886b72d669a219bdc1413f3b96d200769ad1bc1eeab8a78994698925fdd99563",
+   "en": [
+    "disable the skill",
+    "switch the skill off"
+   ],
+   "es": "e2e51e15b7bfdaf26fff4e4cbce9bb1612e557957961fa676e808540a78afe66",
+   "pt": "381484c6f0207161e2aceb2c8f9adb52e03c4c3661101e9e0762b949603933e0"
+  }
+ },
+ {
+  "id": "skill-delete",
+  "title": "Delete a skill",
+  "method": "DELETE",
+  "path": "/api/skills/{name}",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "skills",
+  "description_sha256": "ab81992e447956d409c5bd2bac7da40ad40ea761e724513a41b6a9de0ab039fe",
+  "params_sha256": "58e3b905fef46cabc64e9699425ec10458e144452f408932e1efdb3c80bec0b2",
+  "voice_aliases": {
+   "de": "d7ae79eb8f336a50677219b1b3c0502d1b3f49330fe7899f5a7a10517eef10ea",
+   "en": [
+    "delete the skill"
+   ],
+   "es": "3d407a0994fb9e53d69c5540372a17c5c1d7b85a6193d6d120e3779e0b704b34",
+   "pt": "658af754e5cddfd3d539b5aa6c42d8652371a439733ffcf17a39aa7724469d73"
+  }
+ },
+ {
+  "id": "agent-briefs-get",
+  "title": "Show agent brief wishes",
+  "method": "GET",
+  "path": "/api/settings/agent-briefs",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "fda802000f7f7ff4f70216204cff54e7f29ca9971ddc5e50b9f862f7c54b242d",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "8e34d25f433afc1250d3d8d2156f3271f9653799099442d1d2bcc7626ec825fe",
+   "en": [
+    "how do you brief my agents"
+   ],
+   "es": "79e65fce117652cb821f8414b8c3098c62568fd6fa3edb6982cc6ba676c6f748",
+   "pt": "bfce6f80d8905e8fc5e74162893c7ee5637746fd62b7b3c813778dc9d14df1cf"
+  }
+ },
+ {
+  "id": "agent-briefs-set",
+  "title": "Set agent brief wishes",
+  "method": "PUT",
+  "path": "/api/settings/agent-briefs",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "3297b2407d51a901ea8c9fd876df7c70da6e7100c4a68d32872d0d8e4d6c5e76",
+  "params_sha256": "32859ec6a447b0cfebe65acbc9ebc8bd14a60579bcc969497a5b317016a6d81b",
+  "voice_aliases": {
+   "de": "2f7dc930296a332bf4db1491127e9afc5f0b7a63e8e54f742eaaec43784f4413",
+   "en": [
+    "let agents merge on their own",
+    "i want to approve every pr myself"
+   ],
+   "es": "592c1101c8988e11dafaedfa0724a0630385e848bf78f05a76183cf33d5a4597",
+   "pt": "483387992a0f28039013aad0e95315c6a0aff7e4de5a21541f7659e42b5d8e63"
+  }
+ },
+ {
+  "id": "agent-briefs-forget-word",
+  "title": "Forget a learned word",
+  "method": "POST",
+  "path": "/api/settings/agent-briefs/glossary/unlearn",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "settings",
+  "description_sha256": "347f48495f56f009e969a83c1ab688edc1251b584618caddd410f8bbe66a160e",
+  "params_sha256": "4d41dbb9a65eec5d3a5edc803844fd1308f89b945ef910a4376e555d3fac427c",
+  "voice_aliases": {
+   "de": "ff22de8558f60a3a3283d556ef89025759fcb8b95727093176647dfd6f95d70e",
+   "en": [
+    "forget what that word means"
+   ],
+   "es": "bdc048db2d08ff6189cc1812756aa8d107c4718655f603161b8cc29c57be9e63",
+   "pt": "f4d0575c932b3a3e53eeeac4ec54fcfd93001bc3f19fcc796b1783befc66d13c"
+  }
+ },
+ {
+  "id": "agentic-ide-status",
+  "title": "Agentic IDE status",
+  "method": "GET",
+  "path": "/api/agentic-ide/state/brief",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "3d388ef2036f01055f2b7454ab8075d9683ee836dd7d6ae1db90b3a0ee35a476",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "ebd6aa02cb79eb48e20e7da0b04c3608c2f7670851cd982fef39f3e2b54d39b6",
+   "en": [
+    "what is running in the agentic ide"
+   ],
+   "es": "d634f876dabcffa15ba3e26bc3f15c79fd186188157781a99178ecd88b88c91a",
+   "pt": "b4a77d3f6a5c28905467e70a5e9d50673cf1ae223229c94c8df5a7532cd8314d"
+  }
+ },
+ {
+  "id": "agentic-ide-terminal-report",
+  "title": "Report on one Agentic-IDE terminal",
+  "method": "GET",
+  "path": "/api/agentic-ide/terminals/{name}/report",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "2794ddba7d6829b1169793fe23745f266261dfa5c264a3d107f16b4e2ab41f62",
+  "params_sha256": "d5729e8816037916efd4f888190e18e2681717804df232892e1a4cdced911c51",
+  "voice_aliases": {
+   "de": "20634feb53bd1eb54dde9bbc279246f62d0869adb30f963ad4ca32ac261fac3d",
+   "en": [
+    "what is mika doing"
+   ],
+   "es": "62c997de4eb1ae9dde0542119f60658b345c6a09e3595210741073febd90d917",
+   "pt": "51ea25d91bcc2372fd0ad48d9c9ca60aea8214b9384a845de8a0b68c2c14c9fe"
+  }
+ },
+ {
+  "id": "agentic-ide-prompt",
+  "title": "Prompt an Agentic-IDE terminal",
+  "method": "POST",
+  "path": "/api/agentic-ide/terminals/{name}/prompt",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "2ae8e94b6bd24d7ded44d1bcdc6ddcc5ee4e23c55065f886ab8e481db686c77a",
+  "params_sha256": "2c4d72e8a7b44ba2322a1865d7103b63a48f4d2bd250be1519588fc4549debf1",
+  "voice_aliases": {
+   "de": "aec4fb983d0f96e4561059e56a6a7c04618452e0f20c6ff57b17524ade135055",
+   "en": [
+    "tell mika to run the tests"
+   ],
+   "es": "d932a0c0729ca9fed025d52523da0419b6f1daed2f5ce55446633c85de2ff3ff",
+   "pt": "88d83c05616f233ad8db8f0db2f95305306db12ef95961487e8091f25b081496"
+  }
+ },
+ {
+  "id": "agentic-ide-fanout",
+  "title": "Open and brief Agentic-IDE terminals in one step",
+  "method": "POST",
+  "path": "/api/agentic-ide/fanout",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "f3ac8df41be7f5aa87dda44bccffe54791a265228eae1f6951217acba454dfb7",
+  "params_sha256": "5210f8d508d01fa2c08bfefe2f71f9e9d64dc6ee3cdd13a10f005ec9a432d8d2",
+  "voice_aliases": {
+   "de": "0bc1e8b046af052969a382241a140a9feae315057ddde50e3b030a77f56618c3",
+   "en": [
+    "open a terminal and have it fix the tests"
+   ],
+   "es": "b404f81112a14f823b9ce55bdd38a302c5c73069d2113572ed30bbcf09fe83a9",
+   "pt": "dc93996ccf73ff02392b8903b250da44ba213fd9977d06909cf6e9929800fc6b"
+  }
+ },
+ {
+  "id": "agentic-ide-spawn-terminals",
+  "title": "Open more Agentic-IDE terminals",
+  "method": "POST",
+  "path": "/api/agentic-ide/terminals/batch",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "19f9a263cb570e6669d9a81834727f883c9263ea94b2e0edfb950b0188524cde",
+  "params_sha256": "4e25faace212e273a5f10e49174514647fff0b53517cc69981cf147d4a86aa03",
+  "voice_aliases": {
+   "de": "88ecfe310a75764ccc43e159afd64e26fd35c0c7cbe637371cbdb4c941870837",
+   "en": [
+    "spawn five new claude code terminals"
+   ],
+   "es": "d55e842b7bf2a0f56e47f986c210eb28170e26bec40eeb707c08340eaa702495",
+   "pt": "d6f9cd7b9e58d8ab40ea64c70d03664d0be07dedb651941de6676748e656515f"
+  }
+ },
+ {
+  "id": "agentic-ide-rename-terminal",
+  "title": "Rename an Agentic-IDE terminal",
+  "method": "PATCH",
+  "path": "/api/agentic-ide/terminals/{terminal}",
+  "path_params": [
+   "terminal"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "a63123989517b704466532f724feac07595ca93d61928be95a4ff1eca5f49a2b",
+  "params_sha256": "161f83f98ef4c5c5a15a32ad6fddf61900a4d75f89bb43e56ff9270da9c9e34f",
+  "voice_aliases": {
+   "de": "7b9262302a96b3ff39db52e57376b1aaf431e289fa43749b21d87cf697b29d31",
+   "en": [
+    "rename t1 to frontend"
+   ],
+   "es": "419ae4e38714a7eab206b51e9e2cd0e4f8b5da361072af7ebcafd344cf7d3a39",
+   "pt": "d58b40139c0521b3ce06847db354d1796c9b49fbad87ba01abf8270f4df54545"
+  }
+ },
+ {
+  "id": "agentic-ide-move-terminal",
+  "title": "Move an Agentic-IDE terminal in the grid",
+  "method": "POST",
+  "path": "/api/agentic-ide/terminals/{name}/move",
+  "path_params": [
+   "name"
+  ],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "d90bd52fe6aaaa4ea386d46152ac7cfc752bf6826fe29fbd93d19c67cb4eee77",
+  "params_sha256": "4a21a89101beeb103027977bca3ae133aabcdf1ab0558b12b9f4f6926747c445",
+  "voice_aliases": {
+   "de": "86c160efb9468b96695ccfba8fe4e6421281d25a0e69dda5010d759c49d0465f",
+   "en": [
+    "swap mika and nova"
+   ],
+   "es": "22cb4e627bc16cc030d55b35feb05f93a7b9492ad61fa11543c63c32ecf04954",
+   "pt": "bb860a82ae9a0c6154177a4ae75ecd5da2f1c15c8621fe275039f2840dd555b4"
+  }
+ },
+ {
+  "id": "agentic-ide-close-agent-terminals",
+  "title": "Close Agentic-IDE terminals by coding agent",
+  "method": "DELETE",
+  "path": "/api/agentic-ide/terminals/agent/{agent}",
+  "path_params": [
+   "agent"
+  ],
+  "dangerous": true,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "8de15408f3b337b2792ab03e0ba5506adf2e8d95b31955df53c5fc3ab071f6f6",
+  "params_sha256": "c12db9285e493f98772614bddcafc2a4cdcc8433d2f2820b9e0964fd03c565ad",
+  "voice_aliases": {
+   "de": "0611ccc8525b845f897ad425fb2595377b4a1f64efd281fa6b9ceaa3b548b8c4",
+   "en": [
+    "close all codex terminals"
+   ],
+   "es": "670dd42e7f35b54325ff5cae6d2c87e9aed7c94de43b0b0abd7b209d06914132",
+   "pt": "b3d15e589410c9d6a985acd56bb4144bb4cf4e9926860d31ad5f4db67a02d655"
+  }
+ },
+ {
+  "id": "agentic-ide-focus",
+  "title": "Toggle Agentic-IDE focus mode",
+  "method": "PUT",
+  "path": "/api/agentic-ide/mode",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "43a2f7391815cc00673d6daa28cc1bc7efbabaae9bc89f8698d5c5bbf9903e3f",
+  "params_sha256": "659d0ea7200e7c57f5d89d6580993d74b69fc0e35f87ae206ef40d904eda7f78",
+  "voice_aliases": {
+   "de": "08aa7536cbe4baac9976b2833352e609b63713c02bb645fccdcd0add784ad2b3",
+   "en": [
+    "switch into coding mode"
+   ],
+   "es": "5fecf8bee9601e45bd8f2420fb9ef8882a74cce3e39fb55b2902a7ada2df77c0",
+   "pt": "1bdc720f16c86a3e80fa9a1f8fcd9381b8633589301f4f65c4f19274c0a781f0"
+  }
+ },
+ {
+  "id": "agentic-ide-resume",
+  "title": "Resume the last Agentic-IDE workspace",
+  "method": "POST",
+  "path": "/api/agentic-ide/resume",
+  "path_params": [],
+  "dangerous": false,
+  "worker_allowed": false,
+  "ui_section": "agentic-ide",
+  "description_sha256": "19e22824467c5921eecaf20287f31a089e311d11c98217ac6292c024a191e7f7",
+  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "voice_aliases": {
+   "de": "bf4ef3b34ba16ae3321661579429539ba416793a74ad77fd5cbaec7890d68e59",
+   "en": [
+    "resume all my coding sessions"
+   ],
+   "es": "48f1993cdd19e865646357c59eaaa11b44c8d64fbd0aaa13feae1685e444bfef",
+   "pt": "49c063f7e98e8bb2ea4071fe089b15806bcc6707f1799079bc6a82e960f5fb55"
+  }
+ }
+]

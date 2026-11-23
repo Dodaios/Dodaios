@@ -85,5 +85,5 @@ def test_the_correction_sits_where_every_consumer_reads_from() -> None:
     """
     import inspect
 
-    source = inspect.getsource(session_module.RealtimeVoiceSession._pump_transport_once)
+    source = inspect.getsource(session_module.RealtimeVoiceSession._pump_input_open)
     assert '_dictionary_corrected(str(event.text or "").strip())' in source
