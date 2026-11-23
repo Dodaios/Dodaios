@@ -5,8 +5,9 @@ This product includes software developed by the Dodaios contributors
 (https://github.com/Dodaios/Dodaios).
 
 Releases up to and including 1.6.0 were published under the MIT License and
-remain MIT. From version 2.0.0 on, this product is licensed under the Apache
-License, Version 2.0.
+remain MIT. Releases 2.0.0 up to and including 5.6.0 were published under the
+Apache License, Version 2.0, and remain under it. From version 5.7.0 on, this
+product is licensed under the MIT License.
 
 Bundled third-party components keep their own licenses and notices - see
 docs/licensing.md and the license files shipped beside them, for example

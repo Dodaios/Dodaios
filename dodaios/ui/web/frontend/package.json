@@ -1,7 +1,7 @@
 {
   "name": "jarvis-frontend",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

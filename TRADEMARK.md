@@ -7,8 +7,8 @@ in this project and what you may do with ours. It is informational, not legal ad
 
 **Dodaios™** and the Dodaios logo (the hooded figure) are trademarks of the Dodaios
 project. They are not registered; the ™ symbol marks the claim. The source code is
-licensed under the Apache License 2.0, and that license does **not** grant rights in our
-name or logo (Apache-2.0, section 6).
+licensed under the MIT License, which grants rights in the code only: it does **not**
+grant rights in our name or logo.
 
 ## Trademark policy
 

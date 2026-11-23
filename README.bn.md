@@ -14,7 +14,7 @@
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="সর্বশেষ রিলিজ" /></a>
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-FAFAFA?labelColor=0A0A0A" alt="লাইসেন্স: Apache 2.0" /></a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-FAFAFA?labelColor=0A0A0A" alt="লাইসেন্স: MIT" /></a>
   <a href="https://github.com/Dodaios/Dodaios/stargazers"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?labelColor=0A0A0A&amp;color=FAFAFA&amp;logo=github" alt="GitHub স্টার" /></a>
   <a href="https://discord.gg/x7USduHxbc"><img src="https://img.shields.io/badge/discord-join-FAFAFA?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" alt="Discord" /></a>
 </p>
@@ -164,7 +164,7 @@ Dodaios-এর কোনো খরচ নেই: কোনো Dodaios অ্য�
 
 ## লাইসেন্স
 
-[Apache License 2.0](https://github.com/Dodaios/Dodaios/blob/main/LICENSE),
+[MIT License](https://github.com/Dodaios/Dodaios/blob/main/LICENSE),
 সঙ্গে
 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE)-এ দেওয়া attribution। নাম
 আর লোগো

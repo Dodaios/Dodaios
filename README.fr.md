@@ -14,7 +14,7 @@
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Dernière version" /></a>
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-FAFAFA?labelColor=0A0A0A" alt="Licence : Apache 2.0" /></a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-FAFAFA?labelColor=0A0A0A" alt="Licence : MIT" /></a>
   <a href="https://github.com/Dodaios/Dodaios/stargazers"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?labelColor=0A0A0A&amp;color=FAFAFA&amp;logo=github" alt="Étoiles GitHub" /></a>
   <a href="https://discord.gg/x7USduHxbc"><img src="https://img.shields.io/badge/discord-join-FAFAFA?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" alt="Discord" /></a>
 </p>
@@ -181,7 +181,7 @@ Merci à toutes celles et ceux qui ont livré quelque chose ici :
 
 ## Licence
 
-[Apache License 2.0](https://github.com/Dodaios/Dodaios/blob/main/LICENSE),
+[MIT License](https://github.com/Dodaios/Dodaios/blob/main/LICENSE),
 avec l'attribution figurant dans
 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE). Le nom et le
 logo sont couverts par la

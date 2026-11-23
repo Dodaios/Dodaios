@@ -1,59 +1,61 @@
 # Licensing
 
-## Current: Apache License 2.0
+## Current: MIT License
 
-Dodaios project code is licensed under the
-[Apache License 2.0](../LICENSE), with the attribution notice in
-[`NOTICE`](../NOTICE), starting with version 2.0.0. Third-party code, fonts,
-models, images, and native libraries retain their own licenses.
+Dodaios project code is licensed under the [MIT License](../LICENSE),
+starting with version 5.7.0. The attribution notice for adapted and bundled
+work is in [`NOTICE`](../NOTICE). Third-party code, fonts, models, images, and
+native libraries retain their own licenses.
 
-## Released 1.x stays MIT, permanently
+MIT permits use, modification, and distribution, including commercial
+distribution, on one condition: the copyright notice and the permission notice
+are kept in all copies or substantial portions. This describes the project
+code; bundled dependencies can impose additional obligations. MIT grants
+rights in the code only, not in the name or the logo; those are covered by
+[`TRADEMARK.md`](../TRADEMARK.md).
 
-Every release up to and including 1.6.0 was published under the MIT License and
-remains MIT. That cannot be revoked: a copy obtained under MIT keeps those
-rights forever, including the right to fork it. The text those releases shipped
-with is still in the history — `git show v1.6.0:LICENSE`.
+## Earlier releases keep their license, permanently
 
-## Why Apache 2.0
+| Releases | License |
+|----------|---------|
+| up to and including 1.6.0 | MIT License |
+| 2.0.0 up to and including 5.6.0 | Apache License 2.0 |
+| from 5.7.0 on | MIT License |
 
-Apache 2.0 permits use, modification, and distribution, including commercial
-distribution, subject to its conditions. This describes the project code;
-bundled dependencies can impose additional obligations.
+A license cannot be revoked for a copy already obtained under it: that copy
+keeps those rights forever, including the right to fork it. The texts those
+releases shipped with are still in the history — `git show v1.6.0:LICENSE`,
+`git show v5.6.0:LICENSE`.
 
-- **An explicit patent grant** (§3). Every contributor grants users a license to
-  applicable patent claims described in the license. Section 3 terminates
-  that grant for the work if the recipient brings the specified patent
-  infringement litigation. MIT contains no equivalent express patent grant.
-- **A trademark carve-out** (§6). The license covers the code and not the name
-  or the logo, in writing. Ours already lives in
-  [`TRADEMARK.md`](../TRADEMARK.md); Apache 2.0 makes it a license term.
-- **Stated redistribution duties** (§4). Pass on the license, keep the notices,
-  carry the `NOTICE` file, mark the files you changed. MIT also requires
-  preservation of its copyright and permission notice.
+A copy of a 2.0.0 to 5.6.0 release carries the terms of Apache 2.0: its
+explicit patent grant (§3), its trademark carve-out (§6), and its
+redistribution duties (§4: pass on the license, keep the notices, carry the
+`NOTICE` file, mark the files you changed). MIT contains no equivalent express
+patent grant.
 
 ## What it means for you
 
-- **Users:** nothing to do. The freedoms are the same, and you gain a patent
-  license you did not have before.
-- **Forks and redistributors:** anything you took under 1.x stays MIT. From
-  2.0 on, ship `LICENSE` and `NOTICE` with your copies and mark the files you
-  modified.
+- **Users:** nothing to do.
+- **Forks and redistributors:** anything you took from a release keeps that
+  release's license (table above). From 5.7.0 on, keep `LICENSE`, the MIT
+  copyright and permission notice, with your copies; carrying `NOTICE` along
+  keeps the credits for the adapted third-party work.
 - **Contributors:** by opening a pull request you agree your work is licensed to
-  the project under the Apache License 2.0, per §5 of the License.
+  the project under the MIT License.
 
 ## What does NOT need changing
 
 A license change applies going forward. It does not make past statements wrong,
 and it creates no duty to hunt them down:
 
-- **Videos, talks, streams, and old posts that say "MIT".** They described the
-  releases that existed when they were recorded, and for those releases the
-  statement is still true. Leave them up. Adding a line to the description of
-  the most-watched ones ("from 2.0 on: Apache 2.0") is courtesy, not a
+- **Videos, talks, streams, and old posts that name an earlier license.** They
+  described the releases that existed when they were recorded, and for those
+  releases the statement is still true. Leave them up. Adding a line to the
+  description of the most-watched ones ("from 5.7 on: MIT") is courtesy, not a
   correction — taking them offline would look like something was wrong when
   nothing was.
-- **Anything already downloaded, forked, or vendored.** It stays MIT, and no
-  one has to be told.
+- **Anything already downloaded, forked, or vendored.** It keeps the license it
+  was obtained under, and no one has to be told.
 - **Blog posts, press coverage, and third-party listings.** Not yours to fix.
 
 What does have to be current is anything that states the license **as of

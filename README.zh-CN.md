@@ -15,7 +15,7 @@
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="最新版本" /></a>
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-FAFAFA?labelColor=0A0A0A" alt="许可证：Apache 2.0" /></a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-FAFAFA?labelColor=0A0A0A" alt="许可证：MIT" /></a>
   <a href="https://github.com/Dodaios/Dodaios/stargazers"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?labelColor=0A0A0A&amp;color=FAFAFA&amp;logo=github" alt="GitHub stars" /></a>
   <a href="https://discord.gg/x7USduHxbc"><img src="https://img.shields.io/badge/discord-join-FAFAFA?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" alt="Discord" /></a>
 </p>
@@ -135,4 +135,4 @@ Dodaios 不花钱：没有 Dodaios 账号，也没有付费版。它不出售模
 
 ## 许可证
 
-Dodaios 采用 [Apache License 2.0](https://github.com/Dodaios/Dodaios/blob/main/LICENSE) 许可，署名信息见 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE)。名称和标志受[商标政策](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md)约束。Dodaios 是一个独立项目：它所配合使用的产品归其各自的开发者所有，Dodaios 支持某个工具，并不意味着该工具的开发者认可 Dodaios。Dodaios 在 2026 年 10 月之前叫 Personal Jarvis（[为什么改名](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)）。赞助者见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
+Dodaios 采用 [MIT License](https://github.com/Dodaios/Dodaios/blob/main/LICENSE) 许可，署名信息见 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE)。名称和标志受[商标政策](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md)约束。Dodaios 是一个独立项目：它所配合使用的产品归其各自的开发者所有，Dodaios 支持某个工具，并不意味着该工具的开发者认可 Dodaios。Dodaios 在 2026 年 10 月之前叫 Personal Jarvis（[为什么改名](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)）。赞助者见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
