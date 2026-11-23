@@ -9389,6 +9389,16 @@
       },
       "active_count": "{count} working",
       "resting": "Idle · {count}",
+      "view": {
+        "aria": "Show the agents as",
+        "board": "Board",
+        "simulation": "Simulation"
+      },
+      "simulation": {
+        "aria": "Every coding agent as a figure on the floor of the board",
+        "empty": "No agents here yet.",
+        "unavailable": "This computer cannot draw the 3D view. The board shows the same agents."
+      },
       "column_empty": {
         "building": "No agent is building.",
         "checks": "No checks are running.",

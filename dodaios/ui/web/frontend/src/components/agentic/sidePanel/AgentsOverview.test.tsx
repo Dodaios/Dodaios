@@ -36,6 +36,25 @@ vi.mock("../useSessionGitHub", async (original) => {
   };
 });
 
+// The 3D scene needs a GPU; the board's half of the contract is what it hands over.
+vi.mock("./sim/AgentSimulation", () => ({
+  default: ({ agents, selectedId, onOpen, columnNames }: {
+    agents: { id: string; agent: string; agentLabel: string; place: string; activity: string; stateLabel: string }[];
+    selectedId: string | null;
+    onOpen: (id: string) => void;
+    columnNames: Record<string, string>;
+  }) => (
+    <ul data-testid="sim-stub" data-selected={selectedId ?? ""} data-columns={Object.values(columnNames).join("|")}>
+      {agents.map((agent) => (
+        <li key={agent.id} data-figure={agent.id} data-agent={agent.agent} data-place={agent.place}
+          data-activity={agent.activity} onClick={() => onOpen(agent.id)}>
+          {agent.agentLabel}: {agent.stateLabel}
+        </li>
+      ))}
+    </ul>
+  ),
+}));
+
 vi.mock("./browser/ideBrowserLinks", () => ({
   openLinkInIdeBrowser: async (url: string) => { opened.urls.push(url); return true; },
 }));
@@ -543,5 +562,62 @@ describe("AgentsOverview hybrid search", () => {
     act(() => worker.reply({ type: "result", matches: [{ id: "pane:T1@w3", score: 0.9 }] }));
     open("pane:T1@w3");
     expect(useIdeChatStore.getState().paneRequest).toMatchObject({ workspaceId: "w3", pane: "T1" });
+  });
+});
+
+describe("AgentsOverview simulation", () => {
+  const figures = () => Array.from(document.querySelectorAll<HTMLElement>("[data-figure]"));
+  const figure = (id: string) => document.querySelector<HTMLElement>(`[data-figure="${id}"]`)!;
+
+  it("starts on the board and switches to the simulation, which it remembers", async () => {
+    setThreads([thread("plain")]);
+    const first = render(<AgentsOverview />);
+    expect(screen.getByTestId("ide-agents-view-board").getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByTestId("sim-stub")).toBeNull();
+    fireEvent.click(screen.getByTestId("ide-agents-view-simulation"));
+    expect(await screen.findByTestId("sim-stub")).toBeTruthy();
+    expect(screen.queryByTestId("ide-agents-board")).toBeNull();
+    first.unmount();
+    render(<AgentsOverview />);
+    expect(await screen.findByTestId("sim-stub")).toBeTruthy();
+    expect(screen.getByTestId("ide-agents-view-simulation").getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("hands every agent over with its mark, its field and what it is doing; finished work is left out", async () => {
+    localStorage.setItem("jarvis.agenticIde.agentsView.v1", "simulation");
+    useWorkspacePanesStore.setState({ panes: [pane("T1", "w1", { agent: "codex", display_name: "Codex" })] });
+    setThreads([
+      thread("busy", { running: true }),
+      thread("review"),
+      thread("merged"),
+    ]);
+    github.statuses = {
+      "thread:review": request(12),
+      "thread:merged": request(14, { state: "merged" }),
+    };
+    render(<AgentsOverview />);
+    await screen.findByTestId("sim-stub");
+    expect(figures().map((node) => node.getAttribute("data-figure")).sort())
+      .toEqual(["pane:T1@w1", "thread:busy", "thread:review"]);
+    expect(figure("thread:busy").getAttribute("data-agent")).toBe("claude");
+    expect(figure("thread:busy").getAttribute("data-activity")).toBe("working");
+    expect(figure("thread:busy").getAttribute("data-place")).toBe("building");
+    expect(figure("thread:review").getAttribute("data-place")).toBe("review");
+    expect(figure("thread:review").getAttribute("data-activity")).toBe("idle");
+    expect(figure("pane:T1@w1").getAttribute("data-agent")).toBe("codex");
+    expect(figure("pane:T1@w1").textContent).toContain("Codex");
+    expect(screen.getByTestId("sim-stub").getAttribute("data-columns")?.split("|")).toHaveLength(4);
+  });
+
+  it("opens the thread of a clicked figure, as a click on its card does", async () => {
+    localStorage.setItem("jarvis.agenticIde.agentsView.v1", "simulation");
+    useIdeThreadsStore.setState({ layout: "grid" });
+    setThreads([thread("plain")]);
+    render(<AgentsOverview />);
+    await screen.findByTestId("sim-stub");
+    fireEvent.click(figure("thread:plain"));
+    expect(useIdeThreadsStore.getState().layout).toBe("threads");
+    expect(useIdeThreadsStore.getState().selection.sessionId).toBe("plain");
+    expect(screen.getByTestId("sim-stub").getAttribute("data-selected")).toBe("thread:plain");
   });
 });
