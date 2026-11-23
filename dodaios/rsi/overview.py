@@ -14,21 +14,72 @@ evidence (shown as they are, in the details).
 from __future__ import annotations
 
 import json
+import logging
 import time
+from pathlib import Path
 from typing import Any
 
 import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, Night
+from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, MAX_MODEL_CALLS, Night
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
-__all__ = ["build"]
+__all__ = ["build", "daily_use"]
+
+log = logging.getLogger(__name__)
 
 _NIGHTS = 14
 _SERIES = 400
+#: Weeks of daily use shown.
+_WEEKS = 8
+#: The weekly score reads the whole chat record: at most once in this long.
+_DAILY_TTL_S = 600.0
+_daily_cache: dict[str, tuple[float, dict[str, Any] | None]] = {}
+
+
+def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, Any] | None:
+    """How the person's own requests went, week by week (``dodaios.evals.agent_score``).
+
+    This is what happened, not a measurement of cause: the requests of one week
+    are not the requests of the next. It stands beside the benchmark, which
+    compares like with like, and never decides anything. ``None`` when there is
+    no chat record or it cannot be read.
+    """
+    if chat_db is None or not Path(chat_db).is_file():
+        return None
+    stamp = time.time() if now is None else now
+    key = str(chat_db)
+    cached = _daily_cache.get(key)
+    if cached is not None and stamp - cached[0] < _DAILY_TTL_S:
+        return cached[1]
+    found: dict[str, Any] | None = None
+    try:
+        from dodaios.evals.agent_score import build_report
+
+        since = int((stamp - _WEEKS * 7 * 86400) * 1000)
+        report = build_report(Path(chat_db), None, None, since_ms=since)
+        weeks = [
+            {
+                "start_ms": int(window["start_ms"]),
+                "turns": int(window["turns"]),
+                "rated": bool(window.get("rated")),
+                "score": window.get("upsilon") if window.get("rated") else None,
+            }
+            for window in report.get("windows") or []
+        ]
+        lifetime = report.get("lifetime") or {}
+        found = {
+            "weeks": weeks[-_WEEKS:],
+            "turns": int(report.get("turns") or 0),
+            "score": lifetime.get("score"),
+        }
+    except Exception:  # noqa: BLE001 — the page shows the benchmark without this part
+        log.info("self-improvement: the score of daily use could not be read", exc_info=True)
+    _daily_cache[key] = (stamp, found)
+    return found
 
 
 def _value(text: str | None) -> Any:
@@ -104,7 +155,9 @@ def _domains(night: Night) -> list[dict[str, Any]]:
     return out
 
 
-def build(night: Night, *, now_ms: int | None = None) -> dict[str, Any]:
+def build(
+    night: Night, *, now_ms: int | None = None, chat_db: Path | None = None
+) -> dict[str, Any]:
     """The summary for one installation."""
     registry = night.registry
     last = night.last_ms()
@@ -125,6 +178,7 @@ def build(night: Night, *, now_ms: int | None = None) -> dict[str, Any]:
             "idle_after_s": IDLE_AFTER_S,
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
+            "max_model_calls": MAX_MODEL_CALLS,
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),
@@ -132,5 +186,6 @@ def build(night: Night, *, now_ms: int | None = None) -> dict[str, Any]:
         "candidates": [_change(night, change) for change in registry.candidates()],
         "nights": nights,
         "resting": resting,
+        "daily_use": daily_use(chat_db),
         "now_ms": now_ms if now_ms is not None else int(time.time() * 1000),
     }

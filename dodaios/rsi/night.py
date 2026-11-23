@@ -57,6 +57,7 @@ __all__ = [
     "BUDGET_SHARE",
     "EVERY_S",
     "IDLE_AFTER_S",
+    "MAX_MODEL_CALLS",
     "Night",
     "NightReport",
     "NightService",
@@ -72,6 +73,8 @@ BUDGET_SHARE: Final[float] = 0.20
 IDLE_AFTER_S: Final[float] = 15 * 60
 #: At most one night in this time.
 EVERY_S: Final[float] = 20 * 3600
+#: Model calls one night may make to build tasks. Fixed.
+MAX_MODEL_CALLS: Final[int] = 8
 #: For how long a value the gate turned down is not proposed again.
 _SKIP_MS: Final[int] = 30 * 24 * 3600 * 1000
 TUNER: Final = "tuner"
@@ -88,6 +91,8 @@ class NightReport:
     updated_from: str = ""
     #: Tasks in use per domain and split.
     tasks: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: Tasks built this night from the person's own memory and messages.
+    made: dict[str, Any] = field(default_factory=dict)
     settled: list[dict[str, Any]] = field(default_factory=list)
     proposed: list[dict[str, Any]] = field(default_factory=list)
     decided: list[dict[str, Any]] = field(default_factory=list)
@@ -98,6 +103,7 @@ class NightReport:
             "paused": self.paused,
             "updated_from": self.updated_from,
             "tasks": self.tasks,
+            "made": self.made,
             "settled": self.settled,
             "proposed": self.proposed,
             "decided": self.decided,
@@ -107,7 +113,8 @@ class NightReport:
     @property
     def idle(self) -> bool:
         """True when the night had nothing to work on."""
-        return not (self.settled or self.proposed or self.decided or self.measured)
+        made = any(self.made.get(k) for k in ("questions", "messages", "forgotten"))
+        return not (made or self.settled or self.proposed or self.decided or self.measured)
 
     def lines(self) -> list[str]:
         """The night in plain words."""
@@ -117,6 +124,14 @@ class NightReport:
         if self.updated_from:
             out.append(f"The app was updated ({self.updated_from} -> {self.app}): "
                        "everything learned was checked again.")
+        new_tasks = int(self.made.get("questions") or 0) + int(self.made.get("messages") or 0)
+        if new_tasks:
+            out.append(
+                f"Built {new_tasks} tasks from your own memory and messages "
+                f"({self.made.get('calls', 0)} model calls)."
+            )
+        if self.made.get("forgotten"):
+            out.append(f"Erased {self.made['forgotten']} tasks about memories that are gone.")
         for row in self.settled:
             if row["outcome"] == "kept" and row.get("was") == "live":
                 continue  # what was live and stays live is not news
@@ -152,8 +167,14 @@ class Night:
         sources: Sequence[Source] = (Source.MINED, Source.MADE),
         clock: Callable[[], int] = lambda: int(time.time() * 1000),
         learners: Sequence[str] = (TUNER,),
+        prepare: Callable[[], dict[str, Any]] | None = None,
+        finish: Callable[[], None] | None = None,
     ) -> None:
         self.registry = registry
+        #: Runs first in a night: copies the memory, builds tasks. Returns what it made.
+        self._prepare = prepare
+        #: Runs last: lets go of what ``prepare`` opened.
+        self._finish = finish
         #: Which learners propose in a night. Checking and measuring happen regardless.
         self.learners = tuple(learners)
         self.bench = bench
@@ -294,18 +315,23 @@ class Night:
         before = str(state.get("app") or "")
         if before and before != dodaios.__version__:
             report.updated_from = before
-        report.tasks = self.bench.counts()
-
-        report.settled = [d.public() for d in self._settle(bool(report.updated_from))]
-        for domain in self._domains():
-            proposed = self._propose(domain)
-            if proposed is not None:
-                report.proposed.append(proposed)
-        report.decided = [d.public() for d in self.gate.consider_all()]
-        for domain in self._domains():
-            point = self._advantage(domain, now_ms)
-            if point is not None:
-                report.measured.append(point)
+        try:
+            if self._prepare is not None:
+                report.made = self._prepare()
+            report.tasks = self.bench.counts()
+            report.settled = [d.public() for d in self._settle(bool(report.updated_from))]
+            for domain in self._domains():
+                proposed = self._propose(domain)
+                if proposed is not None:
+                    report.proposed.append(proposed)
+            report.decided = [d.public() for d in self.gate.consider_all()]
+            for domain in self._domains():
+                point = self._advantage(domain, now_ms)
+                if point is not None:
+                    report.measured.append(point)
+        finally:
+            if self._finish is not None:
+                self._finish()
         if report.measured:
             self.bench.add_series(report.measured)
         self.bench.add_night(dodaios.__version__, report.public())
@@ -324,8 +350,12 @@ class NightService:
     #: How often the app looks whether a night is due.
     LOOK_EVERY_S: Final[float] = 10 * 60
 
-    def __init__(self, night: Night, idle: Callable[[], bool]) -> None:
+    def __init__(
+        self, night: Night, idle: Callable[[], bool], *, chat_db: Path | None = None
+    ) -> None:
         self.night = night
+        #: The person's chat record, for the page's "in daily use" part. Read-only.
+        self.chat_db = chat_db
         self._idle = idle
         self._task: Any = None
         self.last: NightReport | None = None
@@ -365,15 +395,62 @@ def _person_idle() -> bool:
     return person_idle(IDLE_AFTER_S)
 
 
-def install(data_dir: Path, registry: SelfChangeRegistry) -> NightService:
+def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
+    """Ask the assistant's own provider, on its subscription or a local model, from a thread.
+
+    Never a key that bills per token (``allow_metered=False``): without a
+    subscription or a local model the answer is ``None`` and no tasks are made.
+    """
+
+    def ask(system: str, prompt: str) -> str | None:
+        import asyncio
+
+        from dodaios.memory.learning.review import ModelReviewer
+
+        if loop is None or loop.is_closed():
+            return None
+        reviewer = ModelReviewer(
+            config,
+            system=lambda: system,
+            parser=lambda text: text,
+            max_tokens=1800,
+            caller="rsi_tasks",
+            allow_metered=False,
+        )
+        answer = asyncio.run_coroutine_threadsafe(reviewer(prompt), loop).result(timeout=240)
+        return str(answer) if answer else None
+
+    return ask
+
+
+def install(
+    data_dir: Path, registry: SelfChangeRegistry, *, config: Any = None, loop: Any = None
+) -> NightService:
     """The installation's own nights: they decide on the person's tasks, never on the seed suite.
 
-    Until tasks of the person's own exist, a night finds nothing to measure and
-    changes nothing; it only records that it looked.
+    With ``config`` and the app's ``loop`` a night first copies the memory and
+    builds tasks from the person's own memory and messages (a few model calls
+    on the assistant's subscription). Without them, or until such tasks exist,
+    a night finds nothing to measure and changes nothing.
     """
-    bench = BenchStore(Path(data_dir) / DB_NAME)
-    worlds: dict[str, Any] = {}
-    return NightService(Night(registry, bench, lambda: worlds), _person_idle)
+    from dodaios.memory.vault import runtime as vault_runtime
+    from dodaios.rsi.bench.own.maker import OwnRecallMaker
+    from dodaios.rsi.bench.own.world import LiveWorld
+
+    home = Path(data_dir)
+    bench = BenchStore(home / DB_NAME)
+    if config is None:
+        return NightService(Night(registry, bench, lambda: {}), _person_idle)
+    world = LiveWorld(vault_runtime.vault_path(config), home / "rsi")
+    maker = OwnRecallMaker(bench, world, home / "agent_chat.db", _model_ask(config, loop))
+
+    def prepare() -> dict[str, Any]:
+        if not world.refresh():
+            return {}
+        return maker.run(MAX_MODEL_CALLS)
+
+    night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)
+    return NightService(night, _person_idle, chat_db=home / "agent_chat.db")
 
 
 # ------------------------------------------------------------------ sandbox

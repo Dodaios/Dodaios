@@ -98,6 +98,40 @@ message brings up (`recall_for` in `dodaios/memory/vault/runtime.py`).
   score best.
 - The cost of a task is the prompt it adds, in tokens (characters / 4).
 
+### Tasks from your own memory and messages
+
+What the assistant should be good at is this person, not an invented one. So
+an installation builds its own recall tasks, at night
+(`dodaios/rsi/bench/own/`), on a copy of the memory taken that night:
+
+- **Questions.** For a memory, a model writes two messages the person might
+  send that need exactly that memory, in the person's own language and tone
+  (a few real messages serve as examples of the style). Python then decides
+  what is kept: the message must share a topic word with its memory, must not
+  be the memory said again, must be short, and must not fit a sibling memory
+  better.
+- **Messages.** Real messages the person sent, each with the stored memories a
+  generous search finds for it. A model says which of them the message needs,
+  or none. It is asked twice, with the candidates in the opposite order, and a
+  message becomes a task only when both answers agree. This is where the true
+  mix comes from: most messages need no memory at all.
+
+What is offered to the labeller is searched with the shipped values, never
+with learned ones, so the tasks are not shaped by what they are meant to judge.
+
+The memories and messages go to the provider the person's assistant already
+answers on, on its subscription or a local model, and to no one else. Memories
+marked sensitive are never sent. A key that bills per token is never used:
+without a subscription or a local model no tasks are made and the nights stay
+quiet. A night makes at most eight such calls, however much there is to do.
+
+Forgetting reaches the tasks: when a memory is forgotten or replaced, every
+task that names it is retired and its text erased.
+
+On the maintainer's installation one run of three calls gave 24 question
+tasks from 12 memories and 6 message tasks from 8 messages, 5 of which need no
+memory; the two askings disagreed on the other 2, which were left out.
+
 ### Splits
 
 Tasks that came from the same piece of work share a *group*, and a group falls
@@ -306,13 +340,18 @@ While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
 4. It measures the learned advantage on the sealed tasks.
 5. It writes down what it did (`nights` and `series` in `bench.db`).
 
+Before all of this a night copies the memory and builds new tasks from the
+person's own memory and messages (see above), and erases tasks about memories
+that are gone.
+
 Nothing is announced: no notice, no sound, no voice. The app looks every ten
 minutes whether a night is due: the person must have been away for 15 minutes,
-and there is at most one night in 20 hours. The domains measured today ask no
-model, so a night costs a few seconds of the computer. For nights that will
-ask a model the limits are fixed in the code, not in a setting: only while the
-person is away, at most 20 % of a plan's usage window, never a key that bills
-per token. The person's stop (`Night.pause`) is kept in `bench.db` and
+and there is at most one night in 20 hours. Measuring the recall asks no
+model; building tasks does, at most eight small calls a night. The limits are
+fixed in the code, not in a setting: only while the person is away, on the
+assistant's subscription or a local model, never a key that bills per token.
+(The share of a plan's usage window a night may use, 20 %, is fixed for the
+domains that will run whole turns; eight small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
 survives a restart; while it is set nothing is proposed, measured or changed.
 
 ### The tuner
@@ -400,5 +439,6 @@ The app is updated often, and nothing learned may be lost by an update.
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
 | The tuner, the night cycle, automatic rollback, the sandbox | built |
-| The page that shows it, tasks from the person's own work | next |
+| Recall tasks from the person's own memory and messages, made at night | built |
+| The page that shows it | next |
 | Always-on recording of work, the other domains, lessons, the jury | later |

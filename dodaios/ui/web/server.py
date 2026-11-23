@@ -3123,7 +3123,12 @@ class WebServer:
             try:
                 from dodaios.rsi import night as _night
 
-                _nights = _night.install(Path(self.cfg.memory.data_dir), _self_change)
+                _nights = _night.install(
+                    Path(self.cfg.memory.data_dir),
+                    _self_change,
+                    config=self.cfg,
+                    loop=_boot_loop,
+                )
                 _nights.start()
                 self.app.state.self_improvement = _nights
             except Exception as exc:  # noqa: BLE001

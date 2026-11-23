@@ -182,6 +182,19 @@ class BenchStore:
             )
             self._db.conn.commit()
 
+    def scrub(self, task_ids: Iterable[str]) -> None:
+        """Retire tasks and erase what they say (the memory they were about was forgotten).
+
+        The row stays, so results that name the task still add up; its text is gone.
+        """
+        with self._db.lock:
+            self._db.conn.executemany(
+                "UPDATE tasks SET retired_ms = ?, payload = '{}', check_json = '{}', digest = ''"
+                " WHERE id = ?",
+                [(_now(), task_id) for task_id in task_ids],
+            )
+            self._db.conn.commit()
+
     def tasks(
         self,
         domain: Domain,
