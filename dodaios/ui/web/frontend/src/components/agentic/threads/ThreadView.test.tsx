@@ -325,7 +325,7 @@ describe("ThreadView", () => {
     expect(screen.getByText(/What should we build in/)).toBeTruthy();
   });
 
-  it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
+  it("opens the box while a Claude turn only waits for its background tasks, and sends straight to it", async () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
     render(<ThreadView onScreen />);
@@ -338,10 +338,15 @@ describe("ThreadView", () => {
       store.ingest({ seq: 4, ts_ms: 1600, kind: "background_wait", payload: { turn_id: "t1", tasks: ["Watch the build"] } });
     });
     const box = screen.getByTestId("thread-composer-input");
-    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done"));
+    // Nothing to do but wait: the box reads as between turns, with the send arrow and no Stop.
+    await waitFor(() => expect(screen.queryByTestId("thread-stop")).toBeNull());
+    expect(box.getAttribute("placeholder")).not.toBe("Queue a follow-up for when the agent is done");
+    expect(screen.getByTestId("thread-send").getAttribute("aria-label")).toBe("Send message");
     fireEvent.change(box, { target: { value: "also run the linter" } });
     await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("also run the linter"));
+    // Straight to the agent, never behind the turn.
+    expect(api.sendAgentChatMessage.mock.calls[0]?.[4]).toBeUndefined();
 
     // The server took it into the running turn, picture included: it shows there as the person's own line.
     act(() => {
@@ -353,6 +358,13 @@ describe("ThreadView", () => {
     const steered = screen.getByTestId("thread-steer-message");
     expect(steered.textContent).toBe("also run the linter");
     expect(within(steered).getByAltText("shot.png").getAttribute("src")).toBe("/files/shot.png");
+
+    // The agent wakes and works again: Stop is back and the next message waits.
+    act(() => {
+      store.ingest({ seq: 6, ts_ms: 1800, kind: "background_wait", payload: { turn_id: "t1", tasks: [] } });
+    });
+    await waitFor(() => expect(screen.getByTestId("thread-stop")).toBeTruthy());
+    expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done");
   });
 
   it("queues a message typed while the agent works, with no pick to make", async () => {
