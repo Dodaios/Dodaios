@@ -48,6 +48,19 @@ def _patch_latest(monkeypatch: pytest.MonkeyPatch, result: dict | None) -> None:
     monkeypatch.setattr(u, "_fetch_latest_release", _fake)
 
 
+@pytest.fixture(autouse=True)
+def _the_release_key_agrees(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Which commit the release key signed has tests of its own
+    # (test_update_routes_signed_commit.py). The releases in this file carry no
+    # signed commit, so both halves of that check are answered here and the
+    # tests below stay about the rest of the apply path.
+    async def _agrees(assets: object, release_tag: str, target_revision: str) -> None:
+        return None
+
+    monkeypatch.setattr(u, "_signed_commit_assets", lambda release, release_tag: None)
+    monkeypatch.setattr(u, "_require_signed_commit", _agrees)
+
+
 # --------------------------------------------------------------------------- #
 # Version comparison + remote normalization
 # --------------------------------------------------------------------------- #

@@ -553,6 +553,12 @@ class MCPClient:
         The literal placeholder is kept when the secret cannot be resolved, so
         a misconfiguration surfaces (a 401 from the server) instead of silently
         sending ``"Bearer "``.
+
+        Only for a spec that asks for it (``resolve_header_secrets``, the
+        default for the user's own ``mcp.json`` servers). A Marketplace
+        plugin's header is sent exactly as it was built: its text comes from a
+        manifest and a token that other people wrote, and a ``$NAME`` in
+        either must never be answered with one of the owner's stored keys.
         """
 
         def _sub(match: re.Match[str]) -> str:
@@ -560,11 +566,14 @@ class MCPClient:
             secret = get_secret(key, env_fallback=key)
             return secret if secret else match.group(0)
 
+        # A spec-shaped object without the flag (a test double) is one nobody
+        # built from a plugin: it keeps the default every such spec has.
+        expand = getattr(self.spec, "resolve_header_secrets", True)
         resolved: dict[str, str] = {}
         for key, value in (self.spec.headers or {}).items():
             if not isinstance(value, str):
                 continue
-            resolved[key] = _SECRET_TOKEN_RE.sub(_sub, value)
+            resolved[key] = _SECRET_TOKEN_RE.sub(_sub, value) if expand else value
         return resolved
 
     def _resolve_install_command(self) -> tuple[str, list[str], dict[str, str]]:

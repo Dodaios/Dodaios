@@ -19,10 +19,7 @@ function setup(fail = false, legacy = false, companion: Record<string, unknown> 
   const figure = legacy ? { contract: 1 as const, archetype: "biped" as const, base: "rogue", parts: {} } : original.figure!;
   const agent = { ...original, agentId: "appearance-test", figure: { ...figure, companion: { ...defaultCompanion("test"), shape: "circle" as const, pet: undefined, ...companion } } };
   const close = vi.fn();
-  // The look picker reads agent levels; an unreachable level system leaves every look open.
-  const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).startsWith("/api/progression")
-    ? new Response("{}", { status: 404 })
-    : String(url).startsWith("/api/pets") ? new Response(JSON.stringify(PETS), { status: 200 })
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).startsWith("/api/pets") ? new Response(JSON.stringify(PETS), { status: 200 })
     : new Response(JSON.stringify({ agent }), { status: fail ? 500 : 200 }));
   const saves = () => fetcher.mock.calls.filter(([url]) => String(url).startsWith("/api/society/agents/"));
   vi.stubGlobal("fetch", fetcher);
