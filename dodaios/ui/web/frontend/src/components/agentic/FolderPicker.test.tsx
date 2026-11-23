@@ -1108,6 +1108,23 @@ describe("GitHub repositories as folders", () => {
     expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
   });
 
+  it("offers no GitHub on an older backend, whose downloads would land in its own checkout", async () => {
+    connected([repo("ruben/blog")]);
+    // An older backend answers the route without the folders.
+    vi.mocked(gitApi.fetchLinkedFolders).mockResolvedValue(null);
+    await open();
+    await act(async () => {});
+    expect(screen.queryByTestId("github-place")).toBeNull();
+
+    type("blog");
+    await waitFor(() => expect(vi.mocked(api.searchFolders)).toHaveBeenCalled());
+    expect(screen.queryAllByTestId("github-repo")).toHaveLength(0);
+    type("https://github.com/octo/tools");
+    await act(async () => {});
+    expect(screen.queryAllByTestId("github-repo")).toHaveLength(0);
+    expect(gitApi.cloneGitHubRepo).not.toHaveBeenCalled();
+  });
+
   it("downloads a repository that is not here and chooses its folder", async () => {
     connected([repo("ruben/blog")]);
     let finish: (value: gitApi.GitHubClone) => void = () => {};

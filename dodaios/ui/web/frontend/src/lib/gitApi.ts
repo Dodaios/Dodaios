@@ -223,12 +223,18 @@ export async function fetchLinkedRepos(signal?: AbortSignal): Promise<Record<str
 
 /**
  * `owner/name` (lower case) → folder, for the GitHub repositories that are a
- * connected folder already. Empty from a backend that predates the field.
+ * connected folder already.
+ *
+ * Null from a backend that predates the field. Such a backend also predates
+ * the clone route's safeguards (it clones into `~/Dodaios` even when that is
+ * a source checkout, and does not look at connected folders first), so a
+ * picker offers no GitHub against it. A checkout that follows main runs the
+ * new bundle against the old backend until the app restarts.
  */
-export async function fetchLinkedFolders(signal?: AbortSignal): Promise<Record<string, string>> {
+export async function fetchLinkedFolders(signal?: AbortSignal): Promise<Record<string, string> | null> {
   const res = await fetch(`${BASE}/github/linked`, { signal });
   if (!res.ok) throw await failure(res);
-  return ((await res.json()) as { folders?: Record<string, string> }).folders ?? {};
+  return ((await res.json()) as { folders?: Record<string, string> }).folders ?? null;
 }
 
 export interface GitHubClone {

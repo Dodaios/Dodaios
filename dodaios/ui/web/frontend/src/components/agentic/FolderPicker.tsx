@@ -265,7 +265,9 @@ export function FolderPicker({
   const [github, setGithub] = useState<GitHubRepoList | null>(null);
   // `owner/name` (lower case) → the folder it is on this computer; null until
   // known. The GitHub rows wait for it: a row that offered a download before
-  // the answer came would download a project the person already has.
+  // the answer came would download a project the person already has. It stays
+  // null on an older backend, whose downloads lack the safeguards (see
+  // `fetchLinkedFolders`), so nothing of GitHub is offered there.
   const [githubFolders, setGithubFolders] = useState<Record<string, string> | null>(null);
   // The GitHub place is open: the start view lists repositories instead.
   const [githubOpen, setGithubOpen] = useState(false);
@@ -353,12 +355,10 @@ export function FolderPicker({
       });
     void fetchLinkedFolders()
       .then((folders) => {
-        if (alive.current) setGithubFolders(folders);
+        if (alive.current && folders) setGithubFolders(folders);
       })
       .catch(() => {
-        // Every repository then offers a download; the backend still answers
-        // a connected folder or an earlier clone instead of downloading again.
-        if (alive.current) setGithubFolders({});
+        /* unknown which repositories are here: GitHub is not offered this time */
       });
   }, [load]);
 
@@ -457,8 +457,10 @@ export function FolderPicker({
   const typed = normalizeTypedPath(text);
   const parts = useMemo(() => typedParts(typed), [typed]);
   // A repository's address is neither a path nor a name: it means that one
-  // repository, and nothing on the disk is looked up for it.
-  const addressRepo = gitHubRepoFromAddress(typed);
+  // repository, and nothing on the disk is looked up for it. Only where GitHub
+  // is offered at all (see `githubFolders`).
+  const githubOffered = githubFolders !== null;
+  const addressRepo = githubOffered ? gitHubRepoFromAddress(typed) : null;
   const pathMode = !addressRepo && parts.dir !== "";
   const word = addressRepo || pathMode ? "" : parts.leaf;
   // The start view with the GitHub place open. A name finds repositories
@@ -962,7 +964,7 @@ export function FolderPicker({
     if (!pasted || /[\r\n]/.test(pasted) || !replacesAll) return;
     // A repository's address stays in the field with its one row highlighted:
     // opening it means downloading it, which Enter or a click confirms.
-    if (gitHubRepoFromAddress(normalizeTypedPath(pasted))) return;
+    if (githubOffered && gitHubRepoFromAddress(normalizeTypedPath(pasted))) return;
     if (!looksLikePath(normalizeTypedPath(pasted))) return;
     event.preventDefault();
     setText(pasted);
