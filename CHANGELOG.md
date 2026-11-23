@@ -57,6 +57,8 @@ versioning per [SemVer](https://semver.org/).
 - A node fills its window: sheet columns share the free width, analytics widens and wraps its tiles (#1869)
 - The last column's resize handle stays inside a filled grid (#1870)
 - The Agents board puts working agents on top, counts them, and sets the idle ones below a line (#1866)
+- Toasts stand beside the browser panel of the IDE instead of hidden under it (#1919)
+- The frontend build, also run when the app follows main, gets a 6 GB heap and no longer runs out of memory at about 4 GB (#1918)
 
 ---
 
