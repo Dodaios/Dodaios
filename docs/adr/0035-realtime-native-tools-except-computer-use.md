@@ -43,7 +43,7 @@ guards — exists, is tested, and is unchanged by this ADR.
 
 ## Decision
 
-One provider-neutral design (CLAUDE.md §3). The behaviour is the same on
+One provider-neutral design (`AGENTS.md`, "Works for every user"). The behaviour is the same on
 every transport; transport-specific mechanisms are declared capabilities.
 
 ### 1. New default tool mode: `hybrid`

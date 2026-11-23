@@ -22,7 +22,7 @@ first access (AP-26 — nothing here touches the boot critical path) and
 measures a few KB.
 
 Language note: ``voice_aliases`` values are speech-recognition INPUT
-vocabulary (CLAUDE.md §1 closed list #3) and therefore may be non-English;
+vocabulary (the English-only rule in AGENTS.md allows it) and therefore may be non-English;
 every other string in this module is English.
 """
 from __future__ import annotations

@@ -1,16 +1,24 @@
 {
   "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PY=\"$(command -v python 2>/dev/null || command -v python3 2>/dev/null)\"; [ -n \"$PY\" ] && \"$PY\" \"${CODEX_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/scripts/agent_done_gate.py\" --hook codex || true",
+            "timeout": 600,
+            "statusMessage": "Agent done gate: has this work landed?"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "if [[ \"$CLAUDE_FILE_PATH\" == *dodaios/missions/* ]]; then ruff check \"$CLAUDE_FILE_PATH\" && mypy \"$CLAUDE_FILE_PATH\" 2>&1 | head -20; fi"
-          },
-          {
-            "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in */docs/*|docs/*) PY=\"/c/Program Files/Python311/python.exe\"; [ -x \"$PY\" ] || PY=\"$(command -v python3 2>/dev/null || command -v python 2>/dev/null)\"; [ -n \"$PY\" ] && \"$PY\" \"${CLAUDE_PROJECT_DIR:-.}/scripts/ci/docs_privacy_scan.py\" \"$CLAUDE_FILE_PATH\" ;; esac"
+            "command": "case \"$CLAUDE_FILE_PATH\" in */docs/*|docs/*) PY=\"$(command -v python 2>/dev/null || command -v python3 2>/dev/null)\"; [ -n \"$PY\" ] && \"$PY\" \"${CODEX_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-.}}/scripts/ci/docs_privacy_scan.py\" \"$CLAUDE_FILE_PATH\" ;; esac"
           }
         ]
       }
