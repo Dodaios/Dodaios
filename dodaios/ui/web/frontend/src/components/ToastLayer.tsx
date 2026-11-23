@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEventStore, type Toast } from "@/store/events";
 import { useNodePeek } from "@/store/nodePeek";
+import { toastPlacement, useNativeBrowserArea } from "@/components/agentic/sidePanel/browser/nativeBrowserArea";
 import { cn } from "@/lib/utils";
 import { openDownloadedFile, revealInFolder } from "@/lib/fileActions";
 import { canNativeDrag, startNativeFileDrag } from "@/lib/nativeDrag";
@@ -51,6 +52,11 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   // the window's title row, inside its margin, and the standing notices wait
   // until it is closed.
   const underNodeWindow = useNodePeek((s) => s.peek !== null);
+  // The IDE's browser panel is a native window above the page and would cover
+  // the stack: the stack stands left of it, or the browser steps back while a
+  // toast shows when no room is left beside it.
+  const browserAreas = useNativeBrowserArea((s) => s.areas);
+  const beside = toastPlacement(browserAreas, window.innerWidth);
 
   return createPortal(
     // z-[115]: above the first-run setup spotlight (z-110), whose scrim takes
@@ -64,6 +70,8 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
     // restart and window buttons whose outcome it reports.
     <div data-testid="toast-layer"
       data-under-node-window={underNodeWindow ? "true" : undefined}
+      data-hides-native-browser={beside.hidesBrowser ? "true" : undefined}
+      style={beside.right !== null && !underNodeWindow ? { right: beside.right } : undefined}
       className={cn(
         "pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2",
         besidePanel && !underNodeWindow && "lg:right-[336px]",
