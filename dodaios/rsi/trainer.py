@@ -35,7 +35,8 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from . import selector, stats
-from .policy import ACTIVE, CANDIDATE, DEFAULT, Policy, PolicyStore, target_for
+from .bind import active_policy
+from .policy import ACTIVE, CANDIDATE, Policy, PolicyStore, target_for
 from .replay import replay_cell
 
 log = logging.getLogger(__name__)
@@ -227,7 +228,7 @@ class Trainer:
         return f"text candidate {candidate.id} proposed ({change.state.value})"
 
     def _propose(self, cell: str, now: int) -> str:
-        active = self._policies.policy(cell, ACTIVE) or DEFAULT
+        active = active_policy(self._policies, cell)
         rows = [r for r in self._cell_runs(cell) if r.get("policy_id") == active.id]
         if len(rows) < selector.N_MIN:
             return "waiting for runs"
@@ -251,7 +252,7 @@ class Trainer:
         return self._propose_text(cell, active, recorded)
 
     def _judge(self, trial: Open, now: int) -> str:
-        active = self._policies.policy(trial.cell, ACTIVE) or DEFAULT
+        active = active_policy(self._policies, trial.cell)
         candidate = self._policies.policy(trial.cell, CANDIDATE)
         if candidate is None or candidate.id != trial.candidate:
             self._close(trial, "withdrawn", now)  # rolled back or replaced by the owner

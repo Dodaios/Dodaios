@@ -20,7 +20,16 @@ from .policy import ACTIVE, CANDIDATE, DEFAULT, Policy, PolicyStore
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Binding", "arm_of", "before_send", "bind", "binding_fields", "set_store", "store"]
+__all__ = [
+    "Binding",
+    "active_policy",
+    "arm_of",
+    "before_send",
+    "bind",
+    "binding_fields",
+    "set_store",
+    "store",
+]
 
 _ARM_SALT: Final[str] = "rsi-canary-1"
 
@@ -43,7 +52,7 @@ def bind(policies: PolicyStore | None, cell: str, root: str) -> Binding:
     if policies is None:
         return Binding(DEFAULT, ACTIVE)
     try:
-        active = policies.policy(cell, ACTIVE) or DEFAULT
+        active = active_policy(policies, cell)
         candidate = policies.policy(cell, CANDIDATE)
     except Exception:  # noqa: BLE001 - an unreadable store binds the default, and says so
         log.warning("rsi bind: policies of %s unreadable; the default applies", cell, exc_info=True)
@@ -53,6 +62,18 @@ def bind(policies: PolicyStore | None, cell: str, root: str) -> Binding:
     if arm_of(root) == CANDIDATE:
         return Binding(candidate, CANDIDATE)
     return Binding(active, ACTIVE)
+
+
+def active_policy(policies: PolicyStore, cell: str) -> Policy:
+    """The cell's active policy; a new epoch's cell has its predecessor's until it has its own."""
+    own = policies.policy(cell, ACTIVE)
+    if own is not None:
+        return own
+    from .drift import inherited
+
+    with_active = [c for c, slots in policies.cells().items() if ACTIVE in slots]
+    previous = inherited(cell, with_active)
+    return (policies.policy(previous, ACTIVE) if previous else None) or DEFAULT
 
 
 _store: PolicyStore | None = None

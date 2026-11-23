@@ -97,6 +97,16 @@ requests in that cell carry the block in their first brief, and the gate
 decides as for any candidate. The thread shows the lead's words in its bubble;
 the block is only in what the agent reads.
 
+## New models and CLI versions
+
+A new answering model or CLI version line opens a new cell, compared only with
+itself (`dodaios/rsi/drift.py`). Until it has a policy of its own it runs
+under the active policy of its nearest predecessor (same domain, model and
+runner, the closest earlier line). Once it has 40 judged runs,
+`python -m dodaios.rsi.drift` compares them with the last 40 of the
+predecessor and gives one recommendation per new cell. A drop is named only
+when it is shown; nothing switches a model or a CLI by itself.
+
 ## What it takes, honestly
 
 At 80 requests per arm and equal pass rates the PassRate's bound sits near
@@ -113,4 +123,5 @@ binding in a recorded run. `tests/unit/rsi/test_replay_and_trainer.py`: replay
 cuts and coverage, and the whole loop with a real registry, including a mined
 line that waits for the owner. `tests/unit/rsi/test_mining.py`: the patterns.
 `tests/contract/test_workspace_chat_threads.py`: an approved block in a real
-first brief.
+first brief. `tests/unit/rsi/test_drift.py`: which cell follows which,
+inheritance and the notes.
