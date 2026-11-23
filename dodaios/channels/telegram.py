@@ -35,6 +35,7 @@ from dodaios.channels.base import (
     ChannelMedia,
     ChannelMessage,
     ChannelSession,
+    sent_in_pairing_window,
 )
 from dodaios.channels.chat_text import readable_text, telegram_html, without_fences
 from dodaios.channels.manager import (
@@ -77,6 +78,22 @@ class _Held:
     message: ChannelMessage
     album: str
     timer: asyncio.Task[None] | None = None
+
+
+def _sent_at(message: Any) -> float | None:
+    """When Telegram says the message was sent (epoch seconds), or ``None``."""
+    stamp = getattr(message, "date", None)
+    if isinstance(stamp, bool):
+        return None
+    if isinstance(stamp, (int, float)):
+        return float(stamp)
+    to_epoch = getattr(stamp, "timestamp", None)
+    if not callable(to_epoch):
+        return None
+    try:
+        return float(to_epoch())
+    except (OverflowError, OSError, ValueError):  # a date no clock can hold is no date
+        return None
 
 
 def _safe_error(exc: BaseException, token: str | None = None) -> str:
@@ -154,6 +171,10 @@ class TelegramChannel:
         # instance is built (see FIRST_CONTACT_PAIRING_WINDOW_S).
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
         self._pairing_closed_logged = False
+        # Only a message sent after this moment may claim the allowlist: the
+        # Bot API hands a bot the messages it was sent while it was offline.
+        self._pairing_opened_at = time.time()
+        self._pairing_stale_logged = False
         #: The language the owner's Telegram app is set to (``language_code``).
         self.owner_language = ""
         #: Per chat: pictures waiting for the message that belongs to them.
@@ -245,7 +266,10 @@ class TelegramChannel:
             await self._app.initialize()
             await self._app.start()
             await self._app.updater.start_polling(
-                poll_interval=self._cfg.polling_interval_s
+                poll_interval=self._cfg.polling_interval_s,
+                # Nobody is allowed yet, so nothing that waited at Telegram
+                # while the bot was offline can be for this channel.
+                drop_pending_updates=self._unclaimed(),
             )
         except Exception as exc:  # noqa: BLE001 — reported below without the token
             # ``initialize()`` re-checks the token and raises InvalidToken with
@@ -544,6 +568,12 @@ class TelegramChannel:
 
         return True
 
+    def _unclaimed(self) -> bool:
+        """Whether the allowlist is still empty and open to a first-contact claim."""
+        return bool(self._cfg.pair_on_first_private_message) and not (
+            self._cfg.allowed_user_ids or self._cfg.allowed_chat_ids
+        )
+
     def _pair_first_private_user(self, update: Any) -> bool:
         """Claim an empty private allowlist for the first sender.
 
@@ -580,6 +610,15 @@ class TelegramChannel:
                     "%.0f s after the channel started. Message the bot right after "
                     "connecting it, or add your user id to allowed_user_ids.",
                     FIRST_CONTACT_PAIRING_WINDOW_S,
+                )
+            return False
+
+        if not sent_in_pairing_window(self._pairing_opened_at, _sent_at(msg)):
+            if not self._pairing_stale_logged:
+                self._pairing_stale_logged = True
+                log.warning(
+                    "Telegram first-user pairing refused: the message was sent before "
+                    "this channel started. Send the bot a new message to pair."
                 )
             return False
 

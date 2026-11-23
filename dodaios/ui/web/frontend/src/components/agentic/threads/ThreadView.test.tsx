@@ -221,15 +221,15 @@ describe("ThreadView", () => {
     fireEvent.dragEnter(drop, { dataTransfer });
     fireEvent.dragOver(drop, { dataTransfer });
     fireEvent.drop(drop, { dataTransfer });
-    // A short name, not the whole title, drawn as a pill in the box.
-    expect(box.value).toBe("wait for @Fix the login redirect ");
+    // The whole title, drawn as a pill in the box.
+    expect(box.value).toBe("wait for @Fix the login redirect after the OAuth callback ");
     const pill = within(screen.getByTestId("thread-composer-magic")).getByTestId("thread-mention");
-    expect(pill.textContent).toBe("@Fix the login redirect");
+    expect(pill.textContent).toBe("@Fix the login redirect after the OAuth callback");
 
     fireEvent.change(box, { target: { value: `${box.value}before you merge` } });
     await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
-    expect(api.sendAgentChatMessage.mock.calls[0][1]).toBe("wait for [Fix the login redirect](thread:s2) before you merge");
+    expect(api.sendAgentChatMessage.mock.calls[0][1]).toBe("wait for [Fix the login redirect after the OAuth callback](thread:s2) before you merge");
   });
 
   it("takes a named thread out whole with one Backspace", async () => {

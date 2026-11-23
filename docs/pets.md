@@ -17,17 +17,13 @@ bar, the voice orb or nothing (`docs/dodaios-bar.md`).
   assistant's swatch). An id that no longer exists on disk, and the old
   `"none"` an earlier install may have saved, are drawn as the default pet,
   Gigi.
-- **In the Dodaios Verse.** Aboard the capital ship the chosen pet is the
-  commander's companion drone: it hovers at the commander's heel
-  (`docs/verse/README.md`).
 - **Worn by an agent.** In an agent's look dialog (*Companion → Look →
   Pet*) any pet from My Pets can replace the agent's shape. It is stored as
   `companion.pet` in the agent's avatar JSON (`dodaios/society/companion.py`,
   mirrored by `components/society/companion/appearance.ts`) and drawn by
   `CompanionMark` wherever the agent appears: roster, chats, mentions, the
-  level hall, the bot stage (each scene plays a pet row, `PET_STATE` in
-  `botStage/scenes.ts`), the live line of its routine traces, and as its 3D
-  companion in the Verse with the pet's own model and gait. The agent's
+  bot stage (each scene plays a pet row, `PET_STATE` in
+  `botStage/scenes.ts`), and the live line of its routine traces. The agent's
   colour stays for its chat bubbles. A pet that does not exist on this
   machine (deleted, or drawn on another one) shows the shape again; a shared
   agent template keeps a built-in pet and drops a drawn one.
