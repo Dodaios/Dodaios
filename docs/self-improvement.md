@@ -65,7 +65,9 @@ with the app and from the person's own past work.
 ### Splits
 
 Tasks that came from the same piece of work share a *group*, and a group falls
-into exactly one of four splits by a hash of its key.
+into exactly one of four splits by a hash of its key. The domain is not part of
+the draw: the brief task and the coding task of one pull request are in the same
+split, so nothing practised on one can be graded on the other.
 
 | Split | Share | Used for | Read by |
 | --- | --- | --- | --- |

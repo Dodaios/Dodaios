@@ -432,6 +432,7 @@ def test_one_piece_of_work_becomes_a_brief_task_and_a_coding_task():
     assert (brief.domain, coding.domain) == (Domain.BRIEF, Domain.CODING)
     assert brief.source is Source.MINED and coding.source is Source.MINED
     assert brief.group == coding.group == f"{REPO}#1"
+    assert brief.split is coding.split
     assert brief.id != coding.id
     assert dict(brief.payload) == {"repo": REPO, "base": "before1", "request": REQUEST}
     assert dict(brief.check) == {

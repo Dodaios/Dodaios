@@ -27,7 +27,7 @@ from dodaios.rsi.gate.evidence import Effect, Evidence, Verdict
 from dodaios.rsi.storage import Schema, open_db
 from dodaios.self_change import surfaces
 
-PINNED_DRAW = {"alpha": "select", "beta": "practice", "gamma": "guard", "delta": "guard"}
+PINNED_DRAW = {"alpha": "select", "beta": "practice", "gamma": "select", "delta": "sealed"}
 
 V1 = "CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, value TEXT NOT NULL);"
 V2 = "ALTER TABLE items ADD COLUMN note TEXT NOT NULL DEFAULT '';"
@@ -168,6 +168,13 @@ def test_a_group_always_lands_in_the_same_split_and_siblings_stay_together() -> 
     second = Task("t2", Domain.RECALL, Source.MINED, group="g-17", payload={"q": "b"})
     assert first.split is second.split is split_of(Domain.RECALL, "g-17")
     assert LEARNER_SPLITS == {Split.PRACTICE}
+
+
+def test_one_piece_of_work_is_in_one_split_whatever_its_tasks_measure() -> None:
+    # Otherwise a learner practises on the brief task and is graded on the coding task.
+    for index in range(200):
+        group = f"github.com/acme/app#{index}"
+        assert len({split_of(domain, group) for domain in Domain}) == 1, group
 
 
 def test_the_draw_is_pinned_for_ever() -> None:
