@@ -23,7 +23,7 @@
     },
     "empty": {
       "title": "Nothing is measured yet",
-      "body": "To measure itself, the assistant first has to build test tasks from your own work. When there are enough, it checks itself on them at night, and this page shows whether it got better, what it changed and what proved each change."
+      "body": "To measure itself, the assistant first builds test tasks from your own memory and messages, at night. When there are enough, it checks itself on them, and this page shows whether it got better, what it changed and what proved each change."
     },
     "domain": {
       "recall": {
@@ -47,7 +47,11 @@
       "cost": "{before} → {after} tokens",
       "cost_same": "{after} tokens, as shipped",
       "waiting": "{n} tasks from your work are ready. The first measurement comes with the next night.",
-      "no_tasks": "There are no tasks from your work for this area yet, so nothing is measured here."
+      "no_tasks": "There are no tasks from your work for this area yet, so nothing is measured here.",
+      "quality_label": "Tasks solved",
+      "shorter": "shorter",
+      "range_unclear_cheaper": "As far as measured it is as good as shipped: the quality difference lies between {low} and {high} points, and that includes zero. Its prompt is {pct} shorter.",
+      "building": "{n} test tasks from your own memory and messages so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now."
     },
     "curve": {
       "title": "Advantage, night by night",
@@ -122,7 +126,12 @@
       "idle": "Looked, and found nothing to measure yet.",
       "show_one": "Show 1 earlier night",
       "show_other": "Show {count} earlier nights",
-      "hide": "Show fewer"
+      "hide": "Show fewer",
+      "built_one": "Built 1 test task from your own memory and messages.",
+      "built_other": "Built {count} test tasks from your own memory and messages.",
+      "erased_one": "Erased 1 task about a memory that is gone.",
+      "erased_other": "Erased {count} tasks about memories that are gone.",
+      "deferred": "No model could be asked, so no tasks were built."
     },
     "outcome": {
       "admitted": "let in on trial",
@@ -148,9 +157,10 @@
       "decide_body": "A change goes in only when it proves itself on tasks it never practised on.",
       "check_title": "Keep checking",
       "check_body": "Later nights check each change again on other tasks and take back what no longer helps.",
-      "limits": "It works only while you have been away for {minutes} minutes, and at most one night in {hours} hours.",
-      "no_model": "Today it asks no model, so a night costs a few seconds of this computer.",
-      "model_budget": "When it asks a model, it uses at most {share} % of your plan's usage window, and never a key that is billed per token."
+      "limits": "It works only after you have been away for {minutes} minutes, and at most one night in {hours} hours.",
+      "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
+      "measure_no_model": "Measuring itself asks no model.",
+      "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
     },
     "param": {
       "recall_entity_boost": {

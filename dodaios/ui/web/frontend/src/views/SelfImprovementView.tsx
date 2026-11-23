@@ -13,7 +13,7 @@
  * `SelfChangeChanged` (hooks/useWebSocket.ts) plus a slow safety poll. It
  * never interrupts: no toast, no sound. docs/self-improvement.md.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
@@ -37,25 +37,34 @@ import { AdvantageCurve } from "./selfImprovement/AdvantageCurve";
 import { ChangeDetail } from "./selfImprovement/ChangeDetail";
 import { NightsSection } from "./selfImprovement/Nights";
 import {
+  DECIDE_MIN_TASKS,
   MODEL_FREE_DOMAINS,
+  SAVING_HEADLINE_SHARE,
   areaAbout,
   areaName,
   certainty,
   effectWords,
+  fmtPercent,
   fmtPoints,
   fmtShare,
   fmtTokens,
   fmtValue,
   paramTitle,
+  promptSaving,
   wordFor,
 } from "./selfImprovement/words";
 
 const LIST = "divide-y divide-border overflow-hidden rounded-md border border-border bg-card";
 
 function nightDidSomething(night: Night): boolean {
+  const made = night.made ?? {};
   return Boolean(
     night.paused ||
       night.updated_from ||
+      made.questions ||
+      made.messages ||
+      made.forgotten ||
+      made.deferred ||
       night.settled?.length ||
       night.proposed?.length ||
       night.decided?.length ||
@@ -63,14 +72,16 @@ function nightDidSomething(night: Night): boolean {
   );
 }
 
-/** Nothing to show yet: no own tasks anywhere, nothing learned, no night that did anything. */
+/**
+ * Nothing to measure yet: no own tasks anywhere and nothing learned. The nights
+ * may still have tried to build tasks; they are listed under the empty card.
+ */
 export function isEmpty(data: SelfImprovementOverview): boolean {
   return (
     data.domains.every((d) => d.tasks_total === 0 && !d.measured) &&
     data.stack.length === 0 &&
     data.candidates.length === 0 &&
-    data.resting.length === 0 &&
-    !data.nights.some((n) => !n.paused && nightDidSomething(n))
+    data.resting.length === 0
   );
 }
 
@@ -159,7 +170,11 @@ export function SelfImprovementView() {
             )}
 
             {isEmpty(data) ? (
-              <EmptyCard />
+              <>
+                <EmptyCard />
+                {/* A night that tried to build tasks says what came of it, even before anything exists. */}
+                {data.nights.some(nightDidSomething) && <NightsSection nights={data.nights} locale={locale} />}
+              </>
             ) : (
               <>
                 {data.domains.map((domain) => (
@@ -309,9 +324,15 @@ function Area({ domain, points, locale }: { domain: DomainSummary; points: Advan
         </>
       ) : (
         <p className="rounded-md border border-border bg-card px-5 py-4 text-sm text-muted-foreground" data-testid="si-area-waiting">
-          {domain.tasks_total > 0
-            ? fill(t("self_improvement.area.waiting"), { n: domain.tasks_total })
-            : t("self_improvement.area.no_tasks")}
+          {domain.tasks_total === 0
+            ? t("self_improvement.area.no_tasks")
+            : (domain.tasks.select ?? 0) < DECIDE_MIN_TASKS
+              ? fill(t("self_improvement.area.building"), {
+                  n: domain.tasks_total,
+                  need: DECIDE_MIN_TASKS,
+                  have: domain.tasks.select ?? 0,
+                })
+              : fill(t("self_improvement.area.waiting"), { n: domain.tasks_total })}
         </p>
       )}
     </section>
@@ -323,29 +344,42 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
   const where = certainty(point.low, point.high);
   const range = { low: fmtPoints(point.low, locale), high: fmtPoints(point.high, locale) };
   const costChanged = Math.round(point.now_tokens) !== Math.round(point.factory_tokens);
+  const tokens = { before: fmtTokens(point.factory_tokens, locale), after: fmtTokens(point.now_tokens, locale) };
+  const saving = promptSaving(point.now_tokens, point.factory_tokens);
+  // A shorter prompt at a quality no worse than shipped is a result of its own,
+  // so it stands beside the points in the same weight.
+  const savingHeadline = saving >= SAVING_HEADLINE_SHARE;
+  const rangeKey = where === "unclear" && savingHeadline ? "range_unclear_cheaper" : `range_${where}`;
   return (
     <div className="rounded-md border border-border bg-card px-5 py-4" data-testid="si-headline" data-certainty={where}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        {/* An uncertain number is not a result yet, so it is set in the quieter ink. */}
-        <p
-          className={cn(
-            "font-display text-[34px] font-semibold leading-none tabular-nums tracking-[-0.02em]",
-            where === "unclear" ? "text-muted-foreground" : "text-foreground-strong",
-          )}
-          data-testid="si-advantage"
-        >
-          {fmtPoints(point.diff, locale)}
-          <span className="ml-1.5 text-lg font-medium tracking-normal">{t("self_improvement.area.unit")}</span>
-        </p>
-        <span
-          className={cn("text-sm font-medium", where === "worse" ? "text-destructive" : "text-muted-foreground")}
-          data-testid="si-certainty"
-        >
-          {t(`self_improvement.area.badge_${where}`)}
-        </span>
+      <div className="grid gap-x-10 gap-y-4 sm:grid-cols-[auto_auto] sm:justify-start">
+        <Figure
+          label={t("self_improvement.area.quality_label")}
+          value={fmtPoints(point.diff, locale)}
+          unit={t("self_improvement.area.unit")}
+          // An uncertain number is not a result yet, so it is set in the quieter ink.
+          quiet={where === "unclear"}
+          testId="si-advantage"
+          note={
+            <span className={cn("font-medium", where === "worse" ? "text-destructive" : "text-muted-foreground")} data-testid="si-certainty">
+              {t(`self_improvement.area.badge_${where}`)}
+            </span>
+          }
+        />
+        {savingHeadline && (
+          <Figure
+            label={t("self_improvement.area.cost_label")}
+            value={fmtPercent(saving, locale)}
+            unit={t("self_improvement.area.shorter")}
+            testId="si-saving"
+            note={<span className="tabular-nums text-muted-foreground">{fill(t("self_improvement.area.cost"), tokens)}</span>}
+          />
+        )}
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-foreground">{t("self_improvement.area.meaning")}</p>
-      <p className="mt-1 text-sm leading-relaxed text-foreground">{fill(t(`self_improvement.area.range_${where}`), range)}</p>
+      <p className="mt-4 text-sm leading-relaxed text-foreground">{t("self_improvement.area.meaning")}</p>
+      <p className="mt-1 text-sm leading-relaxed text-foreground" data-testid="si-range">
+        {fill(t(`self_improvement.area.${rangeKey}`), { ...range, pct: fmtPercent(saving, locale) })}
+      </p>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-t border-border pt-3 text-sm">
         <div className="contents">
           <dt className="text-muted-foreground">{t("self_improvement.area.scores_label")}</dt>
@@ -357,16 +391,49 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
             })}
           </dd>
         </div>
-        <div className="contents">
-          <dt className="text-muted-foreground">{t("self_improvement.area.cost_label")}</dt>
-          <dd className="tabular-nums text-foreground" data-testid="si-cost">
-            {fill(t(costChanged ? "self_improvement.area.cost" : "self_improvement.area.cost_same"), {
-              before: fmtTokens(point.factory_tokens, locale),
-              after: fmtTokens(point.now_tokens, locale),
-            })}
-          </dd>
-        </div>
+        {!savingHeadline && (
+          <div className="contents">
+            <dt className="text-muted-foreground">{t("self_improvement.area.cost_label")}</dt>
+            <dd className="tabular-nums text-foreground" data-testid="si-cost">
+              {fill(t(costChanged ? "self_improvement.area.cost" : "self_improvement.area.cost_same"), tokens)}
+            </dd>
+          </div>
+        )}
       </dl>
+    </div>
+  );
+}
+
+/** One headline figure: what it measures, the number in the display face, one quiet line under it. */
+function Figure({
+  label,
+  value,
+  unit,
+  note,
+  quiet = false,
+  testId,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  note: ReactNode;
+  quiet?: boolean;
+  testId: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mt-1 font-display text-[34px] font-semibold leading-none tabular-nums tracking-[-0.02em]",
+          quiet ? "text-muted-foreground" : "text-foreground-strong",
+        )}
+        data-testid={testId}
+      >
+        {value}
+        <span className="ml-1.5 text-lg font-medium tracking-normal">{unit}</span>
+      </p>
+      <p className="mt-1.5 text-sm">{note}</p>
     </div>
   );
 }
@@ -497,12 +564,14 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
           </li>
         ))}
       </ol>
-      <p className="mt-5 text-sm leading-relaxed text-muted-foreground" data-testid="si-limits">
-        {fill(t("self_improvement.how.limits"), { minutes, hours })}{" "}
-        {modelFree
-          ? t("self_improvement.how.no_model")
-          : fill(t("self_improvement.how.model_budget"), { share: Math.round(limits.budget_share * 100) })}
-      </p>
+      <div className="mt-5 space-y-2 text-sm leading-relaxed text-muted-foreground">
+        <p data-testid="si-limits">
+          {fill(t("self_improvement.how.limits"), { minutes, hours })}{" "}
+          {fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
+          {modelFree ? ` ${t("self_improvement.how.measure_no_model")}` : ""}
+        </p>
+        <p data-testid="si-privacy">{t("self_improvement.how.privacy")}</p>
+      </div>
     </section>
   );
 }

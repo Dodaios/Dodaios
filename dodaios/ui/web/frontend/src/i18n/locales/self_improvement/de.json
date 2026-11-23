@@ -23,7 +23,7 @@
     },
     "empty": {
       "title": "Noch ist nichts gemessen",
-      "body": "Um sich selbst zu messen, muss der Assistent zuerst Testaufgaben aus deiner eigenen Arbeit bauen. Sobald es genug sind, prüft er sich nachts daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
+      "body": "Um sich selbst zu messen, baut der Assistent nachts zuerst Testaufgaben aus deinem eigenen Gedächtnis und deinen Nachrichten. Sobald es genug sind, prüft er sich daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
     },
     "domain": {
       "recall": {
@@ -47,7 +47,11 @@
       "cost": "{before} → {after} Tokens",
       "cost_same": "{after} Tokens, wie ausgeliefert",
       "waiting": "{n} Aufgaben aus deiner Arbeit sind bereit. Die erste Messung kommt mit der nächsten Nacht.",
-      "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner Arbeit, deshalb wird hier nichts gemessen."
+      "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner Arbeit, deshalb wird hier nichts gemessen.",
+      "quality_label": "Gelöste Aufgaben",
+      "shorter": "kürzer",
+      "range_unclear_cheaper": "Soweit gemessen ist er so gut wie im Auslieferungszustand: Der Qualitätsunterschied liegt zwischen {low} und {high} Punkten, und das schließt null ein. Sein Prompt ist {pct} kürzer.",
+      "building": "Bisher gibt es {n} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}."
     },
     "curve": {
       "title": "Vorsprung, Nacht für Nacht",
@@ -122,7 +126,12 @@
       "idle": "Nachgesehen und noch nichts zu messen gefunden.",
       "show_one": "1 frühere Nacht zeigen",
       "show_other": "{count} frühere Nächte zeigen",
-      "hide": "Weniger zeigen"
+      "hide": "Weniger zeigen",
+      "built_one": "1 Testaufgabe aus deinem Gedächtnis und deinen Nachrichten gebaut.",
+      "built_other": "{count} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten gebaut.",
+      "erased_one": "1 Aufgabe zu einer Erinnerung gelöscht, die es nicht mehr gibt.",
+      "erased_other": "{count} Aufgaben zu Erinnerungen gelöscht, die es nicht mehr gibt.",
+      "deferred": "Es konnte kein Modell gefragt werden, deshalb wurden keine Aufgaben gebaut."
     },
     "outcome": {
       "admitted": "auf Probe aufgenommen",
@@ -148,9 +157,10 @@
       "decide_body": "Eine Änderung kommt nur hinein, wenn sie sich an Aufgaben bewährt, an denen er nie geübt hat.",
       "check_title": "Weiter prüfen",
       "check_body": "Spätere Nächte prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
-      "limits": "Er arbeitet nur, wenn du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
-      "no_model": "Heute fragt er kein Modell, eine Nacht kostet also ein paar Sekunden dieses Computers.",
-      "model_budget": "Wenn er ein Modell fragt, nutzt er höchstens {share} % des Nutzungsfensters deines Tarifs und nie einen Schlüssel, der pro Token abgerechnet wird."
+      "limits": "Er arbeitet nur, nachdem du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
+      "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
+      "measure_no_model": "Das Messen selbst fragt kein Modell.",
+      "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
     },
     "param": {
       "recall_entity_boost": {

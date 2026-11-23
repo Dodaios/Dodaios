@@ -23,7 +23,7 @@
     },
     "empty": {
       "title": "Todavía no hay nada medido",
-      "body": "Para medirse, el asistente primero tiene que crear tareas de prueba a partir de tu propio trabajo. Cuando haya suficientes, se pondrá a prueba con ellas por la noche, y esta página mostrará si mejoró, qué cambió y qué demostró cada cambio."
+      "body": "Para medirse, el asistente primero crea por la noche tareas de prueba a partir de tu propia memoria y tus mensajes. Cuando haya suficientes, se pondrá a prueba con ellas, y esta página mostrará si mejoró, qué cambió y qué demostró cada cambio."
     },
     "domain": {
       "recall": {
@@ -47,7 +47,11 @@
       "cost": "{before} → {after} tokens",
       "cost_same": "{after} tokens, como se entregó",
       "waiting": "Hay {n} tareas de tu trabajo listas. La primera medición llega con la próxima noche.",
-      "no_tasks": "Todavía no hay tareas de tu trabajo para esta área, así que aquí no se mide nada."
+      "no_tasks": "Todavía no hay tareas de tu trabajo para esta área, así que aquí no se mide nada.",
+      "quality_label": "Tareas resueltas",
+      "shorter": "más corto",
+      "range_unclear_cheaper": "Hasta donde se ha medido, es tan bueno como se entregó: la diferencia de calidad está entre {low} y {high} puntos, y eso incluye el cero. Su prompt es un {pct} más corto.",
+      "building": "Por ahora hay {n} tareas de prueba de tu memoria y tus mensajes. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}."
     },
     "curve": {
       "title": "Ventaja, noche a noche",
@@ -122,7 +126,12 @@
       "idle": "Revisó y aún no encontró nada que medir.",
       "show_one": "Mostrar 1 noche anterior",
       "show_other": "Mostrar {count} noches anteriores",
-      "hide": "Mostrar menos"
+      "hide": "Mostrar menos",
+      "built_one": "Creó 1 tarea de prueba a partir de tu memoria y tus mensajes.",
+      "built_other": "Creó {count} tareas de prueba a partir de tu memoria y tus mensajes.",
+      "erased_one": "Borró 1 tarea sobre un recuerdo que ya no existe.",
+      "erased_other": "Borró {count} tareas sobre recuerdos que ya no existen.",
+      "deferred": "No se pudo consultar ningún modelo, así que no se crearon tareas."
     },
     "outcome": {
       "admitted": "aceptado a prueba",
@@ -148,9 +157,10 @@
       "decide_body": "Un cambio solo entra cuando demuestra su valor en tareas con las que nunca practicó.",
       "check_title": "Seguir comprobando",
       "check_body": "Las noches siguientes comprueban cada cambio de nuevo con otras tareas y deshacen lo que ya no ayuda.",
-      "limits": "Solo trabaja cuando llevas {minutes} minutos fuera, y como mucho una noche cada {hours} horas.",
-      "no_model": "Hoy no consulta ningún modelo, así que una noche cuesta unos segundos de este ordenador.",
-      "model_budget": "Cuando consulta un modelo, usa como mucho el {share} % de la ventana de uso de tu plan, y nunca una clave que se factura por token."
+      "limits": "Solo trabaja después de que lleves {minutes} minutos fuera, y como mucho una noche cada {hours} horas.",
+      "models": "Para crear tareas consulta un modelo como mucho {calls} veces por noche, con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
+      "measure_no_model": "La medición en sí no consulta ningún modelo.",
+      "privacy": "Los recuerdos y mensajes que se usan para esto solo van al proveedor con el que el asistente ya responde. Los recuerdos marcados como sensibles nunca se envían."
     },
     "param": {
       "recall_entity_boost": {

@@ -18,6 +18,23 @@ type T = (key: string) => string;
 /** Domains whose check asks no model (docs/self-improvement.md, "The benchmark"). */
 export const MODEL_FREE_DOMAINS: ReadonlySet<string> = new Set(["recall", "skill"]);
 
+/** Tasks the deciding part (the select split) needs before anything is decided (`MIN_PAIRS`, dodaios/rsi/gate/rules.py). */
+export const DECIDE_MIN_TASKS = 30;
+
+/** A prompt this much shorter is a result of its own, said in the headline. */
+export const SAVING_HEADLINE_SHARE = 0.05;
+
+/** How much shorter the prompt is now than as shipped, as a share (0.67); 0 when it is not shorter. */
+export function promptSaving(nowTokens: number, factoryTokens: number): number {
+  if (!(factoryTokens > 0) || !(nowTokens < factoryTokens)) return 0;
+  return (factoryTokens - nowTokens) / factoryTokens;
+}
+
+/** A share as a whole percent: 0.667 → "67 %" (in the locale's own way). */
+export function fmtPercent(share: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(share);
+}
+
 /** Domains whose cost is the prompt a task adds, in tokens. */
 const TOKEN_COST_DOMAINS: ReadonlySet<string> = new Set(["recall"]);
 

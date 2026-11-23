@@ -23,7 +23,7 @@ import type {
 const NOW = Date.now();
 const DAY = 86_400_000;
 
-const LIMITS = { idle_after_s: 900, every_s: 72_000, budget_share: 0.2 };
+const LIMITS = { idle_after_s: 900, every_s: 72_000, budget_share: 0.2, max_model_calls: 8 };
 
 function emptyOverview(): SelfImprovementOverview {
   return {
@@ -214,14 +214,18 @@ describe("SelfImprovementView", () => {
     renderView();
     const empty = await screen.findByTestId("si-empty");
     expect(empty.textContent).toContain("Nothing is measured yet");
-    expect(empty.textContent).toContain("build test tasks from your own work");
+    expect(empty.textContent).toContain("builds test tasks from your own memory and messages");
     expect(screen.queryByTestId("si-area")).toBeNull();
     expect(screen.queryByTestId("si-curve")).toBeNull();
     expect(screen.queryByTestId("si-headline")).toBeNull();
     expect(screen.getByTestId("si-state").dataset.state).toBe("running");
     expect(screen.getByTestId("si-state").textContent).toContain("15 minutes");
     expect(screen.getByTestId("si-stop")).toBeTruthy();
-    expect(screen.getByTestId("si-limits").textContent).toContain("asks no model");
+    expect(screen.getByTestId("si-limits").textContent).toContain("at most 8 times a night");
+    expect(screen.getByTestId("si-limits").textContent).toContain("never on a key that is billed per token");
+    expect(screen.getByTestId("si-limits").textContent).toContain("Measuring itself asks no model.");
+    expect(screen.getByTestId("si-limits").textContent).not.toContain("Today it asks no model");
+    expect(screen.getByTestId("si-privacy").textContent).toContain("Memories marked sensitive are never sent");
   });
 
   it("shows the advantage with the scores behind it, and calls an uncertain number not certain", async () => {
@@ -234,7 +238,14 @@ describe("SelfImprovementView", () => {
     expect(headline.textContent).toContain("includes zero");
     expect(screen.getByTestId("si-scores").textContent).toContain("83.6%");
     expect(screen.getByTestId("si-scores").textContent).toContain("54 tasks");
-    expect(screen.getByTestId("si-cost").textContent).toBe("116 → 61 tokens");
+    // A shorter prompt at an uncertain quality is a result of its own, in the headline.
+    expect(screen.getByTestId("si-saving").textContent).toBe("47%shorter");
+    expect(headline.textContent).toContain("116 → 61 tokens");
+    expect(screen.queryByTestId("si-cost")).toBeNull();
+    const range = screen.getByTestId("si-range").textContent ?? "";
+    expect(range).toContain("as good as shipped");
+    expect(range).toContain("47% shorter");
+    expect(range).not.toMatch(/gain|better/);
     expect(screen.queryByTestId("si-empty")).toBeNull();
     expect(screen.getByTestId("si-curve")).toBeTruthy();
   });
@@ -331,6 +342,72 @@ describe("SelfImprovementView", () => {
     installFetch(null, 503);
     renderView();
     expect((await screen.findByTestId("si-error")).textContent).toContain("Restart Dodaios");
+  });
+});
+
+describe("SelfImprovementView, before and while tasks are built", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_improvement");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the prompt in small print when it is not shorter by 5 % or more", async () => {
+    const same = fullOverview();
+    const p = same.domains[0].point!;
+    same.domains[0].point = { ...p, now_tokens: 112, factory_tokens: 116 };
+    installFetch(same);
+    renderView();
+    await screen.findByTestId("si-headline");
+    expect(screen.queryByTestId("si-saving")).toBeNull();
+    expect(screen.getByTestId("si-cost").textContent).toBe("116 → 112 tokens");
+    expect(screen.getByTestId("si-range").textContent).toContain("includes zero");
+  });
+
+  it("says how many tasks exist and how many it needs while it is still building them", async () => {
+    const building = emptyOverview();
+    building.domains = [
+      { domain: "recall", tasks: { practice: 18, select: 11, guard: 7, sealed: 0 }, tasks_total: 36, all_tasks: {}, measured: false, point: null },
+    ];
+    building.nights = [night(1, { made: { questions: 24, messages: 12, forgotten: 0, calls: 3, deferred: false } })];
+    installFetch(building);
+    renderView();
+    const waiting = await screen.findByTestId("si-area-waiting");
+    expect(waiting.textContent).toBe(
+      "36 test tasks from your own memory and messages so far. Measuring starts when there are enough to decide on: 30 in the part it decides on, which holds 11 now.",
+    );
+    expect(screen.queryByTestId("si-empty")).toBeNull();
+    expect(screen.queryByTestId("si-curve")).toBeNull();
+    expect(screen.getAllByTestId("si-night")[0].textContent).toContain("Built 36 test tasks from your own memory and messages.");
+  });
+
+  it("lists what the nights built, erased, or could not build", async () => {
+    const data = fullOverview();
+    data.nights = [
+      night(1, { made: { questions: 80, messages: 25, forgotten: 3, calls: 8, deferred: false } }),
+      night(2, { made: { questions: 0, messages: 0, forgotten: 0, calls: 0, deferred: true } }),
+      night(3, { made: {} }),
+    ];
+    installFetch(data);
+    renderView();
+    const nights = await screen.findAllByTestId("si-night");
+    expect(nights[0].textContent).toContain("Built 105 test tasks from your own memory and messages.");
+    expect(nights[0].textContent).toContain("Erased 3 tasks about memories that are gone.");
+    expect(nights[1].textContent).toBe(nights[1].querySelector("time")!.textContent + "No model could be asked, so no tasks were built.");
+    expect(nights[2].textContent).toContain("found nothing to measure yet");
+  });
+
+  it("shows the nights under the empty card when no model could be asked", async () => {
+    const data = emptyOverview();
+    data.status = { ...data.status, last_night_ms: NOW - DAY };
+    data.nights = [night(1, { made: { deferred: true, questions: 0, messages: 0, forgotten: 0, calls: 0 } })];
+    installFetch(data);
+    renderView();
+    await screen.findByTestId("si-empty");
+    expect(screen.getAllByTestId("si-night")[0].textContent).toContain("No model could be asked");
   });
 });
 

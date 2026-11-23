@@ -1,6 +1,8 @@
 /**
  * "The last nights": per night its date and one short line for each thing it
- * did — an update it found, what it checked, proposed and decided (with the
+ * did — an update it found, the test tasks it built from the person's own
+ * memory and messages (or that no model could be asked for them), what it
+ * checked, proposed and decided (with the
  * outcome and the numbers), and the advantage it measured. Three show; the
  * rest fold away. A change that was already kept and still holds is not news,
  * so those are counted in one line instead of listed.
@@ -46,6 +48,17 @@ export function nightLines(t: T, night: Night, locale: string): string[] {
   if (night.updated_from) {
     out.push(fill(t("self_improvement.nights.updated"), { from: night.updated_from, to: night.app }));
   }
+  // A night builds tasks first, so what it built comes first.
+  const made = night.made ?? {};
+  const built = (made.questions ?? 0) + (made.messages ?? 0);
+  if (built > 0) {
+    out.push(fill(t(built === 1 ? "self_improvement.nights.built_one" : "self_improvement.nights.built_other"), { count: built }));
+  }
+  if ((made.forgotten ?? 0) > 0) {
+    const count = made.forgotten ?? 0;
+    out.push(fill(t(count === 1 ? "self_improvement.nights.erased_one" : "self_improvement.nights.erased_other"), { count }));
+  }
+  if (made.deferred && built === 0) out.push(t("self_improvement.nights.deferred"));
   let holding = 0;
   for (const row of night.settled ?? []) {
     if (row.outcome === "kept" && row.was === "live") {

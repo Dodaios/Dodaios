@@ -126,7 +126,9 @@ describe("self-improvement strings", () => {
       "self_improvement.resting.": ["restale", "dormant"],
       "self_improvement.author.": ["tuner", "owner"],
       "self_improvement.detail.": ["admitted_on", "checked_on"],
-      "self_improvement.how.": ["practise_title", "practise_body", "decide_title", "decide_body", "check_title", "check_body"],
+      "self_improvement.how.": ["practise_title", "practise_body", "decide_title", "decide_body", "check_title", "check_body", "limits", "models", "measure_no_model", "privacy"],
+      "self_improvement.nights.": ["built_one", "built_other", "erased_one", "erased_other", "deferred"],
+      "self_improvement.area.": ["building", "waiting", "range_unclear_cheaper", "shorter", "quality_label"],
       "self_improvement.domain.recall.": ["name", "about"],
     };
     for (const [prefix, suffixes] of Object.entries(expand)) {

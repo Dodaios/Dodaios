@@ -108,6 +108,18 @@ export interface NightProposal {
   learner: string;
 }
 
+/** What a night built before measuring: tasks from the person's own memory and messages. */
+export interface NightMade {
+  questions?: number;
+  messages?: number;
+  /** Tasks erased because the memory they name is gone. */
+  forgotten?: number;
+  /** Model calls the building used. */
+  calls?: number;
+  /** No model could be asked (no subscription or local model), so nothing was built. */
+  deferred?: boolean;
+}
+
 export interface Night {
   ts_ms: number;
   app: string;
@@ -119,6 +131,8 @@ export interface Night {
   proposed: NightProposal[];
   decided: NightDecision[];
   measured: AdvantagePoint[];
+  /** May be `{}`, or missing on nights recorded before tasks were built at night. */
+  made?: NightMade;
 }
 
 export interface RestingValue {
@@ -144,6 +158,8 @@ export interface SelfImprovementLimits {
   idle_after_s: number;
   every_s: number;
   budget_share: number;
+  /** The most model calls a night may make to build tasks. */
+  max_model_calls: number;
 }
 
 export interface SelfImprovementOverview {
