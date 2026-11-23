@@ -58,6 +58,10 @@ export function nightLines(t: T, night: Night, locale: string): string[] {
     const count = made.forgotten ?? 0;
     out.push(fill(t(count === 1 ? "self_improvement.nights.erased_one" : "self_improvement.nights.erased_other"), { count }));
   }
+  if ((made.past_work ?? 0) > 0) {
+    const count = made.past_work ?? 0;
+    out.push(fill(t(count === 1 ? "self_improvement.nights.stored_one" : "self_improvement.nights.stored_other"), { count }));
+  }
   if (made.deferred && built === 0) out.push(t("self_improvement.nights.deferred"));
   let holding = 0;
   for (const row of night.settled ?? []) {

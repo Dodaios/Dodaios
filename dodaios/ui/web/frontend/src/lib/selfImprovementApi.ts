@@ -118,7 +118,7 @@ export interface NightProposal {
   learner: string;
 }
 
-/** What a night built before measuring: tasks from the person's own memory and messages. */
+/** What a night built before measuring: tasks from the person's own memory, messages and past coding work. */
 export interface NightMade {
   questions?: number;
   messages?: number;
@@ -128,6 +128,8 @@ export interface NightMade {
   calls?: number;
   /** No model could be asked (no subscription or local model), so nothing was built. */
   deferred?: boolean;
+  /** New tasks stored from the person's past coding work (no model asked). */
+  past_work?: number;
 }
 
 export interface Night {

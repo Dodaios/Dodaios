@@ -384,10 +384,10 @@ describe("SelfImprovementView, before and while tasks are built", () => {
     expect(screen.getAllByTestId("si-night")[0].textContent).toContain("Built 36 test tasks from your own memory and messages.");
   });
 
-  it("lists what the nights built, erased, or could not build", async () => {
+  it("lists what the nights built, stored, erased, or could not build", async () => {
     const data = fullOverview();
     data.nights = [
-      night(1, { made: { questions: 80, messages: 25, forgotten: 3, calls: 8, deferred: false } }),
+      night(1, { made: { questions: 80, messages: 25, forgotten: 3, calls: 8, deferred: false, past_work: 261 } }),
       night(2, { made: { questions: 0, messages: 0, forgotten: 0, calls: 0, deferred: true } }),
       night(3, { made: {} }),
     ];
@@ -396,6 +396,7 @@ describe("SelfImprovementView, before and while tasks are built", () => {
     const nights = await screen.findAllByTestId("si-night");
     expect(nights[0].textContent).toContain("Built 105 test tasks from your own memory and messages.");
     expect(nights[0].textContent).toContain("Erased 3 tasks about memories that are gone.");
+    expect(nights[0].textContent).toContain("Stored 261 tasks from your past coding work.");
     expect(nights[1].textContent).toBe(nights[1].querySelector("time")!.textContent + "No model could be asked, so no tasks were built.");
     expect(nights[2].textContent).toContain("found nothing to measure yet");
   });

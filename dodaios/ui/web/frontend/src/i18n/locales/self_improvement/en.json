@@ -138,6 +138,8 @@
       "built_other": "Built {count} test tasks from your own memory and messages.",
       "erased_one": "Erased 1 task about a memory that is gone.",
       "erased_other": "Erased {count} tasks about memories that are gone.",
+      "stored_one": "Stored 1 task from your past coding work.",
+      "stored_other": "Stored {count} tasks from your past coding work.",
       "deferred": "No model could be asked, so no tasks were built."
     },
     "outcome": {

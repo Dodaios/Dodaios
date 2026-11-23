@@ -138,6 +138,8 @@
       "built_other": "根据你的记忆和消息构建了 {count} 个测试任务。",
       "erased_one": "删除了 1 个关于已不存在的记忆的任务。",
       "erased_other": "删除了 {count} 个关于已不存在的记忆的任务。",
+      "stored_one": "保存了 1 个来自你以往编程工作的任务。",
+      "stored_other": "保存了 {count} 个来自你以往编程工作的任务。",
       "deferred": "无法调用任何模型，因此没有构建任务。"
     },
     "outcome": {

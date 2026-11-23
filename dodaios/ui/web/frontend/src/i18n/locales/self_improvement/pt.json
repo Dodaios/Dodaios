@@ -138,6 +138,8 @@
       "built_other": "Criou {count} tarefas de teste a partir da sua memória e das suas mensagens.",
       "erased_one": "Apagou 1 tarefa sobre uma memória que já não existe.",
       "erased_other": "Apagou {count} tarefas sobre memórias que já não existem.",
+      "stored_one": "Guardou 1 tarefa do teu trabalho de programação anterior.",
+      "stored_other": "Guardou {count} tarefas do teu trabalho de programação anterior.",
       "deferred": "Não foi possível consultar nenhum modelo, por isso não foram criadas tarefas."
     },
     "outcome": {

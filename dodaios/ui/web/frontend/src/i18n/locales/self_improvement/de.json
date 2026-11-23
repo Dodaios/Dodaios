@@ -138,6 +138,8 @@
       "built_other": "{count} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten gebaut.",
       "erased_one": "1 Aufgabe zu einer Erinnerung gelöscht, die es nicht mehr gibt.",
       "erased_other": "{count} Aufgaben zu Erinnerungen gelöscht, die es nicht mehr gibt.",
+      "stored_one": "1 Aufgabe aus deiner früheren Coding-Arbeit gespeichert.",
+      "stored_other": "{count} Aufgaben aus deiner früheren Coding-Arbeit gespeichert.",
       "deferred": "Es konnte kein Modell gefragt werden, deshalb wurden keine Aufgaben gebaut."
     },
     "outcome": {
