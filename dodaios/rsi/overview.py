@@ -21,7 +21,7 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, Night
+from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, MAX_MODEL_CALLS, Night
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
@@ -125,6 +125,7 @@ def build(night: Night, *, now_ms: int | None = None) -> dict[str, Any]:
             "idle_after_s": IDLE_AFTER_S,
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
+            "max_model_calls": MAX_MODEL_CALLS,
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),

@@ -38,7 +38,7 @@ from dodaios.self_change.store import Change
 
 from .alpha import AlphaLedger
 from .evidence import Evidence, Verdict
-from .rules import Compared, admit_verdict, keep_verdict
+from .rules import MIN_PAIRS, Compared, admit_verdict, keep_verdict
 
 __all__ = ["LIVE", "Decision", "MeasuredGate"]
 
@@ -136,9 +136,14 @@ class MeasuredGate:
         )
 
     def can_decide(self, domain: Domain) -> bool:
-        """True while the select tasks of ``domain`` can still decide on a candidate."""
+        """True while the select tasks of ``domain`` can decide on a candidate.
+
+        False while there are too few of them, and when their budget is used up.
+        """
+        if len(self.tasks(domain, Split.SELECT)) < MIN_PAIRS:
+            return False
         groups = self.bench.groups(domain, Split.SELECT, self.sources)
-        return groups > 0 and self._alpha.left(domain, Split.SELECT, groups) > 0
+        return self._alpha.left(domain, Split.SELECT, groups) > 0
 
     @staticmethod
     def _seed(step: str, change: Change) -> str:
@@ -183,6 +188,11 @@ class MeasuredGate:
         compared: list[Compared] = []
         level = 0.0
         for domain in domains:
+            have = len(self.tasks(domain, Split.SELECT))
+            if have < MIN_PAIRS:
+                # Too few tasks decide nothing, so none of the budget is spent on asking.
+                reason = f"only {have} tasks to decide on; {MIN_PAIRS} are needed"
+                return Evidence(Verdict.UNDECIDED, split=Split.SELECT.value, reason=reason)
             groups = self.bench.groups(domain, Split.SELECT, self.sources)
             level = self._alpha.spend(domain, Split.SELECT, groups)
             if level <= 0.0:

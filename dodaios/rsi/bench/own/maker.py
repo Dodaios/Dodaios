@@ -205,21 +205,22 @@ class OwnRecallMaker:
         state = self._state()
         budget = _Budget(self._ask, max_calls)
         more_questions = more_messages = True
+        # One call of every night goes to questions while memories wait for one, so both
+        # kinds grow from the first night on.
+        if budget.can(1):
+            first = self._questions(memories, texts, state, budget)
+            more_questions = first is not None
+            report["questions"] += first or 0
         try:
-            while more_questions or more_messages:
-                progressed = False
-                if more_questions and budget.can(1):
-                    made = self._questions(memories, texts, state, budget)
-                    more_questions = made is not None
-                    report["questions"] += made or 0
-                    progressed = made is not None
-                if more_messages and budget.can(2):
-                    made = self._messages(vault, texts, in_mind, state, budget)
-                    more_messages = made is not None
-                    report["messages"] += made or 0
-                    progressed = progressed or made is not None
-                if not progressed:
-                    break
+            # Real messages first: they are the kind of task that tells changes apart.
+            while more_messages and budget.can(2):
+                made = self._messages(vault, texts, in_mind, state, budget)
+                more_messages = made is not None
+                report["messages"] += made or 0
+            while more_questions and budget.can(1):
+                made = self._questions(memories, texts, state, budget)
+                more_questions = made is not None
+                report["questions"] += made or 0
         finally:
             self._save(state)
         report["calls"] = budget.calls

@@ -26,12 +26,16 @@ from dodaios.rsi.bench.model import Domain, Source, Task, task_id
 
 from .world import LIVE_WORLD
 
-__all__ = ["BATCH", "PER_MEMORY", "SYSTEM", "build_prompt", "parse", "tasks_from"]
+__all__ = ["ASKED", "BATCH", "PER_MEMORY", "SYSTEM", "build_prompt", "parse", "tasks_from"]
 
 #: Memories per model call.
 BATCH: Final[int] = 12
-#: Messages asked for, and kept at most, per memory.
-PER_MEMORY: Final[int] = 2
+#: Messages asked for per memory.
+ASKED: Final[int] = 2
+#: Kept at most per memory. One is enough: a question shares words with its memory by
+#: construction, so the recall nearly always finds it. Questions guard against a change
+#: that breaks the recall; what tells a good change from a bad one are the real messages.
+PER_MEMORY: Final[int] = 1
 _MAX_WORDS: Final[int] = 30
 #: Above this overlap a message is the memory said again.
 _TOO_CLOSE: Final[float] = 0.9
@@ -40,7 +44,7 @@ SYSTEM: Final = (
     "You write test messages for a personal assistant's memory. You get facts the "
     "assistant has stored about one person, and a few messages that person really "
     "sent, as examples of how they write. For each fact write "
-    f"{PER_MEMORY} different messages this person might send to the assistant in "
+    f"{ASKED} different messages this person might send to the assistant in "
     "the middle of a day, for which the assistant needs exactly that fact: a "
     "question, or a task that cannot be done right without it. Write them in the "
     "language and the tone of the examples. Do not repeat the fact's sentence; ask "

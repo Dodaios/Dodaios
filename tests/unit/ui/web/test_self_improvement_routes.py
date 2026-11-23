@@ -51,7 +51,12 @@ def test_the_page_gets_what_was_measured_what_is_in_effect_and_what_the_nights_d
     assert status["paused"] is False and status["last_night_ms"] > 0
     assert status["next_night_ms"] == status["last_night_ms"] + 20 * 3600 * 1000
     assert status["decides_on"] == ["made"] and status["own_tasks"] is True
-    assert body["limits"] == {"idle_after_s": 900.0, "every_s": 72000.0, "budget_share": 0.2}
+    assert body["limits"] == {
+        "idle_after_s": 900.0,
+        "every_s": 72000.0,
+        "budget_share": 0.2,
+        "max_model_calls": 8,
+    }
 
     (domain,) = body["domains"]
     assert domain["domain"] == "recall" and domain["measured"] is True

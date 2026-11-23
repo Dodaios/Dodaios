@@ -44,8 +44,9 @@ __all__ = [
     "usable",
 ]
 
-#: Messages per model call.
-BATCH: Final[int] = 8
+#: Messages per model call. Real messages are the scarce, telling kind of task, so a
+#: call takes as many as a model labels reliably in one go.
+BATCH: Final[int] = 16
 #: Stored memories offered per message.
 _CANDIDATES: Final[int] = 8
 _MIN_WORDS: Final[int] = 3
