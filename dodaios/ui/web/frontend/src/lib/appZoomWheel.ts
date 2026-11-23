@@ -12,7 +12,11 @@
  *   carries the wheel button in `buttons`;
  * * they press it, let go, and turn: the events carry nothing. So a press arms
  *   the wheel for zoom, and it stays armed while the wheel keeps zooming, until
- *   a short pause, a pointer move, another button or a key ends it.
+ *   a short pause, another button or a key ends it.
+ *
+ * A pointer move does not end it. Mouse positions in a page are CSS pixels,
+ * and every zoom step rescales them: the hand that did not move would read as
+ * having moved after the first step, and the second notch would scroll.
  *
  * On Windows the press itself is cancelled. Otherwise Chromium starts its
  * middle-click auto-scroll on it, which scrolls the page under the pointer
@@ -67,9 +71,6 @@ export const APP_ZOOM_WHEEL_STEP = 40;
  * pressing to turning; short enough that scrolling a moment later scrolls.
  */
 export const WHEEL_PRESS_ZOOM_MS = 1500;
-
-/** Pointer travel, in screen pixels, that ends the zoom a wheel press started. */
-export const WHEEL_PRESS_SLOP_PX = 12;
 
 export type AppZoomWheelEvent = Pick<WheelEvent, "deltaY" | "ctrlKey" | "metaKey" | "altKey" | "buttons">;
 
@@ -130,20 +131,20 @@ export function installAppZoomWheel(
 ): () => void {
   /** Signed travel not yet spent on a step. */
   let travel = 0;
-  /** Where the wheel button went down, while it arms the wheel for zoom. */
-  let press: { x: number; y: number } | null = null;
+  /** A wheel press arms the wheel for zoom. */
+  let press = false;
   /** The wheel button is down right now. */
   let held = false;
   /** After the button came up: the wheel zooms until this time. */
   let armedUntil = 0;
 
   const disarm = () => {
-    press = null;
+    press = false;
     held = false;
   };
 
   const armed = (): boolean => {
-    if (press === null) return false;
+    if (!press) return false;
     if (held || now() <= armedUntil) return true;
     disarm();
     return false;
@@ -162,13 +163,13 @@ export function installAppZoomWheel(
     // Keeps Chromium from starting its middle-click auto-scroll (see above).
     // `auxclick` still fires, so a wheel click that closes a tab still does.
     if (cancelPress) mouse.preventDefault();
-    press = { x: mouse.screenX, y: mouse.screenY };
+    press = true;
     held = true;
     travel = 0;
   };
 
   const onMouseUp = (event: Event) => {
-    if ((event as MouseEvent).button !== WHEEL_BUTTON || press === null) return;
+    if ((event as MouseEvent).button !== WHEEL_BUTTON || !press) return;
     held = false;
     armedUntil = now() + WHEEL_PRESS_ZOOM_MS;
   };
@@ -177,11 +178,7 @@ export function installAppZoomWheel(
   const releaseMissed = (event: MouseEvent) => held && (event.buttons & WHEEL_BUTTONS_BIT) === 0;
 
   const onMouseMove = (event: Event) => {
-    if (press === null) return;
-    const mouse = event as MouseEvent;
-    if (releaseMissed(mouse) || Math.hypot(mouse.screenX - press.x, mouse.screenY - press.y) > WHEEL_PRESS_SLOP_PX) {
-      disarm();
-    }
+    if (releaseMissed(event as MouseEvent)) disarm();
   };
 
   const onWheel = (event: Event) => {

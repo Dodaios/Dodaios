@@ -755,8 +755,8 @@ Linux branches are unit-tested with fakes only. Tests:
 Ctrl + mouse wheel steps the same ladder: away from you zooms in, towards you
 zooms out (`lib/appZoomWheel.ts`). Pressing the wheel button and then turning
 the wheel does the same, whether the button is still held or was let go: a
-press arms the wheel for zoom until a pause of 1.5 s, a pointer move, another
-button or a key. On Windows the press is cancelled so Chromium does not start
+press arms the wheel for zoom until a pause of 1.5 s, another button or a
+key (not a pointer move: page coordinates rescale with every zoom step). On Windows the press is cancelled so Chromium does not start
 its middle-click auto-scroll; on Linux it is left alone, because it pastes.
 The engine's own Ctrl + wheel zoom is cancelled everywhere, because it would
 skip the ladder, the size bubble and the stored level. Surfaces that zoom

@@ -8,7 +8,6 @@ import {
   appZoomWheelIntent,
   installAppZoomWheel,
   OWN_WHEEL_ZOOM_ATTRIBUTE,
-  WHEEL_PRESS_SLOP_PX,
   WHEEL_PRESS_ZOOM_MS,
   type AppZoomWheelOptions,
 } from "./appZoomWheel";
@@ -204,18 +203,20 @@ describe("installAppZoomWheel", () => {
       expect(steps).toEqual([]);
     });
 
-    it("scrolls again once the pointer moves away", () => {
+    it("keeps zooming while the hand moves the mouse a little", () => {
       press(page);
-      page.dispatchEvent(mouse("mousemove", { screenX: 500 + WHEEL_PRESS_SLOP_PX + 5, screenY: 300 }));
-      expect(page.dispatchEvent(turn({ deltaY: 100 }))).toBe(true);
-      expect(steps).toEqual([]);
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      // After a step the same spot reads as other CSS pixels; that is no move.
+      page.dispatchEvent(mouse("mousemove", { buttons: 0, screenX: 430, screenY: 260 }));
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      expect(steps).toEqual(["in", "in"]);
     });
 
-    it("keeps zooming through the small wobble of a hand on the wheel", () => {
-      press(page);
-      page.dispatchEvent(mouse("mousemove", { screenX: 503, screenY: 302 }));
-      page.dispatchEvent(turn({ deltaY: -100 }));
-      expect(steps).toEqual(["in"]);
+    it("forgets a held press when a move shows the button is up", () => {
+      press(page, { hold: true });
+      page.dispatchEvent(mouse("mousemove", { buttons: 0 }));
+      expect(page.dispatchEvent(turn({ deltaY: 100 }))).toBe(true);
+      expect(steps).toEqual([]);
     });
 
     it("scrolls again after another button or a key", () => {
