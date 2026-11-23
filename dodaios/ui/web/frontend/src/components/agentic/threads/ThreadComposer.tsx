@@ -6,7 +6,7 @@ import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
 import { DictationButton } from "@/components/agentchat/DictationButton";
 import { PlanDraftMarks, PlanReviewButton } from "@/components/agentchat/planReview/PlanReviewButton";
 import { planAnswer, planDraftOf, reviewOf, usePlanDraft, usePlanDrafts } from "@/components/agentchat/planReview/planDraft";
-import { runningTurn, type PendingApproval, type QuestionState, type Timeline, type ToolBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
+import { runningTurn, waitsInBackground, type PendingApproval, type QuestionState, type Timeline, type ToolBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/components/agentchat/useChatAttachments";
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
@@ -434,11 +434,18 @@ export function ThreadComposer({
     [catalog, connections],
   );
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
-  const running = runningTurn(timeline) !== null || Boolean(activeSession?.running);
+  const live = runningTurn(timeline);
+  const running = live !== null || Boolean(activeSession?.running);
   const started = timeline.items.length > 0;
   // Claude Code and GLM take a waiting message into the running turn on Send
   // now; every other agent has that turn stopped for it.
   const steers = STEERABLE_RUNNERS.has(provider?.runner ?? "");
+  // The agent answered and only waits for its background tasks (shells,
+  // monitors, sub-agents): it has nothing to do, so the box is open the way
+  // it is between turns. A message goes straight to the agent, never into
+  // the queue, and the button is the send arrow, not Stop.
+  const free = running && steers && live !== null && waitsInBackground(live);
+  const working = running && !free;
 
   // A coding thread only runs on a coding agent: an API row left in the draft
   // from elsewhere moves to the first connected CLI.
@@ -634,8 +641,9 @@ export function ThreadComposer({
     if (running || busy) {
       // A message typed while the agent works waits for its answer and runs as
       // the next turn; its row above the box sends it at once on request.
+      // While it only waits on background tasks, the message reaches it now.
       releaseHeldFiles(held);
-      const sent = await dispatch(text, attachments, undefined, steers ? "after" : undefined);
+      const sent = await dispatch(text, attachments, undefined, free ? undefined : steers ? "after" : undefined);
       if (!sent) giveBack(key, text);
       return;
     }
@@ -829,7 +837,7 @@ export function ThreadComposer({
         style={{ left: dropCaret.left - 1, top: dropCaret.top, height: dropCaret.height }} />}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={running ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
+        placeholder={working ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onFocus={() => { dictationOwner = threadKey; }}
@@ -859,13 +867,13 @@ export function ThreadComposer({
           <DictationButton dictating={dictation.dictating} transcribing={dictation.finishing} sendQueued={dictation.sendQueued}
             onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }} disabled={dictation.micHeld}
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
-          {running && !canSend
+          {working && !canSend
             ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"
               onClick={() => { setPaused(true); void chat.getState().cancel("thread-stop-button"); }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>
-            : <button type="button" aria-label={running ? t("ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t("ide_threads.queue_title") : t("agent_chat.send")}
+            : <button type="button" aria-label={working ? t("ide_threads.queue_message") : t("ide_threads.send_message")} title={working ? t("ide_threads.queue_title") : t("agent_chat.send")}
               data-testid="thread-send" disabled={!canSend} onClick={() => void submit()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_1px_2px_rgb(var(--accent-rgb)/0.3)] transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {starting || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
