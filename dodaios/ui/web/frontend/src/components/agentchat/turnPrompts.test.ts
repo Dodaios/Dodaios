@@ -63,6 +63,24 @@ describe("end-of-turn cards", () => {
     expect(tools[0]).toMatchObject({ callId: "c1", question: { questionId: "q1" } });
   });
 
+  it("shows the plan the person approved in place of the agent's own", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t1" }),
+      ev("tool_call", { turn_id: "t1", call_id: "c1", name: "ExitPlanMode", input: { plan: "1. Add the table" } }),
+      ev("approval_required", { turn_id: "t1", approval_id: "a1", call_id: "c1", name: "ExitPlanMode", input: { plan: "1. Add the table" }, summary: "Plan ready" }),
+    ]);
+    const plan = (timeline: { items: unknown[] }) =>
+      (turn(timeline, 0).blocks.find((b): b is ToolBlock => b.kind === "tool")!.input as { plan: string }).plan;
+    expect(plan(tl)).toBe("1. Add the table");
+    const edited = reduceEvents(tl, [
+      ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow", plan: "1. Add the users table" }),
+    ]);
+    expect(plan(edited)).toBe("1. Add the users table");
+    // An approval without a changed plan leaves the agent's text.
+    const plain = reduceEvents(tl, [ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    expect(plan(plain)).toBe("1. Add the table");
+  });
+
   it("carries a plan card until the person answers it or moves on", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [
       ev("turn_started", { turn_id: "t1" }),

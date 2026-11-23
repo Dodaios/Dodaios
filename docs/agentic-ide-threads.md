@@ -243,6 +243,28 @@ the plan only: the CLI's own suggestion to switch the session to another
 mode is not kept. No card switches a session to "Bypass permissions"; only
 the pill does.
 
+### Reviewing a plan
+
+**Open plan** on a plan card opens the plan in a large window
+(`PlanReviewDialog.tsx`). There the person reads the plan as a document, types
+into it to change it, and comments on a passage: select the text, then press
+**Comment**. A field at the bottom takes a note on the whole plan. The window
+can be closed and opened again; what the person did stays with the card until
+it is answered, and the card shows it ("Edited · 2 comments").
+
+Both answers carry the review (`dodaios/agent_chat/plan_review.py`):
+
+| Answer | Claude Code, GLM | Every other CLI |
+|---|---|---|
+| **Build it** | The edited plan is the approved plan: it goes back as the input of `ExitPlanMode`, the CLI saves it to its plan file and builds it. Comments ride along as a closing "Notes from the person" section | The go-ahead message carries the edited plan and the comments |
+| **Keep planning** | The comments, and the person's version of the plan when they changed its text, are the reason the agent reads for the declined plan | The same text is sent as the next message; the thread stays in Plan Mode and the agent presents a revised plan |
+
+A plan the person did not touch is answered exactly as before. The plan's text
+stays Markdown: a block the person did not change keeps the exact text the
+agent wrote (the document editor's `DocMarkdown`). A comment keeps the words it
+is about, not a position, so it stays with its passage while the text around
+it changes.
+
 The question card is the question and nothing else: no header row. It shows
 the question, the agent's options as lettered rows (its recommendation first)
 and a row for a typed answer behind the next letter. Its foot holds **Skip**,

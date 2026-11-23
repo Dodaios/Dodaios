@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
 import { DictationButton } from "@/components/agentchat/DictationButton";
+import { PlanDraftMarks, PlanReviewButton } from "@/components/agentchat/planReview/PlanReviewButton";
+import { planAnswer, planDraftOf, reviewOf, usePlanDraft, usePlanDrafts } from "@/components/agentchat/planReview/planDraft";
 import { runningTurn, type PendingApproval, type QuestionState, type Timeline, type ToolBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/components/agentchat/useChatAttachments";
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
@@ -140,12 +142,28 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
   const chat = useThreadChat();
   const [sending, setSending] = useState<ApprovalDecision | null>(null);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [typed, setTyped] = useState("");
   const input = pending.input && typeof pending.input === "object" ? pending.input as Record<string, unknown> : {};
   // Claude Code's finished plan asks here too, and the plan itself is what gets approved.
   const isPlan = pending.name === "ExitPlanMode";
   const plan = isPlan ? String(input.plan ?? "").trim() : "";
   const detail = isPlan ? "" : String(input.command ?? input.file_path ?? input.path ?? input.url ?? "");
+  // What the person did to the plan in its review window: their text, their
+  // comments, and the note this card's own field writes too.
+  const review = usePlanDraft(pending.approvalId);
+  // The card stands behind the review window while the person types there:
+  // it follows their text when the page has time, never per keystroke.
+  const shownPlan = useDeferredValue(review.plan ?? plan);
+  const feedback = isPlan ? review.note : typed;
+  const setFeedback = (value: string) => {
+    if (isPlan) usePlanDrafts.getState().patch(pending.approvalId, { note: value });
+    else setTyped(value);
+  };
+  // The draft goes with the card, once it is answered.
+  const answered = useRef(false);
+  useEffect(() => () => {
+    if (answered.current) usePlanDrafts.getState().clear(pending.approvalId);
+  }, [pending.approvalId]);
   // One answer per card: a second click while the first is on its way would
   // land on a card that is already closed.
   const decide = async (decision: ApprovalDecision) => {
@@ -153,7 +171,11 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
     setSending(decision);
     setError("");
     try {
-      if (decision === "deny" && feedback.trim()) await chat.getState().decide(pending.approvalId, decision, undefined, feedback);
+      if (isPlan && (decision === "allow" || decision === "deny")) {
+        const answer = planAnswer(pending.approvalId, decision);
+        await chat.getState().decide(pending.approvalId, decision, undefined, answer.feedback, undefined, answer.review);
+        answered.current = true;
+      } else if (decision === "deny" && feedback.trim()) await chat.getState().decide(pending.approvalId, decision, undefined, feedback);
       else await chat.getState().decide(pending.approvalId, decision);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -172,7 +194,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
           {count > 1 && <span data-testid="thread-approval-count" className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{fill(t("ide_threads.one_of"), { count })}</span>}
         </p>
         <p className="mt-0.5 text-sm text-muted-foreground">{isPlan ? t("ide_threads.plan_hint") : pending.summary || pending.name}</p>
-        {plan && <div data-testid="thread-approval-plan" className={cn("mt-2 max-h-72 overflow-auto rounded-md bg-secondary px-3 py-2 scrollbar-jarvis", PLAN_PROSE)}><ChatMarkdown text={plan} /></div>}
+        {plan && <div data-testid="thread-approval-plan" className={cn("mt-2 max-h-72 overflow-auto rounded-md bg-secondary px-3 py-2 scrollbar-jarvis", PLAN_PROSE)}><ChatMarkdown text={shownPlan} /></div>}
         {detail && <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-secondary px-2.5 py-1.5 font-mono text-xs text-foreground scrollbar-jarvis">{detail}</pre>}
         <input type="text" data-testid="thread-approval-feedback" value={feedback} disabled={sending !== null}
           onChange={(e) => setFeedback(e.target.value)}
@@ -182,7 +204,13 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
         {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
       </div>
     </div>
-    <div className="mt-3 flex flex-wrap justify-end gap-2">
+    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      {plan && <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2.5">
+        <PlanReviewButton cardId={pending.approvalId} plan={plan} error={error}
+          pending={sending === "allow" ? "build" : sending === "deny" ? "keep" : null}
+          onAnswer={(answer) => void decide(answer === "build" ? "allow" : "deny")} />
+        <PlanDraftMarks cardId={pending.approvalId} />
+      </div>}
       <button type="button" disabled={sending !== null} onClick={() => void decide("deny")}
         className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{spinner("deny")}{isPlan ? t("ide_threads.keep_planning") : t("ide_threads.decline")}</button>
       {!isPlan && <button type="button" disabled={sending !== null} onClick={() => void decide("allow_always")}
@@ -192,6 +220,13 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
         className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{spinner("allow")}{isPlan ? t("ide_threads.build_it") : t("ide_threads.approve")}</button>
     </div>
   </div>;
+}
+
+/** What a turn wrote: for a coding agent that plans in its reply, this text is the plan. */
+function replyText(turn: TurnItem): string {
+  return turn.blocks
+    .flatMap((block) => (block.kind === "text" && !block.id.startsWith("steer-") && block.text.trim() ? [block.text] : []))
+    .join("\n\n");
 }
 
 /** The newest turn, when it is the timeline's last item and its plan card still waits. */
@@ -208,23 +243,34 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
   const t = useT();
   const chat = useThreadChat();
   const turn = waitingPlan(timeline);
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<PlanDecision | null>(null);
   const [error, setError] = useState("");
+  const cardId = turn ? `plan:${turn.id}` : "";
+  // The draft goes with the card, once it is answered.
+  const answered = useRef(false);
+  useEffect(() => () => {
+    if (answered.current && cardId) usePlanDrafts.getState().clear(cardId);
+  }, [cardId]);
   if (!turn?.plan) return null;
+  const plan = replyText(turn);
   // Build goes to the mode the permission pill shows now; the card's own mode
   // is what it showed when the plan was finished.
   const buildMode = (draft.permissionMode === "plan" ? planReturnMode(draft, provider) : draft.permissionMode) || turn.plan.buildMode;
   const mode = provider?.permission_modes?.find((row) => row.id === buildMode);
+  const buildHint = mode ? fill(t("ide_threads.build_switches"), { mode: mode.label }) : t("ide_threads.build_starts");
   const decide = async (decision: PlanDecision) => {
-    setSending(true);
+    if (sending) return;
+    setSending(decision);
     setError("");
     try {
       // Build goes on in the mode the button names, not one the server guesses.
-      await chat.getState().resolvePlan(turn.id, decision, decision === "build" ? buildMode : undefined);
+      // The person's edits and comments from the review window go with either answer.
+      await chat.getState().resolvePlan(turn.id, decision, decision === "build" ? buildMode : undefined, reviewOf(planDraftOf(cardId), true));
+      answered.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSending(false);
+      setSending(null);
     }
   };
   return <div data-testid="thread-plan" className="border-b border-border px-4 py-3">
@@ -233,15 +279,20 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground-strong">{t("ide_threads.plan_ready")}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {mode ? fill(t("ide_threads.build_switches"), { mode: mode.label }) : t("ide_threads.build_starts")} {t("ide_threads.or_keep_planning")}
+          {buildHint} {t("ide_threads.or_keep_planning")}
         </p>
         {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
     </div>
-    <div className="mt-3 flex flex-wrap justify-end gap-2">
-      <button type="button" disabled={sending} onClick={() => void decide("keep")}
+    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      {plan && <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2.5">
+        <PlanReviewButton cardId={cardId} plan={plan} error={error} pending={sending} buildHint={buildHint}
+          onAnswer={(answer) => void decide(answer)} />
+        <PlanDraftMarks cardId={cardId} />
+      </div>}
+      <button type="button" disabled={sending !== null} onClick={() => void decide("keep")}
         className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("ide_threads.keep_planning")}</button>
-      <button type="button" data-testid="thread-plan-build" disabled={sending} onClick={() => void decide("build")}
+      <button type="button" data-testid="thread-plan-build" disabled={sending !== null} onClick={() => void decide("build")}
         className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Hammer aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.build_it")}
       </button>

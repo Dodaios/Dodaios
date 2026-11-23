@@ -36,6 +36,7 @@ from typing import Any, Final
 from dodaios.agent_chat import attachments as chat_attachments
 from dodaios.agent_chat import (
     lead_compaction,
+    plan_review,
     seat_outcomes,
     thread_clear,
     token_efficiency,
@@ -61,6 +62,7 @@ from dodaios.agent_chat.permissions import (
     normalize_permission,
     permission_ids,
 )
+from dodaios.agent_chat.plan_review import PlanReview
 from dodaios.agent_chat.questions import (
     CANCELLED,
     MAX_ASKS_PER_TURN,
@@ -3299,6 +3301,13 @@ class AgentChatService:
                     "decision": decision,
                     **({"scope": choice[0]} if decision == "allow_always" and choice else {}),
                     **({"edited": changed} if changed else {}),
+                    # The plan that is built, whole: the timeline shows it in
+                    # place of the agent's own (``edited`` clips long texts).
+                    **(
+                        {"plan": str(args.get("plan") or "")}
+                        if "plan" in changed and plan_review.is_plan_tool(name)
+                        else {}
+                    ),
                 },
             ),
         )
@@ -3382,6 +3391,7 @@ class AgentChatService:
         narrow: str = "",
         feedback: str = "",
         edits: dict[str, Any] | None = None,
+        review: PlanReview | None = None,
     ) -> bool:
         """Answer an open card. ``scope``/``breadth`` say where an "Always allow"
         lives (the card's rule editor), ``narrow`` how far a chat rule reaches;
@@ -3390,7 +3400,12 @@ class AgentChatService:
         ``edits`` maps an editable preview field to the person's new text (a
         mail's subject or body, an event's title or time). An edit that the
         action does not allow raises ``ValueError`` and the card stays open;
-        an accepted one is what runs (``_ask`` amends the call's arguments)."""
+        an accepted one is what runs (``_ask`` amends the call's arguments).
+
+        ``review`` is the person's review of a plan (``plan_review``): approved,
+        the plan runs as they left it, their comments as its closing notes;
+        declined, their comments and their version are the reason the agent
+        reads. Only a plan card takes one."""
         if decision not in DECISIONS:
             raise ValueError(f"decision must be one of {DECISIONS}")
         if scope and scope not in RULE_SCOPES:
@@ -3401,7 +3416,26 @@ class AgentChatService:
             raise ValueError(f"narrow must be one of {RULE_NARROWS}")
         if narrow and scope != "chat":
             raise ValueError("a narrow rule lives in this chat")
-        if self.deferred_approvals.session_of(approval_id) == session_id:
+        deferred = self.deferred_approvals.session_of(approval_id) == session_id
+        feedback_limit = 2000
+        if review is not None:
+            item = self.deferred_approvals.get(approval_id) if deferred else None
+            call = (item.name, item.args) if item else self._approval_call.get(approval_id)
+            if call is None:
+                return False
+            if not plan_review.is_plan_tool(call[0]):
+                raise ValueError("only a plan takes a review")
+            original = str(call[1].get("plan") or "")
+            if decision == "deny":
+                # The typed reason is the review's note on the whole plan.
+                said = replace(review, note=review.note or feedback.strip()[:2000])
+                feedback = plan_review.changes_wanted(original, said) or feedback
+                feedback_limit = plan_review.PLAN_CHARS + 20_000
+            else:
+                approved = plan_review.approved_plan(original, review)
+                if approved != original:
+                    edits = {**(edits or {}), "plan": approved}
+        if deferred:
             return self._answer_deferred(approval_id, decision, edits)
         if self._approval_session.get(approval_id) != session_id:
             return False
@@ -3421,7 +3455,7 @@ class AgentChatService:
         if decision == "allow_always" and scope:
             self._approval_choice[approval_id] = (scope, breadth or "action", narrow)
         if decision == "deny" and feedback.strip():
-            self._approval_feedback[approval_id] = feedback.strip()[:2000]
+            self._approval_feedback[approval_id] = feedback.strip()[:feedback_limit]
         fut.set_result(decision)
         return True
 
@@ -4532,6 +4566,7 @@ class AgentChatService:
         *,
         build_mode: str = "",
         author: dict[str, str] | None = None,
+        review: PlanReview | None = None,
     ) -> bool:
         """The person's answer to a plan card: ``build`` or ``keep``.
 
@@ -4542,20 +4577,32 @@ class AgentChatService:
         clicked Build: the one the thread goes on in, so what the button said
         is what runs. Without it the session's recorded mode, then the card's,
         decide. False when the card is not open (any more).
+
+        ``review`` is what the person did in the plan's review window
+        (``plan_review``): their edits and comments go to the agent with the
+        go-ahead, or, with ``keep``, as the next message, so the agent revises
+        the plan instead of waiting for the person to type the same again.
         """
         if decision not in turn_prompts.PLAN_DECISIONS:
             raise ValueError(f"decision must be one of {turn_prompts.PLAN_DECISIONS}")
         async with self._turn_prompt_lock():
-            card = turn_prompts.open_plan(self.store.list_events(session_id), turn_id)
+            events = self.store.list_events(session_id)
+            card = turn_prompts.open_plan(events, turn_id)
             if card is None:
                 return False
+            original = turn_prompts.turn_reply(events, turn_id)[1]
             await self._emit(
                 session_id,
                 make_event("plan_resolved", {"turn_id": turn_id, "decision": decision}),
             )
-            if decision == turn_prompts.PLAN_KEEP:
+            wanted = (
+                plan_review.changes_wanted(original, review)
+                if decision == turn_prompts.PLAN_KEEP
+                else ""
+            )
+            if decision == turn_prompts.PLAN_KEEP and not wanted:
                 return True
-            session = self.store.get_session(session_id)
+            session = None if wanted else self.store.get_session(session_id)
             # The pill may have moved since the card opened, and a session
             # the person already took out of Plan keeps the mode they picked.
             build = ""
@@ -4574,7 +4621,22 @@ class AgentChatService:
                     session_id,
                     make_event("session_updated", {"permission_mode": build}),
                 )
-        await self.send(session_id, turn_prompts.PLAN_GO_AHEAD, author=author)
+        if wanted:
+            # Still planning: the session keeps its mode and the agent revises.
+            shown_text = plan_review.shown(original, review, turn_prompts.PLAN_KEEP_SHOWN)
+            await self.send(session_id, wanted, display_text=shown_text, author=author)
+            return True
+        go_ahead = plan_review.go_ahead(original, review, turn_prompts.PLAN_GO_AHEAD)
+        await self.send(
+            session_id,
+            go_ahead,
+            display_text=(
+                None
+                if go_ahead == turn_prompts.PLAN_GO_AHEAD
+                else plan_review.shown(original, review, turn_prompts.PLAN_GO_AHEAD)
+            ),
+            author=author,
+        )
         return True
 
 

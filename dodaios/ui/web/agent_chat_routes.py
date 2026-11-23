@@ -77,6 +77,7 @@ from dodaios.agent_chat.permissions import (
     permission_modes,
     society_mode_supported,
 )
+from dodaios.agent_chat.plan_review import PlanReview, review_from
 from dodaios.agent_chat.service import (
     DECISIONS,
     RULE_BREADTHS,
@@ -323,6 +324,25 @@ class MessageBody(BaseModel):
     delivery: Literal["auto", "now", "after"] = "auto"
 
 
+class PlanCommentBody(BaseModel):
+    #: The passage of the plan the comment is about; empty for none.
+    quote: str = Field(default="", max_length=4000)
+    text: str = Field(default="", max_length=20000)
+
+
+class PlanReviewBody(BaseModel):
+    """What the person did in a plan's review window (``agent_chat/plan_review.py``)."""
+
+    #: The plan as the person left it; absent when they did not change its text.
+    plan: str | None = None
+    comments: list[PlanCommentBody] = Field(default_factory=list, max_length=500)
+    #: A remark on the whole plan.
+    note: str = Field(default="", max_length=20000)
+
+    def to_review(self) -> PlanReview:
+        return review_from(plan=self.plan, comments=self.comments, note=self.note)
+
+
 class ApprovalBody(BaseModel):
     decision: str
     #: Where an "Always allow" lives (the card's rule chooser); empty = as before.
@@ -336,6 +356,8 @@ class ApprovalBody(BaseModel):
     #: Inline edits of the action's text fields (preview field key -> new text),
     #: applied before it runs; the action allows only plain text fields.
     edits: dict[str, str] = Field(default_factory=dict)
+    #: The person's review of a plan, on a plan's card only.
+    review: PlanReviewBody | None = None
 
 
 class ApprovalRuleBody(BaseModel):
@@ -387,6 +409,8 @@ class PlanBody(BaseModel):
     #: The mode the permission pill shows: where ``build`` goes on. Empty
     #: leaves it to the mode the session recorded.
     build_mode: str = Field(default="", max_length=64)
+    #: The person's edits and comments from the plan's review window.
+    review: PlanReviewBody | None = None
 
 
 class PickFolderBody(BaseModel):
@@ -2512,6 +2536,7 @@ async def resolve_approval(
             narrow=body.narrow,
             feedback=body.feedback,
             edits=body.edits or None,
+            review=body.review.to_review() if body.review else None,
         )
     except ValueError as exc:  # an edit the action does not allow; the card stays open
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -2733,7 +2758,11 @@ async def resolve_plan(session_id: str, body: PlanBody, request: Request) -> dic
     svc = (await _async_service(request))
     try:
         ok = await svc.resolve_turn_plan(
-            session_id, body.turn_id, body.decision, build_mode=body.build_mode
+            session_id,
+            body.turn_id,
+            body.decision,
+            build_mode=body.build_mode,
+            review=body.review.to_review() if body.review else None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

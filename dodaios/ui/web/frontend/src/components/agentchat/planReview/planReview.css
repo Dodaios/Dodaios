@@ -1,0 +1,31 @@
+/*
+ * The plan in its review window. The text takes the document editor's look
+ * (docs.css); this file adds only what a plan under review needs: a first
+ * heading that starts at the top, and the marks of commented passages.
+ */
+
+.plan-review-text > :first-child {
+  margin-top: 0;
+}
+
+/* A plan's own title: the one top heading, a step above its sections. */
+.plan-review-text > h1:first-child {
+  font-size: 28px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.plan-review-text > h1:first-child + * {
+  margin-top: 24px;
+}
+
+.plan-comment-mark {
+  border-bottom: 2px solid hsl(var(--accent) / 0.55);
+  background: hsl(var(--accent) / 0.14);
+  cursor: pointer;
+}
+
+.plan-comment-mark.is-active {
+  border-bottom-color: hsl(var(--accent));
+  background: hsl(var(--accent) / 0.3);
+}

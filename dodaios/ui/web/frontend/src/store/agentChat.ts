@@ -29,6 +29,7 @@ import {
   type QuestionSubmitAnswer,
   resolveAgentChatPlan,
   type PlanDecision,
+  type PlanReviewPayload,
   type QuestionAnswerInput,
   sendAgentChatMessage,
   saveChatSelection,
@@ -248,7 +249,7 @@ export interface AgentChatStore {
    * the backend took the answer, or said nothing waits on it any more; any
    * other failure throws so the card can say why.
    */
-  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string, edits?: Record<string, string>) => Promise<void>;
+  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string, edits?: Record<string, string>, review?: PlanReviewPayload) => Promise<void>;
   /**
    * Turn an approval card into a standing rule after the fact ("Allow every
    * time", "Check with me every time"). The card shows it at once; throws so
@@ -277,7 +278,7 @@ export interface AgentChatStore {
    */
   answerByMessage?: (text: string) => Promise<boolean>;
   /** Answer a coding agent's plan card in the active session; throws so the card can say why. */
-  resolvePlan: (turnId: string, decision: PlanDecision, buildMode?: string) => Promise<void>;
+  resolvePlan: (turnId: string, decision: PlanDecision, buildMode?: string, review?: PlanReviewPayload) => Promise<void>;
   /** Tests and the socket: fold one event into the active timeline. */
   ingest: (event: AgentChatEvent) => void;
   disconnect: () => void;
@@ -1454,7 +1455,7 @@ export function createAgentChatStore(
         }
       },
 
-      decide: async (approvalId, decision, rule, feedback, edits) => {
+      decide: async (approvalId, decision, rule, feedback, edits, review) => {
         const sid = get().activeSessionId;
         if (!sid) return;
         let outcome: string = decision;
@@ -1462,7 +1463,8 @@ export function createAgentChatStore(
         // the roster now, not when the backend's confirmation arrives.
         set({ timeline: markApprovalAnswering(get().timeline, approvalId, true) });
         try {
-          if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule, undefined, edits);
+          if (review) await resolveAgentChatApproval(sid, approvalId, decision, undefined, feedback, edits, review);
+          else if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule, undefined, edits);
           else if (edits && Object.keys(edits).length) await resolveAgentChatApproval(sid, approvalId, decision, undefined, undefined, edits);
           else if (feedback?.trim()) await resolveAgentChatApproval(sid, approvalId, decision, undefined, feedback);
           else await resolveAgentChatApproval(sid, approvalId, decision);
@@ -1543,10 +1545,11 @@ export function createAgentChatStore(
         }
       },
 
-      resolvePlan: async (turnId, decision, buildMode) => {
+      resolvePlan: async (turnId, decision, buildMode, review) => {
         const sid = get().activeSessionId;
         if (!sid) throw new Error("no open chat");
-        await resolveAgentChatPlan(sid, turnId, decision, buildMode);
+        if (review) await resolveAgentChatPlan(sid, turnId, decision, buildMode, review);
+        else await resolveAgentChatPlan(sid, turnId, decision, buildMode);
       },
 
       ingest: (event) => {

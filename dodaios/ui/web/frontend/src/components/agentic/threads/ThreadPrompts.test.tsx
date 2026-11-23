@@ -26,6 +26,7 @@ vi.mock("@/lib/chatLibraryApi", async (importOriginal) => ({
   fetchProjectLaunchers: vi.fn().mockResolvedValue({ file_manager: true, editors: [], remote_url: null, remote_label: null }),
 }));
 
+import { usePlanDrafts } from "@/components/agentchat/planReview/planDraft";
 import { ThreadView } from "./ThreadView";
 import { useThreadChatStore } from "./threadModel";
 
@@ -96,6 +97,7 @@ beforeEach(() => {
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
+  usePlanDrafts.setState({ drafts: {} });
 });
 
 afterEach(() => {
@@ -216,6 +218,83 @@ describe("a coding agent's questions and plans in a thread", () => {
     expect(screen.queryByText("Always allow")).toBeNull();
     await act(async () => { fireEvent.click(screen.getByTestId("thread-approve")); });
     expect(api.resolveAgentChatApproval).toHaveBeenCalledWith("s1", "a1", "allow");
+  });
+
+  it("builds Claude's plan as the person left it in the review window", async () => {
+    await openThread();
+    feed([
+      ["approval_required", {
+        turn_id: "t1", approval_id: "a1", call_id: "c1", name: "ExitPlanMode",
+        input: { plan: "## Steps\n\n1. Add the table" }, summary: "Plan ready",
+      }],
+    ]);
+    const card = screen.getByTestId("thread-approval");
+    expect(card.querySelector("[data-testid=plan-review-open]")).toBeTruthy();
+    expect(screen.queryByTestId("plan-draft-marks")).toBeNull();
+    // What the review window writes: an edited text and a comment on a passage.
+    act(() => {
+      usePlanDrafts.getState().patch("a1", {
+        plan: "## Steps\n\n1. Add the users table",
+        comments: [{ id: "c", quote: "Add the", at: 7, text: "Only this one." }],
+      });
+    });
+    expect(screen.getByTestId("thread-approval-plan").textContent).toContain("Add the users table");
+    expect(screen.getByTestId("plan-draft-marks").textContent).toContain("Edited");
+    await act(async () => { fireEvent.click(screen.getByTestId("thread-approve")); });
+    expect(api.resolveAgentChatApproval).toHaveBeenCalledWith("s1", "a1", "allow", undefined, undefined, undefined, {
+      plan: "## Steps\n\n1. Add the users table",
+      comments: [{ quote: "Add the", text: "Only this one." }],
+    });
+  });
+
+  it("sends Claude's plan back with the comments, and a typed note alone as the plain reason", async () => {
+    await openThread();
+    feed([
+      ["approval_required", {
+        turn_id: "t1", approval_id: "a1", call_id: "c1", name: "ExitPlanMode",
+        input: { plan: "1. Add the table" }, summary: "Plan ready",
+      }],
+    ]);
+    fireEvent.change(screen.getByTestId("thread-approval-feedback"), { target: { value: "Smaller steps." } });
+    act(() => {
+      usePlanDrafts.getState().patch("a1", { comments: [{ id: "c", quote: "the table", at: 7, text: "Which?" }] });
+    });
+    await act(async () => { fireEvent.click(screen.getByText("Keep planning")); });
+    expect(api.resolveAgentChatApproval).toHaveBeenCalledWith("s1", "a1", "deny", undefined, undefined, undefined, {
+      comments: [{ quote: "the table", text: "Which?" }], note: "Smaller steps.",
+    });
+  });
+
+  it("keeps a typed reason on Claude's plan a plain reason when nothing else was reviewed", async () => {
+    await openThread();
+    feed([
+      ["approval_required", {
+        turn_id: "t1", approval_id: "a1", call_id: "c1", name: "ExitPlanMode",
+        input: { plan: "1. Add the table" }, summary: "Plan ready",
+      }],
+    ]);
+    fireEvent.change(screen.getByTestId("thread-approval-feedback"), { target: { value: "Smaller steps." } });
+    await act(async () => { fireEvent.click(screen.getByText("Keep planning")); });
+    expect(api.resolveAgentChatApproval).toHaveBeenCalledWith("s1", "a1", "deny", undefined, "Smaller steps.");
+  });
+
+  it("sends another agent's plan back with the person's comments", async () => {
+    await openThread();
+    feed([
+      ["assistant_text", { turn_id: "t1", message_id: "m1", text: "1. Add the table\n2. Wire the route" }],
+      ["turn_finished", { turn_id: "t1", status: "done", duration_ms: 1000 }],
+      ["plan_ready", { turn_id: "t1", build_mode: "auto" }],
+    ]);
+    const card = screen.getByTestId("thread-plan");
+    expect(card.querySelector("[data-testid=plan-review-open]")).toBeTruthy();
+    act(() => {
+      usePlanDrafts.getState().patch("plan:t1", { comments: [{ id: "c", quote: "Wire the route", at: 20, text: "Which one?" }] });
+    });
+    expect(screen.getByTestId("plan-draft-marks").textContent).toContain("1 comment");
+    await act(async () => { fireEvent.click(screen.getByText("Keep planning")); });
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "keep", undefined, {
+      comments: [{ quote: "Wire the route", text: "Which one?" }],
+    });
   });
 });
 

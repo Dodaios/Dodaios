@@ -915,6 +915,17 @@ function approvalUrl(sessionId: string, approvalId: string): string {
   return `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(approvalId)}`;
 }
 
+/**
+ * What the person did in a plan's review window before answering its card
+ * (`dodaios/agent_chat/plan_review.py`): the plan as they left it, when they
+ * changed its text, their comments on passages, and a note on the whole plan.
+ */
+export interface PlanReviewPayload {
+  plan?: string;
+  comments?: { quote: string; text: string }[];
+  note?: string;
+}
+
 export async function resolveAgentChatApproval(
   sessionId: string,
   approvalId: string,
@@ -924,9 +935,14 @@ export async function resolveAgentChatApproval(
   feedback?: string,
   /** The person's inline edits of the action's text fields (field key -> new text). */
   edits?: Record<string, string>,
+  /** A plan card only: the person's review of the plan. */
+  review?: PlanReviewPayload,
 ): Promise<void> {
   const why = decision === "deny" ? feedback?.trim() : "";
-  const changed = decision !== "deny" && edits && Object.keys(edits).length ? { edits } : {};
+  const changed = {
+    ...(decision !== "deny" && edits && Object.keys(edits).length ? { edits } : {}),
+    ...(review ? { review } : {}),
+  };
   await json(
     await fetch(approvalUrl(sessionId, approvalId), {
       method: "POST",
@@ -1125,12 +1141,14 @@ export async function resolveAgentChatPlan(
   turnId: string,
   decision: PlanDecision,
   buildMode?: string,
+  /** The person's edits and comments from the plan's review window. */
+  review?: PlanReviewPayload,
 ): Promise<void> {
   await json(
     await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/plan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ turn_id: turnId, decision, ...(buildMode ? { build_mode: buildMode } : {}) }),
+      body: JSON.stringify({ turn_id: turnId, decision, ...(buildMode ? { build_mode: buildMode } : {}), ...(review ? { review } : {}) }),
     }),
     "plan-failed",
   );
