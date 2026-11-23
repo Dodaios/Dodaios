@@ -50,10 +50,16 @@ def _scan_check(gate: dict[str, Any] | None) -> Check:
     if status in (gates.UNATTRIBUTED, gates.UNREADABLE):
         return Check("output_scan", None, str(detail.get("reason") or status))
     if status == gates.FINDINGS:
+        points = [
+            f"{f.get('rule')} {f.get('path')}: {f.get('note')}"
+            for f in (detail.get("findings") or [])
+            if f.get("severity") == "ambiguous"
+        ][:_SHOWN]
         return Check(
             "output_scan", True,
             f"{size}; no weakened check on its face, "
-            f"{detail.get('ambiguous', 0)} point(s) to look at",
+            f"{detail.get('ambiguous', 0)} point(s) to look at"
+            + (f" ({'; '.join(points)})" if points else ""),
         )
     return Check("output_scan", True, f"{size}; no weakened check, no off-limits path")
 

@@ -28,7 +28,7 @@ request: the runs of one request are averaged.
 | P | follow-up orders; a run that hit the limit counts the limit |
 | cost | USD plus 0.001 USD per second of turn time |
 | churn | lines added plus deleted |
-| hard | a weakened check or an off-limits change in the final output, or merged work that turned red later (a leak) |
+| hard | a violation of the output scan in the final output (a weakened check, a changed gate or hook, a secret or deployment file), or merged work that turned red later (a leak); an edit to a core path of the app or to an instruction file for agents is not one |
 
 ## The rule
 

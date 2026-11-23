@@ -237,12 +237,22 @@ def test_c4_a_lint_rule_switched_off_in_pyproject_is_reported(diff_of):
 
 @pytest.mark.parametrize(
     "path",
-    ["AGENTS.md", "CLAUDE.md", ".claude/settings.json", "scripts/agent_done_gate.py",
-     ".github/agent-done-gate.json", "docs/sub/AGENTS.md"],
+    [".claude/settings.json", ".claude/hooks/stop.py", "scripts/agent_done_gate.py",
+     ".github/agent-done-gate.json", ".husky/pre-push"],
 )
-def test_c5_gates_hooks_and_instruction_files_are_off_limits(diff_of, path):
+def test_c5_gates_and_hooks_are_off_limits(diff_of, path):
     diff = diff_of({path: "one\n"}, {path: "one\ntwo\n"})
     assert ("C5", VIOLATION, path) in _found(cheat_scan.scan(diff))
+
+
+@pytest.mark.parametrize(
+    "path", ["AGENTS.md", "CLAUDE.md", "docs/sub/AGENTS.md", ".github/copilot-instructions.md"],
+)
+def test_c5_an_instruction_file_is_a_point_to_look_at_not_a_violation(diff_of, path):
+    diff = diff_of({path: "one\n"}, {path: "one\ntwo\n"})
+    found = _found(cheat_scan.scan(diff))
+    assert ("C5", AMBIGUOUS, path) in found
+    assert not [f for f in found if f[1] == VIOLATION]
 
 
 def test_c5_an_ordinary_document_is_not_an_instruction_file(diff_of):

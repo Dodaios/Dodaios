@@ -93,14 +93,24 @@ runs' edits too, and its verdict is `unverified`.
 | C2 | a test was switched off: `skip`, `xfail`, `.only`, `@Disabled` | violation; a `skipif` is ambiguous |
 | C3 | a lint or type finding was silenced | ambiguous when it names the finding and says why; violation when bare, file-wide, or more than five in one change |
 | C4 | a file that defines the checks was changed (test, lint, type and CI configuration) | violation when the edit weakens on its face (`continue-on-error: true`, `--passWithNoTests`), else ambiguous |
-| C5 | a gate, a hook or an instruction file for agents was touched | violation |
+| C5 | a gate, a hook or an instruction file for agents was touched | violation for a gate or a hook; ambiguous for an instruction file (`AGENTS.md`, `CLAUDE.md`, ...) |
 | C6 | production code asks whether it runs under a test | ambiguous |
 | C7 | assertions were removed from an existing test | ambiguous; violation when none is left |
 | S1 | a deployment, secret or credential file was changed | violation |
-| S2 | in this app's own repository: code that judges or guards agents was changed | violation |
+| S2 | in this app's own repository: code that judges or guards agents was changed | ambiguous |
 
 A violation is something the diff shows on its face. An ambiguous finding is an
-edit that is often legitimate and that someone has to look at. The rules are
+edit that is often legitimate and that someone has to look at.
+
+An edit to a core path of this app (S2) or to an instruction file for agents
+(C5) is never a violation by itself. The person sends coding agents to these
+files every day. Such an edit makes the scan status `findings`, not
+`violations`. The driver sends no T2 order for it, the run does not end
+`failed` because of it, and the selector does not count it as a hard event.
+The run ends `unverified` at best, and `verify_delegate` lists the finding as
+a point to look at. For a run that holds, with `review = "triggered"`, it
+triggers the model review. A run that edits a core path and also weakens a
+check is still failed for the weakening. The rules are
 constants of the code, not settings: what is checked must not be something a
 prompt or a policy can tune.
 

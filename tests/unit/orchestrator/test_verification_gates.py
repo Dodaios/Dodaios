@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from dodaios.orchestrator.verification import gates, scope
-from dodaios.orchestrator.verification.cheat_scan import VIOLATION
+from dodaios.orchestrator.verification.cheat_scan import AMBIGUOUS, VIOLATION
 
 TEST = "def test_sum():\n    assert add(1, 2) == 3\n"
 CODE = "def add(a, b):\n    return a + b\n"
@@ -237,10 +237,11 @@ def test_what_the_cheat_scan_reports_is_not_reported_twice():
     assert scope.check([".github/workflows/ci.yml", "AGENTS.md", "CLAUDE.md"]) == []
 
 
-def test_the_apps_own_judges_are_off_limits_only_in_its_own_repository():
+def test_the_apps_own_judges_are_points_to_look_at_only_in_its_own_repository():
     paths = ["dodaios/orchestrator/verification/cheat_scan.py", "tests/eval/cases.py"]
     assert scope.check(paths) == []
-    assert [(f.rule, f.path) for f in scope.check(paths, own_repo=True)] == [
-        ("S2", "dodaios/orchestrator/verification/cheat_scan.py"),
-        ("S2", "tests/eval/cases.py"),
+    # The person sends agents to these files every day: never a violation by itself.
+    assert [(f.rule, f.severity, f.path) for f in scope.check(paths, own_repo=True)] == [
+        ("S2", AMBIGUOUS, "dodaios/orchestrator/verification/cheat_scan.py"),
+        ("S2", AMBIGUOUS, "tests/eval/cases.py"),
     ]

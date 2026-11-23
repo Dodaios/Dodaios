@@ -480,6 +480,68 @@ def test_with_the_factory_policy_a_clean_run_gets_its_verdict_and_is_not_held(ri
     assert rig.sender.sent == []
 
 
+def _as_the_apps_own_repository(rig: Rig) -> None:
+    """The worktree holds this app: its self-change registry marks the core paths."""
+    (rig.folder / "dodaios" / "self_change").mkdir(parents=True)
+    (rig.folder / "dodaios" / "self_change" / "surfaces.py").write_text("", encoding="utf-8")
+    _git(rig.folder, "add", "-A")
+    _git(rig.folder, "commit", "-q", "-m", "the app")
+
+
+def _edit_core_path(rig: Rig) -> None:
+    (rig.folder / "dodaios" / "rsi").mkdir(parents=True, exist_ok=True)
+    (rig.folder / "dodaios" / "rsi" / "x.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _git(rig.folder, "add", "-A")
+    _git(rig.folder, "commit", "-q", "-m", "the change the person asked for")
+
+
+@pytest.mark.parametrize("hold", [False, True])
+def test_an_edit_to_a_core_path_of_the_app_is_a_point_to_look_at_not_a_failure(
+    rig: Rig, hold: bool
+):
+    from dodaios.orchestrator.verification import verdict
+    from dodaios.rsi import selector
+
+    rig.recorder = rig.new_recorder(hold=hold)
+    _as_the_apps_own_repository(rig)
+    rig.order()
+    run = rig.turn("t1", lambda: _edit_core_path(rig))
+
+    assert run["gate_status"] == "findings"
+    assert (run["state"], run["verdict"]) == (ENDED, "unverified")
+    assert "points to look at" in run["verdict_reason"]
+    [scan] = [s for s in rig.store.steps("job_1") if s["step"] == "gates"]
+    assert ("S2", "ambiguous", "dodaios/rsi/x.py") in [
+        (f["rule"], f["severity"], f["path"]) for f in scan["detail"]["findings"]
+    ]
+    assert not [s for s in rig.store.steps("job_1") if "follow_up" in s["step"]]
+    assert rig.sender.sent == []
+    assert selector.metrics_of(run).hard is False
+    told = verdict.from_run(run, rig.store.steps("job_1"))
+    assert told.verdict == "unverified"
+    assert "S2 dodaios/rsi/x.py" in " ".join(check.detail for check in told.checks)
+
+
+def test_an_edit_to_a_core_path_that_also_deletes_a_test_still_fails(rig: Rig):
+    from dodaios.rsi import selector
+
+    rig.recorder = rig.new_recorder(hold=False)
+    _as_the_apps_own_repository(rig)
+    rig.order()
+
+    def both() -> None:
+        _edit_core_path(rig)
+        rig.delete_test()
+
+    run = rig.turn("t1", both)
+    assert run["gate_status"] == "violations"
+    assert (run["verdict"], run["follow_ups"]) == ("failed", 0)
+    assert "C1 tests/test_calc.py" in run["verdict_reason"]
+    [withheld] = [s for s in rig.store.steps("job_1") if s["step"] == "follow_up_withheld"]
+    assert withheld["detail"]["template"] == prompts.T2
+    assert selector.metrics_of(run).hard is True
+
+
 def test_a_run_that_does_not_hold_is_still_decided_after_a_new_order(rig: Rig):
     rig.recorder = rig.new_recorder(hold=False)
     rig.github.answer = RUNNING_CHECKS
