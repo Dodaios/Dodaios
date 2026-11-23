@@ -55,6 +55,22 @@ def is_repeat(first: str, second: str) -> bool:
     return len(a & b) / len(a | b) >= REPEAT_SIMILARITY
 
 
+def follow_up_kind(request: str, follow_up: str) -> str:
+    """What a message after a result says about it: ``repeat``, ``correction``, ``undo`` or ``""``.
+
+    ``repeat``: (nearly) the same request again; ``correction``: it opens like
+    a correction ("no, ...", "that is wrong"); ``undo``: it asks to revert.
+    ``""``: none of these, such as a new and unrelated request.
+    """
+    if is_repeat(request, follow_up):
+        return "repeat"
+    if _CORRECTION.search(follow_up or ""):
+        return "correction"
+    if _UNDO.search(follow_up or ""):
+        return "undo"
+    return ""
+
+
 def has_unbacked_claim(turn: Turn) -> bool:
     """The answer says an action was done / is running, and the turn made no tool call."""
     if turn.tools or not turn.answer:
