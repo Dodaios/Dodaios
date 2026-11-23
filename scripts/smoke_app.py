@@ -197,6 +197,9 @@ def check_window(cdp: Cdp, dev: Dev) -> str:
     cdp.call("Page.navigate", url=f"{dev.base}/")
     cdp.wait("document.readyState==='complete'", 30, "page load")
     cdp.wait(_CONTENT, 30, "app content")
+    instance = _get_json(cdp, "/api/health").get("instance")
+    if instance != "dev":
+        raise AssertionError(f"this window is the {instance!r} app, not the Dev app: refusing")
     title = cdp.js("document.title")
     root = cdp.js("document.getElementById('root')?.children.length||0")
     if not root:
