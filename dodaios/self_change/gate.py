@@ -240,6 +240,36 @@ def policy_valid(draft: Draft, gate: Gate) -> CheckResult:
     return CheckResult("policy", PASS, "a valid coding policy within the code's limits")
 
 
+def param_valid(draft: Draft, gate: Gate) -> CheckResult:
+    """A parameter value names a declared parameter and keeps within its limits."""
+    if draft.after is None:
+        return CheckResult("parameter", PASS, "the learned value is removed")
+    import json
+
+    from dodaios.rsi import params
+
+    store = params.installed()
+    param = (store.index if store is not None else params.INDEX).get(draft.target)
+    if param is None:
+        return CheckResult("parameter", FAIL, f"no parameter is called {draft.target!r}")
+    if not param.domains:
+        return CheckResult("parameter", FAIL, "nothing can measure a change of this parameter")
+    try:
+        param.coerce(json.loads(draft.after)["value"])
+    except (ValueError, KeyError, TypeError) as exc:  # ParamError is a ValueError
+        return CheckResult("parameter", FAIL, f"not a valid value: {exc}"[:200])
+    return CheckResult("parameter", PASS, "a declared parameter within its limits")
+
+
+def not_measured_yet(draft: Draft, gate: Gate) -> CheckResult:
+    """A surface whose effect must be measured, before the measured gate is wired to it.
+
+    Passing the format checks proves nothing about whether a value is better. Until
+    the benchmark decides (docs/self-improvement.md), such a change is not applied.
+    """
+    return CheckResult("measurement", UNAVAILABLE, "no measurement decides this surface yet")
+
+
 DEFAULT_CHECKS: Final[dict[Surface, tuple[Check, ...]]] = {
     Surface.SKILL: (hygiene, skill_valid),
     Surface.PROMPT: (hygiene, routing_replay),
@@ -247,6 +277,7 @@ DEFAULT_CHECKS: Final[dict[Surface, tuple[Check, ...]]] = {
     Surface.TOOL: (hygiene, routing_replay),
     Surface.CODE: (hygiene, code_tests),
     Surface.CODING_POLICY: (hygiene, policy_valid),
+    Surface.PARAMETER: (hygiene, param_valid, not_measured_yet),
 }
 
 

@@ -6,6 +6,7 @@ import pytest
 
 from dodaios.memory.vault import runtime as vault_runtime
 from dodaios.memory.vault.store import MemoryVault
+from dodaios.rsi import params
 
 
 @pytest.fixture
@@ -44,8 +45,8 @@ def test_recall_drops_weak_hits_and_respects_the_budget(vault):
         vault.remember(f"Concert number {i} with the jazz band was great.", "episode")
     block = vault_runtime.turn_block("jazz concert")
     lines = [line for line in block.splitlines() if line.startswith("- ")]
-    assert 0 < len(lines) <= vault_runtime.TURN_LIMIT
-    assert len(block) <= vault_runtime.TURN_MAX_CHARS + 200
+    assert 0 < len(lines) <= params.get("recall.turn_limit")
+    assert len(block) <= params.get("recall.turn_max_chars") + 200
 
 
 @pytest.mark.asyncio

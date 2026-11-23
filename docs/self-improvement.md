@@ -93,6 +93,25 @@ Every result names the state that produced it, as a **fingerprint**
 of the parameter values, model, seat and CLI version. Two runs are a pair only
 when model, seat, CLI and app version agree.
 
+## Parameters
+
+Behaviour that used to be a constant in the code is a **parameter**
+(`dodaios/rsi/params/`): a name, the value the app ships with, and limits.
+`params.get("recall.turn_limit")` stands where the constant was. The catalog
+(`catalog.py`) is part of the kernel: a learner can move a value between its
+limits and can never widen them. Each parameter names the benchmark domain
+that can measure it; without one it stays at its default.
+
+A learned value is a self-change of the surface `parameter`, written by the
+registry into `params.db`, with a version, a diff and a byte-exact rollback.
+`get` answers the overlay of a benchmark run first, then the learned value,
+then the shipped default.
+
+Today the memory recall reads twelve parameters (how strongly a pinned or a
+fresh memory is preferred, how many memories and lessons a message may bring
+up, and how many characters they may take). Their defaults are the constants
+the code had.
+
 ## The gate's answer
 
 The gate compares two states on the same tasks and answers with **evidence**
@@ -118,6 +137,12 @@ The app is updated often, and nothing learned may be lost by an update.
   (`dodaios/rsi/storage.py`). A newer app migrates an older file step by step,
   each step in one transaction, after putting a copy of the file aside. An
   older app that meets a newer file opens it read-only and pauses its writing.
+- A learned parameter value remembers the shipped default it was learned
+  against. When an update changes that default, the value stays in effect and
+  is measured again first. When a parameter is renamed, the value moves along
+  (`aliases`). When a parameter is gone, or the value lies outside new limits,
+  the entry rests without effect and without an error, and applies again as
+  soon as a version knows it.
 - A task keeps its id when its content is corrected; results belong to the
   content hash they were measured on, so only those go stale.
 - The fingerprint holds the app version. After an update the assistant as it
@@ -152,6 +177,8 @@ The app is updated often, and nothing learned may be lost by an update.
 | Shared shapes: overlay, fingerprint, task, split, result, evidence | built |
 | Kernel storage with a schema version | built |
 | Kernel and evidence paths refused by the registry | built |
-| Parameters, the recall benchmark, the paired test, the measured gate | next |
+| Parameters with limits, read by the memory recall; learned values survive updates | built |
+| A recall that can be replayed without leaving a trace (no use count, no cache) | built |
+| The recall benchmark, the paired test, the measured gate | next |
 | Tuner, night cycle, automatic rollback, the page | next |
 | Always-on recording of work, the other domains, lessons, the jury | later |
