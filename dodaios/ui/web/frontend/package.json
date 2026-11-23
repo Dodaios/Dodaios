@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build --outDir ../dist --emptyOutDir",
-    "bundle": "vite build --outDir ../dist --emptyOutDir",
+    "build": "tsc -b && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build --outDir ../dist --emptyOutDir",
+    "bundle": "node --max-old-space-size=6144 node_modules/vite/bin/vite.js build --outDir ../dist --emptyOutDir",
     "preview": "vite preview",
     "test": "vitest run"
   },
