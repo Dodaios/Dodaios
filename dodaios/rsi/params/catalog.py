@@ -55,6 +55,10 @@ CATALOG: Final[tuple[Param, ...]] = (
         doc="How close to the best hit a memory must score to be shown.",
     ),
     Param(
+        "recall.min_score", 0.0, 0.0, 12.0, step=0.5, domains=_RECALL,
+        doc="How well a memory must match in absolute terms to be shown at all; 0 shows any match.",
+    ),
+    Param(
         "recall.lesson_base", 0.6, 0.2, 1.0, step=0.05, domains=_RECALL,
         doc="Where a fitting lesson ranks against the best search hit, before its own fit counts.",
     ),

@@ -604,6 +604,7 @@ class WebServer:
         from .screen_context_routes import router as screen_context_router
         from .self_build_routes import router as self_build_router
         from .self_change_routes import router as self_change_router
+        from .self_improvement_routes import router as self_improvement_router
         from .self_mod_routes import router as self_mod_router
         from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
@@ -769,6 +770,9 @@ class WebServer:
         # The self-change registry (/api/self-change/*): gated, versioned, reversible.
         app.state.self_change = None
         app.include_router(self_change_router)
+        # The Self-improvement page (/api/self-improvement/*): measured, read-only, stop and undo.
+        app.state.self_improvement = None
+        app.include_router(self_improvement_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -3108,6 +3112,20 @@ class WebServer:
             logger.opt(exception=exc).warning(
                 "self-change registry init failed — self-changes are not gated this run"
             )
+
+        # The night cycle of the self-improvement kernel (docs/self-improvement.md):
+        # looks every ten minutes whether a night is due and the person is away.
+        if _self_change is not None:
+            try:
+                from dodaios.rsi import night as _night
+
+                _nights = _night.install(Path(self.cfg.memory.data_dir), _self_change)
+                _nights.start()
+                self.app.state.self_improvement = _nights
+            except Exception as exc:  # noqa: BLE001
+                logger.opt(exception=exc).warning(
+                    "self-improvement nights not started — nothing is measured this run"
+                )
 
         # The self-building loop's ledger: opens self_build.db, nothing else at
         # boot. Observers and builders register themselves later.

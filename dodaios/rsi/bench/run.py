@@ -27,7 +27,7 @@ from dodaios.rsi.fingerprint import Fingerprint
 from . import recall
 from .model import Domain, Result, Task
 
-__all__ = ["Paired", "Worlds", "arm_of", "measure", "pair", "shuffled"]
+__all__ = ["Paired", "Worlds", "arm_of", "measure", "pair", "runnable", "shuffled"]
 
 #: World name -> what a domain needs to run a task there (a vault, a repository, ...).
 Worlds = Mapping[str, Any]
@@ -57,6 +57,11 @@ def _run_recall(task: Task, worlds: Worlds) -> recall.Scored:
 
 
 _RUNNERS: dict[Domain, Callable[[Task, Worlds], recall.Scored]] = {Domain.RECALL: _run_recall}
+
+
+def runnable() -> list[Domain]:
+    """The domains the benchmark can run today, in the order of :class:`Domain`."""
+    return [domain for domain in Domain if domain in _RUNNERS]
 
 
 def measure(

@@ -16,6 +16,7 @@ from .live import (
     install,
     installed,
     learned,
+    release,
     text_for,
     values,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "install",
     "installed",
     "learned",
+    "release",
     "text_for",
     "values",
 ]

@@ -11,8 +11,9 @@ exists today.
 ## What "better" means
 
 Version B of the assistant is better than version A when, on the same tasks
-with the same model, B solves more, loses nothing noticeable in any domain,
-and costs no more.
+with the same model, B solves more and loses nothing noticeable in any domain.
+Quality comes first. Between two versions that are equally good, the cheaper
+one is better.
 
 The number a person sees is the **learned advantage**: the assistant as it is
 now against the assistant as it ships, in the same night, on the same tasks,
@@ -185,10 +186,12 @@ registry into `params.db`, with a version, a diff and a byte-exact rollback.
 `get` answers the overlay of a benchmark run first, then the learned value,
 then the shipped default.
 
-Today the memory recall reads twelve parameters (how strongly a pinned or a
+Today the memory recall reads thirteen parameters (how strongly a pinned or a
 fresh memory is preferred, how many memories and lessons a message may bring
-up, and how many characters they may take). Their defaults are the constants
-the code had.
+up, how many characters they may take, and how well a memory must match to be
+shown at all). Their defaults are the constants the code had; the last one is
+new and ships switched off (0), so nothing changes until a night proves a
+value for it.
 
 ## The gate's answer
 
@@ -205,6 +208,107 @@ bounds that stay valid however often the gate looked, and the number of pairs.
 
 A change is applied only while the live state still has the fingerprint it was
 measured against.
+
+### The rules
+
+They are fixed in `dodaios/rsi/gate/rules.py`. No learner and no setting
+changes them.
+
+**Letting a candidate in** is decided on the select tasks, comparing the
+assistant as it is with the assistant plus the candidate:
+
+1. Fewer than 30 tasks: nothing is decided, the candidate waits.
+2. The whole interval is below zero: rejected, it is worse.
+3. The whole interval is above zero: accepted. Quality comes first, so a clear
+   gain may cost more, up to a cap per domain. The recall has no cap: each
+   parameter's own limits already bound how long the prompt can get.
+4. No clear gain, but at least 5 % cheaper and the lower bound above -0.05:
+   accepted, it is as good and costs less.
+5. No clear gain and more than 10 % more expensive: rejected.
+6. Otherwise rejected as "no clear difference": every task of the split was
+   used, and asking again without new tasks would only spend the error budget.
+
+**Keeping a change** is decided on the guard tasks, comparing the assistant as
+it is with the assistant without that change. It stays (a change on trial
+becomes live) when it shows no harm. It is taken back when the whole interval
+is below zero, or when it is negative on the guard tasks and no longer
+positive on the select tasks measured again. Each night checks what is on
+trial and the newest live changes, newest first.
+
+### The error budget
+
+Every decision on a split can be wrong by chance: at 5 %, one decision in
+twenty lets in a change that is not better. A learner that keeps proposing
+would in the end fit those very tasks. So the select tasks of a domain are a
+budget of twelve decisions, each made at 5 % (`dodaios/rsi/gate/alpha.py`).
+When it is used up, nothing more is decided there and no learner is asked to
+propose, until new tasks arrive: when the split grew by a quarter, a new
+budget opens, on tasks the earlier candidates never met.
+
+This bounds each single decision, and it means at most 0.6 wrongly admitted
+changes per budget on average. It does not promise that none slips in. That is
+what the second measurement is for: every admitted change has to hold again on
+the guard tasks, which no candidate was ever decided on, and it is checked
+there again in later nights.
+
+The order in which a comparison walks its tasks follows the question alone
+(the target and the version of the change), never the results. So the same
+comparison can be repeated and gives the same answer.
+
+### Whose tasks decide
+
+An installation decides on tasks built from the person's own work. The seed
+suite decides only in a sandbox. Without tasks of its own, an installation
+measures nothing and applies nothing: candidates wait.
+
+## The night
+
+While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
+
+1. It checks what is in effect: every change on trial and the newest live
+   ones, each against the assistant without it. What no longer pays is taken
+   back. After an app update everything learned is checked again.
+2. The learners propose. Each gets practice tasks and nothing else.
+3. The gate measures every candidate on tasks no learner saw.
+4. It measures the learned advantage on the sealed tasks.
+5. It writes down what it did (`nights` and `series` in `bench.db`).
+
+Nothing is announced: no notice, no sound, no voice. The app looks every ten
+minutes whether a night is due: the person must have been away for 15 minutes,
+and there is at most one night in 20 hours. The domains measured today ask no
+model, so a night costs a few seconds of the computer. For nights that will
+ask a model the limits are fixed in the code, not in a setting: only while the
+person is away, at most 20 % of a plan's usage window, never a key that bills
+per token. The person's stop (`Night.pause`) is kept in `bench.db` and
+survives a restart; while it is set nothing is proposed, measured or changed.
+
+### The tuner
+
+The first learner (`dodaios/learners/tuner.py`) needs no model. For every
+parameter a domain measures it tries values 1, 2, 4 and 8 steps below and above
+the value in effect, each alone, on the practice tasks, and proposes at most
+one move per night: the one with the largest gain, or else the cheapest one
+that scores no worse. It may be as greedy as it likes; the gate decides on
+other tasks. It does not ask again for a value the gate turned down in the
+last 30 days.
+
+### Try it
+
+```
+python -m dodaios.rsi.night --sandbox --nights 3
+python -m dodaios.rsi.night --sandbox --plant recall.relative_floor=0.9 --nights 3
+```
+
+`--sandbox` builds a throwaway installation that decides on the seed suite and
+prints what each night did. `--plant` puts a value in effect first, as if an
+earlier night had learned it. With the shipped values the tuner's proposals
+are turned down ("no clear difference on 84 tasks"): the seed suite is too
+small to prove an effect of one or two points. With `--plant
+recall.min_score=12`, a value that looks up almost nothing, the first night
+lets in `recall.min_score = 8.0` as "better on 84 tasks" (+0.12, between +0.02
+and +0.21), and the second night confirms it on the guard tasks. The step
+after that (4.0, +0.11) is not proven on 84 tasks and stays out: a small suite
+proves large effects only.
 
 ## Updates
 
@@ -260,6 +364,7 @@ The app is updated often, and nothing learned may be lost by an update.
 | Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built, not yet stored or run |
 | The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
-| The measured gate | next |
-| Tuner, night cycle, automatic rollback, the page | next |
+| The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
+| The tuner, the night cycle, automatic rollback, the sandbox | built |
+| The page that shows it, tasks from the person's own work | next |
 | Always-on recording of work, the other domains, lessons, the jury | later |

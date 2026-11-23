@@ -1,0 +1,471 @@
+"""The night cycle: one round of the assistant improving itself.
+
+While the person is away the kernel does, in this order:
+
+1. **checks what is in effect.** Every change on trial, and the newest live
+   ones, are compared with the assistant without them. What no longer pays is
+   taken back. After an app update everything in effect is checked: the
+   assistant as it ships has changed, so what was learned against the old one
+   has to prove itself again.
+2. **lets the learners propose.** Each gets practice tasks and nothing else.
+3. **decides.** The gate measures every candidate on tasks no learner saw and
+   lets it in or not.
+4. **measures the learned advantage.** The assistant as it is now against the
+   assistant as it ships, on the sealed tasks: the number the person sees.
+5. **writes down what it did**, in ``bench.db`` (``nights``, ``series``).
+
+Nothing is announced. The night is quiet: no notice, no sound, no voice.
+
+    python -m dodaios.rsi.night --sandbox                # try it on the seed suite
+    python -m dodaios.rsi.night --sandbox --plant recall.relative_floor=0.9 --nights 3
+
+``--sandbox`` builds a throwaway installation that decides on the seed suite
+and prints what each night did. It reads and changes nothing of a real one.
+
+**What a night may spend.** The domains measured today ask no model, so a
+night costs a few seconds of this computer and nothing else. The limits for
+nights that do ask a model are fixed here, not in a setting: only while the
+person is away (:data:`IDLE_AFTER_S`), and at most :data:`BUDGET_SHARE` of a
+plan's usage window, never on a key that bills per token.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import tempfile
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Final
+
+import dodaios
+from dodaios.learners.tuner import Trial, Tuner
+from dodaios.rsi import overlay as overlays
+from dodaios.rsi import params
+from dodaios.rsi.bench import run, seedsuite
+from dodaios.rsi.bench.model import Domain, Source, Split, Task
+from dodaios.rsi.bench.recall import RecallWorld
+from dodaios.rsi.bench.store import DB_NAME, BenchStore, PracticeView
+from dodaios.rsi.gate.decide import LIVE, Decision, MeasuredGate
+from dodaios.rsi.sequential import interval_of
+from dodaios.self_change import Draft, SelfChangeRegistry, State, Surface
+
+__all__ = [
+    "BUDGET_SHARE",
+    "EVERY_S",
+    "IDLE_AFTER_S",
+    "Night",
+    "NightReport",
+    "NightService",
+    "install",
+    "sandbox",
+]
+
+log = logging.getLogger(__name__)
+
+#: Share of a plan's usage window a night may use for model calls. Fixed.
+BUDGET_SHARE: Final[float] = 0.20
+#: The person must have been away this long before a night starts.
+IDLE_AFTER_S: Final[float] = 15 * 60
+#: At most one night in this time.
+EVERY_S: Final[float] = 20 * 3600
+#: For how long a value the gate turned down is not proposed again.
+_SKIP_MS: Final[int] = 30 * 24 * 3600 * 1000
+TUNER: Final = "tuner"
+_LOOP_KEY: Final = "loop"
+
+
+@dataclass(slots=True)
+class NightReport:
+    ts_ms: int
+    app: str
+    #: The loop is stopped: nothing was done.
+    paused: bool = False
+    #: The app version of the night before, when it differs from this one.
+    updated_from: str = ""
+    #: Tasks in use per domain and split.
+    tasks: dict[str, dict[str, int]] = field(default_factory=dict)
+    settled: list[dict[str, Any]] = field(default_factory=list)
+    proposed: list[dict[str, Any]] = field(default_factory=list)
+    decided: list[dict[str, Any]] = field(default_factory=list)
+    measured: list[dict[str, Any]] = field(default_factory=list)
+
+    def public(self) -> dict[str, Any]:
+        return {
+            "paused": self.paused,
+            "updated_from": self.updated_from,
+            "tasks": self.tasks,
+            "settled": self.settled,
+            "proposed": self.proposed,
+            "decided": self.decided,
+            "measured": self.measured,
+        }
+
+    @property
+    def idle(self) -> bool:
+        """True when the night had nothing to work on."""
+        return not (self.settled or self.proposed or self.decided or self.measured)
+
+    def lines(self) -> list[str]:
+        """The night in plain words."""
+        if self.paused:
+            return ["The loop is stopped; nothing was done."]
+        out: list[str] = []
+        if self.updated_from:
+            out.append(f"The app was updated ({self.updated_from} -> {self.app}): "
+                       "everything learned was checked again.")
+        for row in self.settled:
+            if row["outcome"] == "kept" and row.get("was") == "live":
+                continue  # what was live and stays live is not news
+            out.append(f"Checked {row['target']}: {row['outcome']} ({row['evidence']['reason']}).")
+        for row in self.proposed:
+            out.append(f"Proposed {row['target']} = {row['value']}: {row['reason']}.")
+        for row in self.decided:
+            found = row["evidence"]
+            numbers = ""
+            if found.get("target"):
+                t = found["target"]
+                numbers = f" [{t['diff']:+.3f}, between {t['low']:+.3f} and {t['high']:+.3f}]"
+            out.append(f"Measured {row['target']}: {row['outcome']}, {found['reason']}{numbers}.")
+        for row in self.measured:
+            out.append(
+                f"Learned advantage in {row['domain']}: {row['diff']:+.3f} "
+                f"(now {row['now_score']:.3f}, as shipped {row['factory_score']:.3f}, "
+                f"{row['n']} sealed tasks; prompt {row['factory_tokens']:.0f} -> "
+                f"{row['now_tokens']:.0f} tokens per task)."
+            )
+        return out or ["Nothing to do: there are no tasks to measure on yet."]
+
+
+class Night:
+    """One installation's night. ``sources`` says whose tasks decide (see the gate)."""
+
+    def __init__(
+        self,
+        registry: SelfChangeRegistry,
+        bench: BenchStore,
+        worlds: Callable[[], run.Worlds],
+        *,
+        sources: Sequence[Source] = (Source.MINED, Source.MADE),
+        clock: Callable[[], int] = lambda: int(time.time() * 1000),
+        learners: Sequence[str] = (TUNER,),
+    ) -> None:
+        self.registry = registry
+        #: Which learners propose in a night. Checking and measuring happen regardless.
+        self.learners = tuple(learners)
+        self.bench = bench
+        self.sources = tuple(sources)
+        self._worlds = worlds
+        self._clock = clock
+        self.gate = MeasuredGate(registry, bench, worlds, sources=self.sources)
+        store = params.installed()
+        self._index = store.index if store is not None else params.INDEX
+        self._tuner = Tuner(self._index)
+
+    # ---------------------------------------------------------------- state
+
+    def paused(self) -> bool:
+        return bool(self.bench.get_meta(_LOOP_KEY).get("paused"))
+
+    def pause(self, paused: bool) -> None:
+        """The person's stop. Nothing is proposed, measured or changed while it is set."""
+        self.bench.set_meta(_LOOP_KEY, {**self.bench.get_meta(_LOOP_KEY), "paused": bool(paused)})
+
+    def last_ms(self) -> int:
+        return int(self.bench.get_meta(_LOOP_KEY).get("last_ms") or 0)
+
+    def due(self) -> bool:
+        return not self.paused() and self._clock() - self.last_ms() >= EVERY_S * 1000
+
+    # ---------------------------------------------------------------- steps
+
+    def _domains(self) -> list[Domain]:
+        return [d for d in Domain if any(self.gate.tasks(d, split) for split in Split)]
+
+    def _settle(self, everything: bool) -> list[Decision]:
+        return self.gate.settle_all(newest=10_000 if everything else 5)
+
+    def _recently_declined(self) -> set[tuple[str, Any]]:
+        since = self._clock() - _SKIP_MS
+        skip: set[tuple[str, Any]] = set()
+        for change in self.registry.store.list(since_ms=since, limit=2000):
+            if change.surface is not Surface.PARAMETER or change.author != TUNER:
+                continue
+            if change.state in (State.BLOCKED, State.REVERTED, State.PROPOSED):
+                try:
+                    skip.add((change.target, json.loads(change.after or "{}").get("value")))
+                except ValueError:  # an unreadable text names no value to skip
+                    continue
+        return skip
+
+    def _propose(self, domain: Domain) -> dict[str, Any] | None:
+        if TUNER not in self.learners or not self.gate.can_decide(domain):
+            return None  # nothing could decide on a proposal, so none is made
+        tasks = [
+            t for t in PracticeView(self.bench).tasks(domain) if t.source in self.sources
+        ]
+        if not tasks:
+            return None
+        worlds = self._worlds()
+
+        def try_values(values: Mapping[str, Any]) -> Trial:
+            overlay = overlays.Overlay(label="practice", params=dict(values))
+            results = [r for r in run.measure(tasks, overlay, worlds) if r.counts]
+            if not results:
+                return Trial(0.0, 0.0, 0)
+            n = len(results)
+            return Trial(sum(r.score for r in results) / n, sum(r.tokens for r in results) / n, n)
+
+        found = self._tuner.propose(
+            domain.value, params.values(), try_values, skip=self._recently_declined()
+        )
+        if found is None:
+            return None
+        param = self._index.by_name(found.name)
+        self.registry.propose(
+            Draft(
+                Surface.PARAMETER,
+                param.name,
+                params.text_for(param, found.value),
+                author=TUNER,
+                reason=found.reason(),
+            )
+        )
+        return {
+            "target": param.name,
+            "value": found.value,
+            "current": found.current,
+            "gain": found.gain,
+            "cost_ratio": round(found.cost_ratio, 4),
+            "reason": found.reason(),
+            "learner": TUNER,
+        }
+
+    def _advantage(self, domain: Domain, now_ms: int) -> dict[str, Any] | None:
+        """The assistant as it is against the assistant as it ships, on the sealed tasks."""
+        tasks = run.shuffled(self.gate.tasks(domain, Split.SEALED), f"advantage:{domain.value}")
+        if not tasks:
+            return None
+        worlds = self._worlds()
+        changes = self.registry.learned_ids()
+        shipped_arm = run.arm_of(overlays.FACTORY)
+        now_arm = run.arm_of(LIVE, changes=changes)
+        shipped = run.measure(tasks, overlays.FACTORY, worlds, arm=shipped_arm)
+        now = shipped
+        if now_arm.id != shipped_arm.id:  # something is learned: the two can differ
+            now = run.measure(tasks, LIVE, worlds, arm=now_arm)
+        paired = run.pair(shipped, now)
+        if paired.n == 0:
+            return None
+        found = interval_of(paired.differences)
+        own = any(s is not Source.SEED for s in self.sources)
+        return {
+            "ts_ms": now_ms,
+            "app": dodaios.__version__,
+            "domain": domain.value,
+            "split": Split.SEALED.value,
+            "source": "own" if own else "seed",
+            "now_score": round(paired.candidate_mean, 4),
+            "factory_score": round(paired.baseline_mean, 4),
+            "diff": round(found.mean, 4),
+            "low": round(found.low, 4),
+            "high": round(found.high, 4),
+            "n": paired.n,
+            "now_tokens": round(paired.candidate_tokens, 2),
+            "factory_tokens": round(paired.baseline_tokens, 2),
+            "arm_now": now_arm.id,
+            "arm_factory": shipped_arm.id,
+        }
+
+    # ------------------------------------------------------------------ run
+
+    def run(self) -> NightReport:
+        now_ms = self._clock()
+        report = NightReport(ts_ms=now_ms, app=dodaios.__version__)
+        if self.paused():
+            report.paused = True
+            return report
+        if self.bench.readonly:  # a newer app owns the file: this one only watches
+            return report
+        state = self.bench.get_meta(_LOOP_KEY)
+        before = str(state.get("app") or "")
+        if before and before != dodaios.__version__:
+            report.updated_from = before
+        report.tasks = self.bench.counts()
+
+        report.settled = [d.public() for d in self._settle(bool(report.updated_from))]
+        for domain in self._domains():
+            proposed = self._propose(domain)
+            if proposed is not None:
+                report.proposed.append(proposed)
+        report.decided = [d.public() for d in self.gate.consider_all()]
+        for domain in self._domains():
+            point = self._advantage(domain, now_ms)
+            if point is not None:
+                report.measured.append(point)
+        if report.measured:
+            self.bench.add_series(report.measured)
+        self.bench.add_night(dodaios.__version__, report.public())
+        self.bench.set_meta(
+            _LOOP_KEY, {**state, "app": dodaios.__version__, "last_ms": now_ms}
+        )
+        return report
+
+
+# ------------------------------------------------------------- in the app
+
+
+class NightService:
+    """Runs the installation's nights while the app is open and the person is away."""
+
+    #: How often the app looks whether a night is due.
+    LOOK_EVERY_S: Final[float] = 10 * 60
+
+    def __init__(self, night: Night, idle: Callable[[], bool]) -> None:
+        self.night = night
+        self._idle = idle
+        self._task: Any = None
+        self.last: NightReport | None = None
+
+    def tick(self) -> NightReport | None:
+        """Run a night when one is due and the person is away. Blocking; call it off the loop."""
+        if not self.night.due() or not self._idle():
+            return None
+        self.last = self.night.run()
+        return self.last
+
+    async def _watch(self) -> None:
+        import asyncio
+
+        while True:
+            await asyncio.sleep(self.LOOK_EVERY_S)
+            try:
+                await asyncio.to_thread(self.tick)
+            except Exception:  # noqa: BLE001 — a failed night never takes the app down
+                log.warning("self-improvement: the night failed", exc_info=True)
+
+    def start(self) -> None:
+        import asyncio
+
+        if self._task is None:
+            self._task = asyncio.get_running_loop().create_task(self._watch())
+
+    def stop(self) -> None:
+        if self._task is not None:
+            self._task.cancel()
+            self._task = None
+
+
+def _person_idle() -> bool:
+    from dodaios.self_build.code.idle import person_idle
+
+    return person_idle(IDLE_AFTER_S)
+
+
+def install(data_dir: Path, registry: SelfChangeRegistry) -> NightService:
+    """The installation's own nights: they decide on the person's tasks, never on the seed suite.
+
+    Until tasks of the person's own exist, a night finds nothing to measure and
+    changes nothing; it only records that it looked.
+    """
+    bench = BenchStore(Path(data_dir) / DB_NAME)
+    worlds: dict[str, Any] = {}
+    return NightService(Night(registry, bench, lambda: worlds), _person_idle)
+
+
+# ------------------------------------------------------------------ sandbox
+
+
+@dataclass(slots=True)
+class Sandbox:
+    """A throwaway installation: its own parameters, registry and benchmark file."""
+
+    night: Night
+    registry: SelfChangeRegistry
+    bench: BenchStore
+    store: params.ParamStore
+    #: The seed memory, when the sandbox decides on the seed suite.
+    world: seedsuite.SeedWorld | None = None
+
+    def close(self) -> None:
+        self.registry.close()
+        self.bench.close()
+        if self.world is not None:
+            self.world.close()
+        params.release(self.store)
+
+
+def sandbox(
+    data_dir: Path,
+    *,
+    plant: Mapping[str, Any] | None = None,
+    learners: Sequence[str] = (TUNER,),
+    tasks: Sequence[Task] | None = None,
+    worlds: run.Worlds | None = None,
+    sources: Sequence[Source] = (Source.SEED,),
+) -> Sandbox:
+    """Build a sandbox in ``data_dir``. ``plant`` puts values in effect as if learned earlier.
+
+    By default it decides on the seed suite. ``tasks``, ``worlds`` and
+    ``sources`` build it on other tasks instead.
+    """
+    store = params.install(data_dir)
+    if store is None:  # ``install`` only answers None for ``None``
+        raise RuntimeError("the sandbox could not open its parameter store")
+    for name, value in (plant or {}).items():
+        store.write(name, params.text_for(store.index.by_name(name), value))
+    registry = SelfChangeRegistry(data_dir)
+    registry.register_handler(Surface.PARAMETER, store)
+    bench = BenchStore(Path(data_dir) / DB_NAME)
+    world = None
+    if tasks is None or worlds is None:
+        world = seedsuite.build_world()
+        tasks = seedsuite.recall_tasks()
+        worlds = {seedsuite.SEED_WORLD: RecallWorld(world.vault, world.ids)}
+    bench.put_tasks(tasks)
+    found = worlds
+    night = Night(registry, bench, lambda: found, sources=sources, learners=learners)
+    return Sandbox(night, registry, bench, store, world)
+
+
+def _plant(pairs: list[str]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for item in pairs:
+        name, _, raw = item.partition("=")
+        param = params.INDEX.by_name(name.strip())
+        out[param.name] = param.coerce(json.loads(raw.strip()))
+    return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m dodaios.rsi.night", description=__doc__)
+    parser.add_argument("--sandbox", nargs="?", const="", metavar="DIR",
+                        help="run on the seed suite in a throwaway folder (DIR keeps it)")
+    parser.add_argument("--nights", type=int, default=1, help="how many nights to run")
+    parser.add_argument("--plant", action="append", default=[], metavar="NAME=VALUE",
+                        help="a value that is in effect before the first night")
+    args = parser.parse_args(argv)
+    if args.sandbox is None:
+        parser.error("only --sandbox runs from the command line; the app runs its own nights")
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(args.sandbox or scratch)
+        home.mkdir(parents=True, exist_ok=True)
+        box = sandbox(home, plant=_plant(args.plant))
+        try:
+            for number in range(1, max(1, args.nights) + 1):
+                print(f"Night {number}")
+                for line in box.night.run().lines():
+                    print(f"  {line}")
+            learned = params.learned()
+            print("In effect now: " + (json.dumps(learned, sort_keys=True) if learned else
+                                         "the shipped values."))
+        finally:
+            box.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

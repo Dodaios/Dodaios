@@ -6,6 +6,11 @@
 ``results``  one row per run of a task under one arm. Append-only: the app
              cannot edit what it measured about itself (a trigger refuses
              UPDATE and DELETE).
+``series``   the learned advantage over time: per night, domain and split, the
+             assistant as it is against the assistant as it ships. Append-only.
+``nights``   what each night did: practised, tried, kept, taken back. Append-only.
+``meta``     small state of the kernel itself (how much of the error budget a
+             split has used).
 
 Learners never get this store. They get :class:`PracticeView`, which answers
 with practice tasks only, so a task the assistant is graded on cannot reach
@@ -63,6 +68,45 @@ SCHEMA: Final = Schema(
         BEGIN SELECT RAISE(ABORT, 'benchmark results are append-only'); END;
         CREATE TRIGGER IF NOT EXISTS results_no_delete BEFORE DELETE ON results
         BEGIN SELECT RAISE(ABORT, 'benchmark results are append-only'); END;
+        """,
+        """
+        CREATE TABLE meta (
+            key    TEXT PRIMARY KEY,
+            value  TEXT NOT NULL
+        );
+        CREATE TABLE series (
+            seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts_ms           INTEGER NOT NULL,
+            app             TEXT NOT NULL,
+            domain          TEXT NOT NULL,
+            split           TEXT NOT NULL,
+            source          TEXT NOT NULL,
+            now_score       REAL NOT NULL,
+            factory_score   REAL NOT NULL,
+            diff            REAL NOT NULL,
+            low             REAL NOT NULL,
+            high            REAL NOT NULL,
+            n               INTEGER NOT NULL,
+            now_tokens      REAL NOT NULL DEFAULT 0,
+            factory_tokens  REAL NOT NULL DEFAULT 0,
+            arm_now         TEXT NOT NULL DEFAULT '',
+            arm_factory     TEXT NOT NULL DEFAULT ''
+        );
+        CREATE INDEX series_domain ON series(domain, split, ts_ms);
+        CREATE TABLE nights (
+            seq    INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts_ms  INTEGER NOT NULL,
+            app    TEXT NOT NULL,
+            body   TEXT NOT NULL
+        );
+        CREATE TRIGGER series_no_update BEFORE UPDATE ON series
+        BEGIN SELECT RAISE(ABORT, 'the measured series is append-only'); END;
+        CREATE TRIGGER series_no_delete BEFORE DELETE ON series
+        BEGIN SELECT RAISE(ABORT, 'the measured series is append-only'); END;
+        CREATE TRIGGER nights_no_update BEFORE UPDATE ON nights
+        BEGIN SELECT RAISE(ABORT, 'the record of a night is append-only'); END;
+        CREATE TRIGGER nights_no_delete BEFORE DELETE ON nights
+        BEGIN SELECT RAISE(ABORT, 'the record of a night is append-only'); END;
         """,
     ),
 )
@@ -169,6 +213,16 @@ class BenchStore:
             for row in rows
         ]
 
+    def groups(self, domain: Domain, split: Split, sources: Sequence[Source] = ()) -> int:
+        """How many groups of tasks in use a split holds (the unit the error budget counts)."""
+        sql = "SELECT COUNT(DISTINCT grp) FROM tasks WHERE domain=? AND split=? AND retired_ms=0"
+        args: list[Any] = [domain.value, split.value]
+        if sources:
+            sql += f" AND source IN ({','.join('?' for _ in sources)})"  # noqa: S608
+            args += [s.value for s in sources]
+        with self._db.lock:
+            return int(self._db.conn.execute(sql, args).fetchone()[0])
+
     def counts(self) -> dict[str, dict[str, int]]:
         """Tasks in use per domain and split."""
         with self._db.lock:
@@ -231,6 +285,67 @@ class BenchStore:
             )
             for row in rows
         ]
+
+
+    # ---------------------------------------------------- the kernel's own state
+
+    def get_meta(self, key: str) -> dict[str, Any]:
+        with self._db.lock:
+            row = self._db.conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return dict(json.loads(row["value"])) if row is not None else {}
+
+    def set_meta(self, key: str, value: dict[str, Any]) -> None:
+        with self._db.lock:
+            self._db.conn.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, json.dumps(value, sort_keys=True)),
+            )
+            self._db.conn.commit()
+
+    def add_series(self, rows: Iterable[dict[str, Any]]) -> None:
+        """Append measured points of the learned advantage."""
+        with self._db.lock:
+            self._db.conn.executemany(
+                "INSERT INTO series (ts_ms, app, domain, split, source, now_score, factory_score,"
+                " diff, low, high, n, now_tokens, factory_tokens, arm_now, arm_factory)"
+                " VALUES (:ts_ms, :app, :domain, :split, :source, :now_score, :factory_score,"
+                " :diff, :low, :high, :n, :now_tokens, :factory_tokens, :arm_now, :arm_factory)",
+                list(rows),
+            )
+            self._db.conn.commit()
+
+    def series(
+        self, *, domain: str = "", split: str = "", limit: int = 2000
+    ) -> list[dict[str, Any]]:
+        """The measured points, oldest first."""
+        sql, args = "SELECT * FROM series WHERE 1=1", []
+        if domain:
+            sql += " AND domain = ?"
+            args.append(domain)
+        if split:
+            sql += " AND split = ?"
+            args.append(split)
+        with self._db.lock:
+            rows = self._db.conn.execute(sql + " ORDER BY seq DESC LIMIT ?", [*args, limit])
+            found = [dict(r) for r in rows.fetchall()]
+        return list(reversed(found))
+
+    def add_night(self, app: str, body: dict[str, Any]) -> None:
+        with self._db.lock:
+            self._db.conn.execute(
+                "INSERT INTO nights (ts_ms, app, body) VALUES (?, ?, ?)",
+                (_now(), app, json.dumps(body, sort_keys=True, default=str)),
+            )
+            self._db.conn.commit()
+
+    def nights(self, limit: int = 30) -> list[dict[str, Any]]:
+        """The most recent nights, newest first."""
+        with self._db.lock:
+            rows = self._db.conn.execute(
+                "SELECT ts_ms, app, body FROM nights ORDER BY seq DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [{"ts_ms": r["ts_ms"], "app": r["app"], **json.loads(r["body"])} for r in rows]
 
 
 class PracticeView:

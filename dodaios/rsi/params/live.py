@@ -48,6 +48,7 @@ __all__ = [
     "install",
     "installed",
     "learned",
+    "release",
     "text_for",
     "values",
 ]
@@ -252,6 +253,18 @@ def install(data_dir: Path | str | None) -> ParamStore | None:
 
 def installed() -> ParamStore | None:
     return _store
+
+
+def release(store: ParamStore) -> None:
+    """Close a store and forget it (a sandbox, a test). The app never releases its own."""
+    global _store
+    with _stores_lock:
+        for path, found in list(_stores.items()):
+            if found is store:
+                del _stores[path]
+    if _store is store:
+        _store = None
+    store.close()
 
 
 def get(name: str, session_id: str = "") -> Any:

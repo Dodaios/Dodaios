@@ -1,0 +1,279 @@
+"""The measured gate: it runs the comparisons and hands the registry its evidence.
+
+For a candidate (a parameter value that waits for its measurement) the gate
+runs the select tasks of the domain twice, as the assistant is now and as it
+would be with the candidate, and decides by :mod:`rules`. For a change that is
+in effect it runs the guard tasks as the assistant is now and as it would be
+without that change.
+
+Nothing here touches the live assistant: both runs compute under an overlay.
+The only thing that changes anything is the registry call at the end
+(``admit``, ``decline``, ``settle``), and that call stores the evidence.
+
+**Whose tasks decide.** ``sources`` says which tasks a decision may rest on.
+An installation decides on tasks built from the person's own work; the seed
+suite decides only in a sandbox (a test, the public demo run), because a value
+tuned on an invented person's memories says nothing about a real person's.
+With no such tasks yet, a candidate simply waits: unmeasured, never applied.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Any, Final
+
+import dodaios
+from dodaios.rsi import overlay as overlays
+from dodaios.rsi import params
+from dodaios.rsi.bench import run
+from dodaios.rsi.bench.model import Domain, Source, Split, Task
+from dodaios.rsi.bench.store import BenchStore
+from dodaios.rsi.fingerprint import Fingerprint
+from dodaios.rsi.sequential import PairedSequence
+from dodaios.self_change import SelfChangeError, SelfChangeRegistry, StaleEvidence, State, Surface
+from dodaios.self_change.store import Change
+
+from .alpha import AlphaLedger
+from .evidence import Evidence, Verdict
+from .rules import Compared, admit_verdict, keep_verdict
+
+__all__ = ["LIVE", "Decision", "MeasuredGate"]
+
+log = logging.getLogger(__name__)
+
+#: The overlay of "the assistant as it is": learned values apply, nothing is written.
+LIVE: Final[overlays.Overlay] = overlays.Overlay(label="live")
+#: Level of the guard comparison (one look per change and night).
+_GUARD_ALPHA: Final[float] = 0.05
+
+WorldsOf = Callable[[], run.Worlds]
+
+
+@dataclass(frozen=True, slots=True)
+class Decision:
+    """What the gate did with one change."""
+
+    change_id: str
+    target: str
+    evidence: Evidence
+    #: ``admitted``, ``declined``, ``kept``, ``taken back`` or ``waiting``.
+    outcome: str
+    #: The state the change was in before (``proposed``, ``trial``, ``live``).
+    was: str = ""
+
+    def public(self) -> dict[str, Any]:
+        return {
+            "change_id": self.change_id,
+            "target": self.target,
+            "outcome": self.outcome,
+            "was": self.was,
+            "evidence": self.evidence.public(),
+        }
+
+
+class MeasuredGate:
+    def __init__(
+        self,
+        registry: SelfChangeRegistry,
+        bench: BenchStore,
+        worlds: WorldsOf,
+        *,
+        sources: Sequence[Source] = (Source.MINED, Source.MADE),
+    ) -> None:
+        self.registry = registry
+        self.bench = bench
+        self._worlds = worlds
+        self.sources = tuple(sources)
+        self._alpha = AlphaLedger(bench)
+
+    # ----------------------------------------------------------- the state
+
+    def live(self) -> Fingerprint:
+        """Which assistant is running right now."""
+        return Fingerprint.of(
+            app=dodaios.__version__,
+            changes=self.registry.learned_ids(),
+            params=params.values(),
+        )
+
+    def tasks(self, domain: Domain, split: Split) -> list[Task]:
+        """The tasks a decision on ``split`` may rest on."""
+        found: list[Task] = []
+        for source in self.sources:
+            found += self.bench.tasks(domain, splits=(split,), source=source)
+        return found
+
+    # ---------------------------------------------------------- comparing
+
+    def compare(
+        self,
+        domain: Domain,
+        split: Split,
+        baseline: overlays.Overlay,
+        candidate: overlays.Overlay,
+        *,
+        seed: str,
+        alpha: float,
+    ) -> Compared:
+        """Both states on the split's tasks, in an order fixed by ``seed``."""
+        tasks = run.shuffled(self.tasks(domain, split), seed)
+        worlds = self._worlds()
+        changes = self.registry.learned_ids()
+        before = run.measure(tasks, baseline, worlds, arm=run.arm_of(baseline, changes=changes))
+        after = run.measure(tasks, candidate, worlds, arm=run.arm_of(candidate, changes=changes))
+        if not self.bench.readonly:
+            self.bench.add_results([*before, *after])
+        paired = run.pair(before, after)
+        sequence = PairedSequence(alpha)
+        return Compared(
+            domain=domain.value,
+            interval=sequence.extend(paired.differences),
+            baseline_tokens=paired.baseline_tokens,
+            candidate_tokens=paired.candidate_tokens,
+        )
+
+    def can_decide(self, domain: Domain) -> bool:
+        """True while the select tasks of ``domain`` can still decide on a candidate."""
+        groups = self.bench.groups(domain, Split.SELECT, self.sources)
+        return groups > 0 and self._alpha.left(domain, Split.SELECT, groups) > 0
+
+    @staticmethod
+    def _seed(step: str, change: Change) -> str:
+        """What fixes the order of a comparison: the question asked, never its results.
+
+        The n-th version of a target always walks the tasks in the same order, so
+        a comparison can be repeated and gives the same answer.
+        """
+        return f"{step}:{change.surface.value}:{change.target}:v{change.version}"
+
+    @staticmethod
+    def _value(text: str | None, default: Any) -> Any:
+        if text is None:
+            return default
+        try:
+            return json.loads(text)["value"]
+        except (ValueError, KeyError, TypeError):  # an unreadable text has no effect: the default
+            return default
+
+    def _parameter(self, change: Change) -> tuple[params.Param, Any, Any]:
+        """The parameter a change is about, its value with the change and without it."""
+        store = params.installed()
+        param = (store.index if store is not None else params.INDEX).get(change.target)
+        if param is None or change.surface is not Surface.PARAMETER:
+            raise SelfChangeError(f"nothing can measure {change.surface.value} {change.target!r}")
+        with_it = param.coerce(self._value(change.after, param.default))
+        try:
+            without = param.coerce(self._value(change.before, param.default))
+        except params.ParamError:  # the earlier value no longer fits today's limits
+            without = param.default
+        return param, with_it, without
+
+    # ---------------------------------------------------------- candidates
+
+    def decide(self, change: Change) -> Evidence:
+        """Measure one candidate on the select tasks. Changes nothing."""
+        param, value, _ = self._parameter(change)
+        domains = [Domain(name) for name in param.domains]
+        if not domains or not any(self.tasks(d, Split.SELECT) for d in domains):
+            return Evidence(Verdict.UNMEASURED, reason="there are no tasks yet to measure it on")
+        candidate = overlays.Overlay(label=f"candidate:{change.id}", params={param.name: value})
+        compared: list[Compared] = []
+        level = 0.0
+        for domain in domains:
+            groups = self.bench.groups(domain, Split.SELECT, self.sources)
+            level = self._alpha.spend(domain, Split.SELECT, groups)
+            if level <= 0.0:
+                reason = "the tasks it would be decided on are used up until new ones arrive"
+                return Evidence(Verdict.UNDECIDED, split=Split.SELECT.value, reason=reason)
+            seed = self._seed("admit", change)
+            compared.append(
+                self.compare(domain, Split.SELECT, LIVE, candidate, seed=seed, alpha=level)
+            )
+        return admit_verdict(
+            compared[0],
+            tuple(compared[1:]),
+            alpha=level,
+            baseline=self.live().id,
+            split=Split.SELECT.value,
+        )
+
+    def consider(self, change: Change) -> Decision:
+        """Measure a candidate and act on the result."""
+        found = self.decide(change)
+        outcome = "waiting"
+        try:
+            if found.accepted:
+                self.registry.admit(change.id, found, live=self.live().id)
+                outcome = "admitted"
+            elif found.verdict is Verdict.REJECT:
+                self.registry.decline(change.id, found)
+                outcome = "declined"
+        except StaleEvidence:  # measured again in the next round, against the new state
+            outcome = "waiting"
+        return Decision(change.id, change.target, found, outcome, change.state.value)
+
+    def consider_all(self) -> list[Decision]:
+        """Every candidate, oldest first. One going in makes the next be measured against it."""
+        done: list[Decision] = []
+        for change in self.registry.candidates():
+            try:
+                done.append(self.consider(change))
+            except SelfChangeError as exc:  # kept as the reason of a waiting decision
+                reason = Evidence(Verdict.UNMEASURED, reason=str(exc))
+                done.append(Decision(change.id, change.target, reason, "waiting"))
+        return done
+
+    # ------------------------------------------------- changes in effect
+
+    def check(self, change: Change) -> Evidence:
+        """Is the assistant better with this change than without it, on the guard tasks."""
+        param, _, without = self._parameter(change)
+        domain = Domain(param.domains[0]) if param.domains else None
+        if domain is None or not self.tasks(domain, Split.GUARD):
+            return Evidence(Verdict.UNDECIDED, reason="there are no guard tasks yet")
+        ablated = overlays.Overlay(label=f"without:{change.id}", params={param.name: without})
+        seed = self._seed("keep", change)
+        guard = self.compare(domain, Split.GUARD, ablated, LIVE, seed=seed, alpha=_GUARD_ALPHA)
+        select = None
+        if guard.interval.mean < 0 and guard.interval.high >= 0:
+            again = self._seed("again", change)
+            select = self.compare(
+                domain, Split.SELECT, ablated, LIVE, seed=again, alpha=_GUARD_ALPHA
+            )
+        return keep_verdict(guard, select)
+
+    def settle(self, change: Change) -> Decision:
+        """Check a change that is in effect and act on the result."""
+        found = self.check(change)
+        outcome = "waiting"
+        if found.accepted:
+            self.registry.settle(change.id, found)
+            outcome = "kept"
+        elif found.verdict is Verdict.REJECT:
+            self.registry.settle(change.id, found)
+            outcome = "taken back"
+        return Decision(change.id, change.target, found, outcome, change.state.value)
+
+    def settle_all(self, *, newest: int = 5) -> list[Decision]:
+        """Check what is on trial, and the newest live changes (does what was kept still pay).
+
+        Newest first: taking a change back also takes back what was built on it,
+        so the later ones are looked at before the one they rest on.
+        """
+        learned = [c for c in self.registry.learned() if c.surface is Surface.PARAMETER]
+        on_trial = [c for c in learned if c.state is State.TRIAL]
+        live = [c for c in learned if c.state is State.LIVE][-newest:]
+        done: list[Decision] = []
+        for change in sorted([*on_trial, *live], key=lambda c: -c.seq):
+            current = self.registry.store.get(change.id)
+            if current is None or current.state not in (State.TRIAL, State.LIVE):
+                continue  # already taken back with a change it was built on
+            try:
+                done.append(self.settle(current))
+            except SelfChangeError as exc:  # kept as the reason of a waiting decision
+                reason = Evidence(Verdict.UNDECIDED, reason=str(exc))
+                done.append(Decision(change.id, change.target, reason, "waiting"))
+        return done
