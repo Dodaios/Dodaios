@@ -30,7 +30,7 @@ harness prerequisites) so callers can treat "could not measure" as neutral.
 
 How to keep a feature off the critical startup path (the doctrine this guard
 enforces): do NOT add work before the speech pipeline / VOICE_READY. New
-subsystems belong behind ``_heavy_backend_bg`` (desktop_app), a deferred
+subsystems belong behind ``BackendBoot.heavy_backend`` (desktop_boot), a deferred
 registry scan, or a fire-and-forget task AFTER voice-ready. When in doubt run
 ``scripts/measure_desktop_boot.py --voice --runs 3`` before/after your change.
 """
