@@ -444,6 +444,23 @@ def test_get_treats_placeholder_env_seed_as_unset(isolated, monkeypatch) -> None
     assert ck.get_control_key() is None
 
 
+def test_get_treats_a_copied_example_key_as_unset(isolated, monkeypatch) -> None:
+    """The Dockerfile's usage comment used to print this value; a copied
+    example is public, so it must not open a network bind."""
+    monkeypatch.setenv("JARVIS_CONTROL_API_KEY", "jctl_change_me")
+
+    assert ck.get_control_key() is None
+    assert ck.verify_control_key("jctl_change_me") is False
+
+
+def test_the_dockerfile_prints_no_fixed_example_key() -> None:
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[3] / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "JARVIS_CONTROL_API_KEY=jctl_" not in text
+
+
 def test_get_treats_placeholder_keyring_value_as_unset(isolated) -> None:
     isolated[ck.KEYRING_SLOT] = ck.SHIPPED_PLACEHOLDER_KEY
     assert ck.get_control_key() is None

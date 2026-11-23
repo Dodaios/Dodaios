@@ -197,7 +197,10 @@ class OAuthCallbackServer:
                 return HTMLResponse(_SUCCESS_HTML)
 
             if state != self._expected_state:
-                future.set_exception(RuntimeError("state mismatch — possible CSRF; aborted"))
+                # Not the redirect this flow is waiting for. Anything on the
+                # machine, and any page in the browser, can send a request
+                # here; only the provider's own redirect knows the state, so
+                # a wrong one is refused and the flow keeps waiting.
                 return HTMLResponse(
                     _ERROR_HTML.format(reason="State parameter mismatch."),
                     status_code=400,

@@ -63,7 +63,6 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Iterable
@@ -316,10 +315,14 @@ def _json_flag_value(prefix: list[str], payload: str) -> str:
     if not (prefix and _is_batch(prefix[0])):
         return payload
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
-    path = Path(tempfile.gettempdir()) / "dodaios-claude-flags" / f"{digest}.json"
     try:
+        # Private per user: the file is handed to the CLI as its settings, so
+        # nobody else may be able to put one there (the temp directory is
+        # shared on Linux).
+        from dodaios.core.private_tmp import private_temp_folder
+
+        path = private_temp_folder("dodaios-claude-flags") / f"{digest}.json"
         if not path.is_file():
-            path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(f".{os.getpid()}.tmp")
             tmp.write_text(payload, encoding="utf-8")
             os.replace(tmp, path)
@@ -1719,14 +1722,12 @@ def agy_probe_cwd() -> Path:
     workspace (or the home folder) that left a stray file in every fresh
     agent; this scratch folder keeps it out of anything the person reads.
     """
-    import tempfile
+    from dodaios.core.private_tmp import private_temp_folder
 
-    folder = Path(tempfile.gettempdir()) / "dodaios-agy-probe"
     try:
-        folder.mkdir(parents=True, exist_ok=True)
+        return private_temp_folder("dodaios-agy-probe")
     except OSError:
         return _catalog_cwd()
-    return folder
 
 
 def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list[dict[str, Any]]:
