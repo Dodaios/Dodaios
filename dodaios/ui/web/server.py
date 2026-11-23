@@ -871,9 +871,6 @@ class WebServer:
         app.include_router(society_router)
         app.include_router(agent_runtime_router)
         app.include_router(runtime_gateway_router)
-        from .mars_routes import router as mars_router
-
-        app.include_router(mars_router)
         app.include_router(society_browser_router)
         app.include_router(browser_profile_router)
         app.include_router(society_figure_router)
@@ -3376,12 +3373,6 @@ class WebServer:
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
-        # Existing Mars work recovers with zero clients. The deferred helper
-        # performs its existence probe and runtime composition after boot yields.
-        from .mars_routes import schedule_mars_resume
-
-        data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
-        schedule_mars_resume(self.app.state, data_dir)
 
     async def _init_screenshot_retention(self) -> None:
         """Auto-delete captured screenshot blobs older than the configured
@@ -4295,18 +4286,6 @@ class WebServer:
         # Fence lazy creation even when no Society owner exists yet. The shared
         # brain factory and HTTP surface can still be called while shutdown awaits.
         self.app.state.society_stopping = True
-        from .mars_routes import stop_mars_station
-
-        # Fence station creation before any other shutdown await can interleave
-        # with a pending boot recovery or first HTTP request.
-        mars_shutdown_failure: str | None = None
-        try:
-            await stop_mars_station(self.app.state)
-        except Exception as exc:  # noqa: BLE001 -- independent resources must still shut down
-            # The helper retains its stop latch and pending owner references.
-            # Keep only the type: cleanup failures can contain private payloads.
-            mars_shutdown_failure = type(exc).__name__
-            logger.warning("Mars station cleanup incomplete ({})", mars_shutdown_failure)
         registry_bootstraps_stopped = await self._stop_registry_bootstraps()
         # A short-lived server can stop before these delayed boot helpers run.
         # Own and drain them here instead of leaving asyncio.run()/pytest to
@@ -4681,10 +4660,6 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 - shutdown continues best-effort
             logger.opt(exception=exc).warning("Codex subscription app-server cleanup failed")
 
-        if mars_shutdown_failure is not None:
-            # Report incomplete Mars cleanup only after unrelated browser, chat,
-            # plugin, watcher, terminal and server resources have been released.
-            raise RuntimeError(f"mars_station_shutdown_incomplete ({mars_shutdown_failure})")
         if society_shutdown_failure is not None:
             raise RuntimeError(f"society_runtime_shutdown_incomplete ({society_shutdown_failure})")
         if not registry_bootstraps_stopped:

@@ -61,7 +61,7 @@ export function AgentAppearanceDialog({ agent, sample, onClose }: { agent: Socie
       const response = await fetch(`/api/society/agents/${encodeURIComponent(agent.agentId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ avatar: recipe }) });
       if (!response.ok) throw new Error(`appearance ${response.status}`);
       setSaved(JSON.stringify(recipe)); setDiscard(false);
-      await Promise.all([client.invalidateQueries({ queryKey: ["society", "roster"] }), client.invalidateQueries({ queryKey: ["mars"] })]);
+      await client.invalidateQueries({ queryKey: ["society", "roster"] });
     } catch { setError(true); } // Keep the draft and display the recoverable failure.
     finally { setSaving(false); }
   };

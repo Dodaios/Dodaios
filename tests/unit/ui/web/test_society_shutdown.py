@@ -36,7 +36,6 @@ async def test_server_stop_closes_real_roster_store_and_delivery(tmp_path, monke
     watcher_started = asyncio.Event()
 
     async def check_close_order():
-        assert server.app.state.mars_station_stopping
         assert runtime.store._conn is connection
         cleaned.append("society-browser")
         await original_close()
@@ -62,7 +61,6 @@ async def test_server_stop_closes_real_roster_store_and_delivery(tmp_path, monke
         assert cleaned.index("society-watcher") < cleaned.index("society-browser")
         assert current_runtime() is None
         assert not runtime._started
-        assert server.app.state.mars_station_stopping
         assert {"chat", "pty", "mission-approvals"} <= set(cleaned)
     finally:
         # The red test must not itself leak a non-daemon SQLite worker.
@@ -158,8 +156,6 @@ async def test_roster_poll_during_remaining_server_cleanup_cannot_restart(tmp_pa
 async def test_shutdown_fences_empty_owner_before_lazy_roster_factory(
     tmp_path, monkeypatch, pause_at
 ):
-    from dodaios.ui.web import mars_routes
-
     server, _cleaned = society_shutdown_server(None)
     paused = asyncio.Event()
     release = asyncio.Event()
@@ -172,10 +168,11 @@ async def test_shutdown_fences_empty_owner_before_lazy_roster_factory(
     async def pending_cleanup(*_args):
         paused.set()
         await release.wait()
+        return True
 
     server.app.state.society_factory = factory
     if pause_at == "first-await":
-        monkeypatch.setattr(mars_routes, "stop_mars_station", pending_cleanup)
+        monkeypatch.setattr(server, "_stop_registry_bootstraps", pending_cleanup)
     else:
         monkeypatch.setattr(server, "_stop_marketplace_refresh_scheduler", pending_cleanup)
     stopping = asyncio.create_task(server.stop())

@@ -55,9 +55,6 @@ dodaios\ui\web\frontend\src\components\society\create\CreateAgentDialog.tsx
 dodaios\ui\web\frontend\src\components\society\companion\GigiCompanion.tsx
 dodaios\ui\web\frontend\src\components\society\figures\assembleFigure.ts
 dodaios\ui\web\frontend\src\components\society\figures\catalog.json
-dodaios\ui\web\frontend\src\components\society\mars\MarsWorldStage.tsx
-dodaios\ui\web\frontend\src\components\society\mars\MarsScene.tsx
-dodaios\ui\web\frontend\src\components\society\mars\mars.css
 dodaios\ui\web\frontend\src\components\society\figures\figureRegistry.ts
 dodaios\ui\web\frontend\src\components\society\figures\figureRegistry.test.ts
 dodaios\ui\web\frontend\src\views\settings\OverlayTaskbarGroup.test.tsx
