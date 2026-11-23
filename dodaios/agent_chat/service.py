@@ -2112,6 +2112,22 @@ class AgentChatService:
                     prompt = chat_attachments.compose(node_request, attached)
                     if display_text is None:
                         display_text = text
+            if session.surface == "agent" and direct_user and not control_owned:
+                # Other threads dragged in from the sidebar arrive as thread
+                # links; the turn gets a card for each, the bubble the words.
+                from dodaios.agent_chat.thread_mentions import expand_thread_mentions
+
+                mentioned = await asyncio.to_thread(
+                    expand_thread_mentions,
+                    self.store,
+                    text,
+                    own_session_id=session_id,
+                    is_running=self.is_running,
+                )
+                if mentioned is not None:
+                    prompt = chat_attachments.compose(mentioned, attached)
+                    if display_text is None:
+                        display_text = text
             if session.surface == "society" and not text.startswith("/"):
                 # Decisions on the agent's proposals reach it here, once, as a
                 # system note in front of its next message: never as a message

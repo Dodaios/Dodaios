@@ -30,6 +30,8 @@ import { useSideFileStore } from "@/store/sideFile";
 import { DiffStat, DiffView } from "./ThreadDiff";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { MagicWordText } from "./MagicWordText";
+import { CodingAgentLink } from "./CodingAgentLink";
+import { splitThreadLinks } from "./threadMentions";
 import { sentCommandSpan } from "@/components/agentchat/typeahead";
 import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
 import { compactionInfo, isCompaction } from "@/components/agentchat/compaction";
@@ -614,10 +616,18 @@ export const MagicWords = createContext(false);
 /** Whether this thread's agent reads slash commands, so a sent `/goal` shows in the command blue. */
 export const SlashCommands = createContext(false);
 
+/** A sent message naming other threads: each as that thread's link, inside the sentence. */
+function SentWithThreads({ text, magic }: { text: string; magic: boolean }) {
+  return <>{splitThreadLinks(text).map((part, index) => "sessionId" in part
+    ? <CodingAgentLink key={index} threadRef={part.sessionId} label={part.label} words={part.label} />
+    : <MagicWordText key={index} text={part.text} magic={magic} />)}</>;
+}
+
 function UserBubble({ item }: { item: UserItem }) {
   const t = useT();
   const magic = useContext(MagicWords);
   const command = useContext(SlashCommands) ? sentCommandSpan(item.text) : null;
+  const threadLinked = splitThreadLinks(item.text).some((part) => "sessionId" in part);
   return <div className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
     {item.author && <div className="flex items-center gap-1.5 pr-1 text-xs text-muted-foreground" data-testid="thread-message-author">
       <Bot aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -625,9 +635,11 @@ function UserBubble({ item }: { item: UserItem }) {
     </div>}
     <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
       <SentFiles files={item.attachments} />
-      {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{magic || command
-        ? <MagicWordText text={item.text} magic={magic} commands={command ? [command] : []} />
-        : item.text}</div>}
+      {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{threadLinked
+        ? <SentWithThreads text={item.text} magic={magic} />
+        : magic || command
+          ? <MagicWordText text={item.text} magic={magic} commands={command ? [command] : []} />
+          : item.text}</div>}
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <span className="tabular-nums">{clock(item.tsMs)}</span>

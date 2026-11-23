@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
@@ -20,7 +20,11 @@ import { QueuedMessages } from "./QueuedMessages";
 import { MAGIC_WORD_RUNNERS, hasMagicWord } from "@/lib/magicWords";
 import { isClearCommand } from "@/lib/threadClear";
 import { composerPlaceholder } from "./composerPlaceholder";
-import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
+import { THREAD_DRAG_MIME, draggedThread, rememberSeat, rememberedSeat, threadAgents, threadTitle, useThreadChat, useThreadChatStore } from "./threadModel";
+import {
+  caretRectInMirror, insertMention, linksToMentions, mentionLabel, mentionSpans, mentionsToLinks, offsetInMirror, outsideMentions,
+  type ThreadMention,
+} from "./threadMentions";
 
 /**
  * Runners that take a message while their turn is open, at work or waiting
@@ -31,6 +35,14 @@ const STEERABLE_RUNNERS = new Set(["claude-cli", "glm-cli"]);
 
 /** Draft text per thread, so switching threads never loses a half-written message. */
 const drafts = new Map<string, string>();
+
+/** The other threads named in each draft (dragged in from the sidebar), by thread key. */
+const draftMentions = new Map<string, ThreadMention[]>();
+
+/** The chat provider of a thread the sidebar lists, for a mention's logo. */
+function providerOfThread(sessionId: string): string {
+  return useThreadChatStore.getState().sessions.find((row) => row.session_id === sessionId)?.provider ?? "";
+}
 
 /**
  * The message sent last, with its files, when it went and where the thread
@@ -354,8 +366,13 @@ export function ThreadComposer({
   const [paused, setPaused] = useState(false);
   const [problem, setProblem] = useState("");
   const [starting, setStarting] = useState(false);
+  const [mentions, setMentionsState] = useState<ThreadMention[]>(() => draftMentions.get(threadKey) ?? []);
+  // Where a thread dragged over the box would land, drawn as a caret in the text.
+  const [dropCaret, setDropCaret] = useState<{ offset: number; left: number; top: number; height: number } | null>(null);
+  const [mentionDrag, setMentionDrag] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const magicRef = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const t = useT();
 
@@ -406,6 +423,12 @@ export function ThreadComposer({
     drafts.set(threadKey, next);
   }, [threadKey]);
 
+  const setMentions = useCallback((next: ThreadMention[]) => {
+    setMentionsState(next);
+    if (next.length) draftMentions.set(threadKey, next);
+    else draftMentions.delete(threadKey);
+  }, [threadKey]);
+
   // The dictated words append to whatever the box holds when they land — in
   // the one composer that owns the dictation, never in a hidden one.
   const setDictated = useCallback((next: string | ((current: string) => string)) => {
@@ -417,6 +440,7 @@ export function ThreadComposer({
   // Another thread: its own half-written text, its own queue.
   useEffect(() => {
     setValueState(drafts.get(threadKey) ?? "");
+    setMentionsState(draftMentions.get(threadKey) ?? []);
     setPaused(false);
     setProblem("");
   }, [threadKey]);
@@ -460,11 +484,20 @@ export function ThreadComposer({
   // backdrop under a see-through text.
   const magicRunner = MAGIC_WORD_RUNNERS.has(provider?.runner ?? "");
   const commands = useMemo(() => typeahead.tokenSpans(value), [typeahead.tokenSpans, value]);
-  const ink = (magicRunner && hasMagicWord(value)) || commands.length > 0;
+  const named = useMemo(() => mentionSpans(value, mentions), [value, mentions]);
+  const agentOf = useMemo(() => {
+    const map = new Map<string, { agent: string; label: string }>();
+    for (const row of catalog?.providers ?? []) if (row.agent) map.set(row.id, { agent: row.agent, label: row.label });
+    return (id: string) => map.get(id);
+  }, [catalog]);
+  const ink = (magicRunner && hasMagicWord(value)) || commands.length > 0 || named.length > 0;
+  // While a thread is dragged over the box, the backdrop also draws its text:
+  // a drop point is measured against it.
+  const mirrored = ink || mentionDrag;
   // The backdrop scrolls with the textarea, also when it first appears on a scrolled box.
   useLayoutEffect(() => {
     if (magicRef.current && textareaRef.current) magicRef.current.scrollTop = textareaRef.current.scrollTop;
-  }, [ink, value]);
+  }, [mirrored, value]);
 
   /** Sends `text`; false when it did not reach the agent. `sent` learns the thread a first message creates. */
   const dispatch = useCallback(async (text: string, attachments: ChatAttachment[], sent?: SentMessage, delivery?: SendDelivery) => {
@@ -495,11 +528,19 @@ export function ThreadComposer({
   }, [chat, prepareDraft, onSessionCreated]);
 
   /** A message that did not go comes back into its thread's box, ahead of anything typed since. */
-  const giveBack = useCallback((key: string, text: string) => {
+  const giveBack = useCallback((key: string, sentText: string) => {
+    // The thread links it was sent with stand as named threads again.
+    const back = linksToMentions(sentText, providerOfThread);
     const current = drafts.get(key) ?? "";
-    const restored = current.trim() ? `${text}\n${current}` : text;
+    const restored = current.trim() ? `${back.text}\n${current}` : back.text;
     drafts.set(key, restored);
-    if (key === keyRef.current) setValueState(restored);
+    const held = draftMentions.get(key) ?? [];
+    const merged = [...held, ...back.mentions.filter((row) => !held.some((old) => old.label === row.label))];
+    if (merged.length) draftMentions.set(key, merged);
+    if (key === keyRef.current) {
+      setValueState(restored);
+      setMentionsState(merged);
+    }
   }, []);
 
   /** An edit of a waiting message that could not land comes back into this box. */
@@ -514,7 +555,9 @@ export function ThreadComposer({
     // The draft store is written with every change, the rendered `value` only
     // after the next render: a send right after dictated words landed must
     // not go out without them.
-    const text = (drafts.get(threadKey) ?? value).trim();
+    // Every thread named in it goes as a thread link: the bubble shows it as
+    // that thread's link, and the agent is told which thread it is.
+    const text = mentionsToLinks((drafts.get(threadKey) ?? value).trim(), draftMentions.get(threadKey) ?? []);
     if (!text && files.attachments.length === 0) return;
     if (files.analyzing > 0 || starting) return;
     // "/clear" starts the thread's conversation over (the store and the
@@ -533,6 +576,7 @@ export function ThreadComposer({
     const held = files.take();
     const attachments = held.attachments;
     setValue("");
+    setMentions([]);
     setProblem("");
     if (running || busy) {
       // A message typed while the agent works waits for its answer and runs as
@@ -574,8 +618,7 @@ export function ThreadComposer({
     setPaused(true);
     if (activeSessionId) useRecalledMessages.getState().hide(activeSessionId, asked.id);
     void chat.getState().cancel("thread-recall");
-    const current = drafts.get(threadKey) ?? "";
-    setValue(current.trim() ? `${text}\n${current}` : text);
+    giveBack(threadKey, text);
     files.restore(held);
     textareaRef.current?.focus();
     return true;
@@ -599,6 +642,17 @@ export function ThreadComposer({
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (typeahead.onKeyDown(event)) return;
+    // Backspace right after a named thread takes the whole name, as one piece.
+    const box = event.currentTarget;
+    if (event.key === "Backspace" && box.selectionStart === box.selectionEnd) {
+      const span = named.find((row) => row.end === box.selectionStart);
+      if (span) {
+        event.preventDefault();
+        setValue(value.slice(0, span.start) + value.slice(span.end));
+        requestAnimationFrame(() => box.setSelectionRange(span.start, span.start));
+        return;
+      }
+    }
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void submit();
@@ -610,6 +664,84 @@ export function ThreadComposer({
     const store = chat.getState();
     await store.setDraft(patch);
     rememberSeat(chat.getState().draft);
+  };
+
+  // A thread row from the sidebar dropped into the box: its name lands where
+  // the drop caret stands, inside the sentence. Never this thread itself.
+  const carriesThread = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME)
+    && !(activeSessionId && draggedThread() === activeSessionId);
+  const offsetAt = (event: DragEvent<HTMLElement>): number | null => {
+    const mirror = magicRef.current;
+    const box = textareaRef.current;
+    if (!mirror || !box) return null;
+    // A textarea tells no text offset for a point; the backdrop draws the
+    // same text in the same place, so the point is measured on it.
+    const boxEvents = box.style.pointerEvents;
+    const mirrorEvents = mirror.style.pointerEvents;
+    box.style.pointerEvents = "none";
+    mirror.style.pointerEvents = "auto";
+    try {
+      const offset = offsetInMirror(mirror, event.clientX, event.clientY);
+      return outsideMentions(offset === null ? value.length : Math.min(offset, value.length), named);
+    } finally {
+      box.style.pointerEvents = boxEvents;
+      mirror.style.pointerEvents = mirrorEvents;
+    }
+  };
+  const endMentionDrag = () => {
+    setMentionDrag(false);
+    setDropCaret(null);
+  };
+  const mentionDragHandlers = {
+    onDragEnter: (event: DragEvent<HTMLDivElement>) => {
+      if (!carriesThread(event)) return;
+      event.preventDefault();
+      setMentionDrag(true);
+    },
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      if (!carriesThread(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = event.dataTransfer.effectAllowed === "move" ? "move" : "copy";
+      if (!mentionDrag) { setMentionDrag(true); return; }
+      const offset = offsetAt(event);
+      const mirror = magicRef.current;
+      const frame = frameRef.current;
+      const rect = offset !== null && mirror && frame ? caretRectInMirror(mirror, frame, offset) : null;
+      setDropCaret((current) => {
+        if (offset === null || !rect) return null;
+        if (current && current.offset === offset && current.left === rect.left && current.top === rect.top) return current;
+        return { offset, ...rect };
+      });
+    },
+    onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && event.currentTarget.contains(next)) return;
+      endMentionDrag();
+    },
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      if (!event.dataTransfer.types.includes(THREAD_DRAG_MIME)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const offset = dropCaret?.offset ?? offsetAt(event) ?? value.length;
+      endMentionDrag();
+      const sessionId = event.dataTransfer.getData(THREAD_DRAG_MIME);
+      if (!sessionId || sessionId === activeSessionId) return;
+      const session = useThreadChatStore.getState().sessions.find((row) => row.session_id === sessionId);
+      const known = mentions.find((row) => row.sessionId === sessionId);
+      const mention = known ?? {
+        sessionId,
+        label: mentionLabel(threadTitle(session), mentions.map((row) => row.label)),
+        provider: session?.provider ?? "",
+      };
+      const placed = insertMention(value, offset, mention.label);
+      setValue(placed.text);
+      if (!known) setMentions([...mentions, mention]);
+      dictationOwner = threadKey;
+      const box = textareaRef.current;
+      box?.focus();
+      requestAnimationFrame(() => box?.setSelectionRange(placed.caret, placed.caret));
+    },
   };
 
   const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.awaitingText) && files.analyzing === 0 && !starting;
@@ -633,11 +765,15 @@ export function ThreadComposer({
         <ChatAttachmentStrip attachments={files.attachments} analyzing={files.analyzing}
           onRemove={files.remove} previews={files.previews} look="thumbnail" />
       </div>}
-      <div className="relative">
-      {ink && <div ref={magicRef} aria-hidden data-testid="thread-composer-magic"
-        className="pointer-events-none absolute inset-0 overflow-y-auto whitespace-pre-wrap break-words px-4 pb-2 pt-4 text-base leading-6 text-foreground sm:px-5">
-        <MagicWordText text={value} magic={magicRunner} commands={commands} />{"​"}
+      <div ref={frameRef} className="relative" data-thread-mention-drop="" {...mentionDragHandlers}>
+      {mirrored && <div ref={magicRef} aria-hidden data-testid="thread-composer-magic"
+        className={cn("pointer-events-none absolute inset-0 overflow-y-auto whitespace-pre-wrap break-words px-4 pb-2 pt-4 text-base leading-6 text-foreground sm:px-5",
+          !ink && "text-transparent")}>
+        <MagicWordText text={value} magic={magicRunner} commands={commands} mentions={named} agentOf={agentOf} />{"​"}
       </div>}
+      {dropCaret && <span aria-hidden data-testid="thread-mention-caret"
+        className="pointer-events-none absolute z-10 w-0.5 rounded-full bg-accent"
+        style={{ left: dropCaret.left - 1, top: dropCaret.top, height: dropCaret.height }} />}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
         placeholder={running ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}

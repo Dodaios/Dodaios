@@ -571,10 +571,11 @@ export function ThreadTree() {
           return <Fragment key={session.session_id}>{dayLine}<div data-testid={`thread-row-${session.session_id}`}
             draggable
             onDragStart={(event) => {
-              // The list keeps its date order; dropped on the thread view it opens side by side.
+              // The list keeps its date order; dropped on the thread view it opens
+              // side by side, dropped into a composer's text it is named in the message.
               event.dataTransfer.setData(THREAD_DRAG_MIME, session.session_id);
               event.dataTransfer.setData(THREAD_PROJECT_DRAG_MIME, project.id);
-              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.effectAllowed = "copyMove";
               setDraggedThread(session.session_id);
               setDragged(session.session_id);
             }}

@@ -50,7 +50,9 @@ export function ThreadColumns({ onScreen }: { onScreen: boolean }) {
     return { cell, side: event.clientX < rect.left + rect.width / 2 ? "left" : "right" };
   };
 
-  const isThreadDrag = (event: DragEvent<HTMLDivElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME);
+  // Over a composer's text the thread is named in the message instead (ThreadComposer).
+  const isThreadDrag = (event: DragEvent<HTMLDivElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME)
+    && !(event.target instanceof Element && event.target.closest("[data-thread-mention-drop]"));
 
   return <div ref={box} className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden" data-testid="thread-columns"
     // Sideways only: each column scrolls its own conversation. Left at
@@ -58,7 +60,10 @@ export function ThreadColumns({ onScreen }: { onScreen: boolean }) {
     // column scrolls down into empty space.
     // Capture phase: the composer below takes dropped files, and must not see a thread.
     onDragOverCapture={(event) => {
-      if (!isThreadDrag(event)) return;
+      if (!isThreadDrag(event)) {
+        if (spot) setSpot(null);
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       const next = spotFor(event);
