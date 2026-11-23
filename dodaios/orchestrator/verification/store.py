@@ -274,6 +274,27 @@ class VerificationStore:
             ).fetchone()
         return int(row[0]) if row is not None else 0
 
+    def reviews_since(self, since_ms: int) -> int:
+        """Reviews started at or after ``since_ms``, across every run."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM steps WHERE step = 'review_intent' AND ts_ms >= ?",
+                (int(since_ms),),
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def root_reviews(self, root_span_id: str) -> int:
+        """Reviews started for all runs of one request of the person."""
+        if not root_span_id:
+            return 0
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM steps JOIN runs ON runs.run_id = steps.run_id "
+                "WHERE steps.step = 'review_intent' AND runs.root_span_id = ?",
+                (root_span_id,),
+            ).fetchone()
+        return int(row[0]) if row is not None else 0
+
     def evidence_due(self) -> list[dict[str, Any]]:
         """Runs whose landing and checks are to be read again, soonest first."""
         with self._lock:

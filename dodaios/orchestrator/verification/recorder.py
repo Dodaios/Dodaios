@@ -49,7 +49,7 @@ from typing import Any, Final
 
 from dodaios.rsi import domains, harness_probe, repo_identity
 
-from . import driver, evidence, send
+from . import driver, evidence, review, send
 from .store import CHECKING, ENDED, INTERRUPTED, RUNNING, VerificationStore
 
 log = logging.getLogger(__name__)
@@ -130,6 +130,9 @@ class RunRecorder:
         read_evidence: Callable[[str, str], evidence.Evidence] = evidence.read,
         clock: Callable[[], float] = time.time,
         send_follow_up: Callable[[str, str, str, int], str] | None = None,
+        review_mode: str = "off",
+        review_paid: bool = False,
+        review_call: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         self.store = store
         self._service = service
@@ -146,6 +149,11 @@ class RunRecorder:
         self._decide_at: dict[str, int] = {}
         #: ``(session, order, run, output) -> turn id``; raises ``send.Refused``.
         self._send_follow_up = send_follow_up or self._send_via_service
+        #: ``triggered``: an output a fixed trigger picks gets one model's review.
+        self._review_mode = review_mode
+        self._review_paid = review_paid
+        #: ``(run row, scan detail) -> review detail``; blocks while the review runs.
+        self._review_call = review_call or self._review_via_service
         self._verdict_listeners: list[Callable[[str, str], None]] = []
         self._loop: asyncio.AbstractEventLoop | None = None
         self._queue: queue.SimpleQueue[Any] = queue.SimpleQueue()
@@ -601,6 +609,22 @@ class RunRecorder:
             return step.get("step") == "gates"
 
         before = detail_of(is_scan, output - 1) if output else None
+        scan = detail_of(is_scan, output) or {}
+        reviewed = detail_of(lambda step: step.get("step") == "review", output)
+        started = any(
+            step.get("step") == "review_intent" and int(step.get("iteration") or 0) == output
+            for step in steps
+        )
+        if reviewed is None and started:
+            # Started and never answered (the app stopped meanwhile): no second call.
+            reviewed = {"verdict": review.NONE, "reason": "the review did not finish"}
+        trigger = ""
+        if self._review_mode == "triggered":
+            trigger = review.trigger(run_id, output, scan, list(scan.get("paths") or []))
+        spent = review.budget(
+            root_reviews=self.store.root_reviews(str(row.get("root_span_id") or "")),
+            day_reviews=self.store.reviews_since(review.day_window(now)),
+        ) if trigger else ""
         decision = driver.decide(
             row,
             detail_of(is_scan, output),
@@ -610,6 +634,9 @@ class RunRecorder:
             root_follow_ups=self.store.root_follow_ups(str(row.get("root_span_id") or "")),
             same_boot=str(row.get("boot_id") or "") == self._boot_id,
             previous_tree=str((before or {}).get("tree_id") or ""),
+            reviewed=reviewed,
+            review_trigger=trigger,
+            review_budget=spent,
         )
         self.store.update_run(run_id, heartbeat_ms=now)
         if decision.action == driver.WAIT:
@@ -623,6 +650,8 @@ class RunRecorder:
             self._decide_at[run_id] = min(ahead) if ahead else now
         elif decision.action == driver.FOLLOW_UP:
             self._follow_up(run, row, decision, now)
+        elif decision.action == driver.REVIEW:
+            self._review(run, row, scan, decision, now)
         else:
             self._finish(run, decision.verdict, decision.reason, now_ms=now)
 
@@ -682,6 +711,47 @@ class RunRecorder:
         self._due.pop(run.run_id, None)
         self._decide_at.pop(run.run_id, None)
         run.iteration, run.turn_id, run.expect_turn, run.checking = output + 1, "", turn_id, False
+
+    def _review(
+        self, run: _Open, row: dict[str, Any], scan: dict[str, Any], decision: driver.Decision,
+        now: int,
+    ) -> None:
+        """One model's review of the newest output, then the decision again."""
+        output = int(row.get("iteration") or 0)
+        self.store.add_step(
+            run.run_id, output, "review_intent", status="triggered",
+            detail={"trigger": decision.reason}, ts_ms=now,
+        )
+        try:
+            found = self._review_call(row, scan)
+        except Exception as exc:  # noqa: BLE001 - a review that failed proves nothing
+            log.warning("run recorder: review of %s failed", run.run_id, exc_info=True)
+            found = {"verdict": review.NONE, "reason": f"the review failed ({type(exc).__name__})"}
+        self.store.add_step(
+            run.run_id, output, "review", status=str(found.get("verdict") or review.NONE),
+            detail={**found, "trigger": decision.reason}, ts_ms=int(self._clock() * 1000),
+        )
+        self._decide(run.run_id)
+
+    def _review_via_service(self, row: dict[str, Any], scan: dict[str, Any]) -> dict[str, Any]:
+        """Run the review on the chat service's loop, from the writer thread."""
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return {"verdict": review.NONE, "reason": "no model could be reached for a review"}
+
+        async def job() -> dict[str, Any]:
+            seat = await asyncio.to_thread(
+                review.pick_seat, str(row.get("provider") or ""), paid=self._review_paid
+            )
+            diff = await asyncio.to_thread(gates_diff, scan)
+            found = await review.run(
+                seat, brief=str(row.get("brief_text") or ""), diff=diff,
+                findings=list(scan.get("findings") or []),
+            )
+            return found.to_detail()
+
+        reviewing = asyncio.run_coroutine_threadsafe(job(), loop)
+        return reviewing.result(timeout=review.REVIEW_TIMEOUT_S + _SEND_TIMEOUT_S)
 
     def _send_via_service(self, session_id: str, prompt: str, run_id: str, output: int) -> str:
         """Hand the order to the chat service on its own loop, from the writer thread."""
@@ -830,6 +900,13 @@ class RunRecorder:
             return []
 
 
+def gates_diff(scan: dict[str, Any]) -> str:
+    """The diff an output scan read (blocks on ``git``)."""
+    from .gates import diff_of
+
+    return diff_of(scan)
+
+
 def _plus(before: Any, more: Any) -> Any:
     """Sum of two counts where either may be unknown."""
     if more is None:
@@ -954,7 +1031,9 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
 
         store = VerificationStore(Path(data_dir) / "verification.db")
         made = RunRecorder(
-            store, service, boot_id=BOOT_ID, verify=str(getattr(section, "verify", "off"))
+            store, service, boot_id=BOOT_ID, verify=str(getattr(section, "verify", "off")),
+            review_mode=str(getattr(section, "review", "off") or "off"),
+            review_paid=bool(getattr(section, "review_paid", False)),
         )
         service.add_event_listener(made.on_event)
         made.start()

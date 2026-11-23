@@ -68,6 +68,8 @@ EVIDENCE_WAIT_S: Final[int] = 45 * 60
 WAIT: Final[str] = "wait"
 FOLLOW_UP: Final[str] = "follow_up"
 CLOSE: Final[str] = "close"
+#: Ask one model for a second opinion first (:mod:`review`).
+REVIEW: Final[str] = "review"
 
 _RESULT = re.compile(
     r"^\s*RESULT:\s*(fixed|cannot-fix|needs-decision)\b[:\s]*(.*)$", re.IGNORECASE
@@ -134,13 +136,18 @@ def decide(
     root_follow_ups: int = 0,
     same_boot: bool = True,
     previous_tree: str = "",
+    reviewed: dict[str, Any] | None = None,
+    review_trigger: str = "",
+    review_budget: str = "",
 ) -> Decision:
     """The next step for ``run`` after its newest output.
 
     ``scan`` is the detail of the output scan of that output, ``found`` the
     detail of the newest reading of landing and checks (``None``: not read),
     ``said`` the agent's final message of the turn, ``previous_tree`` the tree
-    the output before this one left (after a follow-up order).
+    the output before this one left (after a follow-up order). ``reviewed`` is
+    the review of this output when one ran, ``review_trigger`` why one is due
+    (``""``: none is), ``review_budget`` why none may run.
     """
     if run.get("person_intervened"):
         return _close(SUPERSEDED, "the person wrote into the thread")
@@ -171,6 +178,41 @@ def decide(
         return Decision(
             FOLLOW_UP, reason=what, template=template, prompt=prompt, signature=signature
         )
+
+    def after_review(close: Decision) -> Decision:
+        """``close``, unless a review of this output is due or said otherwise."""
+        if status not in (gates.CLEAN, gates.FINDINGS) or not int(scan.get("files") or 0):
+            return close
+        if reviewed is not None:
+            verdict = str(reviewed.get("verdict") or "")
+            if verdict == "object":
+                findings = list(reviewed.get("findings") or [])
+                shown = "; ".join(f"{f.get('file')}: {f.get('problem')}" for f in findings[:2])
+                return ask_again(
+                    prompts.T3,
+                    _signature(
+                        "review",
+                        [f"{f.get('file')}|{str(f.get('problem'))[:80]}" for f in findings],
+                    ),
+                    prompts.review_findings(findings),
+                    f"a review objects ({shown})",
+                )
+            if verdict == "approve" or close.verdict != VERIFIED:
+                return close
+            return _close(
+                UNVERIFIED,
+                f"{close.reason}, but the review proved nothing: {reviewed.get('reason') or ''}",
+            )
+        if not review_trigger:
+            return close
+        if review_budget:
+            if close.verdict != VERIFIED:
+                return close
+            return _close(
+                UNVERIFIED, f"{close.reason}, but a review was due ({review_trigger}) and "
+                f"{review_budget}",
+            )
+        return Decision(REVIEW, reason=review_trigger)
 
     if status == gates.VIOLATIONS:
         violations = [
@@ -204,23 +246,27 @@ def decide(
         )
     if checks == evidence.PASSING:
         if status != gates.CLEAN:
-            return _close(UNVERIFIED, "the checks pass, but the scan left points to look at")
+            return after_review(
+                _close(UNVERIFIED, "the checks pass, but the scan left points to look at")
+            )
         if not scan.get("committed"):
-            return _close(
+            return after_review(_close(
                 UNVERIFIED,
                 "the checks pass, but the work area holds changes beyond the commit they ran on",
-            )
-        return _close(VERIFIED, f"{reason}; they pass" if reason else "the checks pass")
+            ))
+        return after_review(
+            _close(VERIFIED, f"{reason}; they pass" if reason else "the checks pass")
+        )
     waited_s = (now_ms - int(run.get("ended_ms") or now_ms)) / 1000
     on_github = landing in (evidence.PUSHED, evidence.PR_OPEN, evidence.MERGED)
     if checks == evidence.RUNNING:
         if waited_s < EVIDENCE_WAIT_S:
             return Decision(WAIT, reason=f"{reason}; the checks run")
-        return _close(UNVERIFIED, f"{reason}; the checks still ran after the wait")
+        return after_review(_close(UNVERIFIED, f"{reason}; the checks still ran after the wait"))
     # No check in sight yet (CI may not have started), or GitHub did not answer.
     may_come = on_github or bool(found.get("transient"))
     if found and may_come and waited_s < evidence.NO_CHECKS_GIVE_UP_S:
         return Decision(WAIT, reason=reason or "the checks have not been read yet")
     if on_github:
-        return _close(UNVERIFIED, f"{reason}; the commit has no checks")
-    return _close(UNVERIFIED, reason or "nothing proves that the change works")
+        return after_review(_close(UNVERIFIED, f"{reason}; the commit has no checks"))
+    return after_review(_close(UNVERIFIED, reason or "nothing proves that the change works"))

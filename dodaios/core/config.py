@@ -4601,6 +4601,12 @@ class RsiConfig(BaseModel):
 
     enabled: bool = False
     verify: Literal["off", "observe", "enforce"] = "off"
+    #: With enforced checks: ``triggered`` has one model review an output when a
+    #: fixed trigger asks (``dodaios.orchestrator.verification.review``).
+    review: Literal["off", "triggered"] = "off"
+    #: A review may use an API key (and so cost money); otherwise only a
+    #: subscription that is signed in.
+    review_paid: bool = False
     #: While the output is verified (``verify`` is not ``off``), every coding
     #: thread the lead opens gets a git worktree of its own on a new branch, so
     #: what the run changed can be told from what its neighbours changed
