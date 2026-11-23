@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/textarea";
+import { MARKDOWN_PICTURES } from "@/components/agentchat/MediaPreview";
 import { PROSE_BASE, splitFrontMatter } from "@/components/outputs/MarkdownProse";
 import { getWSClient } from "@/hooks/useWebSocket";
 import { useI18nStore, useT } from "@/i18n";
@@ -310,7 +311,7 @@ export function SourceCard({ doc }: { doc: SourceDocument }) {
                 "prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground-strong",
               )}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.body}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_PICTURES}>{doc.body}</ReactMarkdown>
             </article>
           ) : (
             <EmptyState
