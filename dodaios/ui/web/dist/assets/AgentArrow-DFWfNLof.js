@@ -1,0 +1,1 @@
+import{j as r}from"./index-qt2Sny3X.js";const o={x:3,y:2.5},a=24,n="M3 2.5 L20.5 10.2 L12.4 12.6 L9.6 20.8 Z";function s({className:t}){return r.jsx("svg",{className:t?`agent-arrow ${t}`:"agent-arrow",width:a,height:a,viewBox:"0 0 24 24",fill:"none","aria-hidden":"true","data-testid":"agent-arrow",children:r.jsx("path",{d:n})})}export{s as A,o as a};

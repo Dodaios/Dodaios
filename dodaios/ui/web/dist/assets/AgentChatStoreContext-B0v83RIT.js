@@ -1,0 +1,1 @@
+import{j as o,r as e,F as s}from"./index-qt2Sny3X.js";const r=e.createContext(s);function u({store:t,children:n}){return o.jsx(r.Provider,{value:t,children:n})}function x(){return e.useContext(r)}function C(t){return e.useContext(r)(t)}export{u as A,C as a,x as u};
