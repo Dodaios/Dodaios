@@ -82,7 +82,6 @@ export function AgentProfileDialog({ agent, sample, onClose }: {
       }
       setDiscard(false);
       void client.invalidateQueries({ queryKey: ["society", "roster"] });
-      if (!lead) void client.invalidateQueries({ queryKey: ["mars"] });
     },
   });
   const close = () => {

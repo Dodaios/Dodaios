@@ -1,0 +1,319 @@
+{
+  "code_files_over_3000_lines": {
+    "count": 28,
+    "top10": [
+      {
+        "lines": 17216,
+        "name": "dodaios/speech/pipeline.py"
+      },
+      {
+        "lines": 14150,
+        "name": "dodaios/brain/manager.py"
+      },
+      {
+        "lines": 13390,
+        "name": "dodaios/realtime/session.py"
+      },
+      {
+        "lines": 9455,
+        "name": "tests/unit/realtime/test_session.py"
+      },
+      {
+        "lines": 9279,
+        "name": "scripts/pets/build_pets.py"
+      },
+      {
+        "lines": 8073,
+        "name": "dodaios/agentic_ide/session.py"
+      },
+      {
+        "lines": 7297,
+        "name": "dodaios/ui/desktop_app.py"
+      },
+      {
+        "lines": 6690,
+        "name": "dodaios/core/config.py"
+      },
+      {
+        "lines": 6636,
+        "name": "dodaios/agent_chat/runner_cli.py"
+      },
+      {
+        "lines": 6296,
+        "name": "dodaios/ui/web/agentic_ide_routes.py"
+      }
+    ]
+  },
+  "comment_share_dodaios": {
+    "comment_lines": 68779,
+    "docstring_lines": 115175,
+    "lines": 813171,
+    "share_percent": 22.62
+  },
+  "dodaios_python": {
+    "lines": 813171,
+    "modules": 2023,
+    "packages": 87
+  },
+  "functions_over_200_lines": {
+    "count": 151,
+    "top10": [
+      {
+        "lines": 1972,
+        "name": "dodaios/commands/registry.py:367 _build_registry"
+      },
+      {
+        "lines": 1878,
+        "name": "dodaios/realtime/session.py:4500 _pump_transport_once"
+      },
+      {
+        "lines": 1845,
+        "name": "dodaios/brain/manager.py:10563 _generate_untagged"
+      },
+      {
+        "lines": 1430,
+        "name": "dodaios/harness/screenshot_only_loop.py:3962 _run_screenshot_loop"
+      },
+      {
+        "lines": 1372,
+        "name": "dodaios/ui/desktop_app.py:2122 _run_backend"
+      },
+      {
+        "lines": 1261,
+        "name": "dodaios/speech/pipeline.py:9564 _active_realtime_session"
+      },
+      {
+        "lines": 1079,
+        "name": "dodaios/cu/engine.py:943 run_cu_loop"
+      },
+      {
+        "lines": 1056,
+        "name": "dodaios/speech/pipeline.py:1924 __init__"
+      },
+      {
+        "lines": 930,
+        "name": "dodaios/brain/tool_use_loop.py:994 run"
+      },
+      {
+        "lines": 915,
+        "name": "dodaios/agent_chat/runner_cli.py:5398 _drive_cli"
+      }
+    ]
+  },
+  "import_graph": {
+    "core_imports_upper_layers_at_module_level": true,
+    "core_upper_layers_imported": [
+      "brain",
+      "harness",
+      "live",
+      "speech",
+      "ui"
+    ],
+    "edges_all": 682,
+    "edges_module_level": 299,
+    "largest_scc_all_imports": 79,
+    "largest_scc_all_imports_members": [
+      "admin",
+      "agent_chat",
+      "agent_runtimes",
+      "agentic_ide",
+      "agents",
+      "app_actions",
+      "appshot",
+      "artifacts",
+      "assets",
+      "audio",
+      "autostart",
+      "board",
+      "brain",
+      "briefs",
+      "browser_voice",
+      "channels",
+      "cli",
+      "cli_ctl",
+      "clis",
+      "commands",
+      "computers",
+      "contacts",
+      "control",
+      "core",
+      "costs",
+      "credential_broker",
+      "cu",
+      "diagnostics",
+      "dictation",
+      "docs",
+      "dodaiosx",
+      "evals",
+      "google_cli",
+      "hardware",
+      "harness",
+      "lead_triggers",
+      "life_admin",
+      "live",
+      "local_models",
+      "marketplace",
+      "mcp",
+      "memory",
+      "missions",
+      "mobile",
+      "nodes",
+      "notify",
+      "orchestrator",
+      "platform",
+      "plugins",
+      "pointer",
+      "preview",
+      "progression",
+      "projects",
+      "realtime",
+      "rituals",
+      "rsi",
+      "runs",
+      "safety",
+      "screen_context",
+      "self_build",
+      "self_change",
+      "sessions",
+      "setup",
+      "skills",
+      "society",
+      "speech",
+      "standing_tasks",
+      "state",
+      "tasks",
+      "telemetry",
+      "telephony",
+      "terminal",
+      "trigger",
+      "trust",
+      "ui",
+      "vision",
+      "voice",
+      "workflows",
+      "workspace"
+    ],
+    "largest_scc_module_level": 56,
+    "largest_scc_module_level_members": [
+      "admin",
+      "agent_chat",
+      "agent_runtimes",
+      "agentic_ide",
+      "artifacts",
+      "audio",
+      "board",
+      "brain",
+      "channels",
+      "cli",
+      "clis",
+      "computers",
+      "contacts",
+      "control",
+      "core",
+      "cu",
+      "dictation",
+      "docs",
+      "google_cli",
+      "hardware",
+      "harness",
+      "lead_triggers",
+      "live",
+      "marketplace",
+      "mcp",
+      "memory",
+      "missions",
+      "mobile",
+      "nodes",
+      "notify",
+      "orchestrator",
+      "platform",
+      "plugins",
+      "pointer",
+      "realtime",
+      "rsi",
+      "safety",
+      "screen_context",
+      "self_build",
+      "sessions",
+      "setup",
+      "skills",
+      "society",
+      "speech",
+      "state",
+      "tasks",
+      "telemetry",
+      "telephony",
+      "terminal",
+      "trigger",
+      "trust",
+      "ui",
+      "vision",
+      "voice",
+      "workflows",
+      "workspace"
+    ],
+    "packages": 87
+  },
+  "jarvis_name": {
+    "distinct_DODAIOS_env_vars": 35,
+    "distinct_JARVIS_env_vars": 203,
+    "occurrences_in_py": 13478
+  },
+  "patterns_in_dodaios": {
+    "bare_except": 0,
+    "except_exception": 4949,
+    "global_statements": 363,
+    "type_ignore": 619
+  },
+  "scripts_files": 242,
+  "tests_reading_dodaios_source": {
+    "files": 157,
+    "test_functions": 211
+  },
+  "tracked_files_over_1mb": {
+    "count": 13,
+    "top10": [
+      {
+        "bytes": 15089320,
+        "name": "art/studies/mars-outpost-reference/exports/communications-outpost.glb"
+      },
+      {
+        "bytes": 6438173,
+        "name": "assets/demo/readme/dodaios-demo.gif"
+      },
+      {
+        "bytes": 4889330,
+        "name": "assets/demo/readme/hero.webp"
+      },
+      {
+        "bytes": 3746458,
+        "name": "assets/demo/readme/agents.webp"
+      },
+      {
+        "bytes": 2551836,
+        "name": "assets/demo/readme/assistant.webp"
+      },
+      {
+        "bytes": 2500888,
+        "name": "assets/demo/readme/dodaios-demo.mp4"
+      },
+      {
+        "bytes": 2327524,
+        "name": "dodaios/assets/vad/silero_vad.onnx"
+      },
+      {
+        "bytes": 2284128,
+        "name": "assets/demo/readme/nodes.webp"
+      },
+      {
+        "bytes": 1603532,
+        "name": "art/studies/agent-symbol-companions/exports/accessories.glb"
+      },
+      {
+        "bytes": 1603532,
+        "name": "dodaios/ui/web/frontend/src/assets/society/companions/accessories.glb"
+      }
+    ]
+  },
+  "workflow_files": 27
+}

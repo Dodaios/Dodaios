@@ -277,18 +277,54 @@ def _reject_http_urls(value: Any, where: str) -> None:
             _reject_http_urls(sub, f"{where}[{index}]")
 
 
-def _validate_auth_header_template(template: str) -> str:
-    """The template must inject a token PLACEHOLDER, never a literal token."""
+def _own_placeholder_re(plugin_name: str) -> re.Pattern[str]:
+    """The two spellings of ``plugin_name``'s own access-token placeholder.
+
+    These are exactly the strings the runtime fills in at connect time
+    (``mcp_bridge._token_replacements``); nothing else in a template is.
+    """
+    base = re.escape(f"plugin_{plugin_name}_access_token")
+    return re.compile(rf"\$(?:{base}|\{{{base}\}})")
+
+
+def _validate_auth_header_template(template: str, plugin_name: str | None = None) -> str:
+    """The template must inject the plugin's own token PLACEHOLDER and nothing else.
+
+    A header template is sent to the plugin's server, so it may carry one
+    thing from this machine: the token the user connected this plugin with.
+    Not a literal token, not another plugin's placeholder, and not a
+    ``$NAME`` of any other kind: such a name reads like a reference to one of
+    the user's other keys, and no plugin has a claim on those.
+
+    ``plugin_name`` is the plugin the template belongs to. Without it (a
+    server checked before its manifest exists) any ``$plugin_…`` placeholder
+    counts as the token placeholder.
+    """
     if not _HEADER_PLACEHOLDER_RE.search(template):
         raise AgentPluginError("mcp_auth_header_template must reference a $plugin_… placeholder")
-    remainder = _HEADER_PLACEHOLDER_RE.sub(" ", template)
+    own = _own_placeholder_re(plugin_name) if plugin_name else _HEADER_PLACEHOLDER_RE
+    if not own.search(template):
+        raise AgentPluginError(
+            "mcp_auth_header_template must reference the plugin's own token as "
+            f"$plugin_{plugin_name}_access_token — another plugin's placeholder "
+            "is never filled in"
+        )
+    remainder = own.sub(" ", template)
+    if "$" in remainder:
+        raise AgentPluginError(
+            "mcp_auth_header_template may only contain the plugin's own token "
+            "placeholder — no other $NAME reference"
+        )
     if _TOKEN_LITERAL_RE.search(remainder):
         raise AgentPluginError("mcp_auth_header_template may not embed literal credentials")
     return template
 
 
 def _convert_http_server(
-    name: str, server: Mapping[str, Any], extension: Mapping[str, Any]
+    name: str,
+    server: Mapping[str, Any],
+    extension: Mapping[str, Any],
+    plugin_name: str | None = None,
 ) -> dict[str, Any]:
     url = _require_str(server.get("url"), f"mcp.json server {name!r}: url")
     if not url.lower().startswith("https://"):
@@ -305,7 +341,7 @@ def _convert_http_server(
     template = extension.get("mcp_auth_header_template")
     if template is not None:
         mcp_server["auth_header_template"] = _validate_auth_header_template(
-            _require_str(template, "mcp_auth_header_template")
+            _require_str(template, "mcp_auth_header_template"), plugin_name
         )
     return mcp_server
 
@@ -530,7 +566,11 @@ def with_published_extension(plugin_json: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def validate_mcp_server(
-    name: str, server: Mapping[str, Any], extension: Mapping[str, Any] | None = None
+    name: str,
+    server: Mapping[str, Any],
+    extension: Mapping[str, Any] | None = None,
+    *,
+    plugin_name: str | None = None,
 ) -> dict[str, Any]:
     """Validate and convert ONE ``mcp.json`` server entry.
 
@@ -545,13 +585,15 @@ def validate_mcp_server(
     ``extension`` is the plugin's extension block (:func:`extension_of`),
     consulted only for a hosted server's optional
     ``mcp_auth_header_template``; omit it when validating an ``mcp.json`` in
-    isolation, before the rest of the manifest exists.
+    isolation, before the rest of the manifest exists. ``plugin_name`` is the
+    plugin the server belongs to: with it, the header template must name that
+    plugin's own token placeholder.
     """
     if not isinstance(server, Mapping):
         raise AgentPluginError(f"mcp.json server {name!r} must be an object")
     server_type = server.get("type")
     if server_type == "streamable-http":
-        return _convert_http_server(name, server, extension or {})
+        return _convert_http_server(name, server, extension or {}, plugin_name)
     if server_type == "stdio":
         return _convert_stdio_server(name, server)
     if server_type == "sse":
@@ -580,7 +622,7 @@ def _convert_mcp_json(
             "mcp.json declares several servers and none is named after the "
             "plugin — community packages ship exactly one server"
         )
-    return validate_mcp_server(str(server_name), server, extension)
+    return validate_mcp_server(str(server_name), server, extension, plugin_name=plugin_name)
 
 
 def convert_manifest(

@@ -191,8 +191,12 @@ _NOTHING = Recall(frozenset(), (), ())
 def in_mind_ids(vault: MemoryVault, *, compact: bool = False) -> frozenset[str]:
     """Ids of the memories the always-on block holds: what the model has without a lookup."""
     budget = _budgets["compact" if compact else "full"]
+    hidden = overlay.hidden_memories()
     return frozenset(
-        m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories
+        m.id
+        for _, memories in vault.profile_selection(max_chars=budget)
+        for m in memories
+        if m.id not in hidden
     )
 
 
@@ -221,10 +225,11 @@ def recall_for(
     # A message that matches nothing well enough brings up nothing. The relative
     # floor below cannot say that: the best hit always passes its own share.
     min_score = float(params.get("recall.min_score"))
+    hidden = overlay.hidden_memories()
     hits = [
         h
         for h in vault.search(" ".join(words), limit=limit * 2)
-        if h.memory.id not in in_mind and h.score >= min_score
+        if h.memory.id not in in_mind and h.memory.id not in hidden and h.score >= min_score
     ]
     hits = _with_lessons(vault, user_text, hits, in_mind)
     if not hits:
@@ -286,7 +291,12 @@ def _with_lessons(
     from dodaios.memory.vault import lessons
     from dodaios.memory.vault.models import SearchHit
 
-    fitting = [(m, s) for m, s in lessons.recall(vault, user_text) if m.id not in in_mind]
+    hidden = overlay.hidden_memories()
+    fitting = [
+        (m, s)
+        for m, s in lessons.recall(vault, user_text)
+        if m.id not in in_mind and m.id not in hidden
+    ]
     if not fitting:
         return hits
     top = hits[0].score if hits else 1.0

@@ -93,9 +93,3 @@ it("navigates back through the window caption instead of a sections toggle", () 
   expect(screen.queryByTestId("mode-switch")).toBeNull();
   expect(screen.queryByRole("tab", { name: "society.shell.mode_verse" })).toBeNull();
 });
-
-it("shows no station shortcut in Agents mode", () => {
-  window.history.replaceState(null, "", "?view=agents");
-  render(<SocietyView />);
-  expect(screen.queryByRole("button", { name: "society.mars.station_title" })).toBeNull();
-});

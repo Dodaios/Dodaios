@@ -125,13 +125,11 @@ export type LocaleChunk =
   | "pane_review"
   | "custom_cli"
   | "memory"
-  | "ship"
   | "self_build"
   | "trust"
   | "voice"
   | "node_editors";
 
-const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 const VOICE_LOCALES = import.meta.glob("./locales/voice/*.json");
 
 /** Keys that would reach an object's prototype instead of the object. */
@@ -155,10 +153,6 @@ function areaLocale(files: Record<string, () => Promise<unknown>>, lang: UiLangu
       .filter(([path]) => path.endsWith(`/${lang}.json`) || path.endsWith(`.${lang}.json`))
       .map(([, load]) => load()),
   ).then((mods) => mods.reduce<Record<string, unknown>>((all, mod) => mergeDeep(all, unwrapModule(mod)), {}));
-}
-
-function shipLocale(lang: UiLanguage): () => Promise<unknown> {
-  return areaLocale(SHIP_LOCALES, lang);
 }
 
 function voiceLocale(lang: UiLanguage): () => Promise<unknown> {
@@ -249,9 +243,6 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     zh: () => import("./locales/pane_review/zh.json"),
     pt: () => import("./locales/pane_review/pt.json"),
   },
-  // The Dodaios Verse starship (Agents > Dodaios Verse, the IDE's engineering tab).
-  // Its strings live in several files per language (`ship/<lang>.json` and `ship/<area>.<lang>.json`).
-  ship: { en: shipLocale("en"), de: shipLocale("de"), es: shipLocale("es"), zh: shipLocale("zh"), pt: shipLocale("pt") },
   // The Memory section (the vault reader, map and editor).
   memory: {
     en: () => import("./locales/memory/en.json"),
