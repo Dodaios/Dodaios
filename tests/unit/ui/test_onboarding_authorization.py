@@ -68,12 +68,20 @@ def test_locked_completion_requires_session_and_restarts_only_once(tmp_path, mon
         [(b"host", b"127.0.0.1")],
     ],
 )
-async def test_actual_listener_callable_guards_warming_setup(tmp_path, monkeypatch, headers):
+async def test_actual_listener_callable_guards_warming_setup(
+    tmp_path, monkeypatch, headers, request
+):
     import uvicorn
 
     path = tmp_path / "state.json"
     monkeypatch.setattr(onboarding_fastpath, "_STATE_PATH_OVERRIDE", path)
     monkeypatch.setattr(surface_security, "browser_login_required", lambda: False)
+    # The listener looks up who owns the peer socket; this test's peer is made
+    # up, so say it is the user's own process (the case the guard is about).
+    from dodaios.ui.web import peer_owner
+
+    peer_owner.set_resolver(lambda *_: "same")
+    request.addfinalizer(lambda: peer_owner.set_resolver(None))
 
     class Server:
         def __init__(self, config):
