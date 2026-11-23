@@ -137,8 +137,8 @@ request of a session takes the first thing the person said that is long enough
 to be a request; what they said after it is what they had to add. A later pull
 request counts only when the person said exactly one thing since the previous
 one. A pull request the rule cannot place is left out and counted with its
-reason, as is one that was not merged, was reverted, or whose request holds
-credential-shaped text. A session that opens with a brief the app itself sent
+reason, as is one that was not merged, was reverted, changed no file, or whose
+request holds credential-shaped text. A session that opens with a brief the app itself sent
 gives only the coding task. No model is called and nothing leaves the machine.
 
 ```
@@ -146,14 +146,47 @@ python -m dodaios.rsi.bench.past_work --repo .
 ```
 
 prints how many tasks each split gets and what was left out, without any
-request text. Measured on 2026-11-23 on the maintainer's machine: 146 sessions
-had opened 226 pull requests; 129 pieces of work became 129 brief and 114
-coding tasks, in 16 seconds. In a hand check of 22 of them, every request asked
-for the change that was merged.
+request text. With `--store` it puts the tasks into `bench.db` instead
+(`past_work/intake.py`). A CLI deletes a session record after some weeks, so
+the tasks are stored when they are found, and a stored task stays when its
+record is gone. It is retired only for a reason the repository gives: its pull
+request was reverted, or its commit left the default branch.
+
+The repository is read in two steps: one walk over the subjects of the default
+branch, then the paths and line counts of only the pull requests that are
+asked about.
+
+Measured on 2026-11-23 on the maintainer's machine: 151 sessions had opened
+235 pull requests; 133 pieces of work became 133 brief and 117 coding tasks,
+in 20 seconds. In a hand check of 22 of them, every request asked for the
+change that was merged.
 
 Readers exist for two CLIs (`claude`, `codex`); another one is a function that
 gives the same shape. A sub-agent's own record is not read, and a brief from
 before the app logged its briefs cannot be told from the person's words.
+
+### How the brief domain scores
+
+A brief is scored on the files it names against the change that was merged
+for the request (`dodaios/rsi/bench/brief.py`):
+
+- **found**: the share of the change, in lines, that lies in files the brief
+  names;
+- **astray**: of the paths the brief names, the share the change did not touch.
+
+The score is the balance of the two (the harmonic mean of found and
+1 - astray). A brief that names the one file most of the work was in scores
+well, one that lists every file in sight does not, and one that names no file
+scores 0. A file is named by its path, by its file name where that name tells
+files apart, or, for Python, by its dotted module. The cost is the brief's
+length in tokens.
+
+Not scored yet: whether the brief already said what the person had to add
+afterwards; that needs a judge. And nothing writes the brief for a task yet:
+the check takes a text. Applied to the opening words of the mined sessions as
+they stand (2026-11-23): a typed request scores 0, as it should, and the eight
+openings that were briefs themselves average 0.08. That is where the briefs
+of the past stood on this measure.
 
 ### A run changes nothing
 
@@ -257,7 +290,8 @@ The app is updated often, and nothing learned may be lost by an update.
 | Kernel and evidence paths refused by the registry | built |
 | Parameters with limits, read by the memory recall; learned values survive updates | built |
 | A recall that can be replayed without leaving a trace (no use count, no cache) | built |
-| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built, not yet stored or run |
+| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built; stored with `--store`, not yet run |
+| The brief domain's check: does a brief point at where the work turned out to be | built; nothing writes the brief for a task yet |
 | The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
 | The measured gate | next |

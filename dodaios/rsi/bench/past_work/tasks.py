@@ -85,6 +85,7 @@ class LeftOut(StrEnum):
     AMBIGUOUS = "ambiguous"  # several things said since the previous pull request
     NOT_MERGED = "not_merged"  # not on the default branch of a repository that was given
     REVERTED = "reverted"  # merged and taken back
+    EMPTY = "empty"  # merged without changing a file: nothing to check a result against
     CREDENTIAL = "credential"  # the person's words hold credential-shaped text
     DUPLICATE = "duplicate"  # another session already accounts for this pull request
 
@@ -194,7 +195,8 @@ def _tasks(piece: Piece, change: MergedChange, *, composed: bool) -> list[Task]:
                 payload=where,
                 check={
                     "commit": change.commit,
-                    "files": list(change.files),
+                    # Path -> lines changed: how much of the work each file held.
+                    "files": change.weights,
                     "tests": list(change.tests),
                     "told_later": list(piece.told_later),
                 },
@@ -283,6 +285,8 @@ def mine(
             left[LeftOut.NOT_MERGED] += 1
         elif change.reverted:
             left[LeftOut.REVERTED] += 1
+        elif not change.files:
+            left[LeftOut.EMPTY] += 1
         elif _has_secret(piece):
             left[LeftOut.CREDENTIAL] += 1
         else:

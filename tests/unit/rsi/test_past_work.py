@@ -13,7 +13,8 @@ import pytest
 from dodaios.rsi.bench.model import Domain, Source
 from dodaios.rsi.bench.past_work import __main__ as report
 from dodaios.rsi.bench.past_work import tasks as tasks_module
-from dodaios.rsi.bench.past_work.history import MergedChange, merged_changes
+from dodaios.rsi.bench.past_work.history import MergedChange, merged_changes, read_history
+from dodaios.rsi.bench.past_work.intake import take_in
 from dodaios.rsi.bench.past_work.sessions import (
     Opened,
     PastSession,
@@ -22,6 +23,7 @@ from dodaios.rsi.bench.past_work.sessions import (
     read_sessions,
 )
 from dodaios.rsi.bench.past_work.tasks import LeftOut, mine, pieces
+from dodaios.rsi.bench.store import BenchStore
 
 REPO = "github.com/acme/app"
 PULL = "https://github.com/Acme/App/pull/"
@@ -311,10 +313,24 @@ def test_merged_pull_requests_are_read_from_the_default_branch(repository):
     assert (parser.repo, parser.commit, parser.parent) == (REPO, shas["parser"], shas["start"])
     assert parser.tests == ("tests/test_parser.py",)
     assert parser.sources == ("src/parser.py",)
+    assert parser.weights == {"src/parser.py": 1, "tests/test_parser.py": 1}
+    # One line replaced is one deleted and one added.
+    assert changes[3].weights == {"src/parser.py": 2}
     assert parser.merged_ms > 0
     assert changes[2].tests == () and changes[2].files == ("docs/install.md",)
     # A merge commit counts with what it brought in, against the branch before it.
     assert changes[5].files == ("src/cache.py",) and changes[5].parent == shas["revert"]
+
+
+def test_paths_are_read_only_for_the_pull_requests_asked_about(repository):
+    folder, _ = repository
+    history = read_history(folder)
+
+    assert history is not None and history.repo == REPO
+    assert history.numbers == {1, 2, 3, 4, 5}
+    assert sorted(history.changes([2, 5, 77])) == [2, 5]
+    assert history.changes([]) == {} and history.changes([77]) == {}
+    assert sorted(merged_changes(folder, only=[1])) == [1]
 
 
 def test_a_pull_request_that_was_taken_back_is_marked(repository):
@@ -325,8 +341,10 @@ def test_a_pull_request_that_was_taken_back_is_marked(repository):
     assert [number for number, change in changes.items() if change.reverted] == [3]
 
 
-def test_a_folder_that_is_no_repository_has_no_merged_changes(tmp_path):
+def test_a_folder_that_is_no_repository_or_is_gone_has_no_merged_changes(tmp_path):
     assert merged_changes(tmp_path) == {}
+    assert merged_changes(tmp_path / "deleted") == {}
+    assert read_history(tmp_path) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -437,7 +455,7 @@ def test_one_piece_of_work_becomes_a_brief_task_and_a_coding_task():
     assert dict(brief.payload) == {"repo": REPO, "base": "before1", "request": REQUEST}
     assert dict(brief.check) == {
         "commit": "merge1",
-        "files": list(WITH_TESTS),
+        "files": dict.fromkeys(WITH_TESTS, 1),
         "tests": ["tests/test_parser.py"],
         "told_later": ["Keep the old names"],
     }
@@ -478,12 +496,14 @@ def test_what_cannot_be_a_task_is_counted_with_its_reason():
             session((0, REQUEST), (5, 3), sid="c"),
             session((0, REQUEST), (5, 7), sid="d"),
             session((0, REQUEST + " with MARKER inside"), (5, 6), sid="e"),
+            session((0, REQUEST), (5, 8), sid="f"),
         ],
         {
             REPO: {
                 1: change(1, WITH_TESTS),
                 3: change(3, WITH_TESTS, reverted=True),
                 6: change(6, WITH_TESTS),
+                8: change(8, ()),
             }
         },
     )
@@ -495,8 +515,9 @@ def test_what_cannot_be_a_task_is_counted_with_its_reason():
         LeftOut.REVERTED.value: 1,
         LeftOut.CREDENTIAL.value: 1,
         LeftOut.DUPLICATE.value: 1,
+        LeftOut.EMPTY.value: 1,
     }
-    assert (mined.sessions, mined.opened) == (5, 5)
+    assert (mined.sessions, mined.opened) == (6, 6)
 
 
 def test_a_brief_the_assistant_wrote_is_no_input_for_a_brief_task():
@@ -539,6 +560,90 @@ def test_logged_briefs_recognises_a_brief_the_app_sent(tmp_path, monkeypatch):
     assert composed is not None
     assert composed("Goal: add a parser.  Done when the tests pass.\n<effort>high</effort>")
     assert not composed(REQUEST)
+
+
+# --------------------------------------------------------------------------- #
+# into the benchmark's store
+# --------------------------------------------------------------------------- #
+
+
+def asked_and_opened(tmp_path: Path, number: int) -> dict[str, Path]:
+    pull = PULL + str(number)
+    rows = [
+        said(REQUEST, 0),
+        printed("t", pull, 1, git={"pr": {"url": pull, "action": "created"}}),
+    ]
+    return claude_home(tmp_path, rows)
+
+
+def test_the_intake_stores_a_task_once_and_keeps_it_when_its_record_is_gone(tmp_path, repository):
+    folder, _ = repository
+    homes = asked_and_opened(tmp_path, 1)
+    store = BenchStore(tmp_path / "bench.db")
+
+    first = take_in(store, [folder], homes=homes)
+    again = take_in(store, [folder], homes=homes)
+    # The CLI deletes a record after some weeks; what was stored stays.
+    (homes["claude"] / "projects" / "C--work-app" / "s1.jsonl").unlink()
+    later = take_in(store, [folder], homes=homes)
+
+    assert (first.new, dict(first.in_use), first.retired) == (2, {"brief": 1, "coding": 1}, 0)
+    assert (again.new, again.retired) == (0, 0)
+    assert (later.new, dict(later.in_use), later.retired) == (0, {"brief": 1, "coding": 1}, 0)
+    (brief,) = store.tasks(Domain.BRIEF)
+    assert brief.payload["request"] == REQUEST
+    assert brief.check["files"] == {"src/parser.py": 1, "tests/test_parser.py": 1}
+    assert brief.split is store.tasks(Domain.CODING)[0].split
+    store.close()
+
+
+def test_the_intake_retires_a_task_whose_pull_request_was_taken_back(tmp_path, repository):
+    folder, _ = repository
+    homes = asked_and_opened(tmp_path, 1)
+    store = BenchStore(tmp_path / "bench.db")
+    take_in(store, [folder], homes=homes)
+    commit(
+        folder,
+        'Revert "feat: a parser for the settings file (#1)" (#9)',
+        {"src/parser.py": "taken back\n"},
+    )
+
+    taken = take_in(store, [folder], homes=homes)
+
+    assert (taken.new, taken.retired, dict(taken.in_use)) == (0, 2, {"brief": 0, "coding": 0})
+    assert dict(taken.left_out) == {LeftOut.REVERTED.value: 1}
+    store.close()
+
+
+def test_the_intake_leaves_the_tasks_of_a_repository_it_did_not_read(tmp_path, repository):
+    folder, _ = repository
+    homes = asked_and_opened(tmp_path, 1)
+    store = BenchStore(tmp_path / "bench.db")
+    take_in(store, [folder], homes=homes)
+
+    taken = take_in(store, [tmp_path / "deleted"], homes=homes)
+
+    assert (taken.retired, dict(taken.in_use)) == (0, {"brief": 1, "coding": 1})
+    store.close()
+
+
+def test_the_command_stores_into_the_data_folder(tmp_path, repository, monkeypatch, capsys):
+    from dodaios.core import config as core_config
+
+    folder, _ = repository
+    homes = asked_and_opened(tmp_path, 1)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(homes["claude"]))
+    monkeypatch.setenv("CODEX_HOME", str(homes["codex"]))
+    data = tmp_path / "data"
+    data.mkdir()
+    monkeypatch.setattr(core_config, "DATA_DIR", data)
+
+    assert report.main(["--repo", str(folder), "--store"]) == 0
+
+    assert "stored 2 new tasks" in capsys.readouterr().out
+    store = BenchStore(data / "bench.db")
+    assert store.counts().keys() == {"brief", "coding"}
+    store.close()
 
 
 # --------------------------------------------------------------------------- #
