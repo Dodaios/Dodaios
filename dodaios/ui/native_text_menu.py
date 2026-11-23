@@ -7,8 +7,8 @@ menu, without the spelling suggestions for the word under the cursor.
 This module turns the built-in menu back on for text only:
 
 * A right-click on an editable field or on selected text opens WebView2's own
-  menu, with its spelling suggestions, minus the page items that make no sense
-  in an app (Back, Reload, Save as, Print and the like).
+  menu, with its spelling suggestions, minus the page items and submenus that make no
+  sense in an app (Back, Reload, Print, Writing direction, More tools).
 * Everywhere else the native menu is cancelled, so the app's own menus stay
   the only ones there.
 * The page learns it may leave text right-clicks to the engine through
@@ -54,6 +54,26 @@ def wants_native_menu(*, is_editable: bool, has_selection: bool) -> bool:
     return is_editable or has_selection
 
 
+def prune_menu(items: Any) -> None:
+    """Drop page items and submenus (Writing direction, More tools), then the
+    separators left standing at an edge or next to another separator."""
+    for index in range(items.Count - 1, -1, -1):
+        item = items[index]
+        if str(item.Name) in HIDDEN_ITEM_NAMES or str(item.Kind) == "Submenu":
+            items.RemoveAt(index)
+    previous_was_separator = True  # a separator at the top goes too
+    index = 0
+    while index < items.Count:
+        is_separator = str(items[index].Kind) == "Separator"
+        if is_separator and previous_was_separator:
+            items.RemoveAt(index)
+            continue
+        previous_was_separator = is_separator
+        index += 1
+    if items.Count and str(items[items.Count - 1].Kind) == "Separator":
+        items.RemoveAt(items.Count - 1)
+
+
 def on_context_menu_requested(_sender: Any, args: Any) -> None:
     """Show the native menu for text only, without the page items."""
     try:
@@ -64,10 +84,7 @@ def on_context_menu_requested(_sender: Any, args: Any) -> None:
         ):
             args.Handled = True  # no menu at all; the page shows its own
             return
-        items = args.MenuItems
-        for index in range(items.Count - 1, -1, -1):
-            if str(items[index].Name) in HIDDEN_ITEM_NAMES:
-                items.RemoveAt(index)
+        prune_menu(args.MenuItems)
     except Exception:  # noqa: BLE001 - a menu must never take the UI thread down
         log.exception("native_text_menu: filtering the menu failed")
 

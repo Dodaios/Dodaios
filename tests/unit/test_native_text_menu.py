@@ -18,7 +18,10 @@ class _Items(list):
 def _args(*, editable: bool, selection: bool, names: list[str]) -> SimpleNamespace:
     return SimpleNamespace(
         ContextMenuTarget=SimpleNamespace(IsEditable=editable, HasSelection=selection),
-        MenuItems=_Items(SimpleNamespace(Name=n) for n in names),
+        MenuItems=_Items(
+            SimpleNamespace(Name=n, Kind="Separator" if n == "-" else "Command")
+            for n in names
+        ),
         Handled=False,
     )
 
@@ -66,3 +69,19 @@ def test_enable_sets_the_page_flag_after_the_filter() -> None:
     assert ntm.enable_on_core(core) is True
     assert core.Settings.AreDefaultContextMenusEnabled is True
     assert calls == ["subscribed", ntm.PAGE_FLAG_SCRIPT, ntm.PAGE_FLAG_SCRIPT]
+
+
+def test_submenus_go_and_no_separator_is_left_dangling() -> None:
+    items = _Items(
+        [
+            SimpleNamespace(Name="emoji", Kind="Command"),
+            SimpleNamespace(Name="-", Kind="Separator"),
+            SimpleNamespace(Name="copy", Kind="Command"),
+            SimpleNamespace(Name="-", Kind="Separator"),
+            SimpleNamespace(Name="writingDirection", Kind="Submenu"),
+            SimpleNamespace(Name="-", Kind="Separator"),
+            SimpleNamespace(Name="moreTools", Kind="Submenu"),
+        ]
+    )
+    ntm.prune_menu(items)
+    assert [i.Name for i in items] == ["emoji", "-", "copy"]
