@@ -134,7 +134,7 @@ async def test_focus_failure_falls_through_to_launch(monkeypatch):
 
 
 async def test_url_is_not_short_circuited(monkeypatch):
-    calls = _stub_launch(monkeypatch)
+    _stub_launch(monkeypatch)
     seen: list = []
     monkeypatch.setattr(
         oa.window_state, "is_app_running", lambda n: (seen.append(n), WindowInfo("x"))[1]
@@ -232,3 +232,29 @@ async def test_url_launch_does_not_raise(monkeypatch):
     res = await OpenAppTool().execute({"app_name": "https://example.com"}, _ctx())
     assert res.success is True
     assert raised == []                  # raise skipped for URLs
+
+
+# --- arguments never reach a command interpreter -----------------------------
+
+
+async def test_arguments_for_a_shell_verb_target_bypass_the_command_interpreter(monkeypatch):
+    """A document opened with arguments used to go through ``cmd /c start``;
+    ``cmd`` reads ``&`` and ``|`` in the arguments as its own syntax, so text
+    after them ran as a second command without the approval a shell command
+    needs. The arguments now go to the shell verb as one string."""
+    calls = _stub_launch(monkeypatch)
+    target = "C:/docs/plan.txt"
+    monkeypatch.setattr(
+        oa, "resolve_app_launch_target",
+        lambda n: types.SimpleNamespace(kind="startfile", value=target),
+    )
+    monkeypatch.setattr(oa.window_state, "is_app_running", lambda n: None)
+    started: list = []
+    monkeypatch.setattr(oa.os, "startfile", lambda *a, **k: started.append((a, k)), raising=False)
+    hostile = "report.txt&calc.exe"
+
+    res = await OpenAppTool().execute({"app_name": target, "arguments": hostile}, _ctx())
+
+    assert res.success is True
+    assert calls == [], "no process may be started through a command interpreter"
+    assert started == [((target, "open", hostile), {})]
