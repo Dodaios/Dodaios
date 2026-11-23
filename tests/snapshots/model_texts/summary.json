@@ -1,0 +1,82 @@
+{
+  "agent_brief_rule": {
+    "approx_tokens": 428,
+    "chars": 1713
+  },
+  "agent_brief_skill": {
+    "approx_tokens": 3919,
+    "chars": 15676
+  },
+  "agent_brief_wishes_block": {
+    "approx_tokens": 98,
+    "chars": 392
+  },
+  "chat_coding_preamble": {
+    "approx_tokens": 121,
+    "chars": 484
+  },
+  "chat_society_preamble": {
+    "approx_tokens": 71,
+    "chars": 285
+  },
+  "chat_system_preamble": {
+    "approx_tokens": 1928,
+    "chars": 7712
+  },
+  "lead_doctrine": {
+    "approx_tokens": 690,
+    "chars": 2759
+  },
+  "lead_message_lines": {
+    "approx_tokens": 719,
+    "chars": 2877
+  },
+  "lead_persona": {
+    "approx_tokens": 1133,
+    "chars": 4533
+  },
+  "lead_system_prompt": {
+    "approx_tokens": 2962,
+    "chars": 11846
+  },
+  "lead_tool_descriptions": {
+    "approx_tokens": 19132,
+    "chars": 76527
+  },
+  "lead_tool_schemas": {
+    "approx_tokens": 19445,
+    "chars": 77780
+  },
+  "line_brief": {
+    "approx_tokens": 372,
+    "chars": 1486
+  },
+  "line_brief_with_wishes": {
+    "approx_tokens": 428,
+    "chars": 1711
+  },
+  "line_effort": {
+    "approx_tokens": 109,
+    "chars": 435
+  },
+  "line_first": {
+    "approx_tokens": 66,
+    "chars": 264
+  },
+  "line_question_card": {
+    "approx_tokens": 38,
+    "chars": 150
+  },
+  "line_reply_shape": {
+    "approx_tokens": 136,
+    "chars": 546
+  },
+  "line_secret_field": {
+    "approx_tokens": 61,
+    "chars": 243
+  },
+  "node_method": {
+    "approx_tokens": 236,
+    "chars": 945
+  }
+}
