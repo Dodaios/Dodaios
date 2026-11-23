@@ -127,6 +127,9 @@ export type SectionId =
   // self-building loop, docs/self-build.md) — why, how it was checked, what it
   // cost — with keep, undo and the loop's pause in one place.
   | "self-build"
+  // Self-improvement: is the assistant getting better, what it changed in
+  // itself and what proved it, with stop and undo (docs/self-improvement.md).
+  | "self-improvement"
   // Trust & privacy: what runs without asking (standing rules, revocable),
   // what is known and where it goes. A Settings-hub page.
   | "trust";
@@ -175,6 +178,7 @@ export const SECTION_IDS = [
   "agentic-ide-classic",
   "marketplace",
   "self-build",
+  "self-improvement",
   "trust",
 ] as const satisfies readonly SectionId[];
 
@@ -295,6 +299,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   "agentic-ide-classic": "Terminal grid",
   marketplace: "Marketplace",
   "self-build": "Built for you",
+  "self-improvement": "Self-improvement",
   trust: "Trust and privacy",
 };
 /**
@@ -343,6 +348,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   "agentic-ide-classic": "quick_switch.terminal_grid",
   marketplace: "nav.marketplace",
   "self-build": "nav.self_build",
+  "self-improvement": "nav.self_improvement",
   trust: "trust.nav",
 };
 

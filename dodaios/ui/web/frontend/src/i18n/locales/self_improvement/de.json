@@ -1,0 +1,210 @@
+{
+  "self_improvement": {
+    "title": "Selbstverbesserung",
+    "subtitle": "Während du weg bist, probiert der Assistent kleine Änderungen an seiner Arbeitsweise aus. Er behält eine Änderung nur, wenn eine Messung an Aufgaben aus deiner eigenen Arbeit zeigt, dass sie hilft.",
+    "loading": "Messungen werden geladen",
+    "stop": "Anhalten",
+    "resume": "Fortsetzen",
+    "error": {
+      "unavailable": "Die Selbstverbesserung läuft in dieser App nicht. Starte Dodaios neu. Bleibt diese Meldung, steht der Grund im App-Protokoll.",
+      "load": "Die Messungen konnten nicht geladen werden ({detail}). Prüfe, ob Dodaios läuft, und versuche es dann noch einmal.",
+      "retry": "Noch einmal versuchen",
+      "action": "Das hat nicht geklappt: {detail}"
+    },
+    "state": {
+      "running": "Läuft",
+      "stopped": "Angehalten",
+      "readonly": "Nur lesen",
+      "running_first": "Bisher lief noch keine Nacht. Die erste beginnt, wenn du {minutes} Minuten weg warst.",
+      "running_body": "Die letzte Nacht war {when}. Die nächste kommt nach {next}, sobald du {minutes} Minuten weg warst.",
+      "running_due": "Die letzte Nacht war {when}. Die nächste kommt, wenn du das nächste Mal {minutes} Minuten weg bist.",
+      "stopped_body": "Bis du fortsetzt, wird nichts ausprobiert, gemessen oder geändert. Was er schon gelernt hat, bleibt in Kraft.",
+      "readonly_body": "Eine neuere Version der App hat diese Aufzeichnungen geschrieben. Diese Version zeigt sie nur an und ändert nichts."
+    },
+    "empty": {
+      "title": "Noch ist nichts gemessen",
+      "body": "Um sich selbst zu messen, muss der Assistent zuerst Testaufgaben aus deiner eigenen Arbeit bauen. Sobald es genug sind, prüft er sich nachts daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
+    },
+    "domain": {
+      "recall": {
+        "name": "Gedächtnis",
+        "about": "Kommt zu einer Nachricht die richtige Erinnerung, und keine, wenn keine nötig ist?"
+      }
+    },
+    "area": {
+      "unit": "Punkte",
+      "points": "{value} Punkte",
+      "badge_better": "belegt",
+      "badge_worse": "schlechter",
+      "badge_unclear": "noch nicht sicher",
+      "meaning": "Wie viele von 100 Testaufgaben der Assistent so, wie er jetzt ist, mehr löst als im Auslieferungszustand.",
+      "range_better": "Der wahre Unterschied liegt zwischen {low} und {high} Punkten, der Gewinn ist also sicher.",
+      "range_worse": "Der wahre Unterschied liegt zwischen {low} und {high} Punkten: So, wie er jetzt ist, schneidet er schlechter ab als im Auslieferungszustand.",
+      "range_unclear": "Der Unterschied ist noch nicht sicher: Der wahre Wert liegt zwischen {low} und {high} Punkten, und das schließt null ein.",
+      "scores_label": "Gelöst",
+      "scores": "jetzt {now}, ausgeliefert {shipped}, auf {n} Aufgaben, aus denen er nie gelernt hat",
+      "cost_label": "Prompt pro Nachricht",
+      "cost": "{before} → {after} Tokens",
+      "cost_same": "{after} Tokens, wie ausgeliefert",
+      "waiting": "{n} Aufgaben aus deiner Arbeit sind bereit. Die erste Messung kommt mit der nächsten Nacht.",
+      "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner Arbeit, deshalb wird hier nichts gemessen."
+    },
+    "curve": {
+      "title": "Vorsprung, Nacht für Nacht",
+      "caption": "Punkte, mit dem Bereich, in dem der wahre Wert liegt",
+      "few": "Die Kurve erscheint nach der zweiten Nacht, die diesen Bereich misst.",
+      "update": "Update auf {version}",
+      "range_value": "zwischen {low} und {high}",
+      "col_night": "Nacht",
+      "col_advantage": "Punkte",
+      "col_range": "Bereich",
+      "col_tasks": "Aufgaben",
+      "col_app": "App-Version",
+      "legend_line": "Gemessener Vorsprung",
+      "legend_band": "Bereich des wahren Werts",
+      "legend_update": "App-Update"
+    },
+    "stack": {
+      "title": "Was ich an mir geändert habe",
+      "none": "Noch nichts. Jeder Wert ist so, wie er ausgeliefert wurde.",
+      "take_back": "Zurücknehmen",
+      "values": "{before} → {after}",
+      "since": "seit {when}",
+      "held": "auf {n} Aufgaben erneut bestätigt"
+    },
+    "state_word": {
+      "proposed": "Wartet",
+      "trial": "Auf Probe",
+      "live": "Behalten",
+      "reverted": "Zurückgenommen",
+      "blocked": "Abgelehnt"
+    },
+    "effect": {
+      "better": "{diff} Punkte auf {n} Aufgaben (zwischen {low} und {high})",
+      "worse": "{diff} Punkte auf {n} Aufgaben (zwischen {low} und {high}), schlechter",
+      "unclear": "kein klarer Unterschied auf {n} Aufgaben (zwischen {low} und {high})",
+      "as_good": "gleich gut auf {n} Aufgaben",
+      "shorter": "Prompt {tokens} Tokens kürzer",
+      "longer": "Prompt {tokens} Tokens länger",
+      "none": "nicht gemessen"
+    },
+    "detail": {
+      "close": "Schließen",
+      "shipped": "Ausgeliefert: {value}",
+      "what": "Was er einstellt",
+      "admitted": "Warum er aufgenommen wurde",
+      "checked": "Erneut geprüft",
+      "not_checked": "Noch nicht erneut geprüft. Das macht die nächste Nacht.",
+      "admitted_on": "Gemessen auf {n} Aufgaben, die für Entscheidungen zurückgelegt sind, {when}.",
+      "checked_on": "Gemessen auf {n} Aufgaben, auf denen nie über eine Änderung entschieden wurde, {when}.",
+      "proposed_by": "Vorgeschlagen von",
+      "dates": "Daten",
+      "date_admitted": "Aufgenommen: {date}",
+      "date_since": "In Kraft seit: {date}",
+      "date_checked": "Zuletzt geprüft: {date}"
+    },
+    "author": {
+      "tuner": "Der Tuner, der benachbarte Werte an Übungsaufgaben ausprobiert",
+      "owner": "Du"
+    },
+    "nights": {
+      "title": "Die letzten Nächte",
+      "paused": "Angehalten: Es wurde nichts getan.",
+      "updated": "Die App wurde von {from} auf {to} aktualisiert. Alles Gelernte wurde erneut geprüft.",
+      "checked": "{title} geprüft: {outcome}, {effect}.",
+      "checked_bare": "{title} geprüft: {outcome}.",
+      "holding_one": "1 Änderung in Kraft hält weiterhin.",
+      "holding_other": "{count} Änderungen in Kraft halten weiterhin.",
+      "proposed": "Vorgeschlagen: {title}, {from} → {to}.",
+      "decided": "{title} gemessen: {outcome}, {effect}.",
+      "decided_bare": "{title} gemessen: {outcome}.",
+      "measured": "Vorsprung ({area}): {points} Punkte auf {n} Aufgaben.",
+      "idle": "Nachgesehen und noch nichts zu messen gefunden.",
+      "show_one": "1 frühere Nacht zeigen",
+      "show_other": "{count} frühere Nächte zeigen",
+      "hide": "Weniger zeigen"
+    },
+    "outcome": {
+      "admitted": "auf Probe aufgenommen",
+      "declined": "abgelehnt",
+      "waiting": "wartet auf mehr Aufgaben",
+      "kept": "behalten",
+      "taken_back": "zurückgenommen"
+    },
+    "candidates": {
+      "title": "Wartet auf eine Messung",
+      "row": "vorgeschlagen {when}, wartet, bis es genug neue Aufgaben für eine Entscheidung gibt"
+    },
+    "resting": {
+      "title": "Ruht nach einem Update",
+      "restale": "Noch in Kraft. Der ausgelieferte Wert, gegen den er gelernt wurde, hat sich mit einem Update geändert, deshalb wird er zuerst neu gemessen.",
+      "dormant": "Ruht ohne Wirkung, weil diese Version ihn nicht verwenden kann. Er gilt wieder, sobald eine Version es kann."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "practise_title": "Üben",
+      "practise_body": "Er probiert andere Werte an einem Teil der Aufgaben aus.",
+      "decide_title": "Entscheiden",
+      "decide_body": "Eine Änderung kommt nur hinein, wenn sie sich an Aufgaben bewährt, an denen er nie geübt hat.",
+      "check_title": "Weiter prüfen",
+      "check_body": "Spätere Nächte prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
+      "limits": "Er arbeitet nur, wenn du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
+      "no_model": "Heute fragt er kein Modell, eine Nacht kostet also ein paar Sekunden dieses Computers.",
+      "model_budget": "Wenn er ein Modell fragt, nutzt er höchstens {share} % des Nutzungsfensters deines Tarifs und nie einen Schlüssel, der pro Token abgerechnet wird."
+    },
+    "param": {
+      "recall_entity_boost": {
+        "title": "Gewicht von Namen in einer Erinnerung",
+        "about": "Wie weit eine Erinnerung nach oben rückt, wenn sie eine Person oder Sache aus der Nachricht nennt."
+      },
+      "recall_pinned_boost": {
+        "title": "Gewicht angehefteter Erinnerungen",
+        "about": "Wie weit eine angeheftete Erinnerung in einer Suche nach oben rückt."
+      },
+      "recall_recency_floor": {
+        "title": "Gewicht alter Erinnerungen",
+        "about": "Wie viel Gewicht eine sehr alte Erinnerung behält. Bei 1 spielt das Alter keine Rolle."
+      },
+      "recall_recency_days": {
+        "title": "Wie schnell Erinnerungen altern",
+        "about": "Über wie viele Tage die Frische einer Erinnerung nachlässt."
+      },
+      "recall_fetch_factor": {
+        "title": "Breite einer Gedächtnissuche",
+        "about": "Wie viele Kandidaten eine Suche bewertet, als Vielfaches dessen, was sie zurückgibt."
+      },
+      "recall_turn_limit": {
+        "title": "Erinnerungen pro Nachricht",
+        "about": "Die meisten Erinnerungen, die eine Nachricht hervorholen darf."
+      },
+      "recall_turn_max_chars": {
+        "title": "Platz für Erinnerungen pro Nachricht",
+        "about": "Die meisten Zeichen, die die Erinnerungen zu einer Nachricht im Prompt einnehmen dürfen."
+      },
+      "recall_relative_floor": {
+        "title": "Nähe zum besten Treffer",
+        "about": "Wie nah eine Erinnerung an den besten Treffer herankommen muss, um gezeigt zu werden."
+      },
+      "recall_min_score": {
+        "title": "Mindestübereinstimmung einer Erinnerung",
+        "about": "Wie gut eine Erinnerung passen muss, damit sie überhaupt gezeigt wird. Bei 0 wird jeder Treffer gezeigt."
+      },
+      "recall_lesson_base": {
+        "title": "Startrang einer Lektion",
+        "about": "Wo eine passende Lektion gegenüber dem besten Suchtreffer steht, bevor ihre eigene Passung zählt."
+      },
+      "recall_lesson_cap": {
+        "title": "Höchster Rang einer Lektion",
+        "about": "Wie weit eine Lektion höchstens über dem besten Suchtreffer stehen darf."
+      },
+      "lessons_recall_threshold": {
+        "title": "Nötige Passung einer Lektion",
+        "about": "Wie viele Wörter einer Lektion eine Nachricht teilen muss, damit die Lektion hervorkommt."
+      },
+      "lessons_recall_limit": {
+        "title": "Lektionen pro Nachricht",
+        "about": "Die meisten Lektionen, die eine Nachricht hervorholen darf."
+      }
+    }
+  }
+}

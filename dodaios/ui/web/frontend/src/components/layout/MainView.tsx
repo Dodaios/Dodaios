@@ -142,6 +142,11 @@ const SelfBuildView = lazyView(["self-build"], () =>
     default: m.SelfBuildView,
   })),
 );
+const SelfImprovementView = lazyView(["self-improvement"], () =>
+  import("@/views/SelfImprovementView").then((m) => ({
+    default: m.SelfImprovementView,
+  })),
+);
 
 /** Quiet time before a loading section admits it is loading. */
 export const LOADING_HINT_MS = 400;
@@ -540,6 +545,9 @@ function SwitchOnActiveSection({ active }: { active: string }) {
     // Built for you: every self-built thing, with keep, undo and the pause.
     case "self-build":
       return <SelfBuildView />;
+    // Self-improvement: what the nights measured and changed, with stop and undo.
+    case "self-improvement":
+      return <SelfImprovementView />;
     // Deliberately nothing: the coding workspace is rendered by the STICKY
     // branch in `MainView` above, which keeps it mounted across section
     // changes. This switch is not rendered at all while one of those ids is

@@ -1,0 +1,361 @@
+/**
+ * Self-improvement: a new installation says plainly that nothing is measured
+ * yet and draws nothing; a measured area shows its advantage with the scores
+ * and range behind it and never words an uncertain number as a win; a change
+ * is taken back in one click; the stop reaches its route; a change opens into
+ * its case file with the stored reasons; the nights fold after three.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+import { SelfImprovementView } from "@/views/SelfImprovementView";
+import { loadLocaleChunk, setUiLanguage } from "@/i18n";
+import { certainty, effectWords, fmtPoints } from "@/views/selfImprovement/words";
+import type {
+  AdvantagePoint,
+  LearnedChange,
+  Measurement,
+  Night,
+  SelfImprovementOverview,
+} from "@/lib/selfImprovementApi";
+
+const NOW = Date.now();
+const DAY = 86_400_000;
+
+const LIMITS = { idle_after_s: 900, every_s: 72_000, budget_share: 0.2 };
+
+function emptyOverview(): SelfImprovementOverview {
+  return {
+    status: { app: "5.7.0", paused: false, readonly: false, last_night_ms: 0, next_night_ms: 0, decides_on: ["mined", "made"], own_tasks: true },
+    limits: LIMITS,
+    domains: [
+      { domain: "recall", tasks: { practice: 0, select: 0, guard: 0, sealed: 0 }, tasks_total: 0, all_tasks: {}, measured: false, point: null },
+    ],
+    series: [],
+    stack: [],
+    candidates: [],
+    nights: [],
+    resting: [],
+    now_ms: NOW,
+  };
+}
+
+function point(daysAgo: number, diff: number, low: number, high: number, app = "5.7.0"): AdvantagePoint {
+  return {
+    ts_ms: NOW - daysAgo * DAY,
+    app,
+    domain: "recall",
+    split: "sealed",
+    source: "own",
+    now_score: 0.836,
+    factory_score: 0.815,
+    diff,
+    low,
+    high,
+    n: 54,
+    now_tokens: 61,
+    factory_tokens: 116,
+  };
+}
+
+function measurement(step: string, diff: number, low: number, high: number, n: number, cost: number, reason: string): Measurement {
+  return { ts_ms: NOW - 2 * DAY, step, verdict: "accept", split: step === "admit" ? "select" : "guard", reason, domain: "recall", diff, low, high, n, cost_diff: cost };
+}
+
+function change(overrides: Partial<LearnedChange>): LearnedChange {
+  return {
+    id: "c",
+    surface: "parameter",
+    target: "recall.min_score",
+    state: "live",
+    author: "tuner",
+    reason: "on the practice tasks: +0.638 score",
+    since_ms: NOW - 2 * DAY,
+    before: null,
+    after: 4,
+    default: 0,
+    doc: "How well a memory must match.",
+    admitted: null,
+    last_check: null,
+    ...overrides,
+  };
+}
+
+function night(daysAgo: number, overrides: Partial<Night> = {}): Night {
+  return {
+    ts_ms: NOW - daysAgo * DAY,
+    app: "5.7.0",
+    paused: false,
+    updated_from: "",
+    settled: [],
+    proposed: [],
+    decided: [],
+    measured: [],
+    ...overrides,
+  };
+}
+
+function fullOverview(): SelfImprovementOverview {
+  const points = [point(4, 0.004, -0.03, 0.04, "5.6.0"), point(3, 0.012, -0.02, 0.045, "5.6.0"), point(1, 0.021, -0.01, 0.05)];
+  return {
+    ...emptyOverview(),
+    status: { ...emptyOverview().status, last_night_ms: NOW - 3 * 3_600_000, next_night_ms: NOW + 17 * 3_600_000 },
+    domains: [
+      {
+        domain: "recall",
+        tasks: { practice: 108, select: 84, guard: 50, sealed: 54 },
+        tasks_total: 296,
+        all_tasks: {},
+        measured: true,
+        point: points[2],
+      },
+    ],
+    series: points,
+    stack: [
+      change({
+        id: "c1",
+        target: "recall.min_score",
+        state: "trial",
+        after: 4,
+        admitted: measurement("admit", 0.119, 0.02, 0.21, 84, 12, "better on 84 tasks"),
+      }),
+      change({
+        id: "c2",
+        target: "recall.turn_limit",
+        state: "live",
+        before: null,
+        after: 2,
+        default: 6,
+        admitted: measurement("admit", 0, -0.04, 0.04, 150, -55, "as good on 150 tasks, and 47% cheaper"),
+        last_check: measurement("settle", 0, -0.05, 0.05, 50, -55, "held on 50 new tasks"),
+      }),
+    ],
+    nights: [
+      night(1, {
+        updated_from: "5.6.0",
+        decided: [
+          {
+            change_id: "c1",
+            target: "recall.min_score",
+            outcome: "admitted",
+            was: "proposed",
+            evidence: { verdict: "accept", split: "select", reason: "better on 84 tasks", target: { domain: "recall", diff: 0.119, low: 0.02, high: 0.21, n: 84, cost_diff: 12 } },
+          },
+        ],
+        measured: [points[2]],
+      }),
+      night(2),
+      night(3, { paused: true }),
+      night(4),
+      night(5),
+    ],
+  };
+}
+
+interface Call {
+  url: string;
+  method: string;
+  body: unknown;
+}
+
+function installFetch(overview: SelfImprovementOverview | null, status = 200) {
+  const calls: Call[] = [];
+  let current = overview;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url, method, body });
+    if (status !== 200 || !current) {
+      return { ok: false, status, json: async () => ({ detail: "self-improvement is not running" }) } as Response;
+    }
+    if (method === "GET" && url === "/api/self-improvement") {
+      const payload = current;
+      return { ok: true, status: 200, json: async () => payload } as Response;
+    }
+    if (method === "POST" && url === "/api/self-improvement/pause") {
+      const paused = (body as { paused: boolean }).paused;
+      current = { ...current, status: { ...current.status, paused } };
+      return { ok: true, status: 200, json: async () => ({ ok: true, paused }) } as Response;
+    }
+    const undo = /^\/api\/self-improvement\/changes\/([^/]+)\/undo$/.exec(url);
+    if (method === "POST" && undo) {
+      current = { ...current, stack: current.stack.filter((c) => c.id !== undo[1]) };
+      return { ok: true, status: 200, json: async () => ({ ok: true, reverted: [undo[1]] }) } as Response;
+    }
+    return { ok: false, status: 404, json: async () => ({ detail: "nope" }) } as Response;
+  });
+  (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+  return calls;
+}
+
+function renderView() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <SelfImprovementView />
+    </QueryClientProvider>,
+  );
+}
+
+describe("SelfImprovementView", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_improvement");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("says plainly that nothing is measured yet on a new installation, and draws nothing", async () => {
+    installFetch(emptyOverview());
+    renderView();
+    const empty = await screen.findByTestId("si-empty");
+    expect(empty.textContent).toContain("Nothing is measured yet");
+    expect(empty.textContent).toContain("build test tasks from your own work");
+    expect(screen.queryByTestId("si-area")).toBeNull();
+    expect(screen.queryByTestId("si-curve")).toBeNull();
+    expect(screen.queryByTestId("si-headline")).toBeNull();
+    expect(screen.getByTestId("si-state").dataset.state).toBe("running");
+    expect(screen.getByTestId("si-state").textContent).toContain("15 minutes");
+    expect(screen.getByTestId("si-stop")).toBeTruthy();
+    expect(screen.getByTestId("si-limits").textContent).toContain("asks no model");
+  });
+
+  it("shows the advantage with the scores behind it, and calls an uncertain number not certain", async () => {
+    installFetch(fullOverview());
+    renderView();
+    const headline = await screen.findByTestId("si-headline");
+    expect(headline.dataset.certainty).toBe("unclear");
+    expect(headline.textContent).toContain("+2.1");
+    expect(within(headline).getByTestId("si-certainty").textContent).toBe("not certain yet");
+    expect(headline.textContent).toContain("includes zero");
+    expect(screen.getByTestId("si-scores").textContent).toContain("83.6%");
+    expect(screen.getByTestId("si-scores").textContent).toContain("54 tasks");
+    expect(screen.getByTestId("si-cost").textContent).toBe("116 → 61 tokens");
+    expect(screen.queryByTestId("si-empty")).toBeNull();
+    expect(screen.getByTestId("si-curve")).toBeTruthy();
+  });
+
+  it("words each change with its measured effect", async () => {
+    installFetch(fullOverview());
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain("Minimum match for a memory");
+    expect(rows[0].textContent).toContain("0 → 4");
+    expect(rows[0].textContent).toContain("On trial");
+    expect(rows[0].textContent).toContain("+11.9 points on 84 tasks (between +2.0 and +21.0)");
+    expect(rows[1].textContent).toContain("Memories per message");
+    expect(rows[1].textContent).toContain("6 → 2");
+    expect(rows[1].textContent).toContain("Kept");
+    expect(rows[1].textContent).toContain("as good on 150 tasks, prompt 55 tokens shorter");
+    expect(rows[1].textContent).toContain("held again on 50 tasks");
+  });
+
+  it("takes a change back in one click, without asking again", async () => {
+    const calls = installFetch(fullOverview());
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    fireEvent.click(within(rows[0]).getByTestId("si-undo"));
+    await waitFor(() => expect(screen.getAllByTestId("si-change-row")).toHaveLength(1));
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-improvement/changes/c1/undo")).toBe(true);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("stops and resumes through the one button", async () => {
+    const calls = installFetch(fullOverview());
+    renderView();
+    fireEvent.click(await screen.findByTestId("si-stop"));
+    await screen.findByTestId("si-resume");
+    expect(screen.getByTestId("si-state").dataset.state).toBe("stopped");
+    expect(calls.find((c) => c.url === "/api/self-improvement/pause")?.body).toEqual({ paused: true });
+    fireEvent.click(screen.getByTestId("si-resume"));
+    await screen.findByTestId("si-stop");
+    expect(calls.filter((c) => c.url === "/api/self-improvement/pause").at(-1)?.body).toEqual({ paused: false });
+  });
+
+  it("opens a change into its case file with the stored reasons as they are", async () => {
+    installFetch(fullOverview());
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    fireEvent.click(rows[1]);
+    const detail = await screen.findByTestId("si-change-detail");
+    expect(within(detail).getByTestId("si-detail-values").textContent).toBe("6 → 2");
+    expect(within(detail).getByTestId("si-detail-reason-admitted").textContent).toBe("as good on 150 tasks, and 47% cheaper");
+    expect(within(detail).getByTestId("si-detail-reason-checked").textContent).toBe("held on 50 new tasks");
+    expect(detail.textContent).toContain("The tuner");
+    fireEvent.click(within(detail).getByTestId("si-detail-undo"));
+    await waitFor(() => expect(screen.queryByTestId("si-change-detail")).toBeNull());
+  });
+
+  it("shows three nights, folds the rest, and marks an update", async () => {
+    installFetch(fullOverview());
+    renderView();
+    const nights = await screen.findAllByTestId("si-night");
+    expect(nights).toHaveLength(3);
+    expect(nights[0].textContent).toContain("updated from 5.6.0 to 5.7.0");
+    expect(nights[0].textContent).toContain("Measured Minimum match for a memory: let in on trial, +11.9 points on 84 tasks");
+    expect(nights[1].textContent).toContain("found nothing to measure yet");
+    expect(nights[2].textContent).toContain("Stopped: nothing was done.");
+    const toggle = screen.getByTestId("si-nights-toggle");
+    expect(toggle.textContent).toContain("Show 2 earlier nights");
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId("si-night")).toHaveLength(5);
+  });
+
+  it("draws no curve from fewer than two points", async () => {
+    const one = fullOverview();
+    one.series = one.series.slice(-1);
+    installFetch(one);
+    renderView();
+    expect((await screen.findByTestId("si-curve-few")).textContent).toContain("second night");
+    expect(screen.queryByTestId("si-curve")).toBeNull();
+  });
+
+  it("puts every number of the curve in its table, with the app versions", async () => {
+    installFetch(fullOverview());
+    renderView();
+    const curve = await screen.findByTestId("si-curve");
+    fireEvent.click(within(curve).getByRole("button", { name: "Table" }));
+    const table = within(curve).getByTestId("si-curve-table");
+    const cells = within(table).getAllByRole("row");
+    expect(cells).toHaveLength(4); // head + three nights
+    expect(table.textContent).toContain("5.6.0");
+    expect(table.textContent).toContain("+2.1");
+  });
+
+  it("says what to do when the loop is not running", async () => {
+    installFetch(null, 503);
+    renderView();
+    expect((await screen.findByTestId("si-error")).textContent).toContain("Restart Dodaios");
+  });
+});
+
+describe("self-improvement words", () => {
+  const t = (key: string) => key;
+
+  it("calls a range across zero unclear, whatever the sign of the mean", () => {
+    expect(certainty(0.01, 0.2)).toBe("better");
+    expect(certainty(-0.2, -0.01)).toBe("worse");
+    expect(certainty(-0.01, 0.2)).toBe("unclear");
+    expect(certainty(0, 0.2)).toBe("unclear");
+  });
+
+  it("formats points with a sign and one decimal", () => {
+    expect(fmtPoints(0.021, "en")).toBe("+2.1");
+    expect(fmtPoints(-0.0004, "en")).toBe("0.0");
+    expect(fmtPoints(-0.119, "en")).toBe("-11.9");
+    expect(fmtPoints(0.021, "de")).toBe("+2,1");
+  });
+
+  it("never words an uncertain gain as a win", () => {
+    const found: Measurement = {
+      ts_ms: 0, step: "admit", verdict: "accept", split: "select", reason: "", domain: "recall",
+      diff: 0.05, low: -0.01, high: 0.11, n: 84, cost_diff: 0,
+    };
+    expect(effectWords(t, found, "en")).toBe("self_improvement.effect.unclear");
+  });
+});

@@ -1,0 +1,210 @@
+{
+  "self_improvement": {
+    "title": "自我改进",
+    "subtitle": "你不在时，助手会对自己的工作方式做一些小改动。只有当基于你自己工作的任务测量表明某项改动有帮助时，它才会保留。",
+    "loading": "正在加载测量结果",
+    "stop": "停止",
+    "resume": "继续",
+    "error": {
+      "unavailable": "此应用中的自我改进未在运行。请重新启动 Dodaios。如果此消息仍然存在，应用日志会说明原因。",
+      "load": "无法加载测量结果（{detail}）。请确认 Dodaios 正在运行，然后重试。",
+      "retry": "重试",
+      "action": "操作未成功：{detail}"
+    },
+    "state": {
+      "running": "运行中",
+      "stopped": "已停止",
+      "readonly": "只读",
+      "running_first": "还没有运行过任何一夜。你离开 {minutes} 分钟后，第一夜就会开始。",
+      "running_body": "上一夜是{when}。下一夜在 {next} 之后，你离开 {minutes} 分钟时开始。",
+      "running_due": "上一夜是{when}。下次你离开 {minutes} 分钟时，下一夜就会开始。",
+      "stopped_body": "在你继续之前，不会尝试、测量或更改任何内容。已经学到的内容仍然有效。",
+      "readonly_body": "这些记录由更新版本的应用写入。此版本只显示它们，不做任何更改。"
+    },
+    "empty": {
+      "title": "尚未测量任何内容",
+      "body": "要测量自己，助手首先需要根据你自己的工作构建测试任务。任务足够多时，它会在夜间用这些任务检验自己，此页面将显示它是否变得更好、改了什么，以及每项改动的依据。"
+    },
+    "domain": {
+      "recall": {
+        "name": "记忆",
+        "about": "一条消息是否能调出正确的记忆，并在不需要时不调出任何记忆？"
+      }
+    },
+    "area": {
+      "unit": "个百分点",
+      "points": "{value} 个百分点",
+      "badge_better": "已证实",
+      "badge_worse": "变差",
+      "badge_unclear": "尚不确定",
+      "meaning": "与出厂状态相比，助手现在每 100 个测试任务多解决几个。",
+      "range_better": "真实差异在 {low} 到 {high} 个百分点之间，因此提升是确定的。",
+      "range_worse": "真实差异在 {low} 到 {high} 个百分点之间：现在的表现不如出厂状态。",
+      "range_unclear": "差异尚不确定：真实值在 {low} 到 {high} 个百分点之间，其中包括零。",
+      "scores_label": "已解决",
+      "scores": "现在 {now}，出厂 {shipped}，基于 {n} 个它从未用来学习的任务",
+      "cost_label": "每条消息的提示词",
+      "cost": "{before} → {after} 个 token",
+      "cost_same": "{after} 个 token，与出厂相同",
+      "waiting": "已有 {n} 个来自你工作的任务。第一次测量将在下一夜进行。",
+      "no_tasks": "此领域还没有来自你工作的任务，因此这里尚未测量任何内容。"
+    },
+    "curve": {
+      "title": "逐夜的优势",
+      "caption": "百分点，以及真实值所在的范围",
+      "few": "测量此领域的第二夜之后，曲线才会出现。",
+      "update": "更新到 {version}",
+      "range_value": "{low} 到 {high} 之间",
+      "col_night": "夜",
+      "col_advantage": "百分点",
+      "col_range": "范围",
+      "col_tasks": "任务",
+      "col_app": "应用版本",
+      "legend_line": "测得的优势",
+      "legend_band": "真实值的范围",
+      "legend_update": "应用更新"
+    },
+    "stack": {
+      "title": "我对自己做的改动",
+      "none": "暂无。所有值都与出厂时相同。",
+      "take_back": "撤回",
+      "values": "{before} → {after}",
+      "since": "自{when}起",
+      "held": "在 {n} 个任务上再次确认"
+    },
+    "state_word": {
+      "proposed": "等待中",
+      "trial": "试用中",
+      "live": "已保留",
+      "reverted": "已撤回",
+      "blocked": "已拒绝"
+    },
+    "effect": {
+      "better": "在 {n} 个任务上 {diff} 个百分点（{low} 到 {high} 之间）",
+      "worse": "在 {n} 个任务上 {diff} 个百分点（{low} 到 {high} 之间），变差",
+      "unclear": "在 {n} 个任务上没有明显差异（{low} 到 {high} 之间）",
+      "as_good": "在 {n} 个任务上同样好",
+      "shorter": "提示词缩短 {tokens} 个 token",
+      "longer": "提示词增加 {tokens} 个 token",
+      "none": "未测量"
+    },
+    "detail": {
+      "close": "关闭",
+      "shipped": "出厂值：{value}",
+      "what": "它设置什么",
+      "admitted": "为何被采纳",
+      "checked": "再次检查",
+      "not_checked": "尚未再次检查。下一夜会进行。",
+      "admitted_on": "{when}在 {n} 个留作决策的任务上测量。",
+      "checked_on": "{when}在 {n} 个从未用于决定任何改动的任务上测量。",
+      "proposed_by": "提出者",
+      "dates": "日期",
+      "date_admitted": "采纳：{date}",
+      "date_since": "生效自：{date}",
+      "date_checked": "最近检查：{date}"
+    },
+    "author": {
+      "tuner": "调节器，它在练习任务上尝试相邻的值",
+      "owner": "你"
+    },
+    "nights": {
+      "title": "最近几夜",
+      "paused": "已停止：未做任何事。",
+      "updated": "应用已从 {from} 更新到 {to}。所有学到的内容都已重新检查。",
+      "checked": "已检查{title}：{outcome}，{effect}。",
+      "checked_bare": "已检查{title}：{outcome}。",
+      "holding_one": "1 项生效的改动仍然成立。",
+      "holding_other": "{count} 项生效的改动仍然成立。",
+      "proposed": "已提出：{title}，{from} → {to}。",
+      "decided": "已测量{title}：{outcome}，{effect}。",
+      "decided_bare": "已测量{title}：{outcome}。",
+      "measured": "优势（{area}）：在 {n} 个任务上 {points} 个百分点。",
+      "idle": "已查看，暂未找到可测量的内容。",
+      "show_one": "显示更早的 1 夜",
+      "show_other": "显示更早的 {count} 夜",
+      "hide": "收起"
+    },
+    "outcome": {
+      "admitted": "已采纳试用",
+      "declined": "已拒绝",
+      "waiting": "等待更多任务",
+      "kept": "已保留",
+      "taken_back": "已撤回"
+    },
+    "candidates": {
+      "title": "等待测量",
+      "row": "{when}提出，等待有足够的新任务后再做决定"
+    },
+    "resting": {
+      "title": "更新后暂停",
+      "restale": "仍然生效。它学习时所依据的出厂值随更新发生了变化，因此会先重新测量。",
+      "dormant": "暂停且不生效，因为此版本无法使用它。一旦有版本可以使用，它会重新生效。"
+    },
+    "how": {
+      "title": "工作原理",
+      "practise_title": "练习",
+      "practise_body": "它在一部分任务上尝试其他值。",
+      "decide_title": "决定",
+      "decide_body": "只有在从未练习过的任务上证明有效时，改动才会被采纳。",
+      "check_title": "持续检查",
+      "check_body": "之后的夜晚会在其他任务上再次检查每项改动，并撤回不再有帮助的改动。",
+      "limits": "只有在你离开 {minutes} 分钟后才会运行，并且每 {hours} 小时最多一夜。",
+      "no_model": "目前它不调用任何模型，因此一夜只占用这台电脑几秒钟。",
+      "model_budget": "调用模型时，它最多使用你套餐使用窗口的 {share}%，并且从不使用按 token 计费的密钥。"
+    },
+    "param": {
+      "recall_entity_boost": {
+        "title": "记忆中名称的权重",
+        "about": "当一条记忆提到消息中的某个人或事物时，它会被提前多少。"
+      },
+      "recall_pinned_boost": {
+        "title": "置顶记忆的权重",
+        "about": "置顶的记忆在搜索中会被提前多少。"
+      },
+      "recall_recency_floor": {
+        "title": "旧记忆的权重",
+        "about": "很旧的记忆保留多少权重。为 1 时，时间长短不影响。"
+      },
+      "recall_recency_days": {
+        "title": "记忆变旧的速度",
+        "about": "一条记忆的新鲜度在多少天内逐渐消退。"
+      },
+      "recall_fetch_factor": {
+        "title": "记忆搜索的广度",
+        "about": "一次搜索要排序多少候选，以其返回数量的倍数表示。"
+      },
+      "recall_turn_limit": {
+        "title": "每条消息的记忆数",
+        "about": "一条消息最多可以调出的记忆数量。"
+      },
+      "recall_turn_max_chars": {
+        "title": "每条消息的记忆篇幅",
+        "about": "一条消息的记忆在提示词中最多可占用的字符数。"
+      },
+      "recall_relative_floor": {
+        "title": "与最佳结果的接近度",
+        "about": "一条记忆的得分必须多接近最佳结果才会被显示。"
+      },
+      "recall_min_score": {
+        "title": "记忆的最低匹配度",
+        "about": "一条记忆需要匹配到什么程度才会被显示。为 0 时显示任何匹配。"
+      },
+      "recall_lesson_base": {
+        "title": "经验的起始排名",
+        "about": "在计入自身匹配度之前，一条合适的经验相对于最佳搜索结果排在哪里。"
+      },
+      "recall_lesson_cap": {
+        "title": "经验的最高排名",
+        "about": "一条经验最多可以排在最佳搜索结果之上多远。"
+      },
+      "lessons_recall_threshold": {
+        "title": "经验所需的匹配度",
+        "about": "消息必须与一条经验共享多少词语，这条经验才会出现。"
+      },
+      "lessons_recall_limit": {
+        "title": "每条消息的经验数",
+        "about": "一条消息最多可以调出的经验数量。"
+      }
+    }
+  }
+}
