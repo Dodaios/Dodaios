@@ -8,11 +8,16 @@ import {
   appZoomWheelIntent,
   installAppZoomWheel,
   OWN_WHEEL_ZOOM_ATTRIBUTE,
+  WHEEL_PRESS_ZOOM_MS,
   type AppZoomWheelOptions,
 } from "./appZoomWheel";
 
 function turn(init: WheelEventInit): WheelEvent {
   return new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+}
+
+function mouse(type: "mousedown" | "mouseup" | "mousemove", init: MouseEventInit = {}): MouseEvent {
+  return new MouseEvent(type, { bubbles: true, cancelable: true, ...init });
 }
 
 describe("appZoomWheelIntent", () => {
@@ -28,6 +33,11 @@ describe("appZoomWheelIntent", () => {
     expect(appZoomWheelIntent({ ...base, buttons: 4, deltaY: 100 })).toBe("out");
   });
 
+  it("counts a wheel armed by an earlier press", () => {
+    expect(appZoomWheelIntent({ ...base, deltaY: -100 }, true)).toBe("in");
+    expect(appZoomWheelIntent({ ...base, deltaY: 0 }, true)).toBeNull();
+  });
+
   it("leaves plain scrolling, sideways turns, Cmd and AltGr alone", () => {
     expect(appZoomWheelIntent({ ...base, deltaY: 100 })).toBeNull();
     expect(appZoomWheelIntent({ ...base, buttons: 1, deltaY: 100 })).toBeNull();
@@ -39,7 +49,7 @@ describe("appZoomWheelIntent", () => {
 
 describe("installAppZoomWheel", () => {
   let steps: string[];
-  let options: AppZoomWheelOptions & { on: boolean; zoom: number; claim: boolean };
+  let options: AppZoomWheelOptions & { on: boolean; zoom: number; claim: boolean; clock: number };
   let dispose: () => void;
   let page: HTMLDivElement;
 
@@ -53,6 +63,9 @@ describe("installAppZoomWheel", () => {
       enabled: () => options.on,
       level: () => options.zoom,
       apply: (intent) => steps.push(intent),
+      cancelPress: true,
+      clock: 1000,
+      now: () => options.clock,
     };
     dispose = installAppZoomWheel(window, options);
     page = document.createElement("div");
@@ -151,5 +164,103 @@ describe("installAppZoomWheel", () => {
     dispose();
     page.dispatchEvent(turn({ deltaY: -100, ctrlKey: true }));
     expect(steps).toEqual([]);
+  });
+
+  describe("pressing the wheel", () => {
+    /** Wheel button down (and up again, unless `hold`) at one spot. */
+    function press(at: Element, { hold = false } = {}): MouseEvent {
+      const down = mouse("mousedown", { button: 1, buttons: 4, screenX: 500, screenY: 300 });
+      at.dispatchEvent(down);
+      if (!hold) at.dispatchEvent(mouse("mouseup", { button: 1, buttons: 0, screenX: 500, screenY: 300 }));
+      return down;
+    }
+
+    it("zooms while the wheel is held down", () => {
+      press(page, { hold: true });
+      page.dispatchEvent(turn({ deltaY: -100, buttons: 4 }));
+      page.dispatchEvent(turn({ deltaY: 100, buttons: 4 }));
+      expect(steps).toEqual(["in", "out"]);
+    });
+
+    it("zooms when the wheel turns after the press was let go", () => {
+      press(page);
+      const notch = turn({ deltaY: -100 });
+      page.dispatchEvent(notch);
+      expect(notch.defaultPrevented).toBe(true);
+      options.clock += WHEEL_PRESS_ZOOM_MS - 100;
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      // Each step counts the time again, so a slow series keeps zooming.
+      options.clock += WHEEL_PRESS_ZOOM_MS - 100;
+      page.dispatchEvent(turn({ deltaY: 100 }));
+      expect(steps).toEqual(["in", "in", "out"]);
+    });
+
+    it("scrolls again after a pause", () => {
+      press(page);
+      options.clock += WHEEL_PRESS_ZOOM_MS + 1;
+      const scroll = turn({ deltaY: 100 });
+      expect(page.dispatchEvent(scroll)).toBe(true);
+      expect(steps).toEqual([]);
+    });
+
+    it("keeps zooming while the hand moves the mouse a little", () => {
+      press(page);
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      // After a step the same spot reads as other CSS pixels; that is no move.
+      page.dispatchEvent(mouse("mousemove", { buttons: 0, screenX: 430, screenY: 260 }));
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      expect(steps).toEqual(["in", "in"]);
+    });
+
+    it("forgets a held press when a move shows the button is up", () => {
+      press(page, { hold: true });
+      page.dispatchEvent(mouse("mousemove", { buttons: 0 }));
+      expect(page.dispatchEvent(turn({ deltaY: 100 }))).toBe(true);
+      expect(steps).toEqual([]);
+    });
+
+    it("scrolls again after another button or a key", () => {
+      press(page);
+      page.dispatchEvent(mouse("mousedown", { button: 0, buttons: 1, screenX: 500, screenY: 300 }));
+      page.dispatchEvent(turn({ deltaY: 100 }));
+      press(page);
+      page.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
+      page.dispatchEvent(turn({ deltaY: 100 }));
+      expect(steps).toEqual([]);
+    });
+
+    it("forgets a press whose release happened outside the window", () => {
+      press(page, { hold: true });
+      // No mouseup arrived; the next turn reports no button down.
+      expect(page.dispatchEvent(turn({ deltaY: 100 }))).toBe(true);
+      expect(steps).toEqual([]);
+    });
+
+    it("cancels the press so the engine does not start auto-scrolling", () => {
+      expect(press(page).defaultPrevented).toBe(true);
+    });
+
+    it("leaves the press alone where it pastes (Linux)", () => {
+      dispose();
+      dispose = installAppZoomWheel(window, { ...options, cancelPress: false });
+      expect(press(page).defaultPrevented).toBe(false);
+      page.dispatchEvent(turn({ deltaY: -100 }));
+      expect(steps).toEqual(["in"]);
+    });
+
+    it("leaves the press to a surface that pans with it", () => {
+      const board = document.createElement("div");
+      board.setAttribute(OWN_WHEEL_ZOOM_ATTRIBUTE, "");
+      page.append(board);
+      expect(press(board).defaultPrevented).toBe(false);
+      page.dispatchEvent(turn({ deltaY: 100 }));
+      expect(steps).toEqual([]);
+    });
+
+    it("leaves the press alone when zoom is switched off", () => {
+      options.on = false;
+      expect(press(page).defaultPrevented).toBe(false);
+      expect(page.dispatchEvent(turn({ deltaY: 100 }))).toBe(true);
+    });
   });
 });

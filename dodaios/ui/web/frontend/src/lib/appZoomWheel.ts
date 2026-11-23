@@ -3,23 +3,41 @@
  * Ctrl + `+` / `-` climbs (see ./appZoom): turned away from you it zooms in,
  * turned towards you it zooms out, the way every browser does it.
  *
- * Turning the wheel while it is held down counts too, for people who reach
- * for the wheel button rather than for Ctrl.
+ * ## Pressing the wheel instead of Ctrl
  *
- * ## Why the app claims the gesture instead of leaving it to the engine
+ * Pressing the wheel button and then turning the wheel zooms too. People do
+ * that in two ways, and both have to work:
  *
- * WebView2 zooms on Ctrl + wheel by itself. That zoom bypasses everything the
- * app keeps about zoom: it is not on the ladder, shows no size bubble, is not
- * remembered, does not reach the other windows, and the next Ctrl + `+` jumps
- * back to the stored level. So the engine's default is cancelled for every
- * Ctrl + wheel and the step goes through the app's own path instead.
+ * * they keep the wheel pressed while turning it: every wheel event then
+ *   carries the wheel button in `buttons`;
+ * * they press it, let go, and turn: the events carry nothing. So a press arms
+ *   the wheel for zoom, and it stays armed while the wheel keeps zooming, until
+ *   a short pause, another button or a key ends it.
+ *
+ * A pointer move does not end it. Mouse positions in a page are CSS pixels,
+ * and every zoom step rescales them: the hand that did not move would read as
+ * having moved after the first step, and the second notch would scroll.
+ *
+ * On Windows the press itself is cancelled. Otherwise Chromium starts its
+ * middle-click auto-scroll on it, which scrolls the page under the pointer
+ * instead of zooming it and keeps scrolling until the next click. Elsewhere
+ * the press is left alone: on Linux it pastes the selection.
+ *
+ * ## Why the app claims the gesture itself
+ *
+ * The engine would zoom on Ctrl + wheel by itself, off the app's ladder, with
+ * no size bubble, not remembered and undone by the next Ctrl + `+`. The
+ * desktop shell's page script cancels that zoom only after the event has
+ * passed through the page, so the app takes the gesture first and steps its
+ * own ladder.
  *
  * ## Surfaces that zoom themselves
  *
  * A whiteboard, a run graph, a team canvas and the clip timeline zoom their own
- * content on Ctrl + wheel. They carry `data-own-wheel-zoom`, and over them the
- * gesture is theirs: the engine's zoom is still cancelled, but the event goes on
- * to the surface untouched and the window keeps its size.
+ * content on Ctrl + wheel and use the wheel button for panning. They carry
+ * `data-own-wheel-zoom`, and over them both gestures are theirs: the engine's
+ * zoom is still cancelled, but the event goes on to the surface untouched and
+ * the window keeps its size.
  *
  * ## Capture phase on the window
  *
@@ -33,8 +51,10 @@ import type { AppZoomIntent } from "@/lib/appZoom";
 /** Marks an element that zooms its own content on Ctrl + wheel. */
 export const OWN_WHEEL_ZOOM_ATTRIBUTE = "data-own-wheel-zoom";
 
-/** `WheelEvent.buttons` bit of the wheel button. */
-const WHEEL_BUTTON = 4;
+/** `MouseEvent.buttons` bit of the wheel button. */
+const WHEEL_BUTTONS_BIT = 4;
+/** `MouseEvent.button` of the wheel button. */
+const WHEEL_BUTTON = 1;
 
 /**
  * Wheel travel, in screen pixels, that makes one zoom step.
@@ -45,29 +65,40 @@ const WHEEL_BUTTON = 4;
  */
 export const APP_ZOOM_WHEEL_STEP = 40;
 
+/**
+ * How long, in ms, the wheel stays on zoom after the wheel button was let go,
+ * counted again from every zoom step. Long enough to move the finger from
+ * pressing to turning; short enough that scrolling a moment later scrolls.
+ */
+export const WHEEL_PRESS_ZOOM_MS = 1500;
+
 export type AppZoomWheelEvent = Pick<WheelEvent, "deltaY" | "ctrlKey" | "metaKey" | "altKey" | "buttons">;
 
 /**
  * Which zoom step this wheel event asks for, or null for ordinary scrolling.
+ * `wheelPressed` is true while a wheel press armed the wheel for zoom.
  *
  * Ctrl alone, on every platform: a touchpad pinch arrives as a wheel event
  * with `ctrlKey` set and no key pressed. Cmd is not a zoom modifier for the
  * wheel anywhere, Win + wheel belongs to the Windows magnifier, and Alt is
  * refused because AltGr arrives as Ctrl + Alt on European keyboards.
  */
-export function appZoomWheelIntent(event: AppZoomWheelEvent): Exclude<AppZoomIntent, "reset"> | null {
+export function appZoomWheelIntent(
+  event: AppZoomWheelEvent,
+  wheelPressed = false,
+): Exclude<AppZoomIntent, "reset"> | null {
   const ctrl = event.ctrlKey && !event.metaKey && !event.altKey;
-  const wheelHeld = ((event.buttons ?? 0) & WHEEL_BUTTON) !== 0;
-  if (!ctrl && !wheelHeld) return null;
+  const wheelHeld = ((event.buttons ?? 0) & WHEEL_BUTTONS_BIT) !== 0;
+  if (!ctrl && !wheelHeld && !wheelPressed) return null;
   if (event.deltaY === 0) return null;
   return event.deltaY < 0 ? "in" : "out";
 }
 
 export interface AppZoomWheelOptions {
   /**
-   * May the engine's own Ctrl + wheel zoom be cancelled? False where the app
-   * cannot zoom the window itself (a shell whose engine has no zoom), so the
-   * gesture is not swallowed there.
+   * May the app take the gesture from the engine? False where the app cannot
+   * zoom the window itself (a shell whose engine has no zoom), so nothing is
+   * swallowed there.
    */
   claims: () => boolean;
   /** Is whole-app zoom switched on? When off, Ctrl + wheel does nothing. */
@@ -80,19 +111,81 @@ export interface AppZoomWheelOptions {
   level: () => number;
   /** Take one step. The ladder's ends belong to the caller. */
   apply: (intent: Exclude<AppZoomIntent, "reset">) => void;
+  /**
+   * Cancel the wheel press, so the engine does not start auto-scrolling on
+   * it. True on Windows; false on Linux, where the press pastes.
+   */
+  cancelPress: boolean;
+  /** The clock, in ms. Tests pass their own. */
+  now?: () => number;
 }
 
-/** Claim Ctrl + wheel on `target` (the window) as app zoom; returns the cleanup. */
+function ownsWheelZoom(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(`[${OWN_WHEEL_ZOOM_ATTRIBUTE}]`) !== null;
+}
+
+/** Claim Ctrl + wheel and wheel-press + wheel on `target` (the window) as app zoom; returns the cleanup. */
 export function installAppZoomWheel(
   target: Pick<EventTarget, "addEventListener" | "removeEventListener">,
-  { claims, enabled, level, apply }: AppZoomWheelOptions,
+  { claims, enabled, level, apply, cancelPress, now = () => performance.now() }: AppZoomWheelOptions,
 ): () => void {
   /** Signed travel not yet spent on a step. */
   let travel = 0;
+  /** A wheel press arms the wheel for zoom. */
+  let press = false;
+  /** The wheel button is down right now. */
+  let held = false;
+  /** After the button came up: the wheel zooms until this time. */
+  let armedUntil = 0;
+
+  const disarm = () => {
+    press = false;
+    held = false;
+  };
+
+  const armed = (): boolean => {
+    if (!press) return false;
+    if (held || now() <= armedUntil) return true;
+    disarm();
+    return false;
+  };
+
+  const onMouseDown = (event: Event) => {
+    const mouse = event as MouseEvent;
+    if (mouse.button !== WHEEL_BUTTON) {
+      disarm();
+      return;
+    }
+    if (!claims() || !enabled() || ownsWheelZoom(mouse.target)) {
+      disarm();
+      return;
+    }
+    // Keeps Chromium from starting its middle-click auto-scroll (see above).
+    // `auxclick` still fires, so a wheel click that closes a tab still does.
+    if (cancelPress) mouse.preventDefault();
+    press = true;
+    held = true;
+    travel = 0;
+  };
+
+  const onMouseUp = (event: Event) => {
+    if ((event as MouseEvent).button !== WHEEL_BUTTON || !press) return;
+    held = false;
+    armedUntil = now() + WHEEL_PRESS_ZOOM_MS;
+  };
+
+  /** The button came up outside the window: no `mouseup` ever arrived. */
+  const releaseMissed = (event: MouseEvent) => held && (event.buttons & WHEEL_BUTTONS_BIT) === 0;
+
+  const onMouseMove = (event: Event) => {
+    if (releaseMissed(event as MouseEvent)) disarm();
+  };
 
   const onWheel = (event: Event) => {
     const wheel = event as WheelEvent;
-    const intent = appZoomWheelIntent(wheel);
+    if (releaseMissed(wheel)) disarm();
+    const pressed = armed();
+    const intent = appZoomWheelIntent(wheel, pressed);
     if (intent === null || !claims()) {
       travel = 0;
       return;
@@ -100,13 +193,14 @@ export function installAppZoomWheel(
     // `passive: false` below is what makes this cancel anything: browsers
     // treat wheel listeners on the window as passive unless told otherwise.
     event.preventDefault();
-    const over = wheel.target;
-    if (over instanceof Element && over.closest(`[${OWN_WHEEL_ZOOM_ATTRIBUTE}]`)) {
+    if (ownsWheelZoom(wheel.target)) {
       travel = 0;
       return;
     }
     event.stopPropagation();
     if (!enabled()) return;
+    // Every notch of a released press keeps the wheel on zoom a while longer.
+    if (pressed && !held) armedUntil = now() + WHEEL_PRESS_ZOOM_MS;
     // Lines and pages come from devices that already counted in notches.
     if (wheel.deltaMode !== 0) {
       travel = 0;
@@ -124,6 +218,19 @@ export function installAppZoomWheel(
     apply(intent);
   };
 
+  const capture = { capture: true } as const;
   target.addEventListener("wheel", onWheel, { capture: true, passive: false });
-  return () => target.removeEventListener("wheel", onWheel, { capture: true });
+  target.addEventListener("mousedown", onMouseDown, capture);
+  target.addEventListener("mouseup", onMouseUp, capture);
+  target.addEventListener("mousemove", onMouseMove, { capture: true, passive: true });
+  target.addEventListener("keydown", disarm, capture);
+  target.addEventListener("blur", disarm);
+  return () => {
+    target.removeEventListener("wheel", onWheel, capture);
+    target.removeEventListener("mousedown", onMouseDown, capture);
+    target.removeEventListener("mouseup", onMouseUp, capture);
+    target.removeEventListener("mousemove", onMouseMove, capture);
+    target.removeEventListener("keydown", disarm, capture);
+    target.removeEventListener("blur", disarm);
+  };
 }

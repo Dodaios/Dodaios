@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Agranda o reduce todo lo que hay en la ventana de Dodaios, como Ctrl + Más en un navegador. Ctrl + rueda del ratón hace lo mismo. Funciona con teclados alemanes e ingleses: Más y Menos se leen como el carácter que escribes, esté donde esté la tecla.",
+      "description": "Agranda o reduce todo lo que hay en la ventana de Dodaios, como Ctrl + Más en un navegador. Ctrl + rueda del ratón hace lo mismo, y también pulsar la rueda y luego girarla. Funciona con teclados alemanes e ingleses: Más y Menos se leen como el carácter que escribes, esté donde esté la tecla.",
       "level_label": "Tamaño actual",
       "in_label": "Acercar",
       "out_label": "Alejar",

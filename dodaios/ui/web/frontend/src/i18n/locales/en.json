@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Make everything in the Dodaios window bigger or smaller, the way Ctrl + Plus zooms a browser. Ctrl + mouse wheel does the same. Works with German and English keyboards: Plus and Minus are read as the characters you type, wherever they sit.",
+      "description": "Make everything in the Dodaios window bigger or smaller, the way Ctrl + Plus zooms a browser. Ctrl + mouse wheel does the same, and so does pressing the wheel and then turning it. Works with German and English keyboards: Plus and Minus are read as the characters you type, wherever they sit.",
       "level_label": "Current size",
       "in_label": "Zoom in",
       "out_label": "Zoom out",
