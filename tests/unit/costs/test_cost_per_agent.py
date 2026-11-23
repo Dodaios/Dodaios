@@ -129,7 +129,8 @@ def test_background_jobs_are_the_lead_and_gateway_calls_their_agent(tmp_path: Pa
         with ledger.usage_context("agent-runtime", label=f"{ledger.AGENT_LABEL_PREFIX}scout"):
             ledger.record_usage(provider="openai", model="gpt-5.5", tokens_in=700,
                                 tokens_out=10, ts_ms=T0 + 1)
-        ledger.flush()
+        # The writer thread can need more than the 2 s default on a loaded runner.
+        assert ledger.flush(30.0), "the usage ledger's writer did not catch up"
     finally:
         ledger.set_ledger_path(None)
 
