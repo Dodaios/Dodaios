@@ -1,24 +1,24 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 417,
-  "forks": 146,
-  "placed": 87,
-  "stated": 107,
-  "generatedAt": "2026-11-18T17:16:07.922Z",
+  "count": 454,
+  "forks": 163,
+  "placed": 96,
+  "stated": 115,
+  "generatedAt": "2026-11-23T20:12:38.065Z",
   "clusters": [
-    {
-      "lat": -12.099,
-      "lon": -49.559,
-      "label": "Brazil",
-      "country": "Brazil",
-      "count": 5
-    },
     {
       "lat": 22.687,
       "lon": 79.358,
       "label": "India",
       "country": "India",
-      "count": 5
+      "count": 7
+    },
+    {
+      "lat": -12.099,
+      "lon": -49.559,
+      "label": "Brazil",
+      "country": "Brazil",
+      "count": 6
     },
     {
       "lat": 39.538,
@@ -46,6 +46,20 @@
       "lon": 80.278,
       "label": "Chennai",
       "country": "India",
+      "count": 2
+    },
+    {
+      "lat": 40.713,
+      "lon": -74.006,
+      "label": "New York",
+      "country": "United States of America",
+      "count": 2
+    },
+    {
+      "lat": 28.512,
+      "lon": -81.382,
+      "label": "Orlando",
+      "country": "United States",
       "count": 2
     },
     {
@@ -81,6 +95,13 @@
       "lon": 4.8,
       "label": "Belgium",
       "country": "Belgium",
+      "count": 1
+    },
+    {
+      "lat": 23.252,
+      "lon": 77.408,
+      "label": "Bhopal",
+      "country": "India",
       "count": 1
     },
     {
@@ -140,6 +161,13 @@
       "count": 1
     },
     {
+      "lat": 28.672,
+      "lon": 77.228,
+      "label": "Delhi",
+      "country": "India",
+      "count": 1
+    },
+    {
       "lat": 55.967,
       "lon": 9.018,
       "label": "Denmark",
@@ -186,6 +214,13 @@
       "lon": 113.323,
       "label": "Guangdong",
       "country": "China",
+      "count": 1
+    },
+    {
+      "lat": 44.65,
+      "lon": -63.6,
+      "label": "Halifax",
+      "country": "Canada",
       "count": 1
     },
     {
@@ -259,6 +294,13 @@
       "count": 1
     },
     {
+      "lat": -37.818,
+      "lon": 144.973,
+      "label": "Melbourne",
+      "country": "Australia",
+      "count": 1
+    },
+    {
       "lat": 44.982,
       "lon": -93.254,
       "label": "Minnesota",
@@ -308,13 +350,6 @@
       "count": 1
     },
     {
-      "lat": 40.713,
-      "lon": -74.006,
-      "label": "New York",
-      "country": "United States of America",
-      "count": 1
-    },
-    {
       "lat": 25.672,
       "lon": -100.332,
       "label": "Nuevo León",
@@ -333,13 +368,6 @@
       "lon": 63.628,
       "label": "Oostanay",
       "country": "Kazakhstan",
-      "count": 1
-    },
-    {
-      "lat": 28.512,
-      "lon": -81.382,
-      "label": "Orlando",
-      "country": "United States",
       "count": 1
     },
     {
@@ -462,6 +490,13 @@
       "count": 1
     },
     {
+      "lat": 59.941,
+      "lon": 30.314,
+      "label": "St.  Petersburg",
+      "country": "Russia",
+      "count": 1
+    },
+    {
       "lat": 59.353,
       "lon": 18.095,
       "label": "Stockholm",
@@ -480,13 +515,6 @@
       "lon": 101.073,
       "label": "Thailand",
       "country": "Thailand",
-      "count": 1
-    },
-    {
-      "lat": 48.202,
-      "lon": 16.365,
-      "label": "Vienna",
-      "country": "Austria",
       "count": 1
     },
     {
