@@ -2,18 +2,18 @@
  * Other coding threads named inside a thread's message.
  *
  * A thread row dragged from the sidebar into a composer lands where it is
- * dropped as `@<short name>`, drawn as a pill with the agent's logo, so it
+ * dropped as `@<thread title>`, drawn as a pill with the agent's logo, so it
  * reads as part of the sentence. The box keeps plain text (the caret, undo
  * and the IME stay a textarea's); which thread each name means is kept here,
  * per composer. On send every name becomes a thread link,
- * `[<short name>](thread:<session id>)`: the bubble draws it as the thread's
+ * `[<thread title>](thread:<session id>)`: the bubble draws it as the thread's
  * link, and the backend tells the receiving agent who that thread is
  * (dodaios/agent_chat/thread_mentions.py).
  */
 
 export interface ThreadMention {
   sessionId: string;
-  /** The words after the `@`: a short form of the thread's title. */
+  /** The words after the `@`: the thread's title. */
   label: string;
   /** The thread's chat provider, for its agent's logo. */
   provider: string;
@@ -26,18 +26,15 @@ export interface MentionSpan {
   mention: ThreadMention;
 }
 
-/** About three words: the pill names the thread, it does not repeat its whole title. */
-const LABEL_CHARS = 26;
+/**
+ * The thread's whole title, as the sidebar shows it. Capped only where a
+ * thread link stops reading its words (dodaios/agent_chat/thread_mentions.py).
+ */
+const LABEL_CHARS = 160;
 
-/** The short name a dragged thread gets in the sentence. */
+/** The name a dragged thread gets in the sentence: its title. */
 export function mentionLabel(title: string, taken: readonly string[] = []): string {
-  const words = title.replace(/[[\]()@\n\r\t]/g, " ").split(/\s+/).filter(Boolean);
-  let label = "";
-  for (const word of words) {
-    const next = label ? `${label} ${word}` : word;
-    if (next.length > LABEL_CHARS && label) break;
-    label = next;
-  }
+  let label = title.replace(/[[\]()@\n\r\t]/g, " ").split(/\s+/).filter(Boolean).join(" ");
   if (label.length > LABEL_CHARS) label = `${label.slice(0, LABEL_CHARS - 1)}…`;
   label = label || "agent";
   if (!taken.includes(label)) return label;

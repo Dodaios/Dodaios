@@ -7,8 +7,8 @@ import {
 const LOGIN: ThreadMention = { sessionId: "3f9a2c11-aaaa-bbbb-cccc-000000000001", label: "Fix login redirect", provider: "claude-api" };
 
 describe("thread mentions", () => {
-  it("shortens a long title to a few words and keeps names apart", () => {
-    expect(mentionLabel("Fix the login redirect after the OAuth callback fails")).toBe("Fix the login redirect");
+  it("takes the whole title and keeps names apart", () => {
+    expect(mentionLabel("Fix the login redirect after the OAuth callback fails")).toBe("Fix the login redirect after the OAuth callback fails");
     expect(mentionLabel("Fix [login]")).toBe("Fix login");
     expect(mentionLabel("Login", ["Login"])).toBe("Login 2");
     expect(mentionLabel("   ")).toBe("agent");
