@@ -280,7 +280,6 @@ async def test_failing_boot_services_leave_the_backend_serving(monkeypatch, tmp_
     from dodaios.ui.web.server import WebServer
 
     monkeypatch.setattr(install, "start_install", lambda *args: None)
-    monkeypatch.setattr(mars_routes, "schedule_mars_resume", lambda *args: None, raising=False)
 
     def learning_raises(*_args: Any) -> None:
         raise RuntimeError("learning exploded")
