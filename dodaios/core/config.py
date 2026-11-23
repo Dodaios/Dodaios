@@ -3410,7 +3410,7 @@ class SpeechConfig(BaseModel):
 #: Deliberately NOT limited to the three product locales (de/en/es). Those govern
 #: what Jarvis SAYS BACK; what it can HEAR is a different question, and capping it
 #: at three meant a Mandarin or Japanese speaker could not dictate at all —
-#: exactly the maintainer's-config-is-not-the-baseline trap (CLAUDE.md §3). The
+#: exactly the maintainer's-config-is-not-the-baseline trap (AGENTS.md, "Works for every user"). The
 #: order is the recogniser's own; the UI sorts by localized name at render time
 #: so no language is listed "first" by nationality.
 RECOGNITION_LANGUAGES: tuple[str, ...] = (
@@ -6475,7 +6475,7 @@ def set_secret(key: str, value: str) -> bool:
         # A reachable-but-unusable OS keyring (e.g. a locked Linux Secret Service)
         # raises even though _ensure_keyring_backend saw a viable backend. Degrade
         # to the 0600 file store and retry once, so in-app key save never 500s and
-        # the credential actually persists (CLAUDE.md §3, recoverable in-app).
+        # the credential actually persists (recoverable in-app, AGENTS.md).
         if _install_file_cred_backend(f"keyring write failed: {exc!r}"):
             try:
                 import keyring

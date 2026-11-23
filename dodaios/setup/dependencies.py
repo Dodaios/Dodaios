@@ -440,7 +440,7 @@ def install_pip_package(
 
     Used to pull an opt-in runtime extra from inside the app (e.g.
     ``faster-whisper`` for the any-phrase local wake path), so a user never has
-    to drop to a shell — the CLAUDE.md §3 "recoverable in-app" contract. Runs
+    to drop to a shell — the AGENTS.md "recoverable in-app" contract. Runs
     against ``sys.executable`` so the package lands in the same environment the
     app imports from, and passes ``NO_WINDOW_CREATIONFLAGS`` so a ``pythonw.exe``
     host does not flash a console (AP-1). Cross-platform: ``python -m pip`` is

@@ -1676,7 +1676,7 @@ def acquire_single_instance_lock(
 #: stack traces — the user hears the outcome; the technical reason rides along
 #: in ``AnnouncementRequested.detail``, which the transcript shows and the
 #: voice never speaks. Runtime voice output is the closed product surface, so
-#: these strings stay localized (CLAUDE.md §1).
+#: these strings stay localized (AGENTS.md).
 _CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
     "ui.desktop.conductor_news_phrases"
 )
@@ -1730,7 +1730,7 @@ def _make_conductor_announcer(
         # A background job has no user turn to read a language off, so the
         # pin wins, then the language the conversation is already running in,
         # then the default locale — resolved through the ONE resolver like
-        # every other output layer (CLAUDE.md §1). The empty text is what
+        # every other output layer (AGENTS.md). The empty text is what
         # makes the conversation stickiness apply.
         language = resolve_output_language(
             pin,

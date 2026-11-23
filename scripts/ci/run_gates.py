@@ -49,6 +49,7 @@ def _gates(base: str) -> list[Gate]:
         Gate("brand-logos", ((PY, ci + "check_brand_logos.py"),)),
         Gate("design-references", ((PY, ci + "check_design_references.py"),)),
         Gate("agents-md", ((PY, ci + "check_agents_md.py"),)),
+        Gate("agents-md-size", ((PY, ci + "check_agents_md_size.py"),)),
         Gate("cli-coverage", ((PY, ci + "check_cli_coverage.py"),)),
         Gate("danger-metadata", ((PY, ci + "check_danger_metadata.py"),)),
         Gate("cli-install-methods", ((PY, ci + "check_cli_install_methods.py"),)),

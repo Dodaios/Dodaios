@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 from .protocols import HarnessResult, HarnessTask, RiskTier, Transcript
 from .turn_language import DEFAULT_LOCALE
 
-# Every supported locale is equal (CLAUDE.md §1): a language field whose
+# Every supported locale is equal (AGENTS.md): a language field whose
 # publisher omitted it must fall back to the SHARED default, never to one
 # particular language. These defaults used to be the literal "de", so an event
 # published without a language stamped German onto a Spanish or English turn —
@@ -420,7 +420,7 @@ class DictationRefused(Event):
     """A dictation could NOT start, and the user is owed an explanation.
 
     Every refusal used to be a ``log.info`` in a file the desktop app cannot
-    show (CLAUDE.md §9: the app is a WebView with no dev tools), so pressing
+    show (the app is a WebView with no dev tools, AGENTS.md), so pressing
     the dictation shortcut with a closed microphone gate, no STT provider, or
     a live voice session did *nothing* at all. This event makes each refusal
     observable on the bus so the caller can say why the key did nothing.

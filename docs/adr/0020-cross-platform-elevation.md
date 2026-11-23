@@ -22,7 +22,7 @@ supersedes: adr-0001-ipc-named-pipe-hmac
 ADR-0001 chose a **Windows Named Pipe + HMAC-SHA256 + Nonce** for the IPC between
 the `asInvoker` Dodaios app and the UAC-elevated admin helper, and declared the
 design "not portable on Linux/Mac — not relevant: Dodaios is Windows-first." The
-cloud-first doctrine (`docs/PHILOSOPHY.md`) reversed that assumption: macOS and
+cloud-first doctrine reversed that assumption: macOS and
 Linux are now **primary** runtime targets, not afterthoughts. The cross-platform
 port (`_FROZEN-DECISIONS.md`) commits to porting **all six** desktop power-user
 features behind clean seams, and Admin/elevation is the sixth — the largest and
@@ -227,5 +227,5 @@ per-action prompt even at autonomy level `trusted`).
   - `dodaios/admin/client.py` / `dodaios/admin/helper.py` (seam wiring) —
     sub-task 3.6.
 - Fakes: `tests/fakes/fake_admin_transport.py`, `tests/fakes/fake_elevator.py`.
-- Safety mandate: `dodaios/admin/schema.py` module docstring (§Safety); CLAUDE.md
+- Safety mandate: `dodaios/admin/schema.py` module docstring (§Safety); the former CLAUDE.md
   AP-1/AP-2/AP-3 (subprocess hygiene, no-secrets-via-voice, ToolExecutor-only).

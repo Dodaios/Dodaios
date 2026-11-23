@@ -18,14 +18,14 @@ audience: developer
 
 Mandate requirement: `Ctrl+Alt+Shift+K` aborts **all** running Computer-Use tasks in <2s. The mandate explicitly warns: "The kill switch must be faster than the current LLM call. Cancel propagation through the async hierarchy is a design problem, not an implementation problem."
 
-An additional complication: per `CLAUDE.md`, the desktop app starts a **second event bus** (the Brain-Factory bus). A kill event published only to the UI bus does not reach the CU loop.
+An additional complication: the desktop app starts a **second event bus** (the Brain-Factory bus). A kill event published only to the UI bus does not reach the CU loop.
 
 ## Decision
 
 **Three-layer cancel model: event + token + process kill.**
 
 ### Layer 1 — Event (`KillRequested`)
-Published by hotkey / voice intent / tray menu / web-UI button. Wildcard subscriber on **both buses** (UI bus and Brain-Factory bus). The UI-bus subscriber explicitly forwards to the brain bus via `KillSwitch.forward_kill(event, to_bus=brain_bus)`. This addresses the two-bus bug from CLAUDE.md.
+Published by hotkey / voice intent / tray menu / web-UI button. Wildcard subscriber on **both buses** (UI bus and Brain-Factory bus). The UI-bus subscriber explicitly forwards to the brain bus via `KillSwitch.forward_kill(event, to_bus=brain_bus)`. This addresses the two-bus bug.
 
 **API correction (2026-04-22):** An earlier version of this ADR referred to `brain_manager.forward_kill(event)` — this method does not exist. The production API is `KillSwitch.forward_kill(ev, to_bus=...)` in `dodaios/control/cancel.py`.
 

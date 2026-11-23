@@ -48,7 +48,7 @@ Shutdown via `win32event.SetEvent(stop_event_handle)` from the asyncio thread. W
 
 ## Plan conflict
 
-Plan §5 names `pythoncom.PumpMessages` verbatim. CLAUDE.md says: "On conflict between plan and code, the plan wins; code deviations must be documented in the plan." This ADR is that documentation.
+Plan §5 names `pythoncom.PumpMessages` verbatim. The former `CLAUDE.md` (removed 2026-09-30) said: "On conflict between plan and code, the plan wins; code deviations must be documented in the plan." This ADR is that documentation.
 
 It is recommended that §5 be updated accordingly at the next plan review (or that the ADR reference be added to the plan). In practice: both patterns would work — `PumpMessages` with the three risks named above, `MsgWaitForMultipleObjects` without them.
 

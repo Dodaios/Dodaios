@@ -60,7 +60,7 @@ What blocked the vision (log evidence 2026-08-18 15:34 and code):
 
 ## Decision
 
-The rule of CLAUDE.md §3 applies from the first sentence: this is ONE
+The cross-platform, provider-neutral rule in `AGENTS.md` applies from the first sentence: this is ONE
 provider-neutral design. Every voice engine, every realtime transport,
 every brain family (cloud or local), and the text surfaces get the same
 user-visible behaviour; a transport-specific mechanism is a declared
@@ -237,4 +237,4 @@ end abandons. Nothing about a parked result is silent (AP-30).
 - `dodaios/plugins/realtime/gemini_live.py`, `dodaios/plugins/realtime/openai_realtime.py`
 - `dodaios/speech/pipeline.py` (`_run_parked_turn`, `_deliver_parked_result`)
 - ADR-0033, BUG-051, BUG-054, BUG-070, BUG-090, BUG-143, BUG-144
-- CLAUDE.md §3 "Provider & mode parity", CLOUD.md Rule #2
+- `AGENTS.md` ("Works for every user"), CLOUD.md Rule #2
