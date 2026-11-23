@@ -68,6 +68,20 @@ CORE_PATHS: Final[tuple[str, ...]] = (
     "CLAUDE.md",
 )
 
+#: What the kernel reads its evidence through: the record of what happened, the
+#: judge from another model family, the skill replay, the seat that may be asked,
+#: and the checks every pull request has to pass. A self-change that could edit
+#: one of these could grade itself, so for the registry they are core as well.
+#: (Kept apart from ``CORE_PATHS``: the output scan of ordinary coding runs reads
+#: that list, and these files are everyday work for a coding agent the person sent.)
+EVIDENCE_PATHS: Final[tuple[str, ...]] = (
+    "dodaios/agent_chat/store.py",
+    "dodaios/agent_chat/control_eval.py",
+    "dodaios/skills/eval_harness.py",
+    "dodaios/self_build/brain.py",
+    ".github/workflows/*",
+)
+
 #: Settings that decide who is in charge or how the assistant is judged.
 CORE_CONFIG_PREFIXES: Final[tuple[str, ...]] = (
     "security.",
@@ -106,6 +120,14 @@ def is_core_path(path: str) -> bool:
     return any(fnmatch.fnmatch(norm, pattern) for pattern in CORE_PATHS)
 
 
+def is_kernel_path(path: str) -> bool:
+    """True for code the assistant may never change about itself: core paths and its evidence."""
+    norm = path.replace("\\", "/")
+    while norm.startswith("./"):  # not ``lstrip``: ``.github`` keeps its dot
+        norm = norm[2:]
+    return is_core_path(norm) or any(fnmatch.fnmatch(norm, p) for p in EVIDENCE_PATHS)
+
+
 def core_reasons(
     surface: Surface, target: str, after: str | None, paths: tuple[str, ...] = ()
 ) -> list[str]:
@@ -115,7 +137,7 @@ def core_reasons(
         reasons.append("it rewrites the persona")
     if surface is Surface.CONFIG and target.startswith(CORE_CONFIG_PREFIXES):
         reasons.append(f"the setting {target!r} is a safety or provider setting")
-    protected = [p for p in (target, *paths) if is_core_path(p)]
+    protected = [p for p in (target, *paths) if is_kernel_path(p)]
     if protected:
         reasons.append(f"it edits protected code ({protected[0]})")
     if touches_objective(after or ""):
