@@ -394,19 +394,24 @@ class ChatThreads:
                 }
         label = name or self.name_of(session)
         started_ms = int(time.time() * 1000)
+        from dodaios.orchestrator import jobs
+
+        job_id = jobs.new_job_id()
+        policy, block = await asyncio.to_thread(self._policy_for, session, prompt, job_id)
         tracked = self._track(session_id, label, prompt, origin, started_ms)
         self._listen(service)
         try:
             # The pictures go as the message's own attachments, as a person's
             # drop does: the thread draws them above the prompt, and a CLI that
             # reads images gets the pixels. The bubble shows the prompt alone;
-            # the file list beneath it is for the agent.
+            # the file list beneath it is for the agent. So does a domain block
+            # the run's coding policy adds ([rsi], approved by the person).
             await service.send(
                 session_id,
-                prompt + image_brief,
+                prompt + (f"\n\n{block}" if block else "") + image_brief,
                 [_picture_row(item) for item in pictures] or None,
                 author=self._author(service),
-                **({"display_text": prompt} if pictures else {}),
+                **({"display_text": prompt} if pictures or block else {}),
             )
         except (NoSuchSession, SessionBusy, ValueError) as exc:
             # Refused before anything was written to the thread.
@@ -424,7 +429,9 @@ class ChatThreads:
                 "reason": "Delivery could not be confirmed. Observe the thread; do not resend "
                           "automatically.",
             }
-        job_id = self._ledger(session_id, label, prompt, tracked, started_ms)
+        job_id = self._ledger(
+            session_id, label, prompt, tracked, started_ms, job_id=job_id, policy=policy
+        )
         return {
             "status": "accepted",
             "submitted": True,
@@ -472,13 +479,16 @@ class ChatThreads:
         prompt: str,
         tracked: _Tracked | None,
         started_ms: int,
+        *,
+        job_id: str = "",
+        policy: dict[str, Any] | None = None,
     ) -> str | None:
         """A jobs-ledger row for the turn, and its place in the calling turn's wait."""
         from dodaios.core.delegated_work import DelegatedWork, register_delegated_work
         from dodaios.orchestrator import jobs
 
         # A new id per turn: one thread takes many turns, and each is its own job.
-        job_id = jobs.new_job_id()
+        job_id = job_id or jobs.new_job_id()
         key = f"coding-thread:{job_id}"
 
         async def probe() -> dict[str, Any] | None:
@@ -504,7 +514,8 @@ class ChatThreads:
         from dodaios.orchestrator.verification.recorder import note_submission
 
         note_submission(
-            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms
+            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms,
+            policy=policy,
         )
         if tracked is not None:
             tracked.job_id = job_id
@@ -512,6 +523,21 @@ class ChatThreads:
             DelegatedWork(key=key, name=name, probe=jobs.probe_for(job_id) or probe)
         )
         return job_id
+
+    @staticmethod
+    def _policy_for(session: Any, prompt: str, job_id: str) -> tuple[dict[str, Any], str]:
+        """The coding policy of the order about to go out, and its domain block. Blocking."""
+        try:
+            from dodaios.orchestrator import traces
+            from dodaios.rsi.bind import before_send
+
+            # The person's request, as the job will name it: every order of it
+            # shares one canary arm.
+            root = traces.root_for(traces.current_span()) or job_id
+            return before_send(session, prompt, root)
+        except Exception:  # noqa: BLE001 - an order without a policy goes out as written
+            logger.opt(exception=True).warning("Chat threads: no coding policy bound")
+            return {}, ""
 
     def _evidence(self, session_id: str, since_ms: int) -> dict[str, Any] | None:
         """What the thread's own record says about the turn started at ``since_ms``."""

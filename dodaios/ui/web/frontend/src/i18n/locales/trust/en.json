@@ -91,6 +91,7 @@
       "surface_config": "Setting",
       "surface_routine": "Routine",
       "surface_agent": "Agent",
+      "surface_coding_policy": "Coding policy",
       "change_approve": "Approve",
       "change_refuse": "Refuse",
       "change_keep": "Keep",

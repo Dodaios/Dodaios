@@ -63,6 +63,9 @@ _KINDS: Final[frozenset[str]] = frozenset(
 #: How far back the catch-up read looks in a thread's log.
 _CATCH_UP_EVENTS: Final[int] = 2_000
 _STOP: Final[object] = object()
+#: Hours after a verified run's end at which its merged work is read again, to
+#: catch a regression that turned up after the verdict (the plan's W = 72 h).
+LEAK_CHECKS_H: Final[tuple[int, ...]] = (24, 72)
 #: The writer thread wakes for due evidence no sooner and no later than this.
 _MIN_WAIT_S: Final[float] = 1.0
 _MAX_WAIT_S: Final[float] = 300.0
@@ -147,6 +150,8 @@ class RunRecorder:
         self._due: dict[str, int] = {}
         #: When a run whose checks are waited for is decided at the latest.
         self._decide_at: dict[str, int] = {}
+        #: When a verified run's merged work is read again for a regression.
+        self._leak_at: dict[str, int] = {}
         #: ``(session, order, run, output) -> turn id``; raises ``send.Refused``.
         self._send_follow_up = send_follow_up or self._send_via_service
         #: ``triggered``: an output a fixed trigger picks gets one model's review.
@@ -167,9 +172,19 @@ class RunRecorder:
     # ----------------------------------------------------- inline entry points
 
     def note_submission(
-        self, *, job_id: str, session_id: str, prompt: str, started_ms: int
+        self,
+        *,
+        job_id: str,
+        session_id: str,
+        prompt: str,
+        started_ms: int,
+        policy: dict[str, Any] | None = None,
     ) -> None:
-        """A thread took an order. Inline: remembers the thread and queues the rest."""
+        """A thread took an order. Inline: remembers the thread and queues the rest.
+
+        ``policy`` is the binding the order was sent under, when the sender
+        bound it first (a domain block went into the brief).
+        """
         try:
             # The loop the chat service runs on: a follow-up order is sent on it.
             self._loop = asyncio.get_running_loop()
@@ -178,7 +193,7 @@ class RunRecorder:
         with self._watched_lock:
             self._watched.add(session_id)
             self._noted.add(job_id)
-        self._queue.put(("start", job_id, session_id, prompt, int(started_ms)))
+        self._queue.put(("start", job_id, session_id, prompt, int(started_ms), policy or {}))
 
     def is_noted(self, job_id: str) -> bool:
         """True for an order that was noted and whose run is not on record yet."""
@@ -224,7 +239,7 @@ class RunRecorder:
 
     def _wait_s(self) -> float | None:
         """How long the thread may sleep: until the next evidence is due, else for good."""
-        times = [*self._due.values(), *self._decide_at.values()]
+        times = [*self._due.values(), *self._decide_at.values(), *self._leak_at.values()]
         if not times:
             # A run that is being checked shows it is alive at least this often.
             return _MAX_WAIT_S if any(run.checking for run in self._open.values()) else None
@@ -284,14 +299,20 @@ class RunRecorder:
 
     # --------------------------------------------------------------- writing
 
-    def _start_run(self, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+    def _start_run(
+        self, job_id: str, session_id: str, prompt: str, started_ms: int,
+        policy: dict[str, Any] | None = None,
+    ) -> None:
         try:
-            self._bind(job_id, session_id, prompt, started_ms)
+            self._bind(job_id, session_id, prompt, started_ms, policy or {})
         finally:
             with self._watched_lock:
                 self._noted.discard(job_id)
 
-    def _bind(self, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+    def _bind(
+        self, job_id: str, session_id: str, prompt: str, started_ms: int,
+        policy: dict[str, Any],
+    ) -> None:
         earlier = self._open.pop(session_id, None)
         if earlier is not None:
             # One thread runs one turn at a time: a new order means the earlier
@@ -324,6 +345,7 @@ class RunRecorder:
             effort=str(getattr(session, "effort", "") or ""),
             boot_id=self._boot_id,
             started_ms=started_ms,
+            **{k: v for k, v in policy.items() if k in ("policy_id", "arm", "policy_json")},
         )
         if not created:
             return  # this order is already on record (a repeated note)
@@ -334,11 +356,26 @@ class RunRecorder:
         self._open[session_id] = run
         self._catch_up(run)
 
+    def _bind_policy(self, run: _Open, runner: str, line: str) -> None:
+        """Freeze the run's policy (``rsi.bind``) once its cell is known: at its first turn."""
+        if not self.enforcing or run.iteration:
+            return
+        row = self.store.get(run.run_id) or {}
+        if row.get("policy_id"):
+            return  # bound before (a run picked up again after a restart)
+        from dodaios.rsi import bind, selector
+
+        cell = selector.cell_of({**row, "runner": runner, "harness_line": line})
+        root = str(row.get("root_span_id") or run.run_id)
+        self.store.update_run(run.run_id, **bind.binding_fields(cell, root))
+
     def _resume(self) -> None:
         """Take runs an earlier boot left open back under watch, or close them."""
         if self._verify != "off":
             for row in self.store.evidence_due():
                 self._due[str(row["run_id"])] = int(row["evidence_due_ms"])
+            for row in self.store.leak_due():
+                self._leak_at[str(row["run_id"])] = int(row["leak_due_ms"])
         for row in self.store.open_runs():
             session_id = str(row["session_id"])
             if session_id in self._open:
@@ -474,6 +511,10 @@ class RunRecorder:
             harness_version=harness.version,
             harness_line=harness.line,
         )
+        try:
+            self._bind_policy(run, runner, harness.line)
+        except Exception:  # noqa: BLE001 - an unbound run runs under the code's own limits
+            log.warning("run recorder: no policy bound to %s", run.run_id, exc_info=True)
         self.store.add_step(
             run.run_id, run.iteration, "turn_started", turn_id=turn_id,
             harness_version=harness.version,
@@ -579,6 +620,10 @@ class RunRecorder:
             detail={
                 "status": status, "error": str(payload.get("error") or "")[:400],
                 "changed_files": len(changed),
+                # This turn's own share, so a replay can cut the run at any output.
+                "tokens_out": tokens_out,
+                "cost_usd": _float(payload.get("cost_usd")),
+                "duration_ms": _int(payload.get("duration_ms")),
             },
             ts_ms=int(ts_ms),
         )
@@ -780,11 +825,55 @@ class RunRecorder:
         run.checking = False
         self._let_go(run)
         self._tell(run)
+        if verdict == driver.VERIFIED:
+            self._watch_for_leak(run.run_id, now)
+
+    # -------------------------------------------------------------- leaks
+
+    def _watch_for_leak(self, run_id: str, now: int, after_h: int = LEAK_CHECKS_H[0]) -> None:
+        """Look at a verified run's merged work again later: it may turn red after all."""
+        row = self.store.get(run_id) or {}
+        if row.get("landing") != evidence.MERGED or not row.get("head_sha"):
+            return  # only merged work can leak into the default branch
+        due = int(row.get("ended_ms") or now) + after_h * 3600 * 1000
+        self.store.update_run(run_id, leak_due_ms=due)
+        self._leak_at[run_id] = due
+
+    def read_leaks(self, now_ms: int | None = None) -> int:
+        """Read the merged work of verified runs again where due. Returns how many were read."""
+        now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
+        asked = 0
+        for run_id in [r for r, due in self._leak_at.items() if due <= now]:
+            self._leak_at.pop(run_id, None)
+            try:
+                row = self.store.get(run_id) or {}
+                found = self._read_evidence(str(row.get("repo_id") or ""), str(row["head_sha"]))
+                asked += 1
+                ended = int(row.get("ended_ms") or now)
+                later = [h for h in LEAK_CHECKS_H if ended + h * 3600 * 1000 > now]
+                if found.landing == evidence.MERGED and found.checks == evidence.FAILING:
+                    self.store.update_run(run_id, leaked=True, leak_due_ms=None)
+                    self.store.add_step(
+                        run_id, int(row.get("iteration") or 0), "leak", status="failing",
+                        detail=found.to_detail(), ts_ms=now,
+                    )
+                    log.warning("run recorder: %s was verified, and its merged work fails now",
+                                run_id)
+                elif later or found.transient:
+                    due = ended + later[0] * 3600 * 1000 if later else now + 3600 * 1000
+                    self.store.update_run(run_id, leak_due_ms=due)
+                    self._leak_at[run_id] = due
+                else:
+                    self.store.update_run(run_id, leak_due_ms=None)
+            except Exception:  # noqa: BLE001 - the record keeps the verdict as it stood
+                log.warning("run recorder: %s not looked at for a leak", run_id, exc_info=True)
+        return asked
 
     def tick(self, now_ms: int | None = None) -> None:
         """What the writer thread does when nothing was queued: read and decide what is due."""
         now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
         self.read_due(now)
+        self.read_leaks(now)
         for run_id in [run_id for run_id, due in self._decide_at.items() if due <= now]:
             self._decide_at.pop(run_id, None)
             try:
@@ -952,14 +1041,22 @@ def set_recorder(value: RunRecorder | None) -> None:
     _recorder = value
 
 
-def note_submission(*, job_id: str, session_id: str, prompt: str, started_ms: int) -> None:
+def note_submission(
+    *,
+    job_id: str,
+    session_id: str,
+    prompt: str,
+    started_ms: int,
+    policy: dict[str, Any] | None = None,
+) -> None:
     """Tell the recorder a thread took an order. A no-op while recording is off."""
     current = _recorder
     if current is None:
         return
     try:
         current.note_submission(
-            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms
+            job_id=job_id, session_id=session_id, prompt=prompt, started_ms=started_ms,
+            policy=policy,
         )
     except Exception:  # noqa: BLE001 - recording must never fail the hand-off
         log.warning("run recorder: order %s not noted", job_id, exc_info=True)
@@ -1017,7 +1114,13 @@ def _restore_only(service: Any, data_dir: Path | str, section: Any) -> None:
         log.warning("run recorder: worktrees put away earlier cannot be restored", exc_info=True)
 
 
-def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | None:
+def install(
+    service: Any,
+    data_dir: Path | str,
+    config: Any,
+    *,
+    self_change: Callable[[], Any] | None = None,
+) -> RunRecorder | None:
     """Start run recording for ``service`` when ``[rsi] enabled`` is set.
 
     Returns the recorder, or ``None`` when recording is off or could not start.
@@ -1042,5 +1145,16 @@ def install(service: Any, data_dir: Path | str, config: Any) -> RunRecorder | No
         return None
     set_recorder(made)
     _install_workdirs(store, service, section)
+    if made.enforcing:
+        from dodaios.rsi import bind
+        from dodaios.rsi.policy import store_for
+
+        policies = store_for(data_dir)
+        bind.set_store(policies)
+        if self_change is not None:
+            from dodaios.rsi.trainer import Trainer
+
+            # Steering policies change only through measured, reversible self-changes.
+            made.add_verdict_listener(Trainer(store, policies, self_change).on_verdict)
     log.info("run recorder: recording delegated coding runs to %s", store.path)
     return made

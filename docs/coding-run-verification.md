@@ -220,6 +220,10 @@ turn ends -> scan -> GitHub -> decide
   request of the person and 50 a day; a due review that the budget stops leaves
   the output `unverified`. A review started before an app restart is not run
   again.
+- **Leaks.** A `verified` run whose work merged is read again on GitHub 24 and
+  72 hours after its end. If the checks on its merge commit fail by then, the
+  run is marked `leaked`: the selector no longer counts it as passed, and a
+  new policy it ran under is rolled back. Nothing is sent to the agent.
 - **Verdicts**: `verified`, `unverified` (with the reason), `failed`,
   `superseded`, `needs_decision`. The jobs ledger shows them as `done` with the
   detail `verified` or `unverified`, `failed`, `cancelled` and `blocked`.

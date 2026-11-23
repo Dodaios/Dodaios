@@ -66,6 +66,10 @@ def install(data_dir: Path, config: Any, loop_of: Any = lambda: None) -> SelfCha
     registry.register_handler(Surface.PROMPT, FileHandler(_persona_path))
     registry.register_handler(Surface.INSTRUCTIONS, instructions_handler(config))
     registry.register_handler(Surface.SKILL, FileHandler(_skill_path))
+    from dodaios.rsi.policy import store_for
+
+    # Coding policies (``[rsi]``): versions, diff and rollback like every self-change.
+    registry.register_handler(Surface.CODING_POLICY, store_for(data_dir))
     set_current(registry)
     return registry
 

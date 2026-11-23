@@ -92,7 +92,12 @@ CREATE TABLE IF NOT EXISTS runs (
     iteration         INTEGER NOT NULL DEFAULT 0,
     follow_ups        INTEGER NOT NULL DEFAULT 0,
     signatures_json   TEXT NOT NULL DEFAULT '[]',
-    heartbeat_ms      INTEGER
+    heartbeat_ms      INTEGER,
+    policy_id         TEXT NOT NULL DEFAULT '',
+    arm               TEXT NOT NULL DEFAULT '',
+    policy_json       TEXT NOT NULL DEFAULT '',
+    leaked            INTEGER NOT NULL DEFAULT 0,
+    leak_due_ms       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -143,6 +148,11 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("follow_ups", "INTEGER NOT NULL DEFAULT 0"),
     ("signatures_json", "TEXT NOT NULL DEFAULT '[]'"),
     ("heartbeat_ms", "INTEGER"),
+    ("policy_id", "TEXT NOT NULL DEFAULT ''"),
+    ("arm", "TEXT NOT NULL DEFAULT ''"),
+    ("policy_json", "TEXT NOT NULL DEFAULT ''"),
+    ("leaked", "INTEGER NOT NULL DEFAULT 0"),
+    ("leak_due_ms", "INTEGER"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -153,7 +163,8 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "tokens_out", "tokens_cached", "cost_usd", "wall_ms", "mixed_model",
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
         "head_sha", "landing", "ci_status", "evidence_due_ms", "verdict", "verdict_reason",
-        "iteration", "follow_ups", "signatures_json", "heartbeat_ms",
+        "iteration", "follow_ups", "signatures_json", "heartbeat_ms", "policy_id", "arm",
+        "policy_json", "leaked", "leak_due_ms",
     }
 )
 #: Every column a new run may carry.
@@ -161,6 +172,7 @@ _INSERTABLE: Final[tuple[str, ...]] = (
     "run_id", "root_span_id", "owner_session", "owner_turn", "session_id", "repo_id",
     "workdir", "isolated", "base_sha", "brief_text", "domains_json", "primary_domain",
     "domain_source", "provider", "model_requested", "effort", "state", "boot_id", "started_ms",
+    "policy_id", "arm", "policy_json",
 )
 _BRIEF_MAX: Final[int] = 20_000
 
@@ -236,7 +248,7 @@ class VerificationStore:
             raise ValueError(f"unknown run state: {fields['state']!r}")
         if not fields:
             return self.get(run_id) is not None
-        for flag in ("mixed_model", "person_intervened"):
+        for flag in ("mixed_model", "person_intervened", "leaked"):
             if flag in fields:
                 fields[flag] = int(bool(fields[flag]))
         assignments = ", ".join(f"{name} = ?" for name in fields)
@@ -294,6 +306,14 @@ class VerificationStore:
                 (root_span_id,),
             ).fetchone()
         return int(row[0]) if row is not None else 0
+
+    def leak_due(self) -> list[dict[str, Any]]:
+        """Verified runs whose merged work is to be looked at again, soonest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE leak_due_ms IS NOT NULL ORDER BY leak_due_ms"
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def evidence_due(self) -> list[dict[str, Any]]:
         """Runs whose landing and checks are to be read again, soonest first."""

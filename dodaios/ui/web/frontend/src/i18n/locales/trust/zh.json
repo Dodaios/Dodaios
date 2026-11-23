@@ -91,6 +91,7 @@
       "surface_config": "设置",
       "surface_routine": "例行任务",
       "surface_agent": "智能体",
+      "surface_coding_policy": "编码策略",
       "change_approve": "批准",
       "change_refuse": "拒绝",
       "change_keep": "保留",
