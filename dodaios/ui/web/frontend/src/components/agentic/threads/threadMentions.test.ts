@@ -27,6 +27,10 @@ describe("thread mentions", () => {
     expect(text.slice(spans[0].start, spans[0].end)).toBe("@Fix login redirect");
     expect(outsideMentions(spans[0].start + 3, spans)).toBe(spans[0].end);
     expect(outsideMentions(spans[0].start, spans)).toBe(spans[0].start);
+    // Inside a word: to its nearer edge.
+    expect(outsideMentions(6, [], "wait for it")).toBe(5);
+    expect(outsideMentions(7, [], "wait for it")).toBe(8);
+    expect(outsideMentions(4, [], "wait for it")).toBe(4);
   });
 
   it("sends names as thread links and takes them back as names", () => {

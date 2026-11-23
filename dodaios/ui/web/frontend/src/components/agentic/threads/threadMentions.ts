@@ -127,10 +127,20 @@ export function insertMention(text: string, offset: number, label: string): { te
   return { text: before + inserted + after, caret: before.length + inserted.length + (tail ? 0 : 1) };
 }
 
-/** A drop inside a name moves to its end, so it never splits a mention in two. */
-export function outsideMentions(offset: number, spans: readonly MentionSpan[]): number {
+/**
+ * Where a drop at `offset` lands: never inside a word or a name. Inside a
+ * name it moves to the name's end; inside a word to the nearer edge of it.
+ */
+export function outsideMentions(offset: number, spans: readonly MentionSpan[], text = ""): number {
   const inside = spans.find((span) => offset > span.start && offset < span.end);
-  return inside ? inside.end : offset;
+  if (inside) return inside.end;
+  const word = /\S/;
+  if (!word.test(text.charAt(offset - 1)) || !word.test(text.charAt(offset))) return offset;
+  let start = offset;
+  while (start > 0 && word.test(text.charAt(start - 1))) start--;
+  let end = offset;
+  while (end < text.length && word.test(text.charAt(end))) end++;
+  return offset - start <= end - offset ? start : end;
 }
 
 /**

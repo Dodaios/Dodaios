@@ -682,7 +682,7 @@ export function ThreadComposer({
     mirror.style.pointerEvents = "auto";
     try {
       const offset = offsetInMirror(mirror, event.clientX, event.clientY);
-      return outsideMentions(offset === null ? value.length : Math.min(offset, value.length), named);
+      return outsideMentions(offset === null ? value.length : Math.min(offset, value.length), named, value);
     } finally {
       box.style.pointerEvents = boxEvents;
       mirror.style.pointerEvents = mirrorEvents;
