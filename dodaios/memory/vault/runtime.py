@@ -188,10 +188,26 @@ class Recall:
 _NOTHING = Recall(frozenset(), (), ())
 
 
-def recall_for(vault: MemoryVault, user_text: str, *, compact: bool = False) -> Recall:
+def in_mind_ids(vault: MemoryVault, *, compact: bool = False) -> frozenset[str]:
+    """Ids of the memories the always-on block holds: what the model has without a lookup."""
+    budget = _budgets["compact" if compact else "full"]
+    return frozenset(
+        m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories
+    )
+
+
+def recall_for(
+    vault: MemoryVault,
+    user_text: str,
+    *,
+    compact: bool = False,
+    in_mind: frozenset[str] | None = None,
+) -> Recall:
     """Which memories this message brings up. Reads only: nothing is counted or cached.
 
-    Cheap and local: one FTS query on the vault, no model call.
+    Cheap and local: one FTS query on the vault, no model call. ``in_mind``
+    hands in the always-on ids when the caller already has them (a benchmark
+    run asks hundreds of messages against one unchanged vault).
     """
     words = [
         w for w in re.findall(r"\w+", user_text.casefold()) if len(w) > 2 and w not in _STOPWORDS
@@ -200,14 +216,14 @@ def recall_for(vault: MemoryVault, user_text: str, *, compact: bool = False) -> 
         return _NOTHING
     limit = int(params.get("recall.turn_limit"))
     max_chars = int(params.get("recall.turn_max_chars"))
-    budget = _budgets["compact" if compact else "full"]
-    in_mind = {m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories}
+    if in_mind is None:
+        in_mind = in_mind_ids(vault, compact=compact)
     hits = [
         h for h in vault.search(" ".join(words), limit=limit * 2) if h.memory.id not in in_mind
     ]
     hits = _with_lessons(vault, user_text, hits, in_mind)
     if not hits:
-        return Recall(frozenset(in_mind), (), ())
+        return Recall(in_mind, (), ())
     floor = hits[0].score * float(params.get("recall.relative_floor"))
     lines: list[str] = []
     used = 0
@@ -224,7 +240,7 @@ def recall_for(vault: MemoryVault, user_text: str, *, compact: bool = False) -> 
         lines.append(line)
         used += len(line) + 1
         chosen.append(memory)
-    return Recall(frozenset(in_mind), tuple(chosen), tuple(lines))
+    return Recall(in_mind, tuple(chosen), tuple(lines))
 
 
 def turn_block(user_text: str, *, compact: bool = False, vault: MemoryVault | None = None) -> str:
@@ -253,7 +269,9 @@ def turn_block(user_text: str, *, compact: bool = False, vault: MemoryVault | No
     return _TURN_HEADER + "\n" + "\n".join(found.lines)
 
 
-def _with_lessons(vault: Any, user_text: str, hits: list[Any], in_mind: set[str]) -> list[Any]:
+def _with_lessons(
+    vault: Any, user_text: str, hits: list[Any], in_mind: frozenset[str]
+) -> list[Any]:
     """Rank lessons and how-to notes that fit this message in with the search hits.
 
     A lesson is recalled by what it was about (its words and the situation
