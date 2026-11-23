@@ -494,6 +494,13 @@ def _command_result(text: str, found: tuple[Ran, list[_Step], int]) -> Result:
     return Result(text, CONFIRMED if held else CONTRADICTED, f"ran `{shown}`: {how}")
 
 
+#: Why a command point stays open when the agent's CLI tells nothing of its commands.
+UNRECORDED: Final[str] = (
+    "this agent's CLI reports no commands, so whether it ran this cannot be read; check it "
+    "yourself"
+)
+
+
 def _judge_one(
     point: done.Criterion,
     *,
@@ -501,12 +508,15 @@ def _judge_one(
     folder: str,
     since_ms: int,
     report: str,
+    recorded: bool = True,
 ) -> Result:
     text = point.text
     if point.kind == done.KIND_COMMAND:
         wanted = _core(_code_of(point.target))
         found = _last_step(ran, lambda core: _same_check(core, wanted))
         if found is None:
+            if not recorded:
+                return Result(text, OPEN, UNRECORDED)
             return Result(text, OPEN, f"`{point.target}` was not run in this turn")
         return _command_result(text, found)
     if point.kind == done.KIND_FILE:
@@ -523,7 +533,9 @@ def _judge_one(
     if point.kind == done.KIND_TEST:
         found = _last_step(ran, _is_test)
         if found is None:
-            return Result(text, OPEN, "no test command was run in this turn")
+            return Result(text, OPEN, UNRECORDED if not recorded else (
+                "no test command was run in this turn"
+            ))
         return _command_result(text, found)
     if point.kind == done.KIND_LANDED:
         verdict, evidence = _landed(folder, since_ms, report, ran)
@@ -553,14 +565,24 @@ def judge(
     since_ms: int = 0,
     folder: str = "",
     report: str = "",
+    commands_recorded: bool = True,
 ) -> list[Result]:
-    """Hold each done-when point against the turn's record. Blocking (git, gh)."""
+    """Hold each done-when point against the turn's record. Blocking (git, gh).
+
+    ``commands_recorded`` is false for a thread whose CLI keeps no record of
+    its commands (a plain-text CLI): its command points stay open and say why,
+    rather than claim that nothing ran.
+    """
     ran = commands_run(events, since_ms=since_ms)
+    recorded = commands_recorded
     results: list[Result] = []
     for point in criteria:
         try:
             results.append(
-                _judge_one(point, ran=ran, folder=folder, since_ms=since_ms, report=report)
+                _judge_one(
+                    point, ran=ran, folder=folder, since_ms=since_ms, report=report,
+                    recorded=recorded,
+                )
             )
         except Exception:  # noqa: BLE001 - one unreadable point must not hide the others
             log.warning("brief acceptance: a point could not be checked", exc_info=True)

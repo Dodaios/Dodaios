@@ -461,6 +461,21 @@ def provider_row(provider_id: str) -> ProviderRow | None:
     return row
 
 
+#: Runners whose output is the final message alone: they keep no record of the
+#: commands they ran (a plain-text headless profile).
+PLAIN_TEXT_RUNNERS: Final[frozenset[str]] = frozenset({"dsh-cli", "custom-cli"})
+
+
+def records_commands(provider_id: str) -> bool:
+    """Whether a thread on ``provider_id`` records the commands its agent runs.
+
+    An unknown provider counts as recording: a check then says a command was
+    not run rather than that it cannot be told.
+    """
+    row = provider_row(provider_id)
+    return row is None or str(getattr(row, "runner", "") or "") not in PLAIN_TEXT_RUNNERS
+
+
 def known_provider_ids() -> tuple[str, ...]:
     return tuple(row.id for row in (*PROVIDER_ROWS, *custom_rows()))
 

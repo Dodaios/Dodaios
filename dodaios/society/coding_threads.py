@@ -826,12 +826,15 @@ def _done_when_check(state: dict[str, Any], session: Any, events: list[Any], rep
         _note_end(key, "completed")
         return ""
     try:
+        from dodaios.agent_chat.catalog import records_commands
+
         results = acceptance.judge(
             ticket.criteria,
             events=events,
             since_ms=int(state.get("brief_since_ms") or 0),
             folder=str(getattr(session, "cwd", "") or ""),
             report=report,
+            commands_recorded=records_commands(str(getattr(session, "provider", "") or "")),
         )
     except Exception:  # noqa: BLE001 - the report goes out without the check
         log.warning("coding threads: done-when check failed", exc_info=True)

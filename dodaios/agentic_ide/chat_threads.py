@@ -711,12 +711,15 @@ class ChatThreads:
         try:
             service = self.service()
             session = service.store.get_session(session_id) if service is not None else None
+            from dodaios.agent_chat.catalog import records_commands
+
             results = acceptance.judge(
                 criteria,
                 events=state["events"],
                 since_ms=since_ms,
                 folder=str(getattr(session, "cwd", "") or ""),
                 report=report,
+                commands_recorded=records_commands(str(getattr(session, "provider", "") or "")),
             )
             text = acceptance.summary(results, continues=continues)
             store = brief_log.get_log() if config.record and job_id else None
