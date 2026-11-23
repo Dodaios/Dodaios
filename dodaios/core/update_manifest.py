@@ -153,29 +153,39 @@ def parse_manifest(data: bytes) -> UpdateManifest:
     return UpdateManifest(version=version, tag=tag, checksums_sha256=digest)
 
 
-def _decode_signature(signature_text: str) -> bytes:
+#: What the signature is about, in the words of a refusal. The update manifest
+#: unless the caller verifies another document of the release key.
+_MANIFEST_SUBJECT = "the update manifest"
+
+
+def _decode_signature(signature_text: str, subject: str = _MANIFEST_SUBJECT) -> bytes:
     text = signature_text.strip()
     if len(text) > MAX_SIGNATURE_BYTES:
-        raise UpdateManifestError("the update manifest signature is too large to be genuine")
+        raise UpdateManifestError(f"{subject} signature is too large to be genuine")
     try:
         raw = base64.b64decode(text, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise UpdateManifestError("the update manifest signature is not base64") from exc
+        raise UpdateManifestError(f"{subject} signature is not base64") from exc
     if len(raw) != _ED25519_SIGNATURE_LENGTH:
-        raise UpdateManifestError("the update manifest signature is not an Ed25519 signature")
+        raise UpdateManifestError(f"{subject} signature is not an Ed25519 signature")
     return raw
 
 
 def verify_signature(
-    data: bytes, signature_text: str, *, public_keys: Sequence[str] | None = None
+    data: bytes,
+    signature_text: str,
+    *,
+    public_keys: Sequence[str] | None = None,
+    subject: str = _MANIFEST_SUBJECT,
 ) -> None:
     """Prove ``data`` was signed by one of ``public_keys``. Fail closed.
 
-    ``None`` means :data:`PINNED_PUBLIC_KEYS`, read at call time.
+    ``None`` means :data:`PINNED_PUBLIC_KEYS`, read at call time. ``subject``
+    names the signed document in a refusal; it changes no check.
     """
     if public_keys is None:
         public_keys = PINNED_PUBLIC_KEYS
-    raw_signature = _decode_signature(signature_text)
+    raw_signature = _decode_signature(signature_text, subject)
     try:
         from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -198,8 +208,7 @@ def verify_signature(
             continue
         return
     raise UpdateManifestError(
-        "the update manifest is not signed by the Dodaios release key — "
-        "refusing to install this update"
+        f"{subject} is not signed by the Dodaios release key — refusing to install this update"
     )
 
 
