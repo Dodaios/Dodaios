@@ -183,7 +183,7 @@ def main() -> int:
             print(f"boot-budget FAILED: {f}", flush=True)
         print(
             "A change put work on the critical startup path. Keep new features "
-            "behind _heavy_backend_bg / deferred scans (see the module docstring "
+            "behind BackendBoot.heavy_backend / deferred scans (see the module docstring "
             "and docs/diagnostics/BOOT-TTU-NOTES.md).",
             flush=True,
         )
