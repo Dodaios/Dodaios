@@ -60,17 +60,20 @@ test("permission failures abort publication", async () => {
   await assert.rejects(run({ fail: true }), (error) => error.status === 403);
 });
 
-test("star and reconciliation triggers use a pinned collector without a personal token", () => {
+test("star and reconciliation triggers run the collector from main without a personal token", () => {
   assert.match(yaml, /watch:\s+types: \[started\]/);
   assert.match(yaml, /cron: "23 \* \* \* \*"/);
-  assert.match(yaml, /ref: [a-f0-9]{40}/);
+  // The collector comes from this repository; only main-branch triggers may run it.
+  assert.doesNotMatch(yaml, /^\s+ref: /m);
+  assert.doesNotMatch(yaml, /^\s+pull_request/m);
   assert.match(yaml, /GITHUB_TOKEN: \$\{\{ github.token \}\}/);
   assert.doesNotMatch(yaml, /STARGAZERS_TOKEN|pull_request_target/);
 });
 
-test("the geocoder is checked out from the website repository under its current name", () => {
-  // The site repository was renamed; a checkout of the old name fails with
+test("the geocoder runs from this repository, never from a foreign checkout", () => {
+  // The website repository is private; a checkout of it fails with
   // "Repository not found" and the public feed stops moving.
-  const repos = [...yaml.matchAll(/^\s+repository: (\S+)$/gm)].map((m) => m[1]);
-  assert.deepEqual(repos, ["Dodaios/dodaios.github.io"]);
+  assert.equal([...yaml.matchAll(/^\s+repository: /gm)].length, 0);
+  assert.match(yaml, /run: node \.github\/stargazer-map\/fetch-stargazers\.mjs --repo Dodaios\/Dodaios/);
+  assert.match(yaml, /readFileSync\('\.github\/stargazer-map\/stargazers\.json'/);
 });
