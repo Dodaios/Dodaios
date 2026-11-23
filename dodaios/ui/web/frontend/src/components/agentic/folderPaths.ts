@@ -202,6 +202,50 @@ export function matchByName<T extends { name: string }>(entries: T[], word: stri
   return [...starts, ...contains];
 }
 
+/** `owner/name` as GitHub allows it; the backend checks the same pattern. */
+const GITHUB_REPO = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/;
+
+/**
+ * The `owner/name` of a GitHub repository address, or null when the text is
+ * not one. Reads what people paste: the page address (with or without
+ * `https://`, also a deeper page such as `…/tree/main`), the clone address
+ * with or without `.git`, and the SSH form `git@github.com:owner/name.git`.
+ *
+ * A bare `owner/name` is not read as an address: typed into a folder field it
+ * is a relative path first. The picker still finds it among the person's own
+ * repositories by name.
+ */
+export function gitHubRepoFromAddress(text: string): string | null {
+  const value = text.trim();
+  const match =
+    value.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s?#]+)(?:[/?#]\S*)?$/i) ??
+    value.match(/^(?:ssh:\/\/)?git@github\.com[:/]([^/\s]+)\/([^/\s]+?)\/?$/i);
+  if (!match) return null;
+  const name = match[2].replace(/\.git$/i, "");
+  const repo = `${match[1]}/${name}`;
+  // "." and ".." fit the pattern but are not repositories.
+  return GITHUB_REPO.test(repo) && name.replace(/\./g, "") !== "" ? repo : null;
+}
+
+/**
+ * The repositories a typed word finds, by their `owner/name`: those whose
+ * name (or owner) starts with it first, those that merely contain it after,
+ * each group in the order it came in (the newest push first).
+ */
+export function matchRepos<T extends { name: string }>(repos: T[], word: string): T[] {
+  const needle = word.toLowerCase();
+  if (!needle) return repos;
+  const starts: T[] = [];
+  const contains: T[] = [];
+  for (const repo of repos) {
+    const full = repo.name.toLowerCase();
+    const name = full.slice(full.indexOf("/") + 1);
+    if (name.startsWith(needle) || full.startsWith(needle)) starts.push(repo);
+    else if (full.includes(needle)) contains.push(repo);
+  }
+  return [...starts, ...contains];
+}
+
 /** A name that can be given to one new folder: one segment, no wildcards. */
 export function isFolderName(value: string): boolean {
   const name = value.trim();

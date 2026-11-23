@@ -10066,7 +10066,18 @@
     "no_match": "Ninguna carpeta coincide con «{query}».",
     "folder_list": "Carpetas",
     "loading": "Cargando…",
-    "truncated": "Solo se muestran las primeras {count} carpetas. Para abrir otra, escribe su nombre y pulsa Intro."
+    "truncated": "Solo se muestran las primeras {count} carpetas. Para abrir otra, escribe su nombre y pulsa Intro.",
+    "github_place": "GitHub",
+    "github_title": "Tus repositorios de GitHub, como carpetas",
+    "github_not_connected_detail": "No conectado",
+    "from_github": "De GitHub",
+    "github_not_connected": "GitHub no está conectado. Conéctalo en Plugins para ver aquí tus repositorios, o pega arriba la dirección de un repositorio.",
+    "github_empty": "Esta cuenta de GitHub aún no tiene repositorios.",
+    "no_repo_match": "Ningún repositorio coincide con «{query}».",
+    "download_title": "Descarga {repo} en este equipo y abre su carpeta",
+    "downloading": "Descargando…",
+    "private_repo": "Privado",
+    "search_placeholder_github": "Busca carpetas y repositorios o escribe una ruta, p. ej. cd Desktop"
   },
   "shell_events": {
     "empty": "Aún no hay eventos. Emite un evento de prueba desde la pestaña Debug.",

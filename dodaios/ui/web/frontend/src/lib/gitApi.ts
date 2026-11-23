@@ -221,6 +221,16 @@ export async function fetchLinkedRepos(signal?: AbortSignal): Promise<Record<str
   return ((await res.json()) as { linked?: Record<string, string> }).linked ?? {};
 }
 
+/**
+ * `owner/name` (lower case) → folder, for the GitHub repositories that are a
+ * connected folder already. Empty from a backend that predates the field.
+ */
+export async function fetchLinkedFolders(signal?: AbortSignal): Promise<Record<string, string>> {
+  const res = await fetch(`${BASE}/github/linked`, { signal });
+  if (!res.ok) throw await failure(res);
+  return ((await res.json()) as { folders?: Record<string, string> }).folders ?? {};
+}
+
 export interface GitHubClone {
   folder: string;
   repo: string;

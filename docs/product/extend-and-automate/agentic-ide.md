@@ -51,11 +51,11 @@ This documentation uses **Dodaios-Agents** for that separate feature.
 ## Open Your First Workspace
 
 1. Open **Agentic IDE** from the sidebar and choose **New workspace**.
-2. Select or paste the project folder. Agent briefs use this folder as context.
+2. Select or paste the project folder, or pick a GitHub repository under
+   **GitHub**. Agent briefs use this folder as context.
 3. Choose the workspace shape and number of panes.
 4. Assign an available coding CLI, optional account, and call-sign to each
-   pane. You can also choose a plain terminal for commands you want to type
-   yourself.
+   pane, or choose a plain terminal to type commands yourself.
 5. Review the plan, then choose **Open workspace**. Nothing starts before this
    confirmation.
 

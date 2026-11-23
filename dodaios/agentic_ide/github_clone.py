@@ -1,9 +1,10 @@
-"""Bring a GitHub repository onto this computer for a thread.
+"""Bring a GitHub repository onto this computer for a thread or a project.
 
-The thread composer lists the person's GitHub repositories next to the folders
-already connected. A repository that is not on this computer yet is cloned into
-``~/Dodaios/<name>``; the caller then connects that folder as a project. A
-repository that is already there is reused, never cloned twice or overwritten.
+The thread composer and the folder picker list the person's GitHub
+repositories next to the folders already connected. A repository that is not
+on this computer yet is cloned into ``~/Dodaios/<name>``; the caller then uses
+that folder like any other. A repository that is already there, as a connected
+folder or as an earlier clone, is reused, never cloned twice or overwritten.
 """
 
 from __future__ import annotations
@@ -41,8 +42,16 @@ class Cloned:
 
 
 def clone_home() -> Path:
-    """Where cloned repositories live: one folder in the person's home."""
-    return Path.home() / "Dodaios"
+    """Where cloned repositories live: one folder in the person's home.
+
+    ``~/Dodaios``, unless that folder is a git repository itself (someone keeps
+    the app's own source there). A clone inside it would be an untracked folder
+    in that checkout, so the clones go beside it instead.
+    """
+    home = Path.home() / "Dodaios"
+    if (home / ".git").exists():
+        return Path.home() / "Dodaios-repos"
+    return home
 
 
 def _lock_for(repo: str) -> threading.Lock:
@@ -83,7 +92,11 @@ def _destination(repo: str) -> tuple[Path, bool]:
     for candidate in (home / name, home / f"{name}-{owner}"):
         if not candidate.exists():
             return candidate, False
-        if candidate.is_dir() and github_link.remote_repository(candidate).lower() == repo.lower():
+        # Only the top of a repository of its own counts: git answers for a
+        # plain folder inside another checkout with that checkout's remote.
+        if not (candidate / ".git").exists():
+            continue
+        if github_link.remote_repository(candidate).lower() == repo.lower():
             return candidate, True
     raise GitError(
         f"{home / name} already holds something else. Move it, or connect the folder you want.",
@@ -107,17 +120,30 @@ def _discard(folder: Path) -> None:
         shutil.rmtree(folder, onerror=_writable)
 
 
-def clone_repository(repo: str, cred: github_link.Credential | None) -> Cloned:
-    """Clone ``owner/name`` into the clone home, or find it there.
+def _connected_folder(repo: str) -> Path | None:
+    """The connected folder that already is ``repo``, if one exists."""
+    folder = linked_folders().get(repo.lower())
+    if folder and Path(folder).is_dir():
+        return Path(folder)
+    return None
 
-    The GitHub connection's login is tried first (private repositories); a
-    second try without it covers a public repository and a login that git's
-    own credential helper holds.
+
+def clone_repository(repo: str, cred: github_link.Credential | None) -> Cloned:
+    """Clone ``owner/name`` into the clone home, or find it on this computer.
+
+    A connected folder that is the repository is answered first, so a picker
+    that asked before it knew which folders are which never downloads a second
+    copy of a project the person already has. The GitHub connection's login is
+    tried first (private repositories); a second try without it covers a
+    public repository and a login that git's own credential helper holds.
     """
     repo = _valid(repo)
     if not git_ops.git_available():
         raise GitError("Git is not installed.", code="missing")
     with _lock_for(repo):
+        here = _connected_folder(repo)
+        if here is not None:
+            return Cloned(folder=here, repo=repo, created=False)
         target, existing = _destination(repo)
         if existing:
             return Cloned(folder=target, repo=repo, created=False)
@@ -145,12 +171,22 @@ def clone_repository(repo: str, cred: github_link.Credential | None) -> Cloned:
         raise GitError(f"Git could not download {repo}: {reason}", code="clone_failed")
 
 
-def linked_repositories() -> dict[str, str]:
-    """``project id → owner/name`` for the connected folders that are a GitHub
-    repository: the one picked for the folder, else what its remote points at."""
+@dataclass(slots=True)
+class Linked:
+    """A connected folder that is a GitHub repository."""
+
+    project_id: str
+    folder: str
+    repo: str
+    last_opened_at: float
+
+
+def linked_projects() -> list[Linked]:
+    """The connected folders that are a GitHub repository: the one picked for
+    the folder, else what its remote points at."""
     from dodaios.agentic_ide.library import list_projects
 
-    linked: dict[str, str] = {}
+    linked: list[Linked] = []
     for project in list_projects():
         if project.scratch or not project.path:
             continue
@@ -160,5 +196,28 @@ def linked_repositories() -> dict[str, str]:
             project.path
         )
         if repo:
-            linked[project.id] = repo
+            opened = float(getattr(project, "last_opened_at", 0.0) or 0.0)
+            linked.append(Linked(project.id, str(project.path), repo, opened))
     return linked
+
+
+def linked_repositories(linked: list[Linked] | None = None) -> dict[str, str]:
+    """``project id → owner/name`` for the connected folders that are a GitHub
+    repository."""
+    entries = linked_projects() if linked is None else linked
+    return {entry.project_id: entry.repo for entry in entries}
+
+
+def linked_folders(linked: list[Linked] | None = None) -> dict[str, str]:
+    """``owner/name → folder`` for the repositories that are a connected folder
+    already, so a picker opens that folder instead of downloading a second copy.
+    Of several folders of one repository (worktrees), the one opened last."""
+    entries = linked_projects() if linked is None else linked
+    folders: dict[str, str] = {}
+    newest: dict[str, float] = {}
+    for entry in entries:
+        key = entry.repo.lower()
+        if key not in newest or entry.last_opened_at > newest[key]:
+            newest[key] = entry.last_opened_at
+            folders[key] = entry.folder
+    return folders

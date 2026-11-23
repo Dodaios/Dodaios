@@ -10066,7 +10066,18 @@
     "no_match": "没有与“{query}”匹配的文件夹。",
     "folder_list": "文件夹",
     "loading": "正在加载…",
-    "truncated": "仅列出前 {count} 个文件夹。要打开其他文件夹，请输入其名称并按 Enter。"
+    "truncated": "仅列出前 {count} 个文件夹。要打开其他文件夹，请输入其名称并按 Enter。",
+    "github_place": "GitHub",
+    "github_title": "你的 GitHub 仓库，以文件夹形式显示",
+    "github_not_connected_detail": "未连接",
+    "from_github": "来自 GitHub",
+    "github_not_connected": "GitHub 尚未连接。在插件中连接后即可在此列出你的仓库，或在上方粘贴仓库地址。",
+    "github_empty": "此 GitHub 账户还没有仓库。",
+    "no_repo_match": "没有与“{query}”匹配的仓库。",
+    "download_title": "将 {repo} 下载到这台计算机并打开其文件夹",
+    "downloading": "正在下载…",
+    "private_repo": "私有",
+    "search_placeholder_github": "搜索文件夹和仓库，或输入路径，例如 cd Desktop"
   },
   "shell_events": {
     "empty": "还没有事件。可从“调试”标签页发送一个测试事件。",

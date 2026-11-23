@@ -712,8 +712,10 @@ pages:
     summary: Open a project workspace, coordinate coding agents in live terminal panes, and keep every instruction and result visible.
     authoritative_sources:
       - dodaios/ui/web/frontend/src/views/AgenticIdeView.tsx
+      - dodaios/ui/web/frontend/src/components/agentic/FolderPicker.tsx
       - dodaios/ui/web/agentic_ide_routes.py
       - dodaios/agentic_ide/session.py
+      - dodaios/agentic_ide/github_clone.py
       - dodaios/agentic_ide/resume_store.py
       - dodaios/agentic_ide/notifications.py
       - dodaios/workspace/trust.py
