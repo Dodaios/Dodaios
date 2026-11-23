@@ -36,6 +36,16 @@ class FakeBrain:
         return 0.5
 
 
+#: How long a test waits for the ledger's writer thread. A fresh SQLite file on
+#: a loaded Windows runner took longer than the 2 s default: the read then found
+#: the file before its table, and the test failed on rows that were still queued.
+FLUSH_S = 30.0
+
+
+def _flush() -> None:
+    assert ledger.flush(FLUSH_S), f"the usage ledger's writer did not catch up in {FLUSH_S:.0f} s"
+
+
 @pytest.fixture()
 def ledger_path(tmp_path: Path):
     path = tmp_path / "llm_usage.db"
@@ -43,7 +53,7 @@ def ledger_path(tmp_path: Path):
     try:
         yield path
     finally:
-        ledger.flush()
+        ledger.flush(FLUSH_S)
         ledger.set_ledger_path(None)
 
 
@@ -66,7 +76,7 @@ def test_a_metered_brain_writes_the_call_with_its_caller(ledger_path: Path) -> N
         return await _drain(stream)
 
     assert asyncio.run(run()) == "hello"
-    ledger.flush()
+    _flush()
     rows = list(ledger.read_usage(ledger_path, 0, 2**62))
     assert len(rows) == 1
     row = rows[0]
@@ -85,7 +95,7 @@ def test_the_caller_is_read_when_complete_is_called_not_when_consumed(
         await _drain(stream)
 
     asyncio.run(run())
-    ledger.flush()
+    _flush()
     assert [r.caller for r in ledger.read_usage(ledger_path, 0, 2**62)] == ["dictation"]
 
 
@@ -107,7 +117,7 @@ def test_the_report_counts_background_calls_and_skips_covered_ones(ledger_path: 
             caller=caller,
             ts_ms=1_700_000_000_000,
         )
-    ledger.flush()
+    _flush()
 
     rows = collect_entries(CostSources(ledger_db=ledger_path))
     assert len(rows) == 2
@@ -119,7 +129,7 @@ def test_the_report_counts_background_calls_and_skips_covered_ones(ledger_path: 
 
 def test_a_zero_usage_call_is_not_written(ledger_path: Path) -> None:
     ledger.record_usage(provider="x", model="y", tokens_in=0, tokens_out=0)
-    ledger.flush()
+    _flush()
     assert list(ledger.read_usage(ledger_path, 0, 2**62)) == []
 
 

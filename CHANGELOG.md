@@ -9,6 +9,55 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The agent's cursor works where the work is, says what it is doing, and stays put when you scroll (#1916)
+- One agent arrow for the browser and the node live build, with a glow, a lean and a landing ring (#1908)
+- Every brief for a coding agent is looked up, checked and followed through (#1911)
+- GitHub repositories work as folders in the folder picker (#1903)
+- Every coding thread the lead opens gets a git worktree of its own (#1891)
+- /clear starts a coding thread's conversation over (#1892)
+- The empty composer names the picked agent's shortcuts (#1898)
+- The files an answer names are drawn as file references and open where they are (#1889)
+- The visuals a coding agent shows are drawn in the thread, and every agent is told it can show them (#1882)
+- Dictation: paragraphs follow sentence grammar, and a reading is kept only at a finished sentence (#1884)
+- Checked coding work, each part behind its own `[rsi]` setting and off by default:
+  - delegated coding runs are recorded with repository, domain, model and CLI version (#1883)
+  - what a run left behind is scanned for weakened checks and off-limits paths (#1885)
+  - a run is over only with a verdict, and a finding brings one follow-up order (#1895)
+  - whether a run's work landed, and what its checks say, is read from GitHub (#1893)
+  - one model reviews a run's output when a fixed trigger asks (#1905)
+  - the lead gets a compact index of the repositories in play, with their open pull requests and checks (#1888, #1896)
+  - coding policies are measured: a gate over the recorded runs, policies as self-changes with rollback in Trust, replay, a trainer, mined brief lines, drift notes for new models and CLI versions, and merged work watched for 72 hours (#1910)
+
+### Changed
+
+- Dodaios is licensed under the MIT License from this release on. Releases 2.0.0 to 5.6.0 stay under the Apache License 2.0, releases up to 1.6.0 stay MIT (#1918)
+- The README says it in one line: all your coding agents in one chat (#1874)
+
+### Removed
+
+- Python modules nothing in the app imports, and two dependencies (#1890)
+- Frontend code no screen loads any more (#1887)
+- The retired Obsidian vault seed, a stray MCP cache and stale docs (#1886)
+
+### Fixed
+
+- What real runs of every brief path found: the glossary keeps words and short names, and a society agent's thread gets its done-when check (#1917)
+- The lead's wait finds a coding thread's job again after a restart, and stays quiet while checks run (#1900)
+- Whiteboards and documents work in the installer builds, and every build proves its chat tools and file-read hook (#1909)
+- Windows: a detached desktop start boots instead of starting itself again every 2 s (#1904)
+- Windows: chat agents, frozen hook and plugin servers, the Chrome status light, Gemini/Antigravity and a visible agent retirement work (#1873)
+- GitHub is offered in the folder picker only against a backend with the clone safeguards (#1914)
+- A team member out of credit stays in the team, and a member that left can be brought back (#1901)
+- /btw answers in a thread with a background task open (#1899)
+- A change opened beside a thread wraps long lines instead of scrolling sideways (#1897)
+- The live build's cursor stays where the agent writes, with its name on it (#1894)
+- An agent's sheet skeleton names its column types, so the grid stops jumping mid-build (#1915)
+- A node fills its window: sheet columns share the free width, analytics widens and wraps its tiles (#1869)
+- The last column's resize handle stays inside a filled grid (#1870)
+- The Agents board puts working agents on top, counts them, and sets the idle ones below a line (#1866)
+
 ---
 
 ## [5.6.0] — 2026-11-17

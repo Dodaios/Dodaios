@@ -765,7 +765,8 @@ def test_gateway_metered_runtime_turns_are_billed_once(tmp_path: Path) -> None:
         for offset in (60_100, 60_200):
             ledger.record_usage(provider="openai", model="gpt-5.5", tokens_in=2_000,
                                 tokens_out=50, caller="agent-runtime", ts_ms=T0 + offset)
-        ledger.flush()
+        # The writer thread can need more than the 2 s default on a loaded runner.
+        assert ledger.flush(30.0), "the usage ledger's writer did not catch up"
     finally:
         ledger.set_ledger_path(None)
 

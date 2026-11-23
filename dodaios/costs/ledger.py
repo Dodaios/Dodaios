@@ -162,16 +162,20 @@ class _Writer:
         self._queue.put(None)
         thread.join(timeout=5.0)
 
-    def flush(self, timeout_s: float = 2.0) -> None:
-        """Wait until everything queued so far is on disk (tests, shutdown)."""
+    def flush(self, timeout_s: float = 2.0) -> bool:
+        """Wait until the writer has handled everything queued so far (tests, shutdown).
+
+        False when ``timeout_s`` ran out first: the rows may not be on disk yet.
+        """
         with self._done_cv:
             target = self._queued
             deadline = time.monotonic() + timeout_s
             while self._done < target:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    break
+                    return False
                 self._done_cv.wait(remaining)
+            return True
 
     def _mark_done(self) -> None:
         with self._done_cv:
@@ -270,8 +274,9 @@ def record_usage(
         log.debug("usage ledger: record failed", exc_info=True)
 
 
-def flush(timeout_s: float = 2.0) -> None:
-    _writer.flush(timeout_s)
+def flush(timeout_s: float = 2.0) -> bool:
+    """Wait for the writer; False when ``timeout_s`` ran out before it caught up."""
+    return _writer.flush(timeout_s)
 
 
 def set_ledger_path(path: Path | None) -> None:
