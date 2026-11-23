@@ -73,7 +73,7 @@ def parse(text: str) -> list[dict[str, Any]]:
         return []
     try:
         data = json.loads(cleaned[start : end + 1])
-    except ValueError:
+    except ValueError:  # an answer that is not JSON gives no tasks; the night goes on
         return []
     out: list[dict[str, Any]] = []
     for item in data if isinstance(data, list) else []:

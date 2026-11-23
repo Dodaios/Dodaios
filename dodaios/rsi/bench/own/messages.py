@@ -144,7 +144,7 @@ def parse(
         return {}
     try:
         data = json.loads(cleaned[start : end + 1])
-    except ValueError:
+    except ValueError:  # an answer that is not JSON labels nothing; the night goes on
         return {}
     out: dict[str, frozenset[str]] = {}
     for item in data if isinstance(data, list) else []:
@@ -152,7 +152,7 @@ def parse(
             continue
         try:
             candidate = batch[int(item["n"]) - 1]
-        except (KeyError, TypeError, ValueError, IndexError):
+        except (KeyError, TypeError, ValueError, IndexError):  # no such message: skip the entry
             continue
         if int(item["n"]) < 1:
             continue
