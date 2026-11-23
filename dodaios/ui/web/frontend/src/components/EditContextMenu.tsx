@@ -9,6 +9,7 @@ import {
 import { Clipboard, Copy, Scissors, TextSelect } from "lucide-react";
 
 import { useT } from "@/i18n";
+import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { useEventStore } from "@/store/events";
 import { robustCopy, robustPaste, robustPasteFiles } from "@/lib/clipboard";
 import {
@@ -25,6 +26,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * App-wide right-click menu offering Cut / Copy / Paste / Select all.
+ *
+ * Text fields and selected text get the engine's own menu instead (see
+ * `wantsNativeTextMenu`): it carries the spelling suggestions this menu cannot
+ * offer. This menu stays for the terminals and the rest of the app.
  *
  * The desktop shell embeds the UI in a WebView whose own context menu is
  * switched off, so without this component right-clicking does nothing at all —
@@ -59,6 +64,7 @@ export function EditContextMenu() {
       // Escape hatch: let the browser's own menu through.
       if (event.shiftKey) return;
       const snapshot = captureEditSnapshot(event.target);
+      if (wantsNativeTextMenu(snapshot)) return;
       const caps = capabilitiesFor(snapshot);
       // Nothing useful to offer (e.g. a right-click on empty chrome with no
       // selection) — stay out of the way rather than show a dead menu.
@@ -213,6 +219,27 @@ export function EditContextMenu() {
       />
     </div>
   );
+}
+
+/**
+ * True when the right-click should open the engine's own text menu.
+ *
+ * That menu knows the spelling suggestions for the word under the cursor, so
+ * it wins in every text field and on any selected text. Terminals keep this
+ * menu: their text lives in a canvas the engine cannot see. Inside the desktop
+ * window the native menu exists only when the shell turned it on for text
+ * (`__DODAIOS_NATIVE_TEXT_MENU`); without that flag this menu stays, so a
+ * right-click never ends in nothing.
+ */
+export function wantsNativeTextMenu(snapshot: EditSnapshot): boolean {
+  if (snapshot.kind === "terminal") return false;
+  const onText =
+    (snapshot.kind === "field" && snapshot.editable) ||
+    snapshot.selectedText.trim() !== "";
+  if (!onText) return false;
+  const flag = (window as unknown as { __DODAIOS_NATIVE_TEXT_MENU?: boolean })
+    .__DODAIOS_NATIVE_TEXT_MENU;
+  return Boolean(flag) || !hasEmbeddedDesktopBridge();
 }
 
 function MenuItem({

@@ -6301,6 +6301,15 @@ class DesktopApp:
         except Exception:  # noqa: BLE001, S110 - the drag bridge is never load-bearing
             pass
 
+        # Right-click on text opens WebView2's own menu with its spelling
+        # suggestions; everywhere else the app's menus stay.
+        try:
+            from dodaios.ui.native_text_menu import install_native_text_menu
+
+            install_native_text_menu()
+        except Exception:  # noqa: BLE001, S110 - the app's own menu stays
+            pass
+
         # macOS share sheet for the Artifacts stage's "Share" button: the page
         # posts a staged file and AppKit opens NSSharingServicePicker beside the
         # button. A logged no-op elsewhere, where the stage downloads instead.

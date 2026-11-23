@@ -28,6 +28,7 @@ vi.mock("@/lib/agentChatApi", async (load) => ({
 }));
 
 afterEach(() => {
+  delete (window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean }).__JARVIS_EMBEDDED_DESKTOP;
   cleanup();
   call.active = false;
   call.toggleCall.mockReset();
@@ -276,6 +277,8 @@ describe("VoiceComposer", () => {
         ? { paths: ["C:/pictures/photo.png"] }
         : { text: "" },
     })));
+    // Desktop window without the native text menu: the app menu handles fields.
+    (window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean }).__JARVIS_EMBEDDED_DESKTOP = true;
     render(<><VoiceComposer hint="Listening" onExit={() => {}} /><EditContextMenu /></>);
     await waitFor(() => expect(screen.getByTestId("voice-attach").hasAttribute("disabled")).toBe(false));
 
