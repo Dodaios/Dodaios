@@ -15,11 +15,13 @@ from uuid import UUID, uuid4
 from dodaios.core.protocols import ChannelAdapter
 
 __all__ = [
+    "FIRST_CONTACT_CLOCK_SKEW_S",
     "FIRST_CONTACT_PAIRING_WINDOW_S",
     "ChannelAdapter",
     "ChannelMedia",
     "ChannelMessage",
     "ChannelSession",
+    "sent_in_pairing_window",
 ]
 
 #: How long after a chat channel comes up (app start, or the fresh instance a
@@ -30,6 +32,24 @@ __all__ = [
 #: owner pairs right after connecting; after this window an empty allowlist
 #: stays closed until the next start or reconnect.
 FIRST_CONTACT_PAIRING_WINDOW_S = 600.0
+
+#: A message's own send time may run this far behind this computer's clock and
+#: still count as sent inside the pairing window: the chat service and this
+#: computer do not share a clock.
+FIRST_CONTACT_CLOCK_SKEW_S = 120.0
+
+
+def sent_in_pairing_window(opened_at: float, sent_at: float | None) -> bool:
+    """Whether a first-contact message was sent after the pairing window opened.
+
+    A chat service keeps the messages for a bot that is offline and hands them
+    over when it connects. Such a message was not written to the channel that
+    has just come up, so it must not claim the empty allowlist: only a message
+    sent while the window is open counts. ``opened_at`` and ``sent_at`` are
+    seconds since the epoch; a message without a readable send time never
+    counts.
+    """
+    return sent_at is not None and sent_at >= opened_at - FIRST_CONTACT_CLOCK_SKEW_S
 
 
 def _now_ns() -> int:

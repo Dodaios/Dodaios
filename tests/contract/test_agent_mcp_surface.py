@@ -64,6 +64,8 @@ EXPECTED_DANGEROUS = {
     "quest_retry",
     "agent_message",
     "agent_assign",
+    "agent_create",
+    "room_open",
     "room_say",
     "room_settle",
     "approval_resolve",

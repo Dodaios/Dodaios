@@ -776,3 +776,17 @@ hour arrived; 26 were waiting. The runner minutes the queue sweep frees pay
 for the two extra groups.
 
 Dependabot covers npm through security updates only.
+
+## 6. Repo health numbers
+
+`python scripts/health_report.py` prints a short markdown report of size and
+coupling numbers for the tracked files: Python lines and modules in
+`dodaios/`, code files over 3000 lines, functions over 200 lines, the largest
+cycle in the package import graph, broad `except` and `type: ignore` counts,
+comment share, legacy-name leftovers, files over 1 MB, and tests that read
+source text. It takes about 20 seconds.
+
+`python scripts/health_report.py --json PATH` also writes the numbers as JSON.
+`scripts/ci/health-baseline.json` is the first recorded run; regenerate it
+into a scratch file and compare to see which way a number moves. Nothing gates
+on these numbers.

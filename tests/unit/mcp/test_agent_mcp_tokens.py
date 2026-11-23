@@ -131,6 +131,55 @@ def test_every_dangerous_tool_is_classified() -> None:
             assert reachable == list(tk.SCOPES), f"{tool.name} is safe but not readable"
 
 
+#: What a ``read`` token may call: tools that only look. A tool that is added
+#: later is not readable until it is listed here on purpose.
+READ_TOOLS = {
+    "routine_status",
+    "ecosystem_status",
+    "agents_list",
+    "agent_get",
+    "capabilities_list",
+    "agent_inbox",
+    "board_events",
+    "quests_list",
+    "quest_get",
+    "rooms_list",
+    "approvals_list",
+    "ecosystem_export",
+}
+
+#: What a ``work`` token may call on top of looking.
+WORK_TOOLS = {
+    "agent_chat",
+    "agent_message",
+    "agent_assign",
+    "agent_create",
+    "quest_post",
+    "quest_cancel",
+    "quest_retry",
+    "room_open",
+    "room_say",
+    "room_settle",
+}
+
+
+def _tools_for(scope: str) -> set[str]:
+    from dodaios.mcp.agents import TOOLS
+
+    return {t.name for t in TOOLS if tk.allows(scope, t.name, dangerous=t.dangerous)}
+
+
+def test_a_read_token_reaches_only_the_tools_that_look() -> None:
+    """Hiring an agent and opening a room change the house; ``read`` must not."""
+    assert _tools_for("read") == READ_TOOLS
+    for name in ("agent_create", "room_open"):
+        assert name not in _tools_for("read"), name
+
+
+def test_a_work_token_adds_the_working_tools_and_nothing_that_governs() -> None:
+    assert _tools_for("work") == READ_TOOLS | WORK_TOOLS
+
+
 def test_looks_like_token_separates_credentials(store: tk.TokenStore) -> None:
     _token, secret = store.issue(name="X")
     assert tk.looks_like_token(secret) is True

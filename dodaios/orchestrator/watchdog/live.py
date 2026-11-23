@@ -119,7 +119,7 @@ class LiveSources:
         snap.turns = self._turns(snap.loop_ok)
         if snap.loop_ok:
             snap.jobs = self._guarded(self._jobs, store, now, default=[])
-            snap.claims = self._guarded(self._claims, snap.jobs, now, default=[])
+            snap.claims = self._guarded(self._claims, now, default=[])
             snap.routines = self._guarded(self._routines, now, default=[])
         snap.projects = self._guarded(self._projects, default=[])
         snap.seats = self._seats()
@@ -259,7 +259,7 @@ class LiveSources:
 
     # -------------------------------------------------------------- claims
 
-    def _claims(self, job_views: list[JobView], now: int) -> list[ClaimView]:
+    def _claims(self, now: int) -> list[ClaimView]:
         from dodaios.society.events import MsgType
 
         store = getattr(self._runtime, "store", None)

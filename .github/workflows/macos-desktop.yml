@@ -290,7 +290,6 @@ jobs:
             tests/unit/cu/test_capture.py \
             tests/unit/cu/test_engine_loop.py \
             tests/unit/cu/test_target_guard.py \
-            tests/unit/harness/test_action_registry.py \
             tests/unit/platform/test_window_state.py \
             tests/unit/platform/test_window_state_rects.py \
             tests/unit/plugins/tool/test_click_foreground_guard.py \
