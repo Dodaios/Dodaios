@@ -566,7 +566,9 @@ class MCPClient:
             secret = get_secret(key, env_fallback=key)
             return secret if secret else match.group(0)
 
-        expand = self.spec.resolve_header_secrets
+        # A spec-shaped object without the flag (a test double) is one nobody
+        # built from a plugin: it keeps the default every such spec has.
+        expand = getattr(self.spec, "resolve_header_secrets", True)
         resolved: dict[str, str] = {}
         for key, value in (self.spec.headers or {}).items():
             if not isinstance(value, str):
