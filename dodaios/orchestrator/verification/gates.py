@@ -60,6 +60,8 @@ STATUSES: Final[tuple[str, ...]] = (CLEAN, FINDINGS, VIOLATIONS, UNATTRIBUTED, U
 #: A larger patch is scanned up to here and reported as cut.
 _PATCH_MAX: Final[int] = 4_000_000
 _FINDINGS_KEPT: Final[int] = 60
+#: Changed paths a step keeps (for the review's triggers).
+_PATHS_KEPT: Final[int] = 200
 _GENERATED = (
     "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "poetry.lock", "Cargo.lock",
     "go.sum",
@@ -110,6 +112,7 @@ class GateResult:
             "head_sha": self.head_sha,
             "committed": self.committed,
             "files": len(self.files),
+            "paths": self.files[:_PATHS_KEPT],
             "added": self.added,
             "deleted": self.deleted,
             "truncated": self.truncated,
@@ -234,6 +237,15 @@ def _reader(folder: str) -> Callable[[str], str | None]:
             return None
 
     return read
+
+
+def diff_of(detail: dict[str, Any]) -> str:
+    """The diff an output scan read, from what its step kept; ``""`` when gone."""
+    folder = str(detail.get("folder") or "")
+    base, tree = str(detail.get("base") or ""), str(detail.get("tree_id") or "")
+    if not (folder and base and tree) or not Path(folder).is_dir():
+        return ""
+    return _git(folder, "diff", "-M", base, tree)
 
 
 def check_run(
