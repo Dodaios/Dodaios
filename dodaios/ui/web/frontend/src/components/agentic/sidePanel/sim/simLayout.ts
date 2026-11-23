@@ -40,9 +40,8 @@ export const CAMERA_PITCH = 0.78;
 export const LOOK_AT_Y = 0.35;
 /** The share of the picture the floor may fill; the rest is margin for names and the key. */
 const FILL = 0.9;
-const MAX_COLUMNS = 5;
-/** The fields in one row of the floor: all four, two by two, or one behind the other. */
-const FIELDS_PER_ROW = [4, 2, 1] as const;
+/** The most agents a field holds in one line, across or deep. */
+const MAX_LINE = 8;
 
 export interface SimField {
   column: BoardColumn;
@@ -68,28 +67,53 @@ export interface SimLayout {
   depth: number;
 }
 
-interface Plan {
-  perRow: number;
+/** One field of a plan: how many agents wide it is and where it lies. */
+interface Plot {
   columns: number;
-  fieldWidth: number;
-  fieldDepth: number;
+  x: number;
+  z: number;
   width: number;
   depth: number;
 }
 
-function planFor(perRow: number, columns: number, fullest: number): Plan {
-  const rows = Math.max(1, Math.ceil(fullest / columns));
-  const fieldRows = BOARD_COLUMNS.length / perRow;
-  const fieldWidth = columns * CELL_M + 2 * PAD_M;
-  const fieldDepth = rows * CELL_M + 2 * PAD_M;
-  return {
-    perRow,
-    columns,
-    fieldWidth,
-    fieldDepth,
-    width: perRow * fieldWidth + (perRow - 1) * GAP_M,
-    depth: fieldRows * fieldDepth + (fieldRows - 1) * ROW_GAP_M,
-  };
+interface Plan {
+  plots: Plot[];
+  width: number;
+  depth: number;
+}
+
+/** The side of a field that holds this many agents in a line. */
+const span = (cells: number) => cells * CELL_M + 2 * PAD_M;
+const rowsFor = (count: number, columns: number) => Math.max(1, Math.ceil(count / columns));
+
+/** All four fields side by side, each as wide as its agents need at this many rows. */
+function sideBySide(counts: readonly number[], rows: number): Plan {
+  const columns = counts.map((count) => Math.max(1, Math.ceil(count / rows)));
+  const depth = span(Math.max(...counts.map((count, index) => rowsFor(count, columns[index]))));
+  let left = 0;
+  const plots = columns.map((cells) => {
+    const width = span(cells);
+    const plot = { columns: cells, x: left + width / 2, z: depth / 2, width, depth };
+    left += width + GAP_M;
+    return plot;
+  });
+  return { plots, width: left - GAP_M, depth };
+}
+
+/** The fields in rows of one or two, every field this many agents wide and a row as deep as its fullest field. */
+function inRows(counts: readonly number[], perRow: 1 | 2, columns: number): Plan {
+  const width = span(columns);
+  const plots: Plot[] = [];
+  let back = 0;
+  for (let first = 0; first < counts.length; first += perRow) {
+    const row = counts.slice(first, first + perRow);
+    const depth = span(Math.max(...row.map((count) => rowsFor(count, columns))));
+    row.forEach((_, index) => {
+      plots.push({ columns, x: index * (width + GAP_M) + width / 2, z: back + depth / 2, width, depth });
+    });
+    back += depth + ROW_GAP_M;
+  }
+  return { plots, width: perRow * width + (perRow - 1) * GAP_M, depth: back - ROW_GAP_M };
 }
 
 /** The shape the floor has on screen, seen from the camera's height: width over height. */
@@ -100,27 +124,30 @@ function seenAspect(plan: Pick<Plan, "width" | "depth">): number {
 /**
  * Lay the agents out.
  *
- * Every field has the same size, set by the fullest one, so a field never
- * moves because another one filled up by one agent. The fields stand in one
- * row, two by two or one behind the other, and are as many agents wide as
- * brings the floor's shape nearest the panel's (`aspect`, width over height):
- * a wide panel gets a wide floor and a narrow side panel a deep one.
+ * A field is as large as its agents need, and never smaller than one agent,
+ * so a board whose work is nearly all in one column does not spend its floor
+ * on empty fields. The fields stand side by side, two by two or one behind
+ * the other, whichever brings the floor's shape nearest the panel's
+ * (`aspect`, width over height): a wide panel gets a wide floor and a narrow
+ * side panel a deep one, and the figures are as large as the panel allows.
  */
 export function layoutSimulation(agents: readonly Pick<SimAgent, "id" | "place">[], aspect = 2): SimLayout {
   const byColumn = new Map<BoardColumn, string[]>(BOARD_COLUMNS.map((column) => [column, []]));
   for (const agent of agents) byColumn.get(agent.place)?.push(agent.id);
-  const fullest = Math.max(1, ...[...byColumn.values()].map((ids) => ids.length));
+  const counts = BOARD_COLUMNS.map((column) => byColumn.get(column)?.length ?? 0);
+  const fullest = Math.max(1, ...counts);
   const wanted = Math.max(0.3, aspect);
-  let plan = planFor(4, 2, fullest);
+  const candidates: Plan[] = [];
+  for (let lines = 1; lines <= Math.min(MAX_LINE, fullest); lines += 1) {
+    candidates.push(sideBySide(counts, lines), inRows(counts, 2, lines), inRows(counts, 1, lines));
+  }
+  let plan = candidates[0];
   let best = Infinity;
-  for (const perRow of FIELDS_PER_ROW) {
-    for (let columns = 1; columns <= Math.min(MAX_COLUMNS, Math.max(2, fullest)); columns += 1) {
-      const candidate = planFor(perRow, columns, fullest);
-      const miss = Math.abs(Math.log(seenAspect(candidate) / wanted));
-      if (miss < best - 1e-9) {
-        best = miss;
-        plan = candidate;
-      }
+  for (const candidate of candidates) {
+    const miss = Math.abs(Math.log(seenAspect(candidate) / wanted));
+    if (miss < best - 1e-9) {
+      best = miss;
+      plan = candidate;
     }
   }
 
@@ -128,20 +155,22 @@ export function layoutSimulation(agents: readonly Pick<SimAgent, "id" | "place">
   const spots = new Map<string, SimSpot>();
   BOARD_COLUMNS.forEach((column, index) => {
     const ids = byColumn.get(column) ?? [];
-    const x = -plan.width / 2 + plan.fieldWidth / 2 + (index % plan.perRow) * (plan.fieldWidth + GAP_M);
+    const plot = plan.plots[index];
+    // The plan counts from its back left corner; the floor is centred on the origin.
     // The first fields stand at the back, as the first lines of a page stand on top.
-    const z = -plan.depth / 2 + plan.fieldDepth / 2 + Math.floor(index / plan.perRow) * (plan.fieldDepth + ROW_GAP_M);
-    fields.push({ column, x, z, width: plan.fieldWidth, depth: plan.fieldDepth, count: ids.length });
+    const x = plot.x - plan.width / 2;
+    const z = plot.z - plan.depth / 2;
+    fields.push({ column, x, z, width: plot.width, depth: plot.depth, count: ids.length });
     ids.forEach((id, at) => {
-      const row = Math.floor(at / plan.columns);
-      const inRow = Math.min(plan.columns, ids.length - row * plan.columns);
-      const slot = at % plan.columns;
+      const row = Math.floor(at / plot.columns);
+      const inRow = Math.min(plot.columns, ids.length - row * plot.columns);
+      const slot = at % plot.columns;
       spots.set(id, {
         id,
         // A row that is not full stands centred in its field.
         x: x + (slot - (inRow - 1) / 2) * CELL_M,
         // Row 0 is the front row: the edge nearest the viewer.
-        z: z + plan.fieldDepth / 2 - PAD_M - CELL_M / 2 - row * CELL_M,
+        z: z + plot.depth / 2 - PAD_M - CELL_M / 2 - row * CELL_M,
       });
     });
   });

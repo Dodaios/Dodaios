@@ -40,14 +40,32 @@ describe("layoutSimulation", () => {
     for (const spot of layout.spots.values()) expect(spot.z).toBeLessThanOrEqual(first.z + 1e-9);
   });
 
-  it("keeps the fields the same size, whichever is the fullest", () => {
-    const layout = layoutSimulation(crowd({ building: 11, ready: 1 }));
-    const [first, ...rest] = layout.fields;
-    for (const field of rest) {
-      expect(field.width).toBe(first.width);
-      expect(field.depth).toBe(first.depth);
+  it("gives a full field the floor and an empty one the room of a single agent", () => {
+    for (const aspect of [0.5, 1, 2, 4]) {
+      const layout = layoutSimulation(crowd({ building: 28, checks: 1, ready: 1 }), aspect);
+      expect(layout.fields.map((field) => field.count)).toEqual([28, 1, 0, 1]);
+      const area = layout.fields.map((field) => field.width * field.depth);
+      const floor = area.reduce((sum, value) => sum + value, 0);
+      // Nearly all the work is in one column: so is most of the floor.
+      expect(area[0] / floor).toBeGreaterThan(0.5);
+      for (const field of layout.fields) {
+        expect(field.width).toBeGreaterThanOrEqual(CELL_M);
+        expect(field.depth).toBeGreaterThanOrEqual(CELL_M);
+      }
     }
-    expect(layout.fields.map((field) => field.count)).toEqual([11, 0, 0, 1]);
+  });
+
+  it("never lets two fields overlap", () => {
+    for (const aspect of [0.4, 0.8, 1.5, 3]) {
+      const { fields } = layoutSimulation(crowd({ building: 13, checks: 2, review: 7, ready: 1 }), aspect);
+      for (const [index, a] of fields.entries()) {
+        for (const b of fields.slice(index + 1)) {
+          const apartX = Math.abs(a.x - b.x) >= (a.width + b.width) / 2 - 1e-9;
+          const apartZ = Math.abs(a.z - b.z) >= (a.depth + b.depth) / 2 - 1e-9;
+          expect(apartX || apartZ).toBe(true);
+        }
+      }
+    }
   });
 
   it("lays the floor wide for a wide panel and deep for a narrow one", () => {

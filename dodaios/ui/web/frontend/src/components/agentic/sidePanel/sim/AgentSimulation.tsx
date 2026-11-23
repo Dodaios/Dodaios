@@ -14,14 +14,15 @@ import { AgentMark, agentLogoAsset } from "@/components/agentic/AgentMark";
 import type { BoardActivity, BoardColumn } from "../agentBoard";
 import { buildMascot, buildPlainMascot, type MascotSolid } from "./mascotGeometry";
 import { mascotSpecFor } from "./mascotSpecs";
-import { CAMERA_PITCH, LOOK_AT_Y, cameraDistance, layoutSimulation, phaseOf, type SimAgent, type SimField, type SimLayout, type SimSpot } from "./simLayout";
+import { CAMERA_PITCH, CELL_M, LOOK_AT_Y, cameraDistance, layoutSimulation, phaseOf, type SimAgent, type SimField, type SimLayout, type SimSpot } from "./simLayout";
 
 /**
  * The Agents board as a place: every coding agent is a figure on a floor.
  *
  * A figure is its agent's own mark with depth (see `mascotSpecs`), so which
- * agent is which is read from the figure itself; a name tag above it says it
- * in words. The floor has the board's four fields, and a figure stands in the
+ * agent is which is read from the figure itself; a name tag in front of it
+ * and the key at the foot say it in words. The floor has the board's four
+ * fields, each as large as its agents need, and a figure stands in the
  * field its work is in and walks over when that changes. What a figure does
  * shows its state: it hops while its agent works, jumps when the agent asks
  * for the person, leans over when the agent failed, and stands still at rest.
@@ -35,6 +36,8 @@ const FACE_UP = -0.3;
 const FIGURE_SCALE = 1.15;
 /** The name tag lies on the floor in front of the figure, so it never covers a mark. */
 const TAG_Z = 0.72;
+/** From this width of an agent's square on screen, every figure has room for its name tag. */
+const ROOMY_SQUARE_PX = 84;
 /** The eyes of a mark, on either theme. */
 const EYE_COLOUR = "#1b1a19";
 /** A drag that ends on a figure is a turn of the view, not a click. */
@@ -194,6 +197,8 @@ interface FigureProps {
   spot: SimSpot;
   colours: SimColours;
   still: boolean;
+  /** The squares are too small for every name tag: resting agents show theirs under the pointer. */
+  crowded: boolean;
   selected: boolean;
   hovered: boolean;
   onHover: (id: string | null) => void;
@@ -216,7 +221,7 @@ const DOT_CLASS: Record<BoardActivity, string> = {
 };
 
 /** One agent on the floor: its figure, its shadow, the ring of its state and its name tag. */
-function Figure({ agent, spot, colours, still, selected, hovered, onHover, onOpen }: FigureProps) {
+function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHover, onOpen }: FigureProps) {
   const place = useRef<Group>(null);
   const body = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
@@ -294,6 +299,7 @@ function Figure({ agent, spot, colours, still, selected, hovered, onHover, onOpe
   };
   const wordy = hovered || selected;
   const urgent = agent.activity === "attention" || agent.activity === "failed";
+  const tagged = !crowded || wordy || agent.activity !== "idle";
 
   return (
     <group ref={place}>
@@ -322,7 +328,7 @@ function Figure({ agent, spot, colours, still, selected, hovered, onHover, onOpe
         <boxGeometry args={[1.15, 1.24, 0.5]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      <Html center position={[0, 0.05, TAG_Z]} zIndexRange={[hovered ? 40 : 20, 0]} style={{ pointerEvents: "none" }}>
+      {tagged && <Html center position={[0, 0.05, TAG_Z]} zIndexRange={[hovered ? 40 : 20, 0]} style={{ pointerEvents: "none" }}>
         <div data-testid="ide-sim-tag" data-item={agent.id} data-agent={agent.agent} data-activity={agent.activity}
           className={cn(
             "flex max-w-[168px] flex-col items-center whitespace-nowrap rounded border px-1 py-px text-center",
@@ -339,7 +345,7 @@ function Figure({ agent, spot, colours, still, selected, hovered, onHover, onOpe
             <span className="block max-w-[156px] truncate text-[10px] font-medium leading-tight text-foreground-secondary">{agent.stateLabel}</span>
           )}
         </div>
-      </Html>
+      </Html>}
     </group>
   );
 }
@@ -384,22 +390,23 @@ function Rig({ layout }: { layout: SimLayout }) {
 }
 
 /** The panel's shape, width over height, in coarse steps: a resize does not reshuffle the floor at every pixel. */
-function useHostAspect(hostRef: RefObject<HTMLElement | null>): number {
-  const [aspect, setAspect] = useState(2);
+function useHostShape(hostRef: RefObject<HTMLElement | null>): { aspect: number; heightPx: number } {
+  const [shape, setShape] = useState({ aspect: 2, heightPx: 600 });
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host || typeof ResizeObserver === "undefined") return;
     const measure = () => {
-      if (host.clientWidth > 0 && host.clientHeight > 0) {
-        setAspect(Math.round((host.clientWidth / host.clientHeight) * 4) / 4);
-      }
+      if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
+      const aspect = Math.round((host.clientWidth / host.clientHeight) * 4) / 4;
+      const heightPx = Math.round(host.clientHeight / 20) * 20;
+      setShape((known) => (known.aspect === aspect && known.heightPx === heightPx ? known : { aspect, heightPx }));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
   }, [hostRef]);
-  return aspect;
+  return shape;
 }
 
 class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -416,8 +423,13 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
   const still = useReducedMotion() ?? false;
   const colours = useSimColours(host);
   const [hovered, setHovered] = useState<string | null>(null);
-  const aspect = useHostAspect(host);
+  const { aspect, heightPx } = useHostShape(host);
   const layout = useMemo(() => layoutSimulation(agents, aspect), [agents, aspect]);
+  // How wide one agent's square is on screen. Below a name tag's width the
+  // tags of resting agents would cover the figures, so they wait for the
+  // pointer: the figure and the key still say which agent it is.
+  const squarePx = (CELL_M * heightPx) / (2 * Math.tan((FOV * Math.PI) / 360) * cameraDistance(layout, aspect, FOV));
+  const crowded = squarePx < ROOMY_SQUARE_PX;
 
   // The agents on the floor, by kind: the key to which figure is which.
   const kinds = useMemo(() => {
@@ -452,7 +464,7 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
             {agents.map((agent) => {
               const spot = layout.spots.get(agent.id);
               return spot ? (
-                <Figure key={agent.id} agent={agent} spot={spot} colours={colours} still={still}
+                <Figure key={agent.id} agent={agent} spot={spot} colours={colours} still={still} crowded={crowded}
                   selected={selectedId === agent.id} hovered={hovered === agent.id}
                   onHover={setHovered} onOpen={onOpen} />
               ) : null;
