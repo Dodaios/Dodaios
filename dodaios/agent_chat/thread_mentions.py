@@ -22,6 +22,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
+from loguru import logger
+
 #: ``[words](thread:<session id>)``: the link the composer writes for a mention.
 _LINK: Final[re.Pattern[str]] = re.compile(r"\[([^\[\]\n]{1,200})\]\(thread:([0-9A-Za-z-]{8,64})\)")
 #: More threads than this in one message are named, not described.
@@ -62,7 +64,8 @@ def _branch(folder: str) -> str:
             ["git", "-C", folder, "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True, text=True, timeout=3, check=False, creationflags=quiet,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("thread mention: no branch read for {}: {}", folder, exc)
         return ""
     branch = done.stdout.strip() if done.returncode == 0 else ""
     return "" if branch == "HEAD" else branch
