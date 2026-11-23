@@ -1,17 +1,90 @@
 import { describe, expect, it } from "vitest";
 
-import { BOARD_COLUMNS, type BoardColumn } from "../agentBoard";
-import { CAMERA_PITCH, CELL_M, LOOK_AT_Y, cameraDistance, layoutSimulation, phaseOf } from "./simLayout";
+import {
+  CAMERA_PITCH, CELL_M, LOOK_AT_Y, SIM_STATIONS, assignSlots, cameraDistance, chooseShape, layoutSimulation,
+  phaseOf, stationOf, type SimShape, type SimSlots, type SimStation,
+} from "./simLayout";
 
-const crowd = (counts: Partial<Record<BoardColumn, number>>) =>
-  BOARD_COLUMNS.flatMap((place) =>
+const crowd = (counts: Partial<Record<SimStation, number>>) =>
+  SIM_STATIONS.flatMap((place) =>
     Array.from({ length: counts[place] ?? 0 }, (_, index) => ({ id: `${place}-${index}`, place })));
 
+const NOBODY: SimSlots = new Map();
+const ACROSS: SimShape = { flow: "across", lines: 3 };
+const DOWN: SimShape = { flow: "down", lines: 3 };
+
+describe("stationOf", () => {
+  it("stands an agent that works at Building, wherever its pull request is", () => {
+    expect(stationOf("ready", "working")).toBe("building");
+    expect(stationOf("review", "working")).toBe("building");
+    expect(stationOf("finished", "working")).toBe("building");
+  });
+
+  it("leaves an agent that rests, asks or failed where its work is", () => {
+    expect(stationOf("ready", "idle")).toBe("ready");
+    expect(stationOf("checks", "failed")).toBe("checks");
+    expect(stationOf("review", "attention")).toBe("review");
+    expect(stationOf("finished", "idle")).toBe("finished");
+  });
+});
+
+describe("assignSlots", () => {
+  it("gives the agents of a station its first squares, in the order they are listed", () => {
+    const slots = assignSlots(NOBODY, crowd({ building: 3, ready: 2 }));
+    expect(slots.get("building-0")).toEqual({ place: "building", slot: 0 });
+    expect(slots.get("building-2")).toEqual({ place: "building", slot: 2 });
+    expect(slots.get("ready-1")).toEqual({ place: "ready", slot: 1 });
+  });
+
+  it("keeps every agent on its square when the board lists them in another order", () => {
+    const agents = crowd({ building: 6 });
+    const first = assignSlots(NOBODY, agents);
+    const second = assignSlots(first, [...agents].reverse());
+    for (const agent of agents) expect(second.get(agent.id)).toEqual(first.get(agent.id));
+  });
+
+  it("moves nobody up when an agent leaves, and seats the next arrival on the free square", () => {
+    const agents = crowd({ building: 4 });
+    const first = assignSlots(NOBODY, agents);
+    const without = assignSlots(first, agents.filter((agent) => agent.id !== "building-1"));
+    expect(without.get("building-3")).toEqual({ place: "building", slot: 3 });
+    const arrived = assignSlots(without, [...agents.filter((agent) => agent.id !== "building-1"), { id: "new", place: "building" }]);
+    expect(arrived.get("new")).toEqual({ place: "building", slot: 1 });
+  });
+
+  it("moves only the agent whose work moved on", () => {
+    const first = assignSlots(NOBODY, crowd({ building: 3, checks: 1 }));
+    const moved = crowd({ building: 3, checks: 1 }).map((agent) =>
+      agent.id === "building-1" ? { ...agent, place: "checks" as const } : agent);
+    const second = assignSlots(first, moved);
+    expect(second.get("building-1")).toEqual({ place: "checks", slot: 1 });
+    for (const id of ["building-0", "building-2", "checks-0"]) expect(second.get(id)).toEqual(first.get(id));
+  });
+});
+
 describe("layoutSimulation", () => {
-  it("stands every agent inside the field its work is in", () => {
-    const agents = crowd({ building: 7, checks: 1, review: 3, ready: 12 });
-    const layout = layoutSimulation(agents);
-    expect(layout.fields.map((field) => field.column)).toEqual([...BOARD_COLUMNS]);
+  it("lays the five stations out in the order work travels, left to right or back to front", () => {
+    const slots = assignSlots(NOBODY, crowd({ building: 4, checks: 1, review: 2, ready: 1, finished: 3 }));
+    const across = layoutSimulation(slots, ACROSS);
+    expect(across.fields.map((field) => field.column)).toEqual(["building", "checks", "review", "ready", "finished"]);
+    expect(across.fields.map((field) => field.count)).toEqual([4, 1, 2, 1, 3]);
+    for (const [index, field] of across.fields.entries()) {
+      if (index > 0) expect(field.x).toBeGreaterThan(across.fields[index - 1].x);
+      expect(field.z).toBe(0);
+    }
+    const down = layoutSimulation(slots, DOWN);
+    for (const [index, field] of down.fields.entries()) {
+      if (index > 0) expect(field.z).toBeGreaterThan(down.fields[index - 1].z);
+      expect(field.x).toBe(0);
+    }
+    // One arrow between each station and the next.
+    expect(across.links).toHaveLength(4);
+    expect(down.links).toHaveLength(4);
+  });
+
+  it.each([ACROSS, DOWN])("stands every agent inside its station, on a square of its own (%o)", (shape) => {
+    const agents = crowd({ building: 11, checks: 2, review: 5, ready: 1, finished: 7 });
+    const layout = layoutSimulation(assignSlots(NOBODY, agents), shape);
     expect(layout.spots.size).toBe(agents.length);
     for (const agent of agents) {
       const spot = layout.spots.get(agent.id)!;
@@ -19,70 +92,63 @@ describe("layoutSimulation", () => {
       expect(Math.abs(spot.x - field.x)).toBeLessThanOrEqual(field.width / 2 - CELL_M / 2 + 1e-9);
       expect(Math.abs(spot.z - field.z)).toBeLessThanOrEqual(field.depth / 2 - CELL_M / 2 + 1e-9);
     }
-  });
-
-  it("gives every agent a square of its own", () => {
-    const layout = layoutSimulation(crowd({ building: 9, checks: 9, review: 9, ready: 9 }));
     const spots = [...layout.spots.values()];
     for (const [index, a] of spots.entries()) {
       for (const b of spots.slice(index + 1)) {
         expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.z - b.z))).toBeGreaterThanOrEqual(CELL_M - 1e-9);
       }
     }
-  });
-
-  it("fills a field from the front, in the order the board lists its agents", () => {
-    const layout = layoutSimulation(crowd({ building: 9 }));
-    const first = layout.spots.get("building-0")!;
-    const last = layout.spots.get("building-8")!;
-    // The viewer stands at +z: the first agent is nearest.
-    expect(first.z).toBeGreaterThan(last.z);
-    for (const spot of layout.spots.values()) expect(spot.z).toBeLessThanOrEqual(first.z + 1e-9);
-  });
-
-  it("gives a full field the floor and an empty one the room of a single agent", () => {
-    for (const aspect of [0.5, 1, 2, 4]) {
-      const layout = layoutSimulation(crowd({ building: 28, checks: 1, ready: 1 }), aspect);
-      expect(layout.fields.map((field) => field.count)).toEqual([28, 1, 0, 1]);
-      const area = layout.fields.map((field) => field.width * field.depth);
-      const floor = area.reduce((sum, value) => sum + value, 0);
-      // Nearly all the work is in one column: so is most of the floor.
-      expect(area[0] / floor).toBeGreaterThan(0.5);
-      for (const field of layout.fields) {
-        expect(field.width).toBeGreaterThanOrEqual(CELL_M);
-        expect(field.depth).toBeGreaterThanOrEqual(CELL_M);
+    for (const [index, a] of layout.fields.entries()) {
+      for (const b of layout.fields.slice(index + 1)) {
+        const apartX = Math.abs(a.x - b.x) >= (a.width + b.width) / 2 - 1e-9;
+        const apartZ = Math.abs(a.z - b.z) >= (a.depth + b.depth) / 2 - 1e-9;
+        expect(apartX || apartZ).toBe(true);
       }
     }
   });
 
-  it("never lets two fields overlap", () => {
-    for (const aspect of [0.4, 0.8, 1.5, 3]) {
-      const { fields } = layoutSimulation(crowd({ building: 13, checks: 2, review: 7, ready: 1 }), aspect);
-      for (const [index, a] of fields.entries()) {
-        for (const b of fields.slice(index + 1)) {
-          const apartX = Math.abs(a.x - b.x) >= (a.width + b.width) / 2 - 1e-9;
-          const apartZ = Math.abs(a.z - b.z) >= (a.depth + b.depth) / 2 - 1e-9;
-          expect(apartX || apartZ).toBe(true);
-        }
-      }
+  it.each([ACROSS, DOWN])("moves no agent of a station when another one joins it (%o)", (shape) => {
+    const agents = crowd({ building: 5, review: 2 });
+    const first = assignSlots(NOBODY, agents);
+    const before = layoutSimulation(first, shape);
+    const after = layoutSimulation(assignSlots(first, [...agents, { id: "late", place: "building" }]), shape);
+    const station = (layout: typeof before) => layout.fields.find((field) => field.column === "building")!;
+    // Measured from the station's own front left corner: the floor may recentre, the station does not reshuffle.
+    const within = (layout: typeof before, id: string) => {
+      const field = station(layout);
+      const spot = layout.spots.get(id)!;
+      return [spot.x - (field.x - field.width / 2), spot.z - (field.z + field.depth / 2)];
+    };
+    for (let index = 0; index < 5; index += 1) {
+      const [x0, z0] = within(before, `building-${index}`);
+      const [x1, z1] = within(after, `building-${index}`);
+      expect(x1).toBeCloseTo(x0, 9);
+      expect(z1).toBeCloseTo(z0, 9);
     }
   });
 
-  it("lays the floor wide for a wide panel and deep for a narrow one", () => {
-    const agents = crowd({ building: 4, checks: 4, review: 4, ready: 4 });
-    const wide = layoutSimulation(agents, 4);
-    const narrow = layoutSimulation(agents, 0.5);
-    expect(wide.width / wide.depth).toBeGreaterThan(narrow.width / narrow.depth);
-    // In a narrow side panel the fields no longer stand in one row.
-    expect(new Set(narrow.fields.map((field) => field.z)).size).toBeGreaterThan(1);
-    expect(new Set(wide.fields.map((field) => field.z)).size).toBe(1);
-  });
-
-  it("draws an empty floor too", () => {
-    const layout = layoutSimulation([]);
-    expect(layout.fields).toHaveLength(4);
+  it("gives an empty station the room of one agent", () => {
+    const layout = layoutSimulation(NOBODY, ACROSS);
+    expect(layout.fields).toHaveLength(5);
     expect(layout.spots.size).toBe(0);
-    expect(layout.width).toBeGreaterThan(0);
+    for (const field of layout.fields) expect(field.width).toBeGreaterThanOrEqual(CELL_M);
+  });
+});
+
+describe("chooseShape", () => {
+  const slots = assignSlots(NOBODY, crowd({ building: 12, checks: 2, review: 3, ready: 2, finished: 6 }));
+
+  it("runs the path across a wide panel and down a narrow one", () => {
+    expect(chooseShape(slots, 3).flow).toBe("across");
+    expect(chooseShape(slots, 0.5).flow).toBe("down");
+  });
+
+  it("keeps the shape in use while it still fits, and gives it up when the panel changes for good", () => {
+    const wide = chooseShape(slots, 3);
+    expect(chooseShape(slots, 2.75, wide)).toEqual(wide);
+    const more = assignSlots(slots, [...crowd({ building: 13, checks: 2, review: 3, ready: 2, finished: 6 })]);
+    expect(chooseShape(more, 3, wide)).toEqual(wide);
+    expect(chooseShape(slots, 0.5, wide).flow).toBe("down");
   });
 });
 
@@ -90,7 +156,7 @@ describe("cameraDistance", () => {
   const FOV = 32;
 
   it("stands far enough back that every corner of the floor is in the picture", () => {
-    const layout = layoutSimulation(crowd({ building: 6, checks: 2, review: 5, ready: 1 }), 1.5);
+    const layout = layoutSimulation(assignSlots(NOBODY, crowd({ building: 6, checks: 2, review: 5, ready: 1 })), ACROSS);
     const aspect = 1.5;
     const distance = cameraDistance(layout, aspect, FOV);
     const half = Math.tan((FOV * Math.PI) / 360);
