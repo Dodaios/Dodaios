@@ -477,7 +477,7 @@ function CandidateCard({
           {installed ? (
             <Badge className="gap-1" variant="default">
               <Check className="h-3 w-3" />
-              {t("skill_finder_dialog.installed")}
+              {t("skill_finder_dialog.installed_off")}
             </Badge>
           ) : (
             <Button

@@ -31,7 +31,6 @@ from dodaios.core.paths import user_skills_dir
 # re-export for callers that read the seed through the finder.
 from dodaios.skills import catalog as _catalog_module
 from dodaios.skills.catalog import load_catalog  # noqa: F401
-from dodaios.skills.loader import parse_skill
 
 log = logging.getLogger(__name__)
 
@@ -136,7 +135,9 @@ _RISK_ORDER = {"safe": 0, "monitor": 1, "ask": 2, "block": 3}
 # Slug rule for the install target directory — same shape as the paste-import
 # guard in skills_routes (`_IMPORT_NAME_RE`), plus dots for spec-style names.
 # No separator can pass, so `user_skills_dir() / name` stays inside the root.
-_INSTALL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+# It ends in a letter or digit: Windows drops a trailing dot from a folder
+# name, so "notes." would be written into the folder of the skill "notes".
+_INSTALL_NAME_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?$")
 
 
 def _passes_filter(entry: dict[str, Any], f: SearchFilters) -> bool:
@@ -503,16 +504,27 @@ class SkillFinder:
         return candidates[: filters.limit]
 
     async def install(self, candidate: SkillCandidate) -> Path:
-        """Installs a candidate into ``user_skills_dir()``.
+        """Installs a candidate into ``user_skills_dir()`` as a DRAFT.
 
         Strategy:
         - If ``raw_url`` is set, the SKILL.md is fetched directly.
         - Without ``raw_url``, the install fails with a clear message —
           the user then has to install manually (link in the frontend).
 
+        The downloaded file is third-party text nobody here has read yet
+        (AP-15), whether it comes from the shipped catalog or the community
+        marketplace. It is stored with ``state: draft`` and switched on by the
+        person in Skills; it never joins the active pool by being installed.
+
+        Nothing is written unless the file is accepted: it must be UTF-8 text
+        within the size limit, parse as a skill, read back as a draft, and
+        name itself exactly as the entry that was installed (a file that
+        calls itself something else would register under THAT name and could
+        take the place of another skill).
+
         Returns the target path (``<user_skills>/<name>/SKILL.md``).
-        Raises ``ValueError`` on an invalid SKILL.md (frontmatter validation).
-        Raises ``RuntimeError`` on a network error or a missing raw_url.
+        Raises ``RuntimeError`` on a network error, a missing raw_url, or a
+        refused file; the message is shown to the user.
         """
         if not candidate.raw_url:
             raise RuntimeError(
@@ -543,51 +555,106 @@ class SkillFinder:
                 f"Skill name {candidate.name!r} resolves outside the skills "
                 "directory."
             )
+        from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 
-        # httpx is in the runtime deps (mcp_routes etc.)
-        import httpx
-
-        from dodaios.core.http_guard import https_only_async
-
-        # The https check above covers the URL the index gave us. The guard
-        # covers every url after it: a publisher who controls the host also
-        # controls its Location header, and one 302 would otherwise put this
-        # download back on the loopback API or a metadata endpoint.
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=httpx.Timeout(15.0),
-            **https_only_async(),
-        ) as client:
-            try:
-                resp = await client.get(candidate.raw_url)
-                resp.raise_for_status()
-            except httpx.HTTPError as exc:
-                raise RuntimeError(
-                    f"Download from {candidate.raw_url} failed: {exc}"
-                ) from exc
-            content = resp.text
-
-        # Target structure: <user_skills>/<name>/SKILL.md
-        target_dir = user_skills_dir() / candidate.name
-        target_dir.mkdir(parents=True, exist_ok=True)
+        if candidate.name in BUILTIN_SKILL_NAMES:
+            raise RuntimeError(
+                f"'{candidate.name}' is a built-in skill name and cannot be "
+                "installed from a catalog."
+            )
+        # Target structure: <user_skills>/<name>/SKILL.md. An existing file
+        # is never replaced, whatever name the skill inside it goes by.
+        target_dir = base / candidate.name
         target_file = target_dir / "SKILL.md"
+        if target_file.exists():
+            raise RuntimeError(
+                f"Skill '{candidate.name}' already exists. Delete it before "
+                "reinstalling."
+            )
 
-        # Write atomically
+        content = await _download_skill_text(candidate.raw_url)
+
+        from dodaios.skills.remote import hold_as_draft
+
+        # Stamps ``state: draft`` and reads the result back with the loader;
+        # raises (a RuntimeError) for a file that is not a skill or would not
+        # stay a draft. Checked on a scratch copy: a refusal writes nothing.
+        stamped, parsed = hold_as_draft(content)
+        if parsed.name != candidate.name:
+            raise RuntimeError(
+                f"The downloaded file names itself {parsed.name!r}, not "
+                f"{candidate.name!r}. A skill is installed under the name it "
+                "is listed with, so this file was not installed."
+            )
+
+        # Write atomically; on a failure take back what this call created.
+        created_dir = not target_dir.exists()
         tmp = target_file.with_suffix(".md.tmp")
-        tmp.write_text(content, encoding="utf-8")
-        tmp.replace(target_file)
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(stamped, encoding="utf-8")
+            tmp.replace(target_file)
+        except OSError as exc:
+            tmp.unlink(missing_ok=True)
+            if created_dir:
+                try:
+                    target_dir.rmdir()
+                except OSError:  # not empty or already gone: nothing of ours is left
+                    log.debug("skill install: %s not removed", target_dir, exc_info=True)
+            raise RuntimeError(f"Could not write skill: {exc}") from exc
 
-        # Parse check: if the SKILL.md is broken, we mark it as DRAFT, but
-        # don't delete it automatically — the user sees the error in the UI
-        # and can decide.
-        parsed = parse_skill(target_file)
         if parsed.error:
+            # A draft with a broken trigger: stored, shown with its error.
             log.warning(
                 "Installed skill '%s' has a validation error: %s",
                 candidate.name, parsed.error,
             )
 
         return target_file
+
+
+async def _download_skill_text(raw_url: str) -> str:
+    """Fetch one SKILL.md over https, never more than the size limit."""
+    # httpx is in the runtime deps (mcp_routes etc.)
+    import httpx
+
+    from dodaios.core.http_guard import https_only_async
+    from dodaios.skills.remote import MAX_REMOTE_SKILL_BYTES
+
+    too_large = (
+        f"The file at {raw_url} is larger than {MAX_REMOTE_SKILL_BYTES // 1024} KB "
+        "and was not installed."
+    )
+    chunks: list[bytes] = []
+    total = 0
+    # The https check in ``install`` covers the URL the index gave us. The
+    # guard covers every url after it: a publisher who controls the host also
+    # controls its Location header, and one 302 would otherwise put this
+    # download back on the loopback API or a metadata endpoint.
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=httpx.Timeout(15.0),
+        **https_only_async(),
+    ) as client:
+        try:
+            async with client.stream("GET", raw_url) as resp:
+                resp.raise_for_status()
+                declared = resp.headers.get("content-length", "")
+                if declared.isdigit() and int(declared) > MAX_REMOTE_SKILL_BYTES:
+                    raise RuntimeError(too_large)
+                async for chunk in resp.aiter_bytes():
+                    total += len(chunk)
+                    if total > MAX_REMOTE_SKILL_BYTES:
+                        raise RuntimeError(too_large)
+                    chunks.append(chunk)
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"Download from {raw_url} failed: {exc}") from exc
+    try:
+        return b"".join(chunks).decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(
+            f"The file at {raw_url} is not UTF-8 text and was not installed."
+        ) from exc
 
 
 __all__ = [

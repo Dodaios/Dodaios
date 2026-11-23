@@ -5253,6 +5253,7 @@
     "approving": "Aprobando…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Instalado, desactivado",
     "install_failed": "La instalación falló",
     "title": "Buscador de habilidades",
     "subtitle": "Describe lo que necesitas: el miniagente busca en el catálogo y clasifica con IA.",
@@ -6727,6 +6728,7 @@
     "landed_title": "{title} instalado",
     "landed_plugin": "Ya está en Plugins. Conéctalo para poder usarlo.",
     "landed_skill": "Ya está en Skills y se puede usar enseguida.",
+    "landed_skill_off": "Está en Skills, desactivado. Léelo allí y actívalo para usarlo.",
     "landed_needs_connect": "Instalado, pero todavía no se puede usar: falta conectarlo.",
     "sends_data_to": "Una vez conectado, las peticiones y tu token de acceso van a:",
     "runs_command": "Una vez conectado, este comando se ejecuta en tu ordenador:",

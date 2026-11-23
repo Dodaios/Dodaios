@@ -33,32 +33,97 @@ except Exception:  # pragma: no cover
     _HAVE_WATCHDOG = False
 
 
+def _read_block(block: str) -> dict | None:
+    """A YAML frontmatter block as a mapping, or ``None`` when it is not one."""
+    import yaml
+
+    try:
+        meta = yaml.safe_load(block)
+    except yaml.YAMLError:  # an unreadable block is not a mapping
+        return None
+    return meta if isinstance(meta, dict) else None
+
+
+def _frontmatter_state(block: str) -> str | None:
+    """The top-level ``state`` a YAML frontmatter block parses to, or ``None``."""
+    meta = _read_block(block)
+    value = meta.get("state") if meta is not None else None
+    return str(value) if value is not None else None
+
+
+def _state_value_spans(block: str) -> list[tuple[int, int]]:
+    """Where the VALUE of each top-level ``state`` key sits in ``block``.
+
+    Read from the YAML structure, not guessed from the text: a line that
+    merely looks like ``state: …`` inside a quoted value or a block scalar is
+    part of that value and is not listed. A key counts when the loader could
+    read it as the state, which includes the spellings the portable reading
+    folds together (``State``, ``STATE``).
+    """
+    import yaml
+
+    from .portable import _normalise_key
+
+    try:
+        root = yaml.compose(block, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:  # an unreadable block names no key to edit
+        return []
+    if not isinstance(root, yaml.MappingNode):
+        return []
+    return [
+        (value.start_mark.index, value.end_mark.index)
+        for key, value in root.value
+        if isinstance(key, yaml.ScalarNode) and _normalise_key(key.value) == "state"
+    ]
+
+
 def _rewrite_state_in_frontmatter(text: str, new_state: str) -> str:
     """Sets the `state` field in the YAML frontmatter to `new_state`.
 
     Plan-§7.5-Promote: SKILL.md is edited minimally-invasively, no
-    schema re-render — user comments in the body are preserved.
+    schema re-render — comments and every other line are preserved.
 
-    Sub-agent-review MAJOR hardening: the regex now also matches lines
-    with a trailing comment (`state: draft # do not promote`) and a YAML
-    anchor (`state: &s draft`). This prevents duplicate keys.
+    The frontmatter block is the one the loader reads
+    (``loader.frontmatter_span``), and the edit is checked against the same
+    YAML reading: the returned block parses to ``state: new_state``. Every
+    top-level key the loader could take for the state gets the new value in
+    place; without a ``state`` key, or when that edit does not produce the
+    wanted state, the key is added as the last line of the block, where it
+    wins over everything before it. A file that already says so is returned
+    as it is.
+
+    A text without a frontmatter is returned unchanged, and a block that is
+    not readable YAML stays unreadable (the loader holds such a file as a
+    draft). A caller that must not let a skill through as live checks the
+    parsed state of what it wrote (``remote.hold_as_draft``).
     """
-    import re as _re
+    from .loader import frontmatter_span
 
-    if not text.startswith("---"):
-        return text
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return text
-    fm = parts[1]
-    body = parts[2]
-    # `[^\n]*` matches everything up to the next newline — incl. comments + anchors.
-    state_re = _re.compile(r"(?m)^state\s*:[^\n]*$")
-    if state_re.search(fm):
-        fm = state_re.sub(f"state: {new_state}", fm)
-    else:
-        fm = fm.rstrip() + f"\nstate: {new_state}\n"
-    return f"---{fm}---{body}"
+    # The loader reads a file without its byte-order mark, so the mark is not
+    # part of what is searched for the opening line here either.
+    mark = "\ufeff" if text.startswith("\ufeff") else ""
+    text = text[len(mark):]
+
+    span = frontmatter_span(text)
+    if span is None:
+        return mark + text
+    start, end, _body_start = span
+    block = text[start:end]
+    newline = "\r\n" if "\r\n" in text[:end] else "\n"
+
+    edited = block
+    for value_start, value_end in sorted(_state_value_spans(block), reverse=True):
+        if value_end > value_start:
+            edited = edited[:value_start] + new_state + edited[value_end:]
+        else:  # `state:` with nothing after it: an empty value has no span to replace
+            edited = edited[:value_start] + f" {new_state}" + edited[value_end:]
+    if _frontmatter_state(edited) != new_state:
+        # No such key yet, or the edit above did not hold. The last key of a
+        # mapping wins, so the block's own last line settles it. An edit that
+        # left the block unreadable is dropped in favour of the original.
+        base = edited if _read_block(edited) is not None else block
+        edited = base.rstrip() + f"{newline}state: {new_state}{newline}"
+    return mark + text[:start] + edited + text[end:]
 
 log = logging.getLogger(__name__)
 
@@ -522,7 +587,7 @@ class SkillRegistry:
             self._observer.stop()
             self._observer.join(timeout=2.0)
         except Exception:  # pragma: no cover
-            pass
+            log.debug("skill watcher did not stop cleanly", exc_info=True)
         self._observer = None
 
     def _schedule_reload(self) -> None:
