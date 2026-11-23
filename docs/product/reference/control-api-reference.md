@@ -47,8 +47,9 @@ facade for configuration, providers, languages, secrets, and the Control key.
   them into commands. Some sockets also require their own ticket or handshake
   credential.
 
-The docs browser uses `/api/docs`. Swagger is at `/api/_swagger`; the OpenAPI
-document is at `/api/openapi.json`.
+The docs browser uses `/api/docs`. The OpenAPI document is at
+`/api/openapi.json`. Swagger at `/api/_swagger` exists only in development
+mode (`ui.dev_mode`), because that page loads its script from a public CDN.
 
 ## Discover Operations Safely
 
@@ -59,7 +60,7 @@ Start with read-only discovery rather than copying paths from an old script.
 | `GET /api/health` | No Control credential | Whether the server answers; the full app includes its version, while desktop warm-up reports `warming: true` |
 | `GET /api/control/auth/probe` | Control key | Whether that key is accepted; success returns a small `ok` result |
 | `GET /api/openapi.json` | Global API access boundary | Mounted HTTP paths, methods, tags, parameters, bodies, and declared response schemas |
-| `GET /api/_swagger` | Global API access boundary | A browsable view of the current OpenAPI document |
+| `GET /api/_swagger` | Global API access boundary | A browsable view of the current OpenAPI document (development mode only) |
 | `GET /api/control/allowlist` | Control key | Configuration paths that the focused facade may change, with risk and restart metadata |
 | `GET /api/commands` | Global API access boundary | The curated App Command catalog and each command's backing endpoint |
 

@@ -51,7 +51,7 @@ from dodaios.core.events import (
 from dodaios.core.registry import list_all_plugins
 from dodaios.terminal import PtyManager, discover_shells, get_shell
 
-from .fast_bootstrap import ASSET_SUFFIXES
+from .fast_bootstrap import ASSET_SUFFIXES, dist_file
 from .schema import (
     WSAudioLevel,
     WSCommand,
@@ -356,7 +356,11 @@ class WebServer:
             version=__version__,
             # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
             # path belongs to the doc-browser router (see docs_routes.py).
-            docs_url="/api/_swagger",
+            # Development only, and no ReDoc page at all: both stock pages
+            # load their script from a public CDN, and a page of this origin
+            # may call every route. The OpenAPI document itself stays.
+            docs_url="/api/_swagger" if self.cfg.ui.dev_mode else None,
+            redoc_url=None,
             openapi_url="/api/openapi.json",
         )
 
@@ -2480,13 +2484,9 @@ class WebServer:
         ) -> FileResponse | HTMLResponse | JSONResponse:
             # API and socket paths never reach this handler: _SpaFallbackRoute
             # declines them, so the router answers 404 / 405 itself.
-            try:
-                target = (DIST_DIR / full_path).resolve()
-                dist_root = DIST_DIR.resolve()
-                if target.is_file() and dist_root in target.parents:
-                    return FileResponse(str(target))
-            except (OSError, ValueError):
-                pass
+            target = dist_file(DIST_DIR, full_path)
+            if target is not None:
+                return FileResponse(str(target))
             # A missing asset (image/script/font) gets an honest 404, never the
             # SPA index: an <img> that receives HTML with a 200 renders as a
             # permanently broken image — the browser treats the load as a
@@ -3006,8 +3006,12 @@ class WebServer:
         publish_changes_to(self.bus, asyncio.get_running_loop())
         if start_serving:
             assert_bind_safe(host, _control_key.get_control_key())
+            # Requests from here arrive on a real socket: local open access is
+            # for this user's own processes, not for every account on loopback.
+            from . import peer_owner
+
             config = uvicorn.Config(
-                app=self.app,
+                app=peer_owner.from_socket(self.app),
                 host=host,
                 port=resolved_port,
                 log_level=self.cfg.telemetry.log_level.lower(),
