@@ -12,7 +12,9 @@ Rules (each finding names its rule):
         ``eslint-disable``, ``@ts-ignore``;
 ``C4``  a file that defines what the checks are was changed (test, lint, type
         and CI configuration);
-``C5``  a gate, a hook or an instruction file for agents was touched;
+``C5``  a gate, a hook or an instruction file for agents was touched (an
+        instruction file alone is a point to look at: people ask agents to
+        edit them every day);
 ``C6``  production code asks whether it runs under a test;
 ``C7``  assertions were removed from an existing test.
 
@@ -231,6 +233,12 @@ _WEAKENING = re.compile(
     r"|--passWithNoTests|-k\s+[\"']?not\b|--deselect\b|--ignore[= ]|allow_failure:\s*true"
 )
 
+#: The instruction files agents are told to follow. Editing one is ordinary
+#: requested work far more often than a shortcut: a point to look at.
+_INSTRUCTIONS = re.compile(
+    r"(?i)(?:^|/)(?:agents\.md|claude\.md|gemini\.md|\.cursorrules"
+    r"|\.github/copilot-instructions\.md)$"
+)
 #: Gates, hooks and the instruction files agents are told to follow.
 _PROTECTED = re.compile(
     r"(?i)(?:^|/)(?:\.claude/(?:settings[^/]*\.json|hooks/.*)|\.codex/hooks\.json|\.husky/.*"
@@ -251,6 +259,11 @@ def defines_checks(path: str) -> bool:
 def guards_agents(path: str) -> bool:
     """Whether ``path`` is a gate, a hook or an instruction file for agents."""
     return bool(_PROTECTED.search(path.replace("\\", "/")))
+
+
+def instructs_agents(path: str) -> bool:
+    """Whether ``path`` is an instruction file for agents (not a gate or a hook)."""
+    return bool(_INSTRUCTIONS.search(path.replace("\\", "/")))
 
 
 def _is_test(path: str) -> bool:
@@ -351,10 +364,14 @@ def _c4(item: FileDiff) -> Iterable[Finding]:
 
 def _c5(item: FileDiff) -> Iterable[Finding]:
     for path in sorted({item.old_path, item.new_path} - {""}):
+        if instructs_agents(path):
+            yield Finding(
+                "C5", AMBIGUOUS, path, 0, "", "an instruction file for agents was changed",
+            )
+            return
         if guards_agents(path):
             yield Finding(
-                "C5", VIOLATION, path, 0, "",
-                "a gate, a hook or an instruction file for agents was touched",
+                "C5", VIOLATION, path, 0, "", "a gate or a hook for agents was touched",
             )
             return
 

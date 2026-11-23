@@ -46,19 +46,19 @@ def worktree(tmp_path: Path) -> Path:
 
 
 class _Rig:
-    def __init__(self, tmp_path: Path, folder: Path, verify: str, **more: Any) -> None:
+    def __init__(self, tmp_path: Path, folder: Path, **more: Any) -> None:
         self.chat = AgentChatStore(tmp_path / "agent_chat.db")
         self.store = VerificationStore(tmp_path / "verification.db")
         self.session = self.chat.create_session(
             provider="claude-api", model="m", effort="low", cwd=str(folder), surface="agent"
         )
         self.more = more
-        self.recorder = self.new_recorder(verify)
+        self.recorder = self.new_recorder()
 
-    def new_recorder(self, verify: str = "observe") -> rec.RunRecorder:
-        """A recorder on the same record, as after an app restart."""
+    def new_recorder(self) -> rec.RunRecorder:
+        """A recorder on the same record, as after an app restart (factory policy)."""
         return rec.RunRecorder(
-            self.store, SimpleNamespace(store=self.chat), verify=verify,
+            self.store, SimpleNamespace(store=self.chat),
             probe=lambda runner: Harness(runner, "2.1.330", "2.1"), **self.more,
         )
 
@@ -84,8 +84,8 @@ class _Rig:
 def rig(tmp_path: Path, worktree: Path):
     made: list[_Rig] = []
 
-    def build(verify: str = "observe", folder: Path | None = None, **more: Any) -> _Rig:
-        made.append(_Rig(tmp_path, folder or worktree, verify, **more))
+    def build(folder: Path | None = None, **more: Any) -> _Rig:
+        made.append(_Rig(tmp_path, folder or worktree, **more))
         return made[-1]
 
     yield build
@@ -104,17 +104,12 @@ def test_an_ended_run_is_scanned_and_the_result_recorded(rig, worktree: Path):
     assert run["tree_id"]
     steps = it.store.steps("job_1")
     assert [s["step"] for s in steps] == [
-        "bound", "turn_started", "turn_finished", "gates", "evidence",
+        "bound", "turn_started", "turn_finished", "gates", "evidence", "follow_up_withheld",
+        "verdict",
     ]
-    assert steps[-2]["detail"]["findings"][0]["rule"] == "C1"
-
-
-def test_with_verify_off_nothing_is_scanned(rig, worktree: Path):
-    it = rig(verify="off")
-    (worktree / "tests" / "test_calc.py").unlink()
-    run = it.run_a_turn()
-    assert run["gate_status"] == ""
-    assert "gates" not in [s["step"] for s in it.store.steps("job_1")]
+    assert steps[3]["detail"]["findings"][0]["rule"] == "C1"
+    # Judged, and nothing sent: the factory policy does not hold the run.
+    assert (run["verdict"], run["follow_ups"]) == ("failed", 0)
 
 
 def test_a_scan_that_fails_leaves_the_run_as_it_ended(rig, monkeypatch):
@@ -276,11 +271,12 @@ def test_github_is_asked_about_the_commit_the_run_left_behind(rig, worktree: Pat
     assert (run["head_sha"], run["landing"], run["ci_status"]) == (head, "merged", "passing")
     assert run["evidence_due_ms"] is None
     steps = it.store.steps("job_1")
-    assert [s["step"] for s in steps][-2:] == ["gates", "evidence"]
-    assert steps[-2]["detail"]["head_sha"] == head
-    assert steps[-2]["detail"]["committed"] is True
-    assert steps[-1]["status"] == "merged/passing"
-    assert steps[-1]["detail"]["pr"] == 12
+    assert [s["step"] for s in steps][-3:] == ["gates", "evidence", "verdict"]
+    assert steps[-3]["detail"]["head_sha"] == head
+    assert steps[-3]["detail"]["committed"] is True
+    assert steps[-2]["status"] == "merged/passing"
+    assert steps[-2]["detail"]["pr"] == 12
+    assert run["verdict"] == "verified"
 
 
 def test_work_that_is_not_committed_is_not_on_github_and_nobody_asks(rig, worktree: Path):
@@ -319,14 +315,6 @@ def test_a_run_without_a_checkout_of_its_own_has_no_commit_to_ask_about(
     assert (run["head_sha"], run["landing"]) == ("", "")
 
 
-def test_with_verify_off_github_is_never_asked(rig, worktree: Path):
-    _on_github(worktree)
-    github = _GitHub(MERGED_PASSING)
-    it = rig(verify="off", read_evidence=github)
-    it.run_a_turn(work=lambda: _commit(worktree))
-    assert github.asked == []
-
-
 def test_checks_that_still_run_are_read_again_when_they_are_due(rig, worktree: Path):
     _on_github(worktree)
     clock = _Clock()
@@ -359,7 +347,9 @@ def test_checks_that_still_run_are_read_again_when_they_are_due(rig, worktree: P
         ("evidence", "pr_open/running"), ("evidence:1", "merged/passing"),
     ]
     assert it.recorder.read_due(second_due + 10**9) == 0
-    assert it.recorder._wait_s() is None
+    # Decided when the checks passed; only the later look for a leak is due.
+    assert run["verdict"] == "verified"
+    assert list(it.recorder._leak_at) == ["job_1"] and not it.recorder._decide_at
 
 
 def test_a_commit_that_shows_no_check_is_given_up_on_after_five_minutes(rig, worktree: Path):
@@ -406,8 +396,6 @@ def test_a_restart_goes_on_reading_what_was_due(rig, worktree: Path):
     assert after_restart._wait_s() == 300.0
     assert after_restart.read_due(due) == 1
     assert it.store.get("job_1")["landing"] == "merged"
-    # With the scan switched off after the restart nothing is read again.
-    assert it.new_recorder(verify="off")._due == {}
 
 
 def test_the_writer_thread_reads_due_evidence_by_itself(rig, worktree: Path, monkeypatch):

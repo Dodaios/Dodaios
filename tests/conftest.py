@@ -351,6 +351,34 @@ def _brief_pipeline_quiet():
     brief_log.reset_log()
 
 
+@pytest.fixture(autouse=True)
+def _run_recorder_isolated():
+    """No test hands the process's run recorder, worktree maker or policy store to the next.
+
+    The chat service installs the run recorder on every build (there is no
+    switch), and with it a worktree maker and a policy store. A test that
+    builds the real service would otherwise leave a recorder of its own
+    temporary folder behind, and later tests would bind and judge their runs
+    against it.
+    """
+    yield
+    recorder_module = sys.modules.get("dodaios.orchestrator.verification.recorder")
+    if recorder_module is None:
+        return
+    current = recorder_module.recorder()
+    if current is not None:
+        stop = getattr(current, "stop", None)
+        if callable(stop):
+            stop()
+        recorder_module.set_recorder(None)
+    workdir_module = sys.modules.get("dodaios.orchestrator.verification.workdir")
+    if workdir_module is not None:
+        workdir_module.set_dirs(None)
+    bind_module = sys.modules.get("dodaios.rsi.bind")
+    if bind_module is not None:
+        bind_module.set_store(None)
+
+
 @pytest.fixture
 def briefs_on(tmp_path, monkeypatch):  # noqa: ANN001
     """The brief pipeline as the app ships it, with its record in a temp data folder."""

@@ -1,7 +1,13 @@
 """A coding policy: how the app steers the coding runs of one cell.
 
 A policy is small, declarative and content-addressed (its id is a hash of its
-canonical JSON), so a run records exactly which one it ran under. Two parts:
+canonical JSON), so a run records exactly which one it ran under. Three parts:
+
+* **H, hold:** whether the app holds a run of this cell until its output was
+  checked. A run that holds is not over for the lead before its verdict, and a
+  finding brings it a follow-up order. A run that does not hold is judged all
+  the same (scan, evidence, verdict), but the lead's job ends with the turn
+  and nothing is sent to the agent. The factory policy does not hold.
 
 * **O, steering parameters** the app applies after a turn: how many follow-up
   orders a run may get (``p_max``, never above the code's own limit) and how
@@ -70,10 +76,15 @@ class Policy:
     evidence_wait_s: int = 45 * 60
     #: Text a run's first brief carries; empty unless the person approved one.
     domain_block: str = ""
+    #: The run is held until its output was checked, and a finding brings a
+    #: follow-up order. ``False``: judged only, nothing is held or sent.
+    hold: bool = False
 
     def __post_init__(self) -> None:
         from dodaios.orchestrator.verification import driver
 
+        if not isinstance(self.hold, bool):
+            raise PolicyError("hold must be true or false")
         if not 0 <= int(self.p_max) <= driver.MAX_FOLLOW_UPS:
             raise PolicyError(f"p_max must be 0 to {driver.MAX_FOLLOW_UPS}")
         if not 60 <= int(self.evidence_wait_s) <= driver.EVIDENCE_WAIT_S:
@@ -84,8 +95,15 @@ class Policy:
             raise PolicyError("the domain block tells agents to weaken the checks")
 
     def to_text(self) -> str:
-        """The canonical JSON the registry stores and the id is taken from."""
-        return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        """The canonical JSON the registry stores and the id is taken from.
+
+        ``hold`` is written only when it is set, so a policy stored before the
+        field existed keeps its text and its id.
+        """
+        data = asdict(self)
+        if not self.hold:
+            del data["hold"]
+        return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
     @property
     def id(self) -> str:
@@ -102,7 +120,7 @@ class Policy:
             raise PolicyError("the policy is not JSON") from exc
         if not isinstance(data, dict):
             raise PolicyError("the policy is not a JSON object")
-        unknown = set(data) - {"p_max", "evidence_wait_s", "domain_block"}
+        unknown = set(data) - {"p_max", "evidence_wait_s", "domain_block", "hold"}
         if unknown:
             raise PolicyError(f"unknown policy fields: {sorted(unknown)}")
         try:
@@ -110,6 +128,8 @@ class Policy:
                 p_max=int(data.get("p_max", DEFAULT.p_max)),
                 evidence_wait_s=int(data.get("evidence_wait_s", DEFAULT.evidence_wait_s)),
                 domain_block=str(data.get("domain_block") or ""),
+                # Absent in a policy stored before the field existed: it does not hold.
+                hold=data.get("hold", False),
             )
         except (TypeError, ValueError) as exc:
             raise PolicyError(str(exc)) from exc

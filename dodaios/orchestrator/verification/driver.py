@@ -1,8 +1,8 @@
 """What happens after a coding run's output was checked: accept, wait, ask again, or stop.
 
-With ``[rsi] verify = "enforce"`` a run is not over when its thread's turn
-ends. The app checks what the turn left behind (the output scan, then what
-GitHub says about the commit) and decides here, without a model:
+A run is not over when its thread's turn ends. The app checks what the turn
+left behind (the output scan, then what GitHub says about the commit) and
+decides here, without a model:
 
 * a check was weakened, or the repository's checks fail: one follow-up order to
   the same thread, built from what was found (:mod:`prompts`);
@@ -11,7 +11,9 @@ GitHub says about the commit) and decides here, without a model:
   else ``unverified`` with the reason.
 
 This module is the decision alone: a pure function of the record. Sending,
-waiting and writing are the recorder's. It never looks at an agent while it
+waiting and writing are the recorder's, and so is withholding: a follow-up
+order or a review for a run whose coding policy does not hold it is recorded
+as withheld and not given. It never looks at an agent while it
 works, only at what a finished turn left behind.
 
 **The limits are constants of the code.** No prompt, policy or setting can

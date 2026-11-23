@@ -76,7 +76,7 @@ class Suggestion:
         """``active`` with this line added to its domain block."""
         block = "\n".join(part for part in (active.domain_block, self.line) if part)
         return Policy(p_max=active.p_max, evidence_wait_s=active.evidence_wait_s,
-                      domain_block=block)
+                      domain_block=block, hold=active.hold)
 
 
 def suggest(

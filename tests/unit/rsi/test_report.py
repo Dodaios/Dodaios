@@ -81,10 +81,12 @@ def test_since_leaves_older_runs_out(tmp_path: Path):
     assert len(report.load_runs(db, since_ms=1_002)) == 2
 
 
-def test_no_record_yet_says_how_to_start_one(tmp_path: Path, capsys):
+def test_no_record_yet_says_that_runs_are_recorded_without_a_switch(tmp_path: Path, capsys):
     assert report.load_runs(tmp_path / "missing.db") == []
     assert report.main(["--db", str(tmp_path / "missing.db")]) == 0
-    assert "[rsi] enabled" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "No coding runs on record yet" in out
+    assert "[rsi] enabled" not in out
 
 
 def test_the_table_and_the_json_name_every_cell(tmp_path: Path, capsys):

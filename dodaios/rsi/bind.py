@@ -6,7 +6,7 @@ requests are split between the two by a fixed draw on the request's id (the
 canary of decision 5.3): every run of one request gets the same arm, and the
 same request always gets the same one. The policy is frozen into the run's
 record when the run starts, so a policy that changes later never reaches a run
-that is already going.
+that is already going. Every run is bound, whether its policy holds it or not.
 """
 
 from __future__ import annotations
@@ -94,14 +94,13 @@ def before_send(session: Any, prompt: str, root: str) -> tuple[dict[str, Any], s
 
     The cell is known before the turn starts (domain of the brief, requested
     model, the runner and CLI line this machine would use), so a policy with a
-    domain block is bound here and the block rides in the first brief. Blocks
-    on ``git`` and the CLI's version: call it off the event loop. ``({}, "")``
-    while output is not enforced.
+    domain block is bound here and the block rides in the first brief, and
+    whether the run holds is known before its turn starts. Blocks on the CLI's
+    version: call it off the event loop. ``({}, "")`` while no run recorder runs.
     """
     from dodaios.orchestrator.verification.recorder import recorder
 
-    current = recorder()
-    if current is None or not current.enforcing:
+    if recorder() is None:
         return {}, ""
     from dodaios.agent_chat.service import resolve_runner
 

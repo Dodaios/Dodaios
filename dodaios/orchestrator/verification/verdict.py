@@ -16,6 +16,7 @@ the run left behind.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dodaios.core.delegate_verify import Check, Verification
@@ -24,6 +25,8 @@ from . import driver, evidence, gates
 from .store import ENDED
 
 __all__ = ["for_job", "from_run"]
+
+log = logging.getLogger(__name__)
 
 _SHOWN = 3
 
@@ -47,10 +50,16 @@ def _scan_check(gate: dict[str, Any] | None) -> Check:
     if status in (gates.UNATTRIBUTED, gates.UNREADABLE):
         return Check("output_scan", None, str(detail.get("reason") or status))
     if status == gates.FINDINGS:
+        points = [
+            f"{f.get('rule')} {f.get('path')}: {f.get('note')}"
+            for f in (detail.get("findings") or [])
+            if f.get("severity") == "ambiguous"
+        ][:_SHOWN]
         return Check(
             "output_scan", True,
             f"{size}; no weakened check on its face, "
-            f"{detail.get('ambiguous', 0)} point(s) to look at",
+            f"{detail.get('ambiguous', 0)} point(s) to look at"
+            + (f" ({'; '.join(points)})" if points else ""),
         )
     return Check("output_scan", True, f"{size}; no weakened check, no off-limits path")
 
@@ -134,7 +143,11 @@ def for_job(job_id: str) -> Verification | None:
     current = recorder()
     if current is None:
         return None
-    run = current.store.get(job_id)
-    if run is None:
+    try:
+        run = current.store.get(job_id)
+        if run is None:
+            return None
+        return from_run(run, current.store.steps(job_id))
+    except Exception:  # noqa: BLE001 - an unreadable record leaves the tool's own answer
+        log.warning("verification verdict: record of %s unreadable", job_id, exc_info=True)
         return None
-    return from_run(run, current.store.steps(job_id))

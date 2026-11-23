@@ -1064,8 +1064,8 @@ class WorkspaceOrchestrator:
                 label = name if name and len(rows) == 1 else (
                     f"{shown} {seen[shown]}" if several else shown
                 )
-                # A checkout of its own for the thread, while the app verifies
-                # what coding runs leave behind ([rsi] worktree_per_run); else
+                # A checkout of its own for the thread, only with
+                # ``[rsi] worktree_per_run = true`` (off by default); else
                 # ``None`` and the thread runs in the project folder.
                 made = await asyncio.to_thread(workdir.for_new_thread, folder, label)
                 thread = self.threads.create(

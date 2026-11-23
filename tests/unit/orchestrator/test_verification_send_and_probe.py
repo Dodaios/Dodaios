@@ -13,6 +13,7 @@ from dodaios.agent_chat.store import AgentChatStore
 from dodaios.orchestrator.verification import probe, prompts, send
 from dodaios.orchestrator.verification import recorder as rec
 from dodaios.orchestrator.verification.store import VerificationStore
+from tests.unit.orchestrator.conftest import holding
 
 # ---------------------------------------------------------------------- send
 
@@ -144,7 +145,7 @@ async def test_a_refusal_of_the_chat_service_is_a_refusal(chat):
 @pytest.fixture
 def checking(tmp_path):
     store = VerificationStore(tmp_path / "verification.db")
-    made = rec.RunRecorder(store, SimpleNamespace(store=None), verify="enforce")
+    made = rec.RunRecorder(store, SimpleNamespace(store=None), policy_for=holding)
     rec.set_recorder(made)
     try:
         yield store
@@ -153,9 +154,14 @@ def checking(tmp_path):
         store.close()
 
 
-def _run(store: VerificationStore, state: str, *, started_ms: int = 0, **fields: Any) -> None:
+def _run(
+    store: VerificationStore, state: str, *, started_ms: int = 0, hold: bool = True,
+    **fields: Any,
+) -> None:
+    """A run on record; bound to a policy that holds it unless ``hold`` is false."""
     store.start_run(
-        "job_1", "s1", state="running", started_ms=started_ms or int(time.time() * 1000)
+        "job_1", "s1", state="running", started_ms=started_ms or int(time.time() * 1000),
+        **(holding("cell", "root") if hold else {}),
     )
     store.update_run("job_1", state=state, **fields)
 
@@ -227,7 +233,10 @@ def test_a_check_that_went_silent_leaves_the_threads_own_word(checking):
 
 def test_an_order_whose_record_is_still_being_written_is_not_over(checking):
     current = rec.recorder()
-    current.note_submission(job_id="job_7", session_id="s7", prompt="Fix", started_ms=1)
+    current.note_submission(
+        job_id="job_7", session_id="s7", prompt="Fix", started_ms=1,
+        policy=holding("cell", "root"),
+    )
     assert probe.shape("job_7", COMPLETED) == {"status": "running", "progress": "check:noted"}
     asks = {"status": "needs_input", "report": "It asks."}
     assert probe.shape("job_7", asks) is asks
@@ -235,12 +244,28 @@ def test_an_order_whose_record_is_still_being_written_is_not_over(checking):
     assert not current.is_noted("job_7")
 
 
-def test_without_enforcement_or_a_record_nothing_changes(checking, tmp_path):
+def test_a_noted_order_that_does_not_hold_is_over_with_its_turn(checking):
+    current = rec.recorder()
+    current.note_submission(job_id="job_8", session_id="s8", prompt="Fix", started_ms=1)
+    assert current.holds("job_8") is False
+    assert probe.shape("job_8", COMPLETED) is COMPLETED
+
+
+def test_without_a_holding_policy_or_a_record_nothing_changes(checking, tmp_path):
     assert probe.shape("job_unknown", COMPLETED) is COMPLETED
     assert probe.shape("", COMPLETED) is COMPLETED
-    observing = rec.RunRecorder(checking, SimpleNamespace(store=None), verify="observe")
-    rec.set_recorder(observing)
-    _run(checking, "checking", heartbeat_ms=int(time.time() * 1000))
+    # Judged, but its policy (the factory one) does not hold it.
+    _run(checking, "checking", hold=False, heartbeat_ms=int(time.time() * 1000))
     assert probe.shape("job_1", COMPLETED) is COMPLETED
     rec.set_recorder(None)
+    assert probe.shape("job_1", COMPLETED) is COMPLETED
+
+
+def test_an_unreadable_record_leaves_the_threads_own_word(checking):
+    current = rec.recorder()
+
+    def broken(_job_id: str) -> None:
+        raise OSError("verification.db is locked")
+
+    current.store.get = broken
     assert probe.shape("job_1", COMPLETED) is COMPLETED

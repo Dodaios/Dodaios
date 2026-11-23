@@ -100,7 +100,8 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
         await asyncio.sleep(0.005)
     assert svc.is_running(session.session_id)
     assert len(prompts) == 1
-    assert waiting_noted()  # A reconnected UI can reconstruct the actual wait from persisted events.
+    # A reconnected UI can reconstruct the actual wait from persisted events.
+    assert waiting_noted()
     # The turn itself says that it only waits, so a chat does not draw it as typing.
 
     def waits() -> list[list[str]]:
@@ -280,11 +281,21 @@ async def test_delayed_coding_dispatch_registers_jobs_before_wait_can_finish(mon
 # ------------------------------- the lead's words while checked coding work is out
 
 
+class _Holds:
+    """A run recorder as the wait asks it: which jobs' policies hold them."""
+
+    def __init__(self, *held: str) -> None:
+        self.held = set(held)
+
+    def holds(self, job_id: str) -> bool:
+        return job_id in self.held
+
+
 @pytest.fixture
 def enforcing():
     from dodaios.orchestrator.verification import recorder as rec
 
-    rec.set_recorder(SimpleNamespace(enforcing=True))
+    rec.set_recorder(_Holds("job_1"))
     try:
         yield
     finally:
@@ -321,16 +332,34 @@ async def test_text_after_handing_coding_work_over_is_held_as_thought(enforcing)
     assert _texts(events)[-1] == ("assistant_text", "Codex finished.")
 
 
-async def test_without_enforced_checks_or_coding_work_nothing_is_held(enforcing):
+async def test_without_a_holding_policy_or_coding_work_nothing_is_held(enforcing):
     from dodaios.orchestrator.verification import recorder as rec
 
     events = []
     gate = delegation_wait.DelegationWait(handle(events))
     gate.add(DelegatedWork("society:e1", "Nova", lambda: None))
     await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Asked Nova."}))
-    rec.set_recorder(SimpleNamespace(enforcing=False))
-    gate.add(DelegatedWork("coding-thread:job_1", "Codex", lambda: None))
+    # The run of this job is judged, but its policy (the factory one) does not hold it.
+    gate.add(DelegatedWork("coding-thread:job_2", "Codex", lambda: None))
     await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Asked Codex."}))
     rec.set_recorder(None)
     await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "Still here."}))
     assert [kind for kind, _ in _texts(events)] == ["assistant_text"] * 3
+
+
+async def test_a_recorder_that_fails_never_hides_the_leads_words():
+    from dodaios.orchestrator.verification import recorder as rec
+
+    class _Broken:
+        def holds(self, _job_id: str) -> bool:
+            raise RuntimeError("broken")
+
+    events = []
+    gate = delegation_wait.DelegationWait(handle(events))
+    gate.add(DelegatedWork("coding-thread:job_1", "Codex", lambda: None))
+    rec.set_recorder(_Broken())
+    try:
+        await gate.emit(make_event("assistant_text", {"turn_id": "t", "text": "On it."}))
+    finally:
+        rec.set_recorder(None)
+    assert _texts(events) == [("assistant_text", "On it.")]
