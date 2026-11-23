@@ -7,7 +7,10 @@ a group is the unit that is put into a split. So nothing learned from one task
 can leak into the check of its sibling.
 
 **Split.** Every group falls into exactly one of four, by a hash of its key.
-The draw is fixed in this file: no update and no learner ever re-draws it.
+The draw is fixed in this file: no update and no learner ever re-draws it. The
+domain is not part of the draw, so the tasks of one piece of work stay together
+even when they measure different things (the brief and the coding task of one
+pull request).
 
 ==========  =====================================================  ==========
 split       used for                                               who reads
@@ -86,8 +89,13 @@ _SPLIT_SALT: Final = "dodaios-bench-split-v1"
 
 
 def split_of(domain: Domain, group: str) -> Split:
-    """The split of a group. Stable for ever: the same group always lands in the same one."""
-    digest = hashlib.sha256(f"{_SPLIT_SALT}|{domain.value}|{group}".encode()).digest()
+    """The split of a group. Stable for ever: the same group always lands in the same one.
+
+    ``domain`` says whose task is asked about and does not change the answer. Were it
+    part of the draw, a learner could practise on one task of a piece of work and be
+    graded on its sibling in another domain.
+    """
+    digest = hashlib.sha256(f"{_SPLIT_SALT}|{group}".encode()).digest()
     bucket = int.from_bytes(digest[:8], "big") % 100
     upper = 0
     for split, share in SPLIT_SHARES:

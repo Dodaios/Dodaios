@@ -1,7 +1,7 @@
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bot, Check, FilePenLine, Globe, ListChecks, Monitor, Plug, SquareTerminal, Wrench } from "lucide-react";
 import { fill, useT } from "@/i18n";
-import type { ApprovalDecision, ApprovalRuleChoice, ApprovalRuleRequest } from "@/lib/agentChatApi";
+import type { ApprovalDecision, ApprovalRuleChoice, ApprovalRuleRequest, PlanReviewPayload } from "@/lib/agentChatApi";
 import { ChatMarkdown } from "../ChatMarkdown";
 import { useAgentChat } from "../AgentChatStoreContext";
 import type { ApprovalState, ToolBlock } from "../reduce";
@@ -12,10 +12,14 @@ import { approvalSummary, approvalTitle, cardInfoOf, detailRows, disclosureText,
 import { NO_RULE_LIMITS, type ApprovalCardInfo, type ApprovalRuleOffer, type RuleBreadth, type RuleNarrow, type RuleScope } from "./approvalInfo";
 import { ApprovalPreviewView, changedEdits, EditedSummary } from "./ApprovalPreviewView";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
+import { PlanDraftMarks, PlanReviewButton } from "../planReview/PlanReviewButton";
+import { planAnswer, usePlanDraft, usePlanDrafts } from "../planReview/planDraft";
 
 /** How a surface answers an approval: by its id, the decision, and where an "always" lives. */
 export type ApprovalDecide = (
   approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string, edits?: Record<string, string>,
+  /** A plan card only: what the person did in the plan's review window. */
+  review?: PlanReviewPayload,
 ) => void | Promise<void>;
 
 type T = (key: string) => string;
@@ -131,6 +135,13 @@ function OpenApproval({ block, approval, info, onDecide }: {
   useEffect(() => () => { mounted.current = false; }, []);
   const kind = info.source.kind;
   const isPlan = kind === "plan";
+  // What the person did to the plan in its review window; it goes with the card.
+  const review = usePlanDraft(approval.approvalId);
+  const reviewSupported = useAgentChat((s) => Boolean(s.catalog?.plan_review));
+  const answered = useRef(false);
+  useEffect(() => () => {
+    if (answered.current) usePlanDrafts.getState().clear(approval.approvalId);
+  }, [approval.approvalId]);
   // Money, credentials and deleting for good take no standing rule: the card
   // offers "Allow once" and "Deny" only (trust hard limits).
   const noRule = Boolean(info.hardLimit && NO_RULE_LIMITS.has(info.hardLimit));
@@ -147,7 +158,12 @@ function OpenApproval({ block, approval, info, onDecide }: {
     setError(null);
     try {
       const sent = decision === "deny" || !hasEdits ? undefined : edits;
-      if (rule && sent) await onDecide(approval.approvalId, decision, rule, undefined, sent);
+      if (isPlan && (decision === "allow" || decision === "deny")) {
+        const answer = planAnswer(approval.approvalId, decision);
+        if (answer.review || answer.feedback) await onDecide(approval.approvalId, decision, undefined, answer.feedback, undefined, answer.review);
+        else await onDecide(approval.approvalId, decision);
+        answered.current = true;
+      } else if (rule && sent) await onDecide(approval.approvalId, decision, rule, undefined, sent);
       else if (rule) await onDecide(approval.approvalId, decision, rule);
       else if (sent) await onDecide(approval.approvalId, decision, undefined, undefined, sent);
       else await onDecide(approval.approvalId, decision);
@@ -184,6 +200,8 @@ function OpenApproval({ block, approval, info, onDecide }: {
       { id: "deny", label: t("action_card.deny"), tone: "tertiary", onSelect: () => void decide("deny"), disabled: !onDecide, reason: elsewhere, hint: t("action_card.deny_esc"), keyShortcut: "Escape", testId: "action-card-deny" },
     ];
   const plan = isPlan ? planText(block) : "";
+  // The card stands behind the review window while the person types there.
+  const shownPlan = useDeferredValue(review.plan ?? plan);
   const disclosure = disclosureText(info, t);
   return <ActionCard
     id={approval.approvalId}
@@ -215,7 +233,13 @@ function OpenApproval({ block, approval, info, onDecide }: {
         else next[key] = value;
         return next;
       })} /> : null}
-    {plan ? <div className="max-h-72 overflow-auto rounded-lg bg-secondary px-3 py-2 text-sm scrollbar-jarvis"><ChatMarkdown text={plan} /></div> : null}
+    {plan ? <div className="max-h-72 overflow-auto rounded-lg bg-secondary px-3 py-2 text-sm scrollbar-jarvis"><ChatMarkdown text={shownPlan} /></div> : null}
+    {plan ? <div className="mt-2 flex flex-wrap items-center gap-2.5">
+      <PlanReviewButton cardId={approval.approvalId} plan={plan} supported={reviewSupported} error={error ?? undefined}
+        pending={pending === "allow" ? "build" : pending === "deny" ? "keep" : null}
+        onAnswer={onDecide ? (answer) => void decide(answer === "build" ? "allow" : "deny") : undefined} />
+      <PlanDraftMarks cardId={approval.approvalId} />
+    </div> : null}
     {choosing && offer ? <RuleChooser offer={offer} pending={pending === "allow_always"}
       onSave={(choice) => void decide("allow_always", choice)} onBack={() => setChoosing(false)} /> : null}
   </ActionCard>;
@@ -369,7 +393,10 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
       <Check aria-hidden />{t("action_card.rule.saved_short")}
     </span> : error ? <span role="alert" className="text-[13px] text-destructive">{error}</span> : null,
     body: <>
-      {approval.edited ? <EditedSummary edited={approval.edited} /> : null}
+      {/* A plan's whole text is in the box below; a struck-through copy of it would only be noise. */}
+      {approval.edited && info.source.kind === "plan"
+        ? <p className="m-0 text-[13px] leading-5 text-foreground-secondary" data-testid="plan-approved-edited">{t("plan_review.approved_edited")}</p>
+        : approval.edited ? <EditedSummary edited={approval.edited} /> : null}
       {note ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{note}</p> : null}
       {savedText ? <p className="m-0 text-[13px] leading-5 text-foreground-secondary">{savedText}</p> : null}
       {saved?.stillAsks ? <p className="m-0 text-[13px] leading-5 text-warning">{t("action_card.rule.still_asks")}</p> : null}

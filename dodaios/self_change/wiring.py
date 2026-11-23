@@ -61,6 +61,22 @@ def make_notifier(get_loop: Any) -> Any:
     return notify
 
 
+def _install_params(data_dir: Path) -> Any:
+    """Make the learned parameter values the ones the app reads.
+
+    A file that cannot be opened costs the learned values for this run (the
+    shipped defaults apply), never the start.
+    """
+    from dodaios.rsi import params
+
+    try:
+        return params.install(data_dir)
+    except Exception:  # noqa: BLE001 — learned values are an improvement, not a requirement
+        log.warning("learned parameters could not be loaded; defaults apply", exc_info=True)
+        params.install(None)
+        return None
+
+
 def install(data_dir: Path, config: Any, loop_of: Any = lambda: None) -> SelfChangeRegistry:
     registry = SelfChangeRegistry(data_dir, notify=make_notifier(loop_of))
     registry.register_handler(Surface.PROMPT, FileHandler(_persona_path))
@@ -70,6 +86,9 @@ def install(data_dir: Path, config: Any, loop_of: Any = lambda: None) -> SelfCha
 
     # Coding policies (``[rsi]``): versions, diff and rollback like every self-change.
     registry.register_handler(Surface.CODING_POLICY, store_for(data_dir))
+    learned = _install_params(data_dir)
+    if learned is not None:
+        registry.register_handler(Surface.PARAMETER, learned)
     set_current(registry)
     return registry
 

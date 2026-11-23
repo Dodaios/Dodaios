@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [5.7.0] — 2026-11-23
+
 ### Added
 
 - The agent's cursor works where the work is, says what it is doing, and stays put when you scroll (#1916)

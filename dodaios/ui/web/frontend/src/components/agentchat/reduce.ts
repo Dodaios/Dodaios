@@ -1551,7 +1551,14 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const edited = parseEdited(p.edited);
       const approvalId = str(p.approval_id);
       const withEdits = edited ? patchApproval(base, approvalId, { edited }, turnId) : base;
-      return settleApproval(withEdits, approvalId, str(p.decision), turnId,
+      // A plan the person changed before approving: the row shows what is built.
+      const approvedPlan = typeof p.plan === "string" && p.plan.trim() ? p.plan : null;
+      const withPlan = approvedPlan === null ? withEdits : updateTurn(withEdits, turnId, (turn) => {
+        const blocks = mapToolDeep(turn.blocks, (b) => b.approval?.approvalId === approvalId,
+          (b) => ({ ...b, input: { ...(b.input && typeof b.input === "object" ? b.input as Record<string, unknown> : {}), plan: approvedPlan } }));
+        return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+      });
+      return settleApproval(withPlan, approvalId, str(p.decision), turnId,
         scope === "agent" || scope === "chat" ? scope : undefined);
     }
 

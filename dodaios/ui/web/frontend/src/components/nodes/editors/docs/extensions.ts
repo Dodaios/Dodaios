@@ -45,6 +45,13 @@ const Document = Node.create({
   content: "summary block+",
 });
 
+/** A document that is its body only (a plan in review): no summary line on top. */
+const BodyDocument = Node.create({
+  name: "doc",
+  topNode: true,
+  content: "block+",
+});
+
 /**
  * The document's summary: plain text under the title (the page shows it as
  * the lead). Enter goes on into the body instead of making a second summary.
@@ -314,6 +321,8 @@ export interface DocExtensionOptions {
   placeholders?: { summary: string; body: string; heading: string };
   labels?: { raw: string; pictureNotLoaded: string };
   onLink?: () => void;
+  /** False for a text that has no summary line: the document is its blocks only. */
+  summary?: boolean;
 }
 
 export function docExtensions(options: DocExtensionOptions = {}) {
@@ -333,8 +342,7 @@ export function docExtensions(options: DocExtensionOptions = {}) {
       },
       trailingNode: { node: "paragraph" },
     }),
-    Document,
-    Summary,
+    ...(options.summary === false ? [BodyDocument] : [Document, Summary]),
     Callout.configure({ view: options.views?.callout ?? null }),
     ChartBlock.configure({ view: options.views?.chart ?? null }),
     MetricsBlock.configure({ view: options.views?.metrics ?? null }),

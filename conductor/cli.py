@@ -236,7 +236,17 @@ def cmd_serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
     from .api.app import create_app
-    app = create_app()
+    from .api.security import ALLOWED_HOSTS_ENV, split_env_list, write_token_file
+    from .core.store import default_db_path
+    hosts = split_env_list(os.environ.get(ALLOWED_HOSTS_ENV))
+    if args.host not in ("0.0.0.0", "::", ""):  # noqa: S104 - compared, not bound
+        hosts.append(args.host)  # the concrete bind address is a valid Host
+    app = create_app(allowed_hosts=hosts)
+    token = app.state.conductor_api_token
+    token_file = default_db_path().parent / "api-token"
+    write_token_file(token, token_file)
+    print(f"Conductor API token written to {token_file}")
+    print("Send it on every request: Authorization: Bearer <token>")
     uvicorn.run(app, host=args.host, port=args.port,
                  log_level="info")
     return 0

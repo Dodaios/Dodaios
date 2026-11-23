@@ -13,6 +13,7 @@ import asyncio
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.rsi import overlay
 
 
 def _vault() -> Any:
@@ -80,7 +81,8 @@ class MemorySearchTool:
             if vault is None:
                 return []
             hits = vault.search(query, limit=limit, include_closed=history)
-            vault.mark_used(h.memory.id for h in hits if not h.memory.expired_at)
+            if not overlay.replaying():  # a benchmark run counts nothing as used
+                vault.mark_used(h.memory.id for h in hits if not h.memory.expired_at)
             return [_describe(h.memory) for h in hits]
 
         rows = await asyncio.to_thread(_run)

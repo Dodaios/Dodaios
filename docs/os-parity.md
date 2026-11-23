@@ -752,6 +752,14 @@ Linux branches are unit-tested with fakes only. Tests:
 `tests/unit/ui/test_window_zoom.py`, `src/lib/appZoom.test.ts`,
 `src/hooks/useAppZoom.test.tsx`.
 
+Ctrl + mouse wheel (or turning the wheel while it is held down) steps the same
+ladder: away from you zooms in, towards you zooms out (`lib/appZoomWheel.ts`).
+The engine's own Ctrl + wheel zoom is cancelled everywhere, because it would
+skip the ladder, the size bubble and the stored level. Surfaces that zoom
+their own content on Ctrl + wheel (whiteboard, run graph, team canvas, clip
+timeline) carry `data-own-wheel-zoom` and keep the gesture. Tests:
+`src/lib/appZoomWheel.test.ts`.
+
 ## Window caption (2026-09-21, T2)
 
 The desktop window is frameless on Windows, macOS and Linux. The page draws

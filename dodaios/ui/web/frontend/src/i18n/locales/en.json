@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Make everything in the Dodaios window bigger or smaller, the way Ctrl + Plus zooms a browser. Works with German and English keyboards: Plus and Minus are read as the characters you type, wherever they sit.",
+      "description": "Make everything in the Dodaios window bigger or smaller, the way Ctrl + Plus zooms a browser. Ctrl + mouse wheel does the same. Works with German and English keyboards: Plus and Minus are read as the characters you type, wherever they sit.",
       "level_label": "Current size",
       "in_label": "Zoom in",
       "out_label": "Zoom out",
@@ -9389,6 +9389,16 @@
       },
       "active_count": "{count} working",
       "resting": "Idle · {count}",
+      "view": {
+        "aria": "Show the agents as",
+        "board": "Board",
+        "simulation": "Simulation"
+      },
+      "simulation": {
+        "aria": "Every coding agent as a figure on the floor of the board",
+        "empty": "No agents here yet.",
+        "unavailable": "This computer cannot draw the 3D view. The board shows the same agents."
+      },
       "column_empty": {
         "building": "No agent is building.",
         "checks": "No checks are running.",
@@ -10936,6 +10946,40 @@
         "free": "Free"
       }
     }
+  },
+  "plan_review": {
+    "open": "Open plan",
+    "open_title": "Read the plan at full size, change it and comment on it",
+    "title": "Plan",
+    "close": "Close",
+    "tools": "Text tools",
+    "text_label": "The plan",
+    "undo": "Undo",
+    "redo": "Redo",
+    "bold": "Bold",
+    "italic": "Italic",
+    "code": "Code",
+    "heading": "Heading",
+    "bullets": "Bulleted list",
+    "numbers": "Numbered list",
+    "tasks": "Checklist",
+    "comment": "Comment",
+    "comment_hint": "Select text in the plan, then press Comment.",
+    "comments": "Comments",
+    "comment_placeholder": "Write a comment",
+    "comment_delete": "Delete comment",
+    "comment_lost": "This passage is no longer in the plan.",
+    "note_label": "On the whole plan",
+    "note_placeholder": "Anything about the plan as a whole",
+    "edited": "Edited",
+    "comments_one": "{count} comment",
+    "comments_other": "{count} comments",
+    "reset": "Undo all edits",
+    "sends": "Keep planning sends your edits and comments to the agent. Build it builds this version, with your comments as notes.",
+    "untouched": "Type into the plan to change it. Select text to comment on it.",
+    "read_only": "This plan is answered in the chat it belongs to. Here you can read it.",
+    "approved_edited": "This is the plan as you approved it, with your changes.",
+    "needs_restart": "Editing and comments need a newer app. Restart Dodaios once, then open the plan again."
   },
   "ide_view": {
     "split_right": "Right",

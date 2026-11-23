@@ -685,6 +685,8 @@ def _exercise_routes(client: TestClient, tmp_path: Path) -> None:
     top = "ultracode" if claude["runner"] == "claude-cli" else "max"
     assert claude["effort_levels"][-1] == top
     assert cat["default_cwd"] == str(tmp_path)
+    # A window reads this before it lets the person edit a plan (plan_review.py).
+    assert cat["plan_review"] is True
 
     created = client.post(
         "/api/agent-chat/sessions",

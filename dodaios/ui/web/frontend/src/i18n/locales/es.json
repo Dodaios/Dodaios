@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Agranda o reduce todo lo que hay en la ventana de Dodaios, como Ctrl + Más en un navegador. Funciona con teclados alemanes e ingleses: Más y Menos se leen como el carácter que escribes, esté donde esté la tecla.",
+      "description": "Agranda o reduce todo lo que hay en la ventana de Dodaios, como Ctrl + Más en un navegador. Ctrl + rueda del ratón hace lo mismo. Funciona con teclados alemanes e ingleses: Más y Menos se leen como el carácter que escribes, esté donde esté la tecla.",
       "level_label": "Tamaño actual",
       "in_label": "Acercar",
       "out_label": "Alejar",
@@ -9389,6 +9389,16 @@
       },
       "active_count": "{count} trabajando",
       "resting": "Inactivos · {count}",
+      "view": {
+        "aria": "Mostrar los agentes como",
+        "board": "Tablero",
+        "simulation": "Simulación"
+      },
+      "simulation": {
+        "aria": "Cada agente de programación como figura sobre el suelo del tablero",
+        "empty": "Aún no hay agentes aquí.",
+        "unavailable": "Este equipo no puede dibujar la vista 3D. El tablero muestra los mismos agentes."
+      },
       "column_empty": {
         "building": "Ningún agente está construyendo.",
         "checks": "No hay comprobaciones en curso.",
@@ -10936,6 +10946,40 @@
         "free": "Libre"
       }
     }
+  },
+  "plan_review": {
+    "open": "Abrir el plan",
+    "open_title": "Lee el plan en grande, cámbialo y coméntalo",
+    "title": "Plan",
+    "close": "Cerrar",
+    "tools": "Herramientas de texto",
+    "text_label": "El plan",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "bold": "Negrita",
+    "italic": "Cursiva",
+    "code": "Código",
+    "heading": "Título",
+    "bullets": "Lista con viñetas",
+    "numbers": "Lista numerada",
+    "tasks": "Lista de tareas",
+    "comment": "Comentar",
+    "comment_hint": "Selecciona texto del plan y pulsa Comentar.",
+    "comments": "Comentarios",
+    "comment_placeholder": "Escribe un comentario",
+    "comment_delete": "Eliminar comentario",
+    "comment_lost": "Este pasaje ya no está en el plan.",
+    "note_label": "Sobre todo el plan",
+    "note_placeholder": "Cualquier cosa sobre el plan en su conjunto",
+    "edited": "Editado",
+    "comments_one": "{count} comentario",
+    "comments_other": "{count} comentarios",
+    "reset": "Deshacer todos los cambios",
+    "sends": "Seguir planificando envía tus cambios y comentarios al agente. Constrúyelo construye esta versión, con tus comentarios como notas.",
+    "untouched": "Escribe en el plan para cambiarlo. Selecciona texto para comentarlo.",
+    "read_only": "Este plan se responde en el chat al que pertenece. Aquí puedes leerlo.",
+    "approved_edited": "Este es el plan tal como lo aprobaste, con tus cambios.",
+    "needs_restart": "Editar y comentar necesitan una app más nueva. Reinicia Dodaios una vez y vuelve a abrir el plan."
   },
   "ide_view": {
     "split_right": "Derecha",

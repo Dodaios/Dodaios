@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Archive, ChevronDown, ChevronRight, Folder, GitBranch, Loader2, Plus, Search, SquareTerminal, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Archive, Box, ChevronDown, ChevronRight, Columns3, Folder, GitBranch, Loader2, Plus, Search, SquareTerminal, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { stopIdeRuntime, type IdeProject, type WorkspacePaneRow } from "@/lib/agenticIdeApi";
@@ -35,6 +35,10 @@ import {
   type BoardTone,
   type BoardVerdict,
 } from "./agentBoard";
+import type { SimAgent } from "./sim/simLayout";
+
+// The 3D scene and its renderer load only when the simulation is opened.
+const AgentSimulation = lazy(() => import("./sim/AgentSimulation"));
 
 /** How often the "3m" readings move on; state changes arrive live anyway. */
 const CLOCK_TICK_MS = 15_000;
@@ -100,6 +104,34 @@ function useBoardScope(): [BoardScope, (scope: BoardScope) => void] {
     }
   };
   return [scope, choose];
+}
+
+/** How the agents are shown: as cards in columns, or as figures on a floor. */
+export type BoardView = "board" | "simulation";
+
+const VIEW_KEY = "jarvis.agenticIde.agentsView.v1";
+const VIEWS: readonly { view: BoardView; icon: typeof Box }[] = [
+  { view: "board", icon: Columns3 },
+  { view: "simulation", icon: Box },
+];
+
+function useBoardView(): [BoardView, (view: BoardView) => void] {
+  const [view, setView] = useState<BoardView>(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === "simulation" ? "simulation" : "board";
+    } catch {
+      return "board";
+    }
+  });
+  const choose = (next: BoardView) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      /* a convenience only: the choice still holds for this session */
+    }
+  };
+  return [view, choose];
 }
 
 /** The board's own colours for the two middle columns (light and dark), beside the status tokens. */
@@ -170,6 +202,7 @@ export function AgentsOverview() {
   const now = useClock();
   const [boardRef, wide] = useWide();
   const [scope, setScope] = useBoardScope();
+  const [view, setView] = useBoardView();
   const [query, setQuery] = useState("");
   const [showOlder, setShowOlder] = useState(false);
   const [finishedOpen, setFinishedOpen] = useState(false);
@@ -350,6 +383,24 @@ export function AgentsOverview() {
       requestPane(item.pane.workspace_id, item.pane.name);
     }
   };
+  // The simulation shows what the columns show: finished work has left the floor.
+  const simAgents: SimAgent[] = view !== "simulation" ? [] : rows.flatMap(({ item, verdict }) =>
+    verdict.place === "finished" ? [] : [{
+      id: item.id,
+      agent: item.agent,
+      agentLabel: item.agentLabel,
+      title: item.title,
+      place: verdict.place,
+      activity: item.activity,
+      stateLabel: t(`ide_side_panel.agents.${verdict.label}`),
+    }]);
+  const selectedId = rows.find(({ item }) => item.thread
+    ? layout === "threads" && selection.sessionId === item.thread.sessionId
+    : spotlight !== null && spotlight.workspaceId === item.pane?.workspace_id && spotlight.pane === item.pane?.name)?.item.id ?? null;
+  const openById = (id: string) => {
+    const row = rows.find((entry) => entry.item.id === id);
+    if (row) open(row);
+  };
   const startThread = () => {
     const target = home ?? visible.find((project) => project.pinned) ?? visible[0];
     if (!target) { connectProject(); return; }
@@ -477,6 +528,20 @@ export function AgentsOverview() {
               </button>
             ))}
           </div>
+          <div role="radiogroup" aria-label={t("ide_side_panel.agents.view.aria")} data-testid="ide-agents-view"
+            className="flex shrink-0 rounded-md border border-border/60 bg-muted/40 p-0.5">
+            {VIEWS.map(({ view: option, icon: Icon }) => (
+              <button key={option} type="button" role="radio" aria-checked={view === option}
+                onClick={() => setView(option)} data-testid={`ide-agents-view-${option}`}
+                aria-label={t(`ide_side_panel.agents.view.${option}`)} title={t(`ide_side_panel.agents.view.${option}`)}
+                className={cn(
+                  "flex h-6 w-7 items-center justify-center rounded transition-colors duration-150 motion-reduce:transition-none", FOCUS_RING,
+                  view === option ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}>
+                <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ))}
+          </div>
           <div role="search" title={t("ide_side_panel.agents.search.hint")}
             className="flex h-8 min-w-[140px] flex-1 items-center gap-2 rounded-md border border-border/60 bg-background px-2.5 focus-within:ring-2 focus-within:ring-ring">
             <Search aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -537,6 +602,24 @@ export function AgentsOverview() {
           <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" />
           {t("ide_side_panel.agents.loading")}
         </p>
+      ) : view === "simulation" ? (
+        <Suspense fallback={(
+          <p role="status" className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+            <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" />
+            {t("ide_side_panel.agents.loading")}
+          </p>
+        )}>
+          <AgentSimulation agents={simAgents} selectedId={selectedId} onOpen={openById}
+            columnNames={{
+              building: t("ide_side_panel.agents.columns.building"),
+              checks: t("ide_side_panel.agents.columns.checks"),
+              review: t("ide_side_panel.agents.columns.review"),
+              ready: t("ide_side_panel.agents.columns.ready"),
+            }}
+            ariaLabel={t("ide_side_panel.agents.simulation.aria")}
+            emptyText={t("ide_side_panel.agents.simulation.empty")}
+            unavailableText={t("ide_side_panel.agents.simulation.unavailable")} />
+        </Suspense>
       ) : (
         <>
           <div data-testid="ide-agents-board"

@@ -65,7 +65,9 @@ with the app and from the person's own past work.
 ### Splits
 
 Tasks that came from the same piece of work share a *group*, and a group falls
-into exactly one of four splits by a hash of its key.
+into exactly one of four splits by a hash of its key. The domain is not part of
+the draw: the brief task and the coding task of one pull request are in the same
+split, so nothing practised on one can be graded on the other.
 
 | Split | Share | Used for | Read by |
 | --- | --- | --- | --- |
@@ -76,6 +78,47 @@ into exactly one of four splits by a hash of its key.
 
 The draw is fixed in code and pinned by a test. Nothing re-draws it, so a task
 a learner has seen can never become a task the assistant is graded on.
+
+### Tasks from past coding work
+
+The app does not have to wait for its own records to have tasks with a known
+answer. The coding CLIs keep a record of every session on the person's
+machine, and the repository keeps every merged pull request
+(`dodaios/rsi/bench/past_work/`). Joined, they say what was asked and what the
+right result was, for work that already happened:
+
+- a `brief` task: given the person's request and the repository as it was, does
+  a brief name the files the merged change touched, its tests, and what the
+  person had to say afterwards?
+- a `coding` task: given the same request and state, do the tests that were
+  merged with the work pass? Only for a change that brought tests and code.
+
+Both tasks of one pull request share a group. What a task is given never holds
+the merged commit or its paths.
+
+Which words asked for which pull request is decided by a strict rule, because
+a guess would grade the assistant against the wrong answer. The first pull
+request of a session takes the first thing the person said that is long enough
+to be a request; what they said after it is what they had to add. A later pull
+request counts only when the person said exactly one thing since the previous
+one. A pull request the rule cannot place is left out and counted with its
+reason, as is one that was not merged, was reverted, or whose request holds
+credential-shaped text. A session that opens with a brief the app itself sent
+gives only the coding task. No model is called and nothing leaves the machine.
+
+```
+python -m dodaios.rsi.bench.past_work --repo .
+```
+
+prints how many tasks each split gets and what was left out, without any
+request text. Measured on 2026-11-23 on the maintainer's machine: 146 sessions
+had opened 226 pull requests; 129 pieces of work became 129 brief and 114
+coding tasks, in 16 seconds. In a hand check of 22 of them, every request asked
+for the change that was merged.
+
+Readers exist for two CLIs (`claude`, `codex`); another one is a function that
+gives the same shape. A sub-agent's own record is not read, and a brief from
+before the app logged its briefs cannot be told from the person's words.
 
 ### A run changes nothing
 
@@ -92,6 +135,25 @@ Every result names the state that produced it, as a **fingerprint**
 (`dodaios/rsi/fingerprint.py`): app version, learned changes in effect, a hash
 of the parameter values, model, seat and CLI version. Two runs are a pair only
 when model, seat, CLI and app version agree.
+
+## Parameters
+
+Behaviour that used to be a constant in the code is a **parameter**
+(`dodaios/rsi/params/`): a name, the value the app ships with, and limits.
+`params.get("recall.turn_limit")` stands where the constant was. The catalog
+(`catalog.py`) is part of the kernel: a learner can move a value between its
+limits and can never widen them. Each parameter names the benchmark domain
+that can measure it; without one it stays at its default.
+
+A learned value is a self-change of the surface `parameter`, written by the
+registry into `params.db`, with a version, a diff and a byte-exact rollback.
+`get` answers the overlay of a benchmark run first, then the learned value,
+then the shipped default.
+
+Today the memory recall reads twelve parameters (how strongly a pinned or a
+fresh memory is preferred, how many memories and lessons a message may bring
+up, and how many characters they may take). Their defaults are the constants
+the code had.
 
 ## The gate's answer
 
@@ -118,6 +180,12 @@ The app is updated often, and nothing learned may be lost by an update.
   (`dodaios/rsi/storage.py`). A newer app migrates an older file step by step,
   each step in one transaction, after putting a copy of the file aside. An
   older app that meets a newer file opens it read-only and pauses its writing.
+- A learned parameter value remembers the shipped default it was learned
+  against. When an update changes that default, the value stays in effect and
+  is measured again first. When a parameter is renamed, the value moves along
+  (`aliases`). When a parameter is gone, or the value lies outside new limits,
+  the entry rests without effect and without an error, and applies again as
+  soon as a version knows it.
 - A task keeps its id when its content is corrected; results belong to the
   content hash they were measured on, so only those go stale.
 - The fingerprint holds the app version. After an update the assistant as it
@@ -152,6 +220,9 @@ The app is updated often, and nothing learned may be lost by an update.
 | Shared shapes: overlay, fingerprint, task, split, result, evidence | built |
 | Kernel storage with a schema version | built |
 | Kernel and evidence paths refused by the registry | built |
-| Parameters, the recall benchmark, the paired test, the measured gate | next |
+| Parameters with limits, read by the memory recall; learned values survive updates | built |
+| A recall that can be replayed without leaving a trace (no use count, no cache) | built |
+| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built, not yet stored or run |
+| The recall benchmark, the paired test, the measured gate | next |
 | Tuner, night cycle, automatic rollback, the page | next |
 | Always-on recording of work, the other domains, lessons, the jury | later |

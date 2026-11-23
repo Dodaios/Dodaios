@@ -3573,7 +3573,7 @@
     },
     "app_zoom": {
       "title": "Zoom",
-      "description": "Macht alles im Dodaios-Fenster größer oder kleiner, so wie Strg + Plus im Browser. Funktioniert mit deutscher und englischer Tastatur: Plus und Minus werden als das Zeichen gelesen, das du tippst, egal wo die Taste liegt.",
+      "description": "Macht alles im Dodaios-Fenster größer oder kleiner, so wie Strg + Plus im Browser. Strg + Mausrad geht auch. Funktioniert mit deutscher und englischer Tastatur: Plus und Minus werden als das Zeichen gelesen, das du tippst, egal wo die Taste liegt.",
       "level_label": "Aktuelle Größe",
       "in_label": "Hineinzoomen",
       "out_label": "Herauszoomen",
@@ -9389,6 +9389,16 @@
       },
       "active_count": "{count} arbeiten",
       "resting": "Ruhend · {count}",
+      "view": {
+        "aria": "Agenten anzeigen als",
+        "board": "Board",
+        "simulation": "Simulation"
+      },
+      "simulation": {
+        "aria": "Jeder Coding Agent als Figur auf dem Boden des Boards",
+        "empty": "Hier sind noch keine Agenten.",
+        "unavailable": "Dieser Computer kann die 3D-Ansicht nicht zeichnen. Das Board zeigt dieselben Agenten."
+      },
       "column_empty": {
         "building": "Kein Agent arbeitet gerade.",
         "checks": "Es laufen keine Prüfungen.",
@@ -10936,6 +10946,40 @@
         "free": "Frei"
       }
     }
+  },
+  "plan_review": {
+    "open": "Plan öffnen",
+    "open_title": "Den Plan groß lesen, ändern und kommentieren",
+    "title": "Plan",
+    "close": "Schließen",
+    "tools": "Textwerkzeuge",
+    "text_label": "Der Plan",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "code": "Code",
+    "heading": "Überschrift",
+    "bullets": "Aufzählung",
+    "numbers": "Nummerierte Liste",
+    "tasks": "Checkliste",
+    "comment": "Kommentar",
+    "comment_hint": "Markiere Text im Plan und drücke dann Kommentar.",
+    "comments": "Kommentare",
+    "comment_placeholder": "Kommentar schreiben",
+    "comment_delete": "Kommentar löschen",
+    "comment_lost": "Diese Stelle steht nicht mehr im Plan.",
+    "note_label": "Zum ganzen Plan",
+    "note_placeholder": "Alles, was den Plan als Ganzes betrifft",
+    "edited": "Bearbeitet",
+    "comments_one": "{count} Kommentar",
+    "comments_other": "{count} Kommentare",
+    "reset": "Alle Änderungen verwerfen",
+    "sends": "Weiter planen schickt deine Änderungen und Kommentare an den Agenten. Bauen baut diese Fassung, deine Kommentare gehen als Notizen mit.",
+    "untouched": "Schreib in den Plan, um ihn zu ändern. Markiere Text, um ihn zu kommentieren.",
+    "read_only": "Dieser Plan wird in dem Chat beantwortet, zu dem er gehört. Hier kannst du ihn lesen.",
+    "approved_edited": "Das ist der Plan, wie du ihn freigegeben hast, mit deinen Änderungen.",
+    "needs_restart": "Bearbeiten und Kommentieren brauchen eine neuere App. Starte Dodaios einmal neu und öffne den Plan dann wieder."
   },
   "ide_view": {
     "split_right": "Rechts",
