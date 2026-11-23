@@ -116,7 +116,7 @@ recovered.
 | Scope | May do |
 |---|---|
 | `read` | look, never spend: roster, board, quests, capabilities, approvals |
-| `work` | that, plus talk to agents, post quests, assign, speak in rooms, hire |
+| `work` | that, plus talk to agents, post quests, assign, open and speak in rooms, hire |
 | `full` | that, plus governance: resolve approvals, the kill switch, import a team |
 
 Scope is enforced by **not listing** a tool, not by refusing it afterwards: a
@@ -188,9 +188,12 @@ so the choice is reviewable.
 
 ### Roster, rooms, governance
 
-`agent_create` · `capabilities_list` · `rooms_list` · `room_open` ·
+`agent_create` **$** · `capabilities_list` · `rooms_list` · `room_open` **$** ·
 `room_say` **$** · `room_settle` **$** · `approvals_list` ·
 `approval_resolve` **$** · `kill_switch` **$**
+
+`agent_create` writes the roster and `room_open` starts the members' turns, so
+both need the `work` scope; a `read` token is not offered them.
 
 ### Moving a team to another machine
 
