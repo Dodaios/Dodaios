@@ -32,7 +32,7 @@ def test_compare_reports_new_grown_and_stale() -> None:
     assert stale == {"b": (5, 2), "gone": (4, 0)}
 
 
-def test_failure_message_tells_how_to_fix_and_update(tmp_path, monkeypatch, capsys) -> None:
+def test_failure_message_tells_how_to_fix(tmp_path, monkeypatch, capsys) -> None:
     r = _load("_ratchet")
     monkeypatch.setattr(r, "CI_DIR", tmp_path)
     (tmp_path / "x.json").write_text('{"files": {"gone.py": 7}}', encoding="utf-8")
@@ -40,7 +40,16 @@ def test_failure_message_tells_how_to_fix_and_update(tmp_path, monkeypatch, caps
     out = capsys.readouterr().out
     assert code == 1
     assert "New violations" in out and "How to fix: split it" in out
-    assert "check_file_size.py --update" in out
+
+
+def test_stale_entries_are_a_note_not_a_failure(tmp_path, monkeypatch, capsys) -> None:
+    r = _load("_ratchet")
+    monkeypatch.setattr(r, "CI_DIR", tmp_path)
+    (tmp_path / "x.json").write_text('{"files": {"a.py": 7, "gone.py": 3}}', encoding="utf-8")
+    code = r.run("file-size", lambda: {"a.py": 5}, "x.json", "lines", "rule", "fix", [])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "can be tightened" in out and "check_file_size.py --update" in out
 
 
 def test_update_refuses_increase(tmp_path, monkeypatch) -> None:

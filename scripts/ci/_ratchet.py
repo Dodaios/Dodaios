@@ -5,9 +5,12 @@ mapped to a count or size). A committed baseline lists every CURRENT violation
 with its current value. The gate fails when
 
 * a key appears that the baseline does not list (a new violation),
-* a value is higher than its baseline (an existing violation grew), or
-* a baseline entry is stale: the value shrank or the key is gone. The fix is to
-  lower the baseline so the improvement can never be lost again.
+* a value is higher than its baseline (an existing violation grew).
+
+A stale baseline entry (the value shrank or the key is gone) is only a note and
+exits 0: many pull requests delete code at once and must not fight over the
+baseline files. ``ratchet-baselines.yml`` runs ``--update`` daily and opens one
+pull request that tightens them.
 
 ``--update`` rewrites the baseline from the tree. It refuses to raise a value or
 add a key unless ``--allow-increase`` is passed (say why in the commit message).
@@ -172,7 +175,16 @@ def run(
         print(f"{name}: no baseline yet. Run with --update to create one.")
         return 1
 
-    if not (new or grown or stale):
+    def note_stale() -> None:
+        if stale:
+            _show("Improved: baseline entries can be tightened", stale, unit)
+            print(
+                "Nothing to do: ratchet-baselines.yml tightens them daily "
+                f"(or run python scripts/ci/{script} --update).\n"
+            )
+
+    if not (new or grown):
+        note_stale()
         print(f"OK: {name} ratchet holds ({len(current)} entries, total {total} {unit}).")
         return 0
 
@@ -181,13 +193,6 @@ def run(
         _show("New violations", new, unit)
     if grown:
         _show("Existing violations that grew", grown, unit)
-    if new or grown:
-        print(f"How to fix: {how_to_fix}\n")
-    if stale:
-        _show("Improved: baseline entries are out of date", stale, unit)
-        print(
-            "You fixed these - lock the gain in so it cannot regress:\n"
-            f"  python scripts/ci/{script} --update\n"
-            f"and commit {baseline_file}.\n"
-        )
+    print(f"How to fix: {how_to_fix}\n")
+    note_stale()
     return 1

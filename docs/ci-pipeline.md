@@ -186,9 +186,12 @@ Five gates in `scripts/ci/` grandfather today's debt and block new debt:
 `type-ignore` (a bare `# type: ignore` without an error code) and
 `source-text-tests` (tests that read product source text). Each has a
 `*-baseline.json` listing every current violation with its current value. The gate
-fails when a violation is new, when one grew, or when one shrank and the baseline
-was not lowered. The failure text says how to fix the code; after an improvement
-run `python scripts/ci/check_<name>.py --update` and commit the baseline.
+fails when a violation is new or grew; the failure text says how to fix the code.
+A violation that shrank or vanished is only a printed note, so parallel pull
+requests that delete code never fight over the baselines. `ratchet-baselines.yml`
+runs every gate with `--update` daily and opens one bot pull request
+("chore(ci): tighten ratchet baselines") when anything shrank; run
+`python scripts/ci/check_<name>.py --update` yourself to lock a gain in sooner.
 `--update` refuses to raise a value unless you pass `--allow-increase` and say why
 in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
 `except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
