@@ -1,6 +1,7 @@
 /* The agent's presence over a node being built, and the quiet skeletons shown
-   while a node's editor loads. Colours come from the --presence-* tokens in
-   index.css (black and white in both themes); docs/node-live-build.md. */
+   while a node's editor loads. The arrow is the shared AgentArrow (dark, white
+   rim, a glow in the signal colour); the frame and the skeletons come from the
+   --presence-* tokens in index.css. docs/node-live-build.md. */
 
 .live-presence {
   position: absolute;
@@ -48,46 +49,81 @@
   opacity: 0;
 }
 
-.live-presence-cursor svg {
-  display: block;
-  overflow: visible;
-  /* The arrow's tip (2, 1.5 in its own pixels) is the point it stands on. */
-  transform: translate(-2px, -1.5px);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
+/* The arrow's box: its tip (3, 2.5 in its own pixels, AgentArrow) is the point
+   the cursor stands on. The art wrapper takes the arrival and the shake; the
+   arrow inside it leans as it travels (the player sets its rotation). */
+.live-presence-art,
+.live-presence-arrow {
+  position: absolute;
+  left: -3px;
+  top: -2.5px;
+  transform-origin: 3px 2.5px;
 }
 
-.live-presence-cursor path {
-  fill: hsl(var(--presence-ink));
-  stroke: hsl(var(--presence-on-ink));
+.live-presence-arrow {
+  left: 0;
+  top: 0;
+  will-change: transform;
 }
 
+/* It arrives out of a soft blur, a little small, when it is first placed. */
+.live-presence[data-placed="true"] .live-presence-art {
+  animation: live-presence-arrive 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes live-presence-arrive {
+  from { opacity: 0; transform: scale(0.45); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+/* Where it lands on a new block, a ring opens in the glow's colour (the player plays it). */
+.live-presence-ring {
+  position: absolute;
+  left: -16px;
+  top: -16px;
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid hsl(var(--agent-glow, var(--accent)));
+  border-radius: 50%;
+  background: hsl(var(--agent-glow, var(--accent)) / 0.18);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The name tag hangs under the tip, its corner nearest the arrow drawn sharp. */
 .live-presence-tag {
   position: absolute;
   left: 12px;
-  top: 14px;
+  top: 17px;
   display: inline-flex;
   max-width: 260px;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: hsl(var(--presence-ink));
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
-  color: hsl(var(--presence-on-ink));
-  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px 10px 10px 10px;
+  background: #0a0a0a;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(255 255 255 / 0.9);
+  color: #ffffff;
+  font-size: 11.5px;
   font-weight: 500;
   line-height: 16px;
   white-space: nowrap;
 }
 
-/* Near the right edge the tag sits left of the arrow; near the foot, above it. */
+/* Near the right edge the tag hangs left of the arrow; near the foot, above it. */
 .live-presence-tag[data-side="left"] {
   left: auto;
-  right: 4px;
+  right: 6px;
+  border-radius: 10px 3px 10px 10px;
 }
 
 .live-presence-tag[data-vside="up"] {
   top: auto;
-  bottom: 6px;
+  bottom: 8px;
+  border-radius: 10px 10px 10px 3px;
+}
+
+.live-presence-tag[data-side="left"][data-vside="up"] {
+  border-radius: 10px 10px 3px 10px;
 }
 
 .live-presence-name,
@@ -109,9 +145,9 @@
   display: block;
   background: linear-gradient(
     90deg,
-    hsl(var(--presence-on-ink) / 0.55) 0%,
-    hsl(var(--presence-on-ink)) 50%,
-    hsl(var(--presence-on-ink) / 0.55) 100%
+    rgb(255 255 255 / 0.55) 0%,
+    rgb(255 255 255) 50%,
+    rgb(255 255 255 / 0.55) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
@@ -129,7 +165,11 @@
   .live-presence[data-phase="thinking"][data-building="true"] .live-presence-status {
     animation: none;
     background: none;
-    color: hsl(var(--presence-on-ink));
+    color: #ffffff;
+  }
+
+  .live-presence[data-placed="true"] .live-presence-art {
+    animation: none;
   }
 }
 

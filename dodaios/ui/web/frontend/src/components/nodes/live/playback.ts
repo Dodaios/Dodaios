@@ -20,7 +20,9 @@
  * The cursor moves the way a person's does in a shared document: it sets off
  * at once and settles softly (an exponential ease-out, re-aimed every frame),
  * so it keeps up with a caret that moves every few milliseconds instead of
- * restarting a slow glide each time.
+ * restarting a slow glide each time. The arrow leans with its speed, a ring
+ * opens where it lands after a longer move, and it gives a small shake when
+ * the agent starts to think.
  */
 import type { RevealStep } from "./reveal";
 
@@ -348,6 +350,12 @@ export interface PresenceElements {
   frame: HTMLElement;
   /** The name tag, carried by the cursor; the player only turns it to the side with room. */
   tag: HTMLElement;
+  /** The arrow's own box inside the cursor: it leans as the cursor travels. */
+  arrow?: HTMLElement;
+  /** Wraps the arrow: it shakes once when the agent starts to think. */
+  art?: HTMLElement;
+  /** Opens where the cursor lands after a longer move. */
+  ring?: HTMLElement;
 }
 
 interface Box {
@@ -375,6 +383,27 @@ const FRAME_EASE_MS = 90;
 export const THINKING_AFTER_MS = 600;
 /** Room the tag keeps from the layer's edges before it turns to the other side. */
 const TAG_EDGE = 6;
+/** The most the arrow leans as it travels (degrees). */
+const LEAN_MAX_DEG = 10;
+/** The speed (px per ms) at which the arrow leans about three quarters of the most. */
+const LEAN_AT_PX_PER_MS = 1.6;
+/** How quickly the lean follows the speed (ms; ease-out time constant). */
+const LEAN_EASE_MS = 80;
+/** A move at least this long ends with a ring where the cursor lands. */
+const RING_AFTER_PX = 48;
+const RING_KEYFRAMES: Keyframe[] = [
+  { opacity: 0.95, transform: "scale(0.25)" },
+  { opacity: 0, transform: "scale(1)" },
+];
+/** The small shake when the agent starts to think: a few swings about the tip, dying down. */
+const SHAKE_KEYFRAMES: Keyframe[] = [
+  { transform: "rotate(0deg)" },
+  { transform: "rotate(9deg)", offset: 0.18 },
+  { transform: "rotate(-7deg)", offset: 0.4 },
+  { transform: "rotate(4deg)", offset: 0.62 },
+  { transform: "rotate(-2deg)", offset: 0.82 },
+  { transform: "rotate(0deg)" },
+];
 
 function canAnimate(el: Element): el is Element & { animate: Element["animate"] } {
   return typeof (el as { animate?: unknown }).animate === "function";
@@ -447,6 +476,11 @@ export class LivePlayer {
   private goal: Point | null = null;
   /** The element the cursor was last sent to, to tell a scroll (it rides along) from a new aim. */
   private aimed: Element | null = null;
+  /** The arrow's lean now, and as last written (degrees). */
+  private lean = 0;
+  private leanShown = 0;
+  /** A longer move is under way: a ring opens where it lands. */
+  private ringDue = false;
   private thinkTimer = 0;
   private loop = 0;
   private last = 0;
@@ -575,8 +609,18 @@ export class LivePlayer {
     if (this.playing || this.host.dataset.phase === "thinking" || this.thinkTimer !== 0) return;
     this.thinkTimer = window.setTimeout(() => {
       this.thinkTimer = 0;
-      if (!this.playing) this.host.dataset.phase = "thinking";
+      if (this.playing) return;
+      this.host.dataset.phase = "thinking";
+      this.shake();
     }, this.reduced() ? 0 : THINKING_AFTER_MS);
+  }
+
+  /** The arrow's small shake as the agent starts to think (not with reduced motion, not once the agent is done). */
+  private shake(): void {
+    const art = this.view.art;
+    if (!art || this.reduced() || !canAnimate(art)) return;
+    if (this.host.dataset.placed !== "true" || this.host.dataset.building === "false") return;
+    art.animate(SHAKE_KEYFRAMES, { duration: 1_100, easing: "ease-in-out" });
   }
 
   private hide(el: Element): void {
@@ -777,16 +821,45 @@ export class LivePlayer {
     const caret = lastUnit?.motion && this.moving.has(lastUnit.motion) ? (lastUnit.motion.caret?.() ?? null) : null;
     const point = caret ? this.textPoint(caret) : el ? this.anchor(el) : null;
     if (point) {
+      const before = this.at ? { ...this.at } : null;
+      let ride = { x: 0, y: 0 };
       if (this.at === null || this.goal === null || reduced) {
         this.at = { ...point };
       } else if (!caret && el === this.aimed) {
         // The same element moved (a scroll, a reflow): the cursor rides along instead of trailing it.
-        this.at = { x: this.at.x + point.x - this.goal.x, y: this.at.y + point.y - this.goal.y };
+        ride = { x: point.x - this.goal.x, y: point.y - this.goal.y };
+        this.at = { x: this.at.x + ride.x, y: this.at.y + ride.y };
+      } else if (!caret && el !== this.aimed && Math.hypot(point.x - this.at.x, point.y - this.at.y) >= RING_AFTER_PX) {
+        this.ringDue = true;
       }
+      if (caret) this.ringDue = false;
       this.goal = point;
       this.aimed = caret ? null : el;
       const k = 1 - Math.exp(-dt / (caret ? CARET_EASE_MS : HOP_EASE_MS));
       this.at = { x: this.at.x + (point.x - this.at.x) * k, y: this.at.y + (point.y - this.at.y) * k };
+
+      /* The arrow leans with its speed, as a hand tilts a mouse it moves; riding along a scroll is no move. */
+      const arrow = this.view.arrow;
+      if (arrow) {
+        let target = 0;
+        if (before && !reduced) {
+          const vx = (this.at.x - before.x - ride.x) / dt;
+          const vy = (this.at.y - before.y - ride.y) / dt;
+          target = LEAN_MAX_DEG * Math.tanh(((vx - vy) * Math.SQRT1_2) / LEAN_AT_PX_PER_MS);
+        }
+        this.lean = reduced ? 0 : this.lean + (target - this.lean) * (1 - Math.exp(-dt / LEAN_EASE_MS));
+        if (Math.abs(this.lean - this.leanShown) > 0.05) {
+          this.leanShown = this.lean;
+          arrow.style.transform = Math.abs(this.lean) < 0.05 ? "" : `rotate(${this.lean.toFixed(2)}deg)`;
+        }
+      }
+
+      /* Landed after a longer move: a ring opens where it stands. */
+      if (this.ringDue && Math.hypot(point.x - this.at.x, point.y - this.at.y) < 2) {
+        this.ringDue = false;
+        const ring = this.view.ring;
+        if (ring && !reduced && canAnimate(ring)) ring.animate(RING_KEYFRAMES, { duration: 600, easing: "ease-out" });
+      }
       this.view.cursor.style.transform = `translate3d(${this.at.x.toFixed(1)}px, ${this.at.y.toFixed(1)}px, 0)`;
       if (this.host.dataset.placed !== "true") this.host.dataset.placed = "true";
 

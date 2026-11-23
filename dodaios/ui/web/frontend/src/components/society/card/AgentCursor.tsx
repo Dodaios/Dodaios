@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { AgentArrow, ARROW_TIP } from "./AgentArrow";
 import "./agentCursor.css";
 import {
   aimCursor,
@@ -10,9 +11,9 @@ import {
 } from "./agentCursorMotion";
 import type { BrowserPointerState } from "./browserPointerState";
 
-/** Hotspot of the arrow tip, in the SVG's own pixels. */
-const TIP_X = 7.2;
-const TIP_Y = 2.4;
+/** Hotspot of the arrow tip, in the arrow's own pixels. */
+const TIP_X = ARROW_TIP.x;
+const TIP_Y = ARROW_TIP.y;
 
 interface ViewBox {
   hostW: number;
@@ -179,16 +180,7 @@ export function AgentCursor({ pointer, label }: { pointer?: BrowserPointerState;
               data-pressing={pressId > 0 ? "true" : "false"}
               style={{ transformOrigin: `${TIP_X}px ${TIP_Y}px` }}
             >
-              <svg className="agent-cursor-arrow" width="34" height="42" viewBox="0 0 34 42" fill="none">
-                <path
-                  d="M7.2 2.4 L4.6 28.8 L11.2 24.2 L15.4 39.2 L20.2 36.6 L16.2 22.2 L31.2 21.2 Z"
-                  fill="#FFFFFF"
-                  stroke="#0A0A0A"
-                  strokeWidth="1.9"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <AgentArrow className="agent-cursor-arrow" />
             </div>
             {label && <span className="agent-cursor-label" data-testid="browser-agent-pointer-label">{label}</span>}
           </div>
