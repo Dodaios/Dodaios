@@ -128,7 +128,13 @@ that draw spec items.
 `LivePresence.tsx` draws the pieces and `LivePlayer` (`playback.ts`) moves
 them. They are the ones a colleague's cursor has in a shared document:
 
-- **The cursor**: a small arrow (16 px) with a light rim and a soft shadow.
+- **The cursor** is the agent's arrow, the same as over its browser
+  (`components/society/card/AgentArrow.tsx`): a rounded arrowhead without a
+  tail, dark with a white rim, under a soft glow in the app's signal colour
+  (`--accent`). It arrives out of a soft blur. It leans with its speed as it
+  travels (up to `LEAN_MAX_DEG`). After a move of `RING_AFTER_PX` or more, a
+  ring opens in the glow's colour where it lands. When the agent starts to
+  think, it gives one small shake. Reduced motion drops all four.
   While text is written at a caret it stays at the caret. Otherwise it rests
   at the end of the last line written, or at the lower right corner of a
   picture, chart or shape. An editor's controls inside a block ("Add row")
@@ -136,8 +142,10 @@ them. They are the ones a colleague's cursor has in a shared document:
   exponential ease-out that is re-aimed every frame (`CARET_EASE_MS`,
   `HOP_EASE_MS`), so it keeps up with a caret that moves every few
   milliseconds. When the element it rests on scrolls, the cursor moves with it.
-- **The name tag** is fixed to the cursor, below and to the right of the
-  tip. Near the right or bottom edge it moves to the left or above. Between
+- **The name tag** hangs under the tip, dark with white words. The corner
+  nearest the arrow is drawn sharp, like a speech bubble's. Near the right or
+  bottom edge it moves to the left or above, and the sharp corner moves with
+  it. Between
   edits, after `THINKING_AFTER_MS` of quiet, the tag shows the status instead
   of the name ("Dodaios is working…", on a whiteboard "Dodaios is drawing"),
   with a slow sheen over the words. There is no separate status pill.
@@ -149,18 +157,20 @@ them. They are the ones a colleague's cursor has in a shared document:
   (`data-placed`). Before that, the chat card's "being built" line is the
   only sign.
 
-The look is black and white, from tokens in `src/index.css` for both themes:
+Arrow and tag look the same in both themes, so they read on any page. The
+frame and the skeletons come from tokens in `src/index.css`:
 
 | Token | Light | Dark | Used for |
 |-------|-------|------|----------|
-| `--presence-ink` | near-black | near-white | cursor fill, frame, tag ground |
-| `--presence-on-ink` | near-white | near-black | tag text, cursor rim |
+| `--presence-ink` | near-black | near-white | the frame |
+| `--accent` | signal blue | signal blue | the arrow's glow and the landing ring (`--agent-glow` overrides it) |
 | `--presence-frame-alpha` | 0.55 | 0.6 | the frame's strength |
 | `--presence-pill-bg`, `--presence-pill-ink` | | | the slides editor's "working on slide N" chip |
 | `--presence-skeleton`, `--presence-skeleton-sheen` | | | skeleton blocks and their shimmer |
 
 When two or more agents build at once, `presenceTint` gives each one a muted
-tint. A single agent is always the plain ink. Do not use gold, hues or glow.
+tint. It sets `--agent-glow` (the glow and the ring) and `--presence-ink` (the
+frame). A single agent always glows in the signal colour. Use no other hue.
 
 ## Timings
 
@@ -183,6 +193,8 @@ The presence, also in `playback.ts`:
 | `CARET_EASE_MS` | 35 | The cursor's ease-out time constant while it follows a caret. |
 | `HOP_EASE_MS` | 110 | The same for a move from one written block to the next. |
 | `THINKING_AFTER_MS` | 600 | Quiet after a batch before the tag shows the status. |
+| `LEAN_MAX_DEG` | 10 | The most the arrow leans while it travels. |
+| `RING_AFTER_PX` | 48 | A move at least this long opens a ring where the cursor lands. |
 
 Presence fades `PRESENCE_LINGER_MS` (1.5 s) after the agent's turn ends. A
 build with no agent write for `IDLE_SETTLE_MS` (90 s) ends anyway.

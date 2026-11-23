@@ -41,8 +41,8 @@ test("the arrow sits on the pictured point and marks a click that is already the
   const arrow = screen.getByTestId("browser-agent-pointer");
   expect(arrow.style.transform).toBe("translate3d(50px, 140px, 0)");
   expect(screen.getAllByTestId("browser-click-mark")).toHaveLength(1);
-  expect(arrow.querySelector("path")?.getAttribute("fill")).toBe("#FFFFFF");
-  expect(arrow.querySelector("path")?.getAttribute("stroke")).toBe("#0A0A0A");
+  // The shared agent arrow: the same as over a node an agent builds.
+  expect(arrow.querySelector("[data-testid=agent-arrow] path")).not.toBeNull();
 });
 
 test("the arrow glides to the next click and only then presses", () => {

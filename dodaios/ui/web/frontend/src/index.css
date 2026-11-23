@@ -867,12 +867,12 @@ label,
     --info-foreground: 0 0% 100%;
 
     /* --- An agent's presence on a node it is building ---------------------
-       (components/nodes/live, docs/node-live-build.md). Black and white like
-       the rest of the app: near-black ink on paper, the name tag an inverted
-       pill. A second agent at work gets a muted tint of its own, set inline;
-       one agent is always this ink. No hue, no glow. */
-    --presence-ink: 0 0% 9%; /* cursor, frame, tag ground */
-    --presence-on-ink: 0 0% 98%; /* tag text, cursor rim */
+       (components/nodes/live, docs/node-live-build.md). The frame and the
+       skeletons are black and white like the rest of the app. The agent's
+       arrow and its tag (society/card/AgentArrow) are dark with a white rim in
+       both themes, under a glow in the signal colour (--accent). A second
+       agent at work gets a muted tint of its own for its glow and frame. */
+    --presence-ink: 0 0% 9%; /* the frame */
     --presence-frame-alpha: 0.55;
     --presence-pill-bg: 0 0% 100%;
     --presence-pill-ink: 0 0% 25%;
@@ -1070,9 +1070,8 @@ label,
     --info: 212 100% 62%; /* = --accent: one signal hue carries counts and hints too */
     --info-foreground: 0 0% 100%;
 
-    /* An agent's presence: near-white ink on charcoal, the tag a light pill. */
+    /* An agent's presence: a near-white frame on charcoal. */
     --presence-ink: 0 0% 96%;
-    --presence-on-ink: 0 0% 9%;
     --presence-frame-alpha: 0.6;
     --presence-pill-bg: 0 0% 11%;
     --presence-pill-ink: 0 0% 78%;
