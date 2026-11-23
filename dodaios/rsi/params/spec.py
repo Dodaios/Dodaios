@@ -81,6 +81,6 @@ class Param:
     def valid(self, value: Any) -> bool:
         try:
             self.coerce(value)
-        except ParamError:
+        except ParamError:  # "not valid" is the answer this method exists to give
             return False
         return True

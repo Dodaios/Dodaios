@@ -134,7 +134,7 @@ class ParamStore:
         try:
             data = json.loads(text)
             value, base = data["value"], data.get("base")
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError):  # kept and shown as a resting entry
             return Entry(stored_as, "", None, None, DORMANT, "the stored text is unreadable")
         param = self.index.get(stored_as)
         if param is None:
@@ -142,7 +142,7 @@ class ParamStore:
             return Entry(stored_as, "", value, base, DORMANT, why)
         try:
             value = param.coerce(value)
-        except ParamError as exc:
+        except ParamError as exc:  # the reason is kept on the entry, which the report lists
             return Entry(stored_as, param.name, value, base, DORMANT, str(exc))
         if base != param.default:
             why = f"learned against the default {base!r}, which is now {param.default!r}"
