@@ -11,6 +11,31 @@ who the assistant is or how it is judged.
               └─ core / unverified ──> proposed (waits for the owner)
 ```
 
+A change of a **measured surface** (today: a parameter) takes another path. No
+one is asked, and no check of its wording lets it in: the benchmark decides
+(`docs/self-improvement.md`).
+
+```
+ propose ──> candidate ──admit──> trial ──settle──> live
+                │                   └──settle──> reverted (exact previous text)
+                └──decline──> blocked (never applied)
+```
+
+- **candidate**: recorded, not applied, waits for its measurement. The owner
+  cannot approve it: no approval stands in for a measurement.
+- **admit**: the kernel's gate found it better on the tasks it decides on. It is
+  applied on trial, and only while the assistant is still in the state the
+  evidence was measured against. If another change went in meanwhile, nothing
+  is applied and the candidate is measured again.
+- **decline**: the gate found it not better. It is blocked.
+- **settle**: a second measurement on other tasks. It confirms a change on trial,
+  or takes a change back together with every newer change on the same target.
+
+Each step stores the evidence it acted on in the table `evidence`, which
+refuses `UPDATE` and `DELETE`. A change of a measured surface never writes into
+the conversation: it appears in the list with its numbers. `stack()` lists what
+is in effect and was not made by the owner, oldest first.
+
 ## The registry: `dodaios/self_change/`
 
 One row per change in `self_changes.db`: the surface and target, a version
@@ -27,6 +52,8 @@ author (which agent, which turn), the reason, the gate result and the state
 | `code` | self-build code changes | `registry.propose` |
 | `config` | a setting of the assistant itself | `registry.propose` |
 | `routine`, `agent` | self-built routines and agents | mirrored from the self-build ledger |
+| `coding_policy` | how coding runs are steered | `dodaios/rsi/trainer.py` |
+| `parameter` | a tunable number inside fixed limits | the learners, as candidates |
 
 ## The gate
 

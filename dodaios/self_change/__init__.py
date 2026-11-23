@@ -7,7 +7,14 @@ the rules (what is core, what the gate checks, how rollback works).
 from __future__ import annotations
 
 from .gate import Draft, Gate
-from .registry import OWNER, SelfChangeError, SelfChangeRegistry
+from .registry import (
+    GATE,
+    MEASUREMENT,
+    OWNER,
+    SelfChangeError,
+    SelfChangeRegistry,
+    StaleEvidence,
+)
 from .surfaces import State, Surface
 
 _current: SelfChangeRegistry | None = None
@@ -24,11 +31,14 @@ def set_current(registry: SelfChangeRegistry | None) -> None:
 
 
 __all__ = [
+    "GATE",
+    "MEASUREMENT",
     "OWNER",
     "Draft",
     "Gate",
     "SelfChangeError",
     "SelfChangeRegistry",
+    "StaleEvidence",
     "State",
     "Surface",
     "current",
