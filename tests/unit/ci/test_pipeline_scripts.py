@@ -723,6 +723,39 @@ def test_train_uses_the_newest_pull_request_verdict():
     assert agent_integrate.run_state([old]) == ("failure", 1)
 
 
+def test_train_never_reads_a_pull_request_from_the_runs_of_a_fork(monkeypatch):
+    """A fork can open a pull request at the very commit of an eligible one.
+
+    GitHub lists its runs under the same head commit. The train must not take
+    the fork's parked run for the eligible pull request's verdict, and so
+    never approves or re-runs it.
+    """
+    repo = "example/project"
+
+    def run(run_id: int, conclusion: str, created: str, origin: object) -> dict:
+        own = _run("pull_request", "completed", conclusion, created, run_id)
+        return {**own, "head_repository": origin}
+
+    listed = [
+        run(1, "success", "1", {"full_name": "Example/Project"}),
+        run(2, "action_required", "2", {"full_name": "stranger/project"}),
+        run(3, "cancelled", "3", None),
+        run(4, "failure", "4", {}),
+    ]
+    asked: list[str] = []
+
+    def fake_gh_json(*args: str) -> object:
+        asked.append(args[1])
+        return {"workflow_runs": listed}
+
+    monkeypatch.setattr(agent_integrate, "gh_json", fake_gh_json)
+
+    assert [r["id"] for r in agent_integrate.gate_runs(repo, "abc")] == [1]
+    assert agent_integrate.gate_state(repo, "abc") == ("success", 1)
+    assert [r["id"] for r in agent_integrate.queue_group_runs(repo)] == [1]
+    assert all(path.startswith(f"repos/{repo}/actions/workflows/ci.yml/runs?") for path in asked)
+
+
 def test_train_updates_only_conflicting_or_stale_red_branches():
     decide = agent_integrate.decide
     assert decide("CONFLICTING", "success", True) == "update"

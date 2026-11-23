@@ -718,9 +718,27 @@ def run_state(runs: list[dict]) -> tuple[str, int | None]:
     return "failure", run_id
 
 
+def own_runs(runs: list[dict], repo: str) -> list[dict]:
+    """The workflow runs that started from ``repo`` itself.
+
+    A listing by head commit also returns the runs of a fork's pull request
+    that points at the same commit. They say nothing about this repository's
+    pull request, and the train must neither read its verdict from them nor
+    approve or re-run them. A run that names no repository is not counted.
+    """
+    wanted = repo.casefold()
+    return [
+        run
+        for run in runs
+        if isinstance(run, dict)
+        and str((run.get("head_repository") or {}).get("full_name") or "").casefold() == wanted
+    ]
+
+
 def gate_runs(repo: str, sha: str) -> list[dict]:
     data = gh_json("api", f"repos/{repo}/actions/workflows/ci.yml/runs?head_sha={sha}&per_page=50")
-    return (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    runs = (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    return own_runs(runs, repo)
 
 
 def gate_state(repo: str, sha: str) -> tuple[str, int | None]:
@@ -752,7 +770,8 @@ def queue_group_runs(repo: str) -> list[dict]:
     data = gh_json(
         "api", f"repos/{repo}/actions/workflows/ci.yml/runs?event=merge_group&per_page=100"
     )
-    return (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    runs = (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    return own_runs(runs, repo)
 
 
 def queue_runs_by_pr(runs: list[dict]) -> dict[int, dict]:
