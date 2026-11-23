@@ -40,6 +40,7 @@ __all__ = [
     "MAX_ROOT_FOLLOW_UPS",
     "MAX_RUN_TOKENS_OUT",
     "NEEDS_DECISION",
+    "SELF_CHECKED",
     "SUPERSEDED",
     "UNVERIFIED",
     "VERDICTS",
@@ -50,13 +51,19 @@ __all__ = [
 ]
 
 VERIFIED: Final[str] = "verified"
+#: No repository checks could be read, the scan found nothing, and the checks
+#: the agent itself ran in its turn passed after its last edit. Weaker than
+#: ``verified``: the app ran nothing and the agent chose what to check.
+SELF_CHECKED: Final[str] = "self_checked"
 UNVERIFIED: Final[str] = "unverified"
 FAILED: Final[str] = "failed"
 #: The person, or a new order, took the thread over: this run is nobody's result.
 SUPERSEDED: Final[str] = "superseded"
 #: The agent says the next step is not its to take.
 NEEDS_DECISION: Final[str] = "needs_decision"
-VERDICTS: Final[tuple[str, ...]] = (VERIFIED, UNVERIFIED, FAILED, SUPERSEDED, NEEDS_DECISION)
+VERDICTS: Final[tuple[str, ...]] = (
+    VERIFIED, SELF_CHECKED, UNVERIFIED, FAILED, SUPERSEDED, NEEDS_DECISION,
+)
 
 #: Follow-up orders one run may get: three outputs at most.
 MAX_FOLLOW_UPS: Final[int] = 2
@@ -162,6 +169,7 @@ def decide(
     reviewed: dict[str, Any] | None = None,
     review_trigger: str = "",
     review_budget: str = "",
+    self_checks: dict[str, Any] | None = None,
 ) -> Decision:
     """The next step for ``run`` after its newest output.
 
@@ -170,7 +178,9 @@ def decide(
     ``said`` the agent's final message of the turn, ``previous_tree`` the tree
     the output before this one left (after a follow-up order). ``reviewed`` is
     the review of this output when one ran, ``review_trigger`` why one is due
-    (``""``: none is), ``review_budget`` why none may run.
+    (``""``: none is), ``review_budget`` why none may run. ``self_checks`` is
+    what the agent's own checks in the turn said (:mod:`self_checks`); it
+    counts only where no repository check could be read.
     """
     if run.get("person_intervened"):
         return _close(SUPERSEDED, "the person wrote into the thread")
@@ -290,6 +300,13 @@ def decide(
     may_come = on_github or bool(found.get("transient"))
     if found and may_come and waited_s < evidence.NO_CHECKS_GIVE_UP_S:
         return Decision(WAIT, reason=reason or "the checks have not been read yet")
+    own = self_checks or {}
+    if status == gates.CLEAN and int(scan.get("files") or 0) and own.get("passed"):
+        # The weakest evidence there is, and named as such.
+        no_checks = f"{reason}; the commit has no checks" if on_github else (
+            reason or "no repository checks could be read"
+        )
+        return after_review(_close(SELF_CHECKED, f"{no_checks}; {own.get('reason')}"))
     if on_github:
         return after_review(_close(UNVERIFIED, f"{reason}; the commit has no checks"))
     return after_review(_close(UNVERIFIED, reason or "nothing proves that the change works"))

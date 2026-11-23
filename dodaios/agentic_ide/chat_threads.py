@@ -67,6 +67,7 @@ _DONE: Final[frozenset[str]] = frozenset({"done", "complete", "completed", "ok",
 #: How the app's verdict on a run (``verification.probe``) is told to the conversation.
 _JUDGED: Final[dict[str, str]] = {
     "verified": "completed",
+    "self_checked": "completed",
     "unverified": "completed",
     "failed": "failed",
     "needs_decision": "needs_input",

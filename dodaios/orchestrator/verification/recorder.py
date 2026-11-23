@@ -168,6 +168,7 @@ class RunRecorder:
         review_paid: bool = False,
         review_call: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
         policy_for: Callable[[str, str], dict[str, Any]] | None = None,
+        snapshot: Callable[[str], str | None] | None = None,
     ) -> None:
         self.store = store
         self._service = service
@@ -178,6 +179,9 @@ class RunRecorder:
         #: ``dodaios.rsi.bind.binding_fields`` unless a test or host says otherwise.
         self._policy_for = policy_for
         self._read_evidence = read_evidence
+        #: ``folder -> tree id`` of a checkout as it is now (a throwaway index;
+        #: the folder is untouched). ``GitWorkspace.snapshot`` unless a test says otherwise.
+        self._snapshot = snapshot
         self._clock = clock
         #: When the landing and checks of a run are read again (``run_id`` -> ms).
         self._due: dict[str, int] = {}
@@ -400,6 +404,9 @@ class RunRecorder:
         session = self._session(session_id)
         cwd = str(getattr(session, "cwd", "") or "")
         ref = self._describe(cwd) if cwd else repo_identity.RepoRef("", "", False)
+        # A shared checkout: what it holds now, so the run's own change can be
+        # told from what was there before (``gates.shared_area``).
+        start_tree = self._take_snapshot(cwd) if cwd and not ref.isolated else ""
         found, main, source = domains.pre_classify(prompt)
         job = self._job(job_id)
         created = self.store.start_run(
@@ -421,6 +428,7 @@ class RunRecorder:
             effort=str(getattr(session, "effort", "") or ""),
             boot_id=self._boot_id,
             started_ms=started_ms,
+            start_tree=start_tree,
             **{k: v for k, v in policy.items() if k in ("policy_id", "arm", "policy_json")},
         )
         if not created:
@@ -798,6 +806,7 @@ class RunRecorder:
                 reviewed=reviewed,
                 review_trigger=review_trigger,
                 review_budget=spent,
+                self_checks=detail_of(lambda step: step.get("step") == "self_checks", output),
             )
 
         decision = decided(trigger)
@@ -1031,13 +1040,55 @@ class RunRecorder:
                 # Whoever waits for the run sees that its check is alive.
                 self.store.update_run(run.run_id, heartbeat_ms=now)
 
+    def _take_snapshot(self, folder: str) -> str:
+        """The tree id of ``folder`` as it is now, or ``""``. Never raises."""
+        try:
+            if self._snapshot is None:
+                from dodaios.agent_chat.team.workspace import GitWorkspace
+
+                self._snapshot = GitWorkspace().snapshot
+            return str(self._snapshot(folder) or "")
+        except Exception:  # noqa: BLE001 - without it the run is recorded as unattributed
+            log.warning("run recorder: no snapshot of %s", folder, exc_info=True)
+            return ""
+
+    def _neighbours(self, row: dict[str, Any]) -> dict[str, list[str]]:
+        """Files each other run open in the same shared checkout meanwhile touched."""
+        from . import gates
+
+        if row.get("isolated") or not row.get("start_tree"):
+            return {}
+        now = int(self._clock() * 1000)
+        out: dict[str, list[str]] = {}
+        for other in self.store.neighbours(
+            str(row["run_id"]), str(row.get("workdir") or ""),
+            int(row.get("started_ms") or 0), int(row.get("ended_ms") or now),
+        ):
+            began = int(other.get("started_ms") or 0)
+            until = int(other.get("ended_ms") or now)
+            events = [
+                e for e in self._events(str(other["session_id"]))
+                if int(e.get("ts_ms") or 0) <= until
+            ]
+            touched = gates.written_paths(events, began)
+            for step in self.store.steps(str(other["run_id"])):
+                if step.get("step") == "gates":
+                    touched += list((step.get("detail") or {}).get("paths") or [])
+            out[str(other["run_id"])] = touched
+        return out
+
     def _check_output(self, run: _Open) -> None:
         """Scan what the ended output left behind, and read its first evidence."""
-        from . import gates
+        from . import gates, self_checks
 
         try:
             row = self.store.get(run.run_id) or {}
-            result = gates.check_run(row, self._events(run.session_id))
+            events = self._events(run.session_id)
+            result = gates.check_run(
+                row, events, snapshot=self._snapshot,
+                reported=gates.written_paths(events, run.started_ms),
+                neighbours=self._neighbours(row),
+            )
             self.store.update_run(
                 run.run_id,
                 gate_status=result.status,
@@ -1051,6 +1102,16 @@ class RunRecorder:
         except Exception:  # noqa: BLE001 - an unscanned run stays recorded as it ended
             log.warning("run recorder: output of %s not scanned", run.run_id, exc_info=True)
             return
+        try:
+            # What the agent's own checks said: read from its record, never run here.
+            own = self_checks.read(events, run.started_ms)
+            self.store.add_step(
+                run.run_id, run.iteration, "self_checks", turn_id=run.turn_id,
+                status="passed" if own["passed"] else "not_passed", detail=own,
+                ts_ms=int(self._clock() * 1000),
+            )
+        except Exception:  # noqa: BLE001 - without it the run is judged on the rest
+            log.warning("run recorder: own checks of %s not read", run.run_id, exc_info=True)
         try:
             self._first_evidence(row, result)
         except Exception:  # noqa: BLE001 - a run without evidence stays "unverified"
@@ -1069,7 +1130,7 @@ class RunRecorder:
             found = evidence.Evidence(
                 evidence.NONE, evidence.NONE, head, reason="the run changed no file"
             )
-        elif not head or head == str(result.area.base or ""):
+        elif not head or head in (str(result.area.base or ""), str(row.get("base_sha") or "")):
             found = evidence.Evidence(
                 evidence.NONE, evidence.NONE, head, reason="the work is not committed"
             )

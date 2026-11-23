@@ -799,10 +799,11 @@ async def test_an_order_to_a_thread_is_recorded_and_judged_as_a_run(
         assert run["primary_domain"] == "testing"
         assert run["turn_id"]
         assert run["harness_version"] == "1.2.3"
-        # Judged under the factory policy, bound before the send: the shared
-        # checkout proves nothing, and nothing held the lead's result back.
+        # Judged under the factory policy, bound before the send: the folder is
+        # no repository, so nothing proves the work, and nothing held the
+        # lead's result back.
         assert [s["step"] for s in store.steps(job_id)] == [
-            "bound", "turn_started", "turn_finished", "gates", "verdict",
+            "bound", "turn_started", "turn_finished", "gates", "self_checks", "verdict",
         ]
         assert (run["policy_id"], run["verdict"]) == (DEFAULT.id, "unverified")
         assert len(rig.results()) == 1

@@ -4616,8 +4616,8 @@ class RsiConfig(BaseModel):
     #: neighbours changed (``dodaios.orchestrator.verification.workdir``). Off
     #: by default: the worktree starts from the remote default branch, so the
     #: person's uncommitted and unpushed work is not in it, and no dependencies
-    #: are installed there. A run in the shared checkout is recorded as
-    #: unattributed.
+    #: are installed there. A run in the shared checkout is judged from a
+    #: snapshot at its start and one at its end (``verification.gates``).
     worktree_per_run: bool = False
     #: Repositories whose threads keep running in the project folder, by the
     #: id the run report shows (``github.com/owner/name``).
