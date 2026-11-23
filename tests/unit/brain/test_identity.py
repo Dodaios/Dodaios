@@ -96,7 +96,7 @@ def test_an_edit_reaches_the_next_prompt(soul: Path, monkeypatch) -> None:
 
 
 def test_the_gpt_live_session_states_the_identity(soul: Path) -> None:
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     block = identity_block(_config("Hey George"), path=soul)
     wire = LiveConfig(configured=True, backend_model="m").session_config(
@@ -108,7 +108,7 @@ def test_the_gpt_live_session_states_the_identity(soul: Path) -> None:
 
 
 def test_the_gpt_live_session_without_identity_never_claims_the_app_name() -> None:
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     wire = LiveConfig(configured=True, backend_model="m").session_config(language="de", tools=[])
     assert "You are Dodaios" not in wire["instructions"]
