@@ -262,3 +262,38 @@ describe("where the cursor rests", () => {
     expect(seen).toEqual(["388"]);
   });
 });
+
+describe("the arrow's own motion", () => {
+  it("shakes once when the agent starts to think, and not with reduced motion", () => {
+    vi.useFakeTimers();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    host.dataset.building = "true";
+    const make = () => host.appendChild(document.createElement("div"));
+    const art = make();
+    const shake = vi.fn(() => ({ cancel: vi.fn() }) as unknown as Animation);
+    (art as unknown as { animate: typeof shake }).animate = shake;
+    const root = document.createElement("div");
+    root.innerHTML = "<p>x</p>";
+    document.body.appendChild(root);
+    const p = root.querySelector("p")!;
+    (p as unknown as { animate: typeof shake }).animate = vi.fn(() => ({ cancel: vi.fn() }) as unknown as Animation);
+
+    const player = new LivePlayer(host, { cursor: make(), frame: make(), tag: make(), art }, () => false);
+    host.dataset.placed = "true";
+    player.play([{ elements: [p] }]);
+    vi.advanceTimersByTime(LIVE_TIMING.staggerMs + THINKING_AFTER_MS + 10);
+    expect(host.dataset.phase).toBe("thinking");
+    expect(shake).toHaveBeenCalledTimes(1);
+    player.destroy();
+
+    shake.mockClear();
+    const calm = new LivePlayer(host, { cursor: make(), frame: make(), tag: make(), art }, () => true);
+    host.dataset.placed = "true";
+    calm.play([{ elements: [p] }]);
+    vi.advanceTimersByTime(THINKING_AFTER_MS + 10);
+    expect(shake).not.toHaveBeenCalled();
+    calm.destroy();
+    vi.useRealTimers();
+  });
+});
