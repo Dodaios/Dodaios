@@ -13,4 +13,4 @@ Thanks for helping. Small, focused pull requests are easiest to review.
 
 Code, comments, commit messages and docs are written in English.
 
-Security problems go through the [security policy](SECURITY.md), not a public issue.
+Security problems go through the [security policy](https://github.com/Dodaios/Dodaios/security/policy), not a public issue.
