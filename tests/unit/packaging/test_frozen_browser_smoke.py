@@ -327,7 +327,7 @@ def test_a_boot_calls_the_tools_a_chat_draws_and_writes_with(tmp_path, monkeypat
     report = _boot_fake_app(tmp_path, monkeypatch, platform="linux", mode="ok")
 
     assert report["mcp_tools"] == 4
-    assert report["whiteboard_ok"] and report["node_ok"] and report["create_artifact_ok"]
+    assert report["whiteboard_ok"] and report["node_ok"]
 
 
 @posix_only
@@ -351,7 +351,7 @@ def test_the_tool_check_waits_for_the_catalog(monkeypatch):
     monkeypatch.setattr(probe, "mcp_request", mcp)
     monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
     report = probe.check_chat_tools(50000, "test-key")
-    assert calls == ["whiteboard", "node", "create_artifact"]
+    assert calls == ["whiteboard", "node"]
     assert report["mcp_tools"] == 3
 
 

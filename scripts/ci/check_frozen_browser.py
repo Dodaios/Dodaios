@@ -183,9 +183,8 @@ def check_chat_tools(port: int, key: str, *, wait_s: float = 180) -> dict:
     """The tools a chat draws and writes with answer in the frozen app (#1879).
 
     The same MCP calls the chat's coding CLI makes: the catalog offers the
-    whiteboard, node and artifact tools, a whiteboard is drawn, a document is
-    written and an artifact build is handed over. A tool that fails here fails
-    in every chat of the build.
+    whiteboard, node and artifact tools, a whiteboard is drawn and a document
+    is written. A tool that fails here fails in every chat of the build.
     """
     # The app answers its health check before its tools are registered.
     deadline = time.monotonic() + wait_s
@@ -209,9 +208,8 @@ def check_chat_tools(port: int, key: str, *, wait_s: float = 180) -> dict:
             "title": "Frozen check document",
             "spec": {"summary": "A check.", "markdown": "# Frozen check\n\nIt writes documents."},
         },
-        # Only the hand-over to the background build: the build itself needs a
-        # model, which a CI runner does not have.
-        "create_artifact": {"title": "Frozen check page", "request": "A page that says TEST."},
+        # create_artifact is only required in the catalog: a call starts a
+        # background build that needs a model and comes back with the restart.
     }
     report: dict = {"mcp_tools": len(listed)}
     for name, arguments in calls.items():
@@ -358,7 +356,9 @@ def check_setup_name_save(port: int, key: str) -> dict:
     return {"setup_name_save": json.loads(body).get("resolved_engine", "")}
 
 
-def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float) -> dict:
+def boot(
+    executable: Path, profile: Path, output: Path, key: str, timeout: float, *, tools: bool = True
+) -> dict:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -390,7 +390,7 @@ def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float
                         report.update(check_setup_name_save(port, key))
                     if "permissions" not in report and "healthy_seconds" in report:
                         report["permissions"] = check_macos_permissions(port, key)
-                    if "mcp_tools" not in report and "healthy_seconds" in report:
+                    if tools and "mcp_tools" not in report and "healthy_seconds" in report:
                         # Asked again after a 503: the tools surface may come up later.
                         report.update(check_chat_tools(port, key))
                     status = request_json(port, "/api/society/browser/status", key)
@@ -526,7 +526,9 @@ def main() -> int:
         if sys.platform == "win32":
             report["bare_start"] = check_bare_start_settles(executable, output / "bare-profile")
         for name in ("first-install", "restart"):
-            row = boot(executable, profile, output / name, key, args.timeout)
+            # The tools once: the restart boot proves the browser comes back.
+            tools = name == "first-install"
+            row = boot(executable, profile, output / name, key, args.timeout, tools=tools)
             report["boots"].append({"name": name, **row})
         report["passed"] = True
         return 0
