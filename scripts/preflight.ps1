@@ -277,6 +277,11 @@ if ($siteExit -ne 0 -or [string]::IsNullOrWhiteSpace($siteOut)) {
 # core.hooksPath points at it. A fresh clone does NOT inherit local config,
 # so wire it here (self-healing, like the editable-install repin in Check 2).
 # Without this, `git push` would silently skip the secret / PII / identity gate.
+#
+# scripts/ci/install_git_hooks.py does the wiring, so there is ONE rule for
+# the value: the ABSOLUTE path of the primary checkout's .githooks. A relative
+# ".githooks" makes git run the hook files of whichever tree a worktree has
+# checked out; this check must never write that, nor replace an absolute path.
 # ---------------------------------------------------------------------------
 Push-Location $WorktreeRoot
 try {
@@ -284,17 +289,13 @@ try {
     if (-not (Test-Path -LiteralPath $hookFile)) {
         Write-Check "GREEN" "No .githooks/pre-push in this worktree -- nothing to wire"
     } else {
-        $current = (git config --local --get core.hooksPath 2>$null)
+        python (Join-Path $WorktreeRoot "scripts/ci/install_git_hooks.py") 2>$null | Out-Null
+        $current = (git config --get core.hooksPath 2>$null)
         $current = (($current -join "") -as [string]).Trim()
-        if ($current -eq ".githooks") {
-            Write-Check "GREEN" "Privacy pre-push hook wired (core.hooksPath=.githooks)"
+        if ($current -ne "" -and [System.IO.Path]::IsPathRooted($current) -and (Test-Path -LiteralPath $current)) {
+            Write-Check "GREEN" "Privacy pre-push hook wired (core.hooksPath=$current)"
         } else {
-            git config --local core.hooksPath .githooks 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Check "GREEN" "Wired privacy pre-push hook (core.hooksPath=.githooks)"
-            } else {
-                Write-Check "RED" "Could not set core.hooksPath=.githooks (push privacy gate inactive)"
-            }
+            Write-Check "RED" "core.hooksPath is '$current', not the absolute path of the primary checkout's .githooks (run: python scripts/ci/install_git_hooks.py)"
         }
     }
 } finally {
