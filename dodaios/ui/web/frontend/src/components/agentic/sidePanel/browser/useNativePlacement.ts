@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { placeNativeBrowser, type PanelPlacement } from "./nativeBrowserApi";
+import { useNativeBrowserArea } from "./nativeBrowserArea";
 
 /**
  * Popups of the app that can open over the panel. The browser is a separate
@@ -160,6 +161,11 @@ export function useNativePlacement(
       }
       const placement = measurePanel(panel.current, owner, covered, shownRef.current);
       setVisible(placement.visible);
+      // Tell the toast stack where the panel stands, covered or not: it moves
+      // aside while the panel is on screen and must not jump with each popup.
+      const onPage = placement.visible || (covered && measurePanel(panel.current, owner, false, shownRef.current).visible);
+      const box = onPage && panel.current ? panel.current.getBoundingClientRect() : null;
+      useNativeBrowserArea.getState().setArea(owner, box);
       // A shown window is confirmed every second; the backend hides it when the
       // confirmations stop (the page reloaded or crashed without cleaning up).
       const heartbeat = placement.visible && Date.now() - lastSentAt > HEARTBEAT_MS;
@@ -201,6 +207,7 @@ export function useNativePlacement(
     return () => {
       disposed = true;
       checkNow.current = null;
+      useNativeBrowserArea.getState().setArea(owner, null);
       if (frame) cancelAnimationFrame(frame);
       window.clearTimeout(idle);
       window.removeEventListener("resize", wake);
