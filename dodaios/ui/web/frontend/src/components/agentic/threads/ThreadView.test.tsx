@@ -203,6 +203,51 @@ describe("ThreadView", () => {
     await waitFor(() => expect(within(screen.getByTestId("thread-user-message")).getByTestId("magic-word").textContent).toBe("ultracode"));
   });
 
+  it("names a thread dropped from the sidebar inside the sentence and sends it as that thread's link", async () => {
+    const other = sessionRow({ session_id: "s2", title: "Fix the login redirect after the OAuth callback" });
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow(), other]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    // The sidebar's list, which a drop reads the thread's title from.
+    act(() => { useThreadChatStore.setState({ sessions: [sessionRow(), other] }); });
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "wait for" } });
+    const drop = box.closest("[data-thread-mention-drop]") as HTMLElement;
+    const dataTransfer = {
+      types: ["application/x-jarvis-thread"], effectAllowed: "copyMove", dropEffect: "none",
+      getData: (type: string) => (type === "application/x-jarvis-thread" ? "s2" : ""),
+    };
+    fireEvent.dragEnter(drop, { dataTransfer });
+    fireEvent.dragOver(drop, { dataTransfer });
+    fireEvent.drop(drop, { dataTransfer });
+    // A short name, not the whole title, drawn as a pill in the box.
+    expect(box.value).toBe("wait for @Fix the login redirect ");
+    const pill = within(screen.getByTestId("thread-composer-magic")).getByTestId("thread-mention");
+    expect(pill.textContent).toBe("@Fix the login redirect");
+
+    fireEvent.change(box, { target: { value: `${box.value}before you merge` } });
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
+    expect(api.sendAgentChatMessage.mock.calls[0][1]).toBe("wait for [Fix the login redirect](thread:s2) before you merge");
+  });
+
+  it("takes a named thread out whole with one Backspace", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow(), sessionRow({ session_id: "s2", title: "Login" })]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    act(() => { useThreadChatStore.setState({ sessions: [sessionRow(), sessionRow({ session_id: "s2", title: "Login" })] }); });
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    const dataTransfer = { types: ["application/x-jarvis-thread"], effectAllowed: "copyMove", dropEffect: "none", getData: () => "s2" };
+    fireEvent.drop(box.closest("[data-thread-mention-drop]") as HTMLElement, { dataTransfer });
+    expect(box.value).toBe("@Login ");
+    fireEvent.change(box, { target: { value: "@Login" } });
+    box.setSelectionRange(6, 6);
+    fireEvent.keyDown(box, { key: "Backspace" });
+    expect(box.value).toBe("");
+  });
+
   it("draws a slash command the agent knows in blue, in the box and in the sent message", async () => {
     api.fetchAgentChatCatalog.mockResolvedValue({ ...CATALOG, providers: [{ ...CATALOG.providers[0], typeahead: ["/", "@"] }] });
     api.fetchTypeahead.mockResolvedValue({ trigger: "/", truncated: false,
