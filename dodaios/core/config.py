@@ -2422,11 +2422,18 @@ class TwilioConfig(BaseModel):
     ``fallback_mode`` is reserved: ``"media"`` is the v1 raw-audio path;
     ``"conversationrelay"`` is a future degraded fallback (Twilio TTS voices)
     and is out of scope for v1.
+
+    Security default: ``allowed_callers = []`` takes no inbound call. Talking
+    to the number is prompting the assistant with its tools, and a phone
+    number can be dialled by anyone, so only the listed numbers get through
+    (like ``allowed_user_ids`` on the chat channels). Calls the app places
+    itself are not affected.
     """
 
     enabled: bool = False
     account_sid: str = ""  # AC... (account identifier, not a secret)
     phone_number: str = ""  # E.164, e.g. +49...
+    allowed_callers: list[str] = Field(default_factory=list)  # E.164 numbers that may call in
     public_base_url: str = ""  # https://jarvis.example.com (no trailing slash)
     greeting: str = ""  # optional spoken welcome; empty = neutral name-based default
     language_code: str = "de-DE"  # default TTS/STT language hint

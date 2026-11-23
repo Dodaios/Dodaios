@@ -24,6 +24,7 @@ def fake_cfg() -> JarvisConfig:
         enabled=True,
         account_sid="AC0123456789abcdef0123456789abcdef",
         phone_number="+49301234567",
+        allowed_callers=["+4915112345678"],
         public_base_url="https://jarvis.example.com",
         language_code="de-DE",
         max_call_seconds=600,
@@ -302,7 +303,7 @@ def test_voice_webhook_returns_connect_stream_with_valid_signature(app, secret_s
     from twilio.request_validator import RequestValidator
 
     url = "https://jarvis.example.com/api/telephony/voice"
-    params = {"CallSid": "CA42", "From": "+4930", "To": "+4940"}
+    params = {"CallSid": "CA42", "From": "+4915112345678", "To": "+4940"}
     sig = RequestValidator(secret_store["twilio_auth_token"]).compute_signature(url, params)
     with TestClient(app) as client:
         r = client.post(
@@ -333,7 +334,9 @@ def test_voice_webhook_rejects_bad_signature(app, secret_store):
 def test_voice_webhook_skips_signature_with_test_flag(app, secret_store):
     app.state.telephony_skip_signature = True
     with TestClient(app) as client:
-        r = client.post("/api/telephony/voice", data={"CallSid": "CA1"})
+        r = client.post(
+            "/api/telephony/voice", data={"CallSid": "CA1", "From": "+4915112345678"}
+        )
     assert r.status_code == 200
     assert "<Connect>" in r.text
 

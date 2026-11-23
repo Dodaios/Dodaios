@@ -3770,6 +3770,8 @@
       "language": "Código de idioma",
       "greeting": "Saludo (opcional)",
       "greeting_placeholder": "Déjalo vacío para el saludo predeterminado de {name}",
+      "allowed_callers": "Números que pueden llamar",
+      "allowed_callers_hint": "Solo estos números llegan al asistente; a los demás se les cuelga. Vacío significa que nadie puede llamar.",
       "test_connection": "Probar conexión",
       "self_test": "Autoprueba de voz",
       "setup_script": "Script de configuración",

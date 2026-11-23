@@ -50,6 +50,7 @@ interface TelephonyConfig {
   enabled: boolean;
   account_sid: string;
   phone_number: string;
+  allowed_callers?: string[];
   public_base_url: string;
   greeting: string;
   language_code: string;
@@ -636,6 +637,9 @@ function CredentialsCard({
   const [phoneNumber, setPhoneNumber] = useState(config.phone_number);
   const [publicBaseUrl, setPublicBaseUrl] = useState(config.public_base_url);
   const [greeting, setGreeting] = useState(config.greeting);
+  const [allowedCallers, setAllowedCallers] = useState(
+    (config.allowed_callers ?? []).join(", "),
+  );
   const [languageCode, setLanguageCode] = useState(config.language_code);
 
   const [saving, setSaving] = useState(false);
@@ -653,6 +657,10 @@ function CredentialsCard({
         body: JSON.stringify({
           enabled,
           phone_number: phoneNumber.trim(),
+          allowed_callers: allowedCallers
+            .split(/[,;\n]+/)
+            .map((entry) => entry.trim())
+            .filter(Boolean),
           public_base_url: publicBaseUrl.trim(),
           greeting,
           language_code: languageCode.trim(),
@@ -816,6 +824,20 @@ function CredentialsCard({
             placeholder={t("telephony_view.creds.greeting_placeholder")}
             className={settingsInputCls}
           />
+        </SettingsField>
+
+        <SettingsField label={t("telephony_view.creds.allowed_callers")}>
+          <input
+            type="text"
+            value={allowedCallers}
+            onChange={(e) => setAllowedCallers(e.target.value)}
+            placeholder="+4915112345678, +14155550100"
+            className={settingsInputCls}
+            data-testid="telephony-allowed-callers"
+          />
+          <span className="mt-1.5 block text-xs text-muted-foreground">
+            {t("telephony_view.creds.allowed_callers_hint")}
+          </span>
         </SettingsField>
       </div>
 
