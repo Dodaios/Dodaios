@@ -68,7 +68,7 @@ describe("the docs steps", () => {
     expect(stepsFor(root, true).map((s) => "element" in s.target)).toEqual([true, true]);
   });
 
-  it("gives each new block its own step; pictures get a skeleton, paragraphs write in", () => {
+  it("gives each new block its own step; pictures get a skeleton, paragraphs and list items write in", () => {
     const { root, content } = page("<h2>Plans</h2>");
     rememberBlocks(content);
     content.innerHTML = "<h2>Plans</h2><p>A new paragraph of words.</p><p><img src='a.png'></p><ul><li>One</li><li>Two</li></ul>";
@@ -78,8 +78,8 @@ describe("the docs steps", () => {
     expect(steps).toHaveLength(4);
     expect(steps[0].motion).toBeDefined(); // the paragraph
     expect(steps[1].motion).toBeDefined(); // the picture
-    expect(steps[2].motion).toBeUndefined(); // list items arrive whole
-    expect(steps[3].motion).toBeUndefined();
+    expect(steps[2].motion).toBeDefined(); // list items are written at the caret too
+    expect(steps[3].motion).toBeDefined();
   });
 
   it("fades a paragraph whole where text cannot be hidden without touching the editor", () => {

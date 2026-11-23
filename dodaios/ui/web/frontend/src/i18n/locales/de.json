@@ -12276,7 +12276,8 @@
     },
     "live": {
       "working": "{name} arbeitet…",
-      "card_building": "{name} baut daran…"
+      "card_building": "{name} baut daran…",
+      "jump": "Zeigen, wo {agent} gerade arbeitet"
     }
   },
   "agent_browser": {

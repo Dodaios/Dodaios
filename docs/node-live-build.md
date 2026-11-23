@@ -121,7 +121,7 @@ that draw spec items.
 | sheets | `adapters/sheets.ts` | `editors/sheets` |
 | data (Analytics) | `adapters/data.ts` | `editors/data` |
 | motion (Clips) | `adapters/motion.ts` | `editors/motion` |
-| whiteboard | `adapters/whiteboard.ts` | `whiteboard/WhiteboardEditor`. It is not on `EditorShell`: `canvas/BoardPresence.tsx` mounts `LivePresence` and a `LivePlayer` over the canvas, with one invisible marker per piece (`data-live-path="/elements/<first id>"`) that follows the canvas's scroll and zoom. `canvas/liveBuild.ts` plans the pieces (frames, then shapes with their labels, then arrows) and lands them on the canvas on `revealDelays`; the adapter turns the plan into steps. |
+| whiteboard | `canvas/BoardPresence.tsx` | `whiteboard/WhiteboardEditor`. It is not on `EditorShell`: `canvas/BoardPresence.tsx` mounts `LivePresence` and a `LivePlayer` over the canvas, with one invisible marker per piece (`data-live-path="/elements/<first id>"`) that follows the canvas's scroll and zoom. `canvas/liveBuild.ts` plans the pieces (frames, then shapes with their labels, then arrows). The presence takes the landing over (`BuildListener.begin` returns true): each piece's `gesture` grows it through `grow(index, share)` (`partialElement`), and it lands at 1. Without such a listener the board lands the pieces on `revealDelays`. |
 
 ## Presence and tokens
 
@@ -145,10 +145,15 @@ them. They are the ones a colleague's cursor has in a shared document:
 - **The name tag** hangs under the tip, dark with white words. The corner
   nearest the arrow is drawn sharp, like a speech bubble's. Near the right or
   bottom edge it moves to the left or above, and the sharp corner moves with
-  it. Between
-  edits, after `THINKING_AFTER_MS` of quiet, the tag shows the status instead
-  of the name ("Dodaios is working…", on a whiteboard "Dodaios is drawing"),
-  with a slow sheen over the words. There is no separate status pill.
+  it. Between edits, after `THINKING_AFTER_MS` of quiet, the tag says what
+  the agent is doing, with a slow sheen over the words. There is no separate
+  status pill. `live/agentActivity.ts` reads the running turn of the
+  conversation the node is built from (the chat store beside the node, else
+  the lead's). The tag shows the latest tool call in the work trace's own
+  words ("Dodaios · Searched the web · …", "Dodaios · Read notes.md"), or the
+  headline of a thought ("Thinking…" when the runner hides it). The node
+  tool's own writes do not count, because they are the build. Without a loaded
+  conversation the tag says "Dodaios is working…" ("is drawing" on a board).
 - **The frame** grows around what this batch has written. When the next
   target does not overlap it (the next slide, a part of the editor far away),
   the frame does not glide across the editor. It lands on the new target and
@@ -156,6 +161,27 @@ them. They are the ones a colleague's cursor has in a shared document:
 - Nothing is drawn until the cursor rests on something written
   (`data-placed`). Before that, the chat card's "being built" line is the
   only sign.
+- **Scrolling.** A scroll moves the frame and the cursor rigidly, in the same
+  frame as the content: the player follows the work's scroller offsets each
+  frame. A target that only moved (a board pan, a resized window, an inner
+  area that scrolled) takes the frame along at once. Only the presence's own
+  growth and moves are eased.
+- **Out of view.** When the work lies outside the visible area (the person
+  scrolled away), the cursor is not drawn at the edge. A chip with the
+  agent's name sits in the middle of that edge and points toward the work.
+  Pressing it brings the work back into view (`LivePlayer.resume`, a pan on a
+  board) and the view follows the writing again.
+
+The cursor works where the work is (`live/writing.ts`):
+
+| Type | What the hand does |
+|------|--------------------|
+| docs | A paragraph, a heading, a list item and a quote are written word group by word group at the caret. A table row is typed cell by cell. |
+| sheets | The header and each row are typed cell by cell from the left (`cellsWriting`, `CELL_MS` each). |
+| slides | Text is written at its caret. A picture shows a skeleton first. |
+| motion (Clips) | A new clip is pulled out to its length: the cursor drags its right edge while it grows (`gesture`, `PULL_MS`). |
+| whiteboard | Each piece is drawn: a shape grows from its corner as the cursor drags to the opposite one, and an arrow is pulled along its points. A text is typed letter by letter, and a label appears once its box is drawn. |
+| data | A figure counts up and a chart draws, with the cursor at the end of the card. |
 
 Arrow and tag look the same in both themes, so they read on any page. The
 frame and the skeletons come from tokens in `src/index.css`:
@@ -195,6 +221,9 @@ The presence, also in `playback.ts`:
 | `THINKING_AFTER_MS` | 600 | Quiet after a batch before the tag shows the status. |
 | `LEAN_MAX_DEG` | 10 | The most the arrow leans while it travels. |
 | `RING_AFTER_PX` | 48 | A move at least this long opens a ring where the cursor lands. |
+| `CELL_MS` (`writing.ts`) | 120 | One cell of a row being typed. |
+| `PULL_MS` (`adapters/motion.ts`) | 460 | A new clip pulled out to its length. |
+| `DRAW_MS` (`BoardPresence.tsx`) | 420 / 480 / 380 | A board shape, frame or arrow drawn. A text takes 220 ms plus 22 ms per letter, at most 900 ms. |
 
 Presence fades `PRESENCE_LINGER_MS` (1.5 s) after the agent's turn ends. A
 build with no agent write for `IDLE_SETTLE_MS` (90 s) ends anyway.
@@ -203,7 +232,7 @@ build with no agent write for `IDLE_SETTLE_MS` (90 s) ends anyway.
 
 - Typing, a click into the content, the wheel or a touch in the body finishes
   the playback at once. The view then stops following the writing until the
-  build ends.
+  person presses the edge chip or the build ends.
 - The view follows the writing (`scrollIntoView`, nearest) only until then.
 - With `prefers-reduced-motion`, the batch shows at once. Only the presence
   moves.

@@ -27,7 +27,9 @@ function grid(next: SheetsSpec, shown = 0): HTMLElement {
 }
 
 function pathsOf(steps: ReturnType<typeof sheetsReveal.steps>): string[] {
-  return steps.map((s) => ("path" in s.target ? s.target.path : "?"));
+  return steps.map((s) =>
+    "path" in s.target ? s.target.path : "element" in s.target ? (s.target.element.getAttribute("data-live-path") ?? "?") : "?",
+  );
 }
 
 const run = (previous: SheetsSpec | null, next: SheetsSpec, root: HTMLElement, initial = false) =>
@@ -71,7 +73,10 @@ describe("the sheets reveal", () => {
   it("plays the new rows top to bottom", () => {
     const before = spec([{ item: "a", cost: 1 }]);
     const after = spec([{ item: "a", cost: 1 }, { item: "b", cost: 2 }, { item: "c", cost: 3 }]);
-    expect(pathsOf(run(before, after, grid(after)))).toEqual(["/sheets/0/rows/1", "/sheets/0/rows/2"]);
+    const steps = run(before, after, grid(after));
+    expect(pathsOf(steps)).toEqual(["/sheets/0/rows/1", "/sheets/0/rows/2"]);
+    // Each drawn row is typed along, cell by cell.
+    expect(steps.every((step) => step.motion !== undefined)).toBe(true);
   });
 
   it("builds the structure first: the header row, then the body", () => {
