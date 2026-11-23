@@ -62,6 +62,41 @@ with the app and from the person's own past work.
 | `brief` | the brief names what the merged change needed | one call |
 | `coding` | the tests that were merged pass | a coding run |
 
+### The seed suite
+
+A new installation has no past work, CI needs a benchmark that depends on
+nobody's data, and a published number must be one everybody can reproduce. The
+seed suite is that: the memories of one invented person (150 of them) and 330
+messages she might send (`dodaios/rsi/bench/seed/recall.json`). 60 messages
+need no memory; 40 ask for the newer of an old and a new fact about the same
+thing; 62 share more words with a sibling memory than with the right one.
+
+```
+python -m dodaios.rsi.bench
+python -m dodaios.rsi.bench --set recall.turn_limit=3 --set recall.relative_floor=0.5
+```
+
+The command reads nothing from an installation and writes nothing; it builds
+the invented person's memory in RAM, with its own clock, so the numbers are
+the same on every machine and on every day. With `--set` it prints the paired
+comparison against the shipped defaults per split.
+
+The seed suite never decides anything about a real installation. A value
+tuned on an invented person's memories says nothing about a real person's, so
+a change to the live assistant needs evidence from that person's own tasks.
+
+### How the recall domain scores
+
+For each message the run asks the code a live turn uses which memories the
+message brings up (`recall_for` in `dodaios/memory/vault/runtime.py`).
+
+- A message with gold memories scores the share of them the model has in
+  front of it. A gold memory shown behind an outdated one counts half.
+- A message that needs no memory scores 1 when nothing is looked up for it,
+  else 0. Without this, a recall that shows something to every message would
+  score best.
+- The cost of a task is the prompt it adds, in tokens (characters / 4).
+
 ### Splits
 
 Tasks that came from the same piece of work share a *group*, and a group falls
@@ -223,6 +258,8 @@ The app is updated often, and nothing learned may be lost by an update.
 | Parameters with limits, read by the memory recall; learned values survive updates | built |
 | A recall that can be replayed without leaving a trace (no use count, no cache) | built |
 | Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built, not yet stored or run |
-| The recall benchmark, the paired test, the measured gate | next |
+| The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
+| `bench.db`, the seed suite, the recall domain, runs under overlays | built |
+| The measured gate | next |
 | Tuner, night cycle, automatic rollback, the page | next |
 | Always-on recording of work, the other domains, lessons, the jury | later |
