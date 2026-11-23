@@ -71,7 +71,10 @@ wants as `task`. Nothing is sent. The result holds
 When you worked out what a word of theirs stands for ("the side bar" is the
 left rail, `Rail.tsx`), pass it in `options.resolved` as
 `[{"said": ..., "means": ...}]` with the hand-off. It is remembered for the
-project, also when the word was misheard in dictation.
+project, also when the word was misheard in dictation. An entry is a word or a
+short name of up to four words, and what it means is the thing in the code. A
+sentence, a rule or a decision ("the agent asks you first") belongs in the
+brief: it is not remembered.
 
 ## What a brief contains
 

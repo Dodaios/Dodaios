@@ -119,3 +119,39 @@ def test_a_look_up_never_waits_for_a_slow_file_index(project, monkeypatch):
     assert facts.known is False and facts.starting_points == []
     # What the project's own files say needs no index.
     assert facts.checks[0] == "python scripts/done_gate.py"
+
+
+def test_the_glossary_keeps_words_and_short_names_not_sentences(project, briefs_on):
+    from dodaios.briefs import glossary
+
+    folder = str(project)
+    assert glossary.learn(folder, "Postausgang", "the list _outbox in sync/client.py")  # i18n-allow
+    restart = "einen Neustart überleben"  # i18n-allow
+    assert glossary.learn(folder, restart, "persisted in outbox.json")
+    # A sentence with a rule as its meaning is no glossary entry.
+    assert glossary.learn(
+        folder,
+        "Der Agent soll dich wirklich fragen, bevor er etwas ändert",  # i18n-allow
+        "the agent cannot ask live, so write the answer into the brief",
+    ) is None
+    said = sorted(e.said for e in glossary.entries(folder))
+    assert said == sorted(["Postausgang", restart])  # i18n-allow
+
+
+def test_a_long_entry_stored_before_the_limit_stays_out_of_the_kit(project, briefs_on):
+    import json
+
+    from dodaios.briefs import glossary
+
+    folder = str(project)
+    glossary.learn(folder, "Postausgang", "the list _outbox in sync/client.py")  # i18n-allow
+    path = glossary.store_path(folder)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["entries"].append({
+        "said": "das Dateiformat soll er dich vorher fragen",  # i18n-allow
+        "means": "agents cannot ask live", "hits": 0, "updated": 1.0,
+    })
+    path.write_text(json.dumps(data), encoding="utf-8")
+    asked = "frag ihn zum Postausgang, das Dateiformat soll er dich vorher fragen"  # i18n-allow
+    found = glossary.lookup(folder, asked)
+    assert [e.said for e in found] == ["Postausgang"]  # i18n-allow
