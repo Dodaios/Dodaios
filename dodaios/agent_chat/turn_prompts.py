@@ -18,7 +18,9 @@ them the same two moments, without any vendor cooperation:
   gets a ``plan_ready`` card. *Build* switches the session to the runner's
   build mode and sends the go-ahead as the next message; *Keep planning* just
   closes the card. Claude's own ``ExitPlanMode`` still asks mid-turn; when it
-  is approved the session leaves plan mode, so no second card follows.
+  is approved the session leaves plan mode, so no second card follows. Either
+  answer can carry the person's review of the plan, their edits and comments
+  (``plan_review``).
 
 Both cards are event-sourced. A card is open while its event has no closing
 event and no later turn started — a reopened chat, or an app restart, answers
@@ -72,6 +74,10 @@ ASK_PROTOCOL: Final[str] = (
 
 #: What the agent is told when the person approved its plan.
 PLAN_GO_AHEAD: Final[str] = "The plan is approved. Implement it now."
+
+#: What the timeline shows as the person's message when they send a plan back
+#: with comments or edits (``plan_review.shown``).
+PLAN_KEEP_SHOWN: Final[str] = "Keep planning."
 
 #: The answers to a plan card.
 PLAN_BUILD: Final[str] = "build"
@@ -280,6 +286,7 @@ __all__ = [
     "PLAN_DECISIONS",
     "PLAN_GO_AHEAD",
     "PLAN_KEEP",
+    "PLAN_KEEP_SHOWN",
     "OpenAsk",
     "OpenPlan",
     "answer",

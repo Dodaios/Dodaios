@@ -43,6 +43,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.agent_chat.plan_review import is_plan_tool
 from dodaios.core.redact import redact_secrets
 from dodaios.trust.hard_limits import (
     action_of,
@@ -675,6 +676,9 @@ def compact_line(preview: dict[str, Any], lang: str = "en") -> str:
 
 def editable_keys(name: str, args: dict[str, Any]) -> dict[str, str]:
     """``{field key: argument name}`` the person may edit on this call (server-side truth)."""
+    if is_plan_tool(name):
+        # A finished plan is the person's to change before it is built (plan_review.py).
+        return {"plan": "plan"} if isinstance(args.get("plan"), str) else {}
     preview = build_preview(name, args, recipients_known=lambda _r: True)
     if preview is None:
         return {}
