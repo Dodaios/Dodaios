@@ -41,6 +41,7 @@ def test_the_shipped_defaults_are_the_constants_the_code_had() -> None:
         "recall.turn_limit": 6,
         "recall.turn_max_chars": 900,
         "recall.relative_floor": 0.35,
+        "recall.min_score": 0.0,
         "recall.lesson_base": 0.6,
         "recall.lesson_cap": 1.5,
         "lessons.recall_threshold": 0.4,

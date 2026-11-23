@@ -218,8 +218,13 @@ def recall_for(
     max_chars = int(params.get("recall.turn_max_chars"))
     if in_mind is None:
         in_mind = in_mind_ids(vault, compact=compact)
+    # A message that matches nothing well enough brings up nothing. The relative
+    # floor below cannot say that: the best hit always passes its own share.
+    min_score = float(params.get("recall.min_score"))
     hits = [
-        h for h in vault.search(" ".join(words), limit=limit * 2) if h.memory.id not in in_mind
+        h
+        for h in vault.search(" ".join(words), limit=limit * 2)
+        if h.memory.id not in in_mind and h.score >= min_score
     ]
     hits = _with_lessons(vault, user_text, hits, in_mind)
     if not hits:
