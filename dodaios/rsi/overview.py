@@ -110,6 +110,27 @@ def _measurement(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _note_text(change: Change) -> str:
+    """The words of a note the assistant wrote for itself, read from the memory right now.
+
+    The registry holds no text of it, so a note the person forgot is gone here too.
+    """
+    from dodaios.rsi import adopt
+
+    found = adopt.memory_id(change)
+    if not found:
+        return ""
+    try:
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        vault = vault_runtime.active()
+        memory = vault.get(found) if vault is not None else None
+    except Exception:  # noqa: BLE001 — the list shows the entry without its words
+        log.info("self-improvement: a note's text could not be read", exc_info=True)
+        return ""
+    return memory.text if memory is not None else ""
+
+
 def _change(night: Night, change: Change) -> dict[str, Any]:
     store = params.installed()
     index = store.index if store is not None else params.INDEX
@@ -124,6 +145,8 @@ def _change(night: Night, change: Change) -> dict[str, Any]:
         "state": change.state.value,
         "author": change.author,
         "reason": change.reason,
+        "text": _note_text(change),
+        "measured": bool(evidence),
         "since_ms": night.registry.store.applied_ms(change.id) or change.created_ms,
         "before": _value(change.before),
         "after": _value(change.after),

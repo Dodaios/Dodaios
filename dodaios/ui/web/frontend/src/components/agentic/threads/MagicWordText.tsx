@@ -10,7 +10,7 @@ export type MentionAgent = (provider: string) => { agent: string; label: string 
 
 /**
  * Another thread named in the sentence: the agent's logo where the `@`
- * stands and the short name after it, on a quiet pill. The pill adds no
+ * stands and the thread's title after it, on a quiet pill. The pill adds no
  * width — its padding is taken back by a negative margin and its edge is a
  * ring — so under the composer's textarea every glyph still lines up.
  */

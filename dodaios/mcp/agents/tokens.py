@@ -62,6 +62,7 @@ _WORK_EXTRA: Final[frozenset[str]] = frozenset(
         "quest_post",
         "quest_retry",
         "quest_cancel",
+        "room_open",
         "room_say",
         "room_settle",
         "agent_create",

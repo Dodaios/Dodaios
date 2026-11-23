@@ -7,6 +7,7 @@ we test with mock update/bot objects and manual instantiation.
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -32,12 +33,17 @@ def _make_update(
     text: str = "Hallo",
     username: str | None = "alice",
     full_name: str | None = "Alice Tester",
+    sent_ago_s: float | None = 0.0,
 ) -> Any:
+    """A Telegram update; ``sent_ago_s`` is how long ago the message was sent
+    (``None`` leaves the send time out, as a malformed update would)."""
     if chat_id is None:
         chat_id = user_id
     user = SimpleNamespace(id=user_id, username=username, full_name=full_name)
     chat = SimpleNamespace(id=chat_id, type=chat_type)
     message = SimpleNamespace(text=text, chat=chat, from_user=user)
+    if sent_ago_s is not None:
+        message.date = datetime.now(UTC) - timedelta(seconds=sent_ago_s)
     return SimpleNamespace(message=message)
 
 
@@ -240,6 +246,57 @@ async def test_on_msg_refuses_first_contact_after_the_pairing_window(
     assert paired == []
     assert ch._cfg.allowed_user_ids == []  # noqa: SLF001
     assert ch._inbox.qsize() == 0  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sent_ago_s", [3600.0, 86_000.0, None])
+async def test_on_msg_refuses_first_contact_sent_before_the_channel_started(
+    monkeypatch: pytest.MonkeyPatch, sent_ago_s: float | None
+) -> None:
+    """Telegram hands a bot the messages it was sent while offline. One of
+    those, or one without a send time, must not claim the empty allowlist."""
+    paired: list[int] = []
+    monkeypatch.setattr(
+        "dodaios.core.config_writer.add_telegram_allowed_user_id",
+        lambda user_id: paired.append(user_id),
+    )
+    cfg = TelegramConfig(enabled=True, allowed_user_ids=[])
+    ch = _make_channel(cfg)
+    await ch._on_telegram_msg(  # noqa: SLF001
+        _make_update(user_id=666, sent_ago_s=sent_ago_s), _ctx=None
+    )
+    assert paired == []
+    assert ch._cfg.allowed_user_ids == []  # noqa: SLF001
+    assert ch._inbox.qsize() == 0  # noqa: SLF001
+
+    # The owner's own message, written now, still pairs.
+    await ch._on_telegram_msg(_make_update(user_id=999, text="Hi"), _ctx=None)  # noqa: SLF001
+    assert paired == [999]
+    assert ch._inbox.qsize() == 1  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_on_msg_pairs_when_the_clocks_differ_a_little(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Telegram's clock and this computer's are not the same clock."""
+    monkeypatch.setattr(
+        "dodaios.core.config_writer.add_telegram_allowed_user_id", lambda user_id: None
+    )
+    ch = _make_channel(TelegramConfig(enabled=True, allowed_user_ids=[]))
+    await ch._on_telegram_msg(_make_update(user_id=999, sent_ago_s=30.0), _ctx=None)  # noqa: SLF001
+    assert ch._cfg.allowed_user_ids == [999]  # noqa: SLF001
+
+
+def test_an_unclaimed_channel_asks_telegram_to_drop_what_waited() -> None:
+    """Only while nobody is allowed: an owner's waiting messages are kept."""
+    assert _make_channel(TelegramConfig(enabled=True))._unclaimed() is True  # noqa: SLF001
+    owned = TelegramConfig(enabled=True, allowed_user_ids=[100])
+    assert _make_channel(owned)._unclaimed() is False  # noqa: SLF001
+    group = TelegramConfig(enabled=True, allowed_chat_ids=[-5])
+    assert _make_channel(group)._unclaimed() is False  # noqa: SLF001
+    off = TelegramConfig(enabled=True, pair_on_first_private_message=False)
+    assert _make_channel(off)._unclaimed() is False  # noqa: SLF001
 
 
 @pytest.mark.asyncio

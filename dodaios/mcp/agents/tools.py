@@ -1011,6 +1011,8 @@ TOOLS: Final[tuple[AgentTool, ...]] = (
             ["name", "title", "description"],
         ),
         handler=_agent_create,
+        # Writes the roster: a token that may only look must not hire.
+        dangerous=True,
         tags=("roster",),
     ),
     AgentTool(
@@ -1059,6 +1061,8 @@ TOOLS: Final[tuple[AgentTool, ...]] = (
             ["members", "topic"],
         ),
         handler=_room_open,
+        # Starts the members' turns on the topic: work, and spend.
+        dangerous=True,
         tags=("rooms",),
     ),
     AgentTool(

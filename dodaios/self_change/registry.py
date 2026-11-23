@@ -138,6 +138,8 @@ class SelfChangeRegistry:
         #: A handler a proposal brought for one target; later approve/rollback reuse it.
         self._overrides: dict[tuple[Surface, str], Handler] = {}
         self._external: ExternalReverter | None = None
+        #: ``ref`` prefix -> what takes back a change another store applied.
+        self._reverters: dict[str, ExternalReverter] = {}
         self._notify = notify
         self._audit = audit
         self._lock = threading.RLock()
@@ -150,6 +152,16 @@ class SelfChangeRegistry:
     def register_external_reverter(self, reverter: ExternalReverter) -> None:
         """Reverts changes another ledger owns (self-build artefacts), by their ``ref``."""
         self._external = reverter
+
+    def register_reverter(self, prefix: str, reverter: ExternalReverter) -> None:
+        """Reverts mirrored changes whose ``ref`` starts with ``prefix`` (a note in the memory)."""
+        self._reverters[prefix] = reverter
+
+    def _reverter_for(self, change: Change) -> ExternalReverter | None:
+        for prefix, reverter in self._reverters.items():
+            if change.ref.startswith(prefix):
+                return reverter
+        return None
 
     def set_notifier(self, notify: Notify | None) -> None:
         self._notify = notify
@@ -489,7 +501,10 @@ class SelfChangeRegistry:
         ]
 
     def _revert_one(self, change: Change, actor: str) -> Change:
-        if change.ref.startswith(MIRROR_PREFIX):
+        mirrored = self._reverter_for(change)
+        if mirrored is not None:
+            mirrored(change)
+        elif change.ref.startswith(MIRROR_PREFIX):
             if self._external is None:
                 raise SelfChangeError("nothing can revert this self-built change here")
             self._external(change)
