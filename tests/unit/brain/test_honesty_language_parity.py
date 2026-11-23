@@ -17,7 +17,18 @@ from pathlib import Path
 
 from dodaios.core.turn_language import DEFAULT_LOCALE
 
-_MANAGER = Path(__file__).resolve().parents[3] / "dodaios" / "brain" / "manager.py"
+_BRAIN = Path(__file__).resolve().parents[3] / "dodaios" / "brain"
+_MANAGER = _BRAIN / "manager.py"
+
+
+def _manager_source() -> str:
+    """The manager and the mixin modules that make up BrainManager."""
+    parts = sorted((_BRAIN / "manager_parts").glob("*.py"))
+    return "\n".join(p.read_text(encoding="utf-8") for p in [_MANAGER, *parts])
+
+
+
+
 _RESOLVE_CALL_RE = re.compile(
     r"resolve_output_language\((?:[^()]|\([^()]*\))*\)", re.DOTALL
 )
@@ -30,7 +41,7 @@ def test_default_locale_is_not_german() -> None:
 
 
 def test_no_output_language_call_pins_its_own_default() -> None:
-    source = _MANAGER.read_text(encoding="utf-8")
+    source = _manager_source()
     offenders = [
         call for call in _RESOLVE_CALL_RE.findall(source)
         if "default=" in call
@@ -46,7 +57,7 @@ def test_no_output_language_call_pins_its_own_default() -> None:
 
 def test_the_two_honesty_guards_share_one_resolution() -> None:
     """The evidence fallback and the action-honesty guard read one variable."""
-    source = _MANAGER.read_text(encoding="utf-8")
+    source = _manager_source()
     assert "honesty_lang = _turn_phrase_language(self, " in source
     assert source.count("lang=honesty_lang") == 1
     assert source.count("language=honesty_lang") == 1
