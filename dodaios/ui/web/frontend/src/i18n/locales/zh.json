@@ -9389,6 +9389,16 @@
       },
       "active_count": "{count} 个工作中",
       "resting": "空闲 · {count}",
+      "view": {
+        "aria": "代理的显示方式",
+        "board": "看板",
+        "simulation": "模拟"
+      },
+      "simulation": {
+        "aria": "每个编程代理都是看板地面上的一个形象",
+        "empty": "这里还没有代理。",
+        "unavailable": "这台电脑无法绘制 3D 视图。看板显示相同的代理。"
+      },
       "column_empty": {
         "building": "没有智能体在构建。",
         "checks": "没有正在运行的检查。",
