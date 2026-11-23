@@ -63,3 +63,31 @@ def test_the_continuation_tells_the_lead_what_to_do_with_a_question_and_a_check(
     )
     assert delegation_wait.DONE_WHEN_CHECKED in checked
     assert delegation_wait.is_continuation_prompt(checked)
+
+
+def test_a_composed_brief_counts_as_delivered_only_once_a_pane_took_it(briefs_on):
+    from dodaios.briefs import handoff
+    from dodaios.briefs import log as brief_log
+
+    said = "im notes-app fehlt eine Funktion, die den Postausgang leert"  # i18n-allow
+    text = handoff.composed(
+        "Add clear_outbox() to sync/client.py: it empties the outbox without sending.\n\n"
+        "Done when: `python -m pytest -q` is green.",
+        utterance=said, folder="", recipient_name="Claude Code", session="T1",
+    )
+    store = brief_log.get_log()
+    [row] = store.rows()
+    assert not row["sent_ms"] and row["deliveries"] == []
+    # Another text (a typed prompt, a different brief) records nothing.
+    handoff.note_composed_sent("hello", "job_other", thread_id="pane:x")
+    assert store.delivery("job_other") is None
+    # The pane took the composed text, tidied by the composer afterwards.
+    tidied = "  " + text.replace("\n\n", "\n") + "  "
+    handoff.note_composed_sent(tidied, "job_pane", thread_id="pane:h1")
+    delivery = store.delivery("job_pane")
+    assert delivery is not None and delivery["thread_id"] == "pane:h1"
+    [row] = store.rows()
+    assert row["sent_ms"]
+    # Recorded once: a second send of the same text is no second delivery.
+    handoff.note_composed_sent(text, "job_again", thread_id="pane:h1")
+    assert store.delivery("job_again") is None

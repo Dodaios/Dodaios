@@ -118,3 +118,20 @@ async def test_a_team_threads_brief_passes_the_same_check(briefs_on, tmp_path) -
     }
     second = await tool.execute(strong, _ctx())
     assert second.success and len(team.calls) == 1
+
+
+async def test_a_failed_hand_off_says_why_in_its_error_text() -> None:
+    """Over MCP the lead sees only the error text: it carries the result's own reason."""
+    stuck = {
+        "status": "uncertain", "success": False,
+        "deliveries": [
+            {"status": "not_accepted", "reason": "T1 exited before it took the prompt."},
+        ],
+    }
+    workspace = Fake("workspace-orchestrate", [ToolResult(False, stuck)])
+    result = await _tool(workspace).execute({"target": "coding_agent", "task": "fix it"}, _ctx())
+    assert not result.success
+    assert result.error == "Delivery not_accepted: T1 exited before it took the prompt."
+    bare = Fake("workspace-orchestrate", [ToolResult(False, {"status": "uncertain"})])
+    result = await _tool(bare).execute({"target": "coding_agent", "task": "fix it"}, _ctx())
+    assert result.error == "The hand-off ended as 'uncertain' without a reason."

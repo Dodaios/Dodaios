@@ -63,3 +63,85 @@ async def test_a_follow_up_is_not_held_to_a_first_orders_rules(
     )
     assert sent.success, sent.error
     await settle(rt, thread)
+
+
+async def test_the_owner_is_woken_with_the_done_when_check_and_the_end_is_recorded(
+    society: Society, tmp_path: Path, briefs_on
+):
+    import json
+
+    from dodaios.agent_chat.events import make_event
+    from dodaios.briefs import log as brief_log
+
+    rt = society
+
+    def ran(session_id: str) -> None:
+        # Made when the turn starts: only what happens after the order counts.
+        rt.service.steps[session_id] = [[
+            make_event("tool_call", {"call_id": "c1", "name": "Bash",
+                                     "input": {"command": "python -m pytest -q"}}),
+            make_event("tool_result", {"call_id": "c1", "output": "3 passed in 0.1s"}),
+            "Rejected the empty password. All tests pass.",
+        ]]
+
+    thread = await open_thread(rt, tmp_path, STRONG, steps=["placeholder"], setup=ran)
+    await settle(rt, thread)
+
+    owner_prompts = [p for sid, p in rt.service.prompts if sid == rt.owner]
+    assert "Done-when check by Dodaios" in owner_prompts[-1]
+    assert "1 of 1 confirmed" in owner_prompts[-1]
+    state = rt.service.store.thread_owner(thread)["state"]
+    delivery = brief_log.get_log().delivery(state["brief_job"])
+    assert delivery["outcome"] == "completed"
+    assert json.loads(delivery["acceptance"])[0]["verdict"] == "confirmed"
+
+
+async def test_a_follow_up_without_points_is_checked_against_the_threads_order(
+    society: Society, tmp_path: Path, briefs_on
+):
+    from dodaios.agent_chat.events import make_event
+
+    rt = society
+    thread = await open_thread(rt, tmp_path, STRONG, steps=["Which message text?"])
+    await settle(rt, thread)
+    rt.service.steps[thread] = [[
+        make_event("tool_call", {"call_id": "c2", "name": "Bash",
+                                 "input": {"command": "python -m pytest -q"}}),
+        make_event("tool_result", {"call_id": "c2", "output": "4 passed in 0.1s"}),
+        "Done.",
+    ]]
+    sent = await tool(rt).execute(
+        {"action": "send", "thread_id": thread, "prompt": "Use 'Enter your password'."}, None
+    )
+    assert sent.success, sent.error
+    await settle(rt, thread)
+    owner_prompts = [p for sid, p in rt.service.prompts if sid == rt.owner]
+    assert "1 of 1 confirmed" in owner_prompts[-1]
+    assert "the order this turn continues" in owner_prompts[-1]
+
+
+async def test_the_agents_answer_is_on_record_as_its_own(
+    society: Society, tmp_path: Path, briefs_on
+):
+    from dodaios.agent_chat.events import make_event
+
+    rt = society
+    question = make_event("question_required", {
+        "question_id": "q1", "deferred": True,
+        "questions": [{"question": "Which message?", "options": [
+            {"label": "Enter your password", "description": ""},
+            {"label": "Password required", "description": ""},
+        ], "recommended": 0, "recommendation_reason": "clearer"}],
+    })
+    thread = await open_thread(rt, tmp_path, STRONG, steps=[["Which message?", question]])
+    await settle(rt, thread)
+    result = await tool(rt).execute(
+        {"action": "answer", "thread_id": thread, "answers": ["Enter your password"]}, None
+    )
+    assert result.success, result.error
+    await settle(rt, thread)
+    events = rt.service.store.list_events(thread)
+    resolved = [e for e in events if e["kind"] == "question_resolved"][-1]["payload"]
+    assert resolved["answers"][0]["source"] == "delegator"
+    answer = [e for e in events if e["kind"] == "user_message"][-1]["payload"]["text"]
+    assert "answered this on the person's behalf" in answer

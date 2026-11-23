@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Final
@@ -48,6 +49,7 @@ __all__ = [
     "enabled",
     "kit_for",
     "learn_words",
+    "note_composed_sent",
     "note_delivery",
     "order_from",
     "receipt",
@@ -314,10 +316,52 @@ def composed(
             record=config.record,
             read_repository=False,
         )
-        return delivery_for(decision, cli=recipient_name, max_chars=max_chars).text
+        made = delivery_for(decision, cli=recipient_name, max_chars=max_chars)
+        _remember_composed(made)
+        return made.text
     except Exception:  # noqa: BLE001 - the composed brief goes out as it was written
         log.warning("brief hand-off: composed brief not checked", exc_info=True)
         return text
+
+
+#: Composed briefs waiting to be typed into their pane, by their text. The
+#: composer cannot know whether its text is sent (a dry run is not), so the
+#: delivery is recorded where a pane takes the text (``note_composed_sent``).
+_COMPOSED: dict[str, tuple[float, Delivery]] = {}
+_COMPOSED_TTL_S: Final[float] = 900.0
+_COMPOSED_MAX: Final[int] = 64
+_COMPOSED_LOCK = threading.Lock()
+
+
+def _composed_key(text: str) -> str:
+    # The composer still tidies its text after the check (whitespace, control
+    # characters), so the text is matched with its whitespace collapsed.
+    return " ".join((text or "").split())
+
+
+def _remember_composed(made: Delivery) -> None:
+    now = time.monotonic()
+    with _COMPOSED_LOCK:
+        for key in [k for k, (at, _) in _COMPOSED.items() if now - at > _COMPOSED_TTL_S]:
+            del _COMPOSED[key]
+        if len(_COMPOSED) >= _COMPOSED_MAX:
+            del _COMPOSED[min(_COMPOSED, key=lambda k: _COMPOSED[k][0])]
+        _COMPOSED[_composed_key(made.text)] = (now, made)
+
+
+def note_composed_sent(text: str, job_id: str, *, thread_id: str = "") -> None:
+    """Record a composed brief as delivered once a pane took it; never raises.
+
+    A text the composer did not write (or wrote longer ago than the window)
+    is no composed brief and records nothing.
+    """
+    try:
+        with _COMPOSED_LOCK:
+            found = _COMPOSED.pop(_composed_key(text), None)
+        if found is not None:
+            note_delivery(found[1], job_id, thread_id=thread_id)
+    except Exception:  # noqa: BLE001 - the record never holds a delivery back
+        log.warning("brief hand-off: composed delivery not recorded", exc_info=True)
 
 
 def note_delivery(delivery: Delivery | None, job_id: str, *, thread_id: str = "") -> None:

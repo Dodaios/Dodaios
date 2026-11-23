@@ -197,6 +197,29 @@ def _first_text(*values: Any) -> str:
     return ""
 
 
+def _reason_of(data: Any) -> str:
+    """Why a hand-off did not go through, read from its result.
+
+    The caller of a tool over MCP sees a failed call's error text and not its
+    detail, so a bare state ("failed") left the lead retrying blind (seen in a
+    real run, 2026-11-23). The reason is taken from the result's own fields,
+    then from the first delivery that names one.
+    """
+    if not isinstance(data, dict):
+        return ""
+    for key in ("reason", "error", "creation_error", "message"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for delivery in data.get("deliveries") or []:
+        if isinstance(delivery, dict):
+            said = _first_text(delivery.get("reason"), delivery.get("error"))
+            if said:
+                return f"Delivery {delivery.get('status') or 'failed'}: {said}"
+    status = _first_text(data.get("status"), data.get("state"))
+    return f"The hand-off ended as {status!r} without a reason." if status else ""
+
+
 class DelegateTool:
     """Hand work to an agent, a pane, a team thread, a mission, a routine or a skill."""
 
@@ -602,7 +625,7 @@ class DelegateTool:
             )
             return _answer(
                 target, state, job_id, False,
-                error=result.error or _first_text(result.output),
+                error=result.error or _first_text(result.output) or _reason_of(data),
                 detail=data if data is not None else result.output,
             )
         if not job_id:

@@ -7157,6 +7157,14 @@ class Registry:
             from .delegation_wait import track_submission
 
             track_submission(self, owner, result)
+            # A brief the voice composer wrote is on record as delivered once
+            # the pane took it (a no-op for any other text).
+            from dodaios.briefs.handoff import note_composed_sent
+
+            note_composed_sent(
+                text, result.last_job_id or f"pane:{result.history_id}:{int(time.time() * 1000)}",
+                thread_id="pane:" + str(result.history_id or ""),
+            )
             return result
 
     @staticmethod
