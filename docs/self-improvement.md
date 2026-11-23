@@ -400,7 +400,18 @@ The app is updated often, and nothing learned may be lost by an update.
 - A task keeps its id when its content is corrected; results belong to the
   content hash they were measured on, so only those go stale.
 - The fingerprint holds the app version. After an update the assistant as it
-  ships is measured again, and the curve marks the update.
+  ships is measured again, and the curve marks the update. The first night
+  after an update checks everything that was learned, not only the newest.
+
+This is tested against frozen states. `tests/fixtures/rsi/upgrade/v1/` is what
+an installation had learned under the version that introduced the kernel: its
+three files as SQL text and a manifest. `tests/unit/rsi/test_upgrade.py` opens
+every such folder with today's code and requires that what was learned still
+applies, that every change and its evidence are readable, that no task moved
+to another split, and that a night carries on from there and can still take a
+change back to the exact earlier value. A release that changes a kernel schema
+adds a new folder (`python -m tests.unit.rsi.upgrade_fixture v2`); an old one
+is never regenerated.
 
 ## What the app shows
 
