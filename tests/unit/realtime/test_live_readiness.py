@@ -10,8 +10,8 @@ import pytest
 
 from dodaios.core.bus import EventBus
 from dodaios.core.events import RealtimeSessionReady, VoiceSessionStarted, VoiceTurnStarted
+from dodaios.core.live_config import LiveConfig
 from dodaios.live import session as module
-from dodaios.live.config import LiveConfig
 from dodaios.plugins.realtime import _live_transport as transport
 from tests.fakes.fake_subscription_live_wire import FakeSubscriptionLiveWire
 

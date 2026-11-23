@@ -5,8 +5,8 @@ import json
 import pytest
 
 from dodaios.brain.cost import calculate_cost_usd
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
-from dodaios.live.config import LiveConfig
 from dodaios.live.cost import backend_cost_usd
 from dodaios.live.discovery import discover
 from dodaios.live.state import LiveLedger

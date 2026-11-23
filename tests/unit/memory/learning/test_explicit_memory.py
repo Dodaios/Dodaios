@@ -176,7 +176,7 @@ def test_the_memory_block_states_the_contract_and_the_notes(book: JarvisNotebook
 
 
 def test_a_gpt_live_call_carries_the_memory(book: JarvisNotebook) -> None:
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
     from dodaios.live.session import _memory as live_memory
 
     notebook_module.set_active(book)

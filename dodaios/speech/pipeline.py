@@ -1528,10 +1528,10 @@ WAKE_ONLY_RE = re.compile(
 # The short-recording + whole-utterance verdict itself lives beside the pattern
 # in that same leaf module, because the realtime input recognizer needs exactly
 # this judgement too and a second copy would drift (BUG-008).
-from dodaios.speech.wake_constants import (  # noqa: E402
+from dodaios.core.wake_constants import (  # noqa: E402
     STT_HALLUCINATION_RE as _STT_HALLUCINATION_RE,
 )
-from dodaios.speech.wake_constants import (  # noqa: E402
+from dodaios.core.wake_constants import (  # noqa: E402
     is_silence_hallucination as _is_silence_hallucination,
 )
 
