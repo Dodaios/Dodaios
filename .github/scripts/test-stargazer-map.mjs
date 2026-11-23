@@ -67,3 +67,10 @@ test("star and reconciliation triggers use a pinned collector without a personal
   assert.match(yaml, /GITHUB_TOKEN: \$\{\{ github.token \}\}/);
   assert.doesNotMatch(yaml, /STARGAZERS_TOKEN|pull_request_target/);
 });
+
+test("the geocoder is checked out from the website repository under its current name", () => {
+  // The site repository was renamed; a checkout of the old name fails with
+  // "Repository not found" and the public feed stops moving.
+  const repos = [...yaml.matchAll(/^\s+repository: (\S+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(repos, ["Dodaios/dodaios.github.io"]);
+});
