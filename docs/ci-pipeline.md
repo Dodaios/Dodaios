@@ -641,6 +641,10 @@ decides the order of steps:
   trusts only when the release's `installers-update-manifest.json` is signed by
   the pinned release key and names that release's version
   (`dodaios/core/installer_update.py`, `dodaios/core/update_manifest.py`).
+* A managed update fetches that release's tag and installs its commit only
+  when the release's `payload-commit.txt`, signed by the same pinned key, names
+  exactly that commit (`dodaios/core/release_commit.py`). A release published
+  without that file and its `.cosign.sig` updates no managed install.
 
 Steps:
 

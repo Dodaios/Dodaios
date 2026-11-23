@@ -1564,12 +1564,76 @@ async def stage_managed_update() -> dict[str, object]:
         return await _apply_managed()
 
 
+def _signed_commit_assets(release: dict[str, Any], release_tag: str) -> Any:
+    """The release key's statement of which commit ``release`` is, or a refusal.
+
+    Read from the release metadata alone, so it is asked before anything is
+    downloaded: a release that does not carry the statement and its signature
+    cannot be shown to come from the release key, whatever its tag points to.
+    """
+    from dodaios.core.branding import OFFICIAL_REPO_URL
+    from dodaios.core.release_commit import (
+        PAYLOAD_COMMIT_ASSET_NAME,
+        select_signed_commit_assets,
+    )
+
+    assets = release.get("assets")
+    found = select_signed_commit_assets(assets if isinstance(assets, list) else [])
+    if found is None:
+        log.warning("[update] release %s carries no signed commit; refusing it", release_tag)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"release {release_tag} has no signed {PAYLOAD_COMMIT_ASSET_NAME} — refusing "
+                "to install an update the release key did not sign. Nothing was changed. "
+                f"Try again later; if it stays, report it at {OFFICIAL_REPO_URL}/issues"
+            ),
+        )
+    return found
+
+
+async def _require_signed_commit(assets: Any, release_tag: str, target_revision: str) -> None:
+    """Refuse ``target_revision`` unless it is the commit the release key signed.
+
+    ``target_revision`` is what the release tag resolved to in this checkout.
+    Whoever can push to the repository can move a tag; only the release key
+    can write the statement this compares it with
+    (``dodaios/core/release_commit.py``). Without this check a moved tag would
+    be installed, and its installer run, on the next restart.
+    """
+    from dodaios.core.release_commit import ReleaseCommitError, fetch_signed_commit
+
+    try:
+        signed = await fetch_signed_commit(assets)
+    except ReleaseCommitError as exc:
+        log.warning("[update] release %s refused: %s", release_tag, exc)
+        raise HTTPException(status_code=502, detail=f"release {release_tag}: {exc}") from exc
+    if signed != target_revision:
+        log.warning(
+            "[update] release %s refused: its tag is at %s, the release key signed %s",
+            release_tag,
+            target_revision,
+            signed,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"release {release_tag}: its tag points at commit {target_revision[:12]}, but "
+                f"the release key signed {signed[:12]} — refusing to install it. "
+                "Nothing was changed."
+            ),
+        )
+
+
 async def _apply_managed() -> dict[str, object]:
     """Stage the latest published tag for a managed checkout. Does NOT restart.
 
     The live checkout remains untouched. The caller then invokes
     ``POST /api/settings/restart-app``; its detached relauncher applies the
     pinned revision and completes installation after this process exits.
+
+    A revision is staged only when the release key signed it
+    (``_require_signed_commit``): the tag alone decides nothing.
     """
     global _status_cache, _status_cache_until, _status_cache_root
     _progress.begin(INSTALL_KIND_MANAGED)
@@ -1610,6 +1674,9 @@ async def _apply_managed() -> dict[str, object]:
         raise HTTPException(status_code=502, detail="latest release tag is invalid")
     if not _is_newer(release_version, _running_version()):
         raise HTTPException(status_code=409, detail="no newer published release exists")
+    # Before the download: without the release key's statement of its commit
+    # no fetched revision could be accepted, so there is nothing to fetch for.
+    signed_assets = _signed_commit_assets(latest, release_tag)
 
     _progress.version = release_version
     _progress.advance(PHASE_RESOLVING, 1.0)
@@ -1656,6 +1723,11 @@ async def _apply_managed() -> dict[str, object]:
             status_code=500,
             detail="could not identify the fetched update revision",
         )
+
+    # The tag says which commit this release is; the release key has to agree.
+    # The version check below then ties that commit to THIS release, so the
+    # signed statement of an older release cannot be served as a newer one.
+    await _require_signed_commit(signed_assets, release_tag, target_revision)
 
     new_version = await _version_at_revision(root, target_revision)
     if new_version is None or not _versions_equal(new_version, release_version):
