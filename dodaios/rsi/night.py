@@ -350,8 +350,12 @@ class NightService:
     #: How often the app looks whether a night is due.
     LOOK_EVERY_S: Final[float] = 10 * 60
 
-    def __init__(self, night: Night, idle: Callable[[], bool]) -> None:
+    def __init__(
+        self, night: Night, idle: Callable[[], bool], *, chat_db: Path | None = None
+    ) -> None:
         self.night = night
+        #: The person's chat record, for the page's "in daily use" part. Read-only.
+        self.chat_db = chat_db
         self._idle = idle
         self._task: Any = None
         self.last: NightReport | None = None
@@ -446,7 +450,7 @@ def install(
         return maker.run(MAX_MODEL_CALLS)
 
     night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)
-    return NightService(night, _person_idle)
+    return NightService(night, _person_idle, chat_db=home / "agent_chat.db")
 
 
 # ------------------------------------------------------------------ sandbox

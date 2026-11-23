@@ -45,8 +45,10 @@ def test_the_page_gets_what_was_measured_what_is_in_effect_and_what_the_nights_d
         "candidates",
         "nights",
         "resting",
+        "daily_use",
         "now_ms",
     }
+    assert body["daily_use"] is None  # this sandbox has no chat record
     status = body["status"]
     assert status["paused"] is False and status["last_night_ms"] > 0
     assert status["next_night_ms"] == status["last_night_ms"] + 20 * 3600 * 1000

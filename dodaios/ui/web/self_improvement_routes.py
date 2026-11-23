@@ -43,7 +43,7 @@ def _service(request: Request) -> NightService:
 @router.get("")
 async def get_overview(request: Request) -> dict[str, Any]:
     service = _service(request)
-    return await asyncio.to_thread(overview.build, service.night)
+    return await asyncio.to_thread(overview.build, service.night, chat_db=service.chat_db)
 
 
 @router.post("/pause")
