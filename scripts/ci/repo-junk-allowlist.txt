@@ -24,3 +24,7 @@ dodaios/ui/web/dist/*
 
 # Mars outpost model the society map loads (OutpostReference.tsx).
 art/studies/mars-outpost-reference/exports/communications-outpost.glb
+
+# Synthetic machine-voice clips (130 KB in total) the dictation replay benchmark feeds
+# through the real take; no personal recordings.
+scripts/bench/data/*.wav

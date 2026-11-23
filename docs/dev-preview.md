@@ -37,3 +37,14 @@ for the person's verdict, and do not add `no-auto-merge` for a preview. If
 the Dev app is busy with another agent's preview, check the change another
 way (a dev server and a visible browser) instead of waiting. Hold a pull
 request only when the person asked to see it before it merges.
+
+## Smoke check of the loaded app
+
+After a preview is up, `python scripts/smoke_app.py` runs ten checks in the Dev
+window over its debugging port: the window loads, the lead chat takes a
+message, a thread opens, the Agentic IDE shows a pane, the dictation and voice
+status endpoints answer, and the Nodes, Settings, Plugins and Agents views
+open. Each check prints PASS, FAIL or SKIP (nothing to check, for example no
+thread yet). A FAIL saves a screenshot under `logs/smoke_app/<time>/`. The
+script only talks to the Dev app (`data-dev`); it exits 2 when none is
+running. `--only <text>` runs the checks whose name contains the text.
