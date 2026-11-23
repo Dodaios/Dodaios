@@ -344,3 +344,32 @@ def test_done_when_points_join_a_jobs_verdict(briefs_on):
         {"point": "tests pass", "verdict": "confirmed", "evidence": "ran pytest"},
     ])
     assert acceptance.with_done_when("job_b", earlier).verdict == "verified"
+
+
+def test_a_cli_that_reports_no_commands_leaves_its_points_open_and_says_why(project):
+    criteria = done.criteria_of(
+        "x", "- the new test passes\n- `python -m pytest -q` is green"
+    )
+    answer_only = [{"ts_ms": 5, "kind": "assistant_text", "payload": {"text": "33 passed."}}]
+    results = acceptance.judge(
+        criteria, events=answer_only, folder=str(project), commands_recorded=False
+    )
+    assert [r.verdict for r in results] == [acceptance.OPEN, acceptance.OPEN]
+    assert all("reports no commands" in r.evidence for r in results)
+    # A CLI that reports its commands and ran none of these: they were not run.
+    results = acceptance.judge(criteria, events=answer_only, folder=str(project))
+    assert "no test command was run" in results[0].evidence
+    assert "was not run in this turn" in results[1].evidence
+
+
+def test_only_plain_text_clis_count_as_keeping_no_record_of_commands(monkeypatch):
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import catalog
+
+    assert catalog.records_commands("claude-api") and catalog.records_commands("openai-codex")
+    assert catalog.records_commands("no-such-provider")
+    assert not catalog.records_commands("deepseek-harness")
+    own = SimpleNamespace(id="custom-plain-cli", runner="custom-cli")
+    monkeypatch.setattr(catalog, "custom_rows", lambda: (own,))
+    assert not catalog.records_commands("custom-plain-cli")
