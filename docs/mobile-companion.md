@@ -128,10 +128,11 @@ way Telegram is built:
   `DODAIOS_WHATSAPP_ENABLED=1`); a disabled channel starts silently so the
   channel manager stays green; the Settings switch writes the flag and takes
   effect on the next start;
-- exactly one sender is answered: the owner. The first private message within
-  the ten-minute pairing window after the channel comes up claims the owner
-  seat (persisted); everybody else, groups and broadcasts are dropped without
-  a reply;
+- exactly one sender is answered: the owner. The first private message sent
+  within the ten-minute pairing window after the channel comes up claims the
+  owner seat (persisted). A message the bridge kept from before the channel
+  started (judged by its `ts`) claims nothing; everybody else, groups and
+  broadcasts are dropped without a reply;
 - the chat bridge (`chat_bridge._lead_service`) routes the owner's private
   chat into the lead conversation and sends the answer back to the same chat,
   exactly as the Telegram private chat does;

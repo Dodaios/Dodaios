@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 import httpx
@@ -42,6 +43,10 @@ class _FakeTransport:
         return {"linked": True, "me": "me@s.whatsapp.net"}
 
 
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
 async def _next(channel: WhatsAppChannel) -> ChannelMessage:
     iterator = channel.messages()
     return await asyncio.wait_for(iterator.__anext__(), timeout=1.0)
@@ -72,7 +77,9 @@ async def test_first_private_sender_becomes_the_owner_and_others_are_dropped(tmp
     await channel.start()
     assert transport.on_message is not None
     owner = "4915@s.whatsapp.net"
-    await transport.on_message({"id": "1", "from": owner, "text": "Hi", "private": True})
+    await transport.on_message(
+        {"id": "1", "from": owner, "text": "Hi", "private": True, "ts": _now_ms()}
+    )
     first = await _next(channel)
     assert first.content == "Hi" and first.metadata["whatsapp_private"] is True
     assert channel.config.owner_jid == "4915@s.whatsapp.net"
@@ -99,6 +106,30 @@ async def test_first_private_sender_becomes_the_owner_and_others_are_dropped(tmp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("ts", ["an hour ago", None, "soon", True])
+async def test_a_message_from_before_the_channel_started_claims_nothing(tmp_path, ts) -> None:
+    """A bridge hands over what arrived while this channel was not running;
+    such a message, or one without a send time, never becomes the owner."""
+    transport = _FakeTransport()
+    channel = WhatsAppChannel(
+        EventBus(), WhatsAppConfig(enabled=True), transport, config_path=tmp_path / "w.json"
+    )
+    await channel.start()
+    item = {"from": "4999@s.whatsapp.net", "text": "Hi", "private": True}
+    if ts == "an hour ago":
+        item["ts"] = _now_ms() - 3_600_000
+    elif ts is not None:
+        item["ts"] = ts
+    await transport.on_message(item)
+    assert channel._inbox.empty() and channel.config.owner_jid == ""
+    # The owner's own message, written now, still claims.
+    await transport.on_message(
+        {"from": "4915@s.whatsapp.net", "text": "Hi", "private": True, "ts": _now_ms()}
+    )
+    assert channel.config.owner_jid == "4915@s.whatsapp.net"
+
+
+@pytest.mark.asyncio
 async def test_owner_claim_closes_after_the_pairing_window(tmp_path) -> None:
     transport = _FakeTransport()
     channel = WhatsAppChannel(
@@ -106,7 +137,9 @@ async def test_owner_claim_closes_after_the_pairing_window(tmp_path) -> None:
     )
     await channel.start()
     channel._pairing_closes_at = 0.0
-    await transport.on_message({"from": "4915@s.whatsapp.net", "text": "Hi", "private": True})
+    await transport.on_message(
+        {"from": "4915@s.whatsapp.net", "text": "Hi", "private": True, "ts": _now_ms()}
+    )
     assert channel._inbox.empty() and channel.config.owner_jid == ""
 
 

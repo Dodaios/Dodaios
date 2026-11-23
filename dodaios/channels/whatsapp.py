@@ -38,7 +38,12 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from dodaios.channels.base import FIRST_CONTACT_PAIRING_WINDOW_S, ChannelMessage, ChannelSession
+from dodaios.channels.base import (
+    FIRST_CONTACT_PAIRING_WINDOW_S,
+    ChannelMessage,
+    ChannelSession,
+    sent_in_pairing_window,
+)
 from dodaios.channels.manager import (
     ChannelContext,
     ChannelStartError,
@@ -192,6 +197,14 @@ class BridgeTransport:
         return {"linked": self._linked, "me": self._me, "bridge_url": self.url}
 
 
+def _sent_at(item: dict[str, Any]) -> float | None:
+    """The send time of a bridge message (its ``ts``, milliseconds), in epoch seconds."""
+    stamp = item.get("ts")
+    if isinstance(stamp, bool) or not isinstance(stamp, (int, float)):
+        return None
+    return float(stamp) / 1000.0
+
+
 # -------------------------------------------------------------------- channel
 
 
@@ -217,6 +230,9 @@ class WhatsAppChannel:
         self._started = False
         self._active = False
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
+        # Only a message sent after this moment may claim the owner: a bridge
+        # hands over what arrived while this channel was not running.
+        self._pairing_opened_at = time.time()
         self._dropped = 0
         self._event_handler_ref: Any = None
 
@@ -299,11 +315,17 @@ class WhatsAppChannel:
     def _is_owner(self, jid: str) -> bool:
         return bool(jid) and jid == self._cfg.owner_jid
 
-    def _claim_owner(self, jid: str) -> bool:
-        """The first private sender within the window becomes the owner (persisted)."""
+    def _claim_owner(self, jid: str, sent_at: float | None) -> bool:
+        """The first private sender within the window becomes the owner (persisted).
+
+        ``sent_at`` is the message's own send time (epoch seconds): a message
+        the bridge kept from before this channel started never claims.
+        """
         if not self._cfg.pair_on_first_private_message or self._cfg.owner_jid or not jid:
             return False
         if time.monotonic() > self._pairing_closes_at:
+            return False
+        if not sent_in_pairing_window(self._pairing_opened_at, sent_at):
             return False
         self._cfg.owner_jid = jid
         try:
@@ -320,7 +342,7 @@ class WhatsAppChannel:
         if not jid or not text or not private:
             self._dropped += 1
             return
-        if not self._is_owner(jid) and not self._claim_owner(jid):
+        if not self._is_owner(jid) and not self._claim_owner(jid, _sent_at(item)):
             self._dropped += 1
             log.debug("whatsapp: message dropped (not the owner)")
             return
