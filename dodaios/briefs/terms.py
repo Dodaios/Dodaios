@@ -183,7 +183,10 @@ _STOP_DE: Final[str] = (
 _STOP: Final[frozenset[str]] = frozenset(f"{_STOP_EN} {_STOP_DE}".split())
 _IDENTIFIER = re.compile(
     r"`([^`\n]{2,80})`"  # anything the person put in backticks
-    r"|\b([A-Za-z_][\w]*(?:[._/-][\w]+)+)\b"  # dotted, slashed or dashed names, file names
+    # Dotted, slashed or dashed names and file names. The underscore is a word
+    # character and no separator here: as both, "a_b_c_..." could be split in
+    # exponentially many ways.
+    r"|\b([A-Za-z_]\w*(?:[./-]\w+)+)\b"
     r"|\b([a-z]+_[a-z0-9_]+)\b"  # snake_case
     r"|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b"  # CamelCase
 )
