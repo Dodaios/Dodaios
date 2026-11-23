@@ -98,10 +98,10 @@ WORK_METHOD: Final[str] = (
 #: one big spec at the end shows them nothing but the finished node.
 BUILD_IN_STEPS: Final[str] = (
     "\nBuild it in steps, the person watches it grow beside the chat: create the node "
-    "with its title and a skeleton spec (the outline only: headings, column names, "
-    "slide titles), then fill it with several 'update' calls with 'changes', in "
-    "reading order (top to bottom, first slide to last), a section, a few rows or a "
-    "slide per call. Do not hold everything back for one final spec."
+    "with its title and a skeleton spec (the outline only: headings, columns with "
+    "their type and unit, slide titles), then fill it with several 'update' calls with "
+    "'changes', in reading order (top to bottom, first slide to last), a section, a "
+    "few rows or a slide per call. Do not hold everything back for one final spec."
 )
 #: The types whose content this tool writes (a board and a clip have their own tools).
 _BUILT_IN_STEPS: Final[frozenset[str]] = frozenset({"docs", "slides", "sheets", "data"})

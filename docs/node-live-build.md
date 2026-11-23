@@ -223,6 +223,13 @@ with its title and a skeleton spec, then fills it with several `update` calls
 with `changes`, in reading order. Each call is one batch. The playback only
 smooths each step.
 
+A sheet's skeleton names each column's type and unit. The grid infers an
+untyped column's type from its cells, so an empty column counts as text: it
+is 160 px wide and shares the free width. When the first number arrives, the
+column becomes a fixed 112 px number column, and every column jumps to new
+widths in the middle of the build. With the type known from the start, the
+grid lays out once.
+
 ## Testing a reveal by hand
 
 Do not ask the Dev assistant to build the node. Its chat may run on a local
