@@ -277,7 +277,6 @@ async def test_failing_boot_services_leave_the_backend_serving(monkeypatch, tmp_
     """Representative optional services each raise while starting."""
     from dodaios.memory.learning import loop as learning
     from dodaios.society.browser import install
-    from dodaios.ui.web import mars_routes
     from dodaios.ui.web.server import WebServer
 
     monkeypatch.setattr(install, "start_install", lambda *args: None)
