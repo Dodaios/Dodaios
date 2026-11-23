@@ -1,4 +1,4 @@
-import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Component, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import { useReducedMotion } from "framer-motion";
@@ -11,21 +11,25 @@ import { useWebglSupported } from "@/lib/graphDimension";
 import { cn } from "@/lib/utils";
 import { AgentMark, agentLogoAsset } from "@/components/agentic/AgentMark";
 
-import type { BoardActivity, BoardColumn } from "../agentBoard";
+import type { BoardActivity } from "../agentBoard";
 import { buildMascot, buildPlainMascot, type MascotSolid } from "./mascotGeometry";
 import { mascotSpecFor } from "./mascotSpecs";
-import { CAMERA_PITCH, CELL_M, LOOK_AT_Y, cameraDistance, layoutSimulation, phaseOf, type SimAgent, type SimField, type SimLayout, type SimSpot } from "./simLayout";
+import {
+  CAMERA_PITCH, CELL_M, LOOK_AT_Y, assignSlots, cameraDistance, chooseShape, layoutSimulation, phaseOf,
+  type SimAgent, type SimField, type SimLayout, type SimLink, type SimShape, type SimSlots, type SimStation,
+} from "./simLayout";
 
 /**
  * The Agents board as a place: every coding agent is a figure on a floor.
  *
  * A figure is its agent's own mark with depth (see `mascotSpecs`), so which
  * agent is which is read from the figure itself; a name tag in front of it
- * and the key at the foot say it in words. The floor has the board's four
- * fields, each as large as its agents need, and a figure stands in the
- * field its work is in and walks over when that changes. What a figure does
- * shows its state: it hops while its agent works, jumps when the agent asks
- * for the person, leans over when the agent failed, and stands still at rest.
+ * and the key at the foot say it in words. The floor is one path of five
+ * stations, Building to Finished (see `simLayout`). A figure keeps its square
+ * and walks only when its work moves to another station, so the floor is
+ * still while nothing happens. What a figure does shows its state: it bobs
+ * slowly while its agent works, hops when the agent asks for the person,
+ * leans over when the agent failed, and stands still at rest.
  * A click on a figure opens its thread or terminal, as a click on its card does.
  */
 
@@ -37,15 +41,17 @@ const FIGURE_SCALE = 1.15;
 /** The name tag lies on the floor in front of the figure, so it never covers a mark. */
 const TAG_Z = 0.72;
 /** From this width of an agent's square on screen, every figure has room for its name tag. */
-const ROOMY_SQUARE_PX = 84;
+const ROOMY_SQUARE_PX = 104;
 /** The eyes of a mark, on either theme. */
 const EYE_COLOUR = "#1b1a19";
+/** How fast a figure walks to another square. */
+const WALK_M_PER_S = 2.2;
 /** A drag that ends on a figure is a turn of the view, not a click. */
 const CLICK_SLOP_PX = 5;
 
 export interface AgentSimulationProps {
   agents: SimAgent[];
-  columnNames: Record<BoardColumn, string>;
+  columnNames: Record<SimStation, string>;
   /** The agent whose thread or terminal is open. */
   selectedId: string | null;
   onOpen: (id: string) => void;
@@ -57,7 +63,7 @@ export interface AgentSimulationProps {
 interface SimColours {
   ink: string;
   plate: string;
-  fields: Record<BoardColumn, string>;
+  fields: Record<SimStation, string>;
   attention: string;
   danger: string;
 }
@@ -114,6 +120,8 @@ function useSimColours(hostRef: RefObject<HTMLElement | null>): SimColours {
       checks: dark ? "#f778ba" : "#bf3989",
       review: dark ? "#f0883e" : "#bc4c00",
       ready: tokens.success,
+      // GitHub's colour for merged work.
+      finished: dark ? "#a371f7" : "#8250df",
     },
     attention: tokens.warning,
     danger: tokens.destructive,
@@ -194,10 +202,12 @@ function MascotBody({ agent, ink }: { agent: string; ink: string }) {
 
 interface FigureProps {
   agent: SimAgent;
-  spot: SimSpot;
+  /** Its square on the floor. */
+  spotX: number;
+  spotZ: number;
   colours: SimColours;
   still: boolean;
-  /** The squares are too small for every name tag: resting agents show theirs under the pointer. */
+  /** The squares are too small for every name tag: only agents that ask or failed keep theirs. */
   crowded: boolean;
   selected: boolean;
   hovered: boolean;
@@ -221,7 +231,9 @@ const DOT_CLASS: Record<BoardActivity, string> = {
 };
 
 /** One agent on the floor: its figure, its shadow, the ring of its state and its name tag. */
-function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHover, onOpen }: FigureProps) {
+const Figure = memo(function Figure({
+  agent, spotX, spotZ, colours, still, crowded, selected, hovered, onHover, onOpen,
+}: FigureProps) {
   const place = useRef<Group>(null);
   const body = useRef<Group>(null);
   const shadow = useRef<Mesh>(null);
@@ -234,23 +246,23 @@ function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHov
     const group = place.current;
     const figure = body.current;
     if (!group || !figure) return;
-    // The first frame stands the figure on its spot; after that it walks there.
+    // The first frame stands the figure on its square; after that it walks
+    // there at a walker's steady pace, however far it is.
     let walking = false;
     let heading = 0;
-    if (!placed.current || still) {
-      group.position.set(spot.x, 0, spot.z);
+    const dx = spotX - group.position.x;
+    const dz = spotZ - group.position.z;
+    const far = Math.hypot(dx, dz);
+    if (!placed.current || still || far < 0.01) {
+      group.position.set(spotX, 0, spotZ);
       placed.current = true;
     } else {
-      const dx = spot.x - group.position.x;
-      const dz = spot.z - group.position.z;
-      const far = Math.hypot(dx, dz);
-      if (far > 0.02) {
-        const step = Math.min(far, Math.max(1.2, far * 1.6) * delta);
-        group.position.x += (dx / far) * step;
-        group.position.z += (dz / far) * step;
-        walking = far > 0.08;
-        heading = Math.max(-0.7, Math.min(0.7, dx / Math.max(far, 0.001)));
-      }
+      // A frame after a pause must not throw the figure across the floor.
+      const step = Math.min(far, WALK_M_PER_S * Math.min(delta, 0.05));
+      group.position.x += (dx / far) * step;
+      group.position.z += (dz / far) * step;
+      walking = true;
+      heading = Math.max(-0.6, Math.min(0.6, dx / far));
     }
 
     const t = clock.getElapsedTime() + phase * 9;
@@ -258,24 +270,21 @@ function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHov
     if (still) {
       lean = agent.activity === "failed" ? 0.42 : 0;
     } else if (walking) {
-      air = Math.abs(Math.sin(t * 9)) * 0.14;
+      air = Math.abs(Math.sin(t * 7)) * 0.07;
       yaw = heading;
-      lean = Math.sin(t * 9) * 0.07;
     } else if (agent.activity === "working") {
-      const beat = Math.abs(Math.sin(t * 3.4));
-      air = beat * 0.2;
-      stretch = (beat - 0.5) * 0.08;
-      yaw = Math.sin(t * 1.7) * 0.28;
+      // At work: a slow, even bob. Enough to see who works, calm enough to watch.
+      const beat = (Math.sin(t * 2.2) + 1) / 2;
+      air = beat * 0.07;
+      stretch = (beat - 0.5) * 0.03;
+      yaw = Math.sin(t * 0.9) * 0.16;
     } else if (agent.activity === "attention") {
-      const beat = (t * 0.9) % 1;
-      air = beat < 0.5 ? Math.sin((beat / 0.5) * Math.PI) * 0.55 : 0;
-      stretch = beat < 0.5 ? 0.06 : Math.sin(((beat - 0.5) / 0.5) * Math.PI) * -0.08;
-      lean = beat >= 0.5 ? Math.sin(t * 22) * 0.04 : 0;
+      // Asking for the person: one hop, then a rest.
+      const beat = (t * 0.55) % 1;
+      air = beat < 0.3 ? Math.sin((beat / 0.3) * Math.PI) * 0.32 : 0;
+      stretch = beat < 0.3 ? 0.04 : 0;
     } else if (agent.activity === "failed") {
       lean = 0.42;
-    } else {
-      stretch = Math.sin(t * 1.3) * 0.012;
-      yaw = Math.sin(t * 0.45) * 0.14;
     }
     figure.position.y = air;
     figure.rotation.set(FACE_UP, yaw, lean);
@@ -286,8 +295,8 @@ function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHov
       (shadow.current.material as MeshBasicMaterial).opacity = 0.22 * spread;
     }
     if (ring.current) {
-      if (agent.activity === "working" && !still) ring.current.rotation.z = -t * 2.4;
-      if (agent.activity === "attention" && !still) ring.current.scale.setScalar(1 + Math.abs(Math.sin(t * 2.8)) * 0.16);
+      if (agent.activity === "working" && !still) ring.current.rotation.z = -t * 1.4;
+      if (agent.activity === "attention" && !still) ring.current.scale.setScalar(1 + ((Math.sin(t * 1.8) + 1) / 2) * 0.1);
     }
   });
 
@@ -299,7 +308,9 @@ function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHov
   };
   const wordy = hovered || selected;
   const urgent = agent.activity === "attention" || agent.activity === "failed";
-  const tagged = !crowded || wordy || agent.activity !== "idle";
+  // On a crowded floor a tag would cover the figure in front, so only the
+  // agents that need the person keep theirs; the ring still shows who works.
+  const tagged = !crowded || wordy || urgent;
 
   return (
     <group ref={place}>
@@ -348,9 +359,17 @@ function Figure({ agent, spot, colours, still, crowded, selected, hovered, onHov
       </Html>}
     </group>
   );
-}
+}, (before, after) =>
+  // The board hands over fresh objects on every poll; a figure is drawn again
+  // only when something it shows has changed.
+  before.spotX === after.spotX && before.spotZ === after.spotZ && before.colours === after.colours
+  && before.still === after.still && before.crowded === after.crowded && before.selected === after.selected
+  && before.hovered === after.hovered && before.onHover === after.onHover && before.onOpen === after.onOpen
+  && before.agent.id === after.agent.id && before.agent.agent === after.agent.agent
+  && before.agent.agentLabel === after.agent.agentLabel && before.agent.title === after.agent.title
+  && before.agent.activity === after.agent.activity && before.agent.stateLabel === after.agent.stateLabel);
 
-/** One of the board's columns as a field on the floor, with its name on the front edge. */
+/** One station of the path as a field on the floor, with its name on the front edge. */
 function Field({ field, name, colour, plate }: { field: SimField; name: string; colour: string; plate: string }) {
   return (
     <group position={[field.x, 0, field.z]}>
@@ -369,6 +388,17 @@ function Field({ field, name, colour, plate }: { field: SimField; name: string; 
         </div>
       </Html>
     </group>
+  );
+}
+
+/** The arrow from one station to the next: the way work travels. */
+function Link({ link, colour }: { link: SimLink; colour: string }) {
+  return (
+    <mesh position={[link.x, 0.02, link.z]} rotation={[-Math.PI / 2, 0, link.turn]}>
+      {/* A flat triangle whose tip points along +x before the turn. */}
+      <circleGeometry args={[0.26, 3]} />
+      <meshBasicMaterial color={colour} transparent opacity={0.55} />
+    </mesh>
   );
 }
 
@@ -424,7 +454,23 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
   const colours = useSimColours(host);
   const [hovered, setHovered] = useState<string | null>(null);
   const { aspect, heightPx } = useHostShape(host);
-  const layout = useMemo(() => layoutSimulation(agents, aspect), [agents, aspect]);
+  // Who stands where is remembered between draws: an agent keeps its square
+  // while it stays at its station, and the floor keeps its shape while it fits.
+  const held = useRef<{ slots: SimSlots; shape?: SimShape }>({ slots: new Map() });
+  const latest = useRef(agents);
+  latest.current = agents;
+  const standing = agents.map((agent) => `${agent.id}@${agent.place}`).join("|");
+  const layout = useMemo(() => {
+    const slots = assignSlots(held.current.slots, latest.current);
+    const shape = chooseShape(slots, aspect, held.current.shape);
+    held.current = { slots, shape };
+    return layoutSimulation(slots, shape);
+    // `standing` says all of `agents` that the layout reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standing, aspect]);
+  const opener = useRef(onOpen);
+  opener.current = onOpen;
+  const open = useCallback((id: string) => opener.current(id), []);
   // How wide one agent's square is on screen. Below a name tag's width the
   // tags of resting agents would cover the figures, so they wait for the
   // pointer: the figure and the key still say which agent it is.
@@ -441,7 +487,9 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
       else seen.set(key, { agent: agent.agent, label: agent.agentLabel, count: 1 });
     }
     return [...seen.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [agents]);
+    // The kinds change only when an agent comes, goes or is renamed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents.map((agent) => `${agent.id}:${agent.agent}:${agent.agentLabel}`).join("|")]);
 
   const unavailable = <p className="px-4 py-3 text-sm text-muted-foreground">{unavailableText}</p>;
   return (
@@ -451,7 +499,7 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
         <p className="px-4 py-3 text-sm text-muted-foreground">{emptyText}</p>
       ) : !supported ? unavailable : awake && (
         <SceneBoundary key={generation} fallback={unavailable}>
-          <Canvas flat frameloop={still ? "demand" : "always"} dpr={[1, 2]}
+          <Canvas flat frameloop={still ? "demand" : "always"} dpr={[1, 1.5]}
             camera={{ fov: FOV, near: 0.1, far: 400, position: [0, 8, 12] }} gl={{ alpha: true, antialias: true }}>
             <ambientLight intensity={1.35} />
             <directionalLight position={[3, 7, 9]} intensity={2.3} />
@@ -461,12 +509,13 @@ export default function AgentSimulation({ agents, columnNames, selectedId, onOpe
               <Field key={field.column} field={field} name={columnNames[field.column]}
                 colour={colours.fields[field.column]} plate={colours.plate} />
             ))}
+            {layout.links.map((link, index) => <Link key={index} link={link} colour={colours.ink} />)}
             {agents.map((agent) => {
               const spot = layout.spots.get(agent.id);
               return spot ? (
-                <Figure key={agent.id} agent={agent} spot={spot} colours={colours} still={still} crowded={crowded}
-                  selected={selectedId === agent.id} hovered={hovered === agent.id}
-                  onHover={setHovered} onOpen={onOpen} />
+                <Figure key={agent.id} agent={agent} spotX={spot.x} spotZ={spot.z} colours={colours} still={still}
+                  crowded={crowded} selected={selectedId === agent.id} hovered={hovered === agent.id}
+                  onHover={setHovered} onOpen={open} />
               ) : null;
             })}
           </Canvas>

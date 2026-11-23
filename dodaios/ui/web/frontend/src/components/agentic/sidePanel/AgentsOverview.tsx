@@ -35,7 +35,10 @@ import {
   type BoardTone,
   type BoardVerdict,
 } from "./agentBoard";
-import type { SimAgent } from "./sim/simLayout";
+import { stationOf, type SimAgent } from "./sim/simLayout";
+
+/** Finished agents the simulation keeps at its last station, newest first. */
+const SIM_FINISHED = 12;
 
 // The 3D scene and its renderer load only when the simulation is opened.
 const AgentSimulation = lazy(() => import("./sim/AgentSimulation"));
@@ -383,14 +386,16 @@ export function AgentsOverview() {
       requestPane(item.pane.workspace_id, item.pane.name);
     }
   };
-  // The simulation shows what the columns show: finished work has left the floor.
+  // The simulation's path ends at Finished, so finished work stays on the
+  // floor: the newest of it, or the last station would outgrow the others.
+  const shownFinished = new Set(finished.slice(0, SIM_FINISHED).map((row) => row.item.id));
   const simAgents: SimAgent[] = view !== "simulation" ? [] : rows.flatMap(({ item, verdict }) =>
-    verdict.place === "finished" ? [] : [{
+    verdict.place === "finished" && !shownFinished.has(item.id) ? [] : [{
       id: item.id,
       agent: item.agent,
       agentLabel: item.agentLabel,
       title: item.title,
-      place: verdict.place,
+      place: stationOf(verdict.place, item.activity),
       activity: item.activity,
       stateLabel: t(`ide_side_panel.agents.${verdict.label}`),
     }]);
@@ -615,6 +620,7 @@ export function AgentsOverview() {
               checks: t("ide_side_panel.agents.columns.checks"),
               review: t("ide_side_panel.agents.columns.review"),
               ready: t("ide_side_panel.agents.columns.ready"),
+              finished: t("ide_side_panel.agents.finished"),
             }}
             ariaLabel={t("ide_side_panel.agents.simulation.aria")}
             emptyText={t("ide_side_panel.agents.simulation.empty")}

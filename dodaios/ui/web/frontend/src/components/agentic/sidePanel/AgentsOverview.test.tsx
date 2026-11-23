@@ -583,7 +583,7 @@ describe("AgentsOverview simulation", () => {
     expect(screen.getByTestId("ide-agents-view-simulation").getAttribute("aria-checked")).toBe("true");
   });
 
-  it("hands every agent over with its mark, its field and what it is doing; finished work is left out", async () => {
+  it("hands every agent over with its mark, its station and what it is doing", async () => {
     localStorage.setItem("jarvis.agenticIde.agentsView.v1", "simulation");
     useWorkspacePanesStore.setState({ panes: [pane("T1", "w1", { agent: "codex", display_name: "Codex" })] });
     setThreads([
@@ -598,15 +598,42 @@ describe("AgentsOverview simulation", () => {
     render(<AgentsOverview />);
     await screen.findByTestId("sim-stub");
     expect(figures().map((node) => node.getAttribute("data-figure")).sort())
-      .toEqual(["pane:T1@w1", "thread:busy", "thread:review"]);
+      .toEqual(["pane:T1@w1", "thread:busy", "thread:merged", "thread:review"]);
     expect(figure("thread:busy").getAttribute("data-agent")).toBe("claude");
     expect(figure("thread:busy").getAttribute("data-activity")).toBe("working");
     expect(figure("thread:busy").getAttribute("data-place")).toBe("building");
     expect(figure("thread:review").getAttribute("data-place")).toBe("review");
     expect(figure("thread:review").getAttribute("data-activity")).toBe("idle");
+    // The path ends at Finished: merged work stays on the floor.
+    expect(figure("thread:merged").getAttribute("data-place")).toBe("finished");
     expect(figure("pane:T1@w1").getAttribute("data-agent")).toBe("codex");
     expect(figure("pane:T1@w1").textContent).toContain("Codex");
-    expect(screen.getByTestId("sim-stub").getAttribute("data-columns")?.split("|")).toHaveLength(4);
+    expect(screen.getByTestId("sim-stub").getAttribute("data-columns")?.split("|")).toHaveLength(5);
+  });
+
+  it("stands an agent that still works at Building, even when its pull request can merge", async () => {
+    localStorage.setItem("jarvis.agenticIde.agentsView.v1", "simulation");
+    setThreads([thread("busy", { running: true }), thread("done")]);
+    github.statuses = {
+      "thread:busy": request(21, { merge_status: "clean" }),
+      "thread:done": request(22, { merge_status: "clean" }),
+    };
+    render(<AgentsOverview />);
+    await screen.findByTestId("sim-stub");
+    expect(figure("thread:busy").getAttribute("data-place")).toBe("building");
+    expect(figure("thread:done").getAttribute("data-place")).toBe("ready");
+  });
+
+  it("keeps only the newest finished work on the floor", async () => {
+    localStorage.setItem("jarvis.agenticIde.agentsView.v1", "simulation");
+    const ids = Array.from({ length: 15 }, (_, index) => `m${index}`);
+    setThreads(ids.map((id, index) => thread(id, { updated_ms: 1_000 + index, last_message_ms: 1_000 + index })));
+    github.statuses = Object.fromEntries(ids.map((id, index) => [`thread:${id}`, request(100 + index, { state: "merged" })]));
+    render(<AgentsOverview />);
+    await screen.findByTestId("sim-stub");
+    expect(figures()).toHaveLength(12);
+    expect(figure("thread:m14")).toBeTruthy();
+    expect(figure("thread:m0")).toBeNull();
   });
 
   it("opens the thread of a clicked figure, as a click on its card does", async () => {
