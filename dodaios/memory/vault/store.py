@@ -34,6 +34,7 @@ from dodaios.memory.vault.models import (
     WriteResult,
     content_hash,
 )
+from dodaios.rsi import params
 
 log = logging.getLogger(__name__)
 
@@ -512,23 +513,28 @@ class MemoryVault:
             + " AND ".join(where)
             + " ORDER BY rank LIMIT ?"
         )
-        args.append(max(limit * 4, 20))
+        args.append(max(limit * int(params.get("recall.fetch_factor")), 20))
         try:
             rows = self._db.execute(sql, args).fetchall()
         except sqlite3.OperationalError:
             log.warning("memory vault: search failed for %r", query, exc_info=True)
             return []
         query_words = set(tokens)
+        entity_boost = float(params.get("recall.entity_boost"))
+        pinned_boost = float(params.get("recall.pinned_boost"))
+        floor = float(params.get("recall.recency_floor"))
+        fade_days = float(params.get("recall.recency_days"))
+        now = self.now()
         hits: list[SearchHit] = []
         for row in rows:
             memory = self._row_to_memory(row)
             score = -float(row["rank"])  # bm25 is lower-is-better
             entity_words = {w for e in memory.entities for w in _TOKEN.findall(e.casefold())}
             if entity_words & query_words:
-                score *= 1.5
+                score *= entity_boost
             if memory.pinned:
-                score *= 1.2
-            score *= _recency(memory.recorded_at, self.now())
+                score *= pinned_boost
+            score *= _recency(memory.recorded_at, now, floor=floor, fade_days=fade_days)
             hits.append(SearchHit(memory, score))
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:limit]
@@ -914,12 +920,12 @@ def _prefixed() -> str:
     return ", ".join(f"m.{c.strip()}" for c in _COLUMNS.split(","))
 
 
-def _recency(recorded_at: str, now: str) -> float:
-    """1.0 for today, sliding to 0.7 for memories a few years old."""
+def _recency(recorded_at: str, now: str, *, floor: float = 0.7, fade_days: float = 365.0) -> float:
+    """1.0 for today, sliding to ``floor`` for memories a few years old."""
     try:
         age_days = (
             datetime.fromisoformat(now) - datetime.fromisoformat(recorded_at)
         ).total_seconds() / 86400
     except ValueError:  # an unparsable stamp gets no recency penalty, by design
         return 1.0
-    return 0.7 + 0.3 * math.exp(-max(age_days, 0.0) / 365.0)
+    return floor + (1.0 - floor) * math.exp(-max(age_days, 0.0) / fade_days)

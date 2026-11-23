@@ -11,11 +11,13 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from dodaios.memory.vault.models import WriteResult
+from dodaios.memory.vault.models import Memory, WriteResult
 from dodaios.memory.vault.store import MemoryVault
+from dodaios.rsi import overlay, params
 
 log = logging.getLogger(__name__)
 
@@ -92,21 +94,29 @@ def budget_chars(*, compact: bool = False) -> int:
     return _budgets["compact" if compact else "full"]
 
 
-def prompt_block(*, compact: bool = False) -> str:
-    """The always-on memory block, ``""`` while no vault runs or it is empty."""
-    vault = _active
+def prompt_block(*, compact: bool = False, vault: MemoryVault | None = None) -> str:
+    """The always-on memory block, ``""`` while no vault runs or it is empty.
+
+    ``vault`` reads another vault than the live one (a benchmark run's copy).
+    Such a read, and any read inside a benchmark run, neither uses nor fills
+    the cache: the cache belongs to live turns.
+    """
+    replay = vault is not None or overlay.replaying()
+    vault = vault or _active
     if vault is None:
         return ""
-    cached = _cache.get(compact)
-    if cached is not None and cached[0] == _generation:
-        return cached[1]
+    if not replay:
+        cached = _cache.get(compact)
+        if cached is not None and cached[0] == _generation:
+            return cached[1]
     try:
         body = vault.profile_block(max_chars=_budgets["compact" if compact else "full"])
     except Exception:  # noqa: BLE001 — a vault fault never breaks a prompt build
         log.warning("memory vault: could not build the prompt block", exc_info=True)
         return ""
     block = f"{_HEADER}\n{body}" if body else ""
-    _cache[compact] = (_generation, block)
+    if not replay:
+        _cache[compact] = (_generation, block)
     return block
 
 
@@ -143,11 +153,8 @@ _STOPWORDS = frozenset(
     ).split()
 )
 
-#: Budget and size of the per-message recall.
-TURN_MAX_CHARS = 900
-TURN_LIMIT = 6
-#: A hit must score at least this share of the best hit to be shown.
-TURN_RELATIVE_FLOOR = 0.35
+#: Budget and size of the per-message recall are the parameters ``recall.turn_max_chars``,
+#: ``recall.turn_limit`` and ``recall.relative_floor`` (dodaios/rsi/params/catalog.py).
 
 _TURN_HEADER = (
     "## Possibly relevant memories (looked up for this message)\n"
@@ -155,59 +162,95 @@ _TURN_HEADER = (
 )
 
 
-def turn_block(user_text: str, *, compact: bool = False) -> str:
-    """Memories that match this message and are not already always in mind.
+@dataclass(frozen=True, slots=True)
+class Recall:
+    """What one message brings to the model's mind."""
 
-    Cheap and local: one FTS query on the vault, no model call. ``""`` when
-    nothing fits, no vault runs or the message has no content words.
+    #: Ids of the memories the always-on block holds anyway.
+    in_mind: frozenset[str]
+    #: The memories looked up for this message, best first.
+    chosen: tuple[Memory, ...]
+    #: Their lines as the prompt shows them.
+    lines: tuple[str, ...]
+
+    @property
+    def chars(self) -> int:
+        """Characters this recall adds to the prompt (the header included)."""
+        if not self.lines:
+            return 0
+        return len(_TURN_HEADER) + sum(len(line) + 1 for line in self.lines)
+
+    def shows(self, memory_id: str) -> bool:
+        """True when the model has this memory in front of it for the message."""
+        return memory_id in self.in_mind or any(m.id == memory_id for m in self.chosen)
+
+
+_NOTHING = Recall(frozenset(), (), ())
+
+
+def recall_for(vault: MemoryVault, user_text: str, *, compact: bool = False) -> Recall:
+    """Which memories this message brings up. Reads only: nothing is counted or cached.
+
+    Cheap and local: one FTS query on the vault, no model call.
     """
-    vault = _active
-    if vault is None or not user_text.strip():
-        return ""
     words = [
         w for w in re.findall(r"\w+", user_text.casefold()) if len(w) > 2 and w not in _STOPWORDS
     ]
     if not words:
-        return ""
-    try:
-        budget = _budgets["compact" if compact else "full"]
-        in_mind = {
-            m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories
-        }
-        hits = [
-            h
-            for h in vault.search(" ".join(words), limit=TURN_LIMIT * 2)
-            if h.memory.id not in in_mind
-        ]
-        hits = _with_lessons(vault, user_text, hits, in_mind)
-    except Exception:  # noqa: BLE001 — recall must never break a turn
-        log.warning("memory vault: per-message recall failed", exc_info=True)
-        return ""
+        return _NOTHING
+    limit = int(params.get("recall.turn_limit"))
+    max_chars = int(params.get("recall.turn_max_chars"))
+    budget = _budgets["compact" if compact else "full"]
+    in_mind = {m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories}
+    hits = [
+        h for h in vault.search(" ".join(words), limit=limit * 2) if h.memory.id not in in_mind
+    ]
+    hits = _with_lessons(vault, user_text, hits, in_mind)
     if not hits:
-        return ""
-    floor = hits[0].score * TURN_RELATIVE_FLOOR
+        return Recall(frozenset(in_mind), (), ())
+    floor = hits[0].score * float(params.get("recall.relative_floor"))
     lines: list[str] = []
     used = 0
-    chosen = []
+    chosen: list[Memory] = []
     for hit in hits:
-        if hit.score < floor or len(lines) >= TURN_LIMIT:
+        if hit.score < floor or len(lines) >= limit:
             break
         memory = hit.memory
         line = f"- {memory.text}"
         if memory.valid_from and memory.origin != "imported":
             line += f" (since {memory.valid_from[:10]})"
-        if used + len(line) > TURN_MAX_CHARS:
+        if used + len(line) > max_chars:
             break
         lines.append(line)
         used += len(line) + 1
-        chosen.append(memory.id)
-    if not lines:
+        chosen.append(memory)
+    return Recall(frozenset(in_mind), tuple(chosen), tuple(lines))
+
+
+def turn_block(user_text: str, *, compact: bool = False, vault: MemoryVault | None = None) -> str:
+    """Memories that match this message and are not already always in mind.
+
+    ``""`` when nothing fits, no vault runs or the message has no content
+    words. A live turn counts the shown memories as used; a benchmark run
+    (another ``vault``, or an active overlay) counts nothing.
+    """
+    replay = vault is not None or overlay.replaying()
+    vault = vault or _active
+    if vault is None or not user_text.strip():
         return ""
     try:
-        vault.mark_used(chosen)
-    except Exception:  # noqa: BLE001 — a usage counter is not worth failing a turn over
-        log.debug("memory vault: could not count recall use", exc_info=True)
-    return _TURN_HEADER + "\n" + "\n".join(lines)
+        found = recall_for(vault, user_text, compact=compact)
+    except Exception:  # noqa: BLE001 — recall must never break a turn
+        log.warning("memory vault: per-message recall failed", exc_info=True)
+        return ""
+    if not found.lines:
+        return ""
+    if not replay:
+        try:
+            vault.mark_used([m.id for m in found.chosen])
+        except Exception:  # noqa: BLE001 — a usage counter is not worth failing a turn over
+            log.debug("memory vault: could not count recall use", exc_info=True)
+    return _TURN_HEADER + "\n" + "\n".join(found.lines)
 
 
 def _with_lessons(vault: Any, user_text: str, hits: list[Any], in_mind: set[str]) -> list[Any]:
@@ -224,9 +267,11 @@ def _with_lessons(vault: Any, user_text: str, hits: list[Any], in_mind: set[str]
     if not fitting:
         return hits
     top = hits[0].score if hits else 1.0
+    base = float(params.get("recall.lesson_base"))
+    cap = float(params.get("recall.lesson_cap"))
     best: dict[str, SearchHit] = {h.memory.id: h for h in hits}
     for memory, similarity in fitting:
-        score = top * min(1.5, 0.6 + similarity)
+        score = top * min(cap, base + similarity)
         known = best.get(memory.id)
         if known is None or known.score < score:
             best[memory.id] = SearchHit(memory, score)

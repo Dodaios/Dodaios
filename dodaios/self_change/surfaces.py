@@ -25,6 +25,7 @@ class Surface(StrEnum):
     ROUTINE = "routine"
     AGENT = "agent"
     CODING_POLICY = "coding_policy"  # how the app steers coding runs (dodaios.rsi.policy)
+    PARAMETER = "parameter"  # a tunable number inside fixed limits (dodaios.rsi.params)
 
 
 class State(StrEnum):

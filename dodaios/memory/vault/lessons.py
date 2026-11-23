@@ -25,6 +25,7 @@ from typing import Any, Final
 
 from dodaios.memory.vault.models import Memory
 from dodaios.memory.vault.store import MemoryVault
+from dodaios.rsi import params
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +38,8 @@ TIDY_KEY: Final[str] = "tidy_last"
 
 #: Longest trigger context kept with a lesson.
 MAX_TRIGGER_CHARS: Final[int] = 200
-#: Overlap (share of the smaller word set) from which a lesson fits a message.
-RECALL_THRESHOLD: Final[float] = 0.4
+#: The overlap (share of the smaller word set) from which a lesson fits a message is the
+#: parameter ``lessons.recall_threshold``; how many come up is ``lessons.recall_limit``.
 #: Overlap from which a correction repeats a stored lesson.
 REPEAT_THRESHOLD: Final[float] = 0.5
 
@@ -156,14 +157,19 @@ def current_notes(vault: MemoryVault, note: str | None = None) -> list[Memory]:
     ]
 
 
-def recall(vault: MemoryVault, user_text: str, *, limit: int = 3) -> list[tuple[Memory, float]]:
+def recall(
+    vault: MemoryVault, user_text: str, *, limit: int | None = None
+) -> list[tuple[Memory, float]]:
     """Lessons and how-to notes that fit what the user just said, best first."""
+    if limit is None:
+        limit = int(params.get("lessons.recall_limit"))
+    threshold = float(params.get("lessons.recall_threshold"))
     scored = [
         (m, similarity(user_text, _document(m)))
         for m in current_notes(vault)
         if not m.sensitivity == "sensitive"
     ]
-    fitting = [(m, s) for m, s in scored if s >= RECALL_THRESHOLD]
+    fitting = [(m, s) for m, s in scored if s >= threshold]
     fitting.sort(key=lambda pair: (pair[1], pair[0].recorded_at), reverse=True)
     return fitting[:limit]
 
