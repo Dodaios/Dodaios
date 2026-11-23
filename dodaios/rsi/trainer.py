@@ -300,7 +300,8 @@ class Trainer:
         since = int(getattr(newest, "created_ms", 0) or 0)
         hard = [
             r for r in self._cell_runs(cell, since_ms=since)
-            if r.get("policy_id") == policy.id and r.get("gate_status") == "violations"
+            if r.get("policy_id") == policy.id
+            and (r.get("gate_status") == "violations" or r.get("leaked"))
         ]
         if not hard:
             return ""

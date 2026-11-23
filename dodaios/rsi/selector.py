@@ -152,7 +152,8 @@ def metrics_of(run: dict[str, Any]) -> RunMetrics | None:
     reason = str(run.get("verdict_reason") or "")
     follow_ups = int(run.get("follow_ups") or 0)
     at_limit = "no further follow-up order" in reason
-    passed = 1.0 if verdict == "verified" else 0.0
+    # Verified work that turned red after it merged did not pass.
+    passed = 1.0 if verdict == "verified" and not run.get("leaked") else 0.0
     seconds = float(run.get("wall_ms") or 0) / 1000
     return RunMetrics(
         run_id=str(run.get("run_id") or ""),
@@ -165,7 +166,7 @@ def metrics_of(run: dict[str, Any]) -> RunMetrics | None:
         p=float(P_MAX if at_limit else follow_ups),
         cost=float(run.get("cost_usd") or 0.0) + LAMBDA_USD_PER_S * seconds,
         churn=float(run.get("churn_lines") or 0),
-        hard=str(run.get("gate_status") or "") == "violations",
+        hard=str(run.get("gate_status") or "") == "violations" or bool(run.get("leaked")),
         mixed=bool(run.get("mixed_model")),
     )
 

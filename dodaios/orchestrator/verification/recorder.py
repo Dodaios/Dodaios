@@ -63,6 +63,9 @@ _KINDS: Final[frozenset[str]] = frozenset(
 #: How far back the catch-up read looks in a thread's log.
 _CATCH_UP_EVENTS: Final[int] = 2_000
 _STOP: Final[object] = object()
+#: Hours after a verified run's end at which its merged work is read again, to
+#: catch a regression that turned up after the verdict (the plan's W = 72 h).
+LEAK_CHECKS_H: Final[tuple[int, ...]] = (24, 72)
 #: The writer thread wakes for due evidence no sooner and no later than this.
 _MIN_WAIT_S: Final[float] = 1.0
 _MAX_WAIT_S: Final[float] = 300.0
@@ -147,6 +150,8 @@ class RunRecorder:
         self._due: dict[str, int] = {}
         #: When a run whose checks are waited for is decided at the latest.
         self._decide_at: dict[str, int] = {}
+        #: When a verified run's merged work is read again for a regression.
+        self._leak_at: dict[str, int] = {}
         #: ``(session, order, run, output) -> turn id``; raises ``send.Refused``.
         self._send_follow_up = send_follow_up or self._send_via_service
         #: ``triggered``: an output a fixed trigger picks gets one model's review.
@@ -234,7 +239,7 @@ class RunRecorder:
 
     def _wait_s(self) -> float | None:
         """How long the thread may sleep: until the next evidence is due, else for good."""
-        times = [*self._due.values(), *self._decide_at.values()]
+        times = [*self._due.values(), *self._decide_at.values(), *self._leak_at.values()]
         if not times:
             # A run that is being checked shows it is alive at least this often.
             return _MAX_WAIT_S if any(run.checking for run in self._open.values()) else None
@@ -369,6 +374,8 @@ class RunRecorder:
         if self._verify != "off":
             for row in self.store.evidence_due():
                 self._due[str(row["run_id"])] = int(row["evidence_due_ms"])
+            for row in self.store.leak_due():
+                self._leak_at[str(row["run_id"])] = int(row["leak_due_ms"])
         for row in self.store.open_runs():
             session_id = str(row["session_id"])
             if session_id in self._open:
@@ -818,11 +825,55 @@ class RunRecorder:
         run.checking = False
         self._let_go(run)
         self._tell(run)
+        if verdict == driver.VERIFIED:
+            self._watch_for_leak(run.run_id, now)
+
+    # -------------------------------------------------------------- leaks
+
+    def _watch_for_leak(self, run_id: str, now: int, after_h: int = LEAK_CHECKS_H[0]) -> None:
+        """Look at a verified run's merged work again later: it may turn red after all."""
+        row = self.store.get(run_id) or {}
+        if row.get("landing") != evidence.MERGED or not row.get("head_sha"):
+            return  # only merged work can leak into the default branch
+        due = int(row.get("ended_ms") or now) + after_h * 3600 * 1000
+        self.store.update_run(run_id, leak_due_ms=due)
+        self._leak_at[run_id] = due
+
+    def read_leaks(self, now_ms: int | None = None) -> int:
+        """Read the merged work of verified runs again where due. Returns how many were read."""
+        now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
+        asked = 0
+        for run_id in [r for r, due in self._leak_at.items() if due <= now]:
+            self._leak_at.pop(run_id, None)
+            try:
+                row = self.store.get(run_id) or {}
+                found = self._read_evidence(str(row.get("repo_id") or ""), str(row["head_sha"]))
+                asked += 1
+                ended = int(row.get("ended_ms") or now)
+                later = [h for h in LEAK_CHECKS_H if ended + h * 3600 * 1000 > now]
+                if found.landing == evidence.MERGED and found.checks == evidence.FAILING:
+                    self.store.update_run(run_id, leaked=True, leak_due_ms=None)
+                    self.store.add_step(
+                        run_id, int(row.get("iteration") or 0), "leak", status="failing",
+                        detail=found.to_detail(), ts_ms=now,
+                    )
+                    log.warning("run recorder: %s was verified, and its merged work fails now",
+                                run_id)
+                elif later or found.transient:
+                    due = ended + later[0] * 3600 * 1000 if later else now + 3600 * 1000
+                    self.store.update_run(run_id, leak_due_ms=due)
+                    self._leak_at[run_id] = due
+                else:
+                    self.store.update_run(run_id, leak_due_ms=None)
+            except Exception:  # noqa: BLE001 - the record keeps the verdict as it stood
+                log.warning("run recorder: %s not looked at for a leak", run_id, exc_info=True)
+        return asked
 
     def tick(self, now_ms: int | None = None) -> None:
         """What the writer thread does when nothing was queued: read and decide what is due."""
         now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
         self.read_due(now)
+        self.read_leaks(now)
         for run_id in [run_id for run_id, due in self._decide_at.items() if due <= now]:
             self._decide_at.pop(run_id, None)
             try:

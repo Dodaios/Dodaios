@@ -442,9 +442,11 @@ def test_a_thread_order_is_noted_with_the_id_of_its_job(ledger):
     finally:
         rec.set_recorder(None)
     assert job_id is not None
-    assert noted == [
-        {"job_id": job_id, "session_id": THREAD, "prompt": BRIEF, "started_ms": 1_000}
-    ]
+    assert noted == [{
+        "job_id": job_id, "session_id": THREAD, "prompt": BRIEF, "started_ms": 1_000,
+        # No policy was bound before the send: enforced checks are off here.
+        "policy": None,
+    }]
     assert ledger.get(job_id).kind == "ide_submission"
 
 

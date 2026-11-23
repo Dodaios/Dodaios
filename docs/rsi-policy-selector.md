@@ -24,12 +24,12 @@ request: the runs of one request are averaged.
 
 | | |
 | --- | --- |
-| pass | 1 when the run ended `verified`, else 0; a run the person took over is left out |
+| pass | 1 when the run ended `verified` and its merged work did not turn red within 72 hours, else 0; a run the person took over is left out |
 | one-shot | passed with no follow-up order and without the person stepping in |
 | P | follow-up orders; a run that hit the limit counts the limit |
 | cost | USD plus 0.001 USD per second of turn time |
 | churn | lines added plus deleted |
-| hard | a weakened check or an off-limits change in the final output |
+| hard | a weakened check or an off-limits change in the final output, or merged work that turned red later (a leak) |
 
 ## The rule
 
@@ -77,7 +77,8 @@ After each verdict the trainer (`dodaios/rsi/trainer.py`) looks at that cell:
    claim. Accepted: the candidate becomes the active policy, on probation.
    Rejected, or without an answer after 28 days: the trial ends.
 3. The first run under a new active policy whose final output weakened a
-   check rolls it back to the exact previous policy.
+   check, or whose merged work turned red later, rolls it back to the exact
+   previous policy.
 
 ## Text for agents (Phase 5)
 

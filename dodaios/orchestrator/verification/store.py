@@ -95,7 +95,9 @@ CREATE TABLE IF NOT EXISTS runs (
     heartbeat_ms      INTEGER,
     policy_id         TEXT NOT NULL DEFAULT '',
     arm               TEXT NOT NULL DEFAULT '',
-    policy_json       TEXT NOT NULL DEFAULT ''
+    policy_json       TEXT NOT NULL DEFAULT '',
+    leaked            INTEGER NOT NULL DEFAULT 0,
+    leak_due_ms       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -149,6 +151,8 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("policy_id", "TEXT NOT NULL DEFAULT ''"),
     ("arm", "TEXT NOT NULL DEFAULT ''"),
     ("policy_json", "TEXT NOT NULL DEFAULT ''"),
+    ("leaked", "INTEGER NOT NULL DEFAULT 0"),
+    ("leak_due_ms", "INTEGER"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -160,7 +164,7 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
         "head_sha", "landing", "ci_status", "evidence_due_ms", "verdict", "verdict_reason",
         "iteration", "follow_ups", "signatures_json", "heartbeat_ms", "policy_id", "arm",
-        "policy_json",
+        "policy_json", "leaked", "leak_due_ms",
     }
 )
 #: Every column a new run may carry.
@@ -244,7 +248,7 @@ class VerificationStore:
             raise ValueError(f"unknown run state: {fields['state']!r}")
         if not fields:
             return self.get(run_id) is not None
-        for flag in ("mixed_model", "person_intervened"):
+        for flag in ("mixed_model", "person_intervened", "leaked"):
             if flag in fields:
                 fields[flag] = int(bool(fields[flag]))
         assignments = ", ".join(f"{name} = ?" for name in fields)
@@ -302,6 +306,14 @@ class VerificationStore:
                 (root_span_id,),
             ).fetchone()
         return int(row[0]) if row is not None else 0
+
+    def leak_due(self) -> list[dict[str, Any]]:
+        """Verified runs whose merged work is to be looked at again, soonest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE leak_due_ms IS NOT NULL ORDER BY leak_due_ms"
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def evidence_due(self) -> list[dict[str, Any]]:
         """Runs whose landing and checks are to be read again, soonest first."""
