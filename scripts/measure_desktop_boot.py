@@ -62,7 +62,7 @@ BASELINE_PATH = REPO_ROOT / "desktop-boot-baseline.json"
 LATEST_PATH = REPO_ROOT / "desktop-boot-latest.json"
 # --voice (TTU) mode writes its own pair so the window-anchor baseline above
 # stays comparable across runs that do not exercise the voice stack.
-TTU_BASELINE_PATH = REPO_ROOT / "desktop-ttu-baseline.json"
+TTU_BASELINE_PATH = REPO_ROOT / "scripts" / "ci" / "desktop-ttu-baseline.json"
 TTU_LATEST_PATH = REPO_ROOT / "desktop-ttu-latest.json"
 
 

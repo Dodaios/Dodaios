@@ -136,7 +136,7 @@ three layers at once (mirroring `config_writer.set_brain_primary`):
 1. `jarvis.toml` `[trigger.wake_word]` (via `config_writer`, lock + tempfile + BOM-safe).
 2. `scripts/config-soll.json` `trigger.wake_word.*` (so the drift-guard *protects* the user's <!-- i18n-allow -->
    choice against rogue parallel sessions instead of reverting it).  <!-- i18n-allow -->
-3. `JARVIS__TRIGGER__WAKE_WORD__*` User-scope ENV (boot-override consistency).
+3. `DODAIOS__TRIGGER__WAKE_WORD__*` User-scope ENV (boot-override consistency).
 
 All three are **best-effort / graceful**: a missing `config-soll.json` or a non-Windows host  <!-- i18n-allow -->
 (no registry) is a no-op, never an exception — the live switch that already succeeded must

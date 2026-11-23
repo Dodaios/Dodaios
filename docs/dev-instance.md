@@ -24,7 +24,7 @@ working on the app from inside the app.
 
 ## How it is selected
 
-`JARVIS_INSTANCE=dev` in the environment, or `--instance dev` on the launcher
+`DODAIOS_INSTANCE=dev` in the environment, or `--instance dev` on the launcher
 (which sets the variable before anything else is imported). The variable is a
 *single* underscore on purpose: the relauncher refreshes every `JARVIS__*`
 config override on an in-app restart, and the instance must survive exactly
@@ -63,8 +63,8 @@ build-tool copy).
 
 The dev app does not deliver reminders or calendar appointments: the default
 app does, and two apps on one calendar would tell everything twice. To try how
-a reminder reads in the chat, start the dev app with `JARVIS_DEV_REMINDERS=1`
-(for example `JARVIS_DEV_REMINDERS=1 python scripts/dev_preview.py <PR>`). It
+a reminder reads in the chat, start the dev app with `DODAIOS_DEV_REMINDERS=1`
+(for example `DODAIOS_DEV_REMINDERS=1 python scripts/dev_preview.py <PR>`). It
 then tells the reminders of its own `data-dev` directory in its own chat, with
 no desktop notification.
 
