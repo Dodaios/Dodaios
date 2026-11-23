@@ -35,6 +35,7 @@ import { Row, Section } from "./selfBuild/List";
 import { relativeTime } from "./selfBuild/shared";
 import { AdvantageCurve } from "./selfImprovement/AdvantageCurve";
 import { ChangeDetail } from "./selfImprovement/ChangeDetail";
+import { DailyUseSection } from "./selfImprovement/DailyUse";
 import { NightsSection } from "./selfImprovement/Nights";
 import {
   DECIDE_MIN_TASKS,
@@ -172,6 +173,8 @@ export function SelfImprovementView() {
             {isEmpty(data) ? (
               <>
                 <EmptyCard />
+                {/* Daily use comes from the chat record, not from the benchmark, so it can exist already. */}
+                <DailyUseSection daily={data.daily_use} locale={locale} />
                 {/* A night that tried to build tasks says what came of it, even before anything exists. */}
                 {data.nights.some(nightDidSomething) && <NightsSection nights={data.nights} locale={locale} />}
               </>
@@ -186,7 +189,9 @@ export function SelfImprovementView() {
                   />
                 ))}
 
-                <Section id="si-stack" title={t("self_improvement.stack.title")} count={data.stack.length}>
+                <DailyUseSection daily={data.daily_use} locale={locale} />
+
+                <Section id="si-stack" title={t("self_improvement.stack.title")} count={data.stack.length || undefined}>
                   {data.stack.length ? (
                     <ul className={LIST}>
                       {data.stack.map((change) => (

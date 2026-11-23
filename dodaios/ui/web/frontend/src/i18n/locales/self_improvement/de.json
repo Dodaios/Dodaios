@@ -215,6 +215,16 @@
         "title": "Lektionen pro Nachricht",
         "about": "Die meisten Lektionen, die eine Nachricht hervorholen darf."
       }
+    },
+    "daily": {
+      "title": "Im Alltag",
+      "summary": "{pct} deiner {n} Anfragen der letzten {weeks} Wochen gingen ohne Korrektur, Wiederholung oder Abbruch durch.",
+      "caveat": "Das zeigt, was geschehen ist, nicht, was es verursacht hat: Die Anfragen einer Woche sind nicht die der nächsten. Die gemessenen Bereiche oben vergleichen Gleiches mit Gleichem.",
+      "col_week": "Woche",
+      "col_requests": "Anfragen",
+      "col_through": "Durchgegangen",
+      "week_of": "ab {date}",
+      "unrated": "keine Zahl"
     }
   }
 }

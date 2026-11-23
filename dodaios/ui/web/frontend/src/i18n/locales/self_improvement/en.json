@@ -215,6 +215,16 @@
         "title": "Lessons per message",
         "about": "The most lessons one message may bring up."
       }
+    },
+    "daily": {
+      "title": "In daily use",
+      "summary": "{pct} of your {n} requests in the last {weeks} weeks went through without a correction, a repeat or a stop.",
+      "caveat": "This shows what happened, not what caused it: the requests of one week are not those of the next. The measured areas above compare like with like.",
+      "col_week": "Week",
+      "col_requests": "Requests",
+      "col_through": "Went through",
+      "week_of": "from {date}",
+      "unrated": "no figure"
     }
   }
 }

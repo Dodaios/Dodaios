@@ -162,6 +162,23 @@ export interface SelfImprovementLimits {
   max_model_calls: number;
 }
 
+/** One week of the person's own requests (`daily_use` in dodaios/rsi/overview.py). */
+export interface DailyUseWeek {
+  start_ms: number;
+  turns: number;
+  /** False when the week holds too little to say anything. */
+  rated: boolean;
+  /** Share of requests that went through without a correction, a repeat, a stop or an error (0..1); null when not rated. */
+  score: number | null;
+}
+
+/** How daily use went. What happened, not a measurement of cause: the requests of one week are not those of the next. */
+export interface DailyUse {
+  weeks: DailyUseWeek[];
+  turns: number;
+  score: number | null;
+}
+
 export interface SelfImprovementOverview {
   status: SelfImprovementStatus;
   limits: SelfImprovementLimits;
@@ -171,6 +188,8 @@ export interface SelfImprovementOverview {
   candidates: LearnedChange[];
   nights: Night[];
   resting: RestingValue[];
+  /** Null when there is no chat record. */
+  daily_use?: DailyUse | null;
   now_ms: number;
 }
 

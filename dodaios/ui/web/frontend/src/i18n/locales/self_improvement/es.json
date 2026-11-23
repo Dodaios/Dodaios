@@ -215,6 +215,16 @@
         "title": "Lecciones por mensaje",
         "about": "El máximo de lecciones que puede traer un mensaje."
       }
+    },
+    "daily": {
+      "title": "En el uso diario",
+      "summary": "El {pct} de tus {n} peticiones de las últimas {weeks} semanas salió adelante sin una corrección, una repetición ni una interrupción.",
+      "caveat": "Esto muestra lo que pasó, no lo que lo causó: las peticiones de una semana no son las de la siguiente. Las áreas medidas arriba comparan lo mismo con lo mismo.",
+      "col_week": "Semana",
+      "col_requests": "Peticiones",
+      "col_through": "Salieron adelante",
+      "week_of": "desde el {date}",
+      "unrated": "sin cifra"
     }
   }
 }

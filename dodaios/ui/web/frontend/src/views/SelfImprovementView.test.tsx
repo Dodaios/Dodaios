@@ -411,6 +411,67 @@ describe("SelfImprovementView, before and while tasks are built", () => {
   });
 });
 
+describe("SelfImprovementView, in daily use", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_improvement");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  const WEEKS = [
+    { start_ms: NOW - 5 * 7 * DAY, turns: 25, rated: true, score: 1 },
+    { start_ms: NOW - 4 * 7 * DAY, turns: 3, rated: true, score: 0.45 },
+    { start_ms: NOW - 3 * 7 * DAY, turns: 60, rated: true, score: 0.9 },
+    { start_ms: NOW - 2 * 7 * DAY, turns: 6, rated: true, score: 0.68 },
+    { start_ms: NOW - 1 * 7 * DAY, turns: 122, rated: false, score: null },
+  ];
+
+  it("says the overall figure, that it is not a proof of cause, and every week beside its count", async () => {
+    const data = fullOverview();
+    data.daily_use = { weeks: WEEKS, turns: 216, score: 0.84 };
+    installFetch(data);
+    renderView();
+    const section = await screen.findByTestId("si-daily");
+    expect(screen.getByTestId("si-daily-summary").textContent).toBe(
+      "84% of your 216 requests in the last 5 weeks went through without a correction, a repeat or a stop.",
+    );
+    expect(screen.getByTestId("si-daily-caveat").textContent).toContain("not what caused it");
+    const rows = within(section).getAllByTestId("si-daily-week");
+    expect(rows).toHaveLength(5);
+    expect(rows[0].textContent).toContain("122");
+    expect(rows[0].textContent).toContain("no figure");
+    expect(rows[3].textContent).toContain("3");
+    expect(rows[3].textContent).toContain("45%");
+    // It sits below the measured area and above what was changed, with no chart and no colour.
+    const area = screen.getByTestId("si-area");
+    const stack = screen.getByTestId("shelf-si-stack");
+    expect(area.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(stack) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.querySelector("svg")).toBeNull();
+    expect(section.innerHTML).not.toMatch(/text-success|text-destructive|text-warning/);
+  });
+
+  it("leaves the section out without a chat record or without a rated week", async () => {
+    const none = fullOverview();
+    none.daily_use = null;
+    installFetch(none);
+    renderView();
+    await screen.findByTestId("si-headline");
+    expect(screen.queryByTestId("si-daily")).toBeNull();
+    cleanup();
+
+    const unrated = fullOverview();
+    unrated.daily_use = { weeks: [WEEKS[4]], turns: 122, score: null };
+    installFetch(unrated);
+    renderView();
+    await screen.findByTestId("si-headline");
+    expect(screen.queryByTestId("si-daily")).toBeNull();
+  });
+});
+
 describe("self-improvement words", () => {
   const t = (key: string) => key;
 
