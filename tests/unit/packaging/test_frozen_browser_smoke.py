@@ -56,6 +56,7 @@ def _boot_simulated_app(tmp_path, monkeypatch, app):
     profile.mkdir()
     monkeypatch.setattr(probe.subprocess, "Popen", lambda *_args, **_kwargs: app)
     monkeypatch.setattr(probe, "request_json", app.request)
+    monkeypatch.setattr(probe, "mcp_request", app.mcp)
     monkeypatch.setattr(probe, "check_macos_permissions", lambda *_args: {})
     monkeypatch.setattr(probe, "capture_frame", app.capture)
     monkeypatch.setattr(probe, "stop_owned_tree", app.stopped.append)
@@ -219,6 +220,22 @@ class Handler(BaseHTTPRequestHandler):
             }})
         return self.reply(404, {{}})
 
+    def do_POST(self):
+        # The MCP tools surface a chat's coding CLI calls (issue #1879).
+        if self.path != "/api/control/mcp/":
+            return self.reply(404, {{}})
+        length = int(self.headers.get("Content-Length") or 0)
+        sent = json.loads(self.rfile.read(length) or b"{{}}")
+        if sent.get("method") == "tools/list":
+            names = ["whiteboard", "node", "create_artifact", "recall"]
+            return self.reply(200, {{"result": {{"tools": [{{"name": n}} for n in names]}}}})
+        name = sent.get("params", {{}}).get("name")
+        failed = mode == "tool-fails" and name == "whiteboard"
+        text = "board failed" if failed else "done"
+        return self.reply(200, {{"result": {{
+            "isError": failed, "content": [{{"type": "text", "text": text}}],
+        }}}})
+
     def do_PUT(self):
         # The setup wizard's name save (issue #1734).
         length = int(self.headers.get("Content-Length") or 0)
@@ -303,6 +320,83 @@ def test_a_mac_boot_without_the_microphone_framework_fails_instead_of_passing(
 def test_a_mac_boot_without_the_permission_route_fails_instead_of_waiting(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="does not serve"):
         _boot_fake_app(tmp_path, monkeypatch, platform="darwin", mode="missing-route")
+
+
+@posix_only
+def test_a_boot_calls_the_tools_a_chat_draws_and_writes_with(tmp_path, monkeypatch):
+    report = _boot_fake_app(tmp_path, monkeypatch, platform="linux", mode="ok")
+
+    assert report["mcp_tools"] == 4
+    assert report["whiteboard_ok"] and report["node_ok"]
+
+
+@posix_only
+def test_a_boot_whose_whiteboard_fails_names_the_tool(tmp_path, monkeypatch):
+    # Issue #1879: drawing on the whiteboard failed in the installer build.
+    with pytest.raises(RuntimeError, match="whiteboard tool failed: board failed"):
+        _boot_fake_app(tmp_path, monkeypatch, platform="linux", mode="tool-fails")
+
+
+def test_the_tool_check_waits_for_the_catalog(monkeypatch):
+    listed = iter([[], [{"name": "recall"}]])
+    calls: list[str] = []
+
+    def mcp(port, key, method, params, **_kwargs):
+        if method == "tools/list":
+            tools = next(listed, [{"name": name} for name in probe.CHAT_TOOLS])
+            return {"tools": tools}
+        calls.append(params["name"])
+        return {"isError": False, "content": []}
+
+    monkeypatch.setattr(probe, "mcp_request", mcp)
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
+    report = probe.check_chat_tools(50000, "test-key")
+    assert calls == ["whiteboard", "node"]
+    assert report["mcp_tools"] == 3
+
+
+def test_a_catalog_that_never_offers_the_tools_fails(monkeypatch):
+    monkeypatch.setattr(probe, "mcp_request", lambda *_args, **_kwargs: {"tools": []})
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
+    with pytest.raises(RuntimeError, match="lacks whiteboard, node, create_artifact"):
+        probe.check_chat_tools(50000, "test-key", wait_s=0)
+
+
+# A stand-in for the frozen app as the vault guard hook (issue #1879).
+_HOOK_APP = """#!{python}
+import json, sys
+if sys.argv[1:] != ["--vault-guard-hook"]:
+    sys.exit(2)  # what an app without the flag answers: a usage error, exit 2
+call = json.loads(sys.stdin.read() or "{{}}")
+command = str(call.get("tool_input", {{}}).get("command") or "")
+sys.exit(2 if "keyring get" in command else 0)
+"""
+
+# The 5.6.0 shape: the hook names a .py file the build does not ship, and the
+# app answers every call with its usage error.
+_BROKEN_HOOK_APP = """#!{python}
+import sys
+sys.exit(2)
+"""
+
+
+@posix_only
+@pytest.mark.parametrize(("script", "passes"), [(_HOOK_APP, True), (_BROKEN_HOOK_APP, False)])
+def test_the_vault_guard_hook_must_let_file_calls_through(tmp_path, script, passes):
+    app = tmp_path / "hook-app"
+    app.write_text(script.format(python=sys.executable), encoding="utf-8")
+    app.chmod(app.stat().st_mode | stat.S_IXUSR)
+    if passes:
+        report = probe.check_vault_guard_hook(app)
+        assert set(report) == {
+            "vault_guard_read_seconds",
+            "vault_guard_image_seconds",
+            "vault_guard_shell_seconds",
+            "vault_guard_vault_seconds",
+        }
+    else:
+        with pytest.raises(RuntimeError, match="answered 2 for a read call"):
+            probe.check_vault_guard_hook(app)
 
 
 @posix_only

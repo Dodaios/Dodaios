@@ -9,6 +9,11 @@ the only way to see whether its pyobjc frameworks loaded (BUG-222).
 Headless startup deliberately leaves the optional browser idle. The probe
 requests installation through the same authenticated API as the product UI.
 
+Each boot also calls the tools a chat draws and writes with (whiteboard,
+document) over the MCP surface a chat's coding CLI uses, and the run first
+feeds the secret-store guard hook the file and shell calls Claude Code hands
+it (#1879).
+
 On Windows a third start goes first: the bare executable, started detached
 with its streams on NUL the way the background service's tray and a restart
 start it, must boot instead of starting copies of itself (#1880).
@@ -138,6 +143,121 @@ def request_json(port: int, path: str, key: str, *, method: str = "GET") -> dict
         connection.close()
 
 
+#: The path a chat's coding CLI reaches the app's tools on (``--mcp-config``).
+MCP_PATH = "/api/control/mcp/"
+#: What a chat turn draws, writes and builds with (#1879).
+CHAT_TOOLS = ("whiteboard", "node", "create_artifact")
+
+
+def mcp_request(port: int, key: str, method: str, params: dict, *, timeout: float = 60) -> dict:
+    """One JSON-RPC call on the app's own MCP tools surface, as a chat's CLI makes it."""
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        connection.request(
+            "POST",
+            MCP_PATH,
+            body=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+            },
+        )
+        response = connection.getresponse()
+        if response.status != 200:
+            raise ProbeHTTPError(response.status)
+        payload = json.loads(response.read())
+    finally:
+        connection.close()
+    if "error" in payload:
+        raise RuntimeError(f"MCP {method} failed: {payload['error']}")
+    return payload["result"]
+
+
+def _tool_text(result: dict) -> str:
+    parts = [part for part in result.get("content") or [] if isinstance(part, dict)]
+    return " ".join(str(part.get("text") or "") for part in parts)
+
+
+def check_chat_tools(port: int, key: str, *, wait_s: float = 180) -> dict:
+    """The tools a chat draws and writes with answer in the frozen app (#1879).
+
+    The same MCP calls the chat's coding CLI makes: the catalog offers the
+    whiteboard, node and artifact tools, a whiteboard is drawn and a document
+    is written. A tool that fails here fails in every chat of the build.
+    """
+    # The app answers its health check before its tools are registered.
+    deadline = time.monotonic() + wait_s
+    while True:
+        listed = {tool["name"] for tool in mcp_request(port, key, "tools/list", {})["tools"]}
+        missing = [name for name in CHAT_TOOLS if name not in listed]
+        if not missing:
+            break
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"The frozen app's MCP catalog lacks {', '.join(missing)}")
+        time.sleep(1)
+    calls = {
+        "whiteboard": {
+            "operation": "create",
+            "title": "Frozen check board",
+            "mermaid": "flowchart LR\n  A[TEST] --> B[Done]",
+        },
+        "node": {
+            "operation": "create",
+            "type": "docs",
+            "title": "Frozen check document",
+            "spec": {"summary": "A check.", "markdown": "# Frozen check\n\nIt writes documents."},
+        },
+        # create_artifact is only required in the catalog: a call starts a
+        # background build that needs a model and comes back with the restart.
+    }
+    report: dict = {"mcp_tools": len(listed)}
+    for name, arguments in calls.items():
+        result = mcp_request(port, key, "tools/call", {"name": name, "arguments": arguments})
+        if result.get("isError"):
+            raise RuntimeError(f"The frozen app's {name} tool failed: {_tool_text(result)[:500]}")
+        report[f"{name}_ok"] = True
+    return report
+
+
+def check_vault_guard_hook(executable: Path, timeout: float = 30) -> dict:
+    """The secret-store guard a chat's Claude Code runs before every file call (#1879).
+
+    Claude Code runs ``"<app>" --vault-guard-hook`` with the call on stdin and
+    blocks the call when the hook exits 2. A build whose hook pointed at a
+    ``.py`` file it does not ship exited 2 for EVERY Read, Grep, Glob and Bash
+    call, so a chat could read no file and no picture.
+    """
+    cases = {
+        "read": ({"tool_name": "Read", "tool_input": {"file_path": "README.md"}}, 0),
+        "image": ({"tool_name": "Read", "tool_input": {"file_path": "picture.png"}}, 0),
+        "shell": ({"tool_name": "Bash", "tool_input": {"command": "git status"}}, 0),
+        "vault": (
+            {"tool_name": "Bash", "tool_input": {"command": "keyring get dodaios owner"}},
+            2,
+        ),
+    }
+    report: dict = {}
+    for name, (call, expected) in cases.items():
+        started = time.monotonic()
+        done = subprocess.run(  # noqa: S603 - the built app, a fixed flag
+            [str(executable), "--vault-guard-hook"],
+            input=json.dumps(call).encode("utf-8"),
+            capture_output=True,
+            timeout=timeout,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+            check=False,
+        )
+        seconds = round(time.monotonic() - started, 2)
+        if done.returncode != expected:
+            raise RuntimeError(
+                f"The vault guard hook answered {done.returncode} for a {name} call "
+                f"(expected {expected}): {done.stderr.decode('utf-8', 'replace')[:300]}"
+            )
+        report[f"vault_guard_{name}_seconds"] = seconds
+    return report
+
+
 def check_macos_permissions(port: int, key: str) -> dict:
     """On macOS, prove the running app can read its own microphone permission.
 
@@ -236,7 +356,9 @@ def check_setup_name_save(port: int, key: str) -> dict:
     return {"setup_name_save": json.loads(body).get("resolved_engine", "")}
 
 
-def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float) -> dict:
+def boot(
+    executable: Path, profile: Path, output: Path, key: str, timeout: float, *, tools: bool = True
+) -> dict:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -268,6 +390,9 @@ def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float
                         report.update(check_setup_name_save(port, key))
                     if "permissions" not in report and "healthy_seconds" in report:
                         report["permissions"] = check_macos_permissions(port, key)
+                    if tools and "mcp_tools" not in report and "healthy_seconds" in report:
+                        # Asked again after a 503: the tools surface may come up later.
+                        report.update(check_chat_tools(port, key))
                     status = request_json(port, "/api/society/browser/status", key)
                 except ProbeHTTPError as exc:
                     if exc.code not in {503, 404}:
@@ -397,10 +522,13 @@ def main() -> int:
     key = "jctl_" + secrets.token_urlsafe(32)
     report = {"platform": sys.platform, "passed": False, "boots": []}
     try:
+        report["vault_guard"] = check_vault_guard_hook(executable)
         if sys.platform == "win32":
             report["bare_start"] = check_bare_start_settles(executable, output / "bare-profile")
         for name in ("first-install", "restart"):
-            row = boot(executable, profile, output / name, key, args.timeout)
+            # The tools once: the restart boot proves the browser comes back.
+            tools = name == "first-install"
+            row = boot(executable, profile, output / name, key, args.timeout, tools=tools)
             report["boots"].append({"name": name, **row})
         report["passed"] = True
         return 0
