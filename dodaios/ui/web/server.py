@@ -3098,7 +3098,10 @@ class WebServer:
 
             _boot_loop = _asyncio.get_running_loop()
             _self_change = _sc_wiring.install(
-                Path(self.cfg.memory.data_dir), self.cfg, lambda: _boot_loop
+                Path(self.cfg.memory.data_dir),
+                self.cfg,
+                lambda: _boot_loop,
+                publish=self.bus.publish,
             )
             self.app.state.self_change = _self_change
         except Exception as exc:  # noqa: BLE001

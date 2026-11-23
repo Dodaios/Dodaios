@@ -2785,6 +2785,20 @@ class SelfBuildChanged(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class SelfChangeChanged(Event):
+    """A self-change was recorded or changed state (candidate, trial, live, reverted).
+
+    Published after the row was committed. The WebSocket forwards it; the
+    Self-improvement view re-reads the registry instead of waiting for a poll.
+    """
+
+    change_id: str = ""
+    surface: str = ""
+    state: str = ""
+    target: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class NodeChanged(Event):
     """A node was created or revised: what the app needs to show it live.
 

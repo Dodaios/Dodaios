@@ -8,6 +8,12 @@ surface writes them from the agent's side):
 ``history``      every state move, append-only (triggers refuse UPDATE/DELETE).
 ``evaluations``  every regression result a gate produced, append-only. The agent
                  cannot edit its own grade: nothing here updates or deletes one.
+``evidence``     what a measurement found about a change (the numbers that let it
+                 in, kept it, or took it back), append-only.
+
+The file is older than the kernel's versioned storage, so it grows the way it
+always did: new tables with ``IF NOT EXISTS``, new columns added when missing.
+An app update never rebuilds it.
 """
 
 from __future__ import annotations
@@ -77,7 +83,26 @@ CREATE TRIGGER IF NOT EXISTS evaluations_no_delete BEFORE DELETE ON evaluations
 BEGIN SELECT RAISE(ABORT, 'evaluation results are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS changes_no_delete BEFORE DELETE ON changes
 BEGIN SELECT RAISE(ABORT, 'a recorded self-change is never deleted'); END;
+CREATE TABLE IF NOT EXISTS evidence (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    change_id TEXT NOT NULL,
+    ts_ms INTEGER NOT NULL,
+    step TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS evidence_change ON evidence(change_id, seq);
+CREATE TRIGGER IF NOT EXISTS evidence_no_update BEFORE UPDATE ON evidence
+BEGIN SELECT RAISE(ABORT, 'measurement evidence is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS evidence_no_delete BEFORE DELETE ON evidence
+BEGIN SELECT RAISE(ABORT, 'measurement evidence is append-only'); END;
 """
+
+#: Columns added after the first release of the file: ``name -> declaration``.
+_ADDED_COLUMNS: Final[dict[str, str]] = {
+    # What a proposed change waits for: "" (the owner) or "measurement".
+    "waits": "TEXT NOT NULL DEFAULT ''",
+}
 
 
 @dataclass(slots=True)
@@ -101,6 +126,8 @@ class Change:
     created_ms: int
     updated_ms: int
     seq: int = 0
+    #: What a proposed change waits for: "" (the owner) or "measurement".
+    waits: str = ""
 
     def public(self, *, with_text: bool = False) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -117,6 +144,7 @@ class Change:
             "core_reasons": self.core_reasons,
             "gate": self.gate,
             "note": self.note,
+            "waits": self.waits,
             "created_ms": self.created_ms,
             "updated_ms": self.updated_ms,
         }
@@ -141,6 +169,11 @@ class ChangeStore:
             conn = sqlite3.connect(self._path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.executescript(_SCHEMA)
+            have = {row[1] for row in conn.execute("PRAGMA table_info(changes)")}
+            for name, declaration in _ADDED_COLUMNS.items():
+                if name not in have:
+                    conn.execute(f"ALTER TABLE changes ADD COLUMN {name} {declaration}")
+            conn.commit()
             self._conn = conn
         return self._conn
 
@@ -172,6 +205,7 @@ class ChangeStore:
             created_ms=row["created_ms"],
             updated_ms=row["updated_ms"],
             seq=row["seq"],
+            waits=row["waits"],
         )
 
     # ------------------------------------------------------------- writes
@@ -192,6 +226,7 @@ class ChangeStore:
         core_reasons: list[str],
         gate: dict[str, Any],
         ref: str = "",
+        waits: str = "",
     ) -> Change:
         with self._lock:
             conn = self._db()
@@ -207,8 +242,8 @@ class ChangeStore:
             conn.execute(
                 "INSERT INTO changes (id, surface, target, version, before_text, after_text, diff,"
                 " author, turn, reason, state, core, core_reasons, gate, ref,"
-                " created_ms, updated_ms)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " created_ms, updated_ms, waits)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     change_id,
                     surface.value,
@@ -227,6 +262,7 @@ class ChangeStore:
                     ref,
                     now,
                     now,
+                    waits,
                 ),
             )
             conn.execute(
@@ -256,6 +292,13 @@ class ChangeStore:
             conn.commit()
         return self.get(change_id)  # type: ignore[return-value]
 
+    def set_note(self, change_id: str, note: str) -> None:
+        """Replace the note of a change (why it stands where it stands)."""
+        with self._lock:
+            conn = self._db()
+            conn.execute("UPDATE changes SET note=? WHERE id=?", (note[:500], change_id))
+            conn.commit()
+
     def set_gate(self, change_id: str, gate: dict[str, Any]) -> None:
         with self._lock:
             conn = self._db()
@@ -277,7 +320,53 @@ class ChangeStore:
             )
             conn.commit()
 
+    def record_evidence(self, change_id: str, step: str, verdict: str, body: str) -> None:
+        """Kernel code only: what a measurement found, as canonical JSON."""
+        with self._lock:
+            conn = self._db()
+            conn.execute(
+                "INSERT INTO evidence (change_id, ts_ms, step, verdict, body) VALUES (?,?,?,?,?)",
+                (change_id, _now(), step, verdict, body),
+            )
+            conn.commit()
+
     # -------------------------------------------------------------- reads
+
+    def evidence(self, change_id: str) -> list[dict[str, Any]]:
+        """Every measurement recorded for a change, oldest first."""
+        with self._lock:
+            rows = (
+                self._db()
+                .execute(
+                    "SELECT ts_ms, step, verdict, body FROM evidence"
+                    " WHERE change_id=? ORDER BY seq",
+                    (change_id,),
+                )
+                .fetchall()
+            )
+        return [
+            {
+                "ts_ms": r["ts_ms"],
+                "step": r["step"],
+                "verdict": r["verdict"],
+                "evidence": json.loads(r["body"]),
+            }
+            for r in rows
+        ]
+
+    def applied_ms(self, change_id: str) -> int:
+        """When the change went into effect (its first move to trial or live); 0 if never."""
+        with self._lock:
+            row = (
+                self._db()
+                .execute(
+                    "SELECT MIN(ts_ms) FROM history"
+                    " WHERE change_id=? AND dst IN ('trial', 'live')",
+                    (change_id,),
+                )
+                .fetchone()
+            )
+        return int(row[0] or 0)
 
     def get(self, change_id: str) -> Change | None:
         with self._lock:

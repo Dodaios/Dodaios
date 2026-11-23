@@ -61,6 +61,29 @@ def make_notifier(get_loop: Any) -> Any:
     return notify
 
 
+def make_publisher(get_loop: Any, publish: Any) -> Any:
+    """Announce every recorded move on the app bus (``SelfChangeChanged``)."""
+
+    def changed(change: Change) -> None:
+        import asyncio
+
+        from dodaios.core.events import SelfChangeChanged
+
+        loop = get_loop()
+        if publish is None or loop is None or loop.is_closed():
+            return
+        event = SelfChangeChanged(
+            change_id=change.id,
+            surface=change.surface.value,
+            state=change.state.value,
+            target=change.target,
+            source_layer="self_change",
+        )
+        asyncio.run_coroutine_threadsafe(publish(event), loop)
+
+    return changed
+
+
 def _install_params(data_dir: Path) -> Any:
     """Make the learned parameter values the ones the app reads.
 
@@ -77,8 +100,12 @@ def _install_params(data_dir: Path) -> Any:
         return None
 
 
-def install(data_dir: Path, config: Any, loop_of: Any = lambda: None) -> SelfChangeRegistry:
-    registry = SelfChangeRegistry(data_dir, notify=make_notifier(loop_of))
+def install(
+    data_dir: Path, config: Any, loop_of: Any = lambda: None, *, publish: Any = None
+) -> SelfChangeRegistry:
+    registry = SelfChangeRegistry(
+        data_dir, notify=make_notifier(loop_of), changed=make_publisher(loop_of, publish)
+    )
     registry.register_handler(Surface.PROMPT, FileHandler(_persona_path))
     registry.register_handler(Surface.INSTRUCTIONS, instructions_handler(config))
     registry.register_handler(Surface.SKILL, FileHandler(_skill_path))

@@ -261,14 +261,10 @@ def param_valid(draft: Draft, gate: Gate) -> CheckResult:
     return CheckResult("parameter", PASS, "a declared parameter within its limits")
 
 
-def not_measured_yet(draft: Draft, gate: Gate) -> CheckResult:
-    """A surface whose effect must be measured, before the measured gate is wired to it.
-
-    Passing the format checks proves nothing about whether a value is better. Until
-    the benchmark decides (docs/self-improvement.md), such a change is not applied.
-    """
-    return CheckResult("measurement", UNAVAILABLE, "no measurement decides this surface yet")
-
+#: Surfaces whose changes are let in by measurement, never by passing these
+#: checks alone. Passing them only proves a candidate is well formed; whether it
+#: is better is for the benchmark to say (docs/self-improvement.md).
+MEASURED_SURFACES: Final[frozenset[Surface]] = frozenset({Surface.PARAMETER})
 
 DEFAULT_CHECKS: Final[dict[Surface, tuple[Check, ...]]] = {
     Surface.SKILL: (hygiene, skill_valid),
@@ -277,7 +273,7 @@ DEFAULT_CHECKS: Final[dict[Surface, tuple[Check, ...]]] = {
     Surface.TOOL: (hygiene, routing_replay),
     Surface.CODE: (hygiene, code_tests),
     Surface.CODING_POLICY: (hygiene, policy_valid),
-    Surface.PARAMETER: (hygiene, param_valid, not_measured_yet),
+    Surface.PARAMETER: (hygiene, param_valid),
 }
 
 
@@ -292,11 +288,19 @@ class Gate:
     ) -> None:
         self._store = store
         self._checks = dict(DEFAULT_CHECKS if checks is None else checks)
+        self._measured = set(MEASURED_SURFACES)
         self.replay = replay
         self.run_tests = run_tests
 
     def register(self, surface: Surface, check: Check) -> None:
         self._checks[surface] = (*self._checks.get(surface, ()), check)
+
+    def measured(self, surface: Surface) -> bool:
+        """True when a change of ``surface`` waits for a measurement instead of going live."""
+        return surface in self._measured
+
+    def register_measured(self, surface: Surface) -> None:
+        self._measured.add(surface)
 
     def run(self, draft: Draft) -> GateReport:
         report = GateReport()
