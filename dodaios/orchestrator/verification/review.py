@@ -6,7 +6,8 @@ they cannot give: a change that leaves points to look at, touches code where a
 mistake is costly, or is too large to read at a glance, and a random tenth of
 the rest, which measures what the checks miss. For those, with
 ``[rsi] review = "triggered"``, one model reads the brief and the diff and says
-whether the change does what was asked.
+whether the change does what was asked. Only for a run whose coding policy
+holds it; for any other run the recorder notes the review as withheld.
 
 Rules that keep it honest and cheap:
 

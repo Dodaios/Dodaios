@@ -768,12 +768,17 @@ async def test_a_new_thread_comes_back_with_its_code_and_link(rig: Rig):
     await rig.settle()
 
 
-async def test_an_order_to_a_thread_is_recorded_as_a_run_when_recording_is_on(rig: Rig, tmp_path):
+async def test_an_order_to_a_thread_is_recorded_and_judged_as_a_run(
+    rig: Rig, tmp_path, monkeypatch
+):
     """The real hand-off path: the turn starts inside the send, the order is noted after it."""
     from dodaios.orchestrator.verification import recorder as run_recorder
     from dodaios.orchestrator.verification.store import ENDED, VerificationStore
+    from dodaios.rsi import harness_probe
     from dodaios.rsi.harness_probe import Harness
+    from dodaios.rsi.policy import DEFAULT
 
+    monkeypatch.setattr(harness_probe, "for_runner", lambda runner: Harness(runner, "1.2.3", "1.2"))
     store = VerificationStore(tmp_path / "verification.db")
     made = run_recorder.RunRecorder(
         store, rig.service, probe=lambda runner: Harness(runner, "1.2.3", "1.2")
@@ -794,9 +799,13 @@ async def test_an_order_to_a_thread_is_recorded_as_a_run_when_recording_is_on(ri
         assert run["primary_domain"] == "testing"
         assert run["turn_id"]
         assert run["harness_version"] == "1.2.3"
+        # Judged under the factory policy, bound before the send: the shared
+        # checkout proves nothing, and nothing held the lead's result back.
         assert [s["step"] for s in store.steps(job_id)] == [
-            "bound", "turn_started", "turn_finished",
+            "bound", "turn_started", "turn_finished", "gates", "verdict",
         ]
+        assert (run["policy_id"], run["verdict"]) == (DEFAULT.id, "unverified")
+        assert len(rig.results()) == 1
     finally:
         run_recorder.set_recorder(None)
         store.close()
@@ -951,18 +960,23 @@ async def test_a_project_that_is_no_repository_keeps_its_threads_in_the_folder(
     assert rig.service.prompts == [(thread.session_id, "Fix the failing tests")]
 
 
-# ------------------------------------- enforced checks: the result waits for the verdict
+# ------------------------------------- checked runs: held or judged in the background
 
 
-@pytest.fixture
-def enforcing(rig: Rig, own_worktrees, monkeypatch):
-    """The app checks what each turn left; GitHub and the scan are stand-ins the test sets."""
+def _checking(rig: Rig, own_worktrees, monkeypatch, *, hold: bool) -> Any:
+    """The app checks what each turn left; GitHub and the scan are stand-ins the test sets.
+
+    ``hold``: every run is bound to a policy that holds it (the old enforce
+    mode); else to the factory policy, which judges and holds nothing.
+    """
     import json
     from dataclasses import replace
 
     from dodaios.orchestrator.verification import evidence, gates
     from dodaios.orchestrator.verification import recorder as run_recorder
+    from dodaios.rsi import bind, harness_probe
     from dodaios.rsi.harness_probe import Harness
+    from dodaios.rsi.policy import Policy
 
     _dirs, store, _idle = own_worktrees
     github = {
@@ -983,19 +997,78 @@ def enforcing(rig: Rig, own_worktrees, monkeypatch):
         sent.append((session_id, prompt))
         return "never-started"
 
+    policy = Policy(hold=hold)
+
+    def binding(_cell: str, _root: str) -> dict[str, Any]:
+        return {"policy_id": policy.id, "arm": "active", "policy_json": policy.to_text()}
+
     monkeypatch.setattr(gates, "check_run", scan)
+    # The sender binds the policy before the order goes out (``bind.before_send``).
+    monkeypatch.setattr(bind, "binding_fields", binding)
+    monkeypatch.setattr(harness_probe, "for_runner", lambda runner: Harness(runner, "1.2.3", "1.2"))
     made = run_recorder.RunRecorder(
-        store, rig.service, verify="enforce",
+        store, rig.service, policy_for=binding,
         probe=lambda runner: Harness(runner, "1.2.3", "1.2"),
         read_evidence=lambda _repo, sha: replace(github["now"], head_sha=sha),
         send_follow_up=follow_up,
     )
     rig.service.add_event_listener(made.on_event)
     run_recorder.set_recorder(made)
+    return SimpleNamespace(recorder=made, store=store, github=github, sent=sent, json=json)
+
+
+@pytest.fixture
+def enforcing(rig: Rig, own_worktrees, monkeypatch):
+    from dodaios.orchestrator.verification import recorder as run_recorder
+
     try:
-        yield SimpleNamespace(recorder=made, store=store, github=github, sent=sent, json=json)
+        yield _checking(rig, own_worktrees, monkeypatch, hold=True)
     finally:
         run_recorder.set_recorder(None)
+
+
+@pytest.fixture
+def judging(rig: Rig, own_worktrees, monkeypatch):
+    from dodaios.orchestrator.verification import recorder as run_recorder
+
+    try:
+        yield _checking(rig, own_worktrees, monkeypatch, hold=False)
+    finally:
+        run_recorder.set_recorder(None)
+
+
+async def test_with_the_factory_policy_the_result_is_told_at_once_and_judged_later(
+    rig: Rig, judging
+):
+    from dodaios.orchestrator.verification import evidence
+
+    judging.github["now"] = evidence.Evidence(
+        "pr_open", "failing", pr=4, failing=("unit",), reason="pull request #4 is open"
+    )
+    result = await create(rig)
+    await rig.settle()
+    judging.recorder.process_pending()
+    await rig.settle()
+    job_id = result["deliveries"][0]["job_id"]
+
+    # The lead hears the thread's own result when its turn ends, as without the record.
+    [told] = rig.results()
+    assert enforcing_free(judging.json.loads(told.report))
+    job = await jobs.refresh(jobs.get_ledger().get(job_id))
+    assert job.state == "done"
+    # The run was judged all the same; the follow-up order was withheld, not sent.
+    run = judging.store.get(job_id)
+    assert (run["state"], run["verdict"]) == ("ended", "failed")
+    assert "follow_up_withheld" in [s["step"] for s in judging.store.steps(job_id)]
+    assert judging.sent == []
+    assert len(rig.service.prompts) == 1
+
+
+def enforcing_free(material: dict[str, Any]) -> bool:
+    """A report that is the thread's own word, not a verdict of the app's check."""
+    return material["status"] == "completed" and not str(
+        material.get("evidence") or ""
+    ).startswith(("Checked by the app", "Not verified by the app"))
 
 
 async def test_with_enforced_checks_the_result_waits_for_the_apps_verdict(rig: Rig, enforcing):
@@ -1179,7 +1252,7 @@ async def test_an_approved_domain_block_rides_in_the_first_brief_and_not_in_the_
     )
     store = VerificationStore(tmp_path / "verification.db")
     policies = PolicyStore(tmp_path / "rsi.db")
-    made = run_recorder.RunRecorder(store, rig.service, verify="enforce")
+    made = run_recorder.RunRecorder(store, rig.service)
     rig.service.add_event_listener(made.on_event)
     run_recorder.set_recorder(made)
     bind.set_store(policies)
@@ -1212,7 +1285,7 @@ async def test_an_approved_domain_block_rides_in_the_first_brief_and_not_in_the_
     policies.close()
 
 
-async def test_without_enforced_checks_the_brief_goes_out_as_the_lead_wrote_it(rig: Rig):
+async def test_without_a_run_recorder_the_brief_goes_out_as_the_lead_wrote_it(rig: Rig):
     await create(rig)
     await rig.settle()
     assert [text for _sid, text in rig.service.prompts] == ["Fix the failing tests"]

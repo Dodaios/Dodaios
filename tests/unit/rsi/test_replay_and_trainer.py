@@ -143,6 +143,9 @@ def test_too_little_record_or_too_few_runs_ask_for_a_canary(runs):
     assert "a canary is needed" in outside.reasons[0]
 
 
+HELD = Policy(hold=True)
+
+
 # ------------------------------------------------------------------ trainer
 
 
@@ -157,30 +160,44 @@ def world(tmp_path, runs):
     )
     registry.register_handler(Surface.CODING_POLICY, policies)
     made = trainer.Trainer(runs, policies, lambda: registry, samples=300)
+    # The grid only means something where the active policy holds its runs.
+    policies.write(target_for(CELL, ACTIVE), HELD.to_text())
     yield SimpleNamespace(runs=runs, policies=policies, registry=registry, trainer=made)
     registry.close()
     policies.close()
 
 
 def test_with_too_few_runs_nothing_is_proposed(world):
-    record(world.runs, outputs=[{}])
+    record(world.runs, policy=HELD, outputs=[{}])
     assert world.trainer.consider(CELL) == "waiting for runs"
-    assert world.policies.cells() == {}
+    assert set(world.policies.cells()[CELL]) == {ACTIVE}
+
+
+def test_a_cell_whose_active_policy_does_not_hold_gets_no_trial(world):
+    world.policies.write(target_for(CELL, ACTIVE), None)  # back to the factory policy
+    for i in range(70):
+        record(world.runs, outputs=[{}] if i % 7 else [{}, {"cost": 0.5}])
+    done = world.trainer.consider(CELL)
+    assert done == trainer.NOT_HOLDING
+    assert "change nothing" in done
+    assert world.policies.policy(CELL, CANDIDATE) is None
+    assert world.trainer.claims() == []
+    assert [c for c in world.registry.store.list() if c.target.endswith("#candidate")] == []
 
 
 def _cell_where_follow_ups_never_help(store: VerificationStore, n: int = 70) -> None:
     for i in range(n):
         if i % 7:
-            record(store, outputs=[{}])
+            record(store, policy=HELD, outputs=[{}])
         else:
-            record(store, outputs=[{}, {"cost": 0.5}], verdict="failed")
+            record(store, policy=HELD, outputs=[{}, {"cost": 0.5}], verdict="failed")
 
 
 def test_a_candidate_the_replay_allows_goes_on_trial_with_its_claim_fixed(world):
     _cell_where_follow_ups_never_help(world.runs)
     done = world.trainer.consider(CELL)
-    assert done == f"candidate {Policy(p_max=0).id} on trial", done
-    assert world.policies.policy(CELL, CANDIDATE) == Policy(p_max=0)
+    assert done == f"candidate {Policy(p_max=0, hold=True).id} on trial", done
+    assert world.policies.policy(CELL, CANDIDATE) == Policy(p_max=0, hold=True)
     [claim] = world.trainer.claims()
     assert (claim["branch"], claim["target"], claim["outcome"]) == ("B", "cost", "")
     assert world.trainer.consider(CELL) == "trial goes on"
@@ -194,11 +211,14 @@ def test_a_canary_that_wins_makes_the_candidate_active(world):
     world.trainer.consider(CELL)
     later = int(time.time() * 1000) + 10_000
     for _ in range(65):
-        record(world.runs, policy=Policy(p_max=0), outputs=[{"cost": 0.05}], started_ms=later)
-        record(world.runs, outputs=[{"cost": 0.20}], started_ms=later)
+        record(
+            world.runs, policy=Policy(p_max=0, hold=True), outputs=[{"cost": 0.05}],
+            started_ms=later,
+        )
+        record(world.runs, policy=HELD, outputs=[{"cost": 0.20}], started_ms=later)
     done = world.trainer.consider(CELL)
     assert done == "trial ended: accept", done
-    assert world.policies.policy(CELL, ACTIVE) == Policy(p_max=0)
+    assert world.policies.policy(CELL, ACTIVE) == Policy(p_max=0, hold=True)
     assert world.policies.policy(CELL, CANDIDATE) is None
     assert world.trainer.claims()[0]["outcome"] == "accept"
 
@@ -208,23 +228,23 @@ def test_a_canary_that_loses_ends_the_trial_and_keeps_the_active_policy(world):
     world.trainer.consider(CELL)
     later = int(time.time() * 1000) + 10_000
     for i in range(65):
-        record(world.runs, policy=Policy(p_max=0), outputs=[{}], started_ms=later,
+        record(world.runs, policy=Policy(p_max=0, hold=True), outputs=[{}], started_ms=later,
                verdict="failed" if i % 3 == 0 else "verified")
-        record(world.runs, outputs=[{}], started_ms=later)
+        record(world.runs, policy=HELD, outputs=[{}], started_ms=later)
     assert world.trainer.consider(CELL) == "trial ended: reject"
-    assert world.policies.policy(CELL, ACTIVE) is None
+    assert world.policies.policy(CELL, ACTIVE) == HELD
     assert world.policies.policy(CELL, CANDIDATE) is None
 
 
 def test_the_first_weakened_check_under_a_new_policy_rolls_it_back(world):
     target = target_for(CELL, ACTIVE)
-    world.registry.propose(trainer.Trainer._draft(target, Policy(p_max=1), "accepted"))
-    assert world.policies.policy(CELL, ACTIVE) == Policy(p_max=1)
-    record(world.runs, policy=Policy(p_max=1), outputs=[{}], gate_status="violations",
+    world.registry.propose(trainer.Trainer._draft(target, Policy(p_max=1, hold=True), "accepted"))
+    assert world.policies.policy(CELL, ACTIVE) == Policy(p_max=1, hold=True)
+    record(world.runs, policy=Policy(p_max=1, hold=True), outputs=[{}], gate_status="violations",
            verdict="failed", started_ms=int(time.time() * 1000) + 5_000)
     done = world.trainer.consider(CELL)
-    assert done.startswith(f"rolled back {Policy(p_max=1).id}")
-    assert world.policies.policy(CELL, ACTIVE) is None
+    assert done.startswith(f"rolled back {Policy(p_max=1, hold=True).id}")
+    assert world.policies.policy(CELL, ACTIVE) == HELD
 
 
 def test_an_owner_who_rolled_the_candidate_back_ends_its_trial(world):
@@ -255,14 +275,14 @@ def test_the_grid_only_steers_and_never_writes_text_for_agents():
 
 
 def _record_with_follow_up(store: VerificationStore, reason: str, template: str = "T2") -> None:
-    run_id = record(store, outputs=[{}, {"cost": 0.5}])  # the follow-up made it pass
+    run_id = record(store, policy=HELD, outputs=[{}, {"cost": 0.5}])  # the follow-up made it pass
     store.add_step(run_id, 0, "follow_up_intent", status=template, ts_ms=1,
                    detail={"reason": reason})
 
 
 def test_when_no_steering_candidate_survives_a_mined_line_waits_for_the_owner(world):
     for _ in range(50):
-        record(world.runs, outputs=[{}])
+        record(world.runs, policy=HELD, outputs=[{}])
     for _ in range(15):
         _record_with_follow_up(world.runs, "the change weakens the checks (C1 tests/test_a.py)")
 

@@ -4164,8 +4164,8 @@ class WebServer:
         service = AgentChatService(store, assistant_name=_name, bus=lambda: self.bus)
         # Messages and delegation waits a restart interrupted go on from here.
         service.start_restart_recovery()
-        # The record of delegated coding runs: one event listener, and only
-        # while ``[rsi] enabled`` is set.
+        # The record and verdicts of delegated coding runs: one event listener,
+        # always on; it holds nothing unless a run's coding policy says so.
         from dodaios.orchestrator.verification.recorder import install as install_run_recorder
 
         install_run_recorder(

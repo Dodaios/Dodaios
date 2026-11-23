@@ -4581,37 +4581,44 @@ class SelfBuildConfig(BaseModel):
 class RsiConfig(BaseModel):
     """``[rsi]`` — measuring how well handing work to coding agents goes.
 
-    While ``enabled``, every order the lead gives a coding thread is recorded as
-    a run in ``verification.db``: repository and commit, domain, requested and
-    answering model, CLI version, how the turn ended and what it cost
-    (``dodaios.orchestrator.verification``). Off by default.
+    Every order the lead gives a coding thread is recorded as a run in
+    ``verification.db`` and judged, on every install, without a switch: the
+    repository and commit, domain, requested and answering model, CLI version,
+    how the turn ended and what it cost, then a scan of the changed files,
+    what GitHub says about the run's commit, and a verdict
+    (``dodaios.orchestrator.verification``).
 
-    ``verify`` says what happens to a run's output when its turn has ended:
-    ``off`` nothing; ``observe`` the changed files are scanned for weakened
-    checks and off-limits paths, GitHub is asked whether the run's commit
-    landed and what its checks say, and the result is recorded, while nothing
-    is sent to the agent and no turn is held; ``enforce`` the same checks decide
-    what follows: the job the lead waits for is over only when the run got its
-    verdict, and a weakened check or failing checks bring the thread one
-    follow-up order, within fixed limits
-    (``dodaios.orchestrator.verification.driver``).
+    Judging changes nothing the person sees unless the coding policy a run is
+    bound to holds it (``dodaios.rsi.policy.Policy.hold``; the factory policy
+    does not). A held run keeps the lead's job open until its verdict, and a
+    weakened check or failing checks bring the thread one follow-up order,
+    within fixed limits (``dodaios.orchestrator.verification.driver``).
+
+    ``enabled`` and ``verify`` are no longer read. They stay so that a config
+    file that sets them still loads; their values are ignored.
     """
 
     model_config = {"extra": "allow"}
 
+    #: Ignored. Recording and judging always run (kept so old config files load).
     enabled: bool = False
+    #: Ignored. Every run is judged; holding is the run's policy's question.
     verify: Literal["off", "observe", "enforce"] = "off"
-    #: With enforced checks: ``triggered`` has one model review an output when a
-    #: fixed trigger asks (``dodaios.orchestrator.verification.review``).
+    #: For a run whose policy holds it: ``triggered`` has one model review an
+    #: output when a fixed trigger asks (``dodaios.orchestrator.verification.review``).
+    #: Other runs note the review as withheld.
     review: Literal["off", "triggered"] = "off"
     #: A review may use an API key (and so cost money); otherwise only a
     #: subscription that is signed in.
     review_paid: bool = False
-    #: While the output is verified (``verify`` is not ``off``), every coding
-    #: thread the lead opens gets a git worktree of its own on a new branch, so
-    #: what the run changed can be told from what its neighbours changed
-    #: (``dodaios.orchestrator.verification.workdir``).
-    worktree_per_run: bool = True
+    #: Every coding thread the lead opens gets a git worktree of its own on a
+    #: new branch, so what the run changed can be told from what its
+    #: neighbours changed (``dodaios.orchestrator.verification.workdir``). Off
+    #: by default: the worktree starts from the remote default branch, so the
+    #: person's uncommitted and unpushed work is not in it, and no dependencies
+    #: are installed there. A run in the shared checkout is recorded as
+    #: unattributed.
+    worktree_per_run: bool = False
     #: Repositories whose threads keep running in the project folder, by the
     #: id the run report shows (``github.com/owner/name``).
     shared_checkout_repos: list[str] = Field(default_factory=list)

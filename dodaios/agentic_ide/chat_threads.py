@@ -229,8 +229,17 @@ class ChatThreads:
         service.add_event_listener(self._on_event)
         self._listening = service
 
-    def _on_verdict(self, _run_id: str, session_id: str) -> None:
-        """Runs on the recorder's thread: hand the report over to the loop."""
+    def _on_verdict(self, run_id: str, session_id: str) -> None:
+        """Runs on the recorder's thread: hand the report over to the loop.
+
+        Only a run whose policy held its result has a report waiting; every
+        other run was reported when its turn ended.
+        """
+        from dodaios.orchestrator.verification.recorder import recorder
+
+        checking = recorder()
+        if checking is None or not checking.holds(run_id):
+            return
         tracked = self._tracked.get(session_id)
         if tracked is None or self._loop is None or self._loop.is_closed():
             return
@@ -612,8 +621,8 @@ class ChatThreads:
         async def probe() -> dict[str, Any] | None:
             from dodaios.orchestrator.verification.probe import shape
 
-            # While the app checks what a turn left ([rsi] verify = "enforce"),
-            # the job is over only when its run got a verdict.
+            # While the app holds what a turn left (the run's coding policy
+            # says so), the job is over only when its run got a verdict.
             return await asyncio.to_thread(
                 lambda: shape(
                     job_id,
@@ -636,7 +645,7 @@ class ChatThreads:
         )
         if started is None:
             return None
-        # The run's record (a no-op unless ``[rsi] enabled``): it only reads.
+        # The run's record (a no-op when no recorder runs): it only reads.
         from dodaios.orchestrator.verification.recorder import note_submission
 
         note_submission(
@@ -978,11 +987,14 @@ class ChatThreads:
 
     @staticmethod
     def _checked(job_id: str) -> bool:
-        """True while the app holds thread jobs until their output was checked."""
+        """True when the app holds this job until its output was checked.
+
+        Asked per job, from memory: only a run whose coding policy holds it.
+        """
         from dodaios.orchestrator.verification.recorder import recorder
 
         checking = recorder()
-        return bool(job_id) and checking is not None and checking.enforcing
+        return bool(job_id) and checking is not None and checking.holds(job_id)
 
     @staticmethod
     def _judged(job_id: str, said: str = "") -> dict[str, Any] | None:

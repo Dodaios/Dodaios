@@ -2,10 +2,9 @@
 
 When is a new way of briefing or steering coding agents better than the one in
 use? This is the rule, fixed in code (`dodaios/rsi/selector.py`, the bounds in
-`dodaios/rsi/stats.py`). It reads the run record of enforced checks
-(`[rsi] verify = "enforce"`, see `docs/coding-run-verification.md`) and only
-reports; the trainer below is what changes a policy, through the self-change
-registry.
+`dodaios/rsi/stats.py`). It reads the run record (every coding run is
+recorded and judged, see `docs/coding-run-verification.md`) and only reports.
+The trainer below is what changes a policy, through the self-change registry.
 
 ```
 python -m dodaios.rsi.selector --cells
@@ -51,25 +50,28 @@ few wins it claims too much.
 
 ## Policies and the loop that changes them
 
-A *coding policy* says how the app steers one cell's runs: how many follow-up
-orders a run may get and how long checks are waited for (never above the
-code's own limits), and optionally a domain block of at most 600 characters
-for the first brief (`dodaios/rsi/policy.py`). Policies are self-changes of
+A *coding policy* says how the app steers one cell's runs: whether a run is
+held until its verdict (`hold`), how many follow-up orders a run may get and
+how long checks are waited for (never above the code's own limits), and
+optionally a domain block of at most 600 characters for the first brief
+(`dodaios/rsi/policy.py`). The factory policy does not hold. Its runs are
+judged, but the lead is not held back and no order goes to the agent. A policy
+stored before `hold` existed reads as one that does not hold, and keeps its id. Policies are self-changes of
 the surface `coding_policy` (Trust → Self-changes): one target per cell for
 the active policy, one for a candidate on trial, each with versions, a diff and
 a byte-exact rollback. A policy with text for the agents waits for the owner;
 one beyond the limits is blocked.
 
-With enforced checks every run is bound at its first turn: the active policy,
-or, while a candidate is on trial, the candidate for half of the person's
-requests (a fixed draw per request, `dodaios/rsi/bind.py`). The policy is
-frozen into the run's record.
+Every run is bound before its order goes out (or, failing that, at its first
+turn): the active policy, or, while a candidate is on trial, the candidate for
+half of the person's requests (a fixed draw per request, `dodaios/rsi/bind.py`).
+The policy is frozen into the run's record.
 
 After each verdict the trainer (`dodaios/rsi/trainer.py`) looks at that cell:
 
-1. Without a candidate and with 60 runs under the active policy, each candidate
-   of a small fixed grid (fewer follow-up orders, a shorter wait) is replayed
-   on the record (`dodaios/rsi/replay.py`): up to where it would have stopped,
+1. Without a candidate, with an active policy that holds, and with 60 runs
+   under it, each candidate of a small fixed grid (fewer follow-up orders, a
+   shorter wait; it keeps the active policy's `hold`) is replayed on the record (`dodaios/rsi/replay.py`): up to where it would have stopped,
    a run is exactly what was recorded. The first candidate the replay does not
    reject goes on trial, and its claim (branch B, cost) is fixed before its
    own data exist. A replay that covers less than 90 % of the runs says nothing.
@@ -79,6 +81,11 @@ After each verdict the trainer (`dodaios/rsi/trainer.py`) looks at that cell:
 3. The first run under a new active policy whose final output weakened a
    check, or whose merged work turned red later, rolls it back to the exact
    previous policy.
+
+In a cell whose active policy does not hold (the factory policy), the trainer
+proposes nothing and says why. A run that is not held gets no follow-up order,
+and nobody waits for its checks, so a candidate that only changes those would
+measure nothing.
 
 ## Text for agents (Phase 5)
 

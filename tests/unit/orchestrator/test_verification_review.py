@@ -290,9 +290,10 @@ def loop_rig(tmp_path):
         reviews.append((row, scan))
         return answers.pop(0)
 
-    def recorder(boot_id: str = "boot-a", reviewer: Any = call) -> Any:
+    def recorder(boot_id: str = "boot-a", reviewer: Any = call, hold: bool = True) -> Any:
         made = base.rec.RunRecorder(
-            rig.store, SimpleNamespace(store=rig.chat), verify="enforce", boot_id=boot_id,
+            rig.store, SimpleNamespace(store=rig.chat), boot_id=boot_id,
+            policy_for=base.holding if hold else None,
             probe=lambda runner: base.Harness(runner, "2.1.330", "2.1"),
             read_evidence=rig.github, clock=rig.clock, send_follow_up=rig.sender,
             review_mode="triggered", review_call=reviewer,
@@ -339,6 +340,19 @@ def test_a_risky_change_is_reviewed_objected_to_fixed_and_verified(loop_rig):
     steps = [(s["iteration"], s["step"], s["status"]) for s in rig.store.steps("job_1")]
     assert (0, "review_intent", "triggered") in steps and (0, "review", "object") in steps
     assert (1, "review", "approve") in steps
+
+
+def test_a_run_that_does_not_hold_gets_no_review_and_says_so(loop_rig):
+    rig = loop_rig.rig
+    rig.recorder = loop_rig.recorder(reviewer=lambda *_a: pytest.fail("reviewed"), hold=False)
+    rig.order()
+    run = rig.turn("t1", lambda: _touch_auth(rig))
+    # Judged as if no review were due: the checks pass, so the run is verified.
+    assert (run["state"], run["verdict"]) == ("ended", "verified")
+    [withheld] = [s for s in rig.store.steps("job_1") if s["step"] == "review_withheld"]
+    assert withheld["status"] == "withheld"
+    assert withheld["detail"]["trigger"]
+    assert loop_rig.reviews == [] and rig.sender.sent == []
 
 
 def test_a_review_interrupted_by_a_restart_is_not_run_again(loop_rig):

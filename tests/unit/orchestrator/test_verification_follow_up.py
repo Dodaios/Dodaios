@@ -1,4 +1,8 @@
-"""Enforce mode: a run stays open until its output was checked, and may get a follow-up order."""
+"""A run that holds stays open until its output was checked, and may get a follow-up order.
+
+A run whose policy does not hold (the factory policy) is judged the same way,
+but no order is sent: what the driver wanted is recorded as withheld.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +27,7 @@ from dodaios.orchestrator.verification.store import (
     VerificationStore,
 )
 from dodaios.rsi.harness_probe import Harness
+from tests.unit.orchestrator.conftest import holding
 
 TEST = "def test_sum():\n    assert add(1, 2) == 3\n"
 CODE = "def add(a, b):\n    return a + b\n"
@@ -108,9 +113,10 @@ class Rig:
         self.verdicts: list[tuple[str, str]] = []
         self.recorder = self.new_recorder()
 
-    def new_recorder(self, *, boot_id: str = "boot-a", verify: str = "enforce") -> rec.RunRecorder:
+    def new_recorder(self, *, boot_id: str = "boot-a", hold: bool = True) -> rec.RunRecorder:
         made = rec.RunRecorder(
-            self.store, SimpleNamespace(store=self.chat), verify=verify, boot_id=boot_id,
+            self.store, SimpleNamespace(store=self.chat), boot_id=boot_id,
+            policy_for=holding if hold else None,
             probe=lambda runner: Harness(runner, "2.1.330", "2.1"),
             read_evidence=self.github, clock=self.clock, send_follow_up=self.sender,
         )
@@ -432,18 +438,117 @@ def test_a_thread_deleted_while_its_output_was_checked_is_closed(rig: Rig):
     assert (run["state"], run["verdict"]) == (INTERRUPTED, "unverified")
 
 
-# ------------------------------------------------------------- observe mode
+# ------------------------------------------------- a run that does not hold
 
 
-def test_observe_mode_records_and_never_sends(rig: Rig):
-    observing = rig.new_recorder(verify="observe")
-    rig.recorder = observing
+def test_a_run_that_does_not_hold_is_judged_and_its_order_withheld(rig: Rig):
+    rig.recorder = rig.new_recorder(hold=False)
     rig.order()
     run = rig.turn("t1", rig.delete_test)
     assert run["state"] == ENDED
-    assert (run["verdict"], run["follow_ups"]) == ("", 0)
+    assert (run["verdict"], run["follow_ups"]) == ("failed", 0)
+    assert "no follow-up order was sent because the run's coding policy does not hold it" in (
+        run["verdict_reason"]
+    )
     assert run["gate_status"] == "violations"
-    assert rig.sender.sent == [] and rig.verdicts == []
+    [withheld] = [s for s in rig.store.steps("job_1") if s["step"] == "follow_up_withheld"]
+    assert withheld["status"] == "withheld"
+    assert withheld["detail"]["template"] == prompts.T2
+    assert withheld["detail"]["prompt"]
+    assert not any(s["step"] == "follow_up_intent" for s in rig.store.steps("job_1"))
+    assert rig.sender.sent == []
+    assert rig.verdicts == [("job_1", rig.sid)]
+
+
+def test_with_the_factory_policy_a_clean_run_gets_its_verdict_and_is_not_held(rig: Rig):
+    from dodaios.orchestrator.verification.probe import shape
+    from dodaios.rsi.policy import DEFAULT
+
+    rig.recorder = rig.new_recorder(hold=False)
+    rec.set_recorder(rig.recorder)
+    try:
+        rig.order()
+        assert rig.recorder.holds("job_1") is False
+        run = rig.turn("t1", rig.commit)
+        assert run["policy_id"] == DEFAULT.id
+        assert (run["state"], run["verdict"]) == (ENDED, "verified")
+        # The thread's own word goes to the lead untouched: nothing is held.
+        said = {"status": "completed", "report": "Done."}
+        assert shape("job_1", said) is said
+    finally:
+        rec.set_recorder(None)
+    assert rig.sender.sent == []
+
+
+def test_a_run_that_does_not_hold_is_still_decided_after_a_new_order(rig: Rig):
+    rig.recorder = rig.new_recorder(hold=False)
+    rig.github.answer = RUNNING_CHECKS
+    rig.order()
+    rig.turn("t1", rig.commit)
+    assert rig.store.get("job_1")["state"] == CHECKING
+    # The lead sends the next order at once: nothing held the first one back.
+    sent_at = int(time.time() * 1000)
+    rig.emit("turn_started", {"turn_id": "t9", "runner": "claude-cli"})
+    rig.recorder.note_submission(
+        job_id="job_2", session_id=rig.sid, prompt="Next", started_ms=sent_at
+    )
+    rig.recorder.process_pending()
+    first = rig.store.get("job_1")
+    assert (first["state"], first["verdict"]) == (CHECKING, "")
+    assert "detached" in [s[1] for s in rig.steps()]
+    assert rig.store.get("job_2")["state"] == RUNNING
+    # The checks pass later: the first run is decided from its own commit.
+    rig.github.answer = PASSING
+    rig.clock.ahead += 3 * 60
+    rig.recorder.tick()
+    first = rig.store.get("job_1")
+    assert (first["state"], first["verdict"]) == (ENDED, "verified")
+    # The second run still reads the thread: its end is recorded.
+    rig.emit("turn_finished", {"turn_id": "t9", "status": "done", "usage": {}})
+    rig.recorder.process_pending()
+    assert rig.store.get("job_2")["state"] == ENDED
+    assert rig.sender.sent == []
+
+
+def test_the_person_writing_after_a_run_that_does_not_hold_leaves_its_verdict_open(rig: Rig):
+    rig.recorder = rig.new_recorder(hold=False)
+    rig.github.answer = RUNNING_CHECKS
+    rig.order()
+    rig.turn("t1", rig.commit)
+    rig.emit("user_message", {"text": "thanks, now the docs"})
+    rig.recorder.process_pending()
+    run = rig.store.get("job_1")
+    assert (run["state"], run["person_intervened"]) == (CHECKING, 0)
+    rig.github.answer = PASSING
+    rig.clock.ahead += 3 * 60
+    rig.recorder.tick()
+    assert rig.store.get("job_1")["verdict"] == "verified"
+
+
+def test_the_person_writing_during_a_turn_that_does_not_hold_supersedes_it_at_its_end(rig: Rig):
+    rig.recorder = rig.new_recorder(hold=False)
+    rig.order()
+    rig.emit("user_message", {"text": "do it differently"})
+    rig.recorder.process_pending()
+    assert rig.store.get("job_1")["state"] == RUNNING  # the turn runs on, still recorded
+    run = rig.turn("t1", rig.commit)
+    assert (run["verdict"], run["person_intervened"]) == ("superseded", 1)
+    assert run["gate_status"] == "clean"
+
+
+def test_a_new_order_after_a_superseded_run_is_still_recorded(rig: Rig):
+    rig.order()
+    sent_at = int(time.time() * 1000)
+    rig.emit("turn_started", {"turn_id": "t2", "runner": "claude-cli"})
+    rig.recorder.note_submission(
+        job_id="job_2", session_id=rig.sid, prompt="Next", started_ms=sent_at
+    )
+    rig.recorder.process_pending()
+    assert rig.store.get("job_1")["verdict"] == "superseded"
+    # Live events of the new run still reach the recorder.
+    rig.emit("turn_finished", {"turn_id": "t2", "status": "done", "usage": {}})
+    rig.recorder.process_pending()
+    assert rig.store.get("job_2")["state"] == ENDED
 
 
 def test_the_follow_ups_of_one_request_are_counted_together(rig: Rig):

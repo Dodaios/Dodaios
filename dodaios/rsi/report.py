@@ -94,7 +94,7 @@ def cells(runs: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
                 "mixed_model": sum(1 for r in members if r.get("mixed_model")),
                 "person_intervened": sum(1 for r in members if r.get("person_intervened")),
                 "isolated": sum(1 for r in members if r.get("isolated")),
-                # What the output scan said, where it ran ([rsi] verify = "observe").
+                # What the output scan said about the run's output.
                 "scanned": sum(1 for r in members if r.get("gate_status")),
                 "clean": sum(1 for r in members if r.get("gate_status") == "clean"),
                 "findings": sum(1 for r in members if r.get("gate_status") == "findings"),
@@ -116,7 +116,10 @@ def cells(runs: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
 def render(rows: Sequence[dict[str, Any]], *, total: int) -> str:
     """The cells as a plain table."""
     if not rows:
-        return "No coding runs on record. Set `[rsi] enabled = true` to record them."
+        return (
+            "No coding runs on record yet. Every order the lead gives a coding thread "
+            "is recorded."
+        )
     head = (
         "domain", "model", "harness", "runs", "done", "error", "cancelled", "open", "min",
         "scanned", "violations", "unattributed", "merged", "ci ok", "ci red",

@@ -60,6 +60,31 @@ def test_a_policy_can_never_ask_for_more_than_the_code_allows_or_weaken_checks(f
         Policy(**fields)
 
 
+def test_the_factory_policy_does_not_hold():
+    assert DEFAULT.hold is False
+    assert "hold" not in json.loads(DEFAULT.to_text())
+
+
+def test_a_policy_stored_before_hold_existed_still_parses_and_keeps_its_id():
+    old = '{"domain_block":"","evidence_wait_s":1200,"p_max":1}'
+    parsed = Policy.from_text(old)
+    assert parsed == Policy(p_max=1, evidence_wait_s=1200)
+    assert parsed.hold is False
+    assert parsed.to_text() == old
+    assert Policy.from_text('{"domain_block":"","evidence_wait_s":2700,"p_max":2}').id == (
+        DEFAULT.id
+    )
+
+
+def test_a_policy_that_holds_is_its_own_policy():
+    held = Policy(hold=True)
+    assert held != DEFAULT and held.id != DEFAULT.id
+    assert json.loads(held.to_text())["hold"] is True
+    assert Policy.from_text(held.to_text()) == held
+    with pytest.raises(PolicyError):
+        Policy.from_text('{"hold": "yes"}')
+
+
 def test_a_helpful_domain_block_is_a_valid_policy():
     block = "In this repository the frontend tests run with `npm test` in the web folder."
     assert Policy(domain_block=block).domain_block == block
@@ -247,35 +272,41 @@ def test_a_run_is_bound_at_its_first_turn_and_keeps_its_policy(tmp_path, store):
     linked = tmp_path / "linked"
     base._git(main, "worktree", "add", "-q", "-b", "work", str(linked))
     rig = base.Rig(tmp_path, linked)
+    rig.recorder = rig.new_recorder(hold=False)  # bound from the store, as in the app
     cell = "other|m|claude-cli 2.1"
-    store.write(target_for(cell, ACTIVE), Policy(p_max=1).to_text())
+    held = Policy(p_max=1, hold=True)
+    store.write(target_for(cell, ACTIVE), held.to_text())
     bind.set_store(store)
     try:
         rig.order()
         run = rig.store.get("job_1")
-        assert (run["policy_id"], run["arm"]) == (Policy(p_max=1).id, ACTIVE)
-        assert Policy.from_text(run["policy_json"]) == Policy(p_max=1)
+        assert (run["policy_id"], run["arm"]) == (held.id, ACTIVE)
+        assert Policy.from_text(run["policy_json"]) == held
+        # A policy that holds behaves as the old enforce mode.
+        assert rig.recorder.holds("job_1") is True
         # A policy that changes now does not reach the run that is going.
         store.write(target_for(cell, ACTIVE), Policy(p_max=0).to_text())
         rig.github.answer = base.FAILING
         run = rig.turn("t1", rig.commit)
-        assert run["policy_id"] == Policy(p_max=1).id
+        assert run["policy_id"] == held.id
         assert run["follow_ups"] == 1  # p_max 1 allowed this one
+        assert len(rig.sender.sent) == 1
     finally:
         bind.set_store(None)
         rig.store.close()
 
 
-def test_observe_mode_binds_no_policy(tmp_path):
+def test_every_run_is_bound_and_the_factory_policy_holds_nothing(tmp_path):
     from tests.unit.orchestrator import test_verification_follow_up as base
 
     main = tmp_path / "main"
     main.mkdir()
     base._git(main, "init", "-q", "-b", "main")
     rig = base.Rig(tmp_path, main)
-    rig.recorder = rig.new_recorder(verify="observe")
+    rig.recorder = rig.new_recorder(hold=False)
     try:
         rig.order()
-        assert rig.store.get("job_1")["policy_id"] == ""
+        assert rig.store.get("job_1")["policy_id"] == DEFAULT.id
+        assert rig.recorder.holds("job_1") is False
     finally:
         rig.store.close()

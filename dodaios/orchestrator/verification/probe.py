@@ -1,8 +1,9 @@
 """What the lead's wait is told about a thread job whose output is being checked.
 
-A coding thread's job used to count as done the moment its turn ended. While
-``[rsi] verify = "enforce"`` the job's probe goes through :func:`shape`, which
-answers from the run's record instead:
+A coding thread's job counts as done the moment its turn ended, unless the
+coding policy its run is bound to holds it (``Policy.hold``; the factory policy
+does not). For a run that holds, :func:`shape` answers from the run's record
+instead:
 
 * the run is still open (its output is being checked, checks are waited for, a
   follow-up order is on its way or its turn runs): ``running``, with a
@@ -64,21 +65,27 @@ def _final(run: dict[str, Any], said: str) -> dict[str, Any]:
 
 def shape(job_id: str, found: dict[str, Any] | None) -> dict[str, Any] | None:
     """What the wait is told about ``job_id``, given what its thread says (``found``)."""
-    from .recorder import recorder
+    from .recorder import holds_policy, recorder
 
     current = recorder()
-    if current is None or not current.enforcing or not job_id:
+    if current is None or not job_id:
         return found
     try:
         run = current.store.get(job_id)
     except Exception:  # noqa: BLE001 - an unreadable record leaves the thread's own word
         return found
     if run is None:
-        if current.is_noted(job_id) and str((found or {}).get("status") or "") not in _PASS_ON:
+        if (
+            current.holds(job_id)
+            and current.is_noted(job_id)
+            and str((found or {}).get("status") or "") not in _PASS_ON
+        ):
             # Noted a moment ago; its record is being written. A turn that ended
             # this fast is not over before its output was checked.
             return {"status": "running", "progress": "check:noted"}
         return found
+    if not holds_policy(run.get("policy_json")):
+        return found  # judged in the background; the job ends with its turn
     status = str((found or {}).get("status") or "")
     if status in _PASS_ON:
         return found

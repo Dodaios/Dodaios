@@ -3,22 +3,28 @@
 What became of an order the lead gave a coding agent: on which model and CLI
 it ran, in which repository, how it ended, whether the change it left behind
 weakened the checks, whether it landed and what the repository's checks say
-about it. Off by default. Code:
+about it. It always runs, on every install; there is no switch. Code:
 `dodaios/orchestrator/verification/` (the record and the checks) and
-`dodaios/rsi/` (tags and the report).
+`dodaios/rsi/` (tags, policies and the report).
+
+Every run is judged: its output is scanned, GitHub is asked about its commit,
+and it gets a verdict. Whether the person notices any of this depends on the
+coding policy the run is bound to (`hold`, see "Held runs and judged runs"
+below). The factory policy does not hold, so out of the box nothing changes
+for the person: the lead's job ends with the thread's turn, and no order is
+sent to the agent.
 
 ```toml
 [rsi]
-enabled = true        # record every order a coding thread takes
-verify = "observe"    # also scan what an ended run left behind, and ask GitHub
-                      # what became of its commit
-# verify = "enforce"  # the same checks decide: the lead's job is over only with
-                      # a verdict, and a finding brings one follow-up order
-# review = "triggered"  # with enforce: a model reviews outputs a fixed trigger picks
-# review_paid = false   # true lets a review use an API key
+# review = "triggered"      # for a run that holds: a model reviews outputs a fixed trigger picks
+# review_paid = false       # true lets a review use an API key
+# worktree_per_run = false  # true gives every thread the lead opens a worktree of its own
 ```
 
-Both settings are closed to voice, chat, self-mod and agents
+`enabled` and `verify` are no longer read. A config file that still sets them
+loads, and their values are ignored.
+
+The `[rsi]` settings are closed to voice, chat, self-mod and agents
 (`dodaios/core/self_mod/forbidden.py`): the person sets them in the config
 file. A change needs an app restart.
 
@@ -48,9 +54,11 @@ binary's fingerprint (resolved path, modification time, size), because coding
 CLIs update themselves while the app runs.
 
 Recording is one listener on the chat service. It only queues; one daemon
-thread reads git, the CLI version and the stores. A failure there is logged and
-never reaches the turn. After an app restart, runs that were open are read back
-from their thread's own log.
+thread reads git, the CLI version, GitHub and the stores. A failure there is
+logged and never reaches the turn. If `verification.db` cannot be opened, the
+app runs without a record. If the policy store cannot be opened, every run is
+bound to the factory policy. After an app restart, runs that were open are
+read back from their thread's own log.
 
 ## Domains
 
@@ -64,19 +72,20 @@ frontend (`ui/web/server.py` is a backend file). `refactoring` comes from the
 wording of the brief. A domain counts from 15 % of the paths on; one path is
 enough for `database` and `infra_ci`.
 
-## The output scan (`verify = "observe"`)
+## The output scan
 
-When a run's turn has ended, its changed files are checked. The result is
-recorded; nothing is sent to the agent and no turn is held.
+When a run's turn has ended, its changed files are checked and the result is
+recorded.
 
-**Only a run with a checkout of its own is judged.** That is a thread running
-in a linked worktree (the app makes one for every thread the lead opens, see
-below), or a session that made a worktree itself and wrote nowhere else. The
+**Only a run with a checkout of its own can be pinned down.** That is a thread
+running in a linked worktree (the app makes one for a thread the lead opens
+when `worktree_per_run` is on, see below), or a session that made a worktree
+itself and wrote nowhere else. The
 scan takes a snapshot of that folder (tracked and untracked files, through a
 throwaway index, so the folder is untouched) and diffs it against the run's
 start, which also shows what was changed from a shell. A run in a shared
 checkout is recorded as `unattributed`: the difference to the start holds other
-runs' edits too.
+runs' edits too, and its verdict is `unverified`.
 
 | Rule | Reports | Severity |
 | --- | --- | --- |
@@ -100,17 +109,23 @@ Statuses: `clean`, `findings` (only ambiguous ones), `violations`,
 
 ## A worktree of its own per thread
 
-While the output scan is on, every coding thread the lead opens gets a linked
-git worktree on a new branch: `<repository>/.worktrees/agent-<name>-<id>`,
+With `worktree_per_run = true` (off by default), every coding thread the lead
+opens gets a linked git worktree on a new branch: `<repository>/.worktrees/agent-<name>-<id>`,
 branch `agent/<name>-<id>`, started from the remote default branch (fetched
 first, at most once a minute), else from the checked-out commit. The thread
 list still shows the thread under its project, with the worktree's name.
 
 ```toml
 [rsi]
-worktree_per_run = true                              # the default
+worktree_per_run = true                              # off by default
 shared_checkout_repos = ["github.com/acme/legacy"]   # these keep the project folder
 ```
+
+It is off by default for two reasons. The worktree starts from the remote
+default branch, so the person's uncommitted and unpushed work is not in it.
+And no dependencies are installed there. Until the app can take a snapshot of
+the shared checkout at a run's start, a run in the shared checkout is recorded
+as unattributed.
 
 - **The brief follows the folder.** An absolute path into the project folder in
   the lead's brief becomes the same file in the worktree, and two lines tell
@@ -132,7 +147,7 @@ shared_checkout_repos = ["github.com/acme/legacy"]   # these keep the project fo
 - **A thread finds its folder again.** Before a thread's turn starts, a
   worktree that was put away is made again at the same path, on the branch it
   was on (also one the agent renamed), so a later message to the thread works
-  as before. That holds after the settings were switched off, too.
+  as before. That holds after the setting was switched off, too.
 
 Only threads opened through the lead get one. A thread the person starts in the
 IDE runs where the person put it.
@@ -164,11 +179,30 @@ github.com, and only for a run with a checkout of its own that made a commit.
   recorder's thread and survives an app restart. Nothing looks at an agent
   while it works.
 
-## Enforced checks (`verify = "enforce"`)
+## Held runs and judged runs
 
-The same checks, but they decide. A run is not over when its thread's turn
-ends: it stays open while what the turn left is checked, and the job the lead
-waits for reports only the outcome.
+A run is not over when its thread's turn ends. It stays open while what the
+turn left is checked, and the driver decides what follows. The coding policy
+the run is bound to says whether the run is *held* (`hold`,
+`dodaios/rsi/policy.py`). The question is asked per run.
+
+- **A run that holds** does what the old `verify = "enforce"` did. The job the
+  lead waits for reports only the outcome, and a finding brings a follow-up
+  order to the agent.
+- **A run that does not hold** (the factory policy) goes through the same
+  checks, but the lead's job ends with the turn, as if there were no record.
+  Nothing is sent to the agent. Where the driver would have sent a follow-up
+  order, the recorder writes a `follow_up_withheld` step with the order and
+  the reason it was not sent, and the run ends `failed` from the evidence.
+  Where the driver would have asked for a review, the recorder writes
+  `review_withheld` and judges the output without one. Running checks are
+  still waited for, in the recorder's own thread, up to the policy's limit.
+  If the thread takes a new order or the person writes into it meanwhile, the
+  run is `detached`: it reads no more of the thread and is decided from the
+  commit it left behind.
+
+The rest of this section describes what the driver decides, and what a run
+that holds does with it.
 
 ```
 turn ends -> scan -> GitHub -> decide
@@ -195,9 +229,11 @@ turn ends -> scan -> GitHub -> decide
   did not write since. It carries the app as author ("Output check"), so the
   thread shows who wrote it. Its intent is on record before it goes, and an
   order whose sending cannot be confirmed is never sent again.
-- **The person always wins.** A message from the person into the thread, a
-  turn nobody here started, or a new order of the lead ends the run as
-  `superseded`; nothing is sent after that.
+- **The person always wins.** For a run that holds, a message from the person
+  into the thread, a turn nobody here started, or a new order of the lead ends
+  the run as `superseded`; nothing is sent after that. For a run that does not
+  hold, a message from the person while its turn runs marks it. The turn's end
+  is still recorded, and the run ends `superseded`.
 - **The lead's wait** (`probe.py`). Until the verdict, the job reports
   `running`, with a progress that moves while the check is alive, so the wait
   neither ends early nor gives up. A question, an approval or a plan in the
@@ -232,10 +268,10 @@ turn ends -> scan -> GitHub -> decide
 probe is rebuilt from the thread's own record (a turn the turn host carried
 over ends there), its progress reaches the wait, and a turn that neither ended
 nor came back within 90 seconds of the first look is reported as interrupted.
-This holds in every mode, not only with enforced checks.
+This holds for every run, held or not.
 
-**A quiet chat until the verdict.** While coding work whose output the app
-checks is still out, what the lead writes in that turn after the hand-off is
+**A quiet chat until the verdict.** Only for a run that holds: while that
+coding work is still out, what the lead writes in that turn after the hand-off is
 shown as its thinking, not as its answer; the continuation with the checked
 result speaks again. Text written before the hand-off was already shown and
 stays. Threads an agent opened with `coding-session` are not checked and keep
@@ -253,7 +289,7 @@ their own wake-ups.
   none, the work is not on GitHub, or the scan left points to look at. A clean
   scan alone does not prove the change works.
 
-Without a record (recording off) the tool answers as before.
+Without a record (the recorder could not start) the tool answers as before.
 
 ## The report
 

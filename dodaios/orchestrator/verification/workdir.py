@@ -3,8 +3,9 @@
 A thread used to run in its project's folder, next to every other thread of
 that project. What one run changed could then not be told from what its
 neighbours changed, and the output scan had nothing it could pin on a run. With
-``[rsi] worktree_per_run`` (on by default once the output scan is on) the app
-makes a linked worktree on a new branch for each new thread the lead opens:
+``[rsi] worktree_per_run = true`` (off by default: a worktree starts from the
+remote default branch, without the person's unpushed work and without installed
+dependencies) the app makes a linked worktree on a new branch for each new thread the lead opens:
 ``<repo>/.worktrees/agent-<name>-<id>``, started from the remote default branch
 when the repository has one, else from the checked-out commit.
 

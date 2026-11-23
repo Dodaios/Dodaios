@@ -16,3 +16,11 @@ def ledger():
     finally:
         jobs.set_ledger(None)
         store.close()
+
+
+def holding(_cell: str, _root: str) -> dict:
+    """The binding of a run whose coding policy holds it (the old enforce mode)."""
+    from dodaios.rsi.policy import Policy
+
+    policy = Policy(hold=True)
+    return {"policy_id": policy.id, "arm": "active", "policy_json": policy.to_text()}

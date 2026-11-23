@@ -35,7 +35,7 @@ __all__ = [
 
 RUNNING: Final[str] = "running"
 #: A turn of the run ended and what it left is being checked; a follow-up order
-#: may still come (``[rsi] verify = "enforce"`` only).
+#: may still come (only when the run's coding policy holds it).
 CHECKING: Final[str] = "checking"
 #: The run is over and recorded. ``verdict`` says how it was judged, when it was.
 ENDED: Final[str] = "ended"

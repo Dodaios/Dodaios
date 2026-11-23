@@ -10,15 +10,27 @@ the thread's own events and writes one row per run into ``verification.db``:
 * at the end, how the turn ended, what it cost, which model really answered and
   which domain the changed files belong to.
 
-With ``[rsi] verify = "observe"`` the changed files of an ended run are also
-put through the deterministic checks (:mod:`gates`), GitHub is asked what
-became of its commit (:mod:`evidence`), and the result is recorded. Nothing is
-sent and no turn is held.
+Every run is judged; there is no switch. When its turn ends, the changed files
+go through the deterministic checks (:mod:`gates`), GitHub is asked what
+became of its commit (:mod:`evidence`), and :mod:`driver` decides what follows
+until the run has a verdict. ``[rsi] enabled`` and ``[rsi] verify`` are no
+longer read.
 
-With ``verify = "enforce"`` a run is not over when its turn ends. It stays
-open while its output is checked, and :mod:`driver` decides what follows: the
-run is over (with a verdict), its checks are waited for, or one follow-up order
-goes to the same thread (:mod:`send`) and the run goes on with the next turn.
+Whether a run is *held* is a question of the coding policy it is bound to
+(``Policy.hold``, :mod:`dodaios.rsi.policy`), asked per run:
+
+* **A run that holds** behaves as the old ``verify = "enforce"``: the lead's
+  job is over only with the verdict, and a finding brings one follow-up order
+  to the same thread (:mod:`send`), within the driver's limits.
+* **A run that does not hold** (the factory policy) changes nothing the person
+  sees: the lead's job ends with the turn, and nothing is sent to the agent.
+  Where the driver would have sent a follow-up order or asked for a review,
+  the recorder writes a step that says which one was withheld and why, and the
+  run reaches its verdict from the evidence. Its checks are waited for in this
+  thread, up to the policy's limit. When the thread takes a new order or the
+  person writes into it meanwhile, the run is *detached*: it stops reading the
+  thread and is still decided from the commit it left behind.
+
 The recorder never looks at an agent while it works: it acts when a turn has
 ended and when evidence that was still open is read again.
 
@@ -48,13 +60,16 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.rsi import domains, harness_probe, repo_identity
+from dodaios.rsi.policy import Policy
 
 from . import driver, evidence, review, send
 from .store import CHECKING, ENDED, INTERRUPTED, RUNNING, VerificationStore
 
 log = logging.getLogger(__name__)
 
-__all__ = ["RunRecorder", "install", "note_submission", "recorder", "set_recorder"]
+__all__ = [
+    "RunRecorder", "holds_policy", "install", "note_submission", "recorder", "set_recorder",
+]
 
 #: The event kinds a run's record is built from; everything else is ignored inline.
 _KINDS: Final[frozenset[str]] = frozenset(
@@ -72,6 +87,23 @@ _MAX_WAIT_S: Final[float] = 300.0
 #: How long the writer thread waits for the chat service to take a follow-up order.
 _SEND_TIMEOUT_S: Final[float] = 60.0
 _REASON_MAX: Final[int] = 600
+#: How many runs' "does it hold" answers are kept for the inline questions.
+_HOLDING_KEPT: Final[int] = 4_096
+#: Why an order the driver wanted was not given.
+_NOT_HELD: Final[str] = "the run's coding policy does not hold it"
+
+
+def holds_policy(text: Any) -> bool:
+    """True when the frozen policy text of a run holds it. Never raises.
+
+    No text, or one that does not parse, is the factory policy: it does not hold.
+    """
+    if not text:
+        return False
+    try:
+        return Policy.from_text(str(text)).hold
+    except Exception:  # noqa: BLE001 - an unreadable policy must never hold the person's work
+        return False
 
 
 def _int(value: Any) -> int | None:
@@ -129,21 +161,22 @@ class RunRecorder:
         probe: Callable[[str], harness_probe.Harness] = harness_probe.for_runner,
         describe: Callable[[str], repo_identity.RepoRef] = repo_identity.describe,
         boot_id: str = "",
-        verify: str = "off",
         read_evidence: Callable[[str, str], evidence.Evidence] = evidence.read,
         clock: Callable[[], float] = time.time,
         send_follow_up: Callable[[str, str, str, int], str] | None = None,
         review_mode: str = "off",
         review_paid: bool = False,
         review_call: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
+        policy_for: Callable[[str, str], dict[str, Any]] | None = None,
     ) -> None:
         self.store = store
         self._service = service
         self._probe = probe
         self._describe = describe
         self._boot_id = boot_id
-        #: ``observe``: scan what an ended run left behind and record the result.
-        self._verify = verify
+        #: ``(cell, request) -> run columns`` of the policy a run is bound to;
+        #: ``dodaios.rsi.bind.binding_fields`` unless a test or host says otherwise.
+        self._policy_for = policy_for
         self._read_evidence = read_evidence
         self._clock = clock
         #: When the landing and checks of a run are read again (``run_id`` -> ms).
@@ -167,6 +200,12 @@ class RunRecorder:
         self._noted: set[str] = set()
         self._watched_lock = threading.Lock()
         self._open: dict[str, _Open] = {}
+        #: Runs that do not hold, whose output is still being decided after the
+        #: thread moved on (``run_id`` -> run). Writer thread only.
+        self._background: dict[str, _Open] = {}
+        #: Whether a run's policy holds it (``run_id`` -> bool), for the inline
+        #: questions of the chat; guarded by ``_watched_lock``.
+        self._holding: dict[str, bool] = {}
         self._thread: threading.Thread | None = None
 
     # ----------------------------------------------------- inline entry points
@@ -190,15 +229,48 @@ class RunRecorder:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:  # called off the loop (a test, a script): keep what is known
             pass
+        holding = holds_policy((policy or {}).get("policy_json"))
         with self._watched_lock:
             self._watched.add(session_id)
             self._noted.add(job_id)
+            self._remember_hold(job_id, holding)
         self._queue.put(("start", job_id, session_id, prompt, int(started_ms), policy or {}))
 
     def is_noted(self, job_id: str) -> bool:
         """True for an order that was noted and whose run is not on record yet."""
         with self._watched_lock:
             return job_id in self._noted
+
+    def holds(self, job_id: str) -> bool:
+        """True when the run of ``job_id`` is held until its output was checked.
+
+        Inline and cheap: answered from memory, never from the database. A run
+        whose policy is not known here (not bound yet, or bound before an app
+        restart and already over) does not hold.
+        """
+        with self._watched_lock:
+            return self._holding.get(job_id, False)
+
+    @property
+    def judging(self) -> bool:
+        """Every run is scanned, its evidence read and a verdict written. Always true."""
+        return True
+
+    def _remember_hold(self, job_id: str, holding: bool) -> None:
+        """Keep whether ``job_id`` holds (caller holds ``_watched_lock``)."""
+        self._holding[job_id] = holding
+        if len(self._holding) > _HOLDING_KEPT:
+            for old in list(self._holding)[: _HOLDING_KEPT // 4]:
+                self._holding.pop(old, None)
+
+    def _set_hold(self, job_id: str, holding: bool) -> None:
+        with self._watched_lock:
+            self._remember_hold(job_id, holding)
+
+    def _run_holds(self, run_id: str, row: dict[str, Any] | None = None) -> bool:
+        """Whether a run holds, from its record (writer thread)."""
+        found = row if row is not None else (self.store.get(run_id) or {})
+        return holds_policy(found.get("policy_json"))
 
     def on_event(self, session_id: str, event: dict[str, Any]) -> None:
         """Chat-service listener. Inline: queues the events a run's record needs."""
@@ -242,14 +314,13 @@ class RunRecorder:
         times = [*self._due.values(), *self._decide_at.values(), *self._leak_at.values()]
         if not times:
             # A run that is being checked shows it is alive at least this often.
-            return _MAX_WAIT_S if any(run.checking for run in self._open.values()) else None
+            return _MAX_WAIT_S if any(run.checking for run in self._runs_open()) else None
         ahead = (min(times) - self._clock() * 1000) / 1000
         return min(max(ahead, _MIN_WAIT_S), _MAX_WAIT_S)
 
-    @property
-    def enforcing(self) -> bool:
-        """True when a run stays open until its output was checked."""
-        return self._verify == "enforce"
+    def _runs_open(self) -> list[_Open]:
+        """Every run not decided yet: those of a thread, and the detached ones."""
+        return [*self._open.values(), *self._background.values()]
 
     def add_verdict_listener(self, listener: Callable[[str, str], None]) -> None:
         """Call ``listener(run_id, session_id)`` when a run got its verdict.
@@ -313,10 +384,15 @@ class RunRecorder:
         self, job_id: str, session_id: str, prompt: str, started_ms: int,
         policy: dict[str, Any],
     ) -> None:
-        earlier = self._open.pop(session_id, None)
-        if earlier is not None:
+        earlier = self._open.get(session_id)
+        if earlier is not None and earlier.checking and not self._run_holds(earlier.run_id):
+            # Its turn is over and nothing waits for it: it is still decided
+            # from what it left behind, while the thread takes the new order.
+            self._detach(earlier, f"the thread took a new order ({job_id})")
+        elif earlier is not None:
             # One thread runs one turn at a time: a new order means the earlier
             # run's end was never seen here, or its check is no longer wanted.
+            del self._open[session_id]
             self._close(
                 earlier, INTERRUPTED, "superseded", {"by": job_id}, time.time() * 1000,
                 verdict=driver.SUPERSEDED, reason="the thread took a new order",
@@ -354,30 +430,65 @@ class RunRecorder:
         )
         run = _Open(run_id=job_id, session_id=session_id, started_ms=started_ms)
         self._open[session_id] = run
+        with self._watched_lock:
+            # Closing or detaching the earlier run let go of the thread.
+            self._watched.add(session_id)
         self._catch_up(run)
 
     def _bind_policy(self, run: _Open, runner: str, line: str) -> None:
         """Freeze the run's policy (``rsi.bind``) once its cell is known: at its first turn."""
-        if not self.enforcing or run.iteration:
+        if run.iteration:
             return
         row = self.store.get(run.run_id) or {}
         if row.get("policy_id"):
-            return  # bound before (a run picked up again after a restart)
+            return  # bound before (by the sender, or before an app restart)
         from dodaios.rsi import bind, selector
 
         cell = selector.cell_of({**row, "runner": runner, "harness_line": line})
         root = str(row.get("root_span_id") or run.run_id)
-        self.store.update_run(run.run_id, **bind.binding_fields(cell, root))
+        fields = (self._policy_for or bind.binding_fields)(cell, root)
+        self.store.update_run(run.run_id, **fields)
+        self._set_hold(run.run_id, holds_policy(fields.get("policy_json")))
+
+    def _detach(self, run: _Open, why: str) -> None:
+        """A run that does not hold leaves its thread; its output is still decided.
+
+        It reads no more of the thread's events: what comes now is someone
+        else's. Its verdict comes from the scan and the commit it left behind.
+        """
+        if self._open.get(run.session_id) is run:
+            del self._open[run.session_id]
+        self._background[run.run_id] = run
+        with self._watched_lock:
+            if run.session_id not in self._open:
+                self._watched.discard(run.session_id)
+        self.store.add_step(
+            run.run_id, run.iteration, "detached", turn_id=run.turn_id,
+            detail={"why": why}, ts_ms=int(self._clock() * 1000),
+        )
 
     def _resume(self) -> None:
         """Take runs an earlier boot left open back under watch, or close them."""
-        if self._verify != "off":
-            for row in self.store.evidence_due():
-                self._due[str(row["run_id"])] = int(row["evidence_due_ms"])
-            for row in self.store.leak_due():
-                self._leak_at[str(row["run_id"])] = int(row["leak_due_ms"])
+        for row in self.store.evidence_due():
+            self._due[str(row["run_id"])] = int(row["evidence_due_ms"])
+        for row in self.store.leak_due():
+            self._leak_at[str(row["run_id"])] = int(row["leak_due_ms"])
         for row in self.store.open_runs():
             session_id = str(row["session_id"])
+            holding = holds_policy(row.get("policy_json"))
+            self._set_hold(str(row["run_id"]), holding)
+            if row.get("state") == CHECKING and not holding:
+                # Its turn is over and nothing waits for it: decided from what it
+                # left behind, whatever the thread does now.
+                run = self._background[str(row["run_id"])] = _Open(
+                    run_id=str(row["run_id"]), session_id=session_id,
+                    started_ms=int(row["started_ms"]), turn_id=str(row["turn_id"] or ""),
+                    model_resolved=str(row["model_resolved"] or ""),
+                    harness_version=str(row["harness_version"] or ""),
+                    iteration=int(row.get("iteration") or 0), checking=True,
+                )
+                self._decide(run.run_id)
+                continue
             if session_id in self._open:
                 continue
             run = _Open(
@@ -412,7 +523,7 @@ class RunRecorder:
             with self._watched_lock:
                 self._watched.add(session_id)
             self._catch_up(run, self._seen_until(run, row))
-            if self.enforcing and self._open.get(session_id) is run and run.checking:
+            if self._open.get(session_id) is run and run.checking:
                 # The app stopped while this output was being checked.
                 self._decide(run.run_id)
 
@@ -460,7 +571,10 @@ class RunRecorder:
             if run.checking or (run.expect_turn and turn_id and turn_id != run.expect_turn):
                 # A turn nobody here started: the thread is someone else's now.
                 if turn_id and turn_id != run.turn_id:
-                    self._finish(run, driver.SUPERSEDED, "another turn started in the thread")
+                    if run.checking and not self._run_holds(run.run_id):
+                        self._detach(run, "another turn started in the thread")
+                    else:
+                        self._finish(run, driver.SUPERSEDED, "another turn started in the thread")
             elif not run.turn_id and turn_id:
                 run.expect_turn = ""
                 self._turn_started(run, turn_id, payload, ts_ms)
@@ -482,17 +596,22 @@ class RunRecorder:
             # One steered into the turn can also be a watchdog nudge, so only a
             # plain message counts as the person stepping in.
             if not payload.get("author") and not payload.get("steered"):
+                holding = self._run_holds(run.run_id)
+                if run.checking and not holding:
+                    # The run's turn was over before the person wrote: its
+                    # output is still judged; what follows is the person's.
+                    self._detach(run, "the person wrote into the thread")
+                    return
                 self.store.update_run(run.run_id, person_intervened=True)
-                if self.enforcing:
+                if holding:
                     # The thread is the person's from here on: no check, no order.
                     self._finish(run, driver.SUPERSEDED, "the person wrote into the thread")
+                # Else the turn runs on: its end, cost and scan are still recorded,
+                # and the driver ends the run as superseded.
         elif kind == "turn_finished" and not run.checking and (
             not run.turn_id or turn_id == run.turn_id
         ):
-            if self.enforcing:
-                self._output_ended(run, payload, ts_ms)
-            else:
-                self._turn_finished(run, payload, ts_ms)
+            self._output_ended(run, payload, ts_ms)
 
     def _turn_started(
         self, run: _Open, turn_id: str, payload: dict[str, Any], ts_ms: float
@@ -522,14 +641,6 @@ class RunRecorder:
             ts_ms=int(ts_ms),
         )
 
-    def _turn_finished(self, run: _Open, payload: dict[str, Any], ts_ms: float) -> None:
-        status = str(payload.get("status") or "")
-        self._close(
-            run, ENDED, "turn_finished",
-            {"status": status, "error": str(payload.get("error") or "")[:400]}, ts_ms,
-            payload=payload,
-        )
-
     def _close(
         self,
         run: _Open,
@@ -542,10 +653,10 @@ class RunRecorder:
         verdict: str = "",
         reason: str = "",
     ) -> None:
-        """End a run for good. ``verdict`` is recorded only while output is enforced."""
+        """End a run for good without a check of its output (it was cut short)."""
         tokens_in, tokens_out, tokens_cached = _usage(payload or {})
         changed = self._changed_files(run) if state == ENDED else []
-        judged = self.enforcing and bool(verdict)
+        judged = bool(verdict)
         fields: dict[str, Any] = {"state": state, "model_resolved": run.model_resolved}
         if payload is not None or not run.iteration:
             # A run ended without a turn's end on record keeps what its
@@ -573,14 +684,15 @@ class RunRecorder:
         self._let_go(run)
         if judged:
             self._tell(run)
-        if state == ENDED and self._verify == "observe":
-            self._check_output(run)
 
     def _let_go(self, run: _Open) -> None:
         if self._open.get(run.session_id) is run:
             del self._open[run.session_id]
+        self._background.pop(run.run_id, None)
         with self._watched_lock:
-            self._watched.discard(run.session_id)
+            if run.session_id not in self._open:
+                # A later run of the same thread still reads its events.
+                self._watched.discard(run.session_id)
         self._decide_at.pop(run.run_id, None)
 
     def _tell(self, run: _Open) -> None:
@@ -590,10 +702,10 @@ class RunRecorder:
             except Exception:  # noqa: BLE001 - a listener's trouble is not the record's
                 log.warning("run recorder: verdict listener failed", exc_info=True)
 
-    # ------------------------------------------------------- enforced output
+    # ------------------------------------------------------- judged output
 
     def _output_ended(self, run: _Open, payload: dict[str, Any], ts_ms: float) -> None:
-        """A turn of an enforced run ended: record it, check what it left, decide."""
+        """A turn of a run ended: record it, check what it left, decide."""
         row = self.store.get(run.run_id) or {}
         tokens_in, tokens_out, tokens_cached = _usage(payload)
         changed = self._changed_files(run)
@@ -639,7 +751,10 @@ class RunRecorder:
             return
         run = self._open.get(str(row["session_id"]))
         if run is None or run.run_id != run_id:
+            run = self._background.get(run_id)
+        if run is None:
             return
+        holding = holds_policy(row.get("policy_json"))
         now = int(self._clock() * 1000) if now_ms is None else int(now_ms)
         output = int(row.get("iteration") or 0)
         steps = self.store.steps(run_id)
@@ -670,21 +785,43 @@ class RunRecorder:
             root_reviews=self.store.root_reviews(str(row.get("root_span_id") or "")),
             day_reviews=self.store.reviews_since(review.day_window(now)),
         ) if trigger else ""
-        decision = driver.decide(
-            row,
-            detail_of(is_scan, output),
-            detail_of(evidence.is_step, output),
-            now_ms=now,
-            said=self._said(run.session_id),
-            root_follow_ups=self.store.root_follow_ups(str(row.get("root_span_id") or "")),
-            same_boot=str(row.get("boot_id") or "") == self._boot_id,
-            previous_tree=str((before or {}).get("tree_id") or ""),
-            reviewed=reviewed,
-            review_trigger=trigger,
-            review_budget=spent,
-        )
+        def decided(review_trigger: str) -> driver.Decision:
+            return driver.decide(
+                row,
+                detail_of(is_scan, output),
+                detail_of(evidence.is_step, output),
+                now_ms=now,
+                said=self._said(run.session_id),
+                root_follow_ups=self.store.root_follow_ups(str(row.get("root_span_id") or "")),
+                same_boot=str(row.get("boot_id") or "") == self._boot_id,
+                previous_tree=str((before or {}).get("tree_id") or ""),
+                reviewed=reviewed,
+                review_trigger=review_trigger,
+                review_budget=spent,
+            )
+
+        decision = decided(trigger)
+        if decision.action == driver.REVIEW and not holding:
+            # A review is a model call made to steer the run; this run is not
+            # steered. Judged as if no review were due.
+            self._withheld(run, output, "review_withheld", {"trigger": decision.reason}, now)
+            decision = decided("")
         self.store.update_run(run_id, heartbeat_ms=now)
-        if decision.action == driver.WAIT:
+        if decision.action == driver.FOLLOW_UP and not holding:
+            self._withheld(
+                run, output, "follow_up_withheld",
+                {
+                    "template": decision.template, "signature": decision.signature,
+                    "reason": decision.reason, "prompt": decision.prompt,
+                },
+                now,
+            )
+            self._finish(
+                run, driver.FAILED,
+                f"{decision.reason}; no follow-up order was sent because {_NOT_HELD}",
+                now_ms=now,
+            )
+        elif decision.action == driver.WAIT:
             ended = int(row.get("ended_ms") or now)
             ahead = [
                 ended + after_s * 1000
@@ -699,6 +836,15 @@ class RunRecorder:
             self._review(run, row, scan, decision, now)
         else:
             self._finish(run, decision.verdict, decision.reason, now_ms=now)
+
+    def _withheld(
+        self, run: _Open, output: int, step: str, detail: dict[str, Any], now: int
+    ) -> None:
+        """Record an order the driver wanted and this run's policy does not give."""
+        self.store.add_step(
+            run.run_id, output, step, turn_id=run.turn_id, status="withheld",
+            detail={**detail, "why": _NOT_HELD}, ts_ms=now,
+        )
 
     def _said(self, session_id: str) -> str:
         from dodaios.society.coding_threads import last_turn
@@ -880,13 +1026,13 @@ class RunRecorder:
                 self._decide(run_id, now)
             except Exception:  # noqa: BLE001 - the run stays open; the next tick tries again
                 log.warning("run recorder: %s not decided", run_id, exc_info=True)
-        for run in list(self._open.values()):
+        for run in self._runs_open():
             if run.checking:
                 # Whoever waits for the run sees that its check is alive.
                 self.store.update_run(run.run_id, heartbeat_ms=now)
 
     def _check_output(self, run: _Open) -> None:
-        """Scan what the ended run left behind. Recorded only; nothing is sent."""
+        """Scan what the ended output left behind, and read its first evidence."""
         from . import gates
 
         try:
@@ -1063,18 +1209,15 @@ def note_submission(
 
 
 def _install_workdirs(store: VerificationStore, service: Any, section: Any) -> None:
-    """Give new threads a worktree of their own while their output is verified.
+    """Serve thread folders: restore worktrees put away earlier, make new ones on request.
 
-    With the setting off nothing new is made; a worktree made earlier and put
-    away is still restored for its thread.
+    New worktrees are made only with ``[rsi] worktree_per_run = true`` (off by
+    default). A worktree made earlier and put away is restored for its thread
+    either way.
     """
     from . import workdir
 
-    making = (
-        bool(getattr(section, "enabled", False))
-        and str(getattr(section, "verify", "off")) != "off"
-        and bool(getattr(section, "worktree_per_run", False))
-    )
+    making = bool(getattr(section, "worktree_per_run", False))
 
     def idle_ms(session_id: str) -> int:
         if service.is_running(session_id):
@@ -1099,53 +1242,18 @@ def _install_workdirs(store: VerificationStore, service: Any, section: Any) -> N
     )
 
 
-def _restore_only(service: Any, data_dir: Path | str, section: Any) -> None:
-    """Recording is off: keep restoring the worktrees that were put away while it was on."""
-    path = Path(data_dir) / "verification.db"
-    if not path.is_file():
-        return
-    try:
-        store = VerificationStore(path)
-        if store.workdirs_away() == 0:
-            store.close()
-            return
-        _install_workdirs(store, service, section)
-    except Exception:  # noqa: BLE001 - an unreadable record leaves the chat as it was
-        log.warning("run recorder: worktrees put away earlier cannot be restored", exc_info=True)
-
-
-def install(
-    service: Any,
+def _install_policies(
+    made: RunRecorder,
+    store: VerificationStore,
     data_dir: Path | str,
-    config: Any,
-    *,
-    self_change: Callable[[], Any] | None = None,
-) -> RunRecorder | None:
-    """Start run recording for ``service`` when ``[rsi] enabled`` is set.
+    self_change: Callable[[], Any] | None,
+) -> None:
+    """Bind runs to the stored coding policies, and let the trainer change them.
 
-    Returns the recorder, or ``None`` when recording is off or could not start.
+    Without the policy store every run is bound to the factory policy, which
+    does not hold: the chat runs as before.
     """
-    section = getattr(config, "rsi", None)
-    if section is None or not getattr(section, "enabled", False):
-        _restore_only(service, data_dir, section)
-        return None
     try:
-        from dodaios.orchestrator.jobs import BOOT_ID
-
-        store = VerificationStore(Path(data_dir) / "verification.db")
-        made = RunRecorder(
-            store, service, boot_id=BOOT_ID, verify=str(getattr(section, "verify", "off")),
-            review_mode=str(getattr(section, "review", "off") or "off"),
-            review_paid=bool(getattr(section, "review_paid", False)),
-        )
-        service.add_event_listener(made.on_event)
-        made.start()
-    except Exception:  # noqa: BLE001 - a recorder that cannot start leaves the chat as it was
-        log.warning("run recorder: not started", exc_info=True)
-        return None
-    set_recorder(made)
-    _install_workdirs(store, service, section)
-    if made.enforcing:
         from dodaios.rsi import bind
         from dodaios.rsi.policy import store_for
 
@@ -1156,5 +1264,56 @@ def install(
 
             # Steering policies change only through measured, reversible self-changes.
             made.add_verdict_listener(Trainer(store, policies, self_change).on_verdict)
+    except Exception:  # noqa: BLE001 - unbound runs are judged under the factory policy
+        log.warning("run recorder: coding policies unavailable", exc_info=True)
+
+
+def install(
+    service: Any,
+    data_dir: Path | str,
+    config: Any,
+    *,
+    self_change: Callable[[], Any] | None = None,
+) -> RunRecorder | None:
+    """Start run recording and judging for ``service``. There is no switch.
+
+    ``[rsi] enabled`` and ``[rsi] verify`` are not read any more (an old config
+    that sets them still loads). Whether a run is held is its coding policy's
+    question (``Policy.hold``); the factory policy does not hold. Returns the
+    recorder, or ``None`` when it could not start: the chat then runs as
+    without it.
+    """
+    section = getattr(config, "rsi", None)
+    try:
+        from dodaios.orchestrator.jobs import BOOT_ID
+
+        store = VerificationStore(Path(data_dir) / "verification.db")
+        made = RunRecorder(
+            store, service, boot_id=BOOT_ID,
+            review_mode=str(getattr(section, "review", "off") or "off"),
+            review_paid=bool(getattr(section, "review_paid", False)),
+        )
+    except Exception:  # noqa: BLE001 - a recorder that cannot start leaves the chat as it was
+        log.warning("run recorder: not started", exc_info=True)
+        return None
+    # Before the first verdict: a run picked up again may be decided at once.
+    _install_policies(made, store, data_dir, self_change)
+    try:
+        service.add_event_listener(made.on_event)
+        made.start()
+    except Exception:  # noqa: BLE001 - a recorder that cannot start leaves the chat as it was
+        log.warning("run recorder: not started", exc_info=True)
+        remove = getattr(service, "remove_event_listener", None)
+        if callable(remove):
+            try:
+                remove(made.on_event)
+            except Exception:  # noqa: BLE001 - nothing more to undo
+                log.debug("run recorder: listener not removed", exc_info=True)
+        return None
+    set_recorder(made)
+    try:
+        _install_workdirs(store, service, section)
+    except Exception:  # noqa: BLE001 - threads then run in the folder they were given
+        log.warning("run recorder: thread folders not served", exc_info=True)
     log.info("run recorder: recording delegated coding runs to %s", store.path)
     return made

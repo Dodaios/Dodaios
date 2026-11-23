@@ -153,7 +153,16 @@ def test_a_run_is_bound_at_the_start_and_closed_when_its_turn_ends(service, stor
     # The files really changed say frontend; the tag from the brief stays as it was.
     assert run["domain_post"] == "frontend"
     assert run["primary_domain"] == "backend"
-    assert [s["step"] for s in store.steps("job_1")] == ["bound", "turn_started", "turn_finished"]
+    # Every run is judged: its output is scanned and it gets a verdict. This
+    # folder is no checkout, so nothing proves the work.
+    assert [s["step"] for s in store.steps("job_1")] == [
+        "bound", "turn_started", "turn_finished", "gates", "verdict",
+    ]
+    assert run["verdict"] == "unverified"
+    from dodaios.rsi.policy import DEFAULT
+
+    assert run["policy_id"] == DEFAULT.id
+    assert recorder.holds("job_1") is False
 
 
 def test_the_owner_and_the_request_come_from_the_jobs_ledger(service, store, recorder, ledger):
@@ -273,49 +282,6 @@ def test_noting_an_order_is_a_no_op_while_recording_is_off():
     rec.note_submission(job_id="job_1", session_id=THREAD, prompt=BRIEF, started_ms=1)
 
 
-def test_recording_starts_only_when_the_setting_is_on(service, tmp_path):
-    off = SimpleNamespace(rsi=SimpleNamespace(enabled=False))
-    assert rec.install(service, tmp_path, off) is None
-    assert rec.install(service, tmp_path, SimpleNamespace()) is None
-    assert not (tmp_path / "verification.db").exists()
-    assert service.listeners == []
-
-    made = rec.install(service, tmp_path, SimpleNamespace(rsi=SimpleNamespace(enabled=True)))
-    try:
-        assert made is not None
-        assert rec.recorder() is made
-        assert (tmp_path / "verification.db").is_file()
-        assert service.listeners == [made.on_event]
-    finally:
-        if made is not None:
-            made.stop()
-            made.store.close()
-        rec.set_recorder(None)
-
-
-def test_the_config_section_is_off_by_default_and_closed_to_self_change():
-    from dodaios.core.config import JarvisConfig
-    from dodaios.core.self_mod.forbidden import is_forbidden
-
-    assert JarvisConfig().rsi.enabled is False
-    assert JarvisConfig().rsi.verify == "off"
-    assert is_forbidden("rsi.enabled")
-    assert is_forbidden("rsi.verify")
-
-
-def test_the_recorder_takes_its_verify_mode_from_the_setting(service, tmp_path):
-    config = SimpleNamespace(rsi=SimpleNamespace(enabled=True, verify="observe"))
-    made = rec.install(service, tmp_path, config)
-    try:
-        assert made is not None
-        assert made._verify == "observe"
-    finally:
-        if made is not None:
-            made.stop()
-            made.store.close()
-        rec.set_recorder(None)
-
-
 def _installed(service, tmp_path, **settings):
     return rec.install(service, tmp_path, SimpleNamespace(rsi=SimpleNamespace(**settings)))
 
@@ -323,26 +289,110 @@ def _installed(service, tmp_path, **settings):
 def _uninstall(made) -> None:
     from dodaios.orchestrator.verification import workdir
 
-    held = workdir.dirs()
     workdir.set_dirs(None)
     if made is not None:
         made.stop()
         made.store.close()
-    elif held is not None:
-        held._store.close()
     rec.set_recorder(None)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        SimpleNamespace(rsi=SimpleNamespace(enabled=False, verify="off")),
+        SimpleNamespace(rsi=SimpleNamespace(enabled=True, verify="observe")),
+        SimpleNamespace(),
+    ],
+)
+def test_recording_and_judging_start_on_every_install(service, tmp_path, config):
+    made = rec.install(service, tmp_path, config)
+    try:
+        assert made is not None
+        assert made.judging is True
+        assert rec.recorder() is made
+        assert (tmp_path / "verification.db").is_file()
+        assert service.listeners == [made.on_event]
+    finally:
+        _uninstall(made)
+
+
+def test_an_old_config_that_switched_recording_off_still_records_and_judges(service, tmp_path):
+    from dodaios.core.config import RsiConfig
+
+    # A config file written before the switches went away still loads ...
+    section = RsiConfig.model_validate({"enabled": False, "verify": "off"})
+    made = rec.install(service, tmp_path, SimpleNamespace(rsi=section))
+    assert made is not None
+    made.stop()  # the test drives the queue itself
+    try:
+        _start(service)
+        made.note_submission(job_id="job_1", session_id=THREAD, prompt=BRIEF, started_ms=1_000)
+        _finish(service)
+        made.process_pending()
+        run = made.store.get("job_1")
+        # ... and its run is recorded, bound to the factory policy, and judged.
+        assert run["state"] == vstore.ENDED
+        assert run["policy_id"]
+        assert run["verdict"] == "unverified"
+        assert made.holds("job_1") is False
+    finally:
+        _uninstall(made)
+
+
+def test_the_old_switches_still_load_and_stay_closed_to_self_change():
+    from dodaios.core.config import JarvisConfig
+    from dodaios.core.self_mod.forbidden import is_forbidden
+
+    assert JarvisConfig().rsi.enabled is False  # read by nothing any more
+    assert JarvisConfig().rsi.verify == "off"
+    assert JarvisConfig().rsi.worktree_per_run is False
+    assert is_forbidden("rsi.enabled")
+    assert is_forbidden("rsi.verify")
+    assert is_forbidden("rsi.worktree_per_run")
+
+
+def test_a_record_that_cannot_be_opened_leaves_the_chat_as_it_was(service, tmp_path):
+    blocked = tmp_path / "data"
+    blocked.write_text("a file where the data folder should be", encoding="utf-8")
+    assert rec.install(service, blocked, SimpleNamespace()) is None
+    assert rec.recorder() is None
+    assert service.listeners == []
+    # A thread order still goes through: noting it is a no-op.
+    rec.note_submission(job_id="job_1", session_id=THREAD, prompt=BRIEF, started_ms=1)
+
+
+def test_a_policy_store_that_cannot_be_opened_binds_the_factory_policy(
+    service, tmp_path, monkeypatch
+):
+    from dodaios.rsi import policy
+
+    def broken(_data_dir):
+        raise OSError("rsi.db is locked")
+
+    monkeypatch.setattr(policy, "store_for", broken)
+    made = rec.install(service, tmp_path, SimpleNamespace())
+    try:
+        assert made is not None
+        made.stop()
+        _start(service)
+        made.note_submission(job_id="job_1", session_id=THREAD, prompt=BRIEF, started_ms=1_000)
+        _finish(service)
+        made.process_pending()
+        assert made.store.get("job_1")["verdict"] == "unverified"
+    finally:
+        _uninstall(made)
 
 
 @pytest.mark.parametrize(
     ("settings", "making"),
     [
-        ({"enabled": True, "verify": "observe", "worktree_per_run": True}, True),
-        ({"enabled": True, "verify": "off", "worktree_per_run": True}, False),
-        ({"enabled": True, "verify": "observe", "worktree_per_run": False}, False),
-        ({"enabled": True}, False),
+        ({"worktree_per_run": True}, True),
+        ({"enabled": True, "verify": "enforce", "worktree_per_run": False}, False),
+        ({"enabled": True, "verify": "observe"}, False),
+        ({}, False),
     ],
 )
-def test_threads_get_their_own_worktree_only_while_output_is_verified(
+def test_threads_get_their_own_worktree_only_when_the_setting_asks(
     service, tmp_path, settings, making
 ):
     from dodaios.orchestrator.verification import workdir
@@ -360,11 +410,9 @@ def test_the_settings_for_worktrees_reach_the_one_that_makes_them(service, tmp_p
     from dodaios.core.config import RsiConfig
     from dodaios.orchestrator.verification import workdir
 
-    assert RsiConfig().worktree_per_run is True
+    assert RsiConfig().worktree_per_run is False
     assert RsiConfig().shared_checkout_repos == []
-    section = RsiConfig(
-        enabled=True, verify="observe", shared_checkout_repos=["github.com/Acme/Notes"]
-    )
+    section = RsiConfig(worktree_per_run=True, shared_checkout_repos=["github.com/Acme/Notes"])
     made = rec.install(service, tmp_path, SimpleNamespace(rsi=section))
     try:
         dirs = workdir.dirs()
@@ -383,36 +431,6 @@ def test_the_settings_for_worktrees_reach_the_one_that_makes_them(service, tmp_p
         assert dirs._idle_ms("gone") == 0
     finally:
         _uninstall(made)
-
-
-def test_with_recording_off_only_worktrees_put_away_earlier_are_served(service, tmp_path):
-    from dodaios.orchestrator.verification import workdir
-
-    off = {"enabled": False, "verify": "observe", "worktree_per_run": True}
-    # Never switched on: no record, nothing to restore, nothing opened.
-    assert _installed(service, tmp_path, **off) is None
-    assert workdir.dirs() is None
-    # Switched on once, with nothing put away: still nothing to serve.
-    store = VerificationStore(tmp_path / "verification.db")
-    store.add_workdir(
-        "/repos/notes/.worktrees/agent-a", repo_id="r", root="/repos/notes", branch="agent/a",
-        base_sha="abc", created_ms=1,
-    )
-    store.bind_workdir("/repos/notes/.worktrees/agent-a", THREAD)
-    assert _installed(service, tmp_path, **off) is None
-    assert workdir.dirs() is None
-    # One was put away: its thread must find it again, and nothing new is made.
-    store.close_workdir("/repos/notes/.worktrees/agent-a", 5, branch="agent/a", head_sha="abc")
-    store.close()
-    try:
-        assert _installed(service, tmp_path, **off) is None
-        dirs = workdir.dirs()
-        assert dirs is not None
-        assert dirs._making is False
-        assert rec.recorder() is None
-        assert service.listeners == []
-    finally:
-        _uninstall(None)
 
 
 def test_the_judges_of_a_run_are_core_paths_of_the_app():
@@ -444,7 +462,7 @@ def test_a_thread_order_is_noted_with_the_id_of_its_job(ledger):
     assert job_id is not None
     assert noted == [{
         "job_id": job_id, "session_id": THREAD, "prompt": BRIEF, "started_ms": 1_000,
-        # No policy was bound before the send: enforced checks are off here.
+        # No policy was bound before the send (``_ledger`` is called directly here).
         "policy": None,
     }]
     assert ledger.get(job_id).kind == "ide_submission"

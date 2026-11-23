@@ -154,21 +154,30 @@ class DelegationWait:
             self._changed()
 
     def _holds_text(self) -> bool:
-        """True while coding work whose output the app checks is still out.
+        """True while coding work that the app holds until it was checked is still out.
 
         Then the lead's further words in this turn are not its answer: the
-        checked result is, and the continuation speaks it. Only while
-        ``[rsi] verify = "enforce"``; text written before the delegation was
-        already shown and stays.
+        checked result is, and the continuation speaks it. Asked per job: only
+        a run whose coding policy holds it (the factory policy does not). Text
+        written before the delegation was already shown and stays. Runs inline
+        on every streamed event, so it reads memory only.
         """
-        if not any(
-            key.startswith(CHECKED_WORK) and key not in self.delivered for key in self.work
-        ):
+        out = [
+            key[len(CHECKED_WORK):] for key in self.work
+            if key.startswith(CHECKED_WORK) and key not in self.delivered
+        ]
+        if not out:
             return False
         from dodaios.orchestrator.verification.recorder import recorder
 
         checking = recorder()
-        return checking is not None and checking.enforcing
+        if checking is None:
+            return False
+        try:
+            return any(checking.holds(job_id) for job_id in out)
+        except Exception:  # noqa: BLE001 - a broken recorder never hides the lead's words
+            log.warning("delegation wait: hold of coding work unknown", exc_info=True)
+            return False
 
     def _held(self, event: dict[str, Any]) -> dict[str, Any]:
         """``event`` as the person sees it: text written after the hand-off as thought."""

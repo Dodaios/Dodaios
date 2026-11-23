@@ -3,11 +3,13 @@
 Driven by verdicts, never by a timer: after a run in a cell got its verdict,
 :meth:`Trainer.consider` looks at that cell once.
 
-1. **No candidate on trial:** when the cell has enough runs under its active
-   policy, every candidate of a small fixed grid of steering parameters is
-   replayed on the record (:mod:`replay`). The first one the replay does not
-   reject goes on trial as the cell's candidate, as a self-change; its claim
-   (branch B, target ``cost``) is fixed at that moment, before its own data.
+1. **No candidate on trial:** when the cell's active policy holds its runs
+   (``Policy.hold``; the factory policy does not, and then nothing is
+   proposed) and the cell has enough runs under it, every candidate of a
+   small fixed grid of steering parameters is replayed on the record
+   (:mod:`replay`). The first one the replay does not reject goes on trial
+   as the cell's candidate, as a self-change; its claim (branch B, target
+   ``cost``) is fixed at that moment, before its own data.
 2. **A candidate on trial:** once both arms have :data:`selector.N_MIN`
    requests since the claim, :func:`selector.gate` decides. Accepted: the
    candidate becomes the active policy (a self-change on probation) and the
@@ -31,7 +33,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from . import selector, stats
@@ -41,7 +43,7 @@ from .replay import replay_cell
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AUTHOR", "GRID", "MAX_TRIAL_DAYS", "Trainer"]
+__all__ = ["AUTHOR", "GRID", "MAX_TRIAL_DAYS", "NOT_HOLDING", "Trainer"]
 
 #: Who the registry names as the author of a policy change.
 AUTHOR: Final[str] = "rsi-selector"
@@ -53,6 +55,11 @@ GRID: Final[tuple[Policy, ...]] = (
     Policy(p_max=0),
 )
 MAX_TRIAL_DAYS: Final[int] = 28
+#: What :meth:`Trainer.consider` says for a cell whose active policy does not hold.
+NOT_HOLDING: Final[str] = (
+    "nothing proposed: the active policy does not hold runs, so a candidate with fewer "
+    "follow-up orders or a shorter wait would change nothing"
+)
 _DAY_MS: Final[int] = 24 * 60 * 60 * 1000
 _RUNS_READ: Final[int] = 5_000
 
@@ -229,12 +236,18 @@ class Trainer:
 
     def _propose(self, cell: str, now: int) -> str:
         active = active_policy(self._policies, cell)
+        if not active.hold:
+            # The grid only changes follow-up orders and the wait for checks, and
+            # a run that is not held gets neither: a trial would measure noise.
+            return NOT_HOLDING
         rows = [r for r in self._cell_runs(cell) if r.get("policy_id") == active.id]
         if len(rows) < selector.N_MIN:
             return "waiting for runs"
         recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
         claim = selector.Claim(cell, "B", "cost")
-        for candidate in GRID:
+        for shape in GRID:
+            # A candidate differs from the active policy in its steering only.
+            candidate = replace(shape, hold=active.hold)
             if candidate == active:
                 continue
             outcome = replay_cell(claim, recorded, candidate)
@@ -322,7 +335,7 @@ class Trainer:
         def work() -> None:
             try:
                 done = self.consider(cell)
-                if done not in ("waiting for runs", "trial goes on", ""):
+                if done not in ("waiting for runs", "trial goes on", NOT_HOLDING, ""):
                     log.info("rsi trainer: %s: %s", cell, done)
             except Exception:  # noqa: BLE001 - a failed look leaves every policy as it was
                 log.warning("rsi trainer: %s not considered", cell, exc_info=True)
