@@ -850,7 +850,7 @@ export function ThreadComposer({
         style={{ left: dropCaret.left - 1, top: dropCaret.top, height: dropCaret.height }} />}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={working ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
+        placeholder={carrying ? "" : working ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onFocus={() => { dictationOwner = threadKey; }}
