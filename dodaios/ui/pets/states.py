@@ -1,7 +1,7 @@
 """The pets' vocabulary — ONE definition, imported everywhere.
 
 A pet state is what a pet *does* where the app draws it (its animation row:
-the assistant's mark, an agent wearing the pet, the Verse companion). It
+the assistant's mark, an agent wearing the pet). It
 crosses Python, the sprite manifest on disk, the REST payload, TypeScript and
 the i18n labels — the five-layer enum this repo has been bitten by four times
 (AP-4 / BUG-008). Same remedy as ``dodaios.ui.dodaiosbar.modes``: the tuples live

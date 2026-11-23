@@ -351,6 +351,15 @@ still holds - but the honest answer is "no restart needed from you".
 Managed installs keep today's behaviour untouched: the frozen branch is entered
 only when `is_frozen()` is true, and the frozen branch never runs git.
 
+A managed update is checked against the same release key. Every release
+carries `payload-commit.txt`, the commit it was built from, and
+`payload-commit.txt.cosign.sig`, the release key's signature over that file
+(`sign-installer.yml`). `apply` fetches the release tag and stages its commit
+only when that commit is the one the signed file names
+(`dodaios/core/release_commit.py`). A release without the pair, a signature of
+another key and a tag that points at another commit are refused before
+anything is staged, so a tag someone moved is never installed.
+
 A managed update is applied by the restart helper of the version that is being
 replaced: it resets the checkout to the new revision, runs that revision's
 installer, verifies its UI bundle and starts it. The helper does not assume the

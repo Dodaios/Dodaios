@@ -123,7 +123,6 @@ Consecutive hits of one file with the same category and action share a row.
 | --- | --- | ---: | :---: | --- |
 | `.env.example` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.gitattributes` | 61 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `.github/AGENT_WORKFLOW_AUDIT.md` | 8 | 1 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
 | `.github/dependabot.yml` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.github/scripts/test-stargazer-map.mjs` | 12, 37 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `.github/workflows/desktop-installers.yml` | 1, 15, 16 | 3 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
