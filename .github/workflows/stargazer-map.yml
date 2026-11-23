@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/stargazer-map.yml
       - .github/scripts/test-stargazer-map.mjs
+      - .github/stargazer-map/**
   watch:
     types: [started]
   schedule:
@@ -42,12 +43,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # The geocoder belongs to the website. Pin reviewed code: it runs with
-      # this repository's token, never a contributor-controlled checkout.
+      # The geocoder lives in .github/stargazer-map. The website repository is
+      # private, and this job's token cannot read it. Every trigger above runs
+      # on main, so this is reviewed code, never a contributor's checkout.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          repository: Dodaios/dodaios.github.io
-          ref: 70125a6f2206415a60f15cdf99921f7b0dd4f0f2
+          sparse-checkout: .github/stargazer-map
           persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -58,7 +59,7 @@ jobs:
       - name: Resolve public profile locations
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/fetch-stargazers.mjs --repo Dodaios/Dodaios
+        run: node .github/stargazer-map/fetch-stargazers.mjs --repo Dodaios/Dodaios
 
       - name: Publish the aggregate feed
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -68,7 +69,7 @@ jobs:
             const repo = context.repo;
             const branch = 'stargazer-map';
             const path = 'data/stargazers.json';
-            const raw = fs.readFileSync('src/data/stargazers.json', 'utf8');
+            const raw = fs.readFileSync('.github/stargazer-map/stargazers.json', 'utf8');
             const data = JSON.parse(raw);
             // Publish an explicit allowlist, never profile names or raw locations.
             const { count, forks, placed, stated, generatedAt } = data;

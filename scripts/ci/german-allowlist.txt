@@ -496,3 +496,6 @@ tests/unit/brain/test_tool_search_ranking.py
 dodaios/life_admin/extractors.py
 dodaios/life_admin/prepare.py
 tests/unit/life_admin/*
+
+# --- Stargazer map gazetteer: place names and their local spellings (data, not prose) ---
+.github/stargazer-map/gazetteer.json
