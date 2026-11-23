@@ -1,0 +1,98 @@
+# osv-scanner exceptions for the two locks in this folder (requirements.lock,
+# bootstrap.lock), which install the browser helper's own environment.
+#
+# browser-use 0.13.10 requires exact versions of aiohttp, anyio, mcp, pillow and
+# pypdf, so no other version of them installs beside it: pip refuses the set.
+# oauthlib and soupsieve could only move by a whole major version, which
+# nothing here has been tried against. Every entry below is one of those seven
+# at the version the lock pins. It says which advisories the version carries
+# and why they do not reach the helper as Dodaios runs it. An entry names the
+# version, so it stops applying the moment the lock moves that package, and
+# `effectiveUntil` forces a fresh look. tests/unit/ci/test_security_scan_scope.py
+# keeps this file and the lock in step.
+#
+# How the helper uses these packages was read from browser-use 0.13.10 itself:
+# dodaios/society/browser/runner.py and live_runner.py drive its Agent, Tools
+# and Browser classes and nothing else of it.
+
+# Server-side request parsing, multipart and WebSocket limits, and a client
+# cookie jar or decompression fed by a hostile peer. The helper's only aiohttp
+# call is one client GET to http://127.0.0.1:<port>/json/version of the browser
+# it started itself.
+[[PackageOverrides]]
+name = "aiohttp"
+version = "3.14.3"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "Pinned by browser-use 0.13.10. Used only as a client against the helper's own browser on 127.0.0.1; the advisories need aiohttp as a server or a hostile peer."
+
+# TLS host names outside ASCII are encoded the old way (certificate check), and
+# process-pool workers can block. The helper opens TLS only to the fixed ASCII
+# API hosts of model providers and to an address the person configured, and it
+# starts no anyio process pool.
+[[PackageOverrides]]
+name = "anyio"
+version = "4.12.1"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "Pinned by browser-use 0.13.10. The TLS advisory needs a non-ASCII host name and the other one an anyio process pool; the helper uses neither."
+
+# The MCP SDK's HTTP transports, OAuth client and server-side token check. Only
+# browser_use/mcp/* imports the SDK, and the helper never loads that part.
+[[PackageOverrides]]
+name = "mcp"
+version = "2.1.1"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "Pinned by browser-use 0.13.10. Only browser-use's own MCP client and server import it, and the helper starts neither."
+
+# OAuth provider endpoints (device flow, token grants, revocation, PKCE check).
+# oauthlib arrives through browser-use's optional Gmail integration, which the
+# helper never loads, and it would be a client there, not a provider.
+[[PackageOverrides]]
+name = "oauthlib"
+version = "3.3.1"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "The advisories are in OAuth provider endpoints. Nothing in the helper runs a provider, and the Gmail integration that pulls oauthlib in is never loaded. The fix is a major version nothing here was tried against."
+
+# Decoder and encoder faults for crafted image files (JPEG, TIFF, FlashPix,
+# EPS, multi-frame formats). The helper decodes only screenshots its own
+# browser encoded; an image file the agent reads is passed on as base64 and is
+# never opened with Pillow.
+[[PackageOverrides]]
+name = "pillow"
+version = "12.3.0"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "Pinned by browser-use 0.13.10, and still by 1.0.8. The advisories need a crafted image file; the helper decodes only screenshots its own browser made."
+
+# REACHABLE, and accepted for now: long runtimes and high memory use on a
+# crafted PDF. browser-use reads a PDF the agent downloaded with pypdf, so a
+# hostile file can stall or end the helper for that task. Nothing beyond the
+# helper process is affected, and the app starts a new helper for the next
+# task. It goes away with a browser-use release that allows pypdf 6.21.4 or
+# newer; the 0.13 line pins 6.16.2 up to 0.13.14.
+[[PackageOverrides]]
+name = "pypdf"
+version = "6.16.2"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "Pinned by browser-use 0.13.10. Denial of service only (runtime, memory) when the agent reads a crafted PDF it downloaded; limited to the helper process. Open until browser-use allows pypdf >= 6.21.4."
+
+# The CSS selector engine: slow or deeply recursive on crafted selectors or on
+# crafted HTML matched with certain selectors. It is installed for
+# beautifulsoup4, and neither browser-use nor markdownify selects by CSS.
+[[PackageOverrides]]
+name = "soupsieve"
+version = "2.9.2"
+ecosystem = "PyPI"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-06
+reason = "The advisories are in CSS selector matching, which nothing in the helper calls. The fix is two major versions on, which nothing here was tried against."

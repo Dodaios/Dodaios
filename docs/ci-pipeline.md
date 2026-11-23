@@ -724,7 +724,10 @@ CodeQL's default setup, and none is part of the required `CI gate`:
 * **dependency-review** fails a pull request that adds a dependency with a
   known high or critical advisory.
 * **osv-scanner** checks the shipped lockfiles against osv.dev on main and
-  weekly. It reports and never blocks.
+  weekly. It reports and never blocks. Every tracked hash-pinned lock is on
+  its list (`tests/unit/ci/test_security_scan_scope.py`), the browser helper's
+  two included; exceptions sit beside the lock they belong to, in an
+  `osv-scanner.toml` that gives each one its reason and an end date.
 * **OpenSSF Scorecard** publishes a weekly repository security score.
 
 ### Frontend bundle

@@ -61,10 +61,15 @@ jobs:
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
     with:
-      # Only what an installed Dodaios actually runs.
+      # Only what an installed Dodaios actually runs. The browser helper's two
+      # locks are pip requirement files under another name, so they are named
+      # with the parser to read them as. Accepted exceptions for them live in
+      # dodaios/assets/browser/osv-scanner.toml, each with its reason.
       scan-args: |-
         -L requirements.txt
         -L dodaios/voice_engine/requirements-engine.txt
         -L scripts/ci/requirements-build.txt
+        -L requirements.txt:dodaios/assets/browser/requirements.lock
+        -L requirements.txt:dodaios/assets/browser/bootstrap.lock
         -L dodaios/ui/web/frontend/package-lock.json
       fail-on-vuln: false
