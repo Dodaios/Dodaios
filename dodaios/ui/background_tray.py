@@ -125,6 +125,7 @@ def open_desktop_app() -> bool:
         from dodaios.ui.relauncher import (
             build_launch_command,
             fresh_user_env,
+            mark_desktop_spawn,
             restart_workdir,
             spawn_detached,
         )
@@ -133,7 +134,9 @@ def open_desktop_app() -> bool:
         # interpreter is the right one for the window app too.
         argv = build_launch_command(sys.executable)
         cwd = restart_workdir(_source_root())
-        spawn_detached(argv, cwd=cwd, env=current_instance().environ(fresh_user_env()))
+        env = mark_desktop_spawn(current_instance().environ(fresh_user_env()))
+        spawn_detached(argv, cwd=cwd, env=env)
+        logger.info("background: started the desktop app ({}) to take over", argv[0])
         return True
     except Exception:  # noqa: BLE001 — reported to the tray caller's log
         logger.opt(exception=True).warning("background: could not start the desktop app")

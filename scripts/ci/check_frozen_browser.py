@@ -8,6 +8,10 @@ the only way to see whether its pyobjc frameworks loaded (BUG-222).
 
 Headless startup deliberately leaves the optional browser idle. The probe
 requests installation through the same authenticated API as the product UI.
+
+On Windows a third start goes first: the bare executable, started detached
+with its streams on NUL the way the background service's tray and a restart
+start it, must boot instead of starting copies of itself (#1880).
 """
 
 from __future__ import annotations
@@ -308,6 +312,75 @@ def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float
             stop_owned_tree(process)
 
 
+def _bare_copies(executable: Path, since: float) -> dict[int, float]:
+    """Processes of ``executable`` started since ``since`` with no arguments."""
+    found: dict[int, float] = {}
+    for proc in psutil.process_iter(["exe", "cmdline", "create_time"]):
+        info = proc.info
+        try:
+            if not info["exe"] or Path(info["exe"]).resolve() != executable:
+                continue
+        except OSError:
+            continue  # an exe path that cannot be resolved is not ours
+        if len(info["cmdline"] or []) == 1 and (info["create_time"] or 0) >= since - 1:
+            found[proc.pid] = info["create_time"]
+    return found
+
+
+def check_bare_start_settles(executable: Path, profile: Path, watch_s: float = 25.0) -> dict:
+    """Windows: a bare start on NUL streams boots instead of starting a copy (#1880).
+
+    The background service's tray "Open" and every restart start the bare GUI
+    executable detached, with its streams on NUL. Windows calls NUL a terminal
+    (``isatty()``), and the start took itself for one typed into a console: it
+    started one more detached copy and exited, every two seconds, for good.
+    Started here exactly that way, the copy count must stay at one.
+    """
+    profile.mkdir(exist_ok=False)
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    env = isolated_env(profile, port, "jctl_" + secrets.token_urlsafe(32))
+    # A CI runner is elevated: stay in this process instead of the unelevated hand-over.
+    env["JARVIS_KEEP_ELEVATION"] = "1"
+    detached = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+    started = time.time()
+    process = subprocess.Popen(
+        [str(executable)],
+        cwd=profile,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+        creationflags=detached | NO_WINDOW_CREATIONFLAGS,
+    )
+    seen: dict[int, float] = {}
+    try:
+        deadline = time.monotonic() + watch_s
+        while time.monotonic() < deadline:
+            seen.update(_bare_copies(executable, started))
+            if len(seen) > 1:
+                break
+            time.sleep(0.25)
+        exited = process.poll()
+    finally:
+        for pid in seen:
+            if pid != process.pid:
+                try:
+                    psutil.Process(pid).kill()
+                except psutil.Error:
+                    pass  # the copy ended on its own
+        stop_owned_tree(process)
+    report = {"bare_copies": len(seen), "first_exited_with": exited}
+    if len(seen) > 1:
+        raise RuntimeError(
+            f"A bare start on NUL streams started {len(seen) - 1} more bare copies "
+            "of itself instead of booting (#1880)"
+        )
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executable", type=Path, required=True)
@@ -324,6 +397,8 @@ def main() -> int:
     key = "jctl_" + secrets.token_urlsafe(32)
     report = {"platform": sys.platform, "passed": False, "boots": []}
     try:
+        if sys.platform == "win32":
+            report["bare_start"] = check_bare_start_settles(executable, output / "bare-profile")
         for name in ("first-install", "restart"):
             row = boot(executable, profile, output / name, key, args.timeout)
             report["boots"].append({"name": name, **row})

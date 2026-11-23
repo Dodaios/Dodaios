@@ -104,6 +104,20 @@ def _desktop_overrides(*, port: int | None, dev: bool, no_lock: bool) -> tuple[s
 # import.
 RELAUNCHER_FLAG = "--relauncher"
 
+#: Set to ``1`` in the environment of every desktop app this app starts
+#: detached (a restart, the background service's "Open", a launch typed into a
+#: terminal). Such a process was never typed into a terminal itself, whatever
+#: its standard streams look like, so it boots instead of detaching again.
+#: Windows answers ``isatty()`` with True for the NUL device a detached child's
+#: streams point at; a frozen build relaunches its bare executable, and each
+#: copy started the next one and exited (#1880).
+DESKTOP_SPAWN_ENV_VAR = "JARVIS_DESKTOP_SPAWNED"
+
+
+def mark_desktop_spawn(env: dict[str, str]) -> dict[str, str]:
+    """``env`` with :data:`DESKTOP_SPAWN_ENV_VAR` set, for a desktop app started detached."""
+    return {**env, DESKTOP_SPAWN_ENV_VAR: "1"}
+
 
 def _frozen() -> bool:
     from dodaios.core.frozen import is_frozen
@@ -552,7 +566,10 @@ def launch_desktop_detached(*, _popen: object | None = None) -> object:
     cmd = build_launch_command(sys.executable)
     cwd = str(Path(dodaios.__file__).resolve().parent.parent)
     return spawn_detached(
-        cmd, cwd=cwd, env=_apply_branded_launch_env(env, cmd), _popen=_popen
+        cmd,
+        cwd=cwd,
+        env=mark_desktop_spawn(_apply_branded_launch_env(env, cmd)),
+        _popen=_popen,
     )
 
 
@@ -1231,7 +1248,7 @@ def main(
     # Everything below the finalize step may run against a checkout that holds
     # another release, so the package modules it needs are loaded first.
     _load_modules_needed_after_update()
-    base_env = fresh_user_env()
+    base_env = mark_desktop_spawn(fresh_user_env())
     cmd = build_launch_command(sys.executable, launcher_args=launcher_args)
     env = _apply_branded_launch_env(base_env, cmd)
 

@@ -310,3 +310,58 @@ def test_a_boot_off_macos_never_asks_for_permissions(tmp_path, monkeypatch):
     report = _boot_fake_app(tmp_path, monkeypatch, platform="linux", mode="no-avfoundation")
 
     assert report["permissions"] == {}
+
+
+class _BareStart:
+    pid = 4100
+
+    def __init__(self, argv, **kwargs):
+        self.argv = argv
+        self.kwargs = kwargs
+
+    def poll(self):
+        return None
+
+
+def _bare_start(monkeypatch, copies):
+    """Run the bare-start check against a scripted list of copy sets."""
+    started: list[_BareStart] = []
+
+    def popen(argv, **kwargs):
+        started.append(_BareStart(argv, **kwargs))
+        return started[-1]
+
+    sets = iter(copies)
+    monkeypatch.setattr(probe.subprocess, "Popen", popen)
+    monkeypatch.setattr(probe, "_bare_copies", lambda exe, since: next(sets, copies[-1]))
+    monkeypatch.setattr(probe, "stop_owned_tree", lambda process: None)
+    monkeypatch.setattr(probe.time, "sleep", lambda _s: None)
+    return started
+
+
+def test_a_bare_start_that_boots_passes(tmp_path, monkeypatch):
+    started = _bare_start(monkeypatch, [{4100: 1.0}])
+    report = probe.check_bare_start_settles(tmp_path / "exe", tmp_path / "profile", watch_s=0.05)
+    assert report["bare_copies"] == 1
+    (child,) = started
+    # Started the way the tray and a restart start it: bare, on NUL streams.
+    assert child.argv == [str(tmp_path / "exe")]
+    assert child.kwargs["stdin"] is probe.subprocess.DEVNULL
+    assert child.kwargs["stdout"] is probe.subprocess.DEVNULL
+
+
+def test_a_bare_start_that_starts_copies_of_itself_fails(tmp_path, monkeypatch):
+    killed: list[int] = []
+
+    class _Copy:
+        def __init__(self, pid):
+            self.pid = pid
+
+        def kill(self):
+            killed.append(self.pid)
+
+    _bare_start(monkeypatch, [{4100: 1.0}, {4100: 1.0, 4101: 3.0}])
+    monkeypatch.setattr(probe.psutil, "Process", _Copy)
+    with pytest.raises(RuntimeError, match="#1880"):
+        probe.check_bare_start_settles(tmp_path / "exe", tmp_path / "profile", watch_s=5)
+    assert killed == [4101]

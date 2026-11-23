@@ -696,11 +696,15 @@ def _run_desktop(*, debug: bool, foreground: bool = False) -> int:
     """
     if debug:
         os.environ["JARVIS_DEBUG"] = "1"
+    # A desktop app this app started detached (restart, "Open" in the background
+    # service's tray, a terminal launch) boots here and never detaches again.
+    # Popped so the terminals the app hosts do not inherit it.
+    spawned = os.environ.pop(_DESKTOP_SPAWN_ENV_VAR, "") == "1"
     missing = _missing_desktop_dependency()
     if missing is not None:
         print(missing, file=sys.stderr)
         return 4
-    if not debug and not foreground and _should_detach_from_terminal():
+    if not debug and not foreground and not spawned and _should_detach_from_terminal():
         return _launch_detached()
     from dodaios.ui.web import launcher
 
@@ -726,21 +730,52 @@ def _should_detach_from_terminal(
     platform_name = platform_name or sys.platform
     environ = dict(os.environ) if environ is None else environ
 
-    def _isatty(stream: object) -> bool:
-        try:
-            return bool(stream is not None and stream.isatty())  # type: ignore[attr-defined]
-        except (AttributeError, OSError, ValueError):
-            return False
-
     if stdin_tty is None:
-        stdin_tty = _isatty(sys.stdin)
+        stdin_tty = _is_terminal(sys.stdin, platform_name)
     if stdout_tty is None:
-        stdout_tty = _isatty(sys.stdout)
+        stdout_tty = _is_terminal(sys.stdout, platform_name)
     if not (stdin_tty and stdout_tty):
         return False
     if platform_name.startswith("linux"):
         return bool(environ.get("DISPLAY") or environ.get("WAYLAND_DISPLAY"))
     return True
+
+
+#: Mirrors ``dodaios.ui.relauncher.DESKTOP_SPAWN_ENV_VAR``, read here without
+#: importing the relauncher on the way to every launch.
+_DESKTOP_SPAWN_ENV_VAR = "JARVIS_DESKTOP_SPAWNED"
+
+
+def _is_terminal(stream: object, platform_name: str) -> bool:
+    """Whether ``stream`` is an interactive terminal.
+
+    On Windows ``isatty()`` is True for every character device, the NUL device
+    included, and NUL is where a detached child's streams point. Only a stream
+    the console accepts as its own (``GetConsoleMode``) is a terminal there.
+    """
+    try:
+        if stream is None or not stream.isatty():  # type: ignore[attr-defined]
+            return False
+    except (AttributeError, OSError, ValueError):  # a closed or replaced stream is no terminal
+        return False
+    if not platform_name.startswith("win"):
+        return True
+    return _windows_console(stream)
+
+
+def _windows_console(stream: object) -> bool:
+    """``GetConsoleMode`` succeeds for the stream's handle: a real console."""
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        handle = msvcrt.get_osfhandle(stream.fileno())  # type: ignore[attr-defined]
+        mode = wintypes.DWORD()
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        return bool(kernel32.GetConsoleMode(wintypes.HANDLE(handle), ctypes.byref(mode)))
+    except (AttributeError, ImportError, OSError, ValueError):  # no console API: not a console
+        return False
 
 
 def _launch_detached() -> int:

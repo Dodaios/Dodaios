@@ -2345,8 +2345,14 @@ def _main(argv: list[str] | None = None) -> int:
 
     # From here on every desktop launch is written down — see the helper.
     if not args.headless:
-        from dodaios.ui.relauncher import remember_desktop_launch_args  # noqa: PLC0415
+        from dodaios.ui.relauncher import (  # noqa: PLC0415
+            DESKTOP_SPAWN_ENV_VAR,
+            remember_desktop_launch_args,
+        )
 
+        # Meant for this boot only (see the constant); the terminals this app
+        # hosts must not inherit it.
+        os.environ.pop(DESKTOP_SPAWN_ENV_VAR, None)
         remember_desktop_launch_args(port=args.port, dev=args.dev, no_lock=args.no_lock)
         _install_boot_trace(_raw_argv)
     if _identity_report is not None:
