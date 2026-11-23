@@ -1042,6 +1042,117 @@ def test_apply_rejects_a_bundle_not_built_on_the_planned_head(tmp_path, repo, mo
     assert _git(origin, "rev-parse", "feature").strip() == plan["entries"][0]["head"]
 
 
+def test_apply_rejects_an_update_without_main_whatever_stopping_point_its_state_names(
+    tmp_path, repo, monkeypatch
+):
+    """The state file comes from the job that ran pull-request code.
+
+    It may name the commit of main an update stops at (a branch from before
+    the package move stops one commit early). The apply job works that commit
+    out itself: a state that names an older commit of main must not get an
+    update pushed that leaves main out.
+    """
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path, repo, {"app.py": "VALUE = 2\n"}, {"CHANGELOG.md": "# Changelog\n\n- b\n"}
+    )
+    head, main = plan["entries"][0]["head"], plan["main"]
+    base = _git(integrate, "merge-base", head, main).strip()
+    forged = tmp_path / "forged"
+    _git(integrate, "worktree", "add", "-q", "--detach", str(forged), head)
+    _git(forged, "commit", "-q", "--allow-empty", "-m", "not an update with main")
+    sha = _git(forged, "rev-parse", "HEAD").strip()
+    _git(forged, "update-ref", "refs/train/pr-3", "HEAD")
+    work = tmp_path / "train"
+    (work / "bundles").mkdir(parents=True)
+    (work / "state").mkdir()
+    bundle = work / "bundles" / "pr-3.bundle"
+    _git(forged, "bundle", "create", str(bundle), "refs/train/pr-3", "--not", head, main)
+    monkeypatch.setattr(agent_integrate, "gh", _FakeGh())
+
+    for claim in ({"onto": base}, {}):
+        state = {"status": "ready", "sha": sha, "resolved": [], **claim}
+        (work / "state" / "pr-3.json").write_text(json.dumps(state), encoding="utf-8")
+        outcome = agent_integrate.apply_update(work, plan, plan["entries"][0], False, applier)
+        assert outcome.startswith("update bundle rejected"), (claim, outcome)
+        assert _git(origin, "rev-parse", "feature").strip() == head
+
+
+def test_apply_reads_the_files_of_the_integrate_job_as_data(tmp_path, monkeypatch):
+    """Whatever that job wrote, the apply job neither crashes nor repeats it raw."""
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    plan = {"repo": "example/project", "main": "m" * 40}
+    entry = {"number": 3, "branch": "feature", "head": "h" * 40, "labels": []}
+    state_file = tmp_path / "state" / "pr-3.json"
+    state_file.parent.mkdir()
+
+    def outcome_for(text: str) -> str:
+        state_file.write_text(text, encoding="utf-8")
+        return agent_integrate.apply_update(tmp_path, plan, entry, False, tmp_path)
+
+    for not_a_state in ("[1, 2]", '"ready"', "not json", "null"):
+        assert outcome_for(not_a_state).startswith("update was not prepared")
+    assert "unexpected state" in outcome_for('{"status": "ready"}')
+    assert "unexpected state" in outcome_for('{"status": "ready", "sha": "--upload-pack=x"}')
+    assert "unexpected state" in outcome_for('{"status": ["ready"], "sha": 7}')
+    assert fake.calls == []
+
+    names = ["app.py", "a`b\nc\r\n- [x](http://example.invalid)", 7, None, "y" * 500, " "]
+    outcome = outcome_for(json.dumps({"status": "conflict", "unresolved": [*names, *["z"] * 99]}))
+    listed = outcome.removeprefix("conflict - ").split(", ")
+    assert listed[:3] == ["app.py", "abc- [x](http://example.invalid)", "y" * 200]
+    assert len(listed) == 3 + 44, "at most fifty names are read, and only strings count"
+    comment = next(call for call in fake.calls if call[:2] == ("pr", "comment"))
+    body = comment[comment.index("--body") + 1]
+    assert "- `abc- [x](http://example.invalid)`" in body
+    starts = ("- `", "The merge train", "Resolve locally")
+    assert all(not line or line.startswith(starts) for line in body.splitlines()), body
+
+
+def test_apply_takes_the_plan_and_the_updates_from_separate_folders(tmp_path, monkeypatch):
+    """The workflow unpacks the integrate job's files apart from the plan."""
+    plan_dir, updates_dir = tmp_path / "train", tmp_path / "train-updates"
+    plan_dir.mkdir()
+    updates_dir.mkdir()
+    plan = {"repo": "example/project", "main": "m" * 40, "entries": []}
+    (plan_dir / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    forged = {**plan, "entries": [{"number": 9, "action": "merge", "id": "x", "head": "f" * 40}]}
+    (updates_dir / "plan.json").write_text(json.dumps(forged), encoding="utf-8")
+    seen: list[tuple[Path, dict]] = []
+    monkeypatch.setattr(
+        agent_integrate, "apply", lambda root, data, *_flags: seen.append((root, data)) or 0
+    )
+
+    argv = ["apply", "--dir", str(plan_dir), "--updates-dir", str(updates_dir)]
+    assert agent_integrate.main(argv) == 0
+    assert seen == [(updates_dir, plan)]
+
+    # Without the option one folder serves both, as in a local run.
+    assert agent_integrate.main(["apply", "--dir", str(plan_dir)]) == 0
+    assert seen[-1] == (plan_dir, plan)
+
+
+def test_a_resolution_is_recorded_before_the_phase_that_runs_pull_request_code(tmp_path, repo):
+    """The workflow saves git's rerere cache between `resolve` and `finish`."""
+    _origin, integrate, _applier, plan = _origin_with_feature(
+        tmp_path, repo, {"app.py": "VALUE = 2\n"}, {"app.py": "VALUE = 3\n"}
+    )
+    work = tmp_path / "train"
+    assert agent_integrate.integrate_merge(work, plan, integrate) == 1
+    recorded = integrate / ".git" / "rr-cache"
+    assert not list(recorded.glob("*/postimage*"))
+    resolver = tmp_path / "resolver.py"
+    resolver.write_text(
+        "from pathlib import Path\nPath('app.py').write_text('VALUE = 5\\n')\n", encoding="utf-8"
+    )
+    command = f"{shlex.quote(sys.executable)} {shlex.quote(str(resolver))}"
+
+    agent_integrate.integrate_resolve(work, plan, command)
+
+    assert list(recorded.glob("*/postimage*")), "the resolution would be lost with the cache"
+    agent_integrate.cleanup_worktrees(work, integrate)
+
+
 def test_apply_enqueues_green_pull_requests_and_reports_the_rest(tmp_path, monkeypatch):
     fake = _FakeGh()
     monkeypatch.setattr(agent_integrate, "gh", fake)

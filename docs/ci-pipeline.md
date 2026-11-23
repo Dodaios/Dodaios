@@ -311,6 +311,15 @@ pull-request code, and only pushes bundles that build on the planned head and
 main, labels, comments, approves parked runs and enqueues. No checkout
 persists a token.
 
+What `integrate` hands on is data to `apply`. Its files are unpacked in a
+folder of their own, apart from the plan, so none of them can stand in for
+`plan.json`; which commit of main an update must contain is worked out from
+the plan, not read from them; and the names they carry are cut and cleaned
+before they go into a comment. The `rerere` cache that every later train
+restores is saved before the step that runs pull-request code. A fork's run
+at the same head commit never counts as a pull request's verdict and is
+never approved by the train.
+
 **Token.** The `apply` job runs in the `merge-train` environment (deployable
 from main only) and mints a short-lived token of the "PersonalJarvis Merge
 Bot" GitHub App (variable `MERGE_APP_ID`, environment secret

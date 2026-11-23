@@ -1683,3 +1683,47 @@ def test_bundle_commit_that_touches_code_is_refused(monkeypatch, tmp_path):
     _base, bundle = _git_history(tmp_path, extra_path="app.py")
     monkeypatch.setattr(release_admit, "run_command", _run_in(tmp_path))
     assert not release_admit.on_main_or_bundle(bundle, "main")
+
+
+# --------------------------------------------------------------------------- merge train trust
+
+
+def _merge_train_job(name: str) -> list[dict]:
+    path = ROOT / ".github" / "workflows" / "merge-train.yml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"][name]["steps"]
+
+
+def test_the_apply_job_unpacks_the_integrate_jobs_files_apart_from_the_plan():
+    """`integrate` runs pull-request code; `apply` holds the write token.
+
+    Unpacked into the plan's folder, a file named plan.json among the
+    integrate job's files would replace the plan the apply job acts on.
+    """
+    steps = _merge_train_job("apply")
+    folders = {
+        step["with"]["name"]: step["with"]["path"]
+        for step in steps
+        if "download-artifact" in step.get("uses", "")
+    }
+    assert folders == {
+        "merge-train-plan": "${{ runner.temp }}/train",
+        "merge-train-updates": "${{ runner.temp }}/train-updates",
+    }
+    run = next(step["run"] for step in steps if step.get("name") == "Run the train")
+    assert 'args=(--dir "$RUNNER_TEMP/train" --updates-dir "$RUNNER_TEMP/train-updates")' in run
+
+
+def test_the_rerere_cache_is_saved_before_pull_request_code_runs():
+    """Every later train restores that cache, so PR code must not write it."""
+    steps = _merge_train_job("integrate")
+    uses = [step.get("uses", "") for step in steps]
+    names = [step.get("name", "") for step in steps]
+    # The combined action saves when the job ends, after PR code ran.
+    assert not [action for action in uses if action.startswith("actions/cache@")]
+    restore = next(i for i, action in enumerate(uses) if "actions/cache/restore@" in action)
+    save = next(i for i, action in enumerate(uses) if "actions/cache/save@" in action)
+    merge = next(i for i, name in enumerate(names) if name.startswith("Merge main into"))
+    pr_code = next(i for i, name in enumerate(names) if name.startswith("Regenerate and bundle"))
+    assert restore < merge < save < pr_code
+    assert steps[restore]["with"]["path"] == steps[save]["with"]["path"] == ".git/rr-cache"
+    assert not [action for action in uses[pr_code:] if action.startswith("actions/cache")]
