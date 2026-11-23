@@ -927,7 +927,7 @@ class TimelineRead:
 
 
 #: The token counts worth carrying — the chat shows output only, but the rest
-#: is what a later cost line would read (dodaios/agent_chat/runner_cli.py).
+#: is what a later cost line would read (dodaios/agent_chat/runner_cli/).
 _USAGE_KEYS = (
     "input_tokens",
     "output_tokens",

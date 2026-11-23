@@ -13,7 +13,7 @@ so its terminals keep running and come back exactly as they were.
 
 A thread is an agent-chat session on the IDE's own surface (`agent`). The
 coding CLI — Claude Code, Codex, OpenCode, Grok Build, Antigravity, … — is
-driven through its own binary (`dodaios/agent_chat/runner_cli.py`), so its
+driven through its own binary (`dodaios/agent_chat/runner_cli/`), so its
 tools, skills, MCP servers, permissions and subscription login are the CLI's,
 and the conversation is the CLI's own session (resumed with its own id). No
 second harness sits in between.

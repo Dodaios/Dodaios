@@ -60,7 +60,7 @@ def test_only_the_chat_package_hands_out_jarvis_tools():
     """The MCP config has exactly one home: nothing outside dodaios/agent_chat builds it."""
     callers: list[str] = []
     for module in sorted((_ROOT / "dodaios").rglob("*.py")):
-        if module.parent.name == "agent_chat":
+        if "agent_chat" in module.relative_to(_ROOT).parts:
             continue
         text = module.read_text(encoding="utf-8", errors="replace")
         if any(

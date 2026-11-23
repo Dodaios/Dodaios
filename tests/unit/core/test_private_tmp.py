@@ -82,7 +82,7 @@ def test_cli_flag_file_lands_in_the_private_folder(
 ) -> None:
     from dodaios.agent_chat import runner_cli
 
-    monkeypatch.setattr(runner_cli, "_is_batch", lambda _path: True)
+    monkeypatch.setattr(runner_cli.base, "_is_batch", lambda _path: True)
 
     value = runner_cli._json_flag_value(["claude.cmd"], '{"hooks": "Bash|Read"}')
 

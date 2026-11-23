@@ -259,7 +259,7 @@ def _plain_replace(monkeypatch: pytest.MonkeyPatch) -> None:
 
         return dataclasses.replace(obj, **changes)
 
-    monkeypatch.setattr(runner_cli, "replace", replace)
+    monkeypatch.setattr(runner_cli.turn, "replace", replace)
 
 
 def _limited(model: str, resets_at: float | None = RESET, family: str = "") -> runner_cli._Outcome:

@@ -97,7 +97,7 @@ def test_empty_live_catalog_never_reintroduces_bundled_models():
 async def test_future_codex_effort_is_kept(monkeypatch, tmp_path):
     seen = []
     monkeypatch.setattr(
-        rc, "read_codex_models", lambda **kwargs: [{"id": "future", "efforts": ["future-effort"]}]
+        rc.codex, "read_codex_models", lambda **kwargs: [{"id": "future", "efforts": ["future-effort"]}]
     )
 
     def planner(**kwargs):
@@ -236,7 +236,7 @@ def test_retired_hidden_and_no_effort_models(monkeypatch):
 
 
 async def test_unlisted_codex_model_is_passed_through_to_codex(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc, "read_codex_models", lambda **kwargs: [{"id": "supported"}])
+    monkeypatch.setattr(rc.codex, "read_codex_models", lambda **kwargs: [{"id": "supported"}])
     seen = {}
 
     def planner(**kwargs):
@@ -267,8 +267,8 @@ def test_cli_catalog_reloads_on_account_and_config_change(monkeypatch, tmp_path,
 
     seat = [str(tmp_path / "one")]
     calls = []
-    monkeypatch.setattr(rc, "_account_env", lambda platform: {"AGENT_CONFIG_DIR": seat[0]})
-    monkeypatch.setattr(rc, "_registry_env", lambda agent, env: env)
+    monkeypatch.setattr(rc.base, "_account_env", lambda platform: {"AGENT_CONFIG_DIR": seat[0]})
+    monkeypatch.setattr(rc.base, "_registry_env", lambda agent, env: env)
     monkeypatch.setattr(rc, f"{family}_argv_prefix", lambda: [family])
     monkeypatch.setattr(
         rc, "_AGY_CATALOG" if family == "agy" else "_OPENCODE_CATALOG", {"at": 0.0, "rows": None}
@@ -301,7 +301,7 @@ def test_cli_catalog_reloads_on_account_and_config_change(monkeypatch, tmp_path,
 
 async def test_claude_effort_is_folded_onto_the_models_own_ladder(monkeypatch, tmp_path):
     seen = []
-    monkeypatch.setattr(rc, "warm_claude_capabilities", lambda: None)
+    monkeypatch.setattr(rc.claude, "warm_claude_capabilities", lambda: None)
 
     def planner(**kwargs):
         seen.append((kwargs["effort"], kwargs["prompt"]))
@@ -336,9 +336,9 @@ def test_agy_models_probe_never_runs_in_the_agent_workspace(monkeypatch, tmp_pat
     workspace = tmp_path / "agent" / "workspace"
     workspace.mkdir(parents=True)
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temp"))
-    monkeypatch.setattr(rc, "_account_env", lambda platform: {})
-    monkeypatch.setattr(rc, "agy_argv_prefix", lambda: ["agy"])
-    monkeypatch.setattr(rc, "_AGY_CATALOG", {"at": 0.0, "rows": None})
+    monkeypatch.setattr(rc.base, "_account_env", lambda platform: {})
+    monkeypatch.setattr(rc.agy, "agy_argv_prefix", lambda: ["agy"])
+    monkeypatch.setattr(rc.agy, "_AGY_CATALOG", {"at": 0.0, "rows": None})
     seen: list[str] = []
 
     def run(*args, **kwargs):

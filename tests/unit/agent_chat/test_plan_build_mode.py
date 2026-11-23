@@ -594,9 +594,9 @@ def _thread(mode: str, build: str = "", surface: str = "agent") -> SimpleNamespa
 
 @pytest.fixture
 def cli_offers_bypass(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(rc.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(claude_auth, "claude_cli_allow_bypass_known", lambda prefix: True)
-    monkeypatch.setattr(rc, "_claude_refuses_bypass_here", lambda: False)
+    monkeypatch.setattr(rc.claude, "_claude_refuses_bypass_here", lambda: False)
 
 
 def test_a_planning_thread_that_returns_to_bypass_starts_with_bypass_on_offer(
@@ -650,7 +650,7 @@ def test_a_cli_that_would_not_start_with_the_offer_is_left_without_it(
     assert argv == _argv("plan")
     # Root outside a sandbox: Claude Code exits instead of offering bypass.
     monkeypatch.setattr(claude_auth, "claude_cli_allow_bypass_known", lambda prefix: True)
-    monkeypatch.setattr(rc, "_claude_refuses_bypass_here", lambda: True)
+    monkeypatch.setattr(rc.claude, "_claude_refuses_bypass_here", lambda: True)
     rc.allow_bypass_after_plan(argv, "claude-cli", thread)
     assert argv == _argv("plan")
 
@@ -658,8 +658,8 @@ def test_a_cli_that_would_not_start_with_the_offer_is_left_without_it(
     def missing() -> list[str]:
         raise rc.CliUnavailable("not installed")
 
-    monkeypatch.setattr(rc, "_claude_refuses_bypass_here", lambda: False)
-    monkeypatch.setattr(rc, "claude_argv_prefix", missing)
+    monkeypatch.setattr(rc.claude, "_claude_refuses_bypass_here", lambda: False)
+    monkeypatch.setattr(rc.claude, "claude_argv_prefix", missing)
     rc.allow_bypass_after_plan(argv, "claude-cli", thread)
     assert argv == _argv("plan")
 
@@ -668,10 +668,10 @@ def test_root_outside_a_sandbox_is_where_claude_code_refuses_bypass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("IS_SANDBOX", raising=False)
-    monkeypatch.setattr(rc.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(rc.claude.os, "geteuid", lambda: 0, raising=False)
     assert rc._claude_refuses_bypass_here() is True
     monkeypatch.setenv("IS_SANDBOX", "1")
     assert rc._claude_refuses_bypass_here() is False
     monkeypatch.delenv("IS_SANDBOX")
-    monkeypatch.setattr(rc.os, "geteuid", lambda: 501, raising=False)
+    monkeypatch.setattr(rc.claude.os, "geteuid", lambda: 501, raising=False)
     assert rc._claude_refuses_bypass_here() is False

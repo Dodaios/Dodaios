@@ -24,7 +24,7 @@ together in one visible thread, bounded and interruptible.
    member, so the rule that no spawn tool enters a worker set (AP-5, AP-14)
    holds unchanged and a team thread can never become an open model loop.
 2. **A member is an ordinary thread session** (agent-chat surface `agent`,
-   `dodaios/agent_chat/runner_cli.py`). Access modes, approval cards, the risk
+   `dodaios/agent_chat/runner_cli/`). Access modes, approval cards, the risk
    check and subscription logins are exactly those of a thread; the coordinator
    adds no second permission path. The engine reaches sessions through a narrow
    port (`team/port.py`), so tests script the peers without a model.

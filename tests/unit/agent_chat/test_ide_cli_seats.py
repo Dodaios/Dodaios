@@ -318,12 +318,12 @@ def test_kimi_arguments_that_are_not_json_are_kept_rather_than_dropped() -> None
 
 @pytest.fixture
 def stubbed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rc, "opencode_argv_prefix", lambda: ["opencode"])
-    monkeypatch.setattr(rc, "kimi_argv_prefix", lambda: ["kimi"])
-    monkeypatch.setattr(rc, "dsh_argv_prefix", lambda: ["dsh"])
-    monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(rc, "_account_env", lambda platform: {"HOME": "h"})
-    monkeypatch.setattr(rc, "_registry_env", lambda agent, base: {**base, "AGENT": agent})
+    monkeypatch.setattr(rc.opencode, "opencode_argv_prefix", lambda: ["opencode"])
+    monkeypatch.setattr(rc.kimi, "kimi_argv_prefix", lambda: ["kimi"])
+    monkeypatch.setattr(rc.custom, "dsh_argv_prefix", lambda: ["dsh"])
+    monkeypatch.setattr(rc.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(rc.base, "_account_env", lambda platform: {"HOME": "h"})
+    monkeypatch.setattr(rc.base, "_registry_env", lambda agent, base: {**base, "AGENT": agent})
     monkeypatch.setattr(rc.dodaios_harness, "mcp_config_json", lambda sid=None: None)
 
 
@@ -382,7 +382,7 @@ def test_plan_kimi_prints_json_and_finds_its_session_afterwards(stubbed: None) -
 def test_plan_cursor_prints_stream_json_and_maps_the_stances(
     stubbed: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(rc, "cursor_argv_prefix", lambda: ["agent"])
+    monkeypatch.setattr(rc.cursor, "cursor_argv_prefix", lambda: ["agent"])
     plan = rc.plan_cursor(
         prompt="fix it",
         cwd=Path("."),
@@ -477,8 +477,8 @@ def test_opencode_models_reads_provider_slash_model_lines(monkeypatch: pytest.Mo
         b"\n"
         b"not a model\n"
     )
-    monkeypatch.setattr(rc, "opencode_argv_prefix", lambda: ["opencode"])
-    monkeypatch.setattr(rc, "_registry_env", lambda agent, base: base)
+    monkeypatch.setattr(rc.opencode, "opencode_argv_prefix", lambda: ["opencode"])
+    monkeypatch.setattr(rc.base, "_registry_env", lambda agent, base: base)
     monkeypatch.setattr(
         subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=out, returncode=0)
     )

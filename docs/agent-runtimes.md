@@ -625,7 +625,7 @@ an issue and leaves the pin where it is.
 | Every process a runtime starts, tracked for shutdown | `dodaios/core/process_tree.py` (`DescendantTracker`) |
 | CI: lane table, pins for CI, canary pin raise; setup-through-the-app check | `scripts/ci/agent_runtime_suite.py`, `scripts/ci/agent_runtime_e2e.py` |
 | Turn planning for the chat | `dodaios/agent_chat/runner_acp.py` |
-| Process, pump, rollover, approvals (shared with every CLI seat) | `dodaios/agent_chat/runner_cli.py` |
+| Process, pump, rollover, approvals (shared with every CLI seat) | `dodaios/agent_chat/runner_cli/` |
 | The agent's `runtime` field | `dodaios/society/roster.py`, `society_schema.sql` |
 
 ## Routines

@@ -197,8 +197,8 @@ def test_the_probe_sends_the_handshake_only_and_leaves_nothing_behind(tmp_path, 
         ]
         return SimpleNamespace(stdout="\n".join(lines).encode("utf-8"), returncode=0)
 
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {"SEAT": platform})
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {"SEAT": platform})
     monkeypatch.setattr(subprocess, "run", _run)
 
     assert runner_cli.read_claude_commands("claude-cli", tmp_path) == REPORT
@@ -227,15 +227,15 @@ def test_a_cli_that_cannot_answer_is_no_list_not_an_error(tmp_path, monkeypatch,
     def _run(argv, **kwargs):
         raise failure
 
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {})
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {})
     monkeypatch.setattr(subprocess, "run", _run)
     assert runner_cli.read_claude_commands("claude-cli", tmp_path) is None
 
 
 def test_an_older_cli_that_prints_no_list_is_no_list(tmp_path, monkeypatch):
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {})
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {})
     monkeypatch.setattr(
         subprocess,
         "run",

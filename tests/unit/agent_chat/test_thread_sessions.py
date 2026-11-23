@@ -70,7 +70,7 @@ def test_codex_fork_starts_a_fresh_cli_conversation(client):
 
 
 def test_claude_planner_forks_a_pending_fork_and_resumes_a_plain_id(monkeypatch):
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
 
     def argv(resume):
         return runner_cli.plan_claude(

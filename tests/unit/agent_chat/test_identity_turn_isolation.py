@@ -18,11 +18,11 @@ from dodaios.core import runtime_refs
 
 @pytest.fixture(autouse=True)
 def _app(monkeypatch):
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
-    monkeypatch.setattr(runner_cli, "read_codex_models", lambda **_: None)
-    monkeypatch.setattr(runner_cli, "_registry_env", lambda agent, base: dict(base))
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
+    monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok"])
+    monkeypatch.setattr(runner_cli.codex, "read_codex_models", lambda **_: None)
+    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda agent, base: dict(base))
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     yield
@@ -139,11 +139,15 @@ def test_the_seats_without_a_flag_for_it_plan_no_unknown_options(
 ):
     """Gaps are documented, not papered over with flags the CLI may not know."""
     for prefix in ("agy", "opencode", "kimi", "cursor", "dsh"):
-        monkeypatch.setattr(runner_cli, f"{prefix}_argv_prefix", lambda p=prefix: [p])
+        monkeypatch.setattr(
+            getattr(runner_cli, {"dsh": "custom"}.get(prefix, prefix)),
+            f"{prefix}_argv_prefix",
+            lambda p=prefix: [p],
+        )
     monkeypatch.setattr(
         runner_cli.dodaios_harness, "install_agy_jarvis_plugin", lambda *a, **k: None
     )
-    monkeypatch.setattr(runner_cli, "_agy_catalog_cached", lambda: None)
+    monkeypatch.setattr(runner_cli.agy, "_agy_catalog_cached", lambda: None)
     with_identity = _plan(getattr(runner_cli, planner), tmp_path, _identity(tmp_path, "lead-1"))
     without = _plan(getattr(runner_cli, planner), tmp_path, None)
     assert runner_cli.identity_turn_flags(runner, _identity(tmp_path, "lead-1")) == []

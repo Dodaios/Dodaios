@@ -304,7 +304,7 @@ def test_agy_plugin_is_skipped_when_the_app_is_not_ready(tmp_path, monkeypatch):
 def test_claude_argv_carries_the_tools_and_the_identity(monkeypatch):
     from dodaios.agent_chat import runner_cli
 
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
 
@@ -329,7 +329,7 @@ def test_a_chat_without_a_ready_app_spawns_exactly_as_before(monkeypatch):
 
     from dodaios.agent_chat import runner_cli
 
-    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: None)
 
     plan = runner_cli.plan_claude(
