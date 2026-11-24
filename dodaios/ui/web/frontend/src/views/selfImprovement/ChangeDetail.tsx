@@ -111,10 +111,12 @@ export function ChangeDetail({
               </Field>
               {change.track && (
                 <Field label={t("self_improvement.track.title")}>
-                  <p className="text-base tabular-nums text-foreground" data-testid="si-detail-track">
-                    {trackSentence(t, change.track, locale)}
-                  </p>
-                  <Quiet>{t("self_improvement.track.caveat")}</Quiet>
+                  <div className="space-y-1">
+                    <p className="text-base tabular-nums text-foreground" data-testid="si-detail-track">
+                      {trackSentence(t, change.track, locale)}
+                    </p>
+                    <Quiet>{t("self_improvement.track.caveat")}</Quiet>
+                  </div>
                 </Field>
               )}
             </>
