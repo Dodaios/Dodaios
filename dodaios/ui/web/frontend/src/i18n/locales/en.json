@@ -9543,7 +9543,14 @@
       "unavailable": "This file cannot be read. It may have been moved or deleted.",
       "no_workspace": "Open a project to read files here.",
       "show_change": "Show the change",
-      "change_truncated": "{count} more lines are not shown."
+      "change_truncated": "{count} more lines are not shown.",
+      "unsaved": "Unsaved changes",
+      "save": "Save",
+      "saving": "Saving…",
+      "conflict": "The file changed on disk since you opened it.",
+      "overwrite": "Overwrite",
+      "discard": "Discard my changes",
+      "save_failed": "Could not save: {error}"
     }
   },
   "appshots": {
