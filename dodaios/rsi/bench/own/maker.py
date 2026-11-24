@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 
 from dodaios.memory.vault import runtime as vault_runtime
 from dodaios.memory.vault.models import Memory
@@ -231,45 +231,64 @@ class OwnRecallMaker:
             return report
         memories = vault.list()
         report["forgotten"] = self._forget({m.id for m in memories})
-        texts = chat.person_messages(self._chat_db)
-        in_mind = vault_runtime.in_mind_ids(vault)
-        state = self._state()
+        material = _Material(
+            vault,
+            memories,
+            chat.person_messages(self._chat_db),
+            vault_runtime.in_mind_ids(vault),
+            self._state(),
+        )
         allowance = allowance if isinstance(allowance, Budget) else Budget(allowance)
         want = wants or (lambda: "build until the allowance ends")
         budget = _Budget(self._ask, allowance)
-        more_questions = more_messages = True
-        dry = 0
         try:
-            # One batch of every round goes to questions while memories wait for one,
-            # so both kinds grow from the first round on.
-            if want():
-                first = self._questions(memories, texts, state, budget)
-                more_questions = first is not None
-                report["questions"] += first or 0
-                dry = 1 if first == 0 and budget.open and not budget.short else 0
-            # Real messages first: they are the kind of task that tells changes apart.
-            while budget.open and (more_messages or more_questions) and dry < DRY_BATCHES:
-                if not want():
-                    break
-                if more_messages:
-                    made = self._messages(vault, texts, in_mind, state, budget)
-                    # Two calls do not fit what is left: the questions take one each.
-                    more_messages = made is not None and not budget.short
-                    report["messages"] += made or 0
-                else:
-                    made = self._questions(memories, texts, state, budget)
-                    more_questions = made is not None and not budget.short
-                    report["questions"] += made or 0
-                if made is not None and not budget.short:
-                    dry = dry + 1 if made == 0 and budget.open else 0
+            more, dry = self._build(material, budget, want, report)
         finally:
-            self._save(state)
+            self._save(material.state)
         report["calls"] = budget.calls
         report["deferred"] = budget.deferred
-        report["until"] = _until(budget, want, more_messages or more_questions, dry)
+        report["until"] = _until(budget, want, more, dry)
         report["share"] = round(allowance.share, 2)
         report["usage_read"] = allowance.read
         return report
+
+    def _build(
+        self, m: _Material, budget: _Budget, want: Wants, report: dict[str, Any]
+    ) -> tuple[bool, int]:
+        """Batches while the gate wants tasks. Returns (material left, dry batches in a row)."""
+        more_questions = more_messages = True
+        dry = 0
+        # One batch of every round goes to questions while memories wait for one,
+        # so both kinds grow from the first round on.
+        if want():
+            first = self._questions(m.memories, m.texts, m.state, budget)
+            more_questions = first is not None
+            report["questions"] += first or 0
+            dry = 1 if first == 0 and budget.open and not budget.short else 0
+        # Real messages first: they are the kind of task that tells changes apart.
+        while budget.open and (more_messages or more_questions) and dry < DRY_BATCHES and want():
+            if more_messages:
+                made = self._messages(m.vault, m.texts, m.in_mind, m.state, budget)
+                # Two calls do not fit what is left: the questions take one each.
+                more_messages = made is not None and not budget.short
+                report["messages"] += made or 0
+            else:
+                made = self._questions(m.memories, m.texts, m.state, budget)
+                more_questions = made is not None and not budget.short
+                report["questions"] += made or 0
+            if made is not None and not budget.short:
+                dry = dry + 1 if made == 0 and budget.open else 0
+        return more_messages or more_questions, dry
+
+
+class _Material(NamedTuple):
+    """What one round builds from: the memory copy, the person's messages, the state."""
+
+    vault: MemoryVault
+    memories: list[Memory]
+    texts: list[str]
+    in_mind: frozenset[str]
+    state: dict[str, Any]
 
 
 def _until(budget: _Budget, want: Wants, more: bool, dry: int) -> str:
