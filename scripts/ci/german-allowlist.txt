@@ -501,3 +501,7 @@ tests/unit/life_admin/*
 
 # --- Stargazer map gazetteer: place names and their local spellings (data, not prose) ---
 .github/stargazer-map/gazetteer.json
+
+# --- Model-text snapshots: verbatim copies of tool schemas whose examples are German on purpose ---
+tests/snapshots/model_texts/lead_tool_descriptions.txt
+tests/snapshots/model_texts/lead_tool_schemas.txt

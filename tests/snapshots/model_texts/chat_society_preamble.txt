@@ -1,0 +1,1 @@
+Your Dodaios tools (society_* and the rest) come from the `dodaios` MCP server (Claude Code: `mcp__dodaios__<tool>`; Grok Build: `dodaios__<tool>` through use_tool). Your own file and shell tools act on this chat's working folder only. You are this turn's worker: spawn no sub-agents.
