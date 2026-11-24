@@ -10,7 +10,14 @@ user message from stdin (``stdin.jsonl``), then plays a turn:
   ``delegate`` tool; then it waits and, if nobody stopped it, writes
   ``ran-on.txt`` (what a tool run after the first move would be);
 * ``text``: a text answer and the end of the turn;
-* ``model``: like ``tool``, but on another model than it was asked for.
+* ``model``: like ``tool``, but on another model than it was asked for;
+* ``brief``: asks for the brief kit (``delegate`` with ``options.prepare``), asks
+  permission for it (the answer goes to ``answer.json``), and when it was allowed
+  reads the kit as the replay's tool server would hand it over: the one answer
+  file in the server's answers folder (``kit.txt``). Then it hands the work over
+  with a brief that names ``dodaios/x.py``;
+* ``look``: like ``brief``, but it searches the repository with ``Grep`` first
+  (``look.txt`` gets the answer) instead of asking for the kit.
 """
 
 from __future__ import annotations
@@ -50,6 +57,8 @@ def main() -> int:
             },
         }
     )
+    if mode in ("brief", "look"):
+        return brief(args, out, model, look=mode == "look")
     if mode == "text":
         emit(
             {
@@ -109,6 +118,70 @@ def main() -> int:
     )
     time.sleep(20)
     (out / "ran-on.txt").write_text("the turn went on past its first move", encoding="utf-8")
+    return 0
+
+
+KIT_CALL = {"target": "coding_agent", "task": "Fix the flicker", "options": {"prepare": True}}
+BRIEF = "Stop the flicker when switching chats. Start in dodaios/x.py. Done: no flicker."
+
+
+def _assistant(mid: str, model: str, content: list[dict]) -> None:
+    emit({"type": "assistant", "message": {"id": mid, "model": model, "content": content}})
+
+
+LOOK_CALL = {"pattern": "flicker", "path": ""}
+
+
+def brief(args: list[str], out: Path, model: str, *, look: bool = False) -> int:
+    config_file = Path(args[args.index("--mcp-config") + 1])
+    (out / "mcp.json").write_text(config_file.read_text(encoding="utf-8"), encoding="utf-8")
+    name, call = ("mcp__dodaios__Grep", LOOK_CALL) if look else ("mcp__dodaios__delegate", KIT_CALL)
+    if look:
+        # The lead searches its clone, which the test names in ``clone.txt``.
+        call = {**LOOK_CALL, "path": (out / "clone.txt").read_text(encoding="utf-8").strip()}
+    _assistant(
+        "m1",
+        model,
+        [
+            {"type": "text", "text": "On it."},
+            {"type": "tool_use", "id": "t1", "name": name, "input": call},
+        ],
+    )
+    emit(
+        {
+            "type": "control_request",
+            "request_id": "r1",
+            "request": {"subtype": "can_use_tool", "tool_name": name, "input": call},
+        }
+    )
+    answer = sys.stdin.readline()
+    (out / "answer.json").write_text(answer, encoding="utf-8")
+    decision = json.loads(answer)["response"]["response"]["behavior"]
+    if decision == "allow":
+        # What the CLI would do next: call the tool server, which hands over the answer file.
+        config = json.loads(Path(args[args.index("--mcp-config") + 1]).read_text())
+        answers = Path(config["mcpServers"]["dodaios"]["args"][-1])
+        deadline = time.monotonic() + 10
+        found: list[Path] = []
+        while not found and time.monotonic() < deadline:
+            found = sorted(answers.glob("*.json"))
+            time.sleep(0.05)
+        text = json.loads(found[0].read_text(encoding="utf-8"))["text"] if found else ""
+        (out / ("look.txt" if look else "kit.txt")).write_text(text, encoding="utf-8")
+    _assistant(
+        "m2",
+        model,
+        [
+            {
+                "type": "tool_use",
+                "id": "t2",
+                "name": "mcp__dodaios__delegate",
+                "input": {"target": "coding_agent", "task": BRIEF},
+            }
+        ],
+    )
+    time.sleep(20)
+    (out / "ran-on.txt").write_text("the turn went on past the brief", encoding="utf-8")
     return 0
 
 

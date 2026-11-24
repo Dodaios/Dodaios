@@ -386,7 +386,7 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
         />
         {savingHeadline && (
           <Figure
-            label={t("self_improvement.area.cost_label")}
+            label={areaText(t, point.domain, "cost_label")}
             value={fmtPercent(saving, locale)}
             unit={t("self_improvement.area.shorter")}
             testId="si-saving"
@@ -396,7 +396,7 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
       </div>
       <p className="mt-4 text-sm leading-relaxed text-foreground">{t("self_improvement.area.meaning")}</p>
       <p className="mt-1 text-sm leading-relaxed text-foreground" data-testid="si-range">
-        {fill(t(`self_improvement.area.${rangeKey}`), { ...range, pct: fmtPercent(saving, locale) })}
+        {fill(areaText(t, point.domain, rangeKey), { ...range, pct: fmtPercent(saving, locale) })}
       </p>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-t border-border pt-3 text-sm">
         <div className="contents">
@@ -425,7 +425,7 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
           ))}
         {!savingHeadline && (
           <div className="contents">
-            <dt className="text-muted-foreground">{t("self_improvement.area.cost_label")}</dt>
+            <dt className="text-muted-foreground">{areaText(t, point.domain, "cost_label")}</dt>
             <dd className="tabular-nums text-foreground" data-testid="si-cost">
               {fill(t(costChanged ? "self_improvement.area.cost" : "self_improvement.area.cost_same"), tokens)}
             </dd>
@@ -637,7 +637,8 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
   const minutes = Math.round(limits.idle_after_s / 60);
   const hours = Math.round(limits.every_s / 3600);
   const modelFree = domains.every((d) => MODEL_FREE_DOMAINS.has(d.domain));
-  const replays = domains.some((d) => d.domain === "first_move");
+  // The first move and the briefs replay lead turns on one shared nightly limit.
+  const replays = domains.some((d) => d.domain === "first_move" || d.domain === "brief");
   return (
     <section data-testid="si-foot" aria-labelledby="si-foot-title" className="mt-12 border-t border-border px-1 pt-6">
       <h2 id="si-foot-title" className="text-sm font-medium text-foreground">{t("self_improvement.how.title")}</h2>

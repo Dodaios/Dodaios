@@ -16,4 +16,4 @@ def real_past_work() -> None:
 def no_real_coding_records(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     """A night under test never reads this machine's own coding records."""
     if "real_past_work" not in request.fixturenames:
-        monkeypatch.setattr(nights, "_past_work", lambda bench, homes=None: {})
+        monkeypatch.setattr(nights, "_past_work", lambda bench, homes=None, folders=None: {})

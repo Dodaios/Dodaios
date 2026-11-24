@@ -35,8 +35,8 @@ export function fmtPercent(share: number, locale: string): string {
   return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(share);
 }
 
-/** Domains whose cost is the prompt a task adds, in tokens. */
-const TOKEN_COST_DOMAINS: ReadonlySet<string> = new Set(["recall", "first_move"]);
+/** Domains whose cost is counted in tokens (the prompt a task adds; for briefs, the message and the brief). */
+const TOKEN_COST_DOMAINS: ReadonlySet<string> = new Set(["recall", "first_move", "brief"]);
 
 export type Certainty = "better" | "worse" | "unclear";
 
@@ -105,21 +105,33 @@ export function paramAbout(t: T, name: string, doc = ""): string {
 }
 
 /**
- * A switched line beside the lead's messages as one plain sentence ("Dropped the
- * line …"), from the page's strings; "" when `name` switches no line or the value
- * is no switch. A line switch is a parameter with on/off sentences
- * (`self_improvement.line.<key>`; the kernel's list is dodaios/rsi/lines.py).
+ * A changed line beside the lead's messages as one plain sentence ("Dropped the
+ * line …"), from the page's strings; "" when `name` changes no line. A line has a
+ * switch (on/off sentences) or a choice of fixed wordings (one sentence per
+ * wording, `v<n>`) under `self_improvement.line.<key>`; the kernel's list is
+ * dodaios/rsi/lines.py.
  */
 export function lineSentence(t: T, name: string, after: unknown): string {
-  if (typeof after !== "boolean") return "";
-  const key = `self_improvement.line.${paramKey(name)}.${after ? "on" : "off"}`;
+  let which: string;
+  if (typeof after === "boolean") which = after ? "on" : "off";
+  else if (typeof after === "number" && Number.isInteger(after)) which = `v${after}`;
+  else return "";
+  const key = `self_improvement.line.${paramKey(name)}.${which}`;
   const text = t(key);
   return text !== key ? text : "";
 }
 
-/** A value as the person reads it, with on and off in words for a switch. */
-export function valueWords(t: T, value: unknown, locale: string): string {
+/**
+ * A value as the person reads it: on and off in words for a switch, and a
+ * wording's short name for a line with fixed wordings (`self_improvement.wording.<key>.v<n>`).
+ */
+export function valueWords(t: T, value: unknown, locale: string, name = ""): string {
   if (typeof value === "boolean") return t(value ? "self_improvement.value.on" : "self_improvement.value.off");
+  if (name && typeof value === "number" && Number.isInteger(value)) {
+    const key = `self_improvement.wording.${paramKey(name)}.v${value}`;
+    const word = t(key);
+    if (word !== key) return word;
+  }
   return fmtValue(value, locale);
 }
 
@@ -155,9 +167,11 @@ export function costWords(t: T, domain: string, costDiff: number | null | undefi
   if (!TOKEN_COST_DOMAINS.has(domain) || typeof costDiff !== "number") return "";
   const tokens = Math.round(costDiff);
   if (tokens === 0) return "";
-  return fill(t(tokens < 0 ? "self_improvement.effect.shorter" : "self_improvement.effect.longer"), {
-    tokens: fmtTokens(Math.abs(tokens), locale),
-  });
+  // An area whose cost is not the prompt names its own (briefs: the message and the brief).
+  const way = tokens < 0 ? "shorter" : "longer";
+  const own = `self_improvement.domain.${domain}.effect_${way}`;
+  const text = t(own) !== own ? t(own) : t(`self_improvement.effect.${way}`);
+  return fill(text, { tokens: fmtTokens(Math.abs(tokens), locale) });
 }
 
 /**

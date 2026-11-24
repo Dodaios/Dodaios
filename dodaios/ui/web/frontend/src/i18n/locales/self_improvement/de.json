@@ -35,6 +35,16 @@
         "about": "Greift der Assistent zuerst zum richtigen Werkzeug, und sagt er vorher in einer Zeile, was er übernimmt?",
         "building": "Bisher gibt es {n} Testaufgaben aus deinen eigenen Chats mit dem Assistenten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}.",
         "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deinen Chats. Sie entstehen aus Antworten, die du so stehen lässt, und aus Antworten, die der Assistent richtig gemacht hat, nachdem du ihn korrigiert hast."
+      },
+      "brief": {
+        "name": "Aufträge",
+        "about": "Zeigt der Auftrag, den der Assistent für einen Coding-Agenten schreibt, auf die Dateien, die die Arbeit am Ende gebraucht hat?",
+        "building": "Bisher gibt es {n} Testaufgaben aus deiner früheren Programmierarbeit. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}.",
+        "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner früheren Programmierarbeit. Sie entstehen aus Anfragen, die du einem Coding-Agenten geschrieben hast, und dem Pull Request, der dafür gemergt wurde.",
+        "cost_label": "Nachricht und Auftrag pro Aufgabe",
+        "effect_shorter": "Nachricht und Auftrag {tokens} Tokens kürzer",
+        "effect_longer": "Nachricht und Auftrag {tokens} Tokens länger",
+        "range_unclear_cheaper": "Soweit gemessen ist er so gut wie im Auslieferungszustand: Der Qualitätsunterschied liegt zwischen {low} und {high} Punkten, und das schließt null ein. Nachricht und Auftrag sind {pct} kürzer."
       }
     },
     "area": {
@@ -181,7 +191,7 @@
       "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
       "models_ramp": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht ({ramp}-mal in den ersten Nächten, solange es zu wenige Aufgaben zum Entscheiden gibt), über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
       "measure_no_model": "Das Messen selbst fragt kein Modell.",
-      "measure_first_move": "Den ersten Schritt misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt: höchstens {calls}-mal pro Nacht, nie, solange ein Nutzungsfenster zu 80 % voll ist, und nie mehr als {share} % eines Fensters in einer Nacht.",
+      "measure_first_move": "Den ersten Schritt und die Aufträge misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt: höchstens {calls} Modellaufrufe pro Nacht für beides zusammen, nie, solange ein Nutzungsfenster zu 80 % voll ist, und nie mehr als {share} % eines Fensters in einer Nacht.",
       "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
     },
     "param": {
@@ -240,6 +250,10 @@
       "lead_first_line": {
         "title": "Einleitende Zeile vor einem Werkzeug",
         "about": "Neben jeder deiner Nachrichten: vor dem ersten Werkzeug eine kurze Zeile schreiben, die die Aufgabe übernimmt."
+      },
+      "lead_brief_line": {
+        "title": "Wortlaut der Auftragszeile",
+        "about": "Neben jeder deiner Nachrichten: wie der Assistent gebeten wird, die Dateien nachzuschlagen, bevor er einem Coding-Agenten einen Auftrag gibt."
       }
     },
     "daily": {
@@ -290,11 +304,23 @@
       "lead_first_line": {
         "off": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist weggefallen.",
         "on": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist wieder da."
+      },
+      "lead_brief_line": {
+        "v0": "Der ausgelieferte Wortlaut der Zeile neben deinen Nachrichten, die sagt, wie ein Coding-Agent beauftragt wird, ist wieder da.",
+        "v1": "Die Zeile neben deinen Nachrichten bittet jetzt mit weniger Worten darum, die Dateien nachzuschlagen, bevor ein Coding-Agent beauftragt wird.",
+        "v2": "Die Zeile neben deinen Nachrichten bittet nicht mehr darum, die Dateien nachzuschlagen, bevor ein Coding-Agent beauftragt wird."
       }
     },
     "value": {
       "on": "an",
       "off": "aus"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "wie ausgeliefert",
+        "v1": "kürzeres Nachschlagen",
+        "v2": "ohne Nachschlagen"
+      }
     }
   }
 }

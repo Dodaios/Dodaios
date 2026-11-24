@@ -60,7 +60,7 @@ with the app and from the person's own past work.
 | `first_move` | the lead's first tool call for a request | one call |
 | `action` | a whole turn reaches the same committing call | one turn |
 | `answer` | a jury of other model families prefers it, blind | turn and jury |
-| `brief` | the brief names what the merged change needed | one call |
+| `brief` | the brief names what the merged change needed | a replay (two calls or more) |
 | `coding` | the tests that were merged pass | a coding run |
 
 ### The seed suite
@@ -222,7 +222,8 @@ no model; a record or clone that cannot be read is logged and costs nothing
 else of the night. The night's report says how many tasks it stored. Measured
 on 2026-11-23 on the maintainer's machine: 154 sessions in 2 repositories, 261
 tasks stored in 48 seconds the first night, 31 seconds on later nights with
-nothing new. No runner is registered for `brief` and `coding` yet, so these
+nothing new. The `brief` tasks are measured by the brief replay (see "Replaying
+a lead turn up to its brief"); no runner is registered for `coding` yet, so those
 tasks are kept, not measured.
 
 Measured on 2026-11-23 on the maintainer's machine: 151 sessions had opened
@@ -247,15 +248,106 @@ The score is the balance of the two (the harmonic mean of found and
 1 - astray). A brief that names the one file most of the work was in scores
 well, one that lists every file in sight does not, and one that names no file
 scores 0. A file is named by its path, by its file name where that name tells
-files apart, or, for Python, by its dotted module. The cost is the brief's
-length in tokens.
+files apart, or, for Python, by its dotted module, also with the clone's own
+folder in front. The check's own cost is the brief's length in tokens; a
+replayed task costs the lead's message and the brief (see below).
 
 Not scored yet: whether the brief already said what the person had to add
-afterwards; that needs a judge. And nothing writes the brief for a task yet:
-the check takes a text. Applied to the opening words of the mined sessions as
-they stand (2026-11-23): a typed request scores 0, as it should, and the eight
-openings that were briefs themselves average 0.08. That is where the briefs
-of the past stood on this measure.
+afterwards; that needs a judge. Applied to the opening words of the mined
+sessions as they stand (2026-11-23): a typed request scores 0, as it should,
+and the eight openings that were briefs themselves average 0.08. That is where
+the briefs of the past stood on this measure. The brief the lead writes today
+comes from a replay (next section).
+
+### Replaying a lead turn up to its brief
+
+A brief task gives the lead a request the person once typed into a coding
+agent, and asks what brief the lead writes for it today
+(`dodaios/rsi/bench/brief_replay.py`, `brief_world.py`).
+
+**What the lead does first.** Before this runner was built, eleven real
+replays on the lead's plan answered that (2026-11-24, the lead on Claude Code,
+its recorded system prompt and the routing eval's tool list). With the app's
+tools in reach the lead never wrote the brief at once: its first move was
+`delegate` with `options.prepare` (the brief kit) in all three such replays,
+as in the two recorded live turns that handed coding work over. In five more
+replays the replay's tool server had failed to start (a setup fault of the
+trial, since fixed: see below); without its tools the lead said the connection
+to the app was gone and searched the repository with the CLI's own `Grep` and
+`Read`. The last three replays ran the runner as it is now: each asked for the
+kit, got it, and handed the work over (two model calls, 17 to 20 seconds; one
+read three files first, five calls). Their briefs scored 0, 0 and 0.18.
+
+**The task's form.** So a replay answers the calls by which the lead reads
+the repository, and nothing else:
+
+- the brief kit, once: built by the app's own code for the lead's own wording,
+  from the repository as it was when the work started (`base`), and rendered
+  as the app's tool server renders it. It writes nothing: the glossary's use
+  counters stay as they are;
+- the app's read-only folder tools (`Read`, `Grep`, `Glob`, `Ls`), run by the
+  app's own code in that repository: a path in the person's clone is read at
+  the same place there, a path outside the repository is not answered;
+- at most four answered calls in all.
+
+The first call that is not answered is the move. A hand-off (`delegate`) is
+the brief; its task, context and done-when are scored. A text answer or a
+question on the card is no brief: score 0, and it costs as much as a long
+brief (2,000 tokens besides the message), so not handing over never looks
+cheaper than handing over. Anything else (the shell, the person's memory, a
+look outside the repository, the kit asked for again, a fifth look) is void
+with what it was.
+
+**The repository as it was.** For each repository a night makes one scratch
+clone under `rsi/brief` in the data folder (`git clone --shared --no-checkout`
+from the person's clone: it borrows the objects and never touches that clone,
+its index, its branches or its worktrees) and moves it to each task's commit,
+hooks and large-file downloads off. It is removed at the end of the night. A
+task whose repository is not on this machine, whose commit is not in the
+clone, or whose request showed a picture is void with the reason, before
+anything is spent.
+
+**What the lead is given.** The input of one recorded lead turn, pinned in
+`bench.db` while that row exists and the lead stays on the same CLI and model:
+its system prompt, and its message with the person's words replaced by the
+request and one fixed line, *"(Have a coding agent do this, in the repository
+<id>, local folder <folder>.)"*. The standing lines are applied as the run's
+overlay says. Both arms of every comparison get the same template and the same
+line. The pin keeps a result reusable and a comparison the budget cut short
+comparable on the next night; the newest turn changes with every message.
+
+What the fixed line costs in fidelity: the person typed the request into a
+coding agent, so it never reached the lead. The line says what that choice
+said, that a coding agent is to do it and where. Without it the lead read
+"fix this" as addressed to itself and went through the code the way an agent
+would (a real replay read six files and was still reading). With it the lead
+may look into the code a little less than it would for a request typed to it
+openly; both arms lose the same.
+
+**The replay's safety.** A replay starts the CLI in its default permission
+mode whatever the person set for their own sessions (on the maintainer's
+machine that is "bypass", which would let the CLI run its own tools without
+asking), and without the CLI's own writing tools (`Edit`, `Write`,
+`MultiEdit`, `NotebookEdit`) or shell. A brief replay also goes without the
+CLI's own reading tools: they would read the person's clone as it is today,
+merged change included. Only a call of the app's own server is ever answered;
+everything else stays refused and unrun. The replay's tool server runs the
+replay's own code (`PYTHONPATH`), not an installed copy of the app.
+
+**Cost and budget.** A task's cost is the lead's message and the brief, in
+tokens: the line under test rides in every message, the brief is what the
+agent then reads. A brief replay counts one call against the night's replay
+limit, and one more for each call it answers (each makes the CLI ask the model
+again). The limit is the one first_move uses: one `Budget` object serves both
+worlds of a night (see "What a night's replays may spend"). A run the limit
+cuts in the middle is void as cut by the budget, and the comparison carries on
+the next night.
+
+**What it cannot see.** Whether the brief said what the person had to add
+afterwards; whether the brief check that may send a brief back once would
+have done so (the first brief is scored); a look-up that is not a folder tool
+(the shell, the person's memory, the web); the conversation before the turn;
+and everything after the hand-off: what the agent then did with the brief.
 
 ### How the first_move domain scores
 
@@ -335,7 +427,7 @@ record names it, it is not part of the input), so a replay starts a fresh
 conversation with the recorded system prompt and message. Only Claude Code has a
 replay today; the domain's tasks wait on another lead CLI.
 
-### What a first_move night may spend
+### What a night's replays may spend
 
 Fixed in `dodaios/rsi/budget.py` and asked before every call:
 
@@ -343,7 +435,9 @@ Fixed in `dodaios/rsi/budget.py` and asked before every call:
   environment (it would bill that key per token), not cooling down after a
   limit. Without that, no replay is built and the tasks wait;
 - only while the person is away; a call is not started once they are back;
-- at most **40 replays a night**. A lead call carries the lead's system prompt,
+- at most **40 replay calls a night**, for first_move and brief together (one
+  `Budget` object serves both; a brief replay takes one call and one more for
+  each call it answers). A lead call carries the lead's system prompt,
   about 50 000 characters (some 12 500 tokens), plus the CLI's own prompt and
   the tool list; 40 calls are roughly half a million input tokens, most of them
   read from the provider's cache because the system prompt repeats. That is
@@ -602,9 +696,9 @@ Nothing is announced: no notice, no sound, no voice. The app looks every ten
 minutes whether a night is due: the person must have been away for 15 minutes,
 and there is at most one night in 20 hours. Measuring the recall asks no
 model; building tasks does, at most eight small calls a night (24 while too few
-tasks exist to decide on). Measuring the first move replays lead turns, at most
-40 calls a night (see "What a first_move night may spend"). The limits are
-fixed in the code, not in a setting: only while the person is away, on the
+tasks exist to decide on). Measuring the first move and the briefs replays lead
+turns, at most 40 calls a night for both together (see "What a night's replays
+may spend"). The limits are fixed in the code, not in a setting: only while the person is away, on the
 assistant's subscription or a local model, never a key that bills per token,
 and no more than 20 % of a plan's usage window in one night. The person's stop
 (`Night.pause`) is kept in `bench.db` and
@@ -631,12 +725,21 @@ drop that loses nothing there and is at least 5 % cheaper. The gate lets it in
 only by its rules: as good and at least 5 % cheaper, or better.
 
 It only ever offers a line the kernel lists as learnable (`dodaios/rsi/lines.py`):
-one whose effect a benchmark sees. Today that is `FIRST_LINE` alone, switched
-by the parameter `lead.first_line`. The reply's shape, a brief's wording, how
-long the model works and a question later in the turn are not seen by the first
-move, so a drop of `REPLY_SHAPE_LINE`, `BRIEF_LINE`, `EFFORT_LINE` or
-`QUESTION_CARD_LINE` would pass a gate that cannot see its harm; they have no
-switch. A dropped line is a self-change like every other: it shows in the list
+one whose effect a benchmark sees, and only in the domain that sees it. Today
+that is `FIRST_LINE`, switched by `lead.first_line` and measured by first_move,
+and `BRIEF_LINE`, whose wording `lead.brief_line` picks and the brief domain
+measures. `BRIEF_LINE` has three fixed wordings written in the code, never by a
+model: as shipped (look the files up with the brief kit, then brief), the same
+look-up asked for in fewer words, and no look-up asked for. They differ only in
+the look-up, whose effect is the files a brief names and its length; the rest
+of the line (the outcome first, a done the agent can check, the git default,
+the real limits) is the same in all three, because no domain measures it. For
+the same reason the line is never dropped whole. The learner tries each other
+wording on the practice tasks and proposes the one that is clearly better, or
+as good and at least 5 % cheaper. The reply's shape, how long the model works
+and a question later in the turn are not seen by any domain, so a drop of
+`REPLY_SHAPE_LINE`, `EFFORT_LINE` or `QUESTION_CARD_LINE` would pass a gate that
+cannot see its harm; they have no switch. A dropped line is a self-change like every other: it shows in the list
 of what the assistant changed in itself as one sentence, and one click puts it
 back. While a first_move candidate waits for its measurement, nothing new is
 proposed in that domain: every look costs calls.
@@ -727,8 +830,8 @@ There is no other control on purpose: the person only stops or undoes
 | Kernel and evidence paths refused by the registry | built |
 | Parameters with limits, read by the memory recall; learned values survive updates | built |
 | A recall that can be replayed without leaving a trace (no use count, no cache) | built |
-| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | stored every night; no runner yet, so not measured |
-| The brief domain's check: does a brief point at where the work turned out to be | built; nothing writes the brief for a task yet |
+| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | stored every night; `brief` measured by its replay, `coding` not yet |
+| The brief domain's check: does a brief point at where the work turned out to be | built; the brief comes from the replay below |
 | The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
@@ -745,4 +848,9 @@ There is no other control on purpose: the person only stops or undoes
 | The replay of a lead turn on Claude Code: tools offered, none run, stopped at the first move; results reused per arm | built; other lead CLIs wait |
 | The budget of a night's replays: 40 calls, 20 % of a usage window, never above 80 %, only on the plan, only while away | built |
 | The line learner, and `FIRST_LINE` as the one learnable standing line | built |
+| The brief replay: a mined request in the pinned lead input, the kit and the folder look-ups answered from the repository at the task's commit, the hand-off scored | built |
+| One night's 40 replay calls shared by first_move and brief | built |
+| `BRIEF_LINE` learnable as one of three fixed wordings, measured by the brief domain | built |
+| A replay asks in the default permission mode and has none of the CLI's own writing or shell tools | built |
+| Whether a brief said what the person had to add afterwards (a judge) | later |
 | Always-on recording of work, the other domains, lessons, the jury | later |
