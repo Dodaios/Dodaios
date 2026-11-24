@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from . import module_health
 from .entry_points import entry_points_for, group_spellings
 from .protocols import PLUGIN_GROUPS
 
@@ -32,6 +33,11 @@ class PluginContractError(TypeError):
 def _is_plugin_group(group: str) -> bool:
     """Whether ``group`` names a plugin slot under either of its spellings."""
     return any(spelling in PLUGIN_GROUPS for spelling in group_spellings(group))
+
+
+def _slot(group: str) -> str:
+    """``"jarvis.realtime"`` -> ``"realtime"``."""
+    return group.partition(".")[2] or group
 
 
 def list_plugins(group: str) -> list[str]:
@@ -93,10 +99,12 @@ def load(group: str, name: str, protocol: type[Protocol] | None = None) -> type[
     try:
         plugin_cls = ep.load()
     except ImportError as exc:
+        module_health.report_failure(f"plugin:{_slot(group)}:{name}", exc)
         raise PluginLoadError(
             f"Plugin '{name}' could not be imported. Missing a dependency? Original error: {exc}"
         ) from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — plugin import
+        module_health.report_failure(f"plugin:{_slot(group)}:{name}", exc)
         raise PluginLoadError(f"Plugin '{name}' load failed: {exc}") from exc
 
     # Protocol check is structural (Python checks attributes + method
