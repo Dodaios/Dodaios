@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 
-from dodaios.agentic_ide import agent_transcript
+from dodaios.agentic_ide import agent_transcript, claude_subagents
 from dodaios.agentic_ide import session_branches as branches
 
 
@@ -750,14 +750,14 @@ def test_subagent_records_are_not_the_leads_own_events(tmp_path):
     )
 
     own = agent_transcript.read_events("claude", "session", home=home) or []
-    delegated = agent_transcript.read_subagent_events("claude", "session", home=home) or []
+    delegated = claude_subagents.read_events("claude", "session", home=home) or []
     assert {event["payload"]["call_id"] for event in own if event["kind"] == "tool_call"} == {
         "lead1"
     }
     assert {event["payload"]["call_id"] for event in delegated if event["kind"] == "tool_call"} == {
         "sub1"
     }
-    assert agent_transcript.read_subagent_events("codex", "session", home=home) == []
+    assert claude_subagents.read_events("codex", "session", home=home) == []
 
 
 def test_a_new_subagent_record_is_noticed_without_the_lead_growing(repository, tmp_path):

@@ -35,7 +35,7 @@ from typing import Any
 
 from loguru import logger
 
-from dodaios.agentic_ide import agent_transcript, git_overview
+from dodaios.agentic_ide import agent_transcript, claude_subagents, git_overview
 
 
 @dataclass(frozen=True)
@@ -481,7 +481,7 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     # seconds once it is tens of megabytes, and a session waiting for its next
     # prompt, in a tab nobody is looking at, adds nothing to it.
     stamp = agent_transcript.stamp(record.agent, record.session_id, home=record.home)
-    substamp = agent_transcript.subagent_stamp(record.agent, record.session_id, home=record.home)
+    substamp = claude_subagents.stamp(record.agent, record.session_id, home=record.home)
     if (
         cached is not None
         and stamp is not None
@@ -497,9 +497,7 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
         events, stamp = [], None
     # A lead that hands its Git work to sub-agents has none of it in its own
     # record; their records belong to this thread all the same.
-    delegated = agent_transcript.read_subagent_events(
-        record.agent, record.session_id, home=record.home
-    )
+    delegated = claude_subagents.read_events(record.agent, record.session_id, home=record.home)
     if delegated is None:
         stamp = None
     elif delegated:
