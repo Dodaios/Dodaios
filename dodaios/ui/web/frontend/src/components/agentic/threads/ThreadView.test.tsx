@@ -632,8 +632,8 @@ describe("ThreadTree", () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     useThreadSubagentsStore.setState({ open: null });
     useThreadSubagentsStore.getState().publish("s1", [
-      { id: "a1", parentId: null, depth: 0, title: "Explore the auth code", agentType: "Explore", status: "running", waiting: false },
-      { id: "a2", parentId: "a1", depth: 1, title: "Read the tests", agentType: "", status: "done", waiting: false },
+      { id: "a1", parentId: null, depth: 0, title: "Explore the auth code", agentType: "Explore", model: "Haiku 5.5", status: "running", waiting: false },
+      { id: "a2", parentId: "a1", depth: 1, title: "Read the tests", agentType: "", model: "", status: "done", waiting: false },
     ]);
     render(<ThreadTree />);
     await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
@@ -661,7 +661,7 @@ describe("ThreadTree", () => {
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: null } });
     useThreadSubagentsStore.getState().publish("s1", [
-      { id: "a1", parentId: null, depth: 0, title: "Explore", agentType: "", status: "running", waiting: false },
+      { id: "a1", parentId: null, depth: 0, title: "Explore", agentType: "", model: "", status: "running", waiting: false },
     ]);
     render(<ThreadTree />);
     await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());

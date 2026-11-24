@@ -20,6 +20,8 @@ export interface SubagentRow {
   depth: number;
   title: string;
   agentType: string;
+  /** The model it runs on, readable; "" when the CLI does not say. */
+  model: string;
   status: SubagentStatus;
   waiting: boolean;
 }
@@ -40,7 +42,7 @@ function sameRows(a: readonly SubagentRow[], b: readonly SubagentRow[]): boolean
     const other = b[index];
     return row.id === other.id && row.parentId === other.parentId && row.depth === other.depth
       && row.title === other.title && row.agentType === other.agentType
-      && row.status === other.status && row.waiting === other.waiting;
+      && row.model === other.model && row.status === other.status && row.waiting === other.waiting;
   });
 }
 
