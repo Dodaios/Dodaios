@@ -187,6 +187,10 @@ Five gates in `scripts/ci/` grandfather today's debt and block new debt:
 `source-text-tests` (tests that read product source text). Each has a
 `*-baseline.json` listing every current violation with its current value. The gate
 fails when a violation is new or grew; the failure text says how to fix the code.
+In a pull request or the merge queue (`run_gates.py --base`) it judges only the files
+the change touches, because main moves while a PR waits and a whole-tree comparison
+would be stale by merge time; `--all`, `--update` and a run without a base judge the
+whole tree.
 A violation that shrank or vanished is only a printed note, so parallel pull
 requests that delete code never fight over the baselines. `ratchet-baselines.yml`
 runs every gate with `--update` daily and opens one bot pull request
