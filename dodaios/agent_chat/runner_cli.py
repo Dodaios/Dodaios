@@ -2310,12 +2310,13 @@ class _ClaudeState:
     background_calls: set[str] = field(default_factory=set)
     #: The model a sub-agent's messages last reported (sub-agent states only).
     reported_model: str = ""
-    #: A task notice arrived before the turn's first ``result``. On resume
-    #: Claude Code delivers the notice of a task the previous process left
-    #: unfinished as an input of its own and answers it with an empty
-    #: ``result`` (no model turn) before the person's prompt runs. That line
-    #: must not end the turn (``claude_result_without_model_turn``).
-    notice_pending: bool = False
+    #: Task notices that arrived before the turn's first ``result``. On resume
+    #: Claude Code delivers the notice of each task the previous process left
+    #: unfinished as an input of its own and answers each with an empty
+    #: ``result`` (no model turn) before the person's prompt runs. Those lines
+    #: must not end the turn (``claude_result_without_model_turn``); two open
+    #: tasks give two of them, so they are counted, not flagged.
+    notices_pending: int = 0
     #: The conversation's compaction under way (``context_compaction`` call id),
     #: "" when none is; and how many compactions this turn has told.
     compaction_id: str = ""
@@ -2837,7 +2838,7 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         out = _claude_task_events(obj, st)
         _claude_track_task(obj, st)
         if obj.get("subtype") == "task_notification" and not st.saw_result:
-            st.notice_pending = True
+            st.notices_pending += 1
         return out + _claude_wait_events(st)
 
     if kind == "stream_event":
@@ -3063,11 +3064,12 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
 
     if kind == "result":
         out.extend(_claude_compaction_close(st, {}))
-        notice, st.notice_pending = st.notice_pending, False
-        if notice and claude_result_without_model_turn(obj):
+        if st.notices_pending and claude_result_without_model_turn(obj):
             # The CLI's own empty answer to a task notice it found on resume:
             # the person's prompt runs after it, so this is not the turn's end.
+            st.notices_pending -= 1
             return out
+        st.notices_pending = 0
         st.saw_result = True
         st.answered = True
         st.idle = True
