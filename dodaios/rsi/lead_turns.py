@@ -62,8 +62,8 @@ DB_NAME: Final = "lead_turns.db"
 #: How long a row is kept.
 RETENTION_DAYS: Final = 90
 #: How much stored text (compressed) the file keeps at most; the oldest rows go first.
-#: A lead turn takes about 20 KB (its system prompt runs past 50 000 characters), so
-#: this holds roughly 10 000 turns, three months of a busy chat.
+#: A lead turn takes about 25 KB (its system prompt runs past 50 000 characters), so
+#: this holds roughly 8 000 turns, three months of a busy chat.
 MAX_BYTES: Final = 200 * 1024 * 1024
 _DAY_MS: Final = 24 * 60 * 60 * 1000
 
