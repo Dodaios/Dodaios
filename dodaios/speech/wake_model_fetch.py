@@ -120,7 +120,7 @@ def resolve_wake_language(cfg: Any) -> str:
 
 def _models_root(data_dir: str | None) -> Path:
     """Use the same data root as runtime wake-plan selection."""
-    from dodaios.speech.wake_constants import _vosk_models_root
+    from dodaios.core.wake_constants import _vosk_models_root
 
     return _vosk_models_root(data_dir)
 

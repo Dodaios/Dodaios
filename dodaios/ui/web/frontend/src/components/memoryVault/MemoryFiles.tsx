@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { ChevronLeft, ChevronRight, Download, FileText, Loader2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { MARKDOWN_PICTURES } from "@/components/agentchat/MediaPreview";
 import { exportUrl, useVaultFiles, type VaultFile } from "@/lib/personalMemoryApi";
 import { KIND_STYLE } from "./kinds";
 
@@ -165,7 +166,7 @@ export function MemoryFiles() {
               </button>
             </div>
             <article className="vault-markdown min-h-0 overflow-y-auto px-8 py-6 text-[14px] leading-relaxed text-foreground [&_a]:text-accent [&_em]:text-muted-foreground [&_h1]:mb-4 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-foreground-strong [&_li]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{readable(current.content)}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={MARKDOWN_PICTURES}>{readable(current.content)}</ReactMarkdown>
             </article>
           </div>
         </div>

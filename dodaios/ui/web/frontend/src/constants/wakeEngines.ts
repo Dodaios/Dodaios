@@ -1,4 +1,4 @@
-// Mirror of dodaios/speech/wake_constants.py WAKE_ENGINES.
+// Mirror of dodaios/core/wake_constants.py WAKE_ENGINES.
 //
 // This is the TypeScript layer of the five-layer anti-drift enum
 // (Python <-> TOML <-> Pydantic <-> TypeScript <-> UI). It is kept in lockstep

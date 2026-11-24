@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { MARKDOWN_PICTURES } from "./MediaPreview";
 import type { ToolBlock, TurnBlock, TurnStatus } from "./reduce";
 import { ToolChoiceIcon } from "./ToolChoiceChips";
 import type { ToolChoice } from "./toolChoices";
@@ -142,7 +143,7 @@ function Reasoning({ text }: { text: string }) {
       !open && "max-h-36 overflow-hidden",
       !open && overflows && "trace-thought-fade",
     )}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_PICTURES}>{text}</ReactMarkdown>
     </div>
     {overflows || open ? <button type="button" onClick={() => setOpen(!open)}
       className="mt-0.5 rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -267,7 +268,7 @@ export function TraceMessageLine({ message }: { message: TraceMessage }) {
     </button>
     {open ? <div className="mb-2 ml-[7px] min-w-0 border-l border-border pl-4 pt-0.5">
       <div className="prose max-h-96 max-w-none overflow-auto trace-text text-muted-foreground dark:prose-invert [overflow-wrap:anywhere] prose-p:my-1 prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground-secondary [&>:first-child]:mt-0">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_PICTURES}>{message.text}</ReactMarkdown>
       </div>
     </div> : null}
   </div>;

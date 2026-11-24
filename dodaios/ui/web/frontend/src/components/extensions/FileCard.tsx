@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
+import { MarkdownPicture } from "@/components/agentchat/MediaPreview";
 import { Panel } from "@/components/extensions/primitives";
 
 export interface CardFile {
@@ -84,6 +85,8 @@ function MarkdownProse({ text }: { text: string }) {
               {children}
             </a>
           ),
+          // A pack's file names its own pictures: a remote one is a link, not a request.
+          img: MarkdownPicture,
         }}
       >
         {text}

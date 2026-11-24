@@ -459,10 +459,18 @@ def own_changes(porcelain: str, ignored: list[str]) -> tuple[list[str], list[str
 
 
 def parked_run(ctx: Ctx, sha: str) -> int | None:
+    """A run of this repository's own pull request that waits for approval.
+
+    The listing by head commit also holds the runs of a fork's pull request
+    that points at the same commit; those are never the agent's to approve.
+    """
     data = ctx.gh_json_soft(["api", f"repos/{ctx.repo}/actions/runs?head_sha={sha}&per_page=30"])
     runs = data.get("workflow_runs", []) if isinstance(data, dict) else []
     for run in runs:
-        if run.get("conclusion") == "action_required":
+        if not isinstance(run, dict) or run.get("conclusion") != "action_required":
+            continue
+        origin = str((run.get("head_repository") or {}).get("full_name") or "")
+        if origin.casefold() == ctx.repo.casefold():
             return int(run.get("id") or 0) or None
     return None
 
