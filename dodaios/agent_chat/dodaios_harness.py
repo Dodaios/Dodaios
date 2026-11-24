@@ -271,7 +271,7 @@ def _switch(name: str) -> bool:
         from dodaios.rsi import params
 
         return bool(params.get(name))
-    except Exception:  # noqa: BLE001 - an unreadable switch keeps the shipped line
+    except Exception:  # broad-except: an unreadable switch keeps the shipped line
         log.warning("agent chat: the switch %s is unreadable; the line stays", name, exc_info=True)
         return True
 

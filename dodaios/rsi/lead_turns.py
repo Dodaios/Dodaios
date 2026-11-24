@@ -339,7 +339,7 @@ def forget_session(session_id: str) -> int:
         if not _db_path().exists():
             return 0
         return store().forget_session(session_id)
-    except Exception:  # noqa: BLE001 - a failed erase is logged; the chat's own deletion stands
+    except Exception:  # broad-except: a failed erase is logged; the chat's own deletion stands
         _skip(f"the rows of deleted session {session_id} were not deleted")
         return 0
 
@@ -358,7 +358,7 @@ async def _tools_digest(session_id: str) -> str:
         from dodaios.mcp.dodaios_tools_server import tool_list_digest
 
         return await tool_list_digest(session_id)
-    except Exception:  # noqa: BLE001 - without the hash the row still holds the turn
+    except Exception:  # broad-except: without the hash the row still holds the turn
         log.debug("lead turns: tool list hash unavailable", exc_info=True)
         return ""
 
@@ -420,7 +420,7 @@ class TurnRecorder:
                     tool=str(payload.get("name") or ""),
                     args=dict(raw) if isinstance(raw, dict) else {"input": raw},
                 )
-        except Exception:  # noqa: BLE001 - recording never fails the turn's own emit path
+        except Exception:  # broad-except: recording never fails the turn's own emit path
             _skip("an event of a lead turn could not be read")
 
     def finish(self) -> None:
@@ -454,7 +454,7 @@ class TurnRecorder:
                 app=str(__version__),
             )
             task = asyncio.get_running_loop().create_task(_record(turn))
-        except Exception:  # noqa: BLE001 - recording never fails the turn
+        except Exception:  # broad-except: recording never fails the turn
             _skip("a lead turn could not be queued for recording")
             return
         _PENDING.add(task)
@@ -465,7 +465,7 @@ async def _record(turn: LeadTurn) -> None:
     try:
         digest = await _tools_digest(turn.session_id)
         await asyncio.to_thread(_append, _with_digest(turn, digest))
-    except Exception:  # noqa: BLE001 - the record is best effort, never the turn's problem
+    except Exception:  # broad-except: the record is best effort, never the turn's problem
         _skip(f"lead turn {turn.turn_id} was not recorded")
 
 

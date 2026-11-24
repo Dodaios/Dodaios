@@ -602,7 +602,7 @@ def _lead(bench: BenchStore, home: Path, loop: Any, tonight: dict[str, Any]) -> 
         rows, chat = own_lead.read(turns, home / "agent_chat.db")
         made = own_lead.take_in(bench, rows, chat, now_ms=int(time.time() * 1000))
         built = lead_world.build(home=home, turns=turns, loop=loop, idle=_person_idle)
-    except Exception:  # noqa: BLE001 - an unreadable record costs the domain this night, no more
+    except Exception:  # broad-except: an unreadable record costs the domain this night, no more
         log.warning("self-improvement: the lead's turns could not be read", exc_info=True)
         return made
     if built.world is not None:

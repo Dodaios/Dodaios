@@ -162,7 +162,7 @@ class ClaudeReplay:
             system_file.write_text(lead.system, encoding="utf-8")
             argv = self._argv(platform, work, system_file)
             return self._run(argv, home, lead.message)
-        except Exception as exc:  # noqa: BLE001 - a failed replay is a void result, not a crash
+        except Exception as exc:  # broad-except: a failed replay is a void result, not a crash
             log.info("replay: the CLI could not run", exc_info=True)
             return Move(error=f"{type(exc).__name__}: {exc}"[:300])
         finally:
@@ -202,14 +202,14 @@ class ClaudeReplay:
                     return Move(error=f"no first move within {self.timeout_s:.0f} s")
                 try:
                     raw = out.get(timeout=left)
-                except queue.Empty:
+                except queue.Empty:  # nothing new yet: look at the deadline again
                     continue
                 if raw is None:
                     return found.ended(proc.poll())
                 try:
                     obj = json.loads(raw.decode("utf-8", errors="replace"))
-                except ValueError:
-                    continue  # a line that is not JSON (a warning) says nothing about the move
+                except ValueError:  # a line that is not JSON (a warning) says nothing of the move
+                    continue
                 if not isinstance(obj, dict):
                     continue
                 if obj.get("type") == "control_request":

@@ -57,7 +57,7 @@ def _usage() -> Usage | None:
 
         account = agent_accounts.active_account("claude")
         found = agent_usage.collect([account]).get(account.id)
-    except Exception:  # noqa: BLE001 - no reading: the night's cap alone applies
+    except Exception:  # broad-except: no reading: the night's cap alone applies
         log.debug("self-improvement: the plan's usage could not be read", exc_info=True)
         return None
     if found is None or found.status != "ok" or not found.windows:
@@ -71,7 +71,7 @@ def _cooling() -> bool:
         from dodaios.claude_quota_state import claude_in_quota_cooldown
 
         return bool(claude_in_quota_cooldown() or claude_auth_dead())
-    except Exception:  # noqa: BLE001 - an unreadable state is a reason to wait
+    except Exception:  # broad-except: an unreadable state is a reason to wait
         log.debug("self-improvement: the plan's state could not be read", exc_info=True)
         return True
 
@@ -128,7 +128,7 @@ def build(
 
         env = _account_env("claude")
         prefix = claude_argv_prefix()
-    except Exception as exc:  # noqa: BLE001 - no CLI or no account: no replay tonight
+    except Exception as exc:  # broad-except: no CLI or no account: no replay tonight
         return Built(None, f"the lead's CLI cannot start: {type(exc).__name__}")
     if any(env.get(name) for name in _KEY_VARS):
         return Built(None, "an API key reaches the lead's CLI; it would be billed per token")
@@ -138,7 +138,7 @@ def build(
         return Built(None, "the lead's plan is cooling down after a limit")
     try:
         rows = _tool_rows(lead.session_id, loop)
-    except Exception:  # noqa: BLE001 - without the tool list a replay would offer other tools
+    except Exception:  # broad-except: without the tool list a replay would offer other tools
         log.info("self-improvement: the lead's tool list could not be read", exc_info=True)
         rows = []
     if not rows:
