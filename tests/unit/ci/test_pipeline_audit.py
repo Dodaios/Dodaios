@@ -1135,10 +1135,40 @@ def test_workflow_security_policy_and_mutation_regressions():
         lambda w: w["ci.yml"]["jobs"]["gate"]["steps"][0].update(
             {"env": {"KEY": "${{ secrets.RELEASE_APP_PRIVATE_KEY }}"}}
         ),
+        lambda w: w["sign-installer.yml"]["jobs"]["sign"].pop("environment"),
+        lambda w: w["desktop-installers.yml"]["jobs"]["sign-update-manifest"].pop("environment"),
+        lambda w: w["release-cut.yml"]["jobs"]["preflight"]["steps"][0].update(
+            {"env": {"HAS_KEY": "${{ secrets.WAVE2_OFFLINE_KEY_B64 != '' }}"}}
+        ),
+        lambda w: w["ci.yml"].update({"env": {"KEY": "${{ secrets.WAVE4_MLDSA65_KEY_B64 }}"}}),
     ):
         changed = copy.deepcopy(clean)
         mutate(changed)
         assert check_workflow_policy.audit(changed)
+
+
+def _environment_name(job: dict) -> str | None:
+    environment = job.get("environment")
+    return environment.get("name") if isinstance(environment, dict) else environment
+
+
+def test_release_signing_keys_are_read_only_by_jobs_of_the_tag_only_environment():
+    """A job on a branch (the release cut's preflight runs on main) never names a key."""
+    definitions = workflows()
+    readers = {
+        (filename, name): job
+        for filename, workflow in definitions.items()
+        for name, job in workflow.get("jobs", {}).items()
+        if "secrets.WAVE" in yaml.safe_dump(job)
+    }
+    assert ("sign-installer.yml", "sign") in readers
+    assert ("desktop-installers.yml", "sign-update-manifest") in readers
+    outside = sorted(
+        f"{filename}/{name}"
+        for (filename, name), job in readers.items()
+        if _environment_name(job) != "release-signing"
+    )
+    assert outside == []
 
 
 def _release_cut_step(definitions: dict, name: str) -> dict:
