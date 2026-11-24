@@ -23,7 +23,15 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, MAX_MODEL_CALLS, Night
+from dodaios.rsi.night import (
+    BUDGET_SHARE,
+    EVERY_S,
+    IDLE_AFTER_S,
+    MAX_MODEL_CALLS,
+    RAMP_MODEL_CALLS,
+    Night,
+    calls_tonight,
+)
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
@@ -46,7 +54,7 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
     This is what happened, not a measurement of cause: the requests of one week
     are not the requests of the next. It stands beside the benchmark, which
     compares like with like, and never decides anything. ``None`` when there is
-    no chat record or it cannot be read.
+    no chat record, it cannot be read, or it holds no request in these weeks.
     """
     if chat_db is None or not Path(chat_db).is_file():
         return None
@@ -71,11 +79,14 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
             for window in report.get("windows") or []
         ]
         lifetime = report.get("lifetime") or {}
-        found = {
-            "weeks": weeks[-_WEEKS:],
-            "turns": int(report.get("turns") or 0),
-            "score": lifetime.get("score"),
-        }
+        turns = int(report.get("turns") or 0)
+        # No request in these weeks (or a record that holds none): nothing to show.
+        if turns:
+            found = {
+                "weeks": weeks[-_WEEKS:],
+                "turns": turns,
+                "score": lifetime.get("score"),
+            }
     except Exception:  # noqa: BLE001 — the page shows the benchmark without this part
         log.info("self-improvement: the score of daily use could not be read", exc_info=True)
     _daily_cache[key] = (stamp, found)
@@ -95,7 +106,7 @@ def _measurement(row: dict[str, Any]) -> dict[str, Any]:
     """One stored piece of evidence, flattened for the page."""
     found = row["evidence"]
     target = found.get("target") or {}
-    return {
+    out = {
         "ts_ms": row["ts_ms"],
         "step": row["step"],
         "verdict": row["verdict"],
@@ -107,6 +118,84 @@ def _measurement(row: dict[str, Any]) -> dict[str, Any]:
         "high": target.get("high"),
         "n": target.get("n") or 0,
         "cost_diff": target.get("cost_diff"),
+    }
+    if "metric" in target:
+        # A coding policy's trial (dodaios/rsi/trainer.py): requests, not tasks,
+        # the metric it claimed, the other arm, and each arm's plain means.
+        out["metric"] = target.get("metric") or ""
+        out["n_reference"] = target.get("n_reference") or 0
+        out["arms"] = found.get("arms")
+    return out
+
+
+def _policy_value(text: str | None) -> dict[str, Any] | None:
+    """A coding policy as the page reads it; ``None`` for a text that is not one."""
+    from dodaios.rsi.policy import Policy, PolicyError
+
+    try:
+        policy = Policy.from_text(text)
+    except PolicyError:  # shown without values rather than failing the page
+        return None
+    return {
+        "hold": policy.hold,
+        "p_max": policy.p_max,
+        "evidence_wait_s": policy.evidence_wait_s,
+        "lines": [line for line in policy.domain_block.splitlines() if line.strip()],
+    }
+
+
+def _policy_kinds(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    """What a policy change does, in the page's closed set of words."""
+    kinds: list[str] = []
+    if after["hold"] and not before["hold"]:
+        kinds.append("hold")
+    elif before["hold"] and not after["hold"]:
+        kinds.append("release")
+    elif after["hold"]:
+        if after["p_max"] < before["p_max"]:
+            kinds.append("fewer_fixes")
+        if after["evidence_wait_s"] < before["evidence_wait_s"]:
+            kinds.append("shorter_wait")
+    if any(line not in before["lines"] for line in after["lines"]):
+        kinds.append("brief_line")
+    return kinds
+
+
+def _policy(change: Change, evidence: list[dict[str, Any]]) -> dict[str, Any]:
+    """The fields of a coding policy row: the cell, what changed, against what.
+
+    A candidate is compared with the active policy it went on trial against,
+    and an accepted policy with the one it was measured against (both kept in
+    the trainer's evidence); a change without that evidence with the text it
+    replaced.
+    """
+    cell, _, slot = change.target.rpartition("#")
+    domain, model, harness = ([*cell.split("|", 2), "", ""])[:3]
+    claim, reference = None, None
+    for row in evidence:
+        found = row.get("evidence") or {}
+        claim = claim or found.get("claim")
+        reference = reference or found.get("reference")
+    before = _policy_value(reference if reference is not None else change.before)
+    after = _policy_value(change.after)
+    added = [
+        line
+        for line in (after or {}).get("lines", [])
+        if line not in (before or {}).get("lines", [])
+    ]
+    return {
+        "before": before,
+        "after": after,
+        "policy": {
+            "cell": cell,
+            "slot": slot,
+            "domain": domain,
+            "model": model,
+            "harness": harness,
+            "kinds": _policy_kinds(before, after) if before and after else [],
+            "lines": added,
+            "claim": claim,
+        },
     }
 
 
@@ -135,10 +224,11 @@ def _change(night: Night, change: Change) -> dict[str, Any]:
     store = params.installed()
     index = store.index if store is not None else params.INDEX
     param = index.get(change.target) if change.surface is Surface.PARAMETER else None
-    evidence = [_measurement(row) for row in night.registry.store.evidence(change.id)]
+    stored = night.registry.store.evidence(change.id)
+    evidence = [_measurement(row) for row in stored]
     admit = next((e for e in evidence if e["step"] == "admit"), None)
     checks = [e for e in evidence if e["step"] == "settle"]
-    return {
+    row = {
         "id": change.id,
         "surface": change.surface.value,
         "target": change.target,
@@ -155,6 +245,31 @@ def _change(night: Night, change: Change) -> dict[str, Any]:
         "admitted": admit,
         "last_check": checks[-1] if checks else None,
     }
+    if change.surface is Surface.CODING_POLICY:
+        row.update(_policy(change, stored))
+    return row
+
+
+def _policies(changes: list[Change]) -> tuple[set[str], list[Change]]:
+    """Which coding policy changes the page lists, and the candidates on trial among them.
+
+    The trainer writes a cell's active policy and its candidate as two
+    targets. Only the newest change in effect on a target is what runs; an
+    older one was replaced and a removal (a trial that ended) is no policy.
+    Returns the ids to leave out of the list of learned changes, and the
+    candidates on trial (a canary on half the requests, not learned yet).
+    """
+    newest: dict[str, Change] = {}
+    for change in changes:
+        if change.surface is not Surface.CODING_POLICY:
+            continue
+        seen = newest.get(change.target)
+        if seen is None or change.seq > seen.seq:
+            newest[change.target] = change
+    shown = {c.id for c in newest.values() if c.after is not None and c.target.endswith("#active")}
+    trials = [c for c in newest.values() if c.after is not None and c.target.endswith("#candidate")]
+    hidden = {c.id for c in changes if c.surface is Surface.CODING_POLICY and c.id not in shown}
+    return hidden, sorted(trials, key=lambda c: c.seq)
 
 
 def _domains(night: Night) -> list[dict[str, Any]]:
@@ -187,6 +302,8 @@ def build(
     store = params.installed()
     resting = [e.public() for e in store.entries() if e.status != "live"] if store else []
     nights = night.bench.nights(_NIGHTS)
+    learned = registry.learned()
+    hidden, trials = _policies(learned)
     return {
         "status": {
             "app": dodaios.__version__,
@@ -202,11 +319,17 @@ def build(
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
             "max_model_calls": MAX_MODEL_CALLS,
+            #: While too few tasks exist to decide on, a night may build with this many.
+            "ramp_model_calls": RAMP_MODEL_CALLS,
+            #: What the next night may use.
+            "model_calls_tonight": calls_tonight(night.bench),
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),
-        "stack": [_change(night, change) for change in reversed(registry.learned())],
-        "candidates": [_change(night, change) for change in registry.candidates()],
+        "stack": [
+            _change(night, change) for change in reversed(learned) if change.id not in hidden
+        ],
+        "candidates": [_change(night, change) for change in [*registry.candidates(), *trials]],
         "nights": nights,
         "resting": resting,
         "daily_use": daily_use(chat_db),

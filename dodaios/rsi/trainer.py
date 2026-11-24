@@ -1,28 +1,39 @@
 """The loop that changes a cell's steering policy, one measured step at a time.
 
 Driven by verdicts, never by a timer: after a run in a cell got its verdict,
-:meth:`Trainer.consider` looks at that cell once.
+:meth:`Trainer.consider` looks at that cell once. Nothing here waits for the
+person. Every change goes on trial by itself, the selector's gate decides on
+the measured runs, and the person keeps stop and undo (Trust → Self-changes,
+and the Self-improvement page).
 
-1. **No candidate on trial:** when the cell's active policy holds its runs
-   (``Policy.hold``; the factory policy does not, and then nothing is
-   proposed) and the cell has enough runs under it, every candidate of a
-   small fixed grid of steering parameters is replayed on the record
-   (:mod:`replay`). The first one the replay does not reject goes on trial
-   as the cell's candidate, as a self-change; its claim (branch B, target
-   ``cost``) is fixed at that moment, before its own data.
-2. **A candidate on trial:** once both arms have :data:`selector.N_MIN`
+1. **No candidate on trial, and the active policy does not hold** (the factory
+   policy): holding, with the factory's follow-up limits, is the candidate.
+   Whether Dodaios should wait for the checks and order fixes is learned like
+   any other control. The record cannot replay the follow-up orders a hold
+   would have sent (:func:`replay.replay_hold`); it only bounds the gain. When
+   even a fix of every run a follow-up order could have reached would not
+   raise the PassRate by :data:`selector.DELTA_PASS`, nothing is tried.
+   Otherwise the hold goes on trial, its claim (branch A, target ``pass``)
+   fixed before its own data.
+2. **No candidate on trial, and the active policy holds:** every candidate of
+   a small fixed grid of steering parameters is replayed on the record
+   (:mod:`replay`). The first one the replay does not reject goes on trial,
+   its claim (branch B, target ``cost``) fixed at that moment. When none
+   survives, the miner (:mod:`mining`) may find one fixed line for the first
+   brief, citing the follow-up orders it would have spared. That line goes on
+   trial the same way (branch B, target ``p``).
+3. **A candidate on trial:** once both arms have :data:`selector.N_MIN`
    requests since the claim, :func:`selector.gate` decides. Accepted: the
-   candidate becomes the active policy (a self-change on probation) and the
-   trial ends. Rejected, or still without an answer after
-   :data:`MAX_TRIAL_DAYS`: the trial ends and the active policy stays.
-3. **A new active policy on probation:** the first run under it whose final
-   output weakened a check rolls it back to the exact previous policy.
+   candidate becomes the active policy (a self-change on probation, with the
+   measurement that let it in) and the trial ends. Rejected, or still without
+   an answer after :data:`MAX_TRIAL_DAYS`: the trial ends and the active
+   policy stays.
+4. **A new active policy on probation:** the first run under it whose final
+   output weakened a check, or whose merged work turned red, rolls it back to
+   the exact previous policy.
 
-Steering parameters go on trial by themselves. When none of them survives the
-replay, the miner (:mod:`mining`) may propose one fixed line for the first
-brief, citing the follow-up orders it would have spared; that proposal waits
-for the person's approval (decision 5.4), and its trial starts only after it.
-Every change shows in Trust → Self-changes with its reason.
+A candidate whose trial ended is not tried again in its cell for
+:data:`RETRY_AFTER_DAYS`: a trial that just answered would only answer again.
 """
 
 from __future__ import annotations
@@ -32,18 +43,18 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from . import selector, stats
 from .bind import active_policy
-from .policy import ACTIVE, CANDIDATE, Policy, PolicyStore, target_for
-from .replay import replay_cell
+from .policy import ACTIVE, CANDIDATE, DEFAULT, Policy, PolicyStore, target_for
+from .replay import replay_cell, replay_hold
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AUTHOR", "GRID", "MAX_TRIAL_DAYS", "NOT_HOLDING", "Trainer"]
+__all__ = ["AUTHOR", "GRID", "MAX_TRIAL_DAYS", "RETRY_AFTER_DAYS", "Trainer", "claim_for"]
 
 #: Who the registry names as the author of a policy change.
 AUTHOR: Final[str] = "rsi-selector"
@@ -55,13 +66,12 @@ GRID: Final[tuple[Policy, ...]] = (
     Policy(p_max=0),
 )
 MAX_TRIAL_DAYS: Final[int] = 28
-#: What :meth:`Trainer.consider` says for a cell whose active policy does not hold.
-NOT_HOLDING: Final[str] = (
-    "nothing proposed: the active policy does not hold runs, so a candidate with fewer "
-    "follow-up orders or a shorter wait would change nothing"
-)
+#: Days before a candidate whose trial ended is tried again in the same cell.
+RETRY_AFTER_DAYS: Final[int] = 28
 _DAY_MS: Final[int] = 24 * 60 * 60 * 1000
 _RUNS_READ: Final[int] = 5_000
+#: How what :meth:`Trainer.consider` did starts when it changed something (logged).
+_CHANGED: Final[tuple[str, ...]] = ("candidate ", "trial ended", "trial withdrawn", "rolled back")
 
 _CLAIMS = """
 CREATE TABLE IF NOT EXISTS claims (
@@ -77,6 +87,17 @@ CREATE TABLE IF NOT EXISTS claims (
     PRIMARY KEY (cell, candidate, t0_ms)
 );
 """
+
+
+def claim_for(active: Policy, candidate: Policy) -> tuple[str, str]:
+    """The branch and target a candidate is judged by, fixed before its data exist."""
+    if candidate.hold and not active.hold:
+        # Holding costs follow-up orders and a wait; it is worth it only when
+        # more runs pass, so it has to win on quality (branch A).
+        return "A", "pass"
+    if candidate.domain_block != active.domain_block:
+        return "B", "p"  # a line for the first brief would spare follow-up orders
+    return "B", "cost"  # fewer follow-up orders or a shorter wait save cost
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,16 +147,19 @@ class Trainer:
             ).fetchone()
         return Open(*row) if row is not None else None
 
-    def _claim(self, cell: str, candidate: Policy, change_id: str, now: int) -> None:
-        claim = {"cell": cell, "candidate": candidate.id, "branch": "B", "target": "cost"}
+    def _claim(
+        self, cell: str, candidate: Policy, change_id: str, now: int, branch: str, target: str
+    ) -> Open:
+        claim = {"cell": cell, "candidate": candidate.id, "branch": branch, "target": target}
         digest = hashlib.sha256(json.dumps(claim, sort_keys=True).encode()).hexdigest()
         with self._policies._lock:
             self._policies._conn.execute(
                 "INSERT INTO claims (cell, candidate, branch, target, t0_ms, digest, change_id) "
-                "VALUES (?, ?, 'B', 'cost', ?, ?, ?)",
-                (cell, candidate.id, now, digest, change_id),
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (cell, candidate.id, branch, target, now, digest, change_id),
             )
             self._policies._conn.commit()
+        return Open(cell, candidate.id, branch, target, now, change_id)
 
     def _close(self, trial: Open, outcome: str, now: int) -> None:
         with self._policies._lock:
@@ -145,6 +169,20 @@ class Trainer:
                 (outcome, now, trial.cell, trial.candidate, trial.t0_ms),
             )
             self._policies._conn.commit()
+
+    def _tried_lately(self, cell: str, candidate: Policy, now: int) -> bool:
+        """True when a trial of ``candidate`` in ``cell`` ended less than a retry period ago."""
+        with self._policies._lock:
+            row = self._policies._conn.execute(
+                "SELECT MAX(decided_ms) FROM claims "
+                "WHERE cell = ? AND candidate = ? AND outcome != ''",
+                (cell, candidate.id),
+            ).fetchone()
+        return (
+            row is not None
+            and row[0] is not None
+            and now - int(row[0]) < (RETRY_AFTER_DAYS * _DAY_MS)
+        )
 
     def claims(self) -> list[dict[str, Any]]:
         """Every claim on record, newest first (for the report)."""
@@ -161,7 +199,8 @@ class Trainer:
     def _cell_runs(self, cell: str, since_ms: int = 0) -> list[dict[str, Any]]:
         rows = self._runs.runs(since_ms=since_ms, limit=_RUNS_READ)
         return [
-            r for r in rows
+            r
+            for r in rows
             if r.get("verdict") and r.get("state") == "ended" and selector.cell_of(r) == cell
         ]
 
@@ -175,7 +214,7 @@ class Trainer:
             now = int(self._clock() * 1000)
             trial = self._open(cell)
             if trial is None:
-                trial = self._claim_approved(cell, now)
+                trial = self._claim_unclaimed(cell, now)
             if trial is not None:
                 return self._judge(trial, now)
             done = self._watch_probation(cell)
@@ -183,8 +222,13 @@ class Trainer:
                 return done
             return self._propose(cell, now)
 
-    def _claim_approved(self, cell: str, now: int) -> Open | None:
-        """A candidate the owner approved (text for agents) gets its claim now, before data."""
+    def _claim_unclaimed(self, cell: str, now: int) -> Open | None:
+        """A candidate in the slot without any claim gets one now, before its data.
+
+        The trainer claims what it puts on trial at once; this covers a
+        candidate that reached the slot another way (one the owner approved by
+        hand before candidates went on trial by themselves).
+        """
         candidate = self._policies.policy(cell, CANDIDATE)
         if candidate is None:
             return None
@@ -195,74 +239,142 @@ class Trainer:
             ).fetchone()
         if known is not None:
             return None  # its trial ended; the store will be cleared by that proposal
-        claim = {"cell": cell, "candidate": candidate.id, "branch": "B", "target": "p"}
-        digest = hashlib.sha256(json.dumps(claim, sort_keys=True).encode()).hexdigest()
-        with self._policies._lock:
-            self._policies._conn.execute(
-                "INSERT INTO claims (cell, candidate, branch, target, t0_ms, digest) "
-                "VALUES (?, ?, 'B', 'p', ?, ?)",
-                (cell, candidate.id, now, digest),
-            )
-            self._policies._conn.commit()
-        return Open(cell, candidate.id, "B", "p", now, "")
+        branch, target = claim_for(active_policy(self._policies, cell), candidate)
+        return self._claim(cell, candidate, "", now, branch, target)
 
-    def _waits_for_owner(self, cell: str) -> bool:
+    def _already_proposed(self, cell: str, candidate: Policy) -> bool:
+        """True when this very candidate was proposed and is still not applied.
+
+        Nothing the trainer proposes waits for a person; a change stays
+        ``proposed`` only when a check of the registry could not run. It is not
+        proposed again at every verdict meanwhile.
+        """
         target = target_for(cell, CANDIDATE)
+        text = candidate.to_text()
         return any(
-            c.surface.value == "coding_policy" and c.target == target
+            c.surface.value == "coding_policy"
+            and c.target == target
             and c.state.value == "proposed"
+            and c.after == text
             for c in self._registry().store.list(limit=200)
         )
 
-    def _propose_text(
-        self, cell: str, active: Policy, recorded: list[tuple[dict[str, Any], list[Any]]]
+    def _start(
+        self,
+        cell: str,
+        active: Policy,
+        candidate: Policy,
+        reason: str,
+        now: int,
+        found: dict[str, Any],
     ) -> str:
-        """One line for the first brief, mined from recurring follow-ups; it waits for the owner."""
-        from .mining import suggest
-
-        if self._waits_for_owner(cell):
-            return "a text candidate waits for the owner"
-        found = suggest(active, recorded)
-        if found is None:
-            return "no candidate survived the replay"
-        candidate = found.policy(active)
-        change = self._registry().propose(self._draft(
-            target_for(cell, CANDIDATE), candidate,
-            f"one line for the first brief of {cell}: {found.line!r}. It would have spared "
-            f"the follow-up orders of {len(found.cited)} runs "
-            f"({', '.join(found.cited[:8])}{', ...' if len(found.cited) > 8 else ''}).",
-        ))
-        return f"text candidate {candidate.id} proposed ({change.state.value})"
+        """Put ``candidate`` on trial against ``active``, its claim fixed now."""
+        if self._already_proposed(cell, candidate):
+            return f"candidate {candidate.id} not applied (proposed)"
+        registry = self._registry()
+        change = registry.propose(self._draft(target_for(cell, CANDIDATE), candidate, reason))
+        if change.state.value not in ("trial", "live"):
+            return f"candidate {candidate.id} not applied ({change.state.value})"
+        branch, target = claim_for(active, candidate)
+        self._claim(cell, candidate, change.id, now, branch, target)
+        _record(
+            registry,
+            change.id,
+            "propose",
+            "trial",
+            {
+                "reason": reason,
+                "cell": cell,
+                "claim": {"branch": branch, "target": target},
+                "reference": active.to_text(),
+                **found,
+            },
+        )
+        return f"candidate {candidate.id} on trial"
 
     def _propose(self, cell: str, now: int) -> str:
         active = active_policy(self._policies, cell)
-        if not active.hold:
-            # The grid only changes follow-up orders and the wait for checks, and
-            # a run that is not held gets neither: a trial would measure noise.
-            return NOT_HOLDING
         rows = [r for r in self._cell_runs(cell) if r.get("policy_id") == active.id]
         if len(rows) < selector.N_MIN:
             return "waiting for runs"
+        if not active.hold:
+            return self._propose_hold(cell, active, rows, now)
         recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
         claim = selector.Claim(cell, "B", "cost")
         for shape in GRID:
             # A candidate differs from the active policy in its steering only.
             candidate = replace(shape, hold=active.hold)
-            if candidate == active:
+            if candidate == active or self._tried_lately(cell, candidate, now):
                 continue
             outcome = replay_cell(claim, recorded, candidate)
             if outcome.answer == "reject":
                 continue
-            change = self._registry().propose(self._draft(
-                target_for(cell, CANDIDATE), candidate,
+            return self._start(
+                cell,
+                active,
+                candidate,
                 f"steering candidate {candidate.id} for {cell}: the replay of "
                 f"{outcome.covered} recorded runs did not reject it ({outcome.reasons[:1]})",
-            ))
-            if change.state.value not in ("trial", "live"):
-                return f"candidate {candidate.id} not applied ({change.state.value})"
-            self._claim(cell, candidate, change.id, now)
-            return f"candidate {candidate.id} on trial"
-        return self._propose_text(cell, active, recorded)
+                now,
+                {"replay": _replayed(outcome)},
+            )
+        return self._propose_text(cell, active, recorded, now)
+
+    def _propose_hold(
+        self,
+        cell: str,
+        active: Policy,
+        rows: list[dict[str, Any]],
+        now: int,
+    ) -> str:
+        """Holding, with the factory's follow-up limits, as a candidate for a cell that does not."""
+        candidate = replace(
+            active, hold=True, p_max=DEFAULT.p_max, evidence_wait_s=DEFAULT.evidence_wait_s
+        )
+        if self._tried_lately(cell, candidate, now):
+            return f"nothing proposed: holding was tried here less than {RETRY_AFTER_DAYS} days ago"
+        recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
+        branch, target = claim_for(active, candidate)
+        outcome = replay_hold(selector.Claim(cell, branch, target), recorded, candidate)
+        if outcome.answer == "reject":
+            return f"nothing proposed: {outcome.reasons[0]}"
+        # The replay never accepts a hold (the follow-up orders were never sent):
+        # past its bound, only the canary can show whether holding helps.
+        return self._start(
+            cell,
+            active,
+            candidate,
+            f"holding the runs of {cell}, with the factory's follow-up limits: "
+            f"{outcome.reasons[0]}",
+            now,
+            {"replay": _replayed(outcome)},
+        )
+
+    def _propose_text(
+        self,
+        cell: str,
+        active: Policy,
+        recorded: list[tuple[dict[str, Any], list[Any]]],
+        now: int,
+    ) -> str:
+        """One fixed line for the first brief, mined from recurring follow-ups, on trial."""
+        from .mining import suggest
+
+        found = suggest(
+            active, recorded, allowed=lambda policy: not self._tried_lately(cell, policy, now)
+        )
+        if found is None:
+            return "no candidate survived the replay"
+        cited = ", ".join(found.cited[:8]) + (", ..." if len(found.cited) > 8 else "")
+        return self._start(
+            cell,
+            active,
+            found.policy(active),
+            f"one line for the first brief of {cell}: {found.line!r}. It would have spared "
+            f"the follow-up orders of {len(found.cited)} runs ({cited}).",
+            now,
+            {"line": found.line, "cited": list(found.cited)},
+        )
 
     def _judge(self, trial: Open, now: int) -> str:
         active = active_policy(self._policies, trial.cell)
@@ -273,27 +385,36 @@ class Trainer:
         rows = self._cell_runs(trial.cell, since_ms=trial.t0_ms)
         metrics = [m for m in (selector.metrics_of(r) for r in rows) if m is not None]
         claim = selector.Claim(trial.cell, trial.branch, trial.target)
-        outcome = selector.gate(
-            claim,
-            [m for m in metrics if m.policy == candidate.id],
-            [m for m in metrics if m.policy == active.id],
-            samples=self._samples,
-        )
+        cand = [m for m in metrics if m.policy == candidate.id]
+        ref = [m for m in metrics if m.policy == active.id]
+        outcome = selector.gate(claim, cand, ref, samples=self._samples)
         aged = now - trial.t0_ms >= MAX_TRIAL_DAYS * _DAY_MS
         if outcome.answer == "inconclusive" and not aged:
             return "trial goes on"
         registry = self._registry()
+        measured = _measured(claim, outcome, cand, ref, active)
         if outcome.answer == "accept":
-            registry.propose(self._draft(
-                target_for(trial.cell, ACTIVE), candidate,
-                f"accepted by the selector's gate: {'; '.join(outcome.reasons)} "
-                f"({outcome.n_candidate} against {outcome.n_reference} requests)",
-            ))
-        registry.propose(self._draft(
-            target_for(trial.cell, CANDIDATE), None,
-            f"the trial of {candidate.id} ended: {outcome.answer}"
-            + (" after 28 days without an answer" if aged else ""),
-        ))
+            change = registry.propose(
+                self._draft(
+                    target_for(trial.cell, ACTIVE),
+                    candidate,
+                    f"accepted by the selector's gate: {'; '.join(outcome.reasons)} "
+                    f"({outcome.n_candidate} against {outcome.n_reference} requests)",
+                )
+            )
+            if change.state.value in ("trial", "live"):
+                _record(registry, change.id, "admit", outcome.answer, measured)
+        if trial.change_id:
+            step = "admit" if outcome.answer == "accept" else "decline"
+            _record(registry, trial.change_id, step, outcome.answer, measured)
+        registry.propose(
+            self._draft(
+                target_for(trial.cell, CANDIDATE),
+                None,
+                f"the trial of {candidate.id} ended: {outcome.answer}"
+                + (" after 28 days without an answer" if aged else ""),
+            )
+        )
         self._close(trial, outcome.answer if not aged else "expired", now)
         return f"trial ended: {outcome.answer}"
 
@@ -302,9 +423,12 @@ class Trainer:
         registry = self._registry()
         target = target_for(cell, ACTIVE)
         changes = [
-            c for c in registry.store.list(limit=200)
-            if c.surface.value == "coding_policy" and c.target == target
-            and c.state.value == "trial" and c.author == AUTHOR
+            c
+            for c in registry.store.list(limit=200)
+            if c.surface.value == "coding_policy"
+            and c.target == target
+            and c.state.value == "trial"
+            and c.author == AUTHOR
         ]
         if not changes:
             return ""
@@ -312,7 +436,8 @@ class Trainer:
         policy = Policy.from_text(newest.after)
         since = int(getattr(newest, "created_ms", 0) or 0)
         hard = [
-            r for r in self._cell_runs(cell, since_ms=since)
+            r
+            for r in self._cell_runs(cell, since_ms=since)
             if r.get("policy_id") == policy.id
             and (r.get("gate_status") == "violations" or r.get("leaked"))
         ]
@@ -335,7 +460,7 @@ class Trainer:
         def work() -> None:
             try:
                 done = self.consider(cell)
-                if done not in ("waiting for runs", "trial goes on", NOT_HOLDING, ""):
+                if done.startswith(_CHANGED):
                     log.info("rsi trainer: %s: %s", cell, done)
             except Exception:  # noqa: BLE001 - a failed look leaves every policy as it was
                 log.warning("rsi trainer: %s not considered", cell, exc_info=True)
@@ -351,7 +476,77 @@ class Trainer:
         from dodaios.self_change.surfaces import Surface
 
         return Draft(
-            surface=Surface.CODING_POLICY, target=target,
+            surface=Surface.CODING_POLICY,
+            target=target,
             after=policy.to_text() if policy is not None else None,
-            author=AUTHOR, reason=reason[:600],
+            author=AUTHOR,
+            reason=reason[:600],
         )
+
+
+def _replayed(outcome: Any) -> dict[str, Any]:
+    return {
+        "answer": outcome.answer,
+        "runs": outcome.runs,
+        "covered": outcome.covered,
+        "reasons": list(outcome.reasons),
+        "bounds": outcome.bounds,
+    }
+
+
+def _means(rows: Sequence[selector.RunMetrics]) -> dict[str, Any]:
+    """Plain means per request of one arm, for the person to read beside the bound."""
+    found = selector.units(rows)
+    n = len(found)
+    return {
+        "n": n,
+        **{m: (sum(u[m] for u in found) / n if n else None) for m in selector.METRICS},
+    }
+
+
+def _measured(
+    claim: selector.Claim,
+    outcome: selector.Outcome,
+    cand: Sequence[selector.RunMetrics],
+    ref: Sequence[selector.RunMetrics],
+    reference: Policy,
+) -> dict[str, Any]:
+    """The gate's answer on a trial, in the shape the registry keeps as evidence.
+
+    ``target`` follows the kernel's evidence (``diff``, ``low``, ``n``): the
+    claimed metric's difference, oriented so that positive is better, and its
+    one-sided lower bound. The selector computes no upper bound (``high``).
+    """
+    metric = claim.target if claim.branch == "B" else "pass"
+    bound = outcome.bounds.get(metric) or {}
+    arms = {"candidate": _means(cand), "reference": _means(ref)}
+    cost_c, cost_r = arms["candidate"]["cost"], arms["reference"]["cost"]
+    return {
+        "reason": "; ".join(outcome.reasons),
+        "split": "",
+        "cell": claim.cell,
+        "claim": {"branch": claim.branch, "target": claim.target},
+        "reference": reference.to_text(),
+        "target": {
+            "domain": claim.cell.split("|", 1)[0],
+            "metric": metric,
+            "diff": bound.get("diff"),
+            "low": bound.get("lcb"),
+            "high": None,
+            "n": outcome.n_candidate,
+            "n_reference": outcome.n_reference,
+            "cost_diff": (cost_c - cost_r if cost_c is not None and cost_r is not None else None),
+        },
+        "arms": arms,
+        "bounds": outcome.bounds,
+    }
+
+
+def _record(registry: Any, change_id: str, step: str, verdict: str, body: dict[str, Any]) -> None:
+    """Keep what a policy change rests on beside it in the registry (append-only)."""
+    try:
+        registry.store.record_evidence(
+            change_id, step, verdict, json.dumps(body, sort_keys=True, default=str)
+        )
+    except Exception:  # noqa: BLE001 - the change stands; only its numbers are missing
+        log.warning("rsi trainer: evidence of %s not kept", change_id, exc_info=True)

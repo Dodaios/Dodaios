@@ -101,6 +101,15 @@ describe("self-improvement strings", () => {
     }
   });
 
+  it("every area of coding work a policy can be for has a word", () => {
+    const domains = readFileSync(join(REPO, "dodaios", "rsi", "domains.py"), "utf-8");
+    const tuple = /DOMAINS: Final\[tuple\[str, \.\.\.\]\] = \(([^)]*)\)/.exec(domains);
+    const names = [...(tuple?.[1] ?? "").matchAll(/"(\w+)"/g)].map((m) => m[1]);
+    expect(names).toContain("backend");
+    expect(names).toContain("other");
+    for (const name of names) expect(source.get(`self_improvement.coding_area.${name}`), name).toBeTruthy();
+  });
+
   it("every literal self_improvement key the page asks for exists in English", () => {
     const files = [join(SRC, "views", "SelfImprovementView.tsx"), ...walk(join(SRC, "views", "selfImprovement"))];
     const missing: string[] = [];
@@ -124,7 +133,9 @@ describe("self-improvement strings", () => {
       "self_improvement.state_word.": ["proposed", "trial", "live", "reverted", "blocked"],
       "self_improvement.outcome.": ["admitted", "declined", "waiting", "kept", "taken_back"],
       "self_improvement.resting.": ["restale", "dormant"],
-      "self_improvement.author.": ["tuner", "owner", "memory-learner"],
+      "self_improvement.author.": ["tuner", "owner", "memory-learner", "rsi-selector"],
+      // How coding agents are steered (dodaios/rsi/overview.py, `_policy`).
+      "self_improvement.policy.claim_": ["pass", "cost", "p"],
       "self_improvement.stack.": ["kinds", "note_title", "note_gone", "not_measured"],
       "self_improvement.detail.": ["admitted_on", "checked_on"],
       "self_improvement.how.": ["practise_title", "practise_body", "decide_title", "decide_body", "check_title", "check_body", "limits", "models", "measure_no_model", "privacy"],

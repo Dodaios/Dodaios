@@ -126,6 +126,7 @@ logs/
 *.mkv
 *.avi
 *.wav
+!scripts/bench/data/*.wav
 *.flac
 *.blend
 *.blend1
