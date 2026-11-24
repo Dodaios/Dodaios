@@ -51,7 +51,7 @@ def read_manifest(path: Path) -> dict:
 def init_study(slug: str, studies: Path | None = None) -> Path:
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
         raise ValueError("study ID must be a lowercase slug")
-    parent = (studies or ROOT / "art/studies").resolve()
+    parent = (studies or ROOT / "assets/art/studies").resolve()
     folder = parent / slug
     # Refuse to overwrite an existing study, including an existing empty directory.
     folder.mkdir(parents=True, exist_ok=False)

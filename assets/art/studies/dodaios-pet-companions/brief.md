@@ -17,7 +17,7 @@ and personality come from their idle rows; no external assets are used.
 
 | Pet | 3D reading | Moves by |
 |---|---|---|
-| `gigi` | The existing Gigi hover companion (`art/studies/gigi-hover-companion`) | flying |
+| `gigi` | The existing Gigi hover companion (`assets/art/studies/gigi-hover-companion`) | flying |
 | `ember` | Chibi baby dragon: red scales, cream belly bands, peach wings, yellow horns | flying, wings beating |
 | `miso` | Chibi orange tabby: big head, cream muzzle and paws, pink ears, green eyes | walking on four legs |
 | `bolt` | Blue battery with a dark charge window, three green bars, grey cap, nub arms and feet | waddling on two feet |

@@ -25,7 +25,7 @@
 # - Excluding unused GUI frameworks saves roughly 500 MB.
 #
 # Invoke through the per-OS build script (packaging/<os>/build.*) or directly
-# with `pyinstaller dodaios.spec --noconfirm --clean`.
+# with `pyinstaller packaging/dodaios.spec --noconfirm --clean`.
 
 # ruff: noqa
 
@@ -40,7 +40,7 @@ from PyInstaller.utils.hooks import (
 )
 
 
-PROJECT_ROOT = Path(SPECPATH).resolve()  # noqa: F821  (SPECPATH is PyInstaller-injected)
+PROJECT_ROOT = Path(SPECPATH).resolve().parent  # noqa: F821  (SPECPATH is PyInstaller-injected)
 FRONTEND_DIST = PROJECT_ROOT / "dodaios" / "ui" / "web" / "dist"
 PACKAGE_ASSETS = PROJECT_ROOT / "dodaios" / "assets"
 ICON_DIR = PROJECT_ROOT / "assets" / "icons"

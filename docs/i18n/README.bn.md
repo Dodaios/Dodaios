@@ -30,15 +30,15 @@
   <a href="https://dodaios.ai">ওয়েবসাইট</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ja.md">日本語</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.es.md">Español</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.hi.md">हिन्दी</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ar.md">العربية</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.fr.md">Français</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.pt-BR.md">Português (Brasil)</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ru.md">Русский</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.id.md">Bahasa Indonesia</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ja.md">日本語</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.es.md">Español</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.hi.md">हिन्दी</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ar.md">العربية</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.fr.md">Français</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ru.md">Русский</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.id.md">Bahasa Indonesia</a>
 </p>
 
 </div>
@@ -168,9 +168,9 @@ Dodaios-এর কোনো খরচ নেই: কোনো Dodaios অ্য�
 সঙ্গে
 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE)-এ দেওয়া attribution। নাম
 আর লোগো
-[ট্রেডমার্ক পলিসি](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md)-র
+[ট্রেডমার্ক পলিসি](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/TRADEMARK.md)-র
 আওতায় পড়ে। Dodaios একটি স্বাধীন প্রজেক্ট: এটি যেসব প্রোডাক্টের সঙ্গে কাজ করে, সেগুলো
 তাদের নির্মাতাদের, আর কোনো টুল সাপোর্ট করার মানে এই নয় যে তার নির্মাতা Dodaios-কে
 অনুমোদন করেন। অক্টোবর 2026 পর্যন্ত এর নাম ছিল Personal Jarvis
 ([নাম কেন বদলাল](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/))।
-স্পনসরদের তালিকা আছে [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)-এ।
+স্পনসরদের তালিকা আছে [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/SPONSORS.md)-এ।

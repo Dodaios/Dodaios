@@ -30,15 +30,15 @@
   <a href="https://dodaios.ai">Situs web</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ja.md">日本語</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.es.md">Español</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.hi.md">हिन्दी</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ar.md">العربية</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.fr.md">Français</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.bn.md">বাংলা</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.pt-BR.md">Português (Brasil)</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ru.md">Русский</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ja.md">日本語</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.es.md">Español</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.hi.md">हिन्दी</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ar.md">العربية</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.fr.md">Français</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.bn.md">বাংলা</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ru.md">Русский</a>
 </p>
 
 </div>
@@ -182,9 +182,9 @@ Terima kasih kepada semua yang telah menyumbangkan sesuatu di sini:
 dengan atribusi di
 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE). Nama dan
 logonya diatur oleh
-[kebijakan merek dagang](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md).
+[kebijakan merek dagang](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/TRADEMARK.md).
 Dodaios adalah proyek independen: produk yang digunakan bersamanya adalah milik
 pembuatnya masing-masing, dan dukungan terhadap suatu tool tidak berarti pembuatnya
 menyetujui Dodaios. Hingga Oktober 2026, proyek ini bernama Personal Jarvis
 ([mengapa namanya berubah](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)).
-Daftar sponsor ada di [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
+Daftar sponsor ada di [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/SPONSORS.md).

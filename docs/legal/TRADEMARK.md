@@ -40,7 +40,7 @@ claims no rights in them and does not use them as its product name.
 During the transition some technical names still carry the former name so that existing
 installs, scripts and links keep working: legacy download and package aliases, the
 `jarvis` commands, and internal identifiers such as file, registry and bundle names. They
-are being retired step by step ([docs/rename/migration-plan.md](docs/rename/migration-plan.md)).
+are being retired step by step ([docs/rename/migration-plan.md](../rename/migration-plan.md)).
 
 ## No affiliation
 
@@ -74,7 +74,7 @@ partnership is claimed. Each owner's brand and logo-use guidelines govern their 
 The assistant name and activation ("wake") word are yours to choose and may coincide with
 existing trademarks. Users choose their own activation word and are solely responsible for
 ensuring their choice does not infringe anyone's rights; see
-[`docs/legal/TERMS.md`](docs/legal/TERMS.md).
+[`docs/legal/TERMS.md`](TERMS.md).
 
 ## Contact
 
