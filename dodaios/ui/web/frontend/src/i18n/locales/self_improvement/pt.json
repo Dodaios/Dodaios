@@ -15,15 +15,15 @@
       "running": "A correr",
       "stopped": "Parada",
       "readonly": "Só leitura",
-      "running_first": "Ainda não correu nenhuma noite. A primeira começa quando estiver fora há {minutes} minutos.",
-      "running_body": "A última noite foi {when}. A próxima vem depois de {next}, assim que estiver fora há {minutes} minutos.",
-      "running_due": "A última noite foi {when}. A próxima vem da próxima vez que estiver fora durante {minutes} minutos.",
+      "running_first": "Ainda não correu nenhuma ronda de aprendizagem. A primeira começa quando estiver fora há {minutes} minutos.",
+      "running_body": "A última ronda foi {when}. A próxima vem depois de {next}, assim que estiver fora há {minutes} minutos.",
+      "running_due": "A última ronda foi {when}. A próxima vem da próxima vez que estiver fora durante {minutes} minutos.",
       "stopped_body": "Até retomar, nada é experimentado, medido ou alterado. O que já aprendeu continua em vigor.",
       "readonly_body": "Uma versão mais recente da aplicação escreveu estes registos. Esta versão só os mostra e não altera nada."
     },
     "empty": {
       "title": "Ainda não há nada medido",
-      "body": "Para se medir, o assistente cria primeiro, durante a noite, tarefas de teste a partir da sua própria memória e das suas mensagens. Quando houver suficientes, testa-se nelas, e esta página mostra se melhorou, o que alterou e o que provou cada alteração."
+      "body": "Para se medir, o assistente cria primeiro, enquanto está fora, tarefas de teste a partir da sua própria memória e das suas mensagens. Quando houver suficientes, testa-se nelas, e esta página mostra se melhorou, o que alterou e o que provou cada alteração."
     },
     "domain": {
       "recall": {
@@ -65,7 +65,7 @@
       "cost_label": "Prompt por mensagem",
       "cost": "{before} → {after} tokens",
       "cost_same": "{after} tokens, como de origem",
-      "waiting": "Há {n} tarefas do seu trabalho prontas. A primeira medição vem com a próxima noite.",
+      "waiting": "Há {n} tarefas do seu trabalho prontas. A primeira medição vem com a próxima ronda.",
       "no_tasks": "Ainda não há tarefas do seu trabalho para esta área, por isso aqui não se mede nada.",
       "quality_label": "Tarefas resolvidas",
       "shorter": "mais curto",
@@ -73,12 +73,12 @@
       "building": "Até agora há {n} tarefas de teste da sua memória e das suas mensagens. A medição começa quando houver suficientes para decidir: {need} na parte com que decide, que tem agora {have}."
     },
     "curve": {
-      "title": "Vantagem, noite a noite",
+      "title": "Vantagem, ronda a ronda",
       "caption": "Pontos, com o intervalo em que está o valor real",
-      "few": "A curva aparece depois da segunda noite que mede esta área.",
+      "few": "A curva aparece depois da segunda ronda que mede esta área.",
       "update": "Atualização para {version}",
       "range_value": "entre {low} e {high}",
-      "col_night": "Noite",
+      "col_night": "Ronda",
       "col_advantage": "Pontos",
       "col_range": "Intervalo",
       "col_tasks": "Tarefas",
@@ -121,7 +121,7 @@
       "what": "O que ajusta",
       "admitted": "Porque foi aceite",
       "checked": "Verificado de novo",
-      "not_checked": "Ainda não foi verificado de novo. A próxima noite fá-lo.",
+      "not_checked": "Ainda não foi verificado de novo. A próxima ronda fá-lo.",
       "admitted_on": "Medido em {n} tarefas reservadas para decidir, {when}.",
       "checked_on": "Medido em {n} tarefas com que nunca se decidiu nenhuma alteração, {when}.",
       "proposed_by": "Proposto por",
@@ -140,7 +140,7 @@
       "lines": "O aprendiz de linhas, que experimenta as suas mensagens sem uma das linhas fixas em tarefas de treino"
     },
     "nights": {
-      "title": "As últimas noites",
+      "title": "As últimas rondas",
       "paused": "Parada: nada foi feito.",
       "updated": "A aplicação foi atualizada de {from} para {to}. Tudo o que foi aprendido foi verificado de novo.",
       "checked": "Verificado {title}: {outcome}, {effect}.",
@@ -152,8 +152,8 @@
       "decided_bare": "Medido {title}: {outcome}.",
       "measured": "Vantagem ({area}): {points} pontos em {n} tarefas.",
       "idle": "Verificou e ainda não encontrou nada para medir.",
-      "show_one": "Mostrar 1 noite anterior",
-      "show_other": "Mostrar {count} noites anteriores",
+      "show_one": "Mostrar 1 ronda anterior",
+      "show_other": "Mostrar {count} rondas anteriores",
       "hide": "Mostrar menos",
       "built_one": "Criou 1 tarefa de teste a partir da sua memória e das suas mensagens.",
       "built_other": "Criou {count} tarefas de teste a partir da sua memória e das suas mensagens.",
@@ -161,7 +161,9 @@
       "erased_other": "Apagou {count} tarefas sobre memórias que já não existem.",
       "stored_one": "Guardou 1 tarefa do teu trabalho de programação anterior.",
       "stored_other": "Guardou {count} tarefas do teu trabalho de programação anterior.",
-      "deferred": "Não foi possível consultar nenhum modelo, por isso não foram criadas tarefas."
+      "deferred": "Não foi possível consultar nenhum modelo, por isso não foram criadas tarefas.",
+      "spent": "Chamadas ao modelo: {calls}, cerca de {share} % de uma janela de utilização.",
+      "spent_unread": "Chamadas ao modelo: {calls}, dentro dos limites fixos (não foi possível ler a utilização do plano)."
     },
     "outcome": {
       "admitted": "aceite à experiência",
@@ -186,13 +188,16 @@
       "decide_title": "Decidir",
       "decide_body": "Uma alteração só entra quando se prova em tarefas com que nunca treinou.",
       "check_title": "Continuar a verificar",
-      "check_body": "As noites seguintes verificam cada alteração de novo noutras tarefas e desfazem o que já não ajuda.",
-      "limits": "Só trabalha depois de estar fora há {minutes} minutos, e no máximo uma noite em cada {hours} horas.",
-      "models": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite, com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
-      "models_ramp": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite ({ramp} nas primeiras noites, enquanto houver poucas tarefas para decidir), com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
+      "check_body": "As rondas seguintes verificam cada alteração de novo noutras tarefas e desfazem o que já não ajuda.",
+      "limits": "Uma ronda de aprendizagem começa quando está há {minutes} minutos sem usar o computador, no máximo uma vez em cada {hours} horas e a qualquer hora do dia. Também corre com a janela da aplicação fechada, desde que \"Manter agentes ativos após fechar\" esteja ligado nas Definições.",
+      "models": "Para criar tarefas de teste consulta um modelo apenas enquanto faltarem tarefas às medições: até haver suficientes para decidir ou não restar nada de novo a partir do qual as criar.",
       "measure_no_model": "A medição em si não consulta nenhum modelo.",
-      "measure_first_move": "Para medir o primeiro passo e os pedidos a agentes repete pedidos anteriores com a subscrição do próprio assistente: no máximo {calls} chamadas ao modelo por noite para os dois juntos, nunca enquanto uma janela de utilização estiver 80 % cheia, e nunca mais de {share} % de uma janela numa noite.",
-      "privacy": "As memórias e mensagens usadas para isto vão apenas para o fornecedor com que o assistente já responde. As memórias marcadas como sensíveis nunca são enviadas."
+      "measure_first_move": "Para medir o primeiro passo e os pedidos a agentes repete pedidos anteriores com a subscrição do próprio assistente, até as comparações da ronda estarem concluídas.",
+      "privacy": "As memórias e mensagens usadas para isto vão apenas para o fornecedor com que o assistente já responde. As memórias marcadas como sensíveis nunca são enviadas.",
+      "budget": "Cada chamada usa a subscrição do próprio assistente ou um modelo local, nunca uma chave cobrada por token. Nenhuma chamada começa enquanto uma janela de utilização do seu plano estiver {full} % cheia, e uma ronda usa no máximo {share} % de uma janela.",
+      "fallback": "Se não for possível ler a utilização do plano, por exemplo com um modelo local, aplicam-se limites fixos: {calls} chamadas por ronda para criar tarefas ({ramp} nas primeiras rondas) e {replays} repetições. Nenhuma ronda faz alguma vez mais de {ceiling} chamadas de um mesmo tipo.",
+      "last_round": "Chamadas ao modelo na última ronda: {calls}, cerca de {share} % de uma janela de utilização.",
+      "last_round_unread": "Chamadas ao modelo na última ronda: {calls}. Não foi possível ler a utilização do plano, por isso aplicaram-se os limites fixos."
     },
     "param": {
       "recall_entity_boost": {
@@ -265,6 +270,15 @@
       "col_through": "Seguiram",
       "week_of": "a partir de {date}",
       "unrated": "sem valor"
+    },
+    "track": {
+      "title": "Nos seus pedidos",
+      "none": "Não foi mostrada em nenhum dos seus pedidos desde {date}.",
+      "few": "Mostrada em {n} dos seus pedidos desde {date}. Como correram aparece a partir de {min} pedidos.",
+      "shown": "Mostrada em {n} dos seus pedidos desde {date}: {through} seguiram ({pct}); sem ela, {other_pct} de {m}.",
+      "shown_alone": "Mostrada em {n} dos seus pedidos desde {date}: {through} seguiram ({pct}); sem ela há poucos demais para comparar ({m}).",
+      "caveat": "Isto mostra o que aconteceu, não o que o causou: uma nota aparece quando um pedido trata do seu assunto, por isso esses pedidos não são como os outros, e nada é decidido com base nisto.",
+      "row": "mostrada em {n} dos seus pedidos"
     },
     "policy": {
       "sentence": "{what}, {where}",

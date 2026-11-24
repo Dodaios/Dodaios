@@ -75,7 +75,7 @@ TIMEOUT_S: Final[float] = 180.0
 #: How often a running replay looks whether the night was halted.
 HALT_POLL_S: Final[float] = 0.5
 #: Why a replay cut by a halt has no move (a void result, never kept for reuse).
-HALTED: Final = "stopped: the backend let go of the night"
+HALTED: Final = "stopped: the backend let go of the round"
 _TEXT_KEEP: Final = 400
 #: Calls one replay answers at most (look-ups and the brief kit together).
 MAX_SERVED: Final[int] = 4

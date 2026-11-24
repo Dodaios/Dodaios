@@ -13,6 +13,7 @@ from dodaios.learners.tuner import MIN_GAIN, Proposal, Trial, Tuner, neighbours
 from dodaios.rsi import night as nights
 from dodaios.rsi import params
 from dodaios.rsi.bench.model import Domain
+from dodaios.rsi.budget import CEILING_CALLS
 from dodaios.rsi.gate.alpha import MAX_DECISIONS
 from dodaios.rsi.gate.evidence import Evidence, Verdict
 from dodaios.rsi.params import Index, Param
@@ -292,6 +293,27 @@ def test_the_app_runs_a_night_only_when_one_is_due_and_the_person_is_away(quiet_
     assert service.tick() is None
 
 
+def test_the_gate_wants_tasks_until_it_can_decide_and_check(quiet_box, tmp_path: Path) -> None:
+    from dodaios.rsi.bench.model import Split
+    from dodaios.rsi.bench.store import BenchStore
+    from dodaios.rsi.gate.alpha import AlphaLedger
+    from dodaios.rsi.gate.decide import MeasuredGate
+
+    gate = quiet_box.night.gate
+    assert nights.tasks_wanted(gate) == ""  # the sandbox holds enough to decide and check
+    groups = quiet_box.bench.groups(Domain.RECALL, Split.SELECT, gate.sources)
+    ledger = AlphaLedger(quiet_box.bench)
+    while ledger.left(Domain.RECALL, Split.SELECT, groups):
+        ledger.spend(Domain.RECALL, Split.SELECT, groups)
+    assert "used up" in nights.tasks_wanted(gate)  # decisions spent them: new ones are needed
+    empty = BenchStore(tmp_path / "empty.db")
+    try:
+        bare = MeasuredGate(quiet_box.registry, empty, lambda: {}, sources=gate.sources)
+        assert nights.tasks_wanted(bare) == "0 of the 30 select tasks a decision needs"
+    finally:
+        empty.close()
+
+
 def test_learning_is_work_to_keep_until_the_person_stops_the_loop(quiet_box) -> None:
     service = nights.NightService(quiet_box.night, lambda: True)
     assert service.learning() is True
@@ -405,5 +427,6 @@ def test_the_first_nights_may_build_more_tasks_until_there_are_enough_to_decide_
         bench.put_tasks(select[MIN_PAIRS - 1 : MIN_PAIRS])
         assert nights.calls_tonight(bench) == nights.MAX_MODEL_CALLS
         assert nights.RAMP_MODEL_CALLS > nights.MAX_MODEL_CALLS
+        assert nights.calls_tonight(bench) < CEILING_CALLS  # the ceiling is a guard, not a cap
     finally:
         bench.close()

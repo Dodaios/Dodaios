@@ -64,8 +64,8 @@ describe("self-improvement: the brief area's words", () => {
       for (const way of ["shorter", "longer"]) {
         expect(String(at(chunk, `self_improvement.domain.brief.effect_${way}`)), lang).toContain("{tokens}");
       }
-      const how = String(at(chunk, "self_improvement.how.measure_first_move"));
-      for (const slot of ["{calls}", "{share}"]) expect(how, lang).toContain(slot);
+      const budget = String(at(chunk, "self_improvement.how.budget"));
+      for (const slot of ["{full}", "{share}"]) expect(budget, lang).toContain(slot);
     });
   }
 
