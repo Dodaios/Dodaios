@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Collection
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Final
 
 from dodaios.rsi import lines
@@ -103,8 +103,6 @@ class FirstMoveWorld:
     recorded: Callable[[int], Any] | None = None
     #: What the lead is given for a request today, built under the active overlay.
     seed_input: Callable[[str], LeadInput] | None = None
-    #: Replays this night ran, for the night's report.
-    log: list[str] = field(default_factory=list)
 
 
 def digest(text: str) -> str:
@@ -157,7 +155,6 @@ def run(task: Task, world: FirstMoveWorld) -> Measured:
     if refused:
         return Measured(0.0, tokens, refused, void=f"budget: {refused}")
     move = world.driver(found, world.platform)
-    world.log.append(task.id)
     seat = f"{world.platform.cli}:{move.model or world.platform.model}"
     if not same_model(world.platform.model, move.model):
         why = f"the model changed: asked {world.platform.model}, answered {move.model}"

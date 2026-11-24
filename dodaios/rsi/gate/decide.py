@@ -273,9 +273,10 @@ class MeasuredGate:
             return Evidence(
                 Verdict.UNDECIDED, target=found.target, split=Split.SELECT.value, reason=reason
             )
-        for domain in spend:  # a decision was made: it counts against the split's budget
-            groups = self.bench.groups(domain, Split.SELECT, self.sources)
-            self._alpha.spend(domain, Split.SELECT, groups)
+        if found.verdict in (Verdict.ACCEPT, Verdict.REJECT):
+            for domain in spend:  # a decision was made: it counts against the split's budget
+                groups = self.bench.groups(domain, Split.SELECT, self.sources)
+                self._alpha.spend(domain, Split.SELECT, groups)
         return found
 
     def consider(self, change: Change) -> Decision:

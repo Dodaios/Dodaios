@@ -484,6 +484,21 @@ def test_the_night_cap_holds_and_the_comparison_carries_on_the_next_night(seed_b
     assert ledger.state(Domain.FIRST_MOVE, Split.SELECT)["decisions"] == 1
 
 
+def test_a_night_without_a_seat_to_replay_on_spends_nothing(seed_box) -> None:
+    lead = FakeLead()
+    box, _ = seed_box(lead)
+    text = params.text_for(params.INDEX.by_name(SWITCH), False)
+    box.registry.propose(Draft(Surface.PARAMETER, SWITCH, text, author=nights.LINES))
+    # Tonight the lead is not on its plan: no replay world is built.
+    box.night._worlds = box.night.gate._worlds = lambda: {}  # noqa: SLF001
+    report = box.night.run()
+    assert lead.calls == [] and not report.proposed
+    assert report.decided[0]["outcome"] == "waiting"
+    ledger = AlphaLedger(box.bench)
+    assert ledger.state(Domain.FIRST_MOVE, Split.SELECT)["decisions"] == 0
+    assert box.bench.results(report.decided[0]["evidence"]["baseline"]) == []
+
+
 def test_a_gain_on_what_the_person_only_accepted_is_no_gain() -> None:
     from dodaios.rsi.gate.evidence import Verdict
     from dodaios.rsi.gate.rules import Compared, admit_verdict
