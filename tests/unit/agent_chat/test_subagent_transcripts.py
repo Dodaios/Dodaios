@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -42,8 +42,18 @@ def _item(ordinal: int, payload: dict[str, Any], kind: str = "response_item") ->
     }
 
 
-def _write(home: Path, thread: str, lines: list[dict[str, Any]], day: str = "2026/09/26") -> None:
-    folder = home / "sessions" / Path(day)
+def _today() -> str:
+    return datetime.now(UTC).strftime("%Y/%m/%d")
+
+
+def _since_ms() -> int:
+    # The scan counts back from now and stops after 60 day folders, so the
+    # fixtures are filed relative to today. A fixed calendar date expires.
+    return int((datetime.now(UTC) - timedelta(hours=1)).timestamp() * 1000)
+
+
+def _write(home: Path, thread: str, lines: list[dict[str, Any]], day: str | None = None) -> None:
+    folder = home / "sessions" / Path(day or _today())
     folder.mkdir(parents=True, exist_ok=True)
     body = "\n".join(json.dumps(line) for line in lines) + "\n"
     (folder / f"rollout-2026-09-26T19-22-24-{thread}.jsonl").write_text(body, encoding="utf-8")
@@ -97,7 +107,7 @@ def _child_lines() -> list[dict[str, Any]]:
 
 def test_reads_a_subagents_own_steps_from_its_rollout(tmp_path: Path) -> None:
     _write(tmp_path, CHILD, _child_lines())
-    agents = codex_subagents(PARENT, since_ms=1790443000000, homes=[tmp_path])
+    agents = codex_subagents(PARENT, since_ms=_since_ms(), homes=[tmp_path])
     assert len(agents) == 1
     agent = agents[0]
     assert (agent.thread_id, agent.parent_thread_id, agent.nickname, agent.path) == (
@@ -136,7 +146,7 @@ def test_follows_nested_subagents_and_skips_strangers(tmp_path: Path) -> None:
         OTHER,
         [_meta(OTHER, "01a0ffff-0000-7810-9557-0fe75ec805fc", start=1, path="/root/x")],
     )
-    agents = codex_subagents(PARENT, since_ms=1790443000000, homes=[tmp_path])
+    agents = codex_subagents(PARENT, since_ms=_since_ms(), homes=[tmp_path])
     assert [(a.thread_id, a.status) for a in agents] == [(CHILD, "done"), (GRANDCHILD, "running")]
 
 
@@ -154,7 +164,7 @@ def test_route_lists_a_codex_threads_subagents(tmp_path: Path, monkeypatch) -> N
     from dodaios.ui.web.agent_chat_routes import router
 
     # The thread was created just now; its sub-agent's rollout is filed under today.
-    _write(tmp_path, CHILD, _child_lines(), day=datetime.now(UTC).strftime("%Y/%m/%d"))
+    _write(tmp_path, CHILD, _child_lines())
     monkeypatch.setattr(subagent_transcripts, "codex_homes", lambda account_id=None: [tmp_path])
     svc = AgentChatService(AgentChatStore(":memory:"))
     codex = svc.create_session(provider="openai-codex", cwd=str(tmp_path), surface="agent")
