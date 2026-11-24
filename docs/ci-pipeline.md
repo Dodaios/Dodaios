@@ -497,10 +497,12 @@ A release happens **only** when the maintainer asks for one.
 * **Preflight.** Every cut starts with a `preflight` job that changes
   nothing: a `git push --dry-run` with the release bot's token (a bot that
   lost write access fails here, before a version is computed; the first cut
-  of v4.2.0 failed on exactly that), the release signing secrets, main's
-  `CI gate`, and the version and notes the cut would write, shown in the run
-  summary. `gh workflow run release-cut.yml -f bump=minor -f dry_run=true`
-  runs only the preflight.
+  of v4.2.0 failed on exactly that), main's `CI gate`, and the version and
+  notes the cut would write, shown in the run summary.
+  `gh workflow run release-cut.yml -f bump=minor -f dry_run=true` runs only
+  the preflight. It does not check the signing keys, which no run on main may
+  read (see **Release environments**); the signing jobs check them on the tag,
+  and a publisher that stops leaves the release a draft.
 * **`release-gate.yml`** is the first job of `release.yml` (PyPI),
   `desktop-installers.yml` and `sign-installer.yml`. It admits a tag only
   when tag, versions and CHANGELOG agree, the commit is on main, and
@@ -697,7 +699,10 @@ from a branch, and administrators cannot bypass that policy. Neither has
 required reviewers: a release runs from `release-cut.yml` to the published
 GitHub Release without an approval pause or a **Review deployments** click.
 The signing keys and the PyPI upload are therefore reachable only from a
-workflow run on a `v*` tag.
+workflow run on a `v*` tag. The keys are secrets of the `release-signing`
+environment, never of the repository, because a repository secret reaches
+every workflow run on any branch; `scripts/ci/check_workflow_policy.py` fails
+any job outside that environment that names a `WAVE*` secret.
 
 **Release tags.** The `release tags` repository ruleset protects
 `refs/tags/v*` against creation, update and deletion. Only the release bot
