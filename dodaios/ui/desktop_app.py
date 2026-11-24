@@ -6249,7 +6249,7 @@ class DesktopApp:
 
         # New-window requests from a framed page must reach the OS only as
         # http(s) (pywebview would otherwise hand any URI to os.startfile).
-        from dodaios.ui.webview_new_window_guard import install_new_window_guard
+        from dodaios.platform.webview_new_window_guard import install_new_window_guard
 
         install_new_window_guard(webview)
 

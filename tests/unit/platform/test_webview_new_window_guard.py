@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from dodaios.ui.webview_new_window_guard import (
+from dodaios.platform.webview_new_window_guard import (
     _GuardedWebbrowser,
     guard_platform_modules,
     install_new_window_guard,

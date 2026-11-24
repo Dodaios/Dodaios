@@ -105,7 +105,7 @@ def run(url: str | None, *, port: int = 47821) -> int:
     from dodaios.core.branding import PRODUCT_NAME
     from dodaios.core.instance import current_instance
     from dodaios.core.paths import user_data_dir
-    from dodaios.ui.webview_new_window_guard import install_new_window_guard
+    from dodaios.platform.webview_new_window_guard import install_new_window_guard
 
     # The window shows another computer's page: a new-window request from it
     # reaches this computer's shell only as an http(s) address.

@@ -360,7 +360,7 @@ def main(argv: list[str] | None = None) -> int:
         icon = args.icon if args.icon and os.path.isfile(args.icon) else None
         # The player shows a music site: a new-window request from it reaches
         # the shell only as an http(s) address.
-        from dodaios.ui.webview_new_window_guard import install_new_window_guard
+        from dodaios.platform.webview_new_window_guard import install_new_window_guard
 
         install_new_window_guard(webview)
         webview.start(
