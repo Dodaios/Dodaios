@@ -134,6 +134,19 @@ On the maintainer's installation one run of three calls gave 24 question
 tasks from 12 memories and 6 message tasks from 8 messages, 5 of which need no
 memory; the two askings disagreed on the other 2, which were left out.
 
+Five whole nights on a copy of the maintainer's memory and messages
+(2026-11-24, 27 model calls, eight per night before the ramp-up above existed):
+the nights built 197 tasks, 107 of them real messages that need no memory.
+Nothing could be decided in the first two nights (15 and 28 select tasks). In
+night 3 the tuner proposed `recall.min_score` 0 -> 4 and the gate let it in
+(as good on 44 tasks and 33 % cheaper); night 4 checked it again on 26 new
+guard tasks, kept it, and let in 4 -> 8 the same way. Night 5 turned down
+`recall.entity_boost` 1.5 -> 1.9 (no gain, 14 % dearer). The learned advantage
+on 36 sealed tasks went from 0 to +11.1 points (0.583 as shipped, 0.694 now),
+and the memories a message brings into the prompt from 112 to 43 tokens on
+average: the shipped settings bring up a weak match for many messages that need
+none.
+
 ### Splits
 
 Tasks that came from the same piece of work share a *group*, and a group falls
