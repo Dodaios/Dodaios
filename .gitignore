@@ -184,6 +184,7 @@ ChatGPT Image *
 
 # Sub-Agent-Sandbox-Outputs (Research-/Demo-Drops, kein Projekt-Code)
 examples/
+!/sdk/examples/
 github-research/
 # The marketing website is its OWN git repo living in personaljarvisweb/, so one
 # folder holds both projects. Ignored on purpose: without this line git
