@@ -1,0 +1,11 @@
+{
+  "_comment": "Routine template for the nightly cleanup agent (docs/cleanup-agent.md). Replace <IANA timezone> and <agent_id>, then send it to POST /api/society/agents/<agent_id>/routines, or give title, prompt and schedule to the society-create-routine command.",
+  "title": "Nightly cleanup: one small refactor PR",
+  "schedule": {
+    "kind": "calendar",
+    "timezone": "<IANA timezone, for example Europe/Berlin>",
+    "local_time": "02:30"
+  },
+  "services": ["github"],
+  "prompt": "You are the nightly cleanup agent for the Dodaios repository. Do these steps in order and stop at the first one that says stop.\n\n1. Skip check. Run `gh pr list -R Dodaios/Dodaios --state open --search \"head:claude/nightly-cleanup\" --json number`. If the list is not empty, last night's cleanup PR is still open. Say nothing and stop.\n2. Pick a target. In the main checkout run `python scripts/cleanup_pick.py --json`. Exit code 3 means there is no safe target tonight. Say nothing and stop. Otherwise run `python scripts/cleanup_pick.py` and keep its text as the brief.\n3. Hand the brief to a coding agent thread on the person's default coding CLI. Start the thread with the brief as its whole task, and add: 'Name your branch claude/nightly-cleanup-<category>. Open at most one pull request. If the change is not clearly safe, open none.'\n4. Do not edit files yourself, do not merge, do not start a second thread. At most one pull request per night.\n5. Stay quiet while all goes well. Report only a failure or a pull request that needs the person."
+}

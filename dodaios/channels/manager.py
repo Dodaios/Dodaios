@@ -50,6 +50,7 @@ from collections.abc import Awaitable, Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from dodaios.core import module_health
 from dodaios.core.bus import EventBus
 from dodaios.core.entry_points import entry_points
 from dodaios.core.protocols import ChannelAdapter
@@ -332,9 +333,10 @@ class ChannelManager:
             try:
                 cls = ep.load()
                 self._classes[ep.name] = cls
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — channel plugin
                 self._failed_load[ep.name] = f"{type(exc).__name__}: {exc}"
                 log.warning("Channel '%s' load failed: %s", ep.name, exc)
+                module_health.report_failure(f"plugin:channel:{ep.name}", exc)
         self._loaded = True
 
     def available(self) -> list[str]:
