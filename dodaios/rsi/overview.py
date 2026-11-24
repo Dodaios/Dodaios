@@ -54,7 +54,7 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
     This is what happened, not a measurement of cause: the requests of one week
     are not the requests of the next. It stands beside the benchmark, which
     compares like with like, and never decides anything. ``None`` when there is
-    no chat record or it cannot be read.
+    no chat record, it cannot be read, or it holds no request in these weeks.
     """
     if chat_db is None or not Path(chat_db).is_file():
         return None
@@ -79,11 +79,14 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
             for window in report.get("windows") or []
         ]
         lifetime = report.get("lifetime") or {}
-        found = {
-            "weeks": weeks[-_WEEKS:],
-            "turns": int(report.get("turns") or 0),
-            "score": lifetime.get("score"),
-        }
+        turns = int(report.get("turns") or 0)
+        # No request in these weeks (or a record that holds none): nothing to show.
+        if turns:
+            found = {
+                "weeks": weeks[-_WEEKS:],
+                "turns": turns,
+                "score": lifetime.get("score"),
+            }
     except Exception:  # noqa: BLE001 — the page shows the benchmark without this part
         log.info("self-improvement: the score of daily use could not be read", exc_info=True)
     _daily_cache[key] = (stamp, found)
