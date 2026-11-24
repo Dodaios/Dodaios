@@ -32,8 +32,8 @@ from dodaios.agent_chat.runner_cli.base import (
     CliPlan,
     CliUnavailable,
     _catalog_cwd,
+    _identity_message,
     _remember_models,
-    _with_identity,
     log,
 )
 from dodaios.agent_chat.runner_cli.claude_stream import subagent_status
@@ -90,7 +90,7 @@ def plan_codex(
     # identity rides in front of it on a fresh conversation. (Its
     # ``model_instructions_file`` REPLACES the CLI's own instructions rather
     # than adding to them, so it is not used here.)
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("codex-cli", prompt, identity, resume)
     base = codex_argv_prefix()
     if resume:
         argv = [*base, "exec", "resume", resume, "--json"]

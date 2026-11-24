@@ -153,7 +153,7 @@ def assemble_claude_mcp_servers(
             continue
         try:
             tokens = token_store.load(plugin.id)
-        except Exception as exc:  # noqa: BLE001 — a corrupt token must not nuke the rest
+        except Exception as exc:  # broad-except: a corrupt token must not nuke the rest
             log.warning("mcp_bridge: token load failed for %s: %s", plugin.id, exc)
             continue
         if tokens is None:

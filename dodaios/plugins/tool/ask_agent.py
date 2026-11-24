@@ -96,7 +96,7 @@ class AskAgentTool:
                 return ToolResult(success=False, output=None, error="society unavailable")
             # Started first: tasks the runtime creates must not inherit the mark.
             await runtime.ensure_started()
-        except Exception as exc:  # noqa: BLE001 - an honest, inspectable tool failure
+        except Exception as exc:  # broad-except: an honest, inspectable tool failure
             log.warning("ask_agent: the agent team is not available", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
         # The one question sent below is marked as awaited; ``marked`` receives
@@ -115,7 +115,7 @@ class AskAgentTool:
                     },
                     ctx,
                 )
-            except Exception as exc:  # noqa: BLE001 - an honest, inspectable tool failure
+            except Exception as exc:  # broad-except: an honest, inspectable tool failure
                 log.warning("ask_agent: delivery failed", exc_info=True)
                 return ToolResult(success=False, output=None, error=str(exc))
             finally:

@@ -183,6 +183,47 @@ async def test_skill_listing_carries_the_origin(env: Path, offline_downloads: No
     assert entry["origin"]["publisher"] == "octocat"
 
 
+@pytest.fixture()
+def served_download(monkeypatch: pytest.MonkeyPatch, env: Path) -> None:
+    """The real skill finder, with its download answered by a local mock transport."""
+    from dodaios.skills import finder as finder_mod
+
+    monkeypatch.setattr(finder_mod, "user_skills_dir", lambda: env / "skills")
+    real = httpx.AsyncClient
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_SKILL_MD.encode("utf-8"))
+
+    def client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        # The test's own client to the app brings its transport; the finder's
+        # download brings none and gets the local answer.
+        kwargs.setdefault("transport", httpx.MockTransport(handler))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client)
+
+
+@pytest.mark.asyncio
+async def test_a_marketplace_skill_lands_switched_off(env: Path, served_download: None) -> None:
+    """Third-party text is not followed until the person switches it on.
+
+    The answer says so: not ready, nothing wrong with it, the next step is to
+    switch it on. The file on disk carries the draft state.
+    """
+    async with _client(env) as client:
+        resp = await client.post("/api/marketplace/community/install/three-point-check")
+        listed = await client.get("/api/skills")
+    body = resp.json()
+    assert body["state"] == "draft"
+    assert body["ready"] is False
+    assert not body["problem"]
+    assert body["next_action"] == "enable"
+    entry = next(s for s in listed.json()["skills"] if s["name"] == "three-point-check")
+    assert entry["state"] == "draft"
+    stored = (env / "skills" / "three-point-check" / "SKILL.md").read_text(encoding="utf-8")
+    assert "state: draft" in stored
+
+
 def test_a_hand_written_skill_has_no_origin(env: Path) -> None:
     from dodaios.skills.origin import read_origin
 

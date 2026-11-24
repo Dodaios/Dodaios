@@ -327,25 +327,16 @@ class SpawnWorkerTool:
     # round trip on a doomed spawn. Keep it in sync with router.py
     # SPAWN-CRITERIA and tests/unit/plugins/tool/test_spawn_worker_description.py.
     description: str = (
-        "Delegates a GENUINELY HEAVY task to a background frontier worker "
-        "(mission-manager orchestrated; runs for several minutes). Call it "
-        "ONLY when the user EXPLICITLY asked for delegation in their current "
-        "turn — they named an agent/subagent/worker/mission, said "
-        "spawn/delegate, asked for work in the background, or just gave a "
-        "clear yes to your offer to delegate — AND the task builds a real "
-        "work product (code, app, script, refactor, file, document, HTML "
-        "report) or clearly needs many steps of multi-minute focused work "
-        "(deep multi-source research WITH a deliverable report). NEVER call "
-        "it on your own initiative during ordinary conversation: questions, "
-        "remarks, news, quick lookups, single web searches, or anything you "
-        "can answer inline in this turn. Without an explicit request, answer "
-        "inline yourself and at most OFFER to start a background agent. "
-        "It runs in its own checkout and NEVER appears in the user's "
-        "workspaces: a new coding agent (Claude Code, Codex, ...) in a "
-        "workspace or project is workspace-orchestrate create (a chat thread "
-        "in the Agentic IDE), not this tool. Pass "
-        "the user utterance verbatim plus optional 3-5 short brainstorm "
-        "notes as ``context_hints``."
+        "Delegates a GENUINELY HEAVY task to a background frontier worker (runs for several "
+        "minutes in its own checkout). Call it ONLY when the user explicitly asked for "
+        "delegation in their current turn (named an agent/worker/mission, said spawn or "
+        "delegate, asked for background work, or said yes to your offer) AND the task builds "
+        "a real work product (code, app, script, file, document, HTML report) or needs "
+        "many multi-minute steps (deep research WITH a deliverable). NEVER on your own "
+        "initiative: not for questions, news, quick lookups, single web searches or "
+        "anything you can answer inline; at most offer it. A new coding agent in a "
+        "workspace or project is workspace-orchestrate create, not this tool. Pass the "
+        "user's utterance verbatim and optionally 3-5 short notes as context_hints."
     )
     risk_tier: str = "monitor"
     suppress_response: bool = True
@@ -354,49 +345,31 @@ class SpawnWorkerTool:
         "properties": {
             "utterance": {
                 "type": "string",
-                "description": (
-                    "Die EXAKTE User-Utterance, verbatim und unveraendert. "
-                    "Nicht umformulieren, nicht zerlegen, nicht zusammenfassen."
-                ),
+                "description": "The user's exact words, verbatim and unchanged.",
             },
             "context_hints": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": (
-                    "3-5 kurze Brainstorm-Gedanken vom Router zur Aufgabe. "
-                    "Die User-Utterance bleibt verbatim; context_hints sind "
-                    "NUR zusaetzliche Notizen (Requirements, Stolperfallen, "
-                    "Erfolgskriterien)."
-                ),
+                "description": "3-5 short notes (requirements, pitfalls, success criteria).",
                 "default": [],
             },
             "action": {
                 "type": "string",
-                "description": (
-                    "Kurzer Infinitiv-Satz was du delegierst, "
-                    "z.B. 'eine Flask-App baut', 'die Datei x analysiert'."
-                ),
+                "description": "Short phrase for what you delegate, e.g. 'builds a Flask app'.",
             },
             "target": {
                 "type": "string",
-                "description": (
-                    "Ort/Ziel falls bekannt, z.B. 'auf Port 8000' oder leer."
-                ),
+                "description": "Place or target if known, e.g. 'on port 8000'; else empty.",
                 "default": "",
             },
             "spoken_ack": {
                 "type": "string",
                 "description": (
-                    "A SHORT spoken confirmation (1-2 sentences, 20 words "
-                    "max) in the user's language, phrased freshly for THIS "
-                    "exact request: name the concrete topic and naturally "
-                    "convey that it runs on the side and may take a moment. "
-                    "It MUST contain the exact public product term "
-                    "'{agent}' exactly once and make clear that one was "
-                    "just started or brought in. Vary how and where that fact "
-                    "is expressed; do not use a fixed sentence template. "
-                    "NEVER a generic stock phrase, never claim the task is "
-                    "already done, and never expose internal component names."
+                    "A short spoken confirmation (1-2 sentences, 20 words max) in the "
+                    "user's language, fresh for this request: name the topic and convey "
+                    "it runs on the side and may take a moment. It MUST contain the "
+                    "exact term '{agent}' exactly once and make clear one was just started. No "
+                    "stock phrase, never claim it is done, never expose internal names."
                 ),
                 "default": "",
             },
@@ -469,7 +442,8 @@ class SpawnWorkerTool:
                 from dodaios.core.config import load_config
 
                 brand = _resolve_brand(load_config())
-            except Exception:  # noqa: BLE001 — schema rendering must not break wiring
+            except Exception:  # broad-except: schema rendering must not break wiring
+                log.debug("__init__: schema rendering must not break wiring", exc_info=True)
                 from dodaios.brain.assistant_name import agent_brand_from_name
 
                 brand = agent_brand_from_name("")

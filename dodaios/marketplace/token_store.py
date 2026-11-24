@@ -22,12 +22,15 @@ use `InMemoryBackend` instead of touching the real Credential Manager.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any, Protocol
 
 from dodaios.marketplace.credential_lock import storage_lock
+
+log = logging.getLogger(__name__)
 
 
 def _transaction(method):
@@ -315,7 +318,8 @@ class ChunkedBackend:
     def _clear_cleanup_extent_best_effort(self, key: str) -> None:
         try:
             self._delete_entry(self._cleanup_extent_key(key), strict=False)
-        except Exception:  # noqa: BLE001 - save already succeeded
+        except Exception:  # broad-except: save already succeeded
+            log.warning("_clear_cleanup_extent_best_effort: save already succeeded", exc_info=True)
             return
 
     def _clear_cleanup_extent_verified(self, key: str) -> None:
@@ -340,18 +344,21 @@ class ChunkedBackend:
             chunk_key = self._overflow_key(key, i)
             try:
                 piece = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+            except Exception:  # broad-except: keep save-time cleanup best-effort
+                log.debug("_clear_overflow: keep save-time cleanup best-effort", exc_info=True)
                 return False
             if piece is None:
                 return True
             try:
                 self._persist_cleanup_extent(key, i + 1)
-            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+            except Exception:  # broad-except: keep save-time cleanup best-effort
+                log.debug("_clear_overflow: keep save-time cleanup best-effort", exc_info=True)
                 return False
             try:
                 self._delete_entry(chunk_key, strict=False)
                 retained = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - keep save-time cleanup best-effort
+            except Exception:  # broad-except: keep save-time cleanup best-effort
+                log.debug("_clear_overflow: keep save-time cleanup best-effort", exc_info=True)
                 return False
             if retained is not None:
                 return False
@@ -371,19 +378,22 @@ class ChunkedBackend:
             chunk_key = self._overflow_key(key, i)
             try:
                 piece = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+            except Exception:  # broad-except: finish the bounded cleanup pass
+                log.debug("_clear_indexed_overflow: finish the bounded cleanup pass", exc_info=True)
                 cleared = False
                 continue
             if piece is None:
                 continue
             try:
                 self._delete_entry(chunk_key, strict=strict)
-            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+            except Exception:  # broad-except: finish the bounded cleanup pass
+                log.debug("_clear_indexed_overflow: finish the bounded cleanup pass", exc_info=True)
                 cleared = False
                 continue
             try:
                 retained = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+            except Exception:  # broad-except: finish the bounded cleanup pass
+                log.debug("_clear_indexed_overflow: finish the bounded cleanup pass", exc_info=True)
                 cleared = False
                 continue
             if retained is not None:
@@ -404,20 +414,32 @@ class ChunkedBackend:
             chunk_key = self._overflow_key(key, i)
             try:
                 piece = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+            except Exception:  # broad-except: finish the bounded cleanup pass
+                log.debug(
+                    "_clear_sparse_legacy_overflow: finish the bounded cleanup pass",
+                    exc_info=True,
+                )
                 cleared = False
                 continue
             if piece is None:
                 continue
             try:
                 self._persist_cleanup_extent(key, i + 1)
-            except Exception:  # noqa: BLE001 - retain an untracked fragment
+            except Exception:  # broad-except: retain an untracked fragment
+                log.warning(
+                    "_clear_sparse_legacy_overflow: retain an untracked fragment",
+                    exc_info=True,
+                )
                 cleared = False
                 continue
             try:
                 self._delete_entry(chunk_key, strict=True)
                 retained = self._backend.get(chunk_key)
-            except Exception:  # noqa: BLE001 - finish the bounded cleanup pass
+            except Exception:  # broad-except: finish the bounded cleanup pass
+                log.debug(
+                    "_clear_sparse_legacy_overflow: finish the bounded cleanup pass",
+                    exc_info=True,
+                )
                 cleared = False
                 continue
             if retained is not None:

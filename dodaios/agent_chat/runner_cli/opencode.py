@@ -23,7 +23,7 @@ from dodaios.agent_chat.runner_cli.base import (
     _behind_shim,
     _catalog_cwd,
     _cli_tool_summary,
-    _with_identity,
+    _identity_message,
     log,
 )
 from dodaios.agent_chat.runner_cli.claude_stream import _content_text
@@ -103,7 +103,7 @@ def plan_opencode(
     # The prompt is a positional of ``run`` (no stdin mode), behind ``--`` so
     # a sentence that starts with a dash is a sentence and not a flag; the
     # identity rides in front of it on a fresh conversation.
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("opencode-cli", prompt, identity, resume)
     argv = [*opencode_argv_prefix(), "run", "--format", "json", "--thinking"]
     if mode == "auto":
         argv += ["--auto"]

@@ -67,7 +67,7 @@ def _emit(update_id: str, agent_id: str, file: str, phase: str, operation: str) 
         return
     try:
         sink(update_id, agent_id, file, phase, operation)
-    except Exception:  # noqa: BLE001 — a receipt must never fail or undo the write it describes
+    except Exception:  # broad-except: a receipt must never fail or undo the write it describes
         log.debug("memory write receipt not delivered (%s)", phase, exc_info=True)
 
 

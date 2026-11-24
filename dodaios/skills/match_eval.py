@@ -31,9 +31,12 @@ been undebuggable.
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, replace
 from typing import Any, Literal
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Band vocabulary (closed set — mirrored in TypeScript, pinned by a parity test)
@@ -140,7 +143,8 @@ def _trigger_decision(registry: Any, user_text: str, lang: str) -> MatchDecision
         from dodaios.skills.trigger_matcher import TriggerMatcher
 
         hit = TriggerMatcher(registry).match_voice_with_match(user_text, lang=lang)
-    except Exception:  # noqa: BLE001 — matching must never break a turn
+    except Exception:  # broad-except: matching must never break a turn
+        log.debug("_trigger_decision: matching must never break a turn", exc_info=True)
         return None
     if hit is None:
         return None
@@ -181,7 +185,8 @@ def _relevance_decision(
 
         index = get_index(registry)
         ranking = index.rank(user_text, limit=limit)
-    except Exception:  # noqa: BLE001 — matching must never break a turn
+    except Exception:  # broad-except: matching must never break a turn
+        log.debug("_relevance_decision: matching must never break a turn", exc_info=True)
         return MatchDecision()
     if ranking.top is None:
         return MatchDecision()

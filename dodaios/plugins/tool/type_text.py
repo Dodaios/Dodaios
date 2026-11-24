@@ -201,7 +201,8 @@ class TypeTextTool:
             # Windows fallback stays pyautogui (a DIFFERENT input mechanism).
             try:
                 import pyautogui  # noqa: PLC0415
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                log.debug("execute: failed; carrying on with the fallback", exc_info=True)
                 return ToolResult(
                     success=False,
                     output=None,
@@ -225,7 +226,8 @@ class TypeTextTool:
                     output=None,
                     error=f"Refusing text input: {exc}.",
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                log.warning("execute: failed; carrying on with the fallback", exc_info=True)
                 return ToolResult(success=False, output=None, error=str(exc))
 
         from dodaios.cu.actuate import ActuationUnavailable, get_actuator
@@ -288,5 +290,6 @@ class TypeTextTool:
                 output=None,
                 error=f"Refusing text input: {exc}.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

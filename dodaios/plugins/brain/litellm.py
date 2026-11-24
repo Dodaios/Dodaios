@@ -87,7 +87,7 @@ async def _model_info_window(root: str, model: str, headers: dict[str, str]) -> 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(2.0)) as client:
             response = await client.get(f"{root}/model/info", headers=headers)
-    except Exception as exc:  # noqa: BLE001 — a probe must never fail the turn
+    except Exception as exc:  # broad-except: a probe must never fail the turn
         log.debug("litellm: /model/info failed at %s: %s", root, exc)
         return None
     if response.status_code != 200:
@@ -166,8 +166,8 @@ class LiteLLMBrain:
             cached = model_context_length("litellm", self._model) if self._model else None
             if cached:
                 self.context_window = cached
-        except Exception:  # noqa: BLE001 — a capability probe must never break construction
-            pass
+        except Exception:  # broad-except: a capability probe must never break construction
+            log.debug("__init__: a capability probe must never break construction", exc_info=True)
         if self._model:
             from dodaios.brain import local_context
 
@@ -246,7 +246,7 @@ class LiteLLMBrain:
             tokens = window.tokens if window is not None else await _model_info_window(
                 root, self._model, headers,
             )
-        except Exception as exc:  # noqa: BLE001 — sizing must never cost the turn
+        except Exception as exc:  # broad-except: sizing must never cost the turn
             log.debug("litellm: could not settle the context window early: %s", exc)
             return
         if tokens:

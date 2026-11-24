@@ -57,7 +57,7 @@ class UpdateSoulTool:
 
         try:
             return await asyncio.to_thread(self._apply, args)
-        except Exception as exc:  # noqa: BLE001 — a failed write is reported, never raised
+        except Exception as exc:  # broad-except: a failed write is reported, never raised
             log.warning("update_soul failed", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 

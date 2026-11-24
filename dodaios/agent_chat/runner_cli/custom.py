@@ -13,7 +13,7 @@ from dodaios.agent_chat.runner_cli.base import (
     CliUnavailable,
     _argv_prompt,
     _behind_shim,
-    _with_identity,
+    _identity_message,
 )
 
 
@@ -40,7 +40,7 @@ def plan_dsh(
     its policy in its own settings (``dodaios.workspace.agents``). What comes
     back is text, and the chat shows it as the answer.
     """
-    prompt = _with_identity(prompt, identity, None, compact=True)
+    prompt = _identity_message("dsh-cli", prompt, identity, resume)
     prefix = dsh_argv_prefix()
     argv = [*prefix, "--profile", "headless", _argv_prompt(prefix, prompt)]
     env = _rc_base._registry_env("deepseek-harness", _rc_base._account_env("deepseek-harness"))

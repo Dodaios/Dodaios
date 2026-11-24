@@ -251,5 +251,5 @@ def test_the_request_check_ships_with_the_frozen_app():
     """The worker loads it by file beside itself; a build without it starts no browser."""
     from pathlib import Path
 
-    spec = (Path(__file__).parents[3] / "dodaios.spec").read_text(encoding="utf-8")
+    spec = (Path(__file__).parents[3] / "packaging" / "dodaios.spec").read_text(encoding="utf-8")
     assert "dodaios/society/browser/request_guard.py" in spec

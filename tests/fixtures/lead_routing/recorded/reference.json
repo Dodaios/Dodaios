@@ -851,9 +851,6 @@
   "approval-restart-app-en": {
    "tool": "app-restart"
   },
-  "approval-archive-agent-en": {
-   "tool": "society-archive-agent"
-  },
   "approval-delete-skill-de": {
    "tool": "skill-delete"
   },

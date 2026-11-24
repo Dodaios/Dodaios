@@ -40,7 +40,7 @@ class UndoRegistry:
         record = await asyncio.to_thread(ledger.get, build_id)
         if record is None:
             raise KeyError(build_id)
-        if record.state == State.PROPOSED:
+        if record.state == State.PROPOSED:  # left by an older version: nothing exists
             return await asyncio.to_thread(
                 ledger.set_state, build_id, State.REJECTED, note or "rejected"
             )

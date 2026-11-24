@@ -43,7 +43,7 @@ produce a *managed* or *dev* install, which updates through git - see
 Everything starts from one PyInstaller build:
 
 ```bash
-pyinstaller dodaios.spec --noconfirm --clean
+pyinstaller packaging/dodaios.spec --noconfirm --clean
 ```
 
 `onedir`, not `onefile`: no 3-5 second extraction on every launch, and each DLL
@@ -78,14 +78,14 @@ Layout:
 `packaging/pyinstaller_rthook_frozen.py` runs before anything imports `jarvis`
 and points the two documented overrides at the per-user application directory:
 
-- `JARVIS_CONFIG` -> `%LOCALAPPDATA%\Jarvis\jarvis.toml` (`~/.jarvis/jarvis.toml`
+- `DODAIOS_CONFIG` -> `%LOCALAPPDATA%\Jarvis\jarvis.toml` (`~/.jarvis/jarvis.toml`
   off Windows), seeded once from the copy inside the bundle
-- `JARVIS_DATA_DIR` -> `<that directory>/data`
+- `DODAIOS_DATA_DIR` -> `<that directory>/data`
 
 Without it, `dodaios.core.config` would anchor both to the bundle's own
 directory, where an in-place upgrade overwrites the user's settings and an
-uninstall deletes their memory. An explicitly exported `JARVIS_CONFIG` /
-`JARVIS_DATA_DIR` still wins, so a maintainer can point a frozen build at a
+uninstall deletes their memory. An explicitly exported `DODAIOS_CONFIG` /
+`DODAIOS_DATA_DIR` still wins, so a maintainer can point a frozen build at a
 scratch directory.
 
 ---
@@ -397,7 +397,7 @@ crosses it:
 
 - the Windows launcher copy the desktop app runs as
   (`WINDOWS_BRANDED_LAUNCHER_FILE_NAME`) and its one-process loop guard, the
-  environment variable `JARVIS_BRANDED_LAUNCH`
+  environment variable `DODAIOS_BRANDED_LAUNCH`
   (`WINDOWS_BRANDED_LAUNCH_ENV_VAR`). The helper starts the new launcher
   module through the old copy when one still exists, otherwise through the
   interpreter;

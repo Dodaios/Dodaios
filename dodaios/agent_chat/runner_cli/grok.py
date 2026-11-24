@@ -20,8 +20,8 @@ from dodaios.agent_chat.runner_cli.base import (
     CliPlan,
     CliUnavailable,
     _argv_prompt,
+    _identity_message,
     _resolved_cwd,
-    _with_identity,
     log,
 )
 from dodaios.agent_chat.runner_cli.claude import identity_turn_flags
@@ -47,7 +47,7 @@ def plan_grok(
 ) -> CliPlan:
     # Grok Build takes the prompt on argv, so the identity rides in front of
     # it — the compact cut, and only on a fresh conversation.
-    prompt = _with_identity(prompt, identity, resume, compact=True)
+    prompt = _identity_message("grok-cli", prompt, identity, resume)
     mode = normalize_permission("grok-cli", permission_mode)
     work = _resolved_cwd(cwd)
     if identity is not None:

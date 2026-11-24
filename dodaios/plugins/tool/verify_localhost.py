@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 def _take_checked_screenshot() -> str:
@@ -96,7 +99,8 @@ class VerifyLocalhostTool:
                 msg = f"HTTP {r.status_code} ({url})"
             else:
                 msg = f"HTTP 200 OK ({url})"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False, output=None, error=f"Connection to {url} failed: {exc}"
             )
@@ -107,7 +111,8 @@ class VerifyLocalhostTool:
                 # windows), the grab and the pixel check: none of it on the loop.
                 path = await asyncio.to_thread(_take_checked_screenshot)
                 artifacts.append({"screenshot_path": path})
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                log.warning("execute: failed; carrying on with the fallback", exc_info=True)
                 artifacts.append({"screenshot_error": str(exc)})
 
         return ToolResult(

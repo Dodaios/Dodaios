@@ -1,24 +1,8 @@
-"""Per-task git worktree manager.
+"""Per-task git worktree manager (ADR-0009 section 3).
 
-ADR-0009 §3 + Research-Doc §E (lines 213-220). Every Phase-6 worker subprocess
-gets a fresh working tree as its `cwd` so that parallel edits do not cause
-race conditions in the user's working tree.
-
-Path layout (Research-Doc §E point 1):
-
-    <repo_parent>/jarvis-agent-outputs/
-      <YYYYMMDDTHHMMSS>__<mission-slug>__<short-uuid>/
-        tasks/
-          <NN>__<task-slug>/
-            workspace/    <- the worker runs here with cwd
-
-`workspace/` is the path created via `git worktree add -b agent/<task-slug>`.
-The branch name follows `agent/<NN>-<task-slug>` (no slash in the suffix due
-to Windows path lengths).
-
-Constraint: path length ≤ 200 chars (`MAX_PATH=260` minus a safety margin
-for files inside the worktree). `create()` raises `ValueError` on violation —
-we do not let the worker fall into a path-length trap.
+Layout: ``<repo_parent>/jarvis-agent-outputs/<ts>__<mission>__<uuid>/tasks/
+<NN>__<task>/workspace/``; branch ``agent/<task>-<uuid>``. Paths are capped at
+200 chars (MAX_PATH margin).
 """
 from __future__ import annotations
 
@@ -37,38 +21,20 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 logger = logging.getLogger(__name__)
 
-# Hard cap for the worktree root path. Files inside (e.g.
-# `workspace/jarvis/very/deep/path/file.py`) must fit underneath it ->
-# 200 chars root + ~60 chars inner path = ~260 = MAX_PATH.
+# Worktree root path cap; files inside need ~60 more chars to stay under MAX_PATH.
 _MAX_WORKTREE_PATH_LEN = 200
 
-# Slug sanitizer: allows [a-z0-9-], everything else -> '-', leading/trailing trim.
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
-# Sidecar file (in the TASK dir, one level ABOVE ``workspace/`` so it never
-# pollutes the worktree diff) that records the worktree's BASE commit SHA — the
-# HEAD it was forked from at creation time (the ``main`` checkout for a full
-# worktree, the ``lean-workspace-init`` empty commit for a lean one). The
-# Kontrollierer diffs against this base instead of the live HEAD so a worker
-# that ``git commit``s its deliverable is still captured: after a commit,
-# ``git diff --cached HEAD`` is empty and ``git ls-files --others`` no longer
-# lists the file (it is now tracked), so the committed deliverable would
-# otherwise be invisible to archiving and silently lost when the worktree is
-# pruned. Live forensic 2026-07-03, mission 019f26d0-bb07: a worker built a
-# complete ``schokolade-99.html``, then (as coding agents habitually do)
-# ``git add`` + ``git commit``-ed it; the file fell out of the untracked-only
-# capture and the user received only a materialised ``.md`` summary — the HTML
-# was gone. Diffing against the base makes committed files reappear.
+# Sidecar in the TASK dir (outside the diff) holding the worktree's BASE commit
+# SHA; diffing against it keeps files a worker ``git commit``s.
 BASE_SHA_SIDECAR: str = ".mission_base_sha"
 
 
 class SourceCheckoutUnavailableError(RuntimeError):
     """The installed application tree is not a usable source checkout.
 
-    Lean missions do not need the Dodaios checkout and never raise
-    this error.  A source-dependent mission does: silently treating copied
-    package files as a repository would either make ``git worktree add`` fail
-    later or tempt a worker to edit the read-only application tree directly.
+    Lean missions never raise it.
     """
 
     def __init__(self, repo_root: Path) -> None:
@@ -82,44 +48,19 @@ class SourceCheckoutUnavailableError(RuntimeError):
 
 
 def read_worktree_base_sha(workspace: Path) -> str | None:
-    """Return the recorded base commit SHA for a worktree, or ``None``.
-
-    Reads the :data:`BASE_SHA_SIDECAR` file written by
-    :meth:`WorktreeManager._write_base_sha` at creation time. ``None`` when the
-    sidecar is absent (a pre-fix / externally-created worktree) or unreadable —
-    callers then fall back to their pre-existing ``HEAD``-relative behaviour, so
-    this is purely additive and never breaks an older mission.
-    """
+    """Return the recorded base commit SHA for a worktree, or ``None`` if absent/unreadable."""
     try:
         raw = (workspace.parent / BASE_SHA_SIDECAR).read_text(encoding="utf-8").strip()
     except OSError:
         return None
-    # A commit SHA is 40 hex chars (or the short form). Guard against a truncated
-    # / corrupt sidecar so we never hand git a bogus revision.
     return raw if re.fullmatch(r"[0-9a-fA-F]{7,40}", raw) else None
 
-# Worktree RUN-dir name shape: ``<YYYYMMDDTHHMMSS>__<slug>__<8-hex>`` (see
-# ``create`` below). ONLY these transient scaffolding dirs are eligible for the
-# leaked-worktree sweep. The persistent ``mission_<id>`` archive dirs that
-# ``Kontrollierer._archive_task_artifacts`` writes live in the SAME outputs
-# root but hold the user's deliverables (diff.patch + artifacts/files/) and are
-# never git worktrees — sweeping them by age silently wipes every completed
-# Jarvis-Agent's output (live 2026-05-29: 0/77 mission dirs still had files after a
-# >6 h-old restart triggered the 6 h sweep). The 14-day retention of those
-# archive dirs is owned by ``cleanup.startup_sweep`` instead.
+# Run-dir name shape ``<ts>__<slug>__<8-hex>``. Only these transient dirs are
+# swept; persistent ``mission_<id>`` archives share the root but hold deliverables.
 _RUN_DIR_RE = re.compile(r"^\d{8}T\d{6}__.+__[0-9a-f]{8}$")
 
-# Regenerable dependency / cache trees a worker may create (npm/pip/yarn/etc.).
-# These are NEVER a deliverable and, on Windows, a fresh `npm install` can drop
-# tens of thousands of files here. Walking them blows the 10 s cap on the
-# per-iteration ``git add -A`` in ``Kontrollierer._capture_diff`` -> empty diff
-# -> "no usable output" -> the worker's REAL build is discarded and rmtree'd
-# (live mission 019ee416, 2026-06-20: a complete Remotion promo video lost this
-# way). Excluding them via the lean repo's ``.git/info/exclude`` makes git skip
-# the whole subtree (it never descends an ignored top-level dir) AND keeps the
-# patterns out of the captured diff. Build-OUTPUT dirs (dist/, build/, out/)
-# are DELIBERATELY not listed — a rendered video or a built site IS a
-# legitimate deliverable and must still reach the Critic.
+# Regenerable dependency/cache trees, never a deliverable (a fresh ``npm install``
+# can blow the 10 s ``git add -A`` cap). Build-output dirs may be deliverables: not listed.
 _DEPENDENCY_EXCLUDE_DIRS: tuple[str, ...] = (
     "node_modules/",
     ".venv/",
@@ -140,18 +81,10 @@ def _slugify(value: str) -> str:
 
 
 def resolve_outputs_root(repo_root: Path) -> Path:
-    """Return the mission outputs root directory.
+    """Return the mission outputs root (not created).
 
-    ``JARVIS_ISOLATION_ROOT`` is the explicit highest-priority override.
-    ``JARVIS_DATA_DIR`` places outputs under the writable application data
-    volume used by headless and non-root installs.
-
-    Prefers ``<repo_root>.parent/jarvis-agent-outputs/`` (post-rename, 2026-06-29).
-    Falls back to ``<repo_root>.parent/sub-agents-outputs/`` when that old directory
-    exists AND the new one does NOT — this keeps existing missions readable without
-    any migration step. Read surfaces that need retained history from both locations
-    use :func:`resolve_readable_outputs_roots`. Does NOT create the directory;
-    callers are responsible.
+    ``JARVIS_ISOLATION_ROOT``, ``JARVIS_DATA_DIR``, else ``<repo_root>.parent/
+    jarvis-agent-outputs/`` (legacy ``sub-agents-outputs/`` if only that exists).
     """
     explicit_root = os.environ.get("JARVIS_ISOLATION_ROOT", "").strip()
     if explicit_root:
@@ -170,17 +103,9 @@ def resolve_outputs_root(repo_root: Path) -> Path:
 
 
 def resolve_readable_outputs_roots(repo_root: Path) -> tuple[Path, ...]:
-    """Return output roots that may contain user-visible mission history.
+    """Return output roots that may hold mission history, primary first.
 
-    New missions still use :func:`resolve_outputs_root` as their single write
-    location. During the directory-name transition, however, both the canonical
-    ``jarvis-agent-outputs`` directory and the legacy ``sub-agents-outputs``
-    directory can exist at the same time. Read surfaces must include both or
-    creating the canonical directory makes every retained legacy mission vanish
-    from the UI.
-
-    Explicit isolation and application-data roots remain strictly isolated and
-    never scan a sibling directory.
+    Adds the legacy sibling unless an explicit root is set.
     """
     primary = resolve_outputs_root(repo_root)
     if os.environ.get("JARVIS_ISOLATION_ROOT", "").strip():
@@ -195,12 +120,7 @@ def resolve_readable_outputs_roots(repo_root: Path) -> tuple[Path, ...]:
 
 
 class WorktreeManager:
-    """Manages `git worktree add/remove` for Phase-6 worker tasks.
-
-    Not thread-safe (runs in the orchestrator event loop). Subprocess calls
-    are synchronous because git is local and returns in <100 ms — no asyncio
-    needed for a once-per-task call.
-    """
+    """Manages `git worktree add/remove` for worker tasks (synchronous, not thread-safe)."""
 
     def __init__(
         self,
@@ -208,12 +128,7 @@ class WorktreeManager:
         repo_root: Path,
         outputs_root: Path | None = None,
     ) -> None:
-        """
-        Inputs:
-            repo_root: path to the main repo (the one that contains `.git`).
-            outputs_root: optional override for the mission outputs root.
-                Default: ``resolve_outputs_root(repo_root)``.
-        """
+        """``repo_root``: main repo; ``outputs_root``: optional outputs override."""
         self._repo_root = repo_root.resolve()
         self._outputs_root = (
             outputs_root.resolve()
@@ -221,7 +136,6 @@ class WorktreeManager:
             else resolve_outputs_root(self._repo_root)
         )
 
-    # --- Public API ---------------------------------------------------------
 
     def create(
         self,
@@ -233,36 +147,10 @@ class WorktreeManager:
     ) -> Path:
         """Create a new workspace and return the `workspace/` path.
 
-        Inputs:
-            mission_slug: short mission identifier (will be slugified).
-            task_id: task identifier (will be slugified, typically `01__refactor-router`).
-            base_branch: branch from which the worktree branch is forked.
-            needs_repo: when True (default) the workspace is a full `git
-                worktree add` checkout of the repo at ``base_branch`` — the
-                isolated, registered worktree every repo task has always
-                received. When False the workspace is a LEAN repo: a fresh
-                ``git init`` directory with one initial empty commit and NO
-                files from the host repo. The lean path is for external-artefact
-                tasks ("create an HTML file with today's news") that would
-                otherwise burn minutes + millions of tokens exploring the
-                codebase before a trivial write (live mission 019eb17d).
-
-        Output:
-            Path to `<run_dir>/tasks/<NN>__<task-slug>/workspace/`.
-
-        Raises:
-            ValueError: when the path exceeds 200 chars (path-length cap).
-            SourceCheckoutUnavailableError: when ``needs_repo=True`` but the
-                installed application tree is not a real source checkout.
-            subprocess.CalledProcessError: when `git worktree add` (full mode)
-                or `git init`/the initial commit (lean mode) fails.
-
-        Lean-vs-full diff parity (CRITICAL): both modes produce a real git repo
-        with a resolvable HEAD, so ``Kontrollierer._capture_diff`` — which runs
-        ``git add -A .`` then ``git diff HEAD`` against the workspace —
-        surfaces the worker's written files identically in either mode. The
-        lean repo's initial commit is the empty tree, so a freshly-written file
-        shows up as a plain add, exactly like a new file in a full worktree.
+        ``needs_repo=False`` makes a LEAN repo (``git init`` plus one empty
+        commit, no host files); both modes have a resolvable HEAD so diff capture
+        works alike. Raises ``ValueError`` (path over 200 chars),
+        ``SourceCheckoutUnavailableError`` or ``subprocess.CalledProcessError``.
         """
         mission_part = _slugify(mission_slug)
         task_part = _slugify(task_id)
@@ -280,9 +168,7 @@ class WorktreeManager:
             self._outputs_root / run_dir_name / "tasks" / task_dir_name / "workspace"
         )
 
-        # Source capability is independent of the selected output path. Check
-        # it first so copied/frozen installs report the actionable missing-
-        # checkout reason even when a custom isolation root is also too long.
+        # Check capability first so frozen installs report the missing checkout.
         if needs_repo:
             self._require_source_checkout()
 
@@ -296,8 +182,6 @@ class WorktreeManager:
             workspace.parent.mkdir(parents=True, exist_ok=True)
             return self._create_lean(workspace)
 
-        # The capability probe above established that this is a real source
-        # checkout. Only now may full-worktree scaffolding be created.
         workspace.parent.mkdir(parents=True, exist_ok=True)
 
         branch_name = f"agent/{task_part}-{short_uuid}"
@@ -314,34 +198,18 @@ class WorktreeManager:
         logger.info("WorktreeManager.create: %s", " ".join(cmd))
         self._run_git(cmd)
 
-        # Record the base commit (the forked-from HEAD) so the Kontrollierer can
-        # diff against it and capture files the worker later ``git commit``s.
         self._write_base_sha(workspace)
         return workspace
 
-    # Identity used for the lean repo's initial commit. A fresh ``git init``
-    # repo inherits no ``user.name``/``user.email`` from the host repo's local
-    # config, and the host machine may have none set globally — so we always
-    # pass an explicit identity via ``-c`` to make the initial commit
-    # deterministic and never prompt. This commit is throwaway scaffolding.
+    # Explicit identity: a fresh ``git init`` has none.
     _LEAN_COMMIT_NAME = "Dodaios"
     _LEAN_COMMIT_EMAIL = "noreply@personal-jarvis.local"
 
     def _create_lean(self, workspace: Path) -> Path:
-        """Create a lean (empty) git workspace with one initial empty commit.
-
-        The directory is a standalone git repo — NOT a registered worktree of
-        the host repo — so cleanup must route around ``git worktree remove``
-        (see :meth:`remove`). Initialising on a fixed ``main`` branch keeps the
-        HEAD name predictable; the empty initial commit gives ``HEAD`` a base so
-        the diff-capture sequence (``git diff --cached HEAD``) works.
-        """
+        """Create a lean workspace: a standalone repo with one empty commit so ``HEAD`` exists."""
         workspace.mkdir(parents=True, exist_ok=True)
         logger.info("WorktreeManager.create (lean): git init at %s", workspace)
         self._run_git_in(["git", "init", "-b", "main", str(workspace)], cwd=workspace)
-        # One empty initial commit so HEAD exists. ``--allow-empty`` because the
-        # tree is empty; the explicit ``-c user.*`` identity avoids depending on
-        # any global git config on the host.
         self._run_git_in(
             [
                 "git",
@@ -356,26 +224,15 @@ class WorktreeManager:
             ],
             cwd=workspace,
         )
-        # Keep the per-iteration `git add -A` cheap when the worker installs
-        # dependencies (npm/pip) into this lean workspace — see
-        # `_DEPENDENCY_EXCLUDE_DIRS`. Lean only: a full worktree shares the host
-        # repo's `.git/info/exclude` (which already ignores node_modules/) and
-        # its `.git` is a FILE, so there is nothing local to write here.
+        # Lean only: a full worktree's ``.git`` is a FILE and shares the host exclude.
         self._write_dependency_excludes(workspace)
-        # Record the base commit (the lean repo's initial empty commit) so the
-        # Kontrollierer can diff against it and capture files a worker commits.
         self._write_base_sha(workspace)
         return workspace
 
     def _require_source_checkout(self) -> None:
         """Raise early unless ``repo_root`` is a real Git working tree.
 
-        ``.git`` may be either a directory (main checkout) or a file (linked
-        worktree), so existence is the portable structural pre-check.  The
-        ``rev-parse`` probe then rejects a stale or synthetic marker before a
-        task directory is created.  A missing Git executable retains the
-        existing ``FileNotFoundError`` path so the caller can report the more
-        specific ``git_missing`` capability reason.
+        ``.git`` may be a directory or a linked-worktree file.
         """
         if shutil.which("git") is None:
             raise FileNotFoundError(2, "Git executable was not found", "git")
@@ -397,15 +254,7 @@ class WorktreeManager:
             raise SourceCheckoutUnavailableError(self._repo_root)
 
     def _write_base_sha(self, workspace: Path) -> None:
-        """Persist the worktree's base commit SHA next to (not inside) the tree.
-
-        Runs ``git rev-parse HEAD`` in the freshly-created ``workspace`` and
-        writes the result to ``workspace.parent / BASE_SHA_SIDECAR`` — the task
-        dir, which is OUTSIDE the worktree so the sidecar never appears in a
-        ``git add -A`` / ``git diff`` capture. Best-effort: a failure only
-        regresses to the pre-fix ``HEAD``-relative capture and must never block
-        workspace creation.
-        """
+        """Persist the base commit SHA beside (not inside) the tree; best-effort."""
         try:
             r = self._run_git_in(["git", "rev-parse", "HEAD"], cwd=workspace)
             sha = (r.stdout or "").strip()
@@ -420,18 +269,7 @@ class WorktreeManager:
             )
 
     def _write_dependency_excludes(self, workspace: Path) -> None:
-        """Append `_DEPENDENCY_EXCLUDE_DIRS` to the lean repo's
-        ``.git/info/exclude``.
-
-        Local to this throwaway lean repo (never touches the host repo). The
-        patterns make git skip whole dependency subtrees during ``git add -A``,
-        the live cause of the 10 s diff-capture timeout that discarded a
-        finished Remotion build (mission 019ee416).
-
-        Best-effort: a write failure (e.g. a full-mode workspace whose ``.git``
-        is a file) is logged and swallowed — the mission still runs, it just
-        pays the slower add. Never aborts workspace creation.
-        """
+        """Append `_DEPENDENCY_EXCLUDE_DIRS` to the lean repo's exclude file."""
         exclude_file = workspace / ".git" / "info" / "exclude"
         try:
             exclude_file.parent.mkdir(parents=True, exist_ok=True)
@@ -447,48 +285,15 @@ class WorktreeManager:
                 exclude_file, exc,
             )
 
-    # BUG-LIVE-05 (2026-05-14) — Retry delays for the Windows file-
-    # handle race in `git worktree remove`. The Jarvis-Agent worker
-    # subprocess may still hold one of its trajectory / SQLite handles for a
-    # few hundred milliseconds after the parent yields control back
-    # to the orchestrator. A short, exponentially-spaced retry loop
-    # turns the noisy 80% case into a clean removal without paying
-    # the full rmtree fallback. If all three retries fail we still
-    # fall through to rmtree so cleanup never blocks the mission.
+    # Backoff for the Windows file-handle race in `git worktree remove`.
     _REMOVE_RETRY_DELAYS_S: tuple[float, ...] = (0.05, 0.1, 0.2)
 
     def remove(self, path: Path, *, force: bool = False) -> None:
         """Remove a worktree via `git worktree remove`.
 
-        Inputs:
-            path: the `workspace/` path or its parent — passed to git as-is
-                (git is liberal about this).
-            force: sets `--force` (uncommitted changes are discarded).
-
-        Raises:
-            subprocess.CalledProcessError: when `git worktree remove` fails
-                and `force=False` (in the `force` path, remove() falls back
-                to a manual `rmtree`).
-
-        BUG-LIVE-05: on Windows, `git worktree remove` frequently fails
-        with `error: failed to delete '...': Permission denied` right
-        after a worker subprocess exits — the Jarvis-Agent worker process
-        is gone but a few SQLite WAL / trajectory file handles are still being
-        flushed by the OS. A short retry loop (50/100/200 ms) catches
-        this transient state without paying the cost of the full
-        `shutil.rmtree` fallback. The fallback path is preserved as a
-        last resort so cleanup never blocks the mission loop.
-
-        Lean-workspace mode: a lean workspace (created with
-        ``create(..., needs_repo=False)``) is a STANDALONE ``git init`` repo,
-        not a registered worktree of the host repo. ``git worktree remove``
-        would fail on it (``is not a working tree``) AND, worse, could leave a
-        stale registration if a path ever collided. So when the workspace's
-        ``.git`` is a real directory (lean) rather than the worktree link FILE
-        (full mode), we skip git entirely and remove the directory tree
-        directly. Plain directory removal leaves nothing for the host repo's
-        ``git worktree prune`` to clean up, because the lean repo was never
-        registered there in the first place.
+        Retries absorb Windows handle races; with ``force`` the last resort is
+        ``rmtree``. A lean workspace (``.git`` a directory) is not a registered
+        worktree, so its tree is removed directly.
         """
         if self._is_lean_workspace(path):
             self._remove_lean(path)
@@ -516,7 +321,6 @@ class WorktreeManager:
                 last_exc = exc
                 continue
 
-        # All retries failed. Decide based on `force`.
         if force:
             logger.warning(
                 "git worktree remove failed after %d attempts "
@@ -532,56 +336,22 @@ class WorktreeManager:
         raise last_exc
 
     def prune_orphans(self) -> None:
-        """Call `git worktree prune` to remove stale entries.
-
-        Stale entries arise when someone runs `rm -rf` on a worktree directory
-        without calling `git worktree remove`. Does nothing when none are present.
-        """
+        """Call `git worktree prune` to remove stale entries."""
         cmd = ["git", "worktree", "prune"]
         logger.info("WorktreeManager.prune_orphans: %s", " ".join(cmd))
         self._run_git(cmd)
 
-    # H6 (2026-05-17 audit): boot-time defense against worktree leaks.
-    # On Windows, `git worktree remove` regularly fails when a worker
-    # subprocess holds file handles open past parent process teardown.
-    # BUG-LIVE-05's retry loop catches the 80 % case but force-quits,
-    # process crashes, and parallel-session locks leave behind directories
-    # under the mission outputs root. Audit-team-4 counted 60 such leaks on
-    # disk. Sweep at bootstrap is the simplest defense: forget the missing
-    # entries from git's internal state, then aggressively rmtree
-    # anything older than `max_age_hours` that no live worktree claims.
+    # Boot-time defense against leaked worktree dirs.
     def prune_and_sweep_leaked(
         self, *, max_age_hours: float = 6.0,
     ) -> dict[str, int]:
-        """Prune git's worktree state, then remove stale leaked dirs.
+        """Prune git's worktree state, then remove stale leaked run-dirs.
 
-        Two-step safety:
-          1. ``git worktree prune`` removes git's internal entry for any
-             worktree whose directory disappeared (e.g. user `rm -rf`d it).
-          2. Scan the mission outputs root for run-dirs older than
-             ``max_age_hours``. If git still considers any path under
-             that run-dir an active worktree we leave it alone (Windows
-             permission errors from racing workers will be retried by
-             ``remove()`` on the next mission). Otherwise the whole
-             run-dir is ``shutil.rmtree(ignore_errors=True)``-ed.
-
-        Conservatively defaults to 6 hours so a parallel
-        long-running mission in another session is never wiped out --
-        production missions complete in well under that window. Returns
-        a small report dict for telemetry / logging.
-
-        Best-effort: any failure is logged at WARNING and counted; the
-        helper never raises, since a half-cleaned tree is still better
-        than a boot that crashes on housekeeping.
+        Run-dirs older than ``max_age_hours`` that no live worktree claims are
+        removed. Best-effort: failures are logged and counted. Returns a report.
         """
         report = {"pruned": 0, "swept_run_dirs": 0, "errors": 0}
-        # A worktree can only be CREATED via git, so on a host with no git on
-        # PATH none can exist and there is nothing to sweep. Skip cleanly with
-        # one honest log line instead of letting ``git worktree prune`` raise
-        # FileNotFoundError and dump a traceback at every headless boot (observed
-        # live on a bare python:3.11-slim container, 2026-07-08). Missions that
-        # genuinely need worktree isolation still fail with an actionable message
-        # at create-time; this is the best-effort boot-time housekeeping path.
+        # No git on PATH: no worktrees exist; skip quietly.
         if shutil.which("git") is None:
             logger.info(
                 "WorktreeManager.prune_and_sweep_leaked: git not on PATH — "
@@ -594,16 +364,12 @@ class WorktreeManager:
             try:
                 self.prune_orphans()
                 report["pruned"] = 1
-            # OSError (including FileNotFoundError if git vanishes mid-run) and
-            # a non-zero exit must not escape best-effort housekeeping.
+            # Best-effort: OSError (git vanished) and non-zero exit must not escape.
             except (subprocess.CalledProcessError, OSError) as exc:
                 logger.warning("prune_and_sweep_leaked: prune failed: %s", exc)
                 report["errors"] += 1
         else:
-            # Copied/frozen/container installations can only create standalone
-            # lean repos. There is no host worktree registry to prune or query;
-            # continue to the age-based run-directory sweep with an empty
-            # active set instead of logging a false Git error on every boot.
+            # Frozen/container installs have no host worktree registry.
             logger.info(
                 "WorktreeManager.prune_and_sweep_leaked: source checkout "
                 "unavailable — host worktree registry skipped"
@@ -613,8 +379,7 @@ class WorktreeManager:
         if not self._outputs_root.is_dir():
             return report
 
-        # Build the set of paths git currently considers a worktree.
-        # `git worktree list --porcelain` emits "worktree <path>" lines.
+        # Paths git currently considers a worktree (``worktree <path>`` lines).
         active_paths: set[Path] = set()
         if has_source_checkout:
             try:
@@ -623,9 +388,7 @@ class WorktreeManager:
                     if line.startswith("worktree "):
                         p = Path(line[len("worktree "):].strip()).resolve()
                         active_paths.add(p)
-                        # Layout: outputs_root / <run-dir> / tasks / <task-id> /
-                        # workspace. workspace.parent.parent.parent is the
-                        # run-dir, and one level up is outputs_root.
+                        # Layout: outputs_root/<run-dir>/tasks/<task-id>/workspace.
                         if p.parent.parent.parent.parent == self._outputs_root:
                             active_paths.add(p.parent.parent.parent)
             except (subprocess.CalledProcessError, OSError) as exc:
@@ -639,10 +402,7 @@ class WorktreeManager:
         for child in self._outputs_root.iterdir():
             if not child.is_dir():
                 continue
-            # Only sweep transient worktree RUN-dirs. A persistent
-            # ``mission_<id>`` deliverable-archive dir (or any other
-            # non-run-dir) must never be rmtree'd here — that is the bug that
-            # left every completed Jarvis-Agent's Outputs view empty (2026-05-29).
+            # Only transient run-dirs; never the persistent ``mission_<id>`` archives.
             if not _RUN_DIR_RE.match(child.name):
                 continue
             try:
@@ -666,14 +426,9 @@ class WorktreeManager:
                 child, (time.time() - age) / 3600.0, max_age_hours,
             )
             try:
-                # `onerror` clears the read-only bit git sets on its object
-                # store — with plain ignore_errors=True those files survived,
-                # so the same dirs were re-swept (and re-failed) on EVERY
-                # boot: 10s of blocked startup per launch (2026-06-10).
+                # ``onerror`` clears git's read-only bits; else re-swept every boot.
                 shutil.rmtree(child, onerror=self._on_rmtree_error)
-                # The onerror handler swallows residual failures, which may
-                # leave a broken tree on Windows when handles are held; treat
-                # partial removal as still-stale rather than success.
+                # onerror swallows failures; treat partial removal as still-stale.
                 if child.exists():
                     logger.warning(
                         "prune_and_sweep_leaked: partial removal of %s "
@@ -691,20 +446,10 @@ class WorktreeManager:
 
         return report
 
-    # --- Internals ----------------------------------------------------------
 
     @staticmethod
     def _is_lean_workspace(path: Path) -> bool:
-        """True when ``path`` is a lean (standalone ``git init``) workspace.
-
-        A full ``git worktree add`` checkout links back to the host repo via a
-        ``.git`` FILE (``gitdir: …``). A lean ``git init`` repo has a real
-        ``.git`` DIRECTORY. That structural difference is the cheapest reliable
-        discriminator and needs no extra bookkeeping. If ``.git`` is absent
-        entirely (e.g. the directory was already partly torn down) we treat it
-        as lean so cleanup falls through to a plain ``rmtree`` rather than a
-        doomed ``git worktree remove``.
-        """
+        """True for a lean (``.git`` directory) workspace; a linked worktree has a ``.git`` FILE."""
         git_path = path / ".git"
         if git_path.is_dir():
             return True
@@ -717,14 +462,7 @@ class WorktreeManager:
     def _on_rmtree_error(
         func: Callable[..., object], target: str, _exc_info: object
     ) -> None:
-        """``shutil.rmtree`` onerror handler that clears the read-only bit.
-
-        On Windows git marks objects under ``.git`` (pack files, loose objects)
-        read-only, and ``shutil.rmtree`` raises ``PermissionError`` trying to
-        unlink them. Clear the bit and retry the failing operation once. Any
-        residual failure is swallowed — the lean teardown is best-effort and
-        must never block the mission loop.
-        """
+        """``rmtree`` onerror handler: clear git's read-only bit and retry once."""
         try:
             os.chmod(target, stat.S_IWRITE)
             func(target)
@@ -733,14 +471,7 @@ class WorktreeManager:
 
     @classmethod
     def _remove_lean(cls, path: Path) -> None:
-        """Tear down a lean workspace with a plain ``rmtree`` (no git call).
-
-        Mirrors the force-path's tolerance: a half-held Windows handle should
-        never block the mission loop, so failures are swallowed and a warning is
-        logged if anything survives. The ``onerror`` handler clears the
-        read-only bit git sets on its object store so the empty lean repo
-        actually deletes on Windows.
-        """
+        """Tear down a lean workspace with ``rmtree`` (no git call); never raises."""
         logger.info("WorktreeManager.remove (lean rmtree): %s", path)
         if path.exists():
             shutil.rmtree(path, onerror=cls._on_rmtree_error)
@@ -752,13 +483,7 @@ class WorktreeManager:
     def _run_git_in(
         self, cmd: list[str], *, cwd: Path
     ) -> subprocess.CompletedProcess[str]:
-        """Like :meth:`_run_git` but runs with ``cwd`` set to a specific path.
-
-        Used for lean-workspace creation, where ``git init``/``git commit`` must
-        operate INSIDE the new lean repo, not in the host ``repo_root``. Shares
-        the same ``-c core.longpaths=true`` injection, UTF-8 handling, no-window
-        creation flag, and stderr logging as :meth:`_run_git`.
-        """
+        """Like :meth:`_run_git` but with ``cwd`` set (lean init/commit run inside the new repo)."""
         if cmd and cmd[0] == "git":
             patched = ["git", "-c", "core.longpaths=true", *cmd[1:]]
         else:
@@ -787,23 +512,9 @@ class WorktreeManager:
     def _run_git(self, cmd: list[str]) -> subprocess.CompletedProcess[str]:
         """Synchronous git call, cwd=repo_root, no shell=True.
 
-        Injects ``-c core.longpaths=true`` right after ``git`` so worktree
-        operations on Windows survive paths longer than MAX_PATH (260).
-        Without this, repos containing files with deep nested paths cause
-        ``git worktree add`` to fail with ``Filename too long`` while only
-        surfacing exit code 128 to the caller — which previously made every
-        Jarvis-Agent mission report ``MissionFailed`` with no diagnostic.
-
-        On ``CalledProcessError`` the stderr/stdout from git are logged
-        before re-raising so the underlying reason (path-length, lock,
-        existing branch, …) is visible in ``data/jarvis_desktop.log``.
-
-        Raises ``FileNotFoundError``/``OSError`` unmodified when the ``git``
-        executable itself is missing from PATH — the caller (currently
-        ``WorktreeManager.create()`` -> the orchestrator's task loop) is
-        responsible for turning that into an honest, actionable failure
-        (AP-23 wave-2 finding 1); this helper only shapes and logs the
-        command, it never swallows an exception.
+        Injects ``-c core.longpaths=true`` so deep paths do not fail on Windows,
+        and logs git's output on failure. A missing ``git`` raises
+        ``FileNotFoundError``/``OSError`` unmodified; the caller reports it (AP-23).
         """
         if cmd and cmd[0] == "git":
             patched = ["git", "-c", "core.longpaths=true", *cmd[1:]]

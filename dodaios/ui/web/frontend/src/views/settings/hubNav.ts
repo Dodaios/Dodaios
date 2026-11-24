@@ -27,6 +27,7 @@ import {
   DocsIcon,
   ExtensionsIcon,
   MarketplaceIcon,
+  MeasureIcon,
   MicrophoneIcon,
   SpeechIcon,
   TerminalIcon,
@@ -151,6 +152,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
       { kind: "link", id: "board", labelKey: "nav.board", icon: BoardIcon },
       { kind: "link", id: "docs", labelKey: "nav.docs", icon: DocsIcon },
       { kind: "link", id: "self-build", labelKey: "nav.self_build", icon: BuiltIcon },
+      { kind: "link", id: "self-improvement", labelKey: "nav.self_improvement", icon: MeasureIcon },
     ],
   },
   {

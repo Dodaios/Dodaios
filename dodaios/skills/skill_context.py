@@ -101,7 +101,7 @@ def current_match_index() -> object | None:
         if context is None:
             return None
         return get_index(context.registry)
-    except Exception:  # noqa: BLE001 — planning keeps its static fallbacks
+    except Exception:  # broad-except: planning keeps its static fallbacks
         import logging
 
         logging.getLogger(__name__).debug(

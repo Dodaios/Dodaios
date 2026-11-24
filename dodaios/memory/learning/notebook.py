@@ -589,7 +589,7 @@ class JarvisNotebook:
             if books is None:
                 return stale  # A writer is busy; its invalidate() brings the new text.
             text = self.render(compact=compact, books=books)
-        except Exception:  # noqa: BLE001 — a bad notebook must never break a prompt build
+        except Exception:  # broad-except: a bad notebook must never break a prompt build
             log.warning("learning: could not render the notebooks", exc_info=True)
             return stale
         with self._lock:
@@ -619,7 +619,7 @@ class JarvisNotebook:
                     self._dated = (signature, now, cached[2])
                 return cached[2]
             books = self._read_quietly()
-        except Exception:  # noqa: BLE001 — a bad notebook must never break a prompt build
+        except Exception:  # broad-except: a bad notebook must never break a prompt build
             log.warning("learning: could not read the notebooks for dated notes", exc_info=True)
             books = None
         if books is None:

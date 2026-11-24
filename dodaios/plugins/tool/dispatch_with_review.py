@@ -14,6 +14,7 @@ the LLM sees for activation (plan architecture).
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,8 @@ from dodaios.core.review.spawns import ReviewerSpawner, WorkerSpawner
 from dodaios.core.review.state import PipelineOutcome, PipelineResult
 from dodaios.harness.manager import HarnessManager
 from dodaios.i18n import catalog as i18n_catalog
+
+log = logging.getLogger(__name__)
 
 # AD-14: voice phrases are hardcoded here (never generated, never mutable via
 # voice/config) and byte-exact matched in the smoke tests. Each phrase exists
@@ -72,7 +75,11 @@ def _voice_language(ctx: Any) -> str:
             from dodaios.voice.action_phrases import resolve_ambient_language  # noqa: PLC0415
 
             value = resolve_ambient_language()
-        except Exception:  # noqa: BLE001 — a spoken fallback beats a crash on the tool path
+        except Exception:  # broad-except: a spoken fallback beats a crash on the tool path
+            log.debug(
+                "_voice_language: a spoken fallback beats a crash on the tool path",
+                exc_info=True,
+            )
             value = "en"
     return value if value in VOICE_HOLDING_PHRASES else "en"
 
@@ -265,7 +272,8 @@ class DispatchWithReviewTool:
                     "registered on this install"
                 ),
             )
-        except Exception as exc:  # noqa: BLE001 — the tool must NEVER crash
+        except Exception as exc:  # broad-except: the tool must NEVER crash
+            log.warning("execute: the tool must NEVER crash", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,
@@ -291,8 +299,11 @@ class DispatchWithReviewTool:
                     language=language,
                 )
             )
-        except Exception:  # noqa: BLE001, S110 — the voice side effect must not crash
-            pass
+        except Exception:  # broad-except: the voice side effect must not crash
+            log.warning(
+                "_announce_holding_phrase: the voice side effect must not crash",
+                exc_info=True,
+            )
 
     # ------------------------------------------------------------------
     # Result-Serialization

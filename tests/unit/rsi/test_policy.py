@@ -29,7 +29,9 @@ CELL = "backend|claude-opus-5-5|claude-cli 2.1"
 
 def test_the_default_is_the_codes_own_limits_and_has_no_text():
     assert (DEFAULT.p_max, DEFAULT.evidence_wait_s, DEFAULT.domain_block) == (
-        driver.MAX_FOLLOW_UPS, driver.EVIDENCE_WAIT_S, "",
+        driver.MAX_FOLLOW_UPS,
+        driver.EVIDENCE_WAIT_S,
+        "",
     )
 
 
@@ -38,7 +40,9 @@ def test_a_policy_is_named_by_its_content():
     assert Policy.from_text(Policy(p_max=1).to_text()) == Policy(p_max=1)
     assert Policy.from_text(None) == DEFAULT
     assert json.loads(Policy(p_max=1).to_text()) == {
-        "domain_block": "", "evidence_wait_s": 2700, "p_max": 1,
+        "domain_block": "",
+        "evidence_wait_s": 2700,
+        "p_max": 1,
     }
 
 
@@ -91,7 +95,8 @@ def test_a_helpful_domain_block_is_a_valid_policy():
 
 
 @pytest.mark.parametrize(
-    "text", ["not json", "[1]", '{"p_max": "two"}', '{"p_max": 1, "review": "off"}'],
+    "text",
+    ["not json", "[1]", '{"p_max": "two"}', '{"p_max": 1, "review": "off"}'],
 )
 def test_a_text_that_is_no_policy_is_refused(text):
     with pytest.raises(PolicyError):
@@ -160,9 +165,9 @@ def registry(tmp_path, store):
     from dodaios.self_change.registry import SelfChangeRegistry
     from dodaios.self_change.surfaces import Surface
 
-    made = SelfChangeRegistry(tmp_path / "changes", audit=lambda: SimpleNamespace(
-        record=lambda _row: None
-    ))
+    made = SelfChangeRegistry(
+        tmp_path / "changes", audit=lambda: SimpleNamespace(record=lambda _row: None)
+    )
     made.register_handler(Surface.CODING_POLICY, store)
     yield made
     made.close()
@@ -173,9 +178,12 @@ def _draft(target: str, policy: Policy | None, **more: Any) -> Any:
     from dodaios.self_change.surfaces import Surface
 
     return Draft(
-        surface=Surface.CODING_POLICY, target=target,
-        after=policy.to_text() if policy is not None else None, author="rsi-selector",
-        reason="a candidate from the fixed grid", **more,
+        surface=Surface.CODING_POLICY,
+        target=target,
+        after=policy.to_text() if policy is not None else None,
+        author="rsi-selector",
+        reason="a candidate from the fixed grid",
+        **more,
     )
 
 
@@ -197,14 +205,32 @@ def test_a_change_of_what_agents_are_told_waits_for_the_owner(registry, store):
     assert store.policy(CELL, CANDIDATE).domain_block == block
 
 
+def test_a_line_the_miner_can_add_goes_on_trial_without_the_owner(registry, store):
+    from dodaios.rsi.mining import PATTERNS
+
+    lines = "\n".join(p.line for p in PATTERNS[:2])
+    change = registry.propose(_draft(target_for(CELL, CANDIDATE), Policy(domain_block=lines)))
+    assert (change.state.value, change.core, change.core_reasons) == ("trial", False, [])
+    assert store.policy(CELL, CANDIDATE).domain_block == lines
+    # One word of other text beside the fixed lines makes it the owner's call again.
+    mixed = f"{PATTERNS[0].line}\nAlso run `make check`."
+    held = registry.propose(_draft(target_for(CELL, ACTIVE), Policy(domain_block=mixed)))
+    assert held.state.value == "proposed"
+    assert "it changes what coding agents are told" in held.core_reasons
+
+
 def test_a_policy_beyond_the_limits_is_blocked_and_never_written(registry, store):
     from dodaios.self_change.gate import Draft
     from dodaios.self_change.surfaces import Surface
 
-    change = registry.propose(Draft(
-        surface=Surface.CODING_POLICY, target=target_for(CELL, ACTIVE),
-        after='{"p_max": 5}', author="rsi-selector",
-    ))
+    change = registry.propose(
+        Draft(
+            surface=Surface.CODING_POLICY,
+            target=target_for(CELL, ACTIVE),
+            after='{"p_max": 5}',
+            author="rsi-selector",
+        )
+    )
     assert change.state.value == "blocked"
     assert store.policy(CELL, ACTIVE) is None
 
@@ -225,8 +251,11 @@ def test_rolling_a_policy_back_restores_the_exact_previous_one(registry, store):
 
 def _run(policy: Policy | None, **more: Any) -> dict[str, Any]:
     return {
-        "turn_status": "done", "ended_ms": 1_000, "follow_ups": 0,
-        "policy_json": policy.to_text() if policy is not None else "", **more,
+        "turn_status": "done",
+        "ended_ms": 1_000,
+        "follow_ups": 0,
+        "policy_json": policy.to_text() if policy is not None else "",
+        **more,
     }
 
 

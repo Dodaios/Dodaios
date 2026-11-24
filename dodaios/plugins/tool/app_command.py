@@ -206,7 +206,11 @@ def _apply_visible_terminal_context(
         corrected = dict(args)
         corrected["name"] = current.name
         return corrected
-    except Exception:  # noqa: BLE001 - context is a correction, never a blocker
+    except Exception:  # broad-except: context is a correction, never a blocker
+        log.debug(
+            "_apply_visible_terminal_context: context is a correction, never a blocker",
+            exc_info=True,
+        )
         return args
 
 
@@ -256,7 +260,8 @@ class _Runtime:
             from dodaios.core import control_key
 
             return control_key.get_control_key()
-        except Exception:  # noqa: BLE001 - most routes need no auth; degrade
+        except Exception:  # broad-except: most routes need no auth; degrade
+            log.debug("control_key: most routes need no auth; degrade", exc_info=True)
             return None
 
 
@@ -266,7 +271,7 @@ def _remember(command_id: str, outcome: str, detail: str) -> None:
         from dodaios.app_actions import history
 
         history.record(command_id, outcome, detail, via="app-command")
-    except Exception:  # noqa: BLE001 — the log is advisory; the command's result stands
+    except Exception:  # broad-except: the log is advisory; the command's result stands
         log.warning("app-actions history unavailable", exc_info=True)
 
 
@@ -288,17 +293,13 @@ class RegistryCommandTool:
         self.risk_tier: str = "ask" if command.dangerous else "monitor"
         narrowed = _ONLY_ASKS_FOR.get(command.id)
         note = (
-            f" Requires the user's spoken confirmation when {narrowed[0]} is "
+            f" Asks the user to confirm when {narrowed[0]} is "
             f"{' or '.join(sorted(narrowed[1]))}."
             if command.dangerous and narrowed
-            else " Requires the user's spoken confirmation before it runs."
+            else " Asks the user to confirm first."
             if command.dangerous else ""
         )
-        self.description: str = (
-            f"{command.description}{note} Executes the app's own validated "
-            f"endpoint ({command.method} {command.path}); report the result "
-            "the tool returns, never your assumption."
-        )
+        self.description: str = f"{command.description}{note}"
         self.schema: dict[str, Any] = command.params or {
             "type": "object", "properties": {},
         }

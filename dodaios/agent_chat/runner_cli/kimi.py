@@ -23,7 +23,7 @@ from dodaios.agent_chat.runner_cli.base import (
     _argv_prompt,
     _behind_shim,
     _cli_tool_summary,
-    _with_identity,
+    _identity_message,
     log,
 )
 from dodaios.agent_chat.runner_cli.claude_stream import _content_text
@@ -66,7 +66,7 @@ def plan_kimi(
     identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("kimi-cli", permission_mode)
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("kimi-cli", prompt, identity, resume)
     argv = [*kimi_argv_prefix(), "--output-format", "stream-json"]
     if model:
         argv += ["--model", model]

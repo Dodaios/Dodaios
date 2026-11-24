@@ -6,6 +6,7 @@ import asyncio
 import http.client
 import io
 import json
+import logging
 import os
 import sys
 from typing import Any
@@ -21,6 +22,8 @@ from .worker_tool_broker import (
     BROKER_TOKEN_ENV,
     BROKER_URL_ENV,
 )
+
+log = logging.getLogger(__name__)
 
 # The client must outlive the supervisor-side wait so it can receive the
 # broker's deterministic timeout response instead of dropping the socket first.
@@ -94,7 +97,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResul
             "/v1/execute",
             {"name": name, "arguments": arguments},
         )
-    except Exception as exc:  # noqa: BLE001 - MCP error response, never a crash
+    except Exception as exc:  # broad-except: MCP error response, never a crash
+        log.warning("call_tool: MCP error response, never a crash", exc_info=True)
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=str(exc))],
             isError=True,

@@ -47,6 +47,7 @@ Never accept a key from voice/chat input (AP-2).
 from __future__ import annotations
 
 import io
+import logging
 import os
 import wave
 from collections.abc import AsyncIterator
@@ -54,6 +55,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 DEFAULT_ENDPOINT = "https://api.deepgram.com/v1/listen"
 DEFAULT_MODEL = "nova-3"
@@ -331,9 +334,10 @@ def _read_keyring_secret(username: str) -> str:
     for service in (_KEYRING_SERVICE, *_LEGACY_KEYRING_SERVICES):
         try:
             value = _read_one(keyring, service, username)
-        except Exception:  # noqa: BLE001, S112 — a locked or absent vault is
+        except Exception:  # broad-except: a locked or absent vault is
             # "no key", which the caller already reports honestly; re-raising
             # here would turn a missing optional credential into a crash.
+            log.debug("_read_keyring_secret: a locked or absent vault is", exc_info=True)
             continue
         if value:
             return value

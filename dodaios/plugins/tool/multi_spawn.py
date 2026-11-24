@@ -22,11 +22,14 @@ sections are replaced with a "(X sections truncated)" marker.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.bus import EventBus
 from dodaios.core.protocols import ExecutionContext, HarnessTask, ToolResult
 from dodaios.harness.manager import HarnessManager
+
+log = logging.getLogger(__name__)
 
 
 class MultiSpawnTool:
@@ -98,7 +101,8 @@ class MultiSpawnTool:
             if aggregation == "first_success":
                 return await self._execute_first_success(harness_name, tasks)
             return await self._execute_merge(harness_name, tasks)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,

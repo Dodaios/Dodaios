@@ -19,9 +19,12 @@ Windows/WebView2 only: the session goes through Chromium's remote-debugging
 endpoint, opened on a random local port (``--remote-debugging-port=0``) whose
 number Chromium writes into the profile directory. Elsewhere — WKWebView,
 WebKitGTK, Qt — nothing is opened and :meth:`HangStackProbe.capture` returns
-an empty list. The endpoint listens on loopback only and is reachable only by
-someone who can read this user's profile directory, which already holds the
-app's own session state.
+an empty list. The endpoint listens on loopback only, but any local process can scan loopback
+ports and attach to it, then run script in the app's origin. With open local
+access that adds nothing; with the browser lock on (``[ui].require_browser_login``)
+it would bypass the lock. So the flag is never added while the browser lock is
+on: the probe then stays inert and :meth:`HangStackProbe.capture` returns an
+empty list.
 """
 
 from __future__ import annotations
@@ -54,13 +57,21 @@ SNIPPET_RADIUS = 90
 
 
 def enable_webview_remote_debugging(
-    *, env: MutableMapping[str, str] | None = None, platform: str | None = None
+    *,
+    env: MutableMapping[str, str] | None = None,
+    platform: str | None = None,
+    browser_locked: bool = False,
 ) -> bool:
     """Open the DevTools endpoint the probe needs, before the WebView starts.
 
     Appended to the shared WebView2 argument variable (never assigned), like
-    the accessibility flag. Returns whether the flag is in place.
+    the accessibility flag. Returns whether the flag is in place. With the
+    browser lock on (*browser_locked*) nothing is added: an open DevTools port
+    would let any local process bypass the lock.
     """
+    if browser_locked:
+        logger.info("webview hang probe is off: the browser lock is on, DevTools port stays shut")
+        return False
     if (platform or sys.platform) != "win32":
         return False
     target = os.environ if env is None else env

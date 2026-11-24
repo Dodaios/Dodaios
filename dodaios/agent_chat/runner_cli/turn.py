@@ -18,6 +18,7 @@ from dodaios.agent_chat.runner_api import TurnHandle, reply_language_line
 from dodaios.agent_chat.runner_cli import drive as _rc_drive
 from dodaios.agent_chat.runner_cli.base import (
     _CLAUDE_CODE_RUNNERS,
+    _LEAD_RECORD,
     _SEAT_CONVERSATIONS,
     _TURN_SEATS,
     ACCOUNT_OVERRIDE,
@@ -537,9 +538,14 @@ async def run_cli_turn(
     recovery = ToolRecovery()
     original_emit = handle.emit
     original_ask = handle.request_approval
+    # A lead turn is kept with what the CLI was handed and its first move,
+    # for the replay benchmark (``dodaios.rsi.lead_turns``).
+    lead_record = _lead_record(handle, user_text) if identity else None
 
     async def observe(event: dict[str, Any]) -> None:
         recovery.observe(event)
+        if lead_record is not None:
+            lead_record.observe(event)
         await original_emit(event)
 
     async def ask(call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
@@ -555,26 +561,16 @@ async def run_cli_turn(
             session.session_id, user_text, getattr(handle, "output_language", "")
         )
     handle = replace(handle, emit=observe, request_approval=ask)
-    if identity and session.surface == "jarvis" and not user_text.lstrip().startswith("/"):
+    if identity and session.surface == "jarvis":
         # The assistant's own chat: the reply's shape and where a question goes
-        # are said beside the message, not only in the system prompt
-        # (``REPLY_SHAPE_LINE``, ``brief_line()``, ``QUESTION_CARD_LINE``).
-        from dodaios.agent_chat.secret_requests import SECRET_NOUN
-
-        if SECRET_NOUN.search(user_text):
-            user_text += dodaios_harness.SECRET_FIELD_LINE
-        # How much a task needs is the model's to judge, before the lines that shape the reply.
-        user_text += dodaios_harness.EFFORT_LINE
-        if not handle.continuation:
-            # A turn that carries a running task on has already taken it on.
-            user_text += dodaios_harness.FIRST_LINE
-        user_text += (
-            dodaios_harness.REPLY_SHAPE_LINE
-            # With the person's standing brief wishes, read fresh per message.
-            + dodaios_harness.brief_line()
-            + dodaios_harness.QUESTION_CARD_LINE
+        # are said beside the message, not only in the system prompt. One
+        # function builds it, so a replay can rebuild it (``lead_model_input``).
+        user_text = dodaios_harness.lead_message(
+            user_text,
+            continuation=handle.continuation,
+            output_language=getattr(handle, "output_language", ""),
         )
-    if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
+    elif getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += reply_language_line(session.surface, handle.output_language)
     ident: dodaios_harness.Identity | None = None
     ref = approval_ref(session.session_id)
@@ -643,6 +639,7 @@ async def run_cli_turn(
         # prompt reads the rules for them once, at the start of its conversation.
         user_text = standing.for_first_message(user_text, handle, new_conversation=resume is None)
     tool_context = register_turn(session.session_id) if identity else None
+    record_token = _LEAD_RECORD.set(lead_record)
     try:
         outcome = await _rc_drive._run_cli_once(
             handle, user_text, runner, resume, identity=ident, bridge=bridge
@@ -746,6 +743,7 @@ async def run_cli_turn(
                 resume=resume,
             )
     finally:
+        _LEAD_RECORD.reset(record_token)
         _TURN_SEATS.reset(seats_token)
         unregister_turn(session.session_id, tool_context)
         ACCOUNT_OVERRIDE.reset(account_token)
@@ -766,7 +764,29 @@ async def run_cli_turn(
             },
         )
     )
+    if lead_record is not None:
+        # A turn that answered in text only is known now; a tool call was written at once.
+        lead_record.finish()
     return outcome.vendor_session
+
+
+def _lead_record(handle: TurnHandle, user_text: str) -> Any:
+    """The recorder of a lead turn (the ``jarvis`` surface, no slash command), else ``None``."""
+    session = handle.session
+    if getattr(session, "surface", "") != "jarvis" or user_text.lstrip().startswith("/"):
+        return None
+    try:
+        from dodaios.rsi.lead_turns import TurnRecorder
+
+        return TurnRecorder(
+            session.session_id,
+            handle.turn_id,
+            continuation=bool(handle.continuation),
+            images=len(tuple(getattr(handle, "images", ()) or ())),
+        )
+    except Exception:  # noqa: BLE001 - without a recorder the turn runs exactly as before
+        log.debug("agent chat %s: lead turn not recorded", handle.turn_id, exc_info=True)
+        return None
 
 
 async def resume_hosted_cli_turn(handle: TurnHandle, proc: Any) -> str | None:

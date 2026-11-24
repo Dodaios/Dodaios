@@ -21,9 +21,9 @@ from dodaios.agent_chat.runner_cli.base import (
     CliPlan,
     CliUnavailable,
     _catalog_cwd,
+    _identity_message,
     _remember_models,
     _resolved_cwd,
-    _with_identity,
     log,
 )
 from dodaios.agent_chat.runner_cli.claude_stream import _content_text
@@ -199,7 +199,7 @@ def plan_agy(
     mode = normalize_permission("agy-cli", permission_mode)
     # agy has no system-prompt flag: the identity rides in front of the prompt
     # on stdin, on a fresh conversation (a resumed one already knows).
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("agy-cli", prompt, identity, resume)
     work = _resolved_cwd(cwd)
     if identity is not None:
         # agy has no --mcp-config; a workspace plugin is how print-mode

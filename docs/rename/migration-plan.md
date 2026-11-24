@@ -19,6 +19,7 @@ remaining mentions is in [old-name-leftovers.md](old-name-leftovers.md).
 | Config file | `jarvis.toml` | every install |
 | Other sources | `personal-jarvis-src.tar.gz` (next to `dodaios-src.tar.gz`), `personal-jarvis.intoto.jsonl`; the `.deb` is `dodaios_<version>_amd64.deb` after 4.1.2 | install scripts, provenance checks |
 | Windows setup identity | After 4.1.2 built and signed as `Dodaios-Setup-x64.exe`, product name `Dodaios` (`docs/code-signing-policy.md`) | SmartScreen, file properties |
+| Environment variables | Write `DODAIOS_<NAME>` (`DODAIOS__<SECTION>__<KEY>`, `DODAIOSCTL_<NAME>`); the old `JARVIS_*`, `JARVIS__*` and `JARVISCTL_*` names keep working, and the code reads them internally (`dodaios/core/env_prefix.py`) | scripts, service units, CI, `.env` files |
 
 ## Step 1: asset aliases (largely done)
 

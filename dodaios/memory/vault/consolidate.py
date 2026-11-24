@@ -381,7 +381,7 @@ async def run_if_due(vault: MemoryVault, reviewer: Reviewer, notify: Notifier | 
         raw: Any = None
         try:
             raw = await reviewer(build_prompt(groups, related, reword))
-        except Exception:  # noqa: BLE001 — a provider fault skips this attempt
+        except Exception:  # broad-except: a provider fault skips this attempt
             log.warning("memory consolidation: reviewer failed", exc_info=True)
         if raw is None:
             answered = False
@@ -413,6 +413,6 @@ async def run_if_due(vault: MemoryVault, reviewer: Reviewer, notify: Notifier | 
         if notify is not None:
             try:
                 await notify(tidy.sentence(), tidy.counts())
-            except Exception:  # noqa: BLE001 — a notice never undoes the tidy-up
+            except Exception:  # broad-except: a notice never undoes the tidy-up
                 log.debug("memory consolidation: notice not posted", exc_info=True)
     return tidy.total

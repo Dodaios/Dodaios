@@ -35,6 +35,8 @@ from dodaios.plugins.tts.gemini_flash_tts import (
     _sapi5_synthesize,
 )
 
+log = logging.getLogger(__name__)
+
 # Output-Format wie Gemini: 24 kHz mono int16 PCM (pcm_24000).
 ELEVENLABS_TTS_SAMPLE_RATE = 24_000
 _OUTPUT_FORMAT = "pcm_24000"
@@ -312,7 +314,8 @@ class ElevenLabsTTS:
                     if callable(close):
                         with contextlib.suppress(Exception):
                             close()
-            except BaseException as exc:  # noqa: BLE001
+            except BaseException as exc:  # broad-except: failed; carrying on with the fallback
+                log.warning("_producer: failed; carrying on with the fallback", exc_info=True)
                 _deliver(exc)
             finally:
                 _deliver(None)

@@ -238,7 +238,7 @@ class JarvisLearningLoop:
         for event_type, handler in self._subscriptions:
             try:
                 self._bus.unsubscribe(event_type, handler)
-            except Exception:  # noqa: BLE001 — teardown reports, never raises
+            except Exception:  # broad-except: teardown reports, never raises
                 log.debug("learning: could not detach %s", event_type.__name__, exc_info=True)
         self._subscriptions.clear()
         self._bus = None
@@ -272,7 +272,7 @@ class JarvisLearningLoop:
             await work
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — background learning must never surface
+        except Exception:  # broad-except: background learning must never surface
             log.warning("learning: background work failed", exc_info=True)
 
     # ── inputs ───────────────────────────────────────────────────────────
@@ -590,7 +590,7 @@ class JarvisLearningLoop:
             raw = await self._reviewer(prompt)
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — a provider fault is a failed review, retried later
+        except Exception:  # broad-except: a provider fault is a failed review, retried later
             log.warning("learning: reviewer failed", exc_info=True)
             raw = None
         if raw is None:
@@ -635,7 +635,7 @@ class JarvisLearningLoop:
             raw = await reviewer(prompt)
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — a provider fault is a failed review, retried later
+        except Exception:  # broad-except: a provider fault is a failed review, retried later
             log.warning("learning: vault reviewer failed", exc_info=True)
             raw = None
         if raw is None:
@@ -766,7 +766,7 @@ class JarvisLearningLoop:
             raw = await self._compactor(prompt) if self._compactor else None
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — a failed merge leaves the notebook as it was
+        except Exception:  # broad-except: a failed merge leaves the notebook as it was
             log.warning("learning: compaction failed", exc_info=True)
             raw = None
         seat = _seat_of(self._compactor)
@@ -904,7 +904,7 @@ def _open_vault(config: Any) -> None:
 
     try:
         vault = vault_runtime.open_from_config(config)
-    except Exception:  # noqa: BLE001 — memory must never block the boot
+    except Exception:  # broad-except: memory must never block the boot
         log.warning("memory vault: could not open it; using the notebooks", exc_info=True)
         return
     if vault is not None:
@@ -925,18 +925,18 @@ def _import_legacy_once(config: Any, vault: Any) -> None:
 
     try:
         wiki_root = legacy_import.legacy_wiki_root(config)
-    except Exception:  # noqa: BLE001 — no wiki configured: import the other sources only
+    except Exception:  # broad-except: no wiki configured: import the other sources only
         log.info("memory vault import: no wiki vault found", exc_info=True)
         wiki_root = None
     try:
         if legacy_import.import_once(vault, wiki_root=wiki_root, data_dir=DATA_DIR):
             vault_runtime.changed()
-    except Exception:  # noqa: BLE001 — a failed import is retried on the next boot
+    except Exception:  # broad-except: a failed import is retried on the next boot
         log.warning("memory vault: importing the old memory failed", exc_info=True)
     try:
         if legacy_import.retire_template_defaults(vault, data_dir=DATA_DIR):
             vault_runtime.changed()
-    except Exception:  # noqa: BLE001 — retried on the next boot
+    except Exception:  # broad-except: retried on the next boot
         log.warning("memory vault: closing the old template defaults failed", exc_info=True)
 
 

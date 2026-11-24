@@ -171,7 +171,7 @@ def _probe_supported_flags() -> frozenset[str]:
                     creationflags=creationflags,
                 )
                 flags = frozenset(_FLAG_RE.findall(result.stdout or ""))
-            except Exception:  # noqa: BLE001 - a failed probe costs speed, not the turn
+            except Exception:  # broad-except: a failed probe costs speed, not the turn
                 log.debug("claude-cli: --help probe failed", exc_info=True)
         _supported_flags = flags
         return flags
@@ -208,7 +208,7 @@ def _claude_subscription_connected() -> bool:
         return bool(
             getattr(status, "connected", False) and getattr(status, "mode", "") == "subscription"
         )
-    except Exception:  # noqa: BLE001 - a probe degrades, never raises
+    except Exception:  # broad-except: a probe degrades, never raises
         log.debug("claude-cli: subscription probe failed", exc_info=True)
         return False
 

@@ -39,9 +39,15 @@ from tests.eval.lead_routing import (  # noqa: E402
     validate_cases,
 )
 from tests.eval.lead_routing.cases import FIXTURE_DIR  # noqa: E402
-from tests.eval.lead_routing.validate import catalog_problems, reference_payload  # noqa: E402
+from tests.eval.lead_routing.validate import (  # noqa: E402
+    catalog_problems,
+    reference_payload,
+    seed_payload,
+)
 
 RECORDED_DIR = FIXTURE_DIR / "recorded"
+#: The golden set as the benchmark ships it (the ``first_move`` domain's seed tasks).
+SEED_FILE = REPO / "dodaios" / "rsi" / "bench" / "seed" / "first_move.json"
 RESULTS_DIR = REPO / "eval-results"
 
 
@@ -52,6 +58,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--category", action="append", help="only this category (repeatable)")
     p.add_argument("--write-reference", action="store_true",
                    help="regenerate recorded/reference.json from the expectations")
+    p.add_argument("--write-seed", action="store_true",
+                   help="regenerate the benchmark's packaged copy of the golden set")
     p.add_argument("--live", action="store_true", help="run against a real seat (bills it)")
     p.add_argument("--seat", action="append", default=[],
                    help="provider id of the seat to run live (repeatable); never chosen for you")
@@ -159,6 +167,14 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         print("The golden set is malformed:\n  " + "\n  ".join(problems))
         return 2
+    if args.write_seed:
+        SEED_FILE.write_text(
+            json.dumps(seed_payload(cases), indent=1, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        print(f"wrote {SEED_FILE} ({len(cases)} cases)")
+        return 0
     if args.write_reference:
         RECORDED_DIR.mkdir(parents=True, exist_ok=True)
         path = RECORDED_DIR / "reference.json"

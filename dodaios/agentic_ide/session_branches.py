@@ -35,7 +35,7 @@ from typing import Any
 
 from loguru import logger
 
-from dodaios.agentic_ide import agent_transcript, git_overview
+from dodaios.agentic_ide import agent_transcript, claude_subagents, git_overview
 
 
 @dataclass(frozen=True)
@@ -134,6 +134,15 @@ def _lex(text: str) -> list[str] | None:
         return None
 
 
+def _is_landing(args: list[str]) -> bool:
+    """Is this ``python scripts/agent_land.py``, however the interpreter is spelled?"""
+    return (
+        len(args) >= 2
+        and re.fullmatch(r"(?:.*[\\/])?(?:python[\d.]*|py)(?:\.exe)?", args[0], re.I) is not None
+        and re.search(r"(?:^|[\\/])agent_land\.py$", args[1]) is not None
+    )
+
+
 def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
     """Every literal ``git`` call: its folder, its arguments, the chain's length."""
     words = _lex(command)
@@ -161,6 +170,10 @@ def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
             continue
         if args[0].lower() in {"cd", "set-location", "pushd"} and len(args) == 2:
             cwd = _enter(cwd, args[1])
+            continue
+        if _is_landing(args):
+            # The landing script rebases and pushes the checkout it runs in.
+            calls.append((cwd, ["push"], len(segments)))
             continue
         if args[0] not in {"git", "git.exe"}:
             continue
@@ -379,6 +392,8 @@ class _Evidence:
     # The record's size and modification time when it was read; None when the
     # record is not one file whose growth can be seen.
     stamp: tuple[int, int] | None
+    # The same for the sub-agent records filed beside it; None when there are none to see.
+    substamp: tuple[int, int, int] | None
     candidates: list[CreatedBranch]
     worked: list[tuple[str, float]]
 
@@ -451,6 +466,38 @@ def _recorded_creation(folder: str, branch: str, called_at: float, ended_at: flo
     return recorded
 
 
+_derived: dict[tuple[Any, ...], tuple[list[CreatedBranch], list[tuple[str, float]]]] = {}
+
+
+def _delegated(
+    record: PaneBranchRecord,
+) -> tuple[list[CreatedBranch], list[tuple[str, float]]] | None:
+    """What the session's sub-agents created and wrote; each record is worked out once."""
+    files = claude_subagents.read_files(record.agent, record.session_id, home=record.home)
+    if files is None:
+        return None
+    candidates: list[CreatedBranch] = []
+    worked: list[tuple[str, float]] = []
+    for path, file_stamp, events in files:
+        key = (path, file_stamp, record.folder, record.started_at)
+        with _cache_lock:
+            known = _derived.get(key)
+        if known is None:
+            known = (
+                created_branches(
+                    events, record.folder, not_before=record.started_at, unconfirmed=True
+                ),
+                worked_folders(events, record.folder, not_before=record.started_at),
+            )
+            with _cache_lock:
+                if len(_derived) >= 800:
+                    _derived.clear()
+                _derived[key] = known
+        candidates.extend(known[0])
+        worked.extend(known[1])
+    return candidates, worked
+
+
 def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple[str, float]]]:
     """What this session's own record says it created and where it wrote."""
     if not record.session_id or not agent_transcript.can_read(record.agent):
@@ -466,7 +513,13 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     # seconds once it is tens of megabytes, and a session waiting for its next
     # prompt, in a tab nobody is looking at, adds nothing to it.
     stamp = agent_transcript.stamp(record.agent, record.session_id, home=record.home)
-    if cached is not None and stamp is not None and stamp == cached.stamp:
+    substamp = claude_subagents.stamp(record.agent, record.session_id, home=record.home)
+    if (
+        cached is not None
+        and stamp is not None
+        and stamp == cached.stamp
+        and substamp == cached.substamp
+    ):
         cached.used_at = now
         return cached.candidates, cached.worked
     events = agent_transcript.read_events(record.agent, record.session_id, home=record.home)
@@ -478,8 +531,16 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
         events, record.folder, not_before=record.started_at, unconfirmed=True
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
+    # A lead that hands its Git work to sub-agents has none of it in its own
+    # record; their records belong to this thread all the same.
+    delegated = _delegated(record)
+    if delegated is None:
+        stamp = None
+    elif delegated[0] or delegated[1]:
+        candidates = sorted([*candidates, *delegated[0]], key=lambda made: made.created_at)
+        worked = sorted([*worked, *delegated[1]], key=lambda touched: touched[1])
     with _cache_lock:
-        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
+        _cache[key] = _Evidence(now, now, stamp, substamp, candidates, worked)
         for expired in [key for key, entry in _cache.items() if now - entry.used_at > 1800]:
             del _cache[expired]
     return candidates, worked
@@ -511,7 +572,7 @@ def _own_evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[t
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
     with _cache_lock:
-        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
+        _cache[key] = _Evidence(now, now, stamp, None, candidates, worked)
     return candidates, worked
 
 
@@ -725,6 +786,11 @@ MAX_PANE_BRANCHES = 8
 
 
 def pane_branches(record: PaneBranchRecord) -> list[PaneBranch]:
+    """The first :data:`MAX_PANE_BRANCHES` of :func:`ranked_branches`."""
+    return ranked_branches(record)[:MAX_PANE_BRANCHES]
+
+
+def ranked_branches(record: PaneBranchRecord) -> list[PaneBranch]:
     """Every branch a pane's session has worked on.
 
     The branch it works in now comes first, then the others it created or
@@ -763,4 +829,4 @@ def pane_branches(record: PaneBranchRecord) -> list[PaneBranch]:
     if not listed:
         fallback = _checked_out(record)
         return [fallback] if fallback is not None else []
-    return listed[:MAX_PANE_BRANCHES]
+    return listed

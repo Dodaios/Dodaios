@@ -10,7 +10,7 @@ working on the app from inside the app.
 | | **Dodaios** (default instance) | **Dodaios Dev** (dev instance) |
 |---|---|---|
 | Purpose | The app you live in: voice, hotkeys, channels, the Agentic-IDE sessions you vibe-code from. Never restarted for a code change. | A second window you restart as often as you like to look at the current working tree. |
-| Start | `run.bat` / `./run.sh`, the Start-Menu / Desktop shortcut, autostart | `run-dev.bat` / `./run-dev.sh`, the **Dodaios Dev** shortcut, or `python -m dodaios.ui.web.launcher --instance dev` |
+| Start | `run.bat` / `./run.sh`, the Start-Menu / Desktop shortcut, autostart | `scriptsun-dev.bat` / `./scripts/run-dev.sh`, the **Dodaios Dev** shortcut, or `python -m dodaios.ui.web.launcher --instance dev` |
 | Frontend | The built bundle; a rebuilt bundle is picked up by the window itself (`bundleWatch`) | Same built bundle, same pick-up — so UI changes show up in BOTH without a restart |
 | Backend (Python) changes | Only after a restart — which you now do on the dev app | Restart from the tray / in-app Restart / the launcher as usual |
 | Data directory | `data/` | `data-dev/` (created on first start, seeded once with `setup_state.json`, `identity_card.json`, `core_memory.json` and a snapshot of `chats.db`) |
@@ -24,7 +24,7 @@ working on the app from inside the app.
 
 ## How it is selected
 
-`JARVIS_INSTANCE=dev` in the environment, or `--instance dev` on the launcher
+`DODAIOS_INSTANCE=dev` in the environment, or `--instance dev` on the launcher
 (which sets the variable before anything else is imported). The variable is a
 *single* underscore on purpose: the relauncher refreshes every `JARVIS__*`
 config override on an in-app restart, and the instance must survive exactly
@@ -63,8 +63,8 @@ build-tool copy).
 
 The dev app does not deliver reminders or calendar appointments: the default
 app does, and two apps on one calendar would tell everything twice. To try how
-a reminder reads in the chat, start the dev app with `JARVIS_DEV_REMINDERS=1`
-(for example `JARVIS_DEV_REMINDERS=1 python scripts/dev_preview.py <PR>`). It
+a reminder reads in the chat, start the dev app with `DODAIOS_DEV_REMINDERS=1`
+(for example `DODAIOS_DEV_REMINDERS=1 python scripts/dev_preview.py <PR>`). It
 then tells the reminders of its own `data-dev` directory in its own chat, with
 no desktop notification.
 

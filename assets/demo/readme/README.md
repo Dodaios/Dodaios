@@ -387,7 +387,7 @@ comment box on an issue or pull request of the repository, wait for the
 upload and post the comment (an attachment in an unposted comment stays
 private). The comment then holds a
 `https://github.com/user-attachments/assets/...` URL. Put that URL on a line of its own in `README.md` and
-`README.zh-CN.md`, in place of the picture. GitHub accepts up to 10 MB for an
+`docs/i18n/README.zh-CN.md`, in place of the picture. GitHub accepts up to 10 MB for an
 inline video on a free plan, and the player starts muted. PyPI shows such a
 line as a bare link, which is why the README uses animated pictures.
 

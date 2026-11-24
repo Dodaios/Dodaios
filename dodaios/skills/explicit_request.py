@@ -29,6 +29,7 @@ to a skill called "focus".
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -40,6 +41,8 @@ from dodaios.skills.match_eval import (
     MatchDecision,
 )
 from dodaios.skills.relevance import normalize_text
+
+log = logging.getLogger(__name__)
 
 #: Imperative use-verbs in DE / EN / ES, matched against the RAW utterance
 #: (umlaut and digraph forms both listed). Infinitives are included because
@@ -168,7 +171,11 @@ def resolve_explicit_skill_request(
             candidates=(candidate,),
         )
         return skill, decision
-    except Exception:  # noqa: BLE001 — resolution must never break a turn
+    except Exception:  # broad-except: resolution must never break a turn
+        log.warning(
+            "resolve_explicit_skill_request: resolution must never break a turn",
+            exc_info=True,
+        )
         return None
 
 

@@ -164,98 +164,47 @@ def _provider_switch_params(
     }
 
 
-def _society_profile_properties() -> dict[str, Any]:
-    """Voice-editable profile fields; execution uses the existing roster REST route."""
-    return {
-        "title": _str_param("The agent's responsibility or role.", max_length=120),
-        "description": _str_param(
-            "Extra standing instructions in prose; the brief fields below are preferred.",
-            max_length=20_000,
-        ),
-        **_agent_brief_properties(),
-        "tier": _str_param("Team role.", enum=["specialist", "orchestrator"]),
-        "focus": {
-            "type": "array", "items": {"type": "string"},
-            "description": "Capability ids; omit to derive from responsibilities.",
-        },
-        "skills": {
-            "type": "array", "items": {"type": "string"},
-            "description": "Skill ids explicitly requested by the user.",
-        },
-        "approval_mode": _str_param(
-            "Agent approval mode. Omit to inherit the creator or use Bypass permissions.",
-            enum=["bypass", "ask", "always_ask"],
-        ),
-        "daily_budget_usd": {
-            "type": "number", "minimum": 0,
-            "description": "Daily spending limit requested by the user.",
-        },
-        "max_concurrent_runs": {
-            "type": "integer", "minimum": 1,
-            "description": "Maximum simultaneous assignments.",
-        },
-        "permission_ceiling": _str_param(
-            "Highest risk tier it may run unasked.", enum=["safe", "monitor", "ask"],
-        ),
-        "grant_mode": _str_param(
-            "all = every connected capability; allowlist = only grants.",
-            enum=["all", "allowlist"],
-        ),
-        "grants": _str_list("Capability ids for an allowlist, only when requested."),
-        "denies": _str_list("Capability ids the agent must never use."),
-    }
-
-
 def _str_list(description: str) -> dict[str, Any]:
     return {"type": "array", "items": {"type": "string"}, "description": description}
 
 
 def _ritual_properties() -> dict[str, Any]:
     """What a ritual is made of, for the commands that write or change one."""
-    clock = "24-hour HH:MM on the user's clock"
+    clock = "24-hour HH:MM, the user's clock"
     return {
         "name": _str_param("Short name, e.g. 'Good morning'.", min_length=1, max_length=60),
         "phrases": _str_list(
             "What the user says after the wake word (or types) to start it, in their "
-            "words and language, without the wake word: 'Guten Morgen'. At most six "
-            "words each, at most five."
+            "language, without the wake word: 'Guten Morgen'. Up to five, each up to six words."
         ),
         "steps": {
             "type": "array",
-            "description": (
-                "What happens, in order, each a sentence in the user's own words. Anything "
-                "you can do is allowed."
-            ),
+            "description": "In order, each one sentence in the user's own words.",
             "items": {
                 "type": "object",
                 "properties": {
                     "when": _str_param(
-                        "'now': done the moment the phrase is said (start music, open an "
-                        "app, switch a light). 'ahead': gathered before that and kept back "
-                        "until then, so the user does not wait (news, open pull requests, "
-                        "today's calendar, mail).",
+                        "'now': done when the phrase is said (start music, open an app). "
+                        "'ahead': gathered beforehand and kept back (news, pull requests, "
+                        "calendar, mail).",
                         enum=["now", "ahead"],
                     ),
                     "text": _str_param("The step.", min_length=1, max_length=500),
-                    "id": _str_param(
-                        "Only when changing a ritual: the id of the step this replaces."
-                    ),
+                    "id": _str_param("When changing a ritual: the id of the step this replaces."),
                     "call": {
                         "type": "object",
                         "description": (
                             "Only for a 'now' step that is exactly ONE call of one of your "
-                            "tools with fixed arguments (play this playlist, open that "
-                            "app): that call. It is then made at once when the phrase is "
-                            "said, without you. Find the arguments out first (search the "
-                            "playlist). Leave it out for a step that needs judgment; it "
-                            "is then done by a turn."
+                            "tools with fixed arguments: it is then made at once, without "
+                            "you. Find the arguments out first. Leave out for a step that "
+                            "needs judgment."
                         ),
                         "properties": {
-                            "tool": _str_param("The tool's name, without a server prefix."),
+                            "tool": _str_param("Tool name, without a server prefix."),
                             "args": {"type": "object", "description": "Its arguments."},
                             "says": _str_param(
-                                "The call in a few plain words for the user, in their "
-                                "language: 'YouTube Music: liked songs'.", max_length=160,
+                                "The call in a few plain words, user's language: "
+                                "'YouTube Music: liked songs'.", max_length=160,
                             ),
                         },
                         "required": ["tool", "args", "says"],
@@ -265,22 +214,21 @@ def _ritual_properties() -> dict[str, Any]:
             },
         },
         "window_from": _str_param(
-            f"Optional. Start of the time of day in which the phrase starts it, {clock}. "
-            "Outside it the phrase is an ordinary greeting."
+            f"Optional. Start of the time of day the phrase starts it, {clock}. Outside it "
+            "the phrase is an ordinary greeting."
         ),
-        "window_to": _str_param(f"End of that time of day, {clock}. Needed with window_from."),
+        "window_to": _str_param(f"End of that window, {clock}. Needed with window_from."),
         "weekdays": {
             "type": "array", "items": {"type": "integer"},
-            "description": "Optional. Days it may start on, Monday is 0. Leave out for every day.",
+            "description": "Optional. Days it may start on, Monday is 0; default every day.",
         },
         "once_per_day": {
             "type": "boolean",
             "description": "Default true: the phrase starts it only the first time on a day.",
         },
         "prepare_from": _str_param(
-            f"Optional. From when the 'ahead' steps are gathered, {clock}. Default: the "
-            "start of the window. A time inside the window or at most 12 hours before it "
-            "opens. It gathers as soon as the computer is awake from then on."
+            f"Optional. When the 'ahead' steps start gathering, {clock}; default the start "
+            "of the window, at most 12 hours before it opens."
         ),
     }
 
@@ -290,26 +238,11 @@ def _ritual_ref_param() -> dict[str, Any]:
 
 
 _RITUAL_GUIDE = (
-    "A ritual is a sequence the user wrote beforehand and starts by SAYING a short phrase "
-    "after the wake word, or typing it ('Good morning': music starts, the news and their "
-    "pull requests are there). Use it, not a routine or a skill, whenever something should "
-    "happen when the user says something. A routine runs by the clock instead. "
+    "A ritual is steps the user wrote beforehand and starts by SAYING a short phrase after "
+    "the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not "
+    "a routine or skill, whenever something should happen when the user says something; a "
+    "routine runs by the clock. "
 )
-
-
-def _agent_brief_properties() -> dict[str, Any]:
-    """The structured brief rendered into the agent's standing instructions."""
-    return {
-        "mission": _str_param("One sentence: what the agent exists for.", max_length=2_000),
-        "responsibilities": _str_list("Concrete recurring duties, each one actionable."),
-        "working_rules": _str_list("Step-by-step method: sources to read, order, priorities."),
-        "output_format": _str_param(
-            "Shape of every result: medium (artifact, chat, mail), length, sections.",
-            max_length=2_000,
-        ),
-        "boundaries": _str_list("What it must never do or only after approval."),
-        "success_criteria": _str_param("How a good result is recognised.", max_length=2_000),
-    }
 
 
 def _services_param() -> dict[str, Any]:
@@ -326,15 +259,6 @@ _READINESS_RULE = (
     "up but blocked until they connect or sign in. On 'unverified', call "
     "society-check-readiness with the services first."
 )
-
-_AGENT_DESIGN_GUIDE = (
-    "Design the agent before calling: turn the user's words into a complete brief — "
-    "mission, 3-6 responsibilities, working rules naming the data sources, output "
-    "format and boundaries — inferring sensible defaults instead of copying the "
-    "request verbatim. A requested schedule is a separate society-create-routine call. "
-    + _READINESS_RULE
-)
-
 
 def _routine_schedule_param(*, examples: bool = True) -> dict[str, Any]:
     if not examples:

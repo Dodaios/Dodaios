@@ -52,6 +52,7 @@ from dodaios.agent_chat.runner_cli.agy import (
 )
 from dodaios.agent_chat.runner_cli.base import (
     _CLAUDE_CODE_RUNNERS,
+    _LEAD_RECORD,
     _REMOTE_PLANNING,
     CLI_BINARIES,
     CliPlan,
@@ -60,6 +61,7 @@ from dodaios.agent_chat.runner_cli.base import (
     _resolved_cwd,
     apply_child_env_drops,
     cli_catalog_scope,
+    lead_model_input,
     log,
     run_tag,
 )
@@ -194,6 +196,38 @@ class _Outcome:
 
 #: How a Codex turn that left a tool failure unresolved says so.
 _UNRESOLVED_TOOLS: Final[str] = "Unresolved tool failure: "
+
+
+def _note_lead_input(
+    plan: CliPlan,
+    *,
+    session_id: str,
+    runner: str,
+    model: str,
+    effort: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+) -> None:
+    """Hand the current lead turn's record what its CLI is given (:func:`lead_model_input`)."""
+    record = _LEAD_RECORD.get()
+    if record is None or record.session_id != session_id:
+        return  # not a lead turn, or another chat's run started from inside one
+    try:
+        record.planned(
+            lead_model_input(
+                runner=runner,
+                model=model,
+                effort=effort,
+                prompt=prompt,
+                identity=identity,
+                resume=resume,
+                tools="--mcp-config" in plan.argv,
+            ),
+            resume=resume,
+        )
+    except Exception:  # noqa: BLE001 - the record is best effort, never the turn's problem
+        log.debug("agent chat: lead turn input not recorded", exc_info=True)
 
 
 async def _run_cli_once(
@@ -371,6 +405,17 @@ async def _run_cli_once(
     finally:
         _REMOTE_PLANNING.reset(remote_token)
 
+    if planner is not None:
+        _note_lead_input(
+            plan,
+            session_id=session.session_id,
+            runner=runner,
+            model=session.model,
+            effort=effort,
+            prompt=planned_prompt,
+            identity=identity,
+            resume=resume,
+        )
     vendor_session = plan.vendor_session
     if (
         getattr(handle, "goal_turn", False)

@@ -202,41 +202,86 @@ function Get-PubkeyFingerprint([string]$PemText) {
     return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLower()
 }
 
-# Render UTF-8 block glyphs + 24-bit brand gold. Banner art is machine-
-# generated (figlet ANSI Shadow) and lives inside the here-string, where
-# non-ASCII is syntactically inert; do not hand-edit -- that is how the
-# historical Harvis typo crept in. (Source stays ASCII outside the banner:
-# this file is served BOM-less and Windows PowerShell reads it as cp1252.)
+# The installer look (install.ps1, dodaios/setup/install_ui.py): a gold pill
+# per stage, a check per passed check, a red rail under a failure. The same
+# rules decide what the console can show: no colour with NO_COLOR, TERM=dumb,
+# without virtual-terminal output or when output is redirected (FORCE_COLOR
+# turns it back on); plain ASCII with DODAIOS_INSTALL_ASCII. Presentation
+# only: no check below depends on any of it. The source stays ASCII (this
+# file is served BOM-less and read as cp1252): glyphs come from code points.
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-# Brand palette (docs/BRAND.md): forged-gold gradient, matching install.ps1.
-${_gh} = "$([char]27)[38;2;255;229;82m"
-${_g} = "$([char]27)[38;2;255;214;10m"
-${_gd} = "$([char]27)[38;2;184;150;10m"
-${_d} = "$([char]27)[38;2;143;143;143m"
-${_b} = "$([char]27)[1m"
-${_r} = "$([char]27)[0m"
-$banner = @"
+# The whole run is timed from here; install.ps1 and installer.py carry the
+# start on and show the total on the finale card.
+if (-not $env:JARVIS_INSTALL_STARTED_AT) {
+    $env:JARVIS_INSTALL_STARTED_AT = [string][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+}
+$VRedirected = $true
+try { $VRedirected = [Console]::IsOutputRedirected } catch { $VRedirected = $true }
+$VVt = $false
+try { $VVt = [bool]$Host.UI.SupportsVirtualTerminal } catch { $VVt = $false }
+$VColor = (-not $env:NO_COLOR) -and ("$env:TERM" -ne 'dumb') -and
+    ((-not $VRedirected -and $VVt) -or ($VRedirected -and $env:FORCE_COLOR))
+$VAscii = @("$env:DODAIOS_INSTALL_ASCII", "$env:JARVIS_INSTALL_ASCII") |
+    Where-Object { $_ -and $_ -notin @('0', 'false', 'no', 'off') }
+$VEsc = [char]27
+if ($VColor) {
+    $VBold = "$VEsc[1m"; $VRst = "$VEsc[0m"; $VOk = "$VEsc[38;2;34;195;94m"; $VWarn = "$VEsc[38;2;245;158;11m"
+    $VBad = "$VEsc[38;2;223;58;58m"; $VMuted = "$VEsc[38;2;138;138;138m"
+    $VPill = "$VEsc[1;38;2;10;10;10;48;2;255;214;10m"
+} else {
+    $VBold = ''; $VRst = ''; $VOk = ''; $VWarn = ''; $VBad = ''; $VMuted = ''; $VPill = ''
+}
+if ($VAscii) {
+    $VOkG = '+'; $VFailG = 'x'; $VRail = '|'; $VDot = '-'
+} else {
+    $VOkG = if ($env:WT_SESSION) { [string][char]0x2713 } else { [string][char]0x221A }
+    $VFailG = [string][char]0x00D7; $VRail = [string][char]0x2503; $VDot = [string][char]0x00B7
+}
+$script:VInFail = $false
+function Write-VerifyStage([string]$Tag, [string]$Text) {
+    $script:VInFail = $false
+    Write-Host ''
+    if ($VColor) { Write-Host "  $VPill $Tag $VRst  $VBold$Text$VRst" } else { Write-Host "  [$Tag] $Text" }
+}
+function Write-VerifyOk([string]$Text) {
+    $script:VInFail = $false
+    Write-VerifyLog "     $VOk$VOkG$VRst  $($Text.Trim())"
+}
+function Write-VerifyWarn([string]$Text) {
+    $script:VInFail = $false
+    Write-VerifyLog "     $VWarn$VBold!$VRst  $($Text.Trim())"
+}
+# The first line of a failure gets the mark, the lines after it the red rail;
+# a transition-mode WARNING is drawn as one.
+function Write-VerifyErr([string]$Text) {
+    $line = $Text.Trim()
+    if ($line -like 'WARNING:*') { Write-VerifyWarn $line; return }
+    if (-not $script:VInFail) {
+        $script:VInFail = $true
+        Write-VerifyLog "     $VBad$VBold$VFailG$VRst  $VBold$line$VRst"
+    } else {
+        Write-VerifyLog "     $VBad$VRail$VRst  $line"
+    }
+}
+function Write-VerifyLog([string]$Text) {
+    $script:VInFail = $false
+    if ($Text.Trim()) { Write-Host "        $($Text.Trim())" }
+}
 
-${_gh}     ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗${_r}
-${_gh}     ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝${_r}
-${_g}     ██║███████║██████╔╝██║   ██║██║███████╗${_r}
-${_g}██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║${_r}
-${_gd}╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║${_r}
-${_gd} ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝${_r}
-
-${_d}     P E R S O N A L  J A R V I S   ·   talk to your computer${_r}
-
-${_g}  ●${_r} ${_b}Verifying installer · Windows${_r}
-${_d}  Sigstore + offline ceremony + SLSA L3 + ML-DSA-65 (Wave 3)${_r}
-"@
-Write-Host $banner
+Write-Host ''
+if ($VColor) {
+    Write-Host "  $VPill DODAIOS $VRst  $($VBold)Verified installer $VDot Windows$VRst"
+} else {
+    Write-Host "  DODAIOS  Verified installer $VDot Windows"
+}
+Write-Host "  $($VMuted)Every signature is checked before anything runs: Sigstore, an offline key,$VRst"
+Write-Host "  $($VMuted)SLSA L3 build provenance and ML-DSA-65. Any failed check stops here.$VRst"
 
 # ------------------------------------------------------------------- tag
-Write-Host ''
-Write-Host '[0/13] Resolving release tag...' -ForegroundColor Yellow
+Write-VerifyStage '0/13' 'Resolving release tag'
 $Tag = $env:JARVIS_INSTALL_TAG
 if (-not $Tag) {
-    Write-Host '      JARVIS_INSTALL_TAG not set - resolving latest release...'
+    Write-VerifyLog '      JARVIS_INSTALL_TAG not set - resolving latest release...'
     # 'latest' redirects to /tag/<vX.Y.Z>; we capture the redirect.
     try {
         $resp = Invoke-WebRequest -Uri "https://github.com/$EXPECTED_REPO/releases/latest" -MaximumRedirection 0 -ErrorAction SilentlyContinue
@@ -250,21 +295,18 @@ if (-not $Tag) {
         $Tag = ($resp.Headers['Location'] -split '/tag/')[-1]
     }
     if (-not $Tag) {
-        Write-Host '  failed to resolve latest release tag - set $env:JARVIS_INSTALL_TAG explicitly.' -ForegroundColor Red
+        Write-VerifyErr '  failed to resolve latest release tag - set $env:JARVIS_INSTALL_TAG explicitly.'
         exit 1
     }
 }
-Write-Host "      Tag pinned: $Tag" -ForegroundColor Green
-
+Write-VerifyOk "      Tag pinned: $Tag"
 # ------------------------------------------------------------------- staging
 $Staging = Join-Path $env:TEMP ("jarvis-install-verify-" + [System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Path $Staging | Out-Null
-Write-Host "      Staging: $Staging"
-
+Write-VerifyLog "      Staging: $Staging"
 try {
     # --------------------------------------------------------------- platform
-    Write-Host ''
-    Write-Host '[1/13] Detecting platform...' -ForegroundColor Yellow
+    Write-VerifyStage '1/13' 'Detecting platform'
     # --- verifier-architecture begin
     # Windows 11 on Arm runs unmodified x64 user-mode applications through its
     # built-in emulation. ARM64 therefore uses the exact same SHA-pinned x64
@@ -285,27 +327,22 @@ try {
     # --- verifier-architecture end
 
     # --------------------------------------------------------------- cosign
-    Write-Host ''
-    Write-Host "[2/13] Bootstrapping cosign $COSIGN_VERSION (SHA-256 pinned)..." -ForegroundColor Yellow
-
+    Write-VerifyStage "2/13" "Bootstrapping cosign $COSIGN_VERSION (SHA-256 pinned)"
     $CosignBin = Join-Path $Staging 'cosign.exe'
     $CosignUrl = "https://github.com/sigstore/cosign/releases/download/$COSIGN_VERSION/cosign-windows-amd64.exe"
     Invoke-WebRequest -Uri $CosignUrl -OutFile $CosignBin -UseBasicParsing | Out-Null
 
     $ActualSha = (Get-FileHash -Path $CosignBin -Algorithm SHA256).Hash.ToLower()
     if ($ActualSha -ne $COSIGN_SHA256_WINDOWS) {
-        Write-Host '  cosign SHA-256 mismatch!' -ForegroundColor Red
-        Write-Host "    expected: $COSIGN_SHA256_WINDOWS" -ForegroundColor Red
-        Write-Host "    actual:   $ActualSha" -ForegroundColor Red
-        Write-Host '  abort - the downloaded cosign is NOT the version this verifier was rooted against.' -ForegroundColor Red
+        Write-VerifyErr '  cosign SHA-256 mismatch!'
+        Write-VerifyErr "    expected: $COSIGN_SHA256_WINDOWS"
+        Write-VerifyErr "    actual:   $ActualSha"
+        Write-VerifyErr '  abort - the downloaded cosign is NOT the version this verifier was rooted against.'
         exit 1
     }
-    Write-Host "      cosign SHA-256 OK ($COSIGN_SHA256_WINDOWS)" -ForegroundColor Green
-
+    Write-VerifyOk "      cosign SHA-256 OK ($COSIGN_SHA256_WINDOWS)"
     # --------------------------------------------------------------- artifact + signatures
-    Write-Host ''
-    Write-Host "[3/13] Fetching install.ps1 + Fulcio trio + offline-ceremony signature from release $Tag..." -ForegroundColor Yellow
-
+    Write-VerifyStage "3/13" "Fetching install.ps1 + Fulcio trio + offline-ceremony signature from release $Tag"
     $RelBase = "https://github.com/$EXPECTED_REPO/releases/download/$Tag"
     foreach ($filename in 'install.ps1','install.ps1.sig','install.ps1.pem','install.ps1.bundle','install.ps1.cosign.sig') {
         Invoke-WebRequest -Uri "$RelBase/$filename" -OutFile (Join-Path $Staging $filename) -UseBasicParsing | Out-Null
@@ -327,8 +364,8 @@ try {
     try {
         Invoke-WebRequest -Uri "$RelBase/offline-ceremony.pub" -OutFile $ReleasedPubkey -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to fetch $RelBase/offline-ceremony.pub" -ForegroundColor Red
-        Write-Host '  the release MUST publish the offline-ceremony public key as a cross-check asset.' -ForegroundColor Red
+        Write-VerifyErr "  failed to fetch $RelBase/offline-ceremony.pub"
+        Write-VerifyErr '  the release MUST publish the offline-ceremony public key as a cross-check asset.'
         exit 1
     }
 
@@ -336,32 +373,29 @@ try {
     $ReleasedFp = Get-PubkeyFingerprint (Get-Content -Raw -Path $ReleasedPubkey)
 
     if (-not $InlinedFp -or -not $ReleasedFp) {
-        Write-Host '  could not compute fingerprint of inlined or released offline-ceremony.pub' -ForegroundColor Red
-        Write-Host "  inlined:  $InlinedFp" -ForegroundColor Red
-        Write-Host "  released: $ReleasedFp" -ForegroundColor Red
+        Write-VerifyErr '  could not compute fingerprint of inlined or released offline-ceremony.pub'
+        Write-VerifyErr "  inlined:  $InlinedFp"
+        Write-VerifyErr "  released: $ReleasedFp"
         exit 1
     }
     if ($InlinedFp -ne $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT) {
-        Write-Host '  inlined offline-ceremony pubkey fingerprint mismatch!' -ForegroundColor Red
-        Write-Host "    expected (pinned in verifier): $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT" -ForegroundColor Red
-        Write-Host "    actual   (heredoc):            $InlinedFp" -ForegroundColor Red
-        Write-Host '  this script has been tampered with - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  inlined offline-ceremony pubkey fingerprint mismatch!'
+        Write-VerifyErr "    expected (pinned in verifier): $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT"
+        Write-VerifyErr "    actual   (heredoc):            $InlinedFp"
+        Write-VerifyErr '  this script has been tampered with - refusing.'
         exit 1
     }
     if ($ReleasedFp -ne $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT) {
-        Write-Host '  released offline-ceremony pubkey fingerprint mismatch!' -ForegroundColor Red
-        Write-Host "    expected (pinned in verifier): $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT" -ForegroundColor Red
-        Write-Host "    actual   (release asset):      $ReleasedFp" -ForegroundColor Red
-        Write-Host '  the published offline-ceremony.pub does NOT match the verifier pin - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  released offline-ceremony pubkey fingerprint mismatch!'
+        Write-VerifyErr "    expected (pinned in verifier): $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT"
+        Write-VerifyErr "    actual   (release asset):      $ReleasedFp"
+        Write-VerifyErr '  the published offline-ceremony.pub does NOT match the verifier pin - refusing.'
         exit 1
     }
-    Write-Host '      install.ps1 + .sig + .pem + .bundle + .cosign.sig downloaded' -ForegroundColor Green
-    Write-Host "      offline-ceremony pubkey fingerprint OK ($OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)" -ForegroundColor Green
-
+    Write-VerifyOk '      install.ps1 + .sig + .pem + .bundle + .cosign.sig downloaded'
+    Write-VerifyOk "      offline-ceremony pubkey fingerprint OK ($OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)"
     # --------------------------------------------------------------- verify Fulcio (axis A)
-    Write-Host ''
-    Write-Host '[4/13] Verifying Fulcio keyless signature (axis A - GitHub Actions OIDC)...' -ForegroundColor Yellow
-
+    Write-VerifyStage '4/13' 'Verifying Fulcio keyless signature (axis A - GitHub Actions OIDC)'
     $IdentityRegex = "^https://github.com/$EXPECTED_REPO/$([regex]::Escape($EXPECTED_WORKFLOW_PATH))@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?`$"
 
     # AXIS-A INVOCATION: cosign verify-blob (Fulcio keyless, with bundle + tlog)
@@ -374,17 +408,14 @@ try {
         --insecure-ignore-tlog=false `
         $Artifact
     if ($LASTEXITCODE -ne 0) {
-        Write-Host '  axis A: cosign verification FAILED.' -ForegroundColor Red
-        Write-Host "  the downloaded install.ps1 is NOT signed by $EXPECTED_REPO's release workflow." -ForegroundColor Red
-        Write-Host '  refusing to execute.' -ForegroundColor Red
+        Write-VerifyErr '  axis A: cosign verification FAILED.'
+        Write-VerifyErr "  the downloaded install.ps1 is NOT signed by $EXPECTED_REPO's release workflow."
+        Write-VerifyErr '  refusing to execute.'
         exit 1
     }
-    Write-Host "      axis A OK (identity=$EXPECTED_REPO / $EXPECTED_WORKFLOW_PATH, issuer=$EXPECTED_OIDC_ISSUER)" -ForegroundColor Green
-
+    Write-VerifyOk "      axis A OK (identity=$EXPECTED_REPO / $EXPECTED_WORKFLOW_PATH, issuer=$EXPECTED_OIDC_ISSUER)"
     # --------------------------------------------------------------- verify offline ceremony (axis B)
-    Write-Host ''
-    Write-Host '[5/13] Verifying offline-ceremony signature (axis B - Ed25519, air-gapped)...' -ForegroundColor Yellow
-
+    Write-VerifyStage '5/13' 'Verifying offline-ceremony signature (axis B - Ed25519, air-gapped)'
     # cosign verification in --key mode does NOT consult Rekor: this is a pure
     # detached-signature check against the pinned Ed25519 pubkey. Rekor
     # inclusion is enforced once, via axis A's bundle.
@@ -400,18 +431,15 @@ try {
         --insecure-ignore-tlog `
         $Artifact
     if ($LASTEXITCODE -ne 0) {
-        Write-Host '  axis B: offline-ceremony signature check FAILED.' -ForegroundColor Red
-        Write-Host '  install.ps1.cosign.sig does NOT validate against the pinned Ed25519 pubkey' -ForegroundColor Red
-        Write-Host "  (fingerprint $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)." -ForegroundColor Red
-        Write-Host '  refusing to execute - Wave 3 demands ALL THREE axes to pass.' -ForegroundColor Red
+        Write-VerifyErr '  axis B: offline-ceremony signature check FAILED.'
+        Write-VerifyErr '  install.ps1.cosign.sig does NOT validate against the pinned Ed25519 pubkey'
+        Write-VerifyErr "  (fingerprint $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)."
+        Write-VerifyErr '  refusing to execute - Wave 3 demands ALL THREE axes to pass.'
         exit 1
     }
-    Write-Host "      axis B OK (Ed25519, key fingerprint=$OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)" -ForegroundColor Green
-
+    Write-VerifyOk "      axis B OK (Ed25519, key fingerprint=$OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)"
     # --------------------------------------------------------------- rekor proof
-    Write-Host ''
-    Write-Host "[6/13] Checking the Rekor inclusion proof..." -ForegroundColor Yellow
-
+    Write-VerifyStage "6/13" "Checking the Rekor inclusion proof"
     # The proof must be present and its integrated time must not lie in the
     # future. There is deliberately NO maximum age: release bundles are signed
     # once, at tag time, so an age limit made every release unverifiable a day
@@ -426,21 +454,18 @@ try {
         $IntegratedTime = [int64]$BundleJson.rekorBundle.Payload.integratedTime
     }
     if (-not $IntegratedTime) {
-        Write-Host '  could not parse Rekor integrated time from bundle - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  could not parse Rekor integrated time from bundle - refusing.'
         exit 1
     }
     $Now = [int64]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
     $Age = $Now - $IntegratedTime
     if ($Age -lt 0) {
-        Write-Host "  Rekor integrated time is in the FUTURE (now=$Now, integrated=$IntegratedTime) - refusing." -ForegroundColor Red
+        Write-VerifyErr "  Rekor integrated time is in the FUTURE (now=$Now, integrated=$IntegratedTime) - refusing."
         exit 1
     }
-    Write-Host "      Rekor inclusion proof present, integrated ${Age}s ago" -ForegroundColor Green
-
+    Write-VerifyOk "      Rekor inclusion proof present, integrated ${Age}s ago"
     # --------------------------------------------------------------- identity cross-check
-    Write-Host ''
-    Write-Host '[7/13] Cross-checking identity assertions on both axes...' -ForegroundColor Yellow
-
+    Write-VerifyStage '7/13' 'Cross-checking identity assertions on both axes'
     # Axis A: re-extract SAN from the Fulcio cert and assert it matches the
     # pinned identity regex. cosign already checks this, but we re-assert
     # for paranoia (defence against future cosign behaviour drift).
@@ -455,14 +480,14 @@ try {
             $b64 = (Get-Content -Raw -Path $Pem).Trim()
             [IO.File]::WriteAllBytes($PemForLoad, [Convert]::FromBase64String($b64))
         } catch {
-            Write-Host '  Fulcio cert is neither raw PEM nor base64-of-PEM - refusing.' -ForegroundColor Red
+            Write-VerifyErr '  Fulcio cert is neither raw PEM nor base64-of-PEM - refusing.'
             exit 1
         }
     }
     $CertObj = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $PemForLoad
     $SanExt  = $CertObj.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.17' } | Select-Object -First 1
     if (-not $SanExt) {
-        Write-Host '  could not extract SAN extension from Fulcio cert - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  could not extract SAN extension from Fulcio cert - refusing.'
         exit 1
     }
     $SanText = $SanExt.Format($true)
@@ -476,15 +501,15 @@ try {
         }
     }
     if (-not $CertSan) {
-        Write-Host '  could not parse URI from SAN - refusing.' -ForegroundColor Red
-        Write-Host "    raw SAN: $SanText" -ForegroundColor Red
+        Write-VerifyErr '  could not parse URI from SAN - refusing.'
+        Write-VerifyErr "    raw SAN: $SanText"
         exit 1
     }
     if ($CertSan -notmatch $IdentityRegex) {
-        Write-Host '  axis A SAN cross-check FAILED.' -ForegroundColor Red
-        Write-Host "    SAN:    $CertSan" -ForegroundColor Red
-        Write-Host "    regex:  $IdentityRegex" -ForegroundColor Red
-        Write-Host '  refusing to execute.' -ForegroundColor Red
+        Write-VerifyErr '  axis A SAN cross-check FAILED.'
+        Write-VerifyErr "    SAN:    $CertSan"
+        Write-VerifyErr "    regex:  $IdentityRegex"
+        Write-VerifyErr '  refusing to execute.'
         exit 1
     }
 
@@ -504,39 +529,35 @@ try {
     if ($CertSan -match '@refs/tags/(.+)$') {
         $SanTag = $matches[1]
     } else {
-        Write-Host '  axis A: could not extract @refs/tags/<tag> suffix from SAN - refusing.' -ForegroundColor Red
-        Write-Host "    SAN: $CertSan" -ForegroundColor Red
+        Write-VerifyErr '  axis A: could not extract @refs/tags/<tag> suffix from SAN - refusing.'
+        Write-VerifyErr "    SAN: $CertSan"
         exit 1
     }
     if ($SanTag -ne $Tag) {
-        Write-Host "  axis A: SAN tag $SanTag does not match requested tag $Tag - refusing (possible downgrade replay)." -ForegroundColor Red
-        Write-Host "    SAN:           $CertSan" -ForegroundColor Red
-        Write-Host "    SAN tag:       $SanTag" -ForegroundColor Red
-        Write-Host "    requested tag: $Tag" -ForegroundColor Red
-        Write-Host '  this defends against an attacker serving valid-signed bytes from a' -ForegroundColor Red
-        Write-Host '  different release at a fresh URL - see TRUST_ROOT.md axis E.' -ForegroundColor Red
+        Write-VerifyErr "  axis A: SAN tag $SanTag does not match requested tag $Tag - refusing (possible downgrade replay)."
+        Write-VerifyErr "    SAN:           $CertSan"
+        Write-VerifyErr "    SAN tag:       $SanTag"
+        Write-VerifyErr "    requested tag: $Tag"
+        Write-VerifyErr '  this defends against an attacker serving valid-signed bytes from a'
+        Write-VerifyErr '  different release at a fresh URL - see TRUST_ROOT.md axis E.'
         exit 1
     }
-    Write-Host "      axis A tag-binding OK (SAN tag = requested tag = $Tag)" -ForegroundColor Green
-
+    Write-VerifyOk "      axis A tag-binding OK (SAN tag = requested tag = $Tag)"
     # Axis B: re-assert the inlined-pubkey fingerprint against the on-disk
     # file cosign actually consumed in [5/13]. Defence against race-condition
     # swaps of $InlinedPubkey between stages.
     $FinalFp = Get-PubkeyFingerprint (Get-Content -Raw -Path $InlinedPubkey)
     if ($FinalFp -ne $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT) {
-        Write-Host '  axis B fingerprint drifted between stages!' -ForegroundColor Red
-        Write-Host "    pinned:       $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT" -ForegroundColor Red
-        Write-Host "    on-disk now:  $FinalFp" -ForegroundColor Red
-        Write-Host '  refusing.' -ForegroundColor Red
+        Write-VerifyErr '  axis B fingerprint drifted between stages!'
+        Write-VerifyErr "    pinned:       $OFFLINE_CEREMONY_PUBKEY_FINGERPRINT"
+        Write-VerifyErr "    on-disk now:  $FinalFp"
+        Write-VerifyErr '  refusing.'
         exit 1
     }
-    Write-Host "      axis A SAN matches pinned regex: $CertSan" -ForegroundColor Green
-    Write-Host "      axis B key fingerprint stable:    $FinalFp" -ForegroundColor Green
-
+    Write-VerifyOk "      axis A SAN matches pinned regex: $CertSan"
+    Write-VerifyOk "      axis B key fingerprint stable:    $FinalFp"
     # --------------------------------------------------------------- bootstrap slsa-verifier
-    Write-Host ''
-    Write-Host "[8/13] Bootstrapping slsa-verifier $SLSA_VERIFIER_VERSION (SHA-256 pinned)..." -ForegroundColor Yellow
-
+    Write-VerifyStage "8/13" "Bootstrapping slsa-verifier $SLSA_VERIFIER_VERSION (SHA-256 pinned)"
     # Same trust pattern as cosign in [2/13]: SHA-256-pinned binary download.
     # slsa-verifier is the reference implementation that knows how to verify
     # SLSA L3 build provenance against a release. We refuse to execute the
@@ -548,24 +569,21 @@ try {
     try {
         Invoke-WebRequest -Uri $SlsaVerifierUrl -OutFile $SlsaVerifierBin -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to download slsa-verifier from $SlsaVerifierUrl" -ForegroundColor Red
+        Write-VerifyErr "  failed to download slsa-verifier from $SlsaVerifierUrl"
         exit 1
     }
 
     $ActualSlsaSha = (Get-FileHash -Path $SlsaVerifierBin -Algorithm SHA256).Hash.ToLower()
     if ($ActualSlsaSha -ne $SLSA_VERIFIER_SHA256_WINDOWS) {
-        Write-Host '  slsa-verifier SHA-256 mismatch!' -ForegroundColor Red
-        Write-Host "    expected: $SLSA_VERIFIER_SHA256_WINDOWS" -ForegroundColor Red
-        Write-Host "    actual:   $ActualSlsaSha" -ForegroundColor Red
-        Write-Host '  abort - the downloaded slsa-verifier is NOT the version this verifier was rooted against.' -ForegroundColor Red
+        Write-VerifyErr '  slsa-verifier SHA-256 mismatch!'
+        Write-VerifyErr "    expected: $SLSA_VERIFIER_SHA256_WINDOWS"
+        Write-VerifyErr "    actual:   $ActualSlsaSha"
+        Write-VerifyErr '  abort - the downloaded slsa-verifier is NOT the version this verifier was rooted against.'
         exit 1
     }
-    Write-Host "      slsa-verifier SHA-256 OK ($SLSA_VERIFIER_SHA256_WINDOWS)" -ForegroundColor Green
-
+    Write-VerifyOk "      slsa-verifier SHA-256 OK ($SLSA_VERIFIER_SHA256_WINDOWS)"
     # --------------------------------------------------------------- SLSA L3 provenance (axis C, part 1)
-    Write-Host ''
-    Write-Host '[9/13] Verifying SLSA L3 build provenance (axis C - independent attestation of build environment)...' -ForegroundColor Yellow
-
+    Write-VerifyStage '9/13' 'Verifying SLSA L3 build provenance (axis C - independent attestation of build environment)'
     # The workflow uploads a SLSA L3 in-toto provenance attestation alongside
     # the artifacts under the well-known name $SLSA_PROVENANCE_FILENAME. It is
     # generated by the SLSA GitHub generator (slsa-framework/slsa-github-generator)
@@ -586,12 +604,11 @@ try {
     try {
         Invoke-WebRequest -Uri $ProvenanceUrl -OutFile $SlsaProvenancePath -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to fetch SLSA provenance from $ProvenanceUrl" -ForegroundColor Red
-        Write-Host "  is the tag '$Tag' actually a Wave-3 release with SLSA L3 provenance?" -ForegroundColor Red
+        Write-VerifyErr "  failed to fetch SLSA provenance from $ProvenanceUrl"
+        Write-VerifyErr "  is the tag '$Tag' actually a Wave-3 release with SLSA L3 provenance?"
         exit 1
     }
-    Write-Host "      SLSA provenance downloaded ($SLSA_PROVENANCE_FILENAME)" -ForegroundColor Green
-
+    Write-VerifyOk "      SLSA provenance downloaded ($SLSA_PROVENANCE_FILENAME)"
     # AXIS-C INVOCATION (part 1): slsa-verifier verify-artifact pins:
     #   --source-uri:  the repo whose build emitted the provenance (must
     #                  match EXPECTED_REPO)
@@ -611,17 +628,15 @@ try {
         --source-tag      $Tag `
         $Artifact
     if ($LASTEXITCODE -ne 0) {
-        Write-Host '  axis C (SLSA L3): slsa-verifier verify-artifact FAILED.' -ForegroundColor Red
-        Write-Host '  the SLSA provenance does NOT attest to a build of install.ps1' -ForegroundColor Red
-        Write-Host "  from $EXPECTED_SLSA_SOURCE_URI @ tag $Tag." -ForegroundColor Red
-        Write-Host '  refusing to execute - Wave 3 demands 3-of-3 axes to pass.' -ForegroundColor Red
+        Write-VerifyErr '  axis C (SLSA L3): slsa-verifier verify-artifact FAILED.'
+        Write-VerifyErr '  the SLSA provenance does NOT attest to a build of install.ps1'
+        Write-VerifyErr "  from $EXPECTED_SLSA_SOURCE_URI @ tag $Tag."
+        Write-VerifyErr '  refusing to execute - Wave 3 demands 3-of-3 axes to pass.'
         exit 1
     }
-    Write-Host "      axis C OK (SLSA L3: source=$EXPECTED_SLSA_SOURCE_URI, tag=$Tag)" -ForegroundColor Green
-
+    Write-VerifyOk "      axis C OK (SLSA L3: source=$EXPECTED_SLSA_SOURCE_URI, tag=$Tag)"
     # --------------------------------------------------------------- content-anchor layout pin (axis C, part 2)
-    Write-Host ''
-    Write-Host '[10/13] Verifying content-anchor layout functionary pin (axis C - supply-chain layout match)...' -ForegroundColor Yellow
+    Write-VerifyStage '10/13' 'Verifying content-anchor layout functionary pin (axis C - supply-chain layout match)'
     # WAVE-5 HONESTY NOTE (audit Finding 3): the layout document is in-toto-
     # shaped but UNSIGNED - authenticity comes from this signed verifier
     # byte-comparing its identity_regexp against EXPECTED_INTOTO_IDENTITY_REGEXP.
@@ -649,8 +664,8 @@ try {
     try {
         Invoke-WebRequest -Uri $LayoutUrl -OutFile $LayoutPath -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to fetch in-toto layout from $LayoutUrl" -ForegroundColor Red
-        Write-Host '  is the release missing the layout.template.json upload?' -ForegroundColor Red
+        Write-VerifyErr "  failed to fetch in-toto layout from $LayoutUrl"
+        Write-VerifyErr '  is the release missing the layout.template.json upload?'
         exit 1
     }
 
@@ -660,7 +675,7 @@ try {
     # implied a signed in-toto layout) to "_type":"content-anchor" (an
     # honest description). Accept either during the v0.5 -> v0.6 transition.
     if (($LayoutJson._type -ne 'content-anchor') -and ($LayoutJson._type -ne 'layout')) {
-        Write-Host "  layout._type not in {'content-anchor','layout'} (got '$($LayoutJson._type)') - refusing." -ForegroundColor Red
+        Write-VerifyErr "  layout._type not in {'content-anchor','layout'} (got '$($LayoutJson._type)') - refusing."
         exit 1
     }
 
@@ -669,7 +684,7 @@ try {
     # allows multiple build identities, which we did not authorise).
     $OidcEntries = @()
     if (-not $LayoutJson.keys) {
-        Write-Host '  layout.keys is empty - no functionary pinned - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  layout.keys is empty - no functionary pinned - refusing.'
         exit 1
     }
     foreach ($keyId in $LayoutJson.keys.PSObject.Properties.Name) {
@@ -685,21 +700,21 @@ try {
     }
 
     if ($OidcEntries.Count -eq 0) {
-        Write-Host '  layout has no OIDC functionary entry (looking for keyval.identity_regexp) - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  layout has no OIDC functionary entry (looking for keyval.identity_regexp) - refusing.'
         exit 1
     }
     if ($OidcEntries.Count -ne 1) {
-        Write-Host "  layout has $($OidcEntries.Count) OIDC functionary entries; exactly 1 required - refusing." -ForegroundColor Red
+        Write-VerifyErr "  layout has $($OidcEntries.Count) OIDC functionary entries; exactly 1 required - refusing."
         exit 1
     }
 
     $LayoutEntry = $OidcEntries[0]
     if (-not $LayoutEntry.Regexp) {
-        Write-Host "  functionary $($LayoutEntry.KeyId) missing keyval.identity_regexp - refusing." -ForegroundColor Red
+        Write-VerifyErr "  functionary $($LayoutEntry.KeyId) missing keyval.identity_regexp - refusing."
         exit 1
     }
     if (-not $LayoutEntry.Issuer) {
-        Write-Host "  functionary $($LayoutEntry.KeyId) missing keyval.issuer - refusing." -ForegroundColor Red
+        Write-VerifyErr "  functionary $($LayoutEntry.KeyId) missing keyval.issuer - refusing."
         exit 1
     }
 
@@ -708,35 +723,32 @@ try {
     # loudly instead of silently accepting any signer.
     $CatchAlls = @('.*', '.+', '^.*$', '^.+$', '')
     if ($CatchAlls -contains $LayoutEntry.Regexp) {
-        Write-Host "  functionary identity_regexp is a catch-all ('$($LayoutEntry.Regexp)') - refusing." -ForegroundColor Red
+        Write-VerifyErr "  functionary identity_regexp is a catch-all ('$($LayoutEntry.Regexp)') - refusing."
         exit 1
     }
 
     if ($LayoutEntry.Regexp -ne $EXPECTED_INTOTO_IDENTITY_REGEXP) {
-        Write-Host '  identity_regexp mismatch:' -ForegroundColor Red
-        Write-Host "    expected: $EXPECTED_INTOTO_IDENTITY_REGEXP" -ForegroundColor Red
-        Write-Host "    actual:   $($LayoutEntry.Regexp)" -ForegroundColor Red
-        Write-Host '  refusing to execute - supply-chain layout has drifted from the pin.' -ForegroundColor Red
+        Write-VerifyErr '  identity_regexp mismatch:'
+        Write-VerifyErr "    expected: $EXPECTED_INTOTO_IDENTITY_REGEXP"
+        Write-VerifyErr "    actual:   $($LayoutEntry.Regexp)"
+        Write-VerifyErr '  refusing to execute - supply-chain layout has drifted from the pin.'
         exit 1
     }
     if ($LayoutEntry.Issuer -ne $EXPECTED_OIDC_ISSUER) {
-        Write-Host '  issuer mismatch:' -ForegroundColor Red
-        Write-Host "    expected: $EXPECTED_OIDC_ISSUER" -ForegroundColor Red
-        Write-Host "    actual:   $($LayoutEntry.Issuer)" -ForegroundColor Red
-        Write-Host '  refusing.' -ForegroundColor Red
+        Write-VerifyErr '  issuer mismatch:'
+        Write-VerifyErr "    expected: $EXPECTED_OIDC_ISSUER"
+        Write-VerifyErr "    actual:   $($LayoutEntry.Issuer)"
+        Write-VerifyErr '  refusing.'
         exit 1
     }
-    Write-Host "      axis C OK (in-toto layout: keyid=$($LayoutEntry.KeyId))" -ForegroundColor Green
-    Write-Host "      identity_regexp pin: $EXPECTED_INTOTO_IDENTITY_REGEXP" -ForegroundColor Green
-
+    Write-VerifyOk "      axis C OK (in-toto layout: keyid=$($LayoutEntry.KeyId))"
+    Write-VerifyOk "      identity_regexp pin: $EXPECTED_INTOTO_IDENTITY_REGEXP"
     # --------------------------------------------------------------- classical axes complete
-    Write-Host ''
-    Write-Host '[11/13] All classical axes passed (axes A+B+C). Entering Wave 4 PQ transition...' -ForegroundColor Yellow
+    Write-VerifyStage '11/13' 'All classical axes passed (axes A+B+C). Entering Wave 4 PQ transition'
     Write-Host ''
 
     # --------------------------------------------------------------- post-quantum signature fetch (axis D, part 1)
-    Write-Host "[12/13] Fetching ML-DSA-65 post-quantum signature + released pubkey (axis D - FIPS 204)..." -ForegroundColor Yellow
-
+    Write-VerifyStage "12/13" "Fetching ML-DSA-65 post-quantum signature + released pubkey (axis D - FIPS 204)"
     # Released-asset filenames follow the workflow's upload convention:
     #   install.ps1.mldsa.sig - ML-DSA-65 raw signature (~3309 bytes)
     #   pq-mldsa65.pub.pem    - pubkey asset for fingerprint cross-check
@@ -754,15 +766,15 @@ try {
     try {
         Invoke-WebRequest -Uri ("$RelBase/install.ps1$PQ_MLDSA65_SIG_EXT") -OutFile $MldsaSig -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to fetch $RelBase/install.ps1$PQ_MLDSA65_SIG_EXT" -ForegroundColor Red
-        Write-Host '  this release does NOT publish a Wave 4 ML-DSA-65 signature for install.ps1.' -ForegroundColor Red
+        Write-VerifyErr "  failed to fetch $RelBase/install.ps1$PQ_MLDSA65_SIG_EXT"
+        Write-VerifyErr '  this release does NOT publish a Wave 4 ML-DSA-65 signature for install.ps1.'
         if ($env:JARVIS_INSTALL_ALLOW_NO_PQ -ne '1') {
-            Write-Host '  refusing - Wave 4 axis D requires <artifact>.mldsa.sig per release.' -ForegroundColor Red
-            Write-Host '  if this is a legacy (pre-Wave-4) tag, set $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 to' -ForegroundColor Red
-            Write-Host '  bypass axis D (classical axes A+B+C still enforced); read TRUST_ROOT.md section 5 first.' -ForegroundColor Red
+            Write-VerifyErr '  refusing - Wave 4 axis D requires <artifact>.mldsa.sig per release.'
+            Write-VerifyErr '  if this is a legacy (pre-Wave-4) tag, set $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 to'
+            Write-VerifyErr '  bypass axis D (classical axes A+B+C still enforced); read TRUST_ROOT.md section 5 first.'
             exit 1
         }
-        Write-Host '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 (override acknowledged; axis D bypassed).' -ForegroundColor Red
+        Write-VerifyErr '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 (override acknowledged; axis D bypassed).'
         $PqSigAvailable = $false
     }
 
@@ -771,12 +783,12 @@ try {
     try {
         Invoke-WebRequest -Uri "$RelBase/$PQ_MLDSA65_PUBKEY_ASSET_NAME" -OutFile $PqReleasedPubkey -UseBasicParsing | Out-Null
     } catch {
-        Write-Host "  failed to fetch $RelBase/$PQ_MLDSA65_PUBKEY_ASSET_NAME" -ForegroundColor Red
-        Write-Host '  the release MUST publish the ML-DSA-65 public key as a cross-check asset.' -ForegroundColor Red
+        Write-VerifyErr "  failed to fetch $RelBase/$PQ_MLDSA65_PUBKEY_ASSET_NAME"
+        Write-VerifyErr '  the release MUST publish the ML-DSA-65 public key as a cross-check asset.'
         if ($env:JARVIS_INSTALL_ALLOW_NO_PQ -ne '1') {
             exit 1
         }
-        Write-Host '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 (override acknowledged).' -ForegroundColor Red
+        Write-VerifyErr '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 (override acknowledged).'
         $PqPubkeyReleasedAvailable = $false
     }
 
@@ -785,41 +797,38 @@ try {
     # needing openssl.exe on PATH - works on any Windows host.
     $PqInlinedFp = Get-PubkeyFingerprint $PQ_MLDSA65_PUBKEY_PEM
     if (-not $PqInlinedFp) {
-        Write-Host '  could not compute fingerprint of inlined ML-DSA-65 pubkey - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  could not compute fingerprint of inlined ML-DSA-65 pubkey - refusing.'
         exit 1
     }
     if ($PqInlinedFp -ne $PQ_MLDSA65_PUBKEY_FINGERPRINT) {
-        Write-Host '  inlined ML-DSA-65 pubkey fingerprint mismatch!' -ForegroundColor Red
-        Write-Host "    expected (pinned in verifier): $PQ_MLDSA65_PUBKEY_FINGERPRINT" -ForegroundColor Red
-        Write-Host "    actual   (heredoc):            $PqInlinedFp" -ForegroundColor Red
-        Write-Host '  this script has been tampered with - refusing.' -ForegroundColor Red
+        Write-VerifyErr '  inlined ML-DSA-65 pubkey fingerprint mismatch!'
+        Write-VerifyErr "    expected (pinned in verifier): $PQ_MLDSA65_PUBKEY_FINGERPRINT"
+        Write-VerifyErr "    actual   (heredoc):            $PqInlinedFp"
+        Write-VerifyErr '  this script has been tampered with - refusing.'
         exit 1
     }
     if ($PqPubkeyReleasedAvailable) {
         $PqReleasedFp = Get-PubkeyFingerprint (Get-Content -Raw -Path $PqReleasedPubkey)
         if (-not $PqReleasedFp) {
-            Write-Host '  could not compute fingerprint of released ML-DSA-65 pubkey - refusing.' -ForegroundColor Red
+            Write-VerifyErr '  could not compute fingerprint of released ML-DSA-65 pubkey - refusing.'
             exit 1
         }
         if ($PqReleasedFp -ne $PQ_MLDSA65_PUBKEY_FINGERPRINT) {
-            Write-Host '  released ML-DSA-65 pubkey fingerprint mismatch!' -ForegroundColor Red
-            Write-Host "    expected (pinned in verifier): $PQ_MLDSA65_PUBKEY_FINGERPRINT" -ForegroundColor Red
-            Write-Host "    actual   (release asset):      $PqReleasedFp" -ForegroundColor Red
-            Write-Host '  the published pq-mldsa65.pub.pem does NOT match the verifier pin - refusing.' -ForegroundColor Red
+            Write-VerifyErr '  released ML-DSA-65 pubkey fingerprint mismatch!'
+            Write-VerifyErr "    expected (pinned in verifier): $PQ_MLDSA65_PUBKEY_FINGERPRINT"
+            Write-VerifyErr "    actual   (release asset):      $PqReleasedFp"
+            Write-VerifyErr '  the published pq-mldsa65.pub.pem does NOT match the verifier pin - refusing.'
             exit 1
         }
     }
     if ($PqSigAvailable) {
-        Write-Host "      PQ signature fetched ($MldsaSig)" -ForegroundColor Green
+        Write-VerifyOk "      PQ signature fetched ($MldsaSig)"
     } else {
-        Write-Host '      PQ signature fetch BYPASSED via $env:JARVIS_INSTALL_ALLOW_NO_PQ=1' -ForegroundColor Yellow
+        Write-VerifyWarn '      PQ signature fetch BYPASSED via $env:JARVIS_INSTALL_ALLOW_NO_PQ=1'
     }
-    Write-Host "      ML-DSA-65 pubkey fingerprint OK ($PQ_MLDSA65_PUBKEY_FINGERPRINT)" -ForegroundColor Green
-
+    Write-VerifyOk "      ML-DSA-65 pubkey fingerprint OK ($PQ_MLDSA65_PUBKEY_FINGERPRINT)"
     # --------------------------------------------------------------- ML-DSA-65 verify (axis D, part 2) + handoff
-    Write-Host ''
-    Write-Host '[13/13] Verifying ML-DSA-65 post-quantum signature (axis D) and handing off to install.ps1...' -ForegroundColor Yellow
-
+    Write-VerifyStage '13/13' 'Verifying ML-DSA-65 post-quantum signature (axis D) and handing off to install.ps1'
     # TRANSITION MODE gate:
     #   - If openssl.exe >= 3.5 is on PATH: verify the ML-DSA-65 signature
     #     hard-closed; any failure aborts.
@@ -843,9 +852,9 @@ try {
         # bash verifier's PQ_MLDSA65_MIN_OPENSSL_REGEX.
         $PqMinOpenSslRegex = 'OpenSSL\s+(3\.([5-9]|[1-9][0-9])|[4-9]\.|[1-9][0-9]+\.)'
         if (-not $OpensslVersionLine) {
-            Write-Host '  WARNING: openssl.exe is not on PATH - PQ verification SKIPPED (OpenSSL 3.5+ not available).' -ForegroundColor Yellow
-            Write-Host '  axis D (Wave 4 ML-DSA-65) was NOT verified on this host.' -ForegroundColor Yellow
-            Write-Host '  classical axes A+B+C have validated; proceeding in TRANSITION MODE.' -ForegroundColor Yellow
+            Write-VerifyWarn '  WARNING: openssl.exe is not on PATH - PQ verification SKIPPED (OpenSSL 3.5+ not available).'
+            Write-VerifyWarn '  axis D (Wave 4 ML-DSA-65) was NOT verified on this host.'
+            Write-VerifyWarn '  classical axes A+B+C have validated; proceeding in TRANSITION MODE.'
         } elseif ($OpensslVersionLine -match $PqMinOpenSslRegex) {
             # AXIS-D INVOCATION: openssl pkeyutl -verify (ML-DSA-65, raw-message).
             # The `-rawin` flag is FIPS 204 compliant: openssl runs SHAKE-256
@@ -857,32 +866,31 @@ try {
                 -rawin -in $Artifact `
                 -sigfile $MldsaSig
             if ($LASTEXITCODE -ne 0) {
-                Write-Host '  axis D: ML-DSA-65 post-quantum signature check FAILED.' -ForegroundColor Red
-                Write-Host "  install.ps1$PQ_MLDSA65_SIG_EXT does NOT validate against the pinned" -ForegroundColor Red
-                Write-Host "  ML-DSA-65 pubkey (fingerprint $PQ_MLDSA65_PUBKEY_FINGERPRINT)." -ForegroundColor Red
-                Write-Host '  refusing to execute - Wave 4 demands axis D to validate when openssl >= 3.5.' -ForegroundColor Red
+                Write-VerifyErr '  axis D: ML-DSA-65 post-quantum signature check FAILED.'
+                Write-VerifyErr "  install.ps1$PQ_MLDSA65_SIG_EXT does NOT validate against the pinned"
+                Write-VerifyErr "  ML-DSA-65 pubkey (fingerprint $PQ_MLDSA65_PUBKEY_FINGERPRINT)."
+                Write-VerifyErr '  refusing to execute - Wave 4 demands axis D to validate when openssl >= 3.5.'
                 exit 1
             }
             $PqVerifyRan = $true
-            Write-Host "      axis D OK (ML-DSA-65 / FIPS 204, key fingerprint=$PQ_MLDSA65_PUBKEY_FINGERPRINT)" -ForegroundColor Green
+            Write-VerifyOk "      axis D OK (ML-DSA-65 / FIPS 204, key fingerprint=$PQ_MLDSA65_PUBKEY_FINGERPRINT)"
         } else {
-            Write-Host '  WARNING: PQ verification SKIPPED (OpenSSL 3.5+ not available).' -ForegroundColor Yellow
-            Write-Host "    local openssl: $OpensslVersionLine" -ForegroundColor Yellow
-            Write-Host '    required for axis D: OpenSSL 3.5 or newer (ML-DSA support landed in 3.5.0).' -ForegroundColor Yellow
-            Write-Host '  classical axes A+B+C have validated; proceeding in TRANSITION MODE.' -ForegroundColor Yellow
-            Write-Host '  to enforce axis D, install OpenSSL >= 3.5 and re-run.' -ForegroundColor Yellow
+            Write-VerifyWarn '  WARNING: PQ verification SKIPPED (OpenSSL 3.5+ not available).'
+            Write-VerifyWarn "    local openssl: $OpensslVersionLine"
+            Write-VerifyWarn '    required for axis D: OpenSSL 3.5 or newer (ML-DSA support landed in 3.5.0).'
+            Write-VerifyWarn '  classical axes A+B+C have validated; proceeding in TRANSITION MODE.'
+            Write-VerifyWarn '  to enforce axis D, install OpenSSL >= 3.5 and re-run.'
         }
     } else {
-        Write-Host '  WARNING: PQ verification SKIPPED (no .mldsa.sig fetched; $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 set).' -ForegroundColor Yellow
+        Write-VerifyWarn '  WARNING: PQ verification SKIPPED (no .mldsa.sig fetched; $env:JARVIS_INSTALL_ALLOW_NO_PQ=1 set).'
     }
     if (-not $PqVerifyRan) {
-        Write-Host '      Wave 4 axis D status: SKIPPED (transition mode). axes A+B+C validated.' -ForegroundColor Yellow
+        Write-VerifyWarn '      Wave 4 axis D status: SKIPPED (transition mode). axes A+B+C validated.'
     }
     Write-Host ''
 
     # ----------------------------------------------------------------------- payload-commit (axis E, Wave-5 audit Finding 2)
-    Write-Host '[axis E] Verifying payload-commit pin (Wave-5 - binds cloned tree to signed commit)...' -ForegroundColor Yellow
-
+    Write-VerifyStage 'axis E' 'Verifying payload-commit pin (Wave-5 - binds cloned tree to signed commit)'
     # WAVE 5 PAYLOAD-COMMIT PIN - Wave-5 audit Finding 2.
     #
     # install.ps1 does `git clone --depth 1 --branch main`, and installer.py
@@ -906,15 +914,15 @@ try {
     try {
         Invoke-WebRequest -Uri "$RelBase/payload-commit.txt" -OutFile $PayloadCommitFile -UseBasicParsing -ErrorAction Stop | Out-Null
     } catch {
-        Write-Host "  payload-commit.txt not present in release $Tag (likely a pre-Wave-5 tag)." -ForegroundColor Yellow
+        Write-VerifyWarn "  payload-commit.txt not present in release $Tag (likely a pre-Wave-5 tag)."
         if ($env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN -ne '1') {
-            Write-Host '  Wave-5 axis E requires payload-commit.txt in the release.' -ForegroundColor Red
-            Write-Host '  if this is a legacy (pre-Wave-5) tag, set $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1' -ForegroundColor Red
-            Write-Host '  to bypass axis E. The classical axes still enforce install.ps1 authenticity,' -ForegroundColor Red
-            Write-Host '  but the cloned tree is NOT bound to a signed commit. Read TRUST_ROOT.md section 10.' -ForegroundColor Red
+            Write-VerifyErr '  Wave-5 axis E requires payload-commit.txt in the release.'
+            Write-VerifyErr '  if this is a legacy (pre-Wave-5) tag, set $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1'
+            Write-VerifyErr '  to bypass axis E. The classical axes still enforce install.ps1 authenticity,'
+            Write-VerifyErr '  but the cloned tree is NOT bound to a signed commit. Read TRUST_ROOT.md section 10.'
             exit 1
         }
-        Write-Host '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1 (override acknowledged; axis E bypassed).' -ForegroundColor Yellow
+        Write-VerifyWarn '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1 (override acknowledged; axis E bypassed).'
         $PayloadCommitAvailable = $false
     }
 
@@ -923,8 +931,8 @@ try {
             try {
                 Invoke-WebRequest -Uri "$RelBase/$name" -OutFile (Join-Path $Staging $name) -UseBasicParsing -ErrorAction Stop | Out-Null
             } catch {
-                Write-Host "  failed to fetch $RelBase/$name - refusing." -ForegroundColor Red
-                Write-Host '  Wave-5 axis E requires complete signing trio + offline-ceremony sig for payload-commit.txt.' -ForegroundColor Red
+                Write-VerifyErr "  failed to fetch $RelBase/$name - refusing."
+                Write-VerifyErr '  Wave-5 axis E requires complete signing trio + offline-ceremony sig for payload-commit.txt.'
                 exit 1
             }
         }
@@ -939,9 +947,9 @@ try {
             --insecure-ignore-tlog=false `
             $PayloadCommitFile
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  axis E (payload-commit): axis A (cosign keyless) verification FAILED.' -ForegroundColor Red
-            Write-Host '  payload-commit.txt is NOT signed by the same workflow that signed install.ps1.' -ForegroundColor Red
-            Write-Host '  refusing - possible attacker-substituted commit pin.' -ForegroundColor Red
+            Write-VerifyErr '  axis E (payload-commit): axis A (cosign keyless) verification FAILED.'
+            Write-VerifyErr '  payload-commit.txt is NOT signed by the same workflow that signed install.ps1.'
+            Write-VerifyErr '  refusing - possible attacker-substituted commit pin.'
             exit 1
         }
 
@@ -952,8 +960,8 @@ try {
             --insecure-ignore-tlog `
             $PayloadCommitFile
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  axis E (payload-commit): axis B (offline-ceremony Ed25519) verification FAILED.' -ForegroundColor Red
-            Write-Host '  refusing - possible attacker-substituted commit pin bypassing axis B.' -ForegroundColor Red
+            Write-VerifyErr '  axis E (payload-commit): axis B (offline-ceremony Ed25519) verification FAILED.'
+            Write-VerifyErr '  refusing - possible attacker-substituted commit pin bypassing axis B.'
             exit 1
         }
 
@@ -963,7 +971,7 @@ try {
             Invoke-WebRequest -Uri "$RelBase/payload-commit.txt.mldsa.sig" -OutFile $PayloadCommitMldsaSig -UseBasicParsing -ErrorAction Stop | Out-Null
             $PqOk = $true
         } catch {
-            Write-Host '  WARNING: payload-commit.txt.mldsa.sig not present (likely a pre-Wave-5.1 release).' -ForegroundColor Yellow
+            Write-VerifyWarn '  WARNING: payload-commit.txt.mldsa.sig not present (likely a pre-Wave-5.1 release).'
         }
         if ($PqOk) {
             $OpensslCmd2 = Get-Command openssl.exe -ErrorAction SilentlyContinue
@@ -978,32 +986,32 @@ try {
                     -rawin -in $PayloadCommitFile `
                     -sigfile $PayloadCommitMldsaSig
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Host '  axis E (payload-commit): axis D (ML-DSA-65) verification FAILED.' -ForegroundColor Red
-                    Write-Host '  refusing - possible attacker-substituted commit pin bypassing axis D.' -ForegroundColor Red
+                    Write-VerifyErr '  axis E (payload-commit): axis D (ML-DSA-65) verification FAILED.'
+                    Write-VerifyErr '  refusing - possible attacker-substituted commit pin bypassing axis D.'
                     exit 1
                 }
-                Write-Host '      axis E PQ-verify OK (ML-DSA-65)' -ForegroundColor Green
+                Write-VerifyOk '      axis E PQ-verify OK (ML-DSA-65)'
             } else {
-                Write-Host '  WARNING: axis E PQ verification SKIPPED on payload-commit.txt (OpenSSL 3.5+ not available).' -ForegroundColor Yellow
+                Write-VerifyWarn '  WARNING: axis E PQ verification SKIPPED on payload-commit.txt (OpenSSL 3.5+ not available).'
             }
         }
 
         $PayloadCommit = (Get-Content -Raw -Path $PayloadCommitFile).Trim()
         if ($PayloadCommit -notmatch '^[0-9a-f]{40}([0-9a-f]{24})?$') {
-            Write-Host '  axis E: payload-commit.txt content is NOT a well-formed git SHA (40 hex or 64 hex).' -ForegroundColor Red
-            Write-Host "    got: $PayloadCommit" -ForegroundColor Red
-            Write-Host '  refusing - possible tamper or generation bug.' -ForegroundColor Red
+            Write-VerifyErr '  axis E: payload-commit.txt content is NOT a well-formed git SHA (40 hex or 64 hex).'
+            Write-VerifyErr "    got: $PayloadCommit"
+            Write-VerifyErr '  refusing - possible tamper or generation bug.'
             exit 1
         }
         $env:JARVIS_PAYLOAD_COMMIT = $PayloadCommit
-        Write-Host "      axis E OK (payload commit pinned to $PayloadCommit)" -ForegroundColor Green
+        Write-VerifyOk "      axis E OK (payload commit pinned to $PayloadCommit)"
     } else {
-        Write-Host '      axis E SKIPPED via $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1 - install.ps1 will NOT pin the clone to a signed commit.' -ForegroundColor Yellow
+        Write-VerifyWarn '      axis E SKIPPED via $env:JARVIS_INSTALL_ALLOW_NO_PAYLOAD_PIN=1 - install.ps1 will NOT pin the clone to a signed commit.'
     }
     Write-Host ''
 
     # ------------------------------------------------------------------- requirements.txt (Wave 6 - PyPI transitive hash pin)
-    Write-Host '[wave 6] Fetching + authenticating requirements.txt (PyPI transitive hash pin)...' -ForegroundColor Yellow
+    Write-VerifyStage 'wave 6' 'Fetching + authenticating requirements.txt (PyPI transitive hash pin)'
     # See install-verify.sh for the full rationale. Defends against the
     # 2018 event-stream npm pattern + 2024 polyfill.io CDN pattern.
     $ReqFile         = Join-Path $Staging 'requirements.txt'
@@ -1017,15 +1025,15 @@ try {
     try {
         Invoke-WebRequest -Uri "$RelBase/requirements.txt" -OutFile $ReqFile -UseBasicParsing -ErrorAction Stop | Out-Null
     } catch {
-        Write-Host "  requirements.txt not present in release $Tag (likely a pre-Wave-6 tag)." -ForegroundColor Yellow
+        Write-VerifyWarn "  requirements.txt not present in release $Tag (likely a pre-Wave-6 tag)."
         if ($env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES -ne '1') {
-            Write-Host '  Wave 6 requires the hash-pinned lockfile in the release.' -ForegroundColor Red
-            Write-Host '  if this is a legacy (pre-Wave-6) tag, set' -ForegroundColor Red
-            Write-Host '  $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 to bypass.' -ForegroundColor Red
-            Write-Host '  read docs/supply-chain/threat-model.md section 11 first.' -ForegroundColor Red
+            Write-VerifyErr '  Wave 6 requires the hash-pinned lockfile in the release.'
+            Write-VerifyErr '  if this is a legacy (pre-Wave-6) tag, set'
+            Write-VerifyErr '  $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 to bypass.'
+            Write-VerifyErr '  read docs/supply-chain/threat-model.md section 11 first.'
             exit 1
         }
-        Write-Host '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 (override acknowledged).' -ForegroundColor Yellow
+        Write-VerifyWarn '  proceeding under $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 (override acknowledged).'
         $ReqAvailable = $false
     }
 
@@ -1034,8 +1042,8 @@ try {
             try {
                 Invoke-WebRequest -Uri "$RelBase/$name" -OutFile (Join-Path $Staging $name) -UseBasicParsing -ErrorAction Stop | Out-Null
             } catch {
-                Write-Host "  failed to fetch $RelBase/$name - refusing." -ForegroundColor Red
-                Write-Host '  Wave 6 requires the complete signing trio + offline-ceremony sig for requirements.txt.' -ForegroundColor Red
+                Write-VerifyErr "  failed to fetch $RelBase/$name - refusing."
+                Write-VerifyErr '  Wave 6 requires the complete signing trio + offline-ceremony sig for requirements.txt.'
                 exit 1
             }
         }
@@ -1050,13 +1058,12 @@ try {
             --insecure-ignore-tlog=false `
             $ReqFile
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  Wave 6: axis A (cosign keyless) verification on requirements.txt FAILED.' -ForegroundColor Red
-            Write-Host '  requirements.txt is NOT signed by the same workflow that signed install.ps1.' -ForegroundColor Red
-            Write-Host '  refusing - possible attacker-substituted dependency lockfile.' -ForegroundColor Red
+            Write-VerifyErr '  Wave 6: axis A (cosign keyless) verification on requirements.txt FAILED.'
+            Write-VerifyErr '  requirements.txt is NOT signed by the same workflow that signed install.ps1.'
+            Write-VerifyErr '  refusing - possible attacker-substituted dependency lockfile.'
             exit 1
         }
-        Write-Host '      Wave 6 axis A OK (Fulcio keyless on requirements.txt)' -ForegroundColor Green
-
+        Write-VerifyOk '      Wave 6 axis A OK (Fulcio keyless on requirements.txt)'
         # AXIS-B on requirements.txt (offline-ceremony Ed25519)
         & $CosignBin verify-blob `
             --key                           $InlinedPubkey `
@@ -1064,18 +1071,17 @@ try {
             --insecure-ignore-tlog `
             $ReqFile
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  Wave 6: axis B (offline-ceremony Ed25519) verification on requirements.txt FAILED.' -ForegroundColor Red
-            Write-Host '  refusing - possible attacker-substituted lockfile bypassing axis B.' -ForegroundColor Red
+            Write-VerifyErr '  Wave 6: axis B (offline-ceremony Ed25519) verification on requirements.txt FAILED.'
+            Write-VerifyErr '  refusing - possible attacker-substituted lockfile bypassing axis B.'
             exit 1
         }
-        Write-Host '      Wave 6 axis B OK (Ed25519 offline-ceremony on requirements.txt)' -ForegroundColor Green
-
+        Write-VerifyOk '      Wave 6 axis B OK (Ed25519 offline-ceremony on requirements.txt)'
         # AXIS-D on requirements.txt (ML-DSA-65, transition mode)
         $ReqMldsaAvailable = $true
         try {
             Invoke-WebRequest -Uri "$RelBase/requirements.txt.mldsa.sig" -OutFile $ReqMldsaSig -UseBasicParsing -ErrorAction Stop | Out-Null
         } catch {
-            Write-Host '  WARNING: requirements.txt.mldsa.sig not present (likely a pre-Wave-6.1 release).' -ForegroundColor Yellow
+            Write-VerifyWarn '  WARNING: requirements.txt.mldsa.sig not present (likely a pre-Wave-6.1 release).'
             $ReqMldsaAvailable = $false
         }
         if ($ReqMldsaAvailable) {
@@ -1088,29 +1094,28 @@ try {
                     -rawin -in $ReqFile `
                     -sigfile $ReqMldsaSig
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Host '  Wave 6: axis D (ML-DSA-65) verification on requirements.txt FAILED.' -ForegroundColor Red
-                    Write-Host '  refusing - possible attacker-substituted lockfile bypassing axis D.' -ForegroundColor Red
+                    Write-VerifyErr '  Wave 6: axis D (ML-DSA-65) verification on requirements.txt FAILED.'
+                    Write-VerifyErr '  refusing - possible attacker-substituted lockfile bypassing axis D.'
                     exit 1
                 }
-                Write-Host '      Wave 6 axis D OK (ML-DSA-65 / FIPS 204 on requirements.txt)' -ForegroundColor Green
+                Write-VerifyOk '      Wave 6 axis D OK (ML-DSA-65 / FIPS 204 on requirements.txt)'
             } else {
-                Write-Host '  WARNING: Wave 6 axis D verification SKIPPED on requirements.txt (OpenSSL 3.5+ not available).' -ForegroundColor Yellow
+                Write-VerifyWarn '  WARNING: Wave 6 axis D verification SKIPPED on requirements.txt (OpenSSL 3.5+ not available).'
             }
         }
 
         # Hash-pin floor sanity check (Wave 6 DoD: >= 50 '--hash=sha256:' lines).
         $HashLineCount = (Select-String -Path $ReqFile -Pattern '^\s*--hash=sha256:' -AllMatches | Measure-Object).Count
         if ($HashLineCount -lt 50) {
-            Write-Host "  Wave 6: requirements.txt only carries $HashLineCount '--hash=sha256:' lines (< 50 required)." -ForegroundColor Red
-            Write-Host '  refusing - lockfile does not satisfy the Wave 6 hash-pin floor.' -ForegroundColor Red
+            Write-VerifyErr "  Wave 6: requirements.txt only carries $HashLineCount '--hash=sha256:' lines (< 50 required)."
+            Write-VerifyErr '  refusing - lockfile does not satisfy the Wave 6 hash-pin floor.'
             exit 1
         }
-        Write-Host "      Wave 6 hash-pin floor OK ($HashLineCount '--hash=sha256:' lines)" -ForegroundColor Green
-
+        Write-VerifyOk "      Wave 6 hash-pin floor OK ($HashLineCount '--hash=sha256:' lines)"
         $env:JARVIS_AUTHENTICATED_REQUIREMENTS = $ReqFile
-        Write-Host '      Wave 6 lockfile authenticated and exported as $env:JARVIS_AUTHENTICATED_REQUIREMENTS' -ForegroundColor Green
+        Write-VerifyOk '      Wave 6 lockfile authenticated and exported as $env:JARVIS_AUTHENTICATED_REQUIREMENTS'
     } else {
-        Write-Host '      Wave 6 SKIPPED via $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 - install.ps1 will NOT install with --require-hashes.' -ForegroundColor Yellow
+        Write-VerifyWarn '      Wave 6 SKIPPED via $env:JARVIS_INSTALL_ALLOW_NO_PIP_HASHES=1 - install.ps1 will NOT install with --require-hashes.'
     }
     Write-Host ''
 

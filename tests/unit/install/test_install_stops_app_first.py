@@ -35,7 +35,7 @@ STOPPED_NOTE = "NOTE|stopped the running Dodaios app for the update"
 INSIDE_APP = "ERR|this installer was started from inside the running app."
 GUARD_BEGIN = "# --- salvage-guard begin"
 GUARD_END = "# --- salvage-guard end"
-UNREACHABLE = "ERR|cannot reach the download server right now - nothing was changed."
+UNREACHABLE = "ERR|Cannot reach the download server right now; nothing was changed."
 
 SLEEPER = "import os, sys, time; print(os.getpid(), flush=True); time.sleep(300)"
 
@@ -107,6 +107,8 @@ printf 'DONE\\n'
 PS_DRIVER = """$ErrorActionPreference = 'Stop'
 function Write-Note([string]$Text) { Write-Host "NOTE|$Text" }
 function Write-Err([string]$Text) { Write-Host "ERR|$Text" }
+# The installer stops through Exit-Install; run as a file it exits with the code.
+function Exit-Install([int]$Code) { exit $Code }
 $InstallDir = $env:TEST_INSTALL_DIR
 . $env:TEST_FUNCTION_FILE
 Stop-RunningApp
@@ -300,7 +302,7 @@ def test_ps1_stops_the_app_after_the_fetch_and_before_the_reset() -> None:
     leftover = rest.split("\n    } else {\n", 1)[0]
     attempt = update.split("\n    } finally {\n", 1)[0]
 
-    fetch = attempt.index(" fetch ")
+    fetch = attempt.index("'fetch'")
     stop = attempt.index("Stop-RunningApp")
     assert fetch < stop
     assert stop < attempt.index(" checkout ")
@@ -328,8 +330,8 @@ def test_ps1_still_stops_the_app_before_the_environment_is_rebuilt() -> None:
     source = INSTALL_PS1.read_text(encoding="utf-8")
     environment = source.split("Write-Phase '3/6' 'Python environment'", 1)[1]
     stop = environment.index("\nStop-RunningApp\n")
-    assert stop < environment.index("-m venv")
-    assert stop < environment.index("pip install")
+    assert stop < environment.index("'venv'")
+    assert stop < environment.index("'pip', 'install'")
 
 
 def test_ps1_keeps_one_copy_of_the_stop_logic() -> None:

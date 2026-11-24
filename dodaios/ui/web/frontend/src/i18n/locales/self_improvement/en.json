@@ -1,0 +1,326 @@
+{
+  "self_improvement": {
+    "title": "Self-improvement",
+    "subtitle": "While you are away, the assistant tries small changes to how it works. It keeps a change only when a measurement on tasks from your own work shows that it helps.",
+    "loading": "Loading the measurements",
+    "stop": "Stop",
+    "resume": "Resume",
+    "error": {
+      "unavailable": "Self-improvement is not running in this app. Restart Dodaios. If this message stays, the app log says why.",
+      "load": "The measurements could not be loaded ({detail}). Check that Dodaios is running, then try again.",
+      "retry": "Try again",
+      "action": "That did not work: {detail}"
+    },
+    "state": {
+      "running": "Running",
+      "stopped": "Stopped",
+      "readonly": "Read only",
+      "running_first": "No night has run yet. The first one starts when you have been away for {minutes} minutes.",
+      "running_body": "The last night was {when}. The next one comes after {next}, once you have been away for {minutes} minutes.",
+      "running_due": "The last night was {when}. The next one comes the next time you are away for {minutes} minutes.",
+      "stopped_body": "Nothing is tried, measured or changed until you resume. What it already learned stays in effect.",
+      "readonly_body": "A newer version of the app wrote these records. This version only shows them and changes nothing."
+    },
+    "empty": {
+      "title": "Nothing is measured yet",
+      "body": "To measure itself, the assistant first builds test tasks from your own memory and messages, at night. When there are enough, it checks itself on them, and this page shows whether it got better, what it changed and what proved each change."
+    },
+    "domain": {
+      "recall": {
+        "name": "Memory",
+        "about": "Does the right memory come up for a message, and nothing when none is needed?"
+      },
+      "first_move": {
+        "name": "First move",
+        "about": "Does the assistant reach for the right tool first, and say in one line what it takes on before it does?",
+        "building": "{n} test tasks from your own chats with the assistant so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
+        "no_tasks": "There are no tasks from your chats for this area yet. They come from answers you let stand, and from answers the assistant got right after you corrected it."
+      },
+      "brief": {
+        "name": "Briefs",
+        "about": "Does the brief the assistant writes for a coding agent point at the files the work turned out to need?",
+        "building": "{n} test tasks from your past coding work so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
+        "no_tasks": "There are no tasks from your past coding work for this area yet. They come from requests you typed into a coding agent and the pull request that was merged for them.",
+        "cost_label": "Message and brief per task",
+        "effect_shorter": "message and brief {tokens} tokens shorter",
+        "effect_longer": "message and brief {tokens} tokens longer",
+        "range_unclear_cheaper": "As far as measured it is as good as shipped: the quality difference lies between {low} and {high} points, and that includes zero. Its message and brief are {pct} shorter."
+      }
+    },
+    "area": {
+      "unit": "points",
+      "points": "{value} points",
+      "badge_better": "proven",
+      "badge_worse": "worse",
+      "badge_unclear": "not certain yet",
+      "meaning": "How many more of 100 test tasks the assistant solves as it is now than as it was shipped.",
+      "range_better": "The true difference lies between {low} and {high} points, so the gain is certain.",
+      "range_worse": "The true difference lies between {low} and {high} points: as it is now, it does worse than as shipped.",
+      "range_unclear": "The difference is not certain yet: the true value lies between {low} and {high} points, and that includes zero.",
+      "scores_label": "Solved",
+      "scores": "now {now}, as shipped {shipped}, on {n} tasks it never learned from",
+      "part_needs_memory": "Memory needed",
+      "part_needs_none": "No memory needed",
+      "part_scores": "now {now}, as shipped {shipped} ({n} tasks)",
+      "cost_label": "Prompt per message",
+      "cost": "{before} → {after} tokens",
+      "cost_same": "{after} tokens, as shipped",
+      "waiting": "{n} tasks from your work are ready. The first measurement comes with the next night.",
+      "no_tasks": "There are no tasks from your work for this area yet, so nothing is measured here.",
+      "quality_label": "Tasks solved",
+      "shorter": "shorter",
+      "range_unclear_cheaper": "As far as measured it is as good as shipped: the quality difference lies between {low} and {high} points, and that includes zero. Its prompt is {pct} shorter.",
+      "building": "{n} test tasks from your own memory and messages so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now."
+    },
+    "curve": {
+      "title": "Advantage, night by night",
+      "caption": "Points, with the range the true value lies in",
+      "few": "The curve appears after the second night that measures this area.",
+      "update": "Update to {version}",
+      "range_value": "between {low} and {high}",
+      "col_night": "Night",
+      "col_advantage": "Points",
+      "col_range": "Range",
+      "col_tasks": "Tasks",
+      "col_app": "App version",
+      "legend_line": "Measured advantage",
+      "legend_band": "Range of the true value",
+      "legend_update": "App update"
+    },
+    "stack": {
+      "title": "What I changed in myself",
+      "none": "Nothing yet. Every value is as it was shipped.",
+      "take_back": "Take back",
+      "values": "{before} → {after}",
+      "since": "since {when}",
+      "held": "held again on {n} tasks",
+      "kinds": "Three kinds of change: values it tuned and proved on tasks, how it steers coding agents, proved on half of your requests, and notes it wrote for itself, which are in effect but not measured yet.",
+      "note_title": "A note it wrote for itself",
+      "note_gone": "This note is gone from the memory.",
+      "not_measured": "not measured yet"
+    },
+    "state_word": {
+      "proposed": "Waiting",
+      "trial": "On trial",
+      "live": "Kept",
+      "reverted": "Taken back",
+      "blocked": "Turned down"
+    },
+    "effect": {
+      "better": "{diff} points on {n} tasks (between {low} and {high})",
+      "worse": "{diff} points on {n} tasks (between {low} and {high}), worse",
+      "unclear": "no clear difference on {n} tasks (between {low} and {high})",
+      "as_good": "as good on {n} tasks",
+      "shorter": "prompt {tokens} tokens shorter",
+      "longer": "prompt {tokens} tokens longer",
+      "none": "not measured"
+    },
+    "detail": {
+      "close": "Close",
+      "shipped": "As shipped: {value}",
+      "what": "What it sets",
+      "admitted": "Why it was let in",
+      "checked": "Checked again",
+      "not_checked": "Not checked again yet. The next night does that.",
+      "admitted_on": "Measured on {n} tasks set aside for deciding, {when}.",
+      "checked_on": "Measured on {n} tasks that no change was decided on, {when}.",
+      "proposed_by": "Proposed by",
+      "dates": "Dates",
+      "date_admitted": "Let in: {date}",
+      "date_since": "In effect since: {date}",
+      "date_checked": "Last checked: {date}",
+      "measurement": "Measurement",
+      "note_unmeasured": "Not measured yet: nothing can tell yet whether this note helps. It is in effect until you take it back."
+    },
+    "author": {
+      "tuner": "The tuner, which tries nearby values on practice tasks",
+      "owner": "You",
+      "memory-learner": "The assistant, after a tool failed and a later call worked",
+      "rsi-selector": "The steering learner, which tries one change at a time on half of your coding requests",
+      "lines": "The line learner, which tries your messages without one of their standing lines on practice tasks"
+    },
+    "nights": {
+      "title": "The last nights",
+      "paused": "Stopped: nothing was done.",
+      "updated": "The app was updated from {from} to {to}. Everything learned was checked again.",
+      "checked": "Checked {title}: {outcome}, {effect}.",
+      "checked_bare": "Checked {title}: {outcome}.",
+      "holding_one": "1 change in effect still holds.",
+      "holding_other": "{count} changes in effect still hold.",
+      "proposed": "Proposed {title}: {from} → {to}.",
+      "decided": "Measured {title}: {outcome}, {effect}.",
+      "decided_bare": "Measured {title}: {outcome}.",
+      "measured": "Advantage in {area}: {points} points on {n} tasks.",
+      "idle": "Looked, and found nothing to measure yet.",
+      "show_one": "Show 1 earlier night",
+      "show_other": "Show {count} earlier nights",
+      "hide": "Show fewer",
+      "built_one": "Built 1 test task from your own memory and messages.",
+      "built_other": "Built {count} test tasks from your own memory and messages.",
+      "erased_one": "Erased 1 task about a memory that is gone.",
+      "erased_other": "Erased {count} tasks about memories that are gone.",
+      "stored_one": "Stored 1 task from your past coding work.",
+      "stored_other": "Stored {count} tasks from your past coding work.",
+      "deferred": "No model could be asked, so no tasks were built."
+    },
+    "outcome": {
+      "admitted": "let in on trial",
+      "declined": "turned down",
+      "waiting": "waits for more tasks",
+      "kept": "kept",
+      "taken_back": "taken back"
+    },
+    "candidates": {
+      "title": "Waiting to be measured",
+      "row": "proposed {when}, waits until there are enough new tasks to decide"
+    },
+    "resting": {
+      "title": "Resting after an update",
+      "restale": "Still in effect. The shipped value it was learned against changed with an update, so it is measured again first.",
+      "dormant": "Rests without effect, because this version cannot use it. It applies again as soon as a version can."
+    },
+    "how": {
+      "title": "How it works",
+      "practise_title": "Practise",
+      "practise_body": "It tries other values on one part of the tasks.",
+      "decide_title": "Decide",
+      "decide_body": "A change goes in only when it proves itself on tasks it never practised on.",
+      "check_title": "Keep checking",
+      "check_body": "Later nights check each change again on other tasks and take back what no longer helps.",
+      "limits": "It works only after you have been away for {minutes} minutes, and at most one night in {hours} hours.",
+      "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
+      "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
+      "measure_no_model": "Measuring itself asks no model.",
+      "measure_first_move": "Measuring the first move and the briefs replays your earlier requests on the assistant's own plan: at most {calls} model calls a night for both together, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
+      "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
+    },
+    "param": {
+      "recall_entity_boost": {
+        "title": "Weight of names in a memory",
+        "about": "How much a memory moves up when it names a person or thing from the message."
+      },
+      "recall_pinned_boost": {
+        "title": "Weight of pinned memories",
+        "about": "How much a pinned memory moves up in a search."
+      },
+      "recall_recency_floor": {
+        "title": "Weight of old memories",
+        "about": "How much weight a very old memory keeps. At 1, age does not matter."
+      },
+      "recall_recency_days": {
+        "title": "How fast memories age",
+        "about": "Over how many days the freshness of a memory fades."
+      },
+      "recall_fetch_factor": {
+        "title": "Breadth of a memory search",
+        "about": "How many candidates a search ranks, as a multiple of the number it returns."
+      },
+      "recall_turn_limit": {
+        "title": "Memories per message",
+        "about": "The most memories one message may bring up."
+      },
+      "recall_turn_max_chars": {
+        "title": "Room for memories per message",
+        "about": "The most characters the memories for one message may take in the prompt."
+      },
+      "recall_relative_floor": {
+        "title": "Closeness to the best hit",
+        "about": "How close to the best hit a memory must score to be shown."
+      },
+      "recall_min_score": {
+        "title": "Minimum match for a memory",
+        "about": "How well a memory must match before it is shown at all. At 0, any match is shown."
+      },
+      "recall_lesson_base": {
+        "title": "Starting rank of a lesson",
+        "about": "Where a fitting lesson ranks against the best search hit, before its own fit counts."
+      },
+      "recall_lesson_cap": {
+        "title": "Highest rank of a lesson",
+        "about": "How far above the best search hit a lesson may rank at most."
+      },
+      "lessons_recall_threshold": {
+        "title": "Fit needed for a lesson",
+        "about": "How many of a lesson's words a message must share for the lesson to come up."
+      },
+      "lessons_recall_limit": {
+        "title": "Lessons per message",
+        "about": "The most lessons one message may bring up."
+      },
+      "lead_first_line": {
+        "title": "Opening line before a tool",
+        "about": "Beside each of your messages: write one short line that takes the task on before using a tool."
+      },
+      "lead_brief_line": {
+        "title": "Wording of the brief line",
+        "about": "Beside each of your messages: how the assistant is asked to look up the files before it briefs a coding agent."
+      }
+    },
+    "daily": {
+      "title": "In daily use",
+      "summary": "{pct} of your {n} requests in the last {weeks} weeks went through without a correction, a repeat or a stop.",
+      "caveat": "This shows what happened, not what caused it: the requests of one week are not those of the next. The measured areas above compare like with like.",
+      "col_week": "Week",
+      "col_requests": "Requests",
+      "col_through": "Went through",
+      "week_of": "from {date}",
+      "unrated": "no figure"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "for {area} work with {model} in {harness}",
+      "default_model": "the default model",
+      "hold": "Waits for the checks and asks for fixes",
+      "release": "Stops waiting for the checks",
+      "no_fixes": "Asks for no fixes",
+      "fewer_fixes_one": "Asks for at most one fix",
+      "fewer_fixes_other": "Asks for at most {n} fixes",
+      "shorter_wait": "Waits at most {minutes} minutes for the checks",
+      "brief_line": "Adds a line to the first brief",
+      "other": "Changes how coding agents are steered",
+      "on_trial": "on trial on half of your requests since {when}",
+      "claim_pass": "kept only if clearly more requests pass",
+      "claim_cost": "kept only if it costs less and nothing gets worse",
+      "claim_p": "kept only if fewer fixes are needed and nothing gets worse",
+      "proof_pass": "Passed {with} of {n} requests, against {without} of {m} without it (at least {low} points)",
+      "proof_cost": "{diff} less per request in cost and time, on {n} requests against {m} without it (at least {low} less)",
+      "proof_p": "{diff} fewer fixes per request, on {n} requests against {m} without it (at least {low} fewer)",
+      "measured_on": "Measured on {n} of your requests with it and {m} without it, {when}.",
+      "about": "How Dodaios hands coding work to agents for this kind of work, this model and this coding tool: whether its answer waits for the checks, how many fixes it asks for, and what the first brief says. It was tried on half of your requests and compared with the other half.",
+      "probation": "On probation: the first run under it that weakens a check takes it back by itself."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "testing",
+      "database": "database",
+      "infra_ci": "infrastructure and CI",
+      "docs": "documentation",
+      "other": "other",
+      "refactoring": "refactoring",
+      "multi_repo": "multi-repository"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Dropped the line beside your messages that asks for a short opening line before the first tool.",
+        "on": "Put back the line beside your messages that asks for a short opening line before the first tool."
+      },
+      "lead_brief_line": {
+        "v0": "Put back the shipped wording of the line beside your messages that says how to brief a coding agent.",
+        "v1": "The line beside your messages now asks in fewer words to look up the files before briefing a coding agent.",
+        "v2": "The line beside your messages no longer asks to look up the files before briefing a coding agent."
+      }
+    },
+    "value": {
+      "on": "on",
+      "off": "off"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "as shipped",
+        "v1": "shorter look-up",
+        "v2": "no look-up"
+      }
+    }
+  }
+}

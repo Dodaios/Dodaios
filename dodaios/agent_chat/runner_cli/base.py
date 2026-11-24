@@ -181,6 +181,10 @@ _PREPARED_MODELS: ContextVar[dict[str, list[dict[str, Any]] | None] | None] = Co
 #: it to know which seat ran out (``_continue_on_next_seat``).
 _TURN_SEATS: ContextVar[dict[str, str] | None] = ContextVar("agent_chat.turn_seats", default=None)
 
+#: The record of the CURRENT lead turn (``dodaios.rsi.lead_turns``). Set by
+#: :func:`run_cli_turn`; :func:`_run_cli_once` hands it what the CLI is given.
+_LEAD_RECORD: ContextVar[Any] = ContextVar("agent_chat.lead_record", default=None)
+
 
 @contextmanager
 def cli_catalog_scope(
@@ -571,6 +575,89 @@ def _with_identity(
     if state:
         head += f"<jarvis_turn_context>\n{state}\n</jarvis_turn_context>\n\n"
     return head + prompt
+
+
+#: The seats whose prompt travels on argv: they take the identity's compact cut.
+_COMPACT_IDENTITY_RUNNERS: Final[frozenset[str]] = frozenset({"grok-cli", "cursor-cli", "dsh-cli"})
+
+
+def _identity_message(
+    runner: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+) -> str:
+    """The message a planner hands its CLI, with the identity's part in it.
+
+    Claude Code (and GLM, which is Claude Code) take the identity as a
+    system-prompt file; only a resumed lead conversation gets its catch-up in
+    front of the message (what landed in the chat outside this CLI session:
+    spoken turns, reports, side threads). Every other seat carries the
+    identity in the message (:func:`_with_identity`), the compact cut where
+    the prompt travels on argv. DeepSeek Harness keeps no session, so each of
+    its messages opens a fresh conversation. A custom CLI gets none.
+    """
+    if runner in _CLAUDE_CODE_RUNNERS:
+        society = identity is not None and identity.session_id.startswith("society:")
+        if identity is not None and resume and not society and identity.catchup:
+            return identity.catchup + prompt
+        return prompt
+    if runner == "custom-cli":
+        return prompt
+    if runner == "dsh-cli":
+        resume = None
+    return _with_identity(prompt, identity, resume, compact=runner in _COMPACT_IDENTITY_RUNNERS)
+
+
+@dataclass(frozen=True, slots=True)
+class LeadModelInput:
+    """What a CLI is handed for one lead turn: what a replay gives the model again."""
+
+    #: The runner (``claude-cli``, ``codex-cli``, ...).
+    cli: str
+    model: str
+    effort: str
+    #: The system prompt the CLI gets on top of its own, exactly as passed;
+    #: ``""`` on a seat whose identity rides in the message.
+    system: str
+    #: The user message, exactly as the CLI gets it.
+    message: str
+
+
+def lead_model_input(
+    *,
+    runner: str,
+    model: str,
+    effort: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+    tools: bool = True,
+) -> LeadModelInput:
+    """What the CLI is handed for one lead turn, built as the planner builds it.
+
+    ``prompt`` is what :func:`_run_cli_once` hands the planner: the lead's
+    message (:func:`dodaios_harness.lead_message`) with the effort note in
+    front. Claude Code and GLM get the identity as a system-prompt file next
+    to the app's tool server (``tools``: the plan mounts it; without it they
+    get neither); every other seat gets it inside the message
+    (:func:`_identity_message`, the planners' own step). Not part of it: the
+    CLI's own system prompt, and the vendor conversation a resumed turn
+    continues. For the lead only: a society seat's identity has a state of
+    its own (``_REFRESH_SENT``) that a second build would move.
+    """
+    if identity is not None and identity.session_id.startswith("society:"):
+        raise ValueError("lead_model_input is for the lead's turns")
+    system = ""
+    if runner in _CLAUDE_CODE_RUNNERS and identity is not None and tools:
+        system = identity.text if identity.path is not None else dodaios_harness.SYSTEM_PREAMBLE
+    return LeadModelInput(
+        cli=runner,
+        model=model,
+        effort=effort,
+        system=system,
+        message=_identity_message(runner, prompt, identity, resume),
+    )
 
 
 #: The runners that are Claude Code under the hood, and so take its identity

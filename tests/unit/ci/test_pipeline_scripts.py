@@ -78,7 +78,7 @@ def test_unrelated_python_change_leaves_the_updater_lane_off():
     [
         # Packaging: the spec, the build script, the entitlements and the single
         # usage-string table both macOS bundles load.
-        "dodaios.spec",
+        "packaging/dodaios.spec",
         "packaging/macos/build.sh",
         "packaging/macos/entitlements.plist",
         "packaging/macos/README.md",
@@ -146,7 +146,7 @@ def test_unrelated_paths_leave_the_macos_lane_off(path):
 
 def test_the_macos_lane_gate_names_the_new_paths_it_adds_to_the_prefix_tables():
     """Guard the data, not just the outcome: a refactor must not drop an entry."""
-    assert {"dodaios.spec", "dodaios/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
+    assert {"packaging/dodaios.spec", "dodaios/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
     assert "dodaios/ui/web/permissions_routes.py" in classify_changes._MACOS_FILES
     assert {
         "dodaios/plugins/tool/screen_snapshot.py",

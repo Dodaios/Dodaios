@@ -339,6 +339,7 @@
     "shortcuts": "Keyboard shortcuts",
     "pets": "My Pets",
     "self_build": "Built for you",
+    "self_improvement": "Self-improvement",
     "notifications": "Notifications",
     "phone": "Phone"
   },
@@ -3679,25 +3680,8 @@
     },
     "self_build": {
       "title": "Self-building",
-      "description": "How far {name} may go when it builds things for you on its own.",
+      "description": "The limits {name} keeps when it builds helpers for you. It never asks first: it builds only what it can undo and keeps what you use. Pause it or undo a helper in Built for you.",
       "open_view": "Open Built for you",
-      "enabled_title": "Build on its own",
-      "enabled_description": "Notice what you keep doing and build what would take it off you. Off: nothing is noticed or built.",
-      "autonomy_title": "How far, per kind",
-      "autonomy_description": "Off: never. Suggest: a card asks first. Trial: built, checked and live with one-click undo. Full: like trial, and a trial that was used is kept on its own.",
-      "levels": {
-        "off": "Off",
-        "suggest": "Suggest",
-        "trial": "Trial",
-        "full": "Full"
-      },
-      "kinds": {
-        "memory": "Memories",
-        "skill": "Skills",
-        "routine": "Routines",
-        "agent": "Agents",
-        "code": "Code changes"
-      },
       "limits_title": "Limits",
       "limits_description": "Hard caps the loop never passes, whatever it decides.",
       "limits": {
@@ -3707,7 +3691,7 @@
         "max_code_runs_per_day": "Code runs per day",
         "trial_days": "Trial length in days",
         "trial_uses": "Trial length in uses",
-        "max_rejections": "Stop offering after this many no's",
+        "max_rejections": "Stop building a need after this many undos",
         "silent_days": "Quiet first days"
       },
       "save_error": "Could not save: {detail}",
@@ -5253,6 +5237,7 @@
     "approving": "Approving…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Installed, off",
     "install_failed": "Installation failed",
     "title": "Skill Finder",
     "subtitle": "Describe what you need — the mini-agent searches the catalog and ranks with AI.",
@@ -5430,7 +5415,11 @@
     "select_all": "Select all",
     "copy_failed": "Could not copy to the clipboard.",
     "paste_unavailable": "Could not read the clipboard.",
-    "paste_failed": "Cannot paste here."
+    "paste_failed": "Cannot paste here.",
+    "open_link": "Open link",
+    "copy_link": "Copy link address",
+    "clear_terminal": "Clear terminal",
+    "action_failed": "That did not work."
   },
   "workspace_bar": {
     "open_workspaces": "Open workspaces",
@@ -6727,6 +6716,7 @@
     "landed_title": "{title} installed",
     "landed_plugin": "It is in Plugins now. Connect it to start using it.",
     "landed_skill": "It is in Skills now and can be used right away.",
+    "landed_skill_off": "It is in Skills, switched off. Read it there and switch it on to use it.",
     "landed_needs_connect": "Installed, but not usable yet: it still needs to be connected.",
     "sends_data_to": "Once connected, requests and your access token go to:",
     "runs_command": "Once connected, this command runs on your computer:",
@@ -9557,7 +9547,14 @@
       "unavailable": "This file cannot be read. It may have been moved or deleted.",
       "no_workspace": "Open a project to read files here.",
       "show_change": "Show the change",
-      "change_truncated": "{count} more lines are not shown."
+      "change_truncated": "{count} more lines are not shown.",
+      "unsaved": "Unsaved changes",
+      "save": "Save",
+      "saving": "Saving…",
+      "conflict": "The file changed on disk since you opened it.",
+      "overwrite": "Overwrite",
+      "discard": "Discard my changes",
+      "save_failed": "Could not save: {error}"
     }
   },
   "appshots": {
@@ -10696,6 +10693,20 @@
     "signin_not_yet": "— installing does not connect anything yet."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Flag",
+      "set": "Flagged",
+      "mark": "Flag: {name}",
+      "name_flags": "Name flags…",
+      "names_title": "Name your flags",
+      "names_body": "The name shows when the pointer rests on a flag. Leave a field empty for the default.",
+      "default_red": "Important",
+      "default_orange": "Follow up",
+      "default_blue": "Later",
+      "name_red": "Name of the red flag",
+      "name_orange": "Name of the orange flag",
+      "name_blue": "Name of the blue flag"
+    },
     "remove_project": "Remove project",
     "remove_project_title": "Remove {project} from the sidebar?",
     "remove_project_body_none": "The folder on disk stays untouched; add it again to bring the project back.",

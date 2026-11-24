@@ -13,10 +13,13 @@ Risk tier: ``safe`` — pure observation, no state change.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _POLL_INTERVAL_S = 0.25
 _DEFAULT_TIMEOUT_S = 5.0
@@ -84,9 +87,10 @@ class WaitForUIStateTool:
             try:
                 obs = await source.observe()
                 last_observed_title = obs.window_title
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: UIA can fail transiently (e.g. during window
                 # UIA can fail transiently (e.g. during window animations).
                 # We log silently and keep retrying on the next tick.
+                log.warning("execute: UIA can fail transiently (e.g. during window", exc_info=True)
                 obs = None
                 if time.monotonic() >= deadline:
                     return ToolResult(

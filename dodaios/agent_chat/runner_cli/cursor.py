@@ -20,7 +20,7 @@ from dodaios.agent_chat.runner_cli.base import (
     CliUnavailable,
     _argv_prompt,
     _cli_tool_summary,
-    _with_identity,
+    _identity_message,
 )
 
 
@@ -52,7 +52,7 @@ def plan_cursor(
     """
     del cwd, effort  # cwd is the spawn cwd; Cursor has no effort flag.
     mode = normalize_permission("cursor-cli", permission_mode)
-    prompt = _with_identity(prompt, identity, resume, compact=True)
+    prompt = _identity_message("cursor-cli", prompt, identity, resume)
     argv = [
         *cursor_argv_prefix(),
         "-p",

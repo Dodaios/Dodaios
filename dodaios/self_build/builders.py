@@ -10,8 +10,8 @@ scheduler's privilege (MASTERPLAN §6.4).
 
 Each build runs the same stages on its ledger record:
 
-``building`` the spec exists (the decide step wrote it; for an accepted card
-written without a model, it is written now). ``proving`` the judge
+``building`` the spec exists (the decide step wrote it; for a case an older
+version opened without a model, it is written now). ``proving`` the judge
 (:mod:`.judge`) checks the spec, with a shadow run for routines and agents
 and a read-only run of a skill's steps (:mod:`.sandbox`), each produced on a
 subscription or local seat and delivered nowhere.
@@ -21,8 +21,8 @@ build is not tried again.
 
 When the trial sweep archives a build, the artefact goes dormant instead of
 away (a skill is switched off, a routine paused, an agent paused, a memory
-entry taken out of the notebook); keeping it again wakes it up. Undo removes
-it.
+entry taken out of the notebook); a build kept again wakes it up. Undo
+removes it.
 
 Every model call runs inside :func:`dodaios.self_build.cost.attributed` and
 only on a subscription or a local model (:mod:`.brain`).
@@ -207,7 +207,7 @@ class Builders:
             await self._fail(record, f"could not build: {type(exc).__name__}: {exc}")
 
     async def _write_spec(self, record: BuildRecord, need: Need) -> dict[str, Any] | None:
-        """An accepted card that was written without a model: write its spec now.
+        """A case an older version opened without a model: write its spec now.
 
         ``None`` when the model saw nothing to build; the record is then failed.
         """

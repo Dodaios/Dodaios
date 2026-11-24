@@ -92,6 +92,7 @@ def build(
     profiles: Sequence[Profile] = (),
     auto_effort: bool = True,
     with_draft: bool = True,
+    count_words: bool = True,
 ) -> Kit:
     """Gather the kit for ``order``. Blocking file work: run it off the event loop.
 
@@ -99,6 +100,8 @@ def build(
     order's own recipient when empty). ``with_draft`` says the order carries a
     written brief; a request for the kit alone carries only what the person
     wants, and an open point is then never counted as settled by it.
+    ``count_words`` raises the use counters of the glossary entries found; a
+    benchmark replay (``dodaios.rsi.bench.brief_world``) reads without it.
     """
     kit = Kit(kind=kind_of(order))
     kit.profiles = list(profiles) or [
@@ -111,7 +114,7 @@ def build(
 
     if folder:
         try:
-            kit.glossary = glossary.lookup(folder, request)
+            kit.glossary = glossary.lookup(folder, request, count=count_words)
         except Exception:  # noqa: BLE001 - a glossary fault never holds a brief back
             log.warning("brief kit: glossary lookup failed", exc_info=True)
     means = " ".join(entry.means for entry in kit.glossary)

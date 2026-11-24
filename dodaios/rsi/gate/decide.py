@@ -10,6 +10,19 @@ Nothing here touches the live assistant: both runs compute under an overlay.
 The only thing that changes anything is the registry call at the end
 (``admit``, ``decline``, ``settle``), and that call stores the evidence.
 
+**What a task can tell.** A task whose truth the person confirmed by correcting
+the assistant (``Role.GAIN``) can show a gain; one they only accepted
+(``Role.GUARD``) can show a regression and nothing else. So "better" rests on
+the gain tasks of the select split, "as good" on all of them, and the guard
+tasks alone must not get clearly worse; keeping a change rests on all
+guard-split tasks.
+
+**A night's budget.** A domain that asks a model may run out of calls in the
+middle of a comparison (``budget.Budget``). Its interval is still valid on the
+tasks it reached, so a clear verdict stands; "no clear difference" waits for
+the rest, which the next night measures (the results already paid for are
+reused), and no error budget is spent on a comparison that did not finish.
+
 **Whose tasks decide.** ``sources`` says which tasks a decision may rest on.
 An installation decides on tasks built from the person's own work; the seed
 suite decides only in a sandbox (a test, the public demo run), because a value
@@ -29,18 +42,35 @@ import dodaios
 from dodaios.rsi import overlay as overlays
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
-from dodaios.rsi.bench.model import Domain, Source, Split, Task
+from dodaios.rsi.bench.model import NEEDS_MODEL, Domain, Role, Source, Split, Task, role_of
 from dodaios.rsi.bench.store import BenchStore
 from dodaios.rsi.fingerprint import Fingerprint
 from dodaios.rsi.sequential import PairedSequence
 from dodaios.self_change import SelfChangeError, SelfChangeRegistry, StaleEvidence, State, Surface
 from dodaios.self_change.store import Change
 
-from .alpha import AlphaLedger
+from .alpha import ALPHA, AlphaLedger
 from .evidence import Evidence, Verdict
 from .rules import MIN_PAIRS, Compared, admit_verdict, keep_verdict
 
 __all__ = ["LIVE", "Decision", "MeasuredGate"]
+
+
+def _clear(found: Evidence, gain: Compared | None = None) -> bool:
+    """A verdict that stands on part of the tasks: the interval left zero on one side.
+
+    Its bounds hold at every look, so "better", "worse" and "as good and cheaper"
+    are as true on the tasks measured so far as they will be on all of them.
+    "No clear difference" is not: it needs every task of the split.
+    """
+    if found.verdict is Verdict.ACCEPT:
+        return True
+    if found.verdict is not Verdict.REJECT or found.target is None:
+        return False
+    if found.target.high < 0 or any(o.n >= MIN_PAIRS and o.high < 0 for o in found.others):
+        return True
+    return gain is not None and gain.interval.n >= MIN_PAIRS and gain.interval.high < 0
+
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +78,8 @@ log = logging.getLogger(__name__)
 LIVE: Final[overlays.Overlay] = overlays.Overlay(label="live")
 #: Level of the guard comparison (one look per change and night).
 _GUARD_ALPHA: Final[float] = 0.05
+#: How a void result names a run the night's budget did not cover.
+_BUDGET_VOID: Final = "budget"
 
 WorldsOf = Callable[[], run.Worlds]
 
@@ -99,11 +131,13 @@ class MeasuredGate:
             params=params.values(),
         )
 
-    def tasks(self, domain: Domain, split: Split) -> list[Task]:
-        """The tasks a decision on ``split`` may rest on."""
+    def tasks(self, domain: Domain, split: Split, role: Role | None = None) -> list[Task]:
+        """The tasks a decision on ``split`` may rest on (of one ``role``, when given)."""
         found: list[Task] = []
         for source in self.sources:
             found += self.bench.tasks(domain, splits=(split,), source=source)
+        if role is not None:
+            found = [task for task in found if role_of(task) is role]
         return found
 
     # ---------------------------------------------------------- comparing
@@ -117,22 +151,30 @@ class MeasuredGate:
         *,
         seed: str,
         alpha: float,
+        role: Role | None = None,
     ) -> Compared:
         """Both states on the split's tasks, in an order fixed by ``seed``."""
-        tasks = run.shuffled(self.tasks(domain, split), seed)
+        tasks = run.shuffled(self.tasks(domain, split, role), seed)
         worlds = self._worlds()
+        if domain in NEEDS_MODEL and domain.value not in worlds:
+            tasks = []  # nothing can run them tonight (no subscription seat): nothing is spent
         changes = self.registry.learned_ids()
-        before = run.measure(tasks, baseline, worlds, arm=run.arm_of(baseline, changes=changes))
-        after = run.measure(tasks, candidate, worlds, arm=run.arm_of(candidate, changes=changes))
-        if not self.bench.readonly:
-            self.bench.add_results([*before, *after])
+        store = None if self.bench.readonly else self.bench
+
+        def arm(overlay: overlays.Overlay) -> Fingerprint:
+            return run.arm_of(overlay, changes=changes, domain=domain, worlds=worlds)
+
+        before = run.measure(tasks, baseline, worlds, arm=arm(baseline), store=store)
+        after = run.measure(tasks, candidate, worlds, arm=arm(candidate), store=store)
         paired = run.pair(before, after)
         sequence = PairedSequence(alpha)
+        cut = {r.task_id for r in (*before, *after) if r.void.startswith(_BUDGET_VOID)}
         return Compared(
             domain=domain.value,
             interval=sequence.extend(paired.differences),
             baseline_tokens=paired.baseline_tokens,
             candidate_tokens=paired.candidate_tokens,
+            unfinished=len(cut),
         )
 
     def can_decide(self, domain: Domain) -> bool:
@@ -186,7 +228,8 @@ class MeasuredGate:
             return Evidence(Verdict.UNMEASURED, reason="there are no tasks yet to measure it on")
         candidate = overlays.Overlay(label=f"candidate:{change.id}", params={param.name: value})
         compared: list[Compared] = []
-        level = 0.0
+        gain: Compared | None = None
+        spend: list[Domain] = []
         for domain in domains:
             have = len(self.tasks(domain, Split.SELECT))
             if have < MIN_PAIRS:
@@ -194,21 +237,47 @@ class MeasuredGate:
                 reason = f"only {have} tasks to decide on; {MIN_PAIRS} are needed"
                 return Evidence(Verdict.UNDECIDED, split=Split.SELECT.value, reason=reason)
             groups = self.bench.groups(domain, Split.SELECT, self.sources)
-            level = self._alpha.spend(domain, Split.SELECT, groups)
-            if level <= 0.0:
+            if self._alpha.left(domain, Split.SELECT, groups) <= 0:
                 reason = "the tasks it would be decided on are used up until new ones arrive"
                 return Evidence(Verdict.UNDECIDED, split=Split.SELECT.value, reason=reason)
             seed = self._seed("admit", change)
-            compared.append(
-                self.compare(domain, Split.SELECT, LIVE, candidate, seed=seed, alpha=level)
-            )
-        return admit_verdict(
+
+            def part(role: Role | None, *, on: Domain = domain, seed: str = seed) -> Compared:
+                return self.compare(
+                    on, Split.SELECT, LIVE, candidate, seed=seed, alpha=ALPHA, role=role
+                )
+
+            compared.append(part(None))
+            spend.append(domain)
+            if self.tasks(domain, Split.SELECT, Role.GUARD):
+                # What the person only accepted shows harm, never a gain: "better" rests
+                # on the rest, and the accepted part alone must not get clearly worse.
+                if domain is domains[0]:
+                    gain = part(Role.GAIN)
+                compared.append(part(Role.GUARD))
+        found = admit_verdict(
             compared[0],
             tuple(compared[1:]),
-            alpha=level,
+            alpha=ALPHA,
             baseline=self.live().id,
             split=Split.SELECT.value,
+            gain=gain,
         )
+        cut = any(c.unfinished for c in (*compared, *([gain] if gain else [])))
+        if cut and not _clear(found, gain):
+            done, left = compared[0].interval.n, compared[0].unfinished
+            reason = (
+                f"measured on {done} tasks so far; the night's model calls ran out before "
+                f"the other {left}, which the next night measures"
+            )
+            return Evidence(
+                Verdict.UNDECIDED, target=found.target, split=Split.SELECT.value, reason=reason
+            )
+        if found.verdict in (Verdict.ACCEPT, Verdict.REJECT):
+            for domain in spend:  # a decision was made: it counts against the split's budget
+                groups = self.bench.groups(domain, Split.SELECT, self.sources)
+                self._alpha.spend(domain, Split.SELECT, groups)
+        return found
 
     def consider(self, change: Change) -> Decision:
         """Measure a candidate and act on the result."""
@@ -248,12 +317,24 @@ class MeasuredGate:
         seed = self._seed("keep", change)
         guard = self.compare(domain, Split.GUARD, ablated, LIVE, seed=seed, alpha=_GUARD_ALPHA)
         select = None
-        if guard.interval.mean < 0 and guard.interval.high >= 0:
+        if guard.interval.mean < 0 and guard.interval.high >= 0 and not guard.unfinished:
             again = self._seed("again", change)
             select = self.compare(
-                domain, Split.SELECT, ablated, LIVE, seed=again, alpha=_GUARD_ALPHA
+                domain,
+                Split.SELECT,
+                ablated,
+                LIVE,
+                seed=again,
+                alpha=_GUARD_ALPHA,
+                role=Role.GAIN,
             )
-        return keep_verdict(guard, select)
+        found = keep_verdict(guard, select)
+        cut = guard.unfinished or (select.unfinished if select is not None else 0)
+        if cut and not (found.verdict is Verdict.REJECT and guard.interval.high < 0):
+            # Only "clearly worse" stands on part of the tasks; the rest is measured next night.
+            reason = f"checked on {guard.interval.n} tasks so far; the rest comes next night"
+            return Evidence(Verdict.UNDECIDED, target=found.target, split="guard", reason=reason)
+        return found
 
     def settle(self, change: Change) -> Decision:
         """Check a change that is in effect and act on the result."""

@@ -81,8 +81,11 @@ KNOWN: frozenset[str] = frozenset(
         "notifications",
         # Keyboard shortcuts: every shortcut in one place, with a key tester.
         "shortcuts",
-        # Built for you: what the self-building loop made, with keep and undo.
+        # Built for you: what the self-building loop made, with pause and undo.
         "self-build",
+        # Self-improvement: what the assistant measured and changed in itself,
+        # with stop and undo.
+        "self-improvement",
         # Trust & privacy: what runs without asking, what is known and where
         # it goes. A Settings-hub page.
         "trust",
@@ -276,6 +279,10 @@ _ALIASES: dict[str, str] = {
     "what you built": "self-build",
     "für dich gebaut": "self-build",  # i18n-allow: input vocab
     "construido para ti": "self-build",  # i18n-allow: input vocab
+    "self improvement": "self-improvement",
+    "self-improving": "self-improvement",
+    "selbstverbesserung": "self-improvement",  # i18n-allow: input vocab
+    "automejora": "self-improvement",  # i18n-allow: input vocab
     "market": "marketplace",
     "market place": "marketplace",
     "store": "marketplace",
@@ -447,13 +454,10 @@ class NavigateTool:
     name: str = "navigate"
     risk_tier: str = "safe"
     description: str = (
-        "Open/switch the desktop app to a sidebar section (the UI screen the user "
-        "sees). Use when the user asks to show or open a section — 'zeig die "
-        "Socials', 'open settings', 'show the agents', 'geh zu den Aufgaben'. Pass "
-        "the section id in 'section'. To open one thing instead, pass exactly one of "
-        "agent (a named agent's chat), chat (a conversation, by its title) or "
-        "workspace (a coding workspace) and no section. Do NOT use it for anything "
-        "other than moving the UI."
+        "Open a sidebar section of the desktop app ('open settings', 'show the agents', 'zeig "
+        "die Socials', 'geh zu den Aufgaben'): pass the id in 'section'. To open one thing "
+        "instead, pass exactly one of agent (a named agent's chat), chat (a conversation by "
+        "title) or workspace (a coding workspace) and no section. Only for moving the UI."
     )
     schema: dict[str, Any] = {
         "type": "object",

@@ -38,89 +38,9 @@ def context():
     return SimpleNamespace(config={"output_language": "en"}, trace_id=uuid4())
 
 
-async def test_management_persists_and_echoes_same_roster_without_starting_work(society):
-    runtime, commands = society
-    created = await commands["society-create-agent"].execute(
-        {
-            "name": "Scout",
-            "title": "Supplier researcher",
-            "description": "Compare hosting suppliers and cite sources.",
-        },
-        context(),
-    )
-    assert created.success, created.error
-    body = created.output["response"]
-    assert body["created"] is True
-    assert body["agent"]["agent_id"] == "scout"
-    adopted = await commands["society-create-agent"].execute({"name": "Scout"}, context())
-    assert adopted.output["response"]["created"] is False
-    updated = await commands["society-update-agent"].execute(
-        {
-            "agent_id": "scout",
-            "title": "Invoice reviewer",
-            "state": "paused",
-            "daily_budget_usd": 2,
-        },
-        context(),
-    )
-    assert updated.success, updated.error
-    stored = await runtime.roster.get("scout")
-    row = dict(updated.output["response"]["agent"])
-    # The route adds a derived display field (whether the seat pays per token).
-    assert isinstance(row.pop("billed_per_token"), bool)
-    assert row == stored.to_dict()
-    assert stored.title == "Invoice reviewer" and stored.state == "paused"
-    assert stored.daily_budget_usd == 2
-    status = await SocietyStatusTool(runtime_resolver=lambda: runtime).execute(
-        {
-            "agent": "scout",
-            "details": True,
-        },
-        context(),
-    )
-    assert status.output["agents"][0]["agent"]["title"] == "Invoice reviewer"
-    assert runtime.scheduler.active_runs("scout") == 0
-    assert not await runtime.store.events_since(0)
-
-
-async def test_management_preserves_learned_focus_and_explicit_approval_rules(society):
+async def test_management_rejects_an_invalid_model(society):
     runtime, commands = society
     await runtime.ensure_started()
-    await runtime.roster.create(
-        name="Scout",
-        focus=["core:search-web"],
-        approval_rules={"require_approval": ["send"], "always_allow": []},
-    )
-    result = await commands["society-update-agent"].execute(
-        {
-            "agent_id": "scout",
-            "description": "Research new suppliers.",
-        },
-        context(),
-    )
-    assert result.success
-    row = result.output["response"]["agent"]
-    assert "core:search-web" in row["focus"]
-    assert row["approval_rules"]["require_approval"] == ["send"]
-
-
-async def test_management_rejects_missing_agent_invalid_model_and_unexposed_fields(society):
-    runtime, commands = society
-    missing = await commands["society-update-agent"].execute(
-        {
-            "agent_id": "unknown",
-            "title": "Researcher",
-        },
-        context(),
-    )
-    assert not missing.success and "404" in missing.error
-    invalid = await commands["society-create-agent"].execute(
-        {
-            "name": "Bad/Name",
-        },
-        context(),
-    )
-    assert not invalid.success
     await runtime.roster.create(name="Scout")
     model = await commands["society-switch-agent-model"].execute(
         {
@@ -130,26 +50,11 @@ async def test_management_rejects_missing_agent_invalid_model_and_unexposed_fiel
         context(),
     )
     assert not model.success and "422" in model.error
-    escalation = await commands["society-update-agent"].execute(
-        {
-            "agent_id": "scout",
-            "permission_ceiling": "unrestricted",
-        },
-        context(),
-    )
-    # The ceiling is editable by voice now, but only within safe/monitor/ask:
-    # an escalation past "ask" is refused before anything runs.
-    assert not escalation.success
-    assert "permission_ceiling" in escalation.error
-    assert "Nothing was executed" in escalation.error
 
 
 def test_management_is_supervisor_only_and_degrades_without_server():
     for name in (
-        "society-create-agent",
-        "society-update-agent",
         "society-agent-catalog",
-        "society-capability-catalog",
         "society-switch-agent-model",
     ):
         command = get_command(name)
@@ -158,16 +63,8 @@ def test_management_is_supervisor_only_and_degrades_without_server():
 
 async def test_management_unavailable_server_returns_honest_error():
     commands = {tool.name: tool for tool in AppCommandTool(app_resolver=lambda: None).expand()}
-    result = await commands["society-create-agent"].execute({"name": "Scout"}, context())
+    result = await commands["society-agent-catalog"].execute({}, context())
     assert not result.success and "server is not available" in result.error
-
-
-async def test_capability_catalog_reads_the_live_shared_catalog(society):
-    runtime, commands = society
-    before = await commands["society-capability-catalog"].execute({}, context())
-    assert before.success, before.error
-    assert before.output["response"]["capabilities"] == [row.to_dict() for row in runtime.catalog()]
-    assert not await runtime.store.events_since(0)
 
 
 @pytest.mark.parametrize(
