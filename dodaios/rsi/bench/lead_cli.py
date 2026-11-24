@@ -9,6 +9,10 @@ changes and the safeguards a replay needs:
   app's tool server, the vendor's web, sub-agent and shell tools removed;
 * the app's tool server replaced by :mod:`replay_tools`, which lists the same
   tools and runs none of them;
+* the CLI's own file-changing tools removed as well (:data:`REPLAY_DENIED`) and
+  the permission mode fixed to ``dontAsk``: the person's settings may put every
+  chat in ``bypassPermissions`` and allow ``Edit`` and ``Write``, and a replayed
+  first move must never change a file before the CLI is stopped;
 * every permission prompt answered "deny" on the control protocol, one empty
   folder as the working folder of every replay, no session written to disk (the
   CLI still names one empty project folder after that working folder, once).
@@ -83,6 +87,12 @@ def _lines(stream: IO[bytes], out: queue.Queue[bytes | None]) -> None:
         out.put(None)
 
 
+
+#: The CLI's own tools that change files. A replay never offers them, whatever the
+#: person's settings allow: the first move is taken from the stream, but under
+#: ``bypassPermissions`` the CLI would carry such a call out before it is stopped.
+REPLAY_DENIED: Final[tuple[str, ...]] = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+
 class ClaudeReplay:
     """A :data:`~dodaios.rsi.bench.lead_replay.Driver` for Claude Code."""
 
@@ -108,9 +118,22 @@ class ClaudeReplay:
         #: The lead chat the identity flags are built for (never a society seat's).
         self.session_id = session_id or "rsi-replay"
 
+    def _flags(self, identity: Any) -> list[str]:
+        """The lead's identity flags, with the file-changing tools added to the denied ones."""
+        from dodaios.agent_chat.runner_cli import identity_turn_flags
+
+        flags = list(identity_turn_flags("claude-cli", identity))
+        if "--disallowedTools" in flags:
+            at = flags.index("--disallowedTools") + 1
+            denied = [t for t in flags[at].split(",") if t]
+            flags[at] = ",".join([*denied, *(t for t in REPLAY_DENIED if t not in denied)])
+        else:
+            flags += ["--disallowedTools", ",".join(REPLAY_DENIED)]
+        return [*flags, "--permission-mode", "dontAsk"]
+
     def _argv(self, platform: Platform, work: Path, system_file: Path) -> list[str]:
         from dodaios.agent_chat import dodaios_harness
-        from dodaios.agent_chat.runner_cli import claude_argv_prefix, identity_turn_flags
+        from dodaios.agent_chat.runner_cli import claude_argv_prefix
         from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
 
         prefix = self._prefix if self._prefix is not None else claude_argv_prefix()
@@ -140,7 +163,7 @@ class ClaudeReplay:
             "--no-session-persistence",
             "--mcp-config",
             str(config_file),
-            *identity_turn_flags("claude-cli", identity),
+            *self._flags(identity),
             "--append-system-prompt-file",
             str(system_file),
         ]
