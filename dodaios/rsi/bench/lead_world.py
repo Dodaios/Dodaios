@@ -1,4 +1,4 @@
-"""The first_move world of an installation's night: what replays the lead's turns tonight.
+"""The replay worlds of an installation's night: what replays the lead's turns tonight.
 
 Built once at the start of a night (:func:`build`) and dropped at its end, so
 the night's :class:`~dodaios.rsi.budget.Budget` is one per night. It is built
@@ -14,6 +14,11 @@ only when everything a replay needs is there and paid for the right way:
 
 Without any of these there is no world, the first_move tasks wait, and nothing
 is spent. The night's report says why (``reason``).
+
+The brief world (:mod:`dodaios.rsi.bench.brief_world`) is built on the same
+platform, driver and budget, so the two domains share one night's cap; it
+needs a pinned lead input and the person's clones besides (``brief_reason``
+says why there is none).
 """
 
 from __future__ import annotations
@@ -25,13 +30,15 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.rsi.budget import FIRST_MOVE_CALLS, Budget, Usage
+from dodaios.rsi.budget import REPLAY_CALLS, Budget, Usage
 
+from . import brief_world
+from .brief_replay import BriefWorld
 from .lead_cli import RUNNERS, ClaudeReplay
 from .lead_replay import FirstMoveWorld, Platform
 
@@ -48,6 +55,10 @@ class Built:
     world: FirstMoveWorld | None
     #: Why there is no world ("" when there is one).
     reason: str = ""
+    #: The brief world on the same budget, when it could be built.
+    brief: BriefWorld | None = None
+    #: Why there is no brief world ("" when there is one).
+    brief_reason: str = ""
 
 
 def _usage() -> Usage | None:
@@ -107,9 +118,15 @@ def build(
     turns: Any,
     loop: Any,
     idle: Callable[[], bool],
-    cap: int = FIRST_MOVE_CALLS,
+    cap: int = REPLAY_CALLS,
+    bench: Any = None,
+    folders: Iterable[str | Path] = (),
 ) -> Built:
-    """The world for tonight, or why there is none. Blocking; call it off the event loop."""
+    """The worlds for tonight, or why there are none. Blocking; call it off the event loop.
+
+    ``bench`` keeps the brief world's pinned input; ``folders`` are the
+    person's clones the night's intake of past coding work read.
+    """
     newest = turns.turns(limit=1)
     if not newest:
         return Built(None, "no lead turn is on record yet")
@@ -170,4 +187,11 @@ def build(
         offered=frozenset(str(row["name"]) for row in rows),
         recorded=turns.turn,
     )
-    return Built(world)
+    try:
+        brief = brief_world.build(world, home=home, turns=turns, bench=bench, folders=folders)
+    except Exception as exc:  # broad-except: the brief world is optional; first_move still runs
+        log.info("self-improvement: no brief world tonight", exc_info=True)
+        brief = f"the brief replay could not be set up: {type(exc).__name__}"
+    if isinstance(brief, str):
+        return Built(world, brief_reason=brief)
+    return Built(world, brief=brief)

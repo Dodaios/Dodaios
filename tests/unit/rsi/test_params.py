@@ -47,6 +47,7 @@ def test_the_shipped_defaults_are_the_constants_the_code_had() -> None:
         "lessons.recall_threshold": 0.4,
         "lessons.recall_limit": 3,
         "lead.first_line": True,
+        "lead.brief_line": 0,
     }
     for param in params.CATALOG:
         assert param.doc and param.domains, param.name

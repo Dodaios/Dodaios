@@ -23,11 +23,13 @@ Nothing is announced. The night is quiet: no notice, no sound, no voice.
 and prints what each night did. It reads and changes nothing of a real one.
 
 **What a night may spend.** Measuring the recall asks no model. The
-``first_move`` domain replays lead turns, one model call each; its limits are
-fixed in :mod:`dodaios.rsi.budget`, not in a setting, and asked before every
-call: only while the person is away (:data:`IDLE_AFTER_S`), at most
-``FIRST_MOVE_CALLS`` calls and :data:`BUDGET_SHARE` of a plan's usage window a
-night, never above 80 % of a window, never on a key that bills per token.
+``first_move`` and ``brief`` domains replay lead turns (one model call for a
+first move, two for a brief); their limits are fixed in
+:mod:`dodaios.rsi.budget`, not in a setting, shared by the two domains, and
+asked before every call: only while the person is away (:data:`IDLE_AFTER_S`),
+at most ``REPLAY_CALLS`` calls and :data:`BUDGET_SHARE` of a plan's usage
+window a night, never above 80 % of a window, never on a key that bills per
+token.
 """
 
 from __future__ import annotations
@@ -408,14 +410,21 @@ class Night:
                 point = self._advantage(domain, now_ms)
                 if point is not None:
                     report.measured.append(point)
+            shared: dict[int, list[str]] = {}
+            budgets: dict[int, Any] = {}
             for name, world in self._worlds().items():
                 budget = getattr(world, "budget", None)
                 if budget is not None:
-                    report.calls[name] = {
-                        "calls": budget.calls,
-                        "cap": budget.cap,
-                        "stopped": budget.stopped,
-                    }
+                    shared.setdefault(id(budget), []).append(name)
+                    budgets[id(budget)] = budget
+            for key, names in shared.items():
+                # Domains on one budget share its calls: they are reported once.
+                budget = budgets[key]
+                report.calls["+".join(names)] = {
+                    "calls": budget.calls,
+                    "cap": budget.cap,
+                    "stopped": budget.stopped,
+                }
         finally:
             if self._finish is not None:
                 self._finish()
@@ -520,12 +529,14 @@ def calls_tonight(bench: BenchStore) -> int:
     return RAMP_MODEL_CALLS if len(own) < MIN_PAIRS else MAX_MODEL_CALLS
 
 
-def _past_work(bench: BenchStore, homes: dict[str, Path] | None = None) -> dict[str, Any]:
+def _past_work(
+    bench: BenchStore, homes: dict[str, Path] | None = None, folders: list[str] | None = None
+) -> dict[str, Any]:
     """Store the tasks from past coding work before their records are deleted. No model call.
 
     The coding CLIs delete a session's record after some weeks; a task that was
     stored stays (:mod:`dodaios.rsi.bench.past_work.intake`). Reads the records
-    and the local clones only.
+    and the local clones only. ``folders`` gets the clones that were read.
     """
     if bench.readonly:
         return {}
@@ -536,6 +547,8 @@ def _past_work(bench: BenchStore, homes: dict[str, Path] | None = None) -> dict[
     except Exception:  # noqa: BLE001 - a record or clone that cannot be read costs no night
         log.warning("self-improvement: tasks from past coding work not read", exc_info=True)
         return {}
+    if folders is not None:
+        folders[:] = taken.folders
     return {"past_work": taken.new, "past_work_retired": taken.retired}
 
 
@@ -563,8 +576,9 @@ def install(
     tonight: dict[str, Any] = {}
 
     def prepare() -> dict[str, Any]:
-        made = _past_work(bench)
-        made.update(_lead(bench, home, loop, tonight))
+        clones: list[str] = []
+        made = _past_work(bench, folders=clones)
+        made.update(_lead(bench, home, loop, tonight, clones))
         if not world.refresh():
             return made
         from dodaios.rsi import adopt
@@ -577,6 +591,7 @@ def install(
         return {**world.worlds(), **tonight}
 
     def finish() -> None:
+        _close_brief(tonight)
         tonight.clear()
         world.close()
 
@@ -584,14 +599,35 @@ def install(
     return NightService(night, _person_idle, chat_db=home / "agent_chat.db")
 
 
-def _lead(bench: BenchStore, home: Path, loop: Any, tonight: dict[str, Any]) -> dict[str, Any]:
-    """first_move tasks from the lead's recorded turns, and tonight's replay. No model call here.
+def _close_brief(tonight: dict[str, Any]) -> None:
+    """Remove tonight's scratch clones of the brief replay. Never fails a night."""
+    from dodaios.rsi.bench import brief_replay
 
-    The replay world is built for this night only (its budget is this night's)
-    and only on the lead's plan (:mod:`dodaios.rsi.bench.lead_world`).
+    world = tonight.get(brief_replay.WORLD)
+    close = getattr(getattr(world, "checkout", None), "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:  # a file still held open stays until the next night removes the folder
+            log.info("self-improvement: a scratch clone was not removed", exc_info=True)
+
+
+def _lead(
+    bench: BenchStore,
+    home: Path,
+    loop: Any,
+    tonight: dict[str, Any],
+    clones: Sequence[str] = (),
+) -> dict[str, Any]:
+    """first_move tasks from the lead's recorded turns, and tonight's replays. No model call here.
+
+    The replay worlds are built for this night only (their budget is this
+    night's, one for both) and only on the lead's plan
+    (:mod:`dodaios.rsi.bench.lead_world`). ``clones`` are the person's clones
+    the intake of past coding work read: a brief replay works on them.
     """
     from dodaios.rsi import lead_turns
-    from dodaios.rsi.bench import lead_replay, lead_world
+    from dodaios.rsi.bench import brief_replay, lead_replay, lead_world
     from dodaios.rsi.bench.own import lead as own_lead
 
     if not (home / lead_turns.DB_NAME).is_file():
@@ -601,7 +637,9 @@ def _lead(bench: BenchStore, home: Path, loop: Any, tonight: dict[str, Any]) -> 
         turns = lead_turns.store(home / lead_turns.DB_NAME)
         rows, chat = own_lead.read(turns, home / "agent_chat.db")
         made = own_lead.take_in(bench, rows, chat, now_ms=int(time.time() * 1000))
-        built = lead_world.build(home=home, turns=turns, loop=loop, idle=_person_idle)
+        built = lead_world.build(
+            home=home, turns=turns, loop=loop, idle=_person_idle, bench=bench, folders=clones
+        )
     except Exception:  # broad-except: an unreadable record costs the domain this night, no more
         log.warning("self-improvement: the lead's turns could not be read", exc_info=True)
         return made
@@ -609,6 +647,10 @@ def _lead(bench: BenchStore, home: Path, loop: Any, tonight: dict[str, Any]) -> 
         tonight[lead_replay.WORLD] = built.world
     else:
         made["lead_replay"] = built.reason
+    if built.brief is not None:
+        tonight[brief_replay.WORLD] = built.brief
+    elif built.world is not None:
+        made["brief_replay"] = built.brief_reason
     return made
 
 

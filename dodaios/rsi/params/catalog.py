@@ -19,6 +19,7 @@ __all__ = ["CATALOG", "INDEX", "Index"]
 
 _RECALL = ("recall",)
 _FIRST_MOVE = ("first_move",)
+_BRIEF = ("brief",)
 
 CATALOG: Final[tuple[Param, ...]] = (
     # ---- memory search (dodaios/memory/vault/store.py)
@@ -82,6 +83,12 @@ CATALOG: Final[tuple[Param, ...]] = (
         "lead.first_line", True, domains=_FIRST_MOVE,
         doc="Beside every request: write one short line that takes the task on before "
         "the first tool call.",
+    ),
+    Param(
+        "lead.brief_line", 0, 0, 2, step=1, domains=_BRIEF,
+        doc="Which fixed wording of the brief line goes beside every request: 0 as shipped "
+        "(look up the files first, then brief), 1 the same look-up in fewer words, 2 no "
+        "look-up asked for.",
     ),
 )
 

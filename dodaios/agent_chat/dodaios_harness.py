@@ -179,12 +179,28 @@ EFFORT_LINE: Final[str] = (
 #: folder"); the maintainer wants the agent to check its work and ship it
 #: (2026-11-17). So the line says the default end of a change and the limits that
 #: stay, and ``brief_line`` adds the person's own wishes when they set some.
-BRIEF_LINE: Final[str] = (
-    "\nIf you hand work to an agent this turn: the brief is all it sees. For a new job for "
+_BRIEF_OPENING: Final[str] = (
+    "\nIf you hand work to an agent this turn: the brief is all it sees. "
+)
+#: The part of the brief line that asks for the look-up before the brief. Its
+#: effect is what the brief domain sees: the files a brief names, and its length.
+_BRIEF_LOOK: Final[str] = (
+    "For a new job for "
     "a coding agent, look first: call delegate with options.prepare true and what they "
     "want as task. It returns the files that fit, the project's own checks, what their "
     "words leave open and how the recipient wants to be written to; nothing is sent. Then "
-    "brief from that, in English unless their brief wishes name another language: lead "
+    "brief from that, "
+)
+_BRIEF_LOOK_SHORT: Final[str] = (
+    "For a new coding job, first call delegate with options.prepare true and their request "
+    "as task: it returns the files that fit and the project's checks, and sends nothing. "
+    "Then brief from that, "
+)
+#: The rest of the line. Every wording keeps it word for word: what it asks for
+#: (the outcome first, a done the agent can check, the git default, the real
+#: limits) is not what the brief domain measures.
+_BRIEF_WRITE: Final[str] = (
+    "in English unless their brief wishes name another language: lead "
     "with the outcome and why, then what it cannot see (real files, "
     "decisions), the fact for each word of theirs that leaves one open, a done the agent "
     "can check itself and only their limits; no list of suspected causes, no step-by-step "
@@ -200,17 +216,48 @@ BRIEF_LINE: Final[str] = (
     "no payments, no untrusted code run with their real credentials. When they say how "
     "agents should be briefed from now on, save the whole new list with agent-briefs-set."
 )
+BRIEF_LINE: Final[str] = _BRIEF_OPENING + _BRIEF_LOOK + _BRIEF_WRITE
+
+#: Fixed alternatives to ``BRIEF_LINE`` a measured self-change may pick
+#: (``lead.brief_line``, ``dodaios/rsi/lines.py``). Written here, never by a
+#: model. They differ only in the look-up and keep the rest word for word.
+#: 1: the same look-up, asked for in fewer words.
+BRIEF_LINE_SHORT_LOOK: Final[str] = _BRIEF_OPENING + _BRIEF_LOOK_SHORT + _BRIEF_WRITE
+#: 2: no look-up asked for: the brief is written at once.
+BRIEF_LINE_NO_LOOK: Final[str] = _BRIEF_OPENING + "Brief " + _BRIEF_WRITE
+#: The wordings by the value of ``lead.brief_line``; 0 is the one the app ships with.
+BRIEF_LINE_WORDINGS: Final[tuple[str, ...]] = (
+    BRIEF_LINE,
+    BRIEF_LINE_SHORT_LOOK,
+    BRIEF_LINE_NO_LOOK,
+)
+
+
+def _brief_wording() -> str:
+    """The brief line's wording in effect: shipped unless a measured self-change picked another.
+
+    Read on every message, so inside a benchmark run the run's overlay decides.
+    A fault here never fails a turn: the shipped line stays.
+    """
+    try:
+        from dodaios.rsi import params
+
+        return BRIEF_LINE_WORDINGS[int(params.get("lead.brief_line"))]
+    except Exception:  # broad-except: an unreadable setting keeps the shipped line
+        log.warning("agent chat: the brief line's wording is unreadable; it stays", exc_info=True)
+        return BRIEF_LINE
 
 
 def brief_line() -> str:
-    """``BRIEF_LINE`` plus the person's standing brief wishes, read fresh for each message."""
+    """The brief line in effect plus the person's standing brief wishes, read for each message."""
     from dodaios.core.brief_wishes import wishes_line
 
+    line = _brief_wording()
     try:
-        return BRIEF_LINE + wishes_line()
+        return line + wishes_line()
     except Exception:  # noqa: BLE001 - a wishes fault must never fail a turn
         log.warning("agent chat: brief wishes unavailable this turn", exc_info=True)
-        return BRIEF_LINE
+        return line
 
 QUESTION_CARD_LINE: Final[str] = (
     "\nA question you need answered before you can go on goes on the question card "
@@ -1090,6 +1137,9 @@ __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
     "BRIEF_LINE",
+    "BRIEF_LINE_NO_LOOK",
+    "BRIEF_LINE_SHORT_LOOK",
+    "BRIEF_LINE_WORDINGS",
     "brief_line",
     "EFFORT_LINE",
     "FIRST_LINE",
