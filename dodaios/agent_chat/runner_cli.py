@@ -396,6 +396,9 @@ _PREPARED_MODELS: ContextVar[dict[str, list[dict[str, Any]] | None] | None] = Co
 #: :func:`run_cli_turn`, filled by :func:`_account_env`; a refused turn reads
 #: it to know which seat ran out (``_continue_on_next_seat``).
 _TURN_SEATS: ContextVar[dict[str, str] | None] = ContextVar("agent_chat.turn_seats", default=None)
+#: The record of the CURRENT lead turn (``dodaios.rsi.lead_turns``). Set by
+#: :func:`run_cli_turn`; :func:`_run_cli_once` hands it what the CLI is given.
+_LEAD_RECORD: ContextVar[Any] = ContextVar("agent_chat.lead_record", default=None)
 
 
 @contextmanager
@@ -1332,12 +1335,9 @@ def _plan_claude_code(
             argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
     from dodaios.agent_chat.thread_sessions import split_fork
 
-    if identity is not None and resume and not identity.session_id.startswith("society:"):
-        # The lead's resumed conversation: what landed in the chat outside this
-        # CLI session (spoken turns, reports, side threads) goes in front of
-        # the message, as on every other seat (``_with_identity``). The
-        # identity itself travels in the system-prompt file.
-        prompt = identity.catchup + prompt if identity.catchup else prompt
+    # The lead's resumed conversation: what landed in the chat outside this CLI
+    # session goes in front of the message; the identity travels in the file.
+    prompt = _identity_message(ladder, prompt, identity, resume)
     resume_id, fork_source = split_fork(resume)
     if fork_source:
         # A forked thread's first turn: Claude copies the source conversation
@@ -1373,7 +1373,7 @@ def plan_grok(
 ) -> CliPlan:
     # Grok Build takes the prompt on argv, so the identity rides in front of
     # it — the compact cut, and only on a fresh conversation.
-    prompt = _with_identity(prompt, identity, resume, compact=True)
+    prompt = _identity_message("grok-cli", prompt, identity, resume)
     mode = normalize_permission("grok-cli", permission_mode)
     work = _resolved_cwd(cwd)
     if identity is not None:
@@ -1581,7 +1581,7 @@ def plan_agy(
     mode = normalize_permission("agy-cli", permission_mode)
     # agy has no system-prompt flag: the identity rides in front of the prompt
     # on stdin, on a fresh conversation (a resumed one already knows).
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("agy-cli", prompt, identity, resume)
     work = _resolved_cwd(cwd)
     if identity is not None:
         # agy has no --mcp-config; a workspace plugin is how print-mode
@@ -1796,7 +1796,7 @@ def plan_codex(
     # identity rides in front of it on a fresh conversation. (Its
     # ``model_instructions_file`` REPLACES the CLI's own instructions rather
     # than adding to them, so it is not used here.)
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("codex-cli", prompt, identity, resume)
     base = codex_argv_prefix()
     if resume:
         argv = [*base, "exec", "resume", resume, "--json"]
@@ -1943,7 +1943,7 @@ def plan_opencode(
     # The prompt is a positional of ``run`` (no stdin mode), behind ``--`` so
     # a sentence that starts with a dash is a sentence and not a flag; the
     # identity rides in front of it on a fresh conversation.
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("opencode-cli", prompt, identity, resume)
     argv = [*opencode_argv_prefix(), "run", "--format", "json", "--thinking"]
     if mode == "auto":
         argv += ["--auto"]
@@ -1991,7 +1991,7 @@ def plan_kimi(
     identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("kimi-cli", permission_mode)
-    prompt = _with_identity(prompt, identity, resume)
+    prompt = _identity_message("kimi-cli", prompt, identity, resume)
     argv = [*kimi_argv_prefix(), "--output-format", "stream-json"]
     if model:
         argv += ["--model", model]
@@ -2027,7 +2027,7 @@ def plan_dsh(
     its policy in its own settings (``dodaios.workspace.agents``). What comes
     back is text, and the chat shows it as the answer.
     """
-    prompt = _with_identity(prompt, identity, None, compact=True)
+    prompt = _identity_message("dsh-cli", prompt, identity, resume)
     prefix = dsh_argv_prefix()
     argv = [*prefix, "--profile", "headless", _argv_prompt(prefix, prompt)]
     env = _registry_env("deepseek-harness", _account_env("deepseek-harness"))
@@ -2100,7 +2100,7 @@ def plan_cursor(
     """
     del cwd, effort  # cwd is the spawn cwd; Cursor has no effort flag.
     mode = normalize_permission("cursor-cli", permission_mode)
-    prompt = _with_identity(prompt, identity, resume, compact=True)
+    prompt = _identity_message("cursor-cli", prompt, identity, resume)
     argv = [
         *cursor_argv_prefix(),
         "-p",
@@ -2171,6 +2171,89 @@ def _with_identity(
     if state:
         head += f"<jarvis_turn_context>\n{state}\n</jarvis_turn_context>\n\n"
     return head + prompt
+
+
+#: The seats whose prompt travels on argv: they take the identity's compact cut.
+_COMPACT_IDENTITY_RUNNERS: Final[frozenset[str]] = frozenset({"grok-cli", "cursor-cli", "dsh-cli"})
+
+
+def _identity_message(
+    runner: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+) -> str:
+    """The message a planner hands its CLI, with the identity's part in it.
+
+    Claude Code (and GLM, which is Claude Code) take the identity as a
+    system-prompt file; only a resumed lead conversation gets its catch-up in
+    front of the message (what landed in the chat outside this CLI session:
+    spoken turns, reports, side threads). Every other seat carries the
+    identity in the message (:func:`_with_identity`), the compact cut where
+    the prompt travels on argv. DeepSeek Harness keeps no session, so each of
+    its messages opens a fresh conversation. A custom CLI gets none.
+    """
+    if runner in _CLAUDE_CODE_RUNNERS:
+        society = identity is not None and identity.session_id.startswith("society:")
+        if identity is not None and resume and not society and identity.catchup:
+            return identity.catchup + prompt
+        return prompt
+    if runner == "custom-cli":
+        return prompt
+    if runner == "dsh-cli":
+        resume = None
+    return _with_identity(prompt, identity, resume, compact=runner in _COMPACT_IDENTITY_RUNNERS)
+
+
+@dataclass(frozen=True, slots=True)
+class LeadModelInput:
+    """What a CLI is handed for one lead turn: what a replay gives the model again."""
+
+    #: The runner (``claude-cli``, ``codex-cli``, ...).
+    cli: str
+    model: str
+    effort: str
+    #: The system prompt the CLI gets on top of its own, exactly as passed;
+    #: ``""`` on a seat whose identity rides in the message.
+    system: str
+    #: The user message, exactly as the CLI gets it.
+    message: str
+
+
+def lead_model_input(
+    *,
+    runner: str,
+    model: str,
+    effort: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+    tools: bool = True,
+) -> LeadModelInput:
+    """What the CLI is handed for one lead turn, built as the planner builds it.
+
+    ``prompt`` is what :func:`_run_cli_once` hands the planner: the lead's
+    message (:func:`dodaios_harness.lead_message`) with the effort note in
+    front. Claude Code and GLM get the identity as a system-prompt file next
+    to the app's tool server (``tools``: the plan mounts it; without it they
+    get neither); every other seat gets it inside the message
+    (:func:`_identity_message`, the planners' own step). Not part of it: the
+    CLI's own system prompt, and the vendor conversation a resumed turn
+    continues. For the lead only: a society seat's identity has a state of
+    its own (``_REFRESH_SENT``) that a second build would move.
+    """
+    if identity is not None and identity.session_id.startswith("society:"):
+        raise ValueError("lead_model_input is for the lead's turns")
+    system = ""
+    if runner in _CLAUDE_CODE_RUNNERS and identity is not None and tools:
+        system = identity.text if identity.path is not None else dodaios_harness.SYSTEM_PREAMBLE
+    return LeadModelInput(
+        cli=runner,
+        model=model,
+        effort=effort,
+        system=system,
+        message=_identity_message(runner, prompt, identity, resume),
+    )
 
 
 _PLANNERS: Final[dict[str, Any]] = {
@@ -4678,9 +4761,14 @@ async def run_cli_turn(
     recovery = ToolRecovery()
     original_emit = handle.emit
     original_ask = handle.request_approval
+    # A lead turn is kept with what the CLI was handed and its first move,
+    # for the replay benchmark (``dodaios.rsi.lead_turns``).
+    lead_record = _lead_record(handle, user_text) if identity else None
 
     async def observe(event: dict[str, Any]) -> None:
         recovery.observe(event)
+        if lead_record is not None:
+            lead_record.observe(event)
         await original_emit(event)
 
     async def ask(call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
@@ -4696,26 +4784,16 @@ async def run_cli_turn(
             session.session_id, user_text, getattr(handle, "output_language", "")
         )
     handle = replace(handle, emit=observe, request_approval=ask)
-    if identity and session.surface == "jarvis" and not user_text.lstrip().startswith("/"):
+    if identity and session.surface == "jarvis":
         # The assistant's own chat: the reply's shape and where a question goes
-        # are said beside the message, not only in the system prompt
-        # (``REPLY_SHAPE_LINE``, ``brief_line()``, ``QUESTION_CARD_LINE``).
-        from dodaios.agent_chat.secret_requests import SECRET_NOUN
-
-        if SECRET_NOUN.search(user_text):
-            user_text += dodaios_harness.SECRET_FIELD_LINE
-        # How much a task needs is the model's to judge, before the lines that shape the reply.
-        user_text += dodaios_harness.EFFORT_LINE
-        if not handle.continuation:
-            # A turn that carries a running task on has already taken it on.
-            user_text += dodaios_harness.FIRST_LINE
-        user_text += (
-            dodaios_harness.REPLY_SHAPE_LINE
-            # With the person's standing brief wishes, read fresh per message.
-            + dodaios_harness.brief_line()
-            + dodaios_harness.QUESTION_CARD_LINE
+        # are said beside the message, not only in the system prompt. One
+        # function builds it, so a replay can rebuild it (``lead_model_input``).
+        user_text = dodaios_harness.lead_message(
+            user_text,
+            continuation=handle.continuation,
+            output_language=getattr(handle, "output_language", ""),
         )
-    if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
+    elif getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += reply_language_line(session.surface, handle.output_language)
     ident: dodaios_harness.Identity | None = None
     ref = approval_ref(session.session_id)
@@ -4784,6 +4862,7 @@ async def run_cli_turn(
         # prompt reads the rules for them once, at the start of its conversation.
         user_text = standing.for_first_message(user_text, handle, new_conversation=resume is None)
     tool_context = register_turn(session.session_id) if identity else None
+    record_token = _LEAD_RECORD.set(lead_record)
     try:
         outcome = await _run_cli_once(
             handle, user_text, runner, resume, identity=ident, bridge=bridge
@@ -4887,6 +4966,7 @@ async def run_cli_turn(
                 resume=resume,
             )
     finally:
+        _LEAD_RECORD.reset(record_token)
         _TURN_SEATS.reset(seats_token)
         unregister_turn(session.session_id, tool_context)
         ACCOUNT_OVERRIDE.reset(account_token)
@@ -4907,7 +4987,60 @@ async def run_cli_turn(
             },
         )
     )
+    if lead_record is not None:
+        # A turn that answered in text only is known now; a tool call was written at once.
+        lead_record.finish()
     return outcome.vendor_session
+
+
+def _lead_record(handle: TurnHandle, user_text: str) -> Any:
+    """The recorder of a lead turn (the ``jarvis`` surface, no slash command), else ``None``."""
+    session = handle.session
+    if getattr(session, "surface", "") != "jarvis" or user_text.lstrip().startswith("/"):
+        return None
+    try:
+        from dodaios.rsi.lead_turns import TurnRecorder
+
+        return TurnRecorder(
+            session.session_id,
+            handle.turn_id,
+            continuation=bool(handle.continuation),
+            images=len(tuple(getattr(handle, "images", ()) or ())),
+        )
+    except Exception:  # noqa: BLE001 - without a recorder the turn runs exactly as before
+        log.debug("agent chat %s: lead turn not recorded", handle.turn_id, exc_info=True)
+        return None
+
+
+def _note_lead_input(
+    plan: CliPlan,
+    *,
+    runner: str,
+    model: str,
+    effort: str,
+    prompt: str,
+    identity: dodaios_harness.Identity | None,
+    resume: str | None,
+) -> None:
+    """Hand the current lead turn's record what its CLI is given (:func:`lead_model_input`)."""
+    record = _LEAD_RECORD.get()
+    if record is None:
+        return
+    try:
+        record.planned(
+            lead_model_input(
+                runner=runner,
+                model=model,
+                effort=effort,
+                prompt=prompt,
+                identity=identity,
+                resume=resume,
+                tools="--mcp-config" in plan.argv,
+            ),
+            resume=resume,
+        )
+    except Exception:  # noqa: BLE001 - the record is best effort, never the turn's problem
+        log.debug("agent chat: lead turn input not recorded", exc_info=True)
 
 
 async def resume_hosted_cli_turn(handle: TurnHandle, proc: Any) -> str | None:
@@ -5205,6 +5338,16 @@ async def _run_cli_once(
     finally:
         _REMOTE_PLANNING.reset(remote_token)
 
+    if planner is not None:
+        _note_lead_input(
+            plan,
+            runner=runner,
+            model=session.model,
+            effort=effort,
+            prompt=planned_prompt,
+            identity=identity,
+            resume=resume,
+        )
     vendor_session = plan.vendor_session
     if (
         getattr(handle, "goal_turn", False)
