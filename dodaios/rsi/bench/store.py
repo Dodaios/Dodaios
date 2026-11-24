@@ -108,6 +108,10 @@ SCHEMA: Final = Schema(
         CREATE TRIGGER nights_no_delete BEFORE DELETE ON nights
         BEGIN SELECT RAISE(ABORT, 'the record of a night is append-only'); END;
         """,
+        # The two states per part of the domain (``run.parts``); '{}' for older points.
+        """
+        ALTER TABLE series ADD COLUMN parts TEXT NOT NULL DEFAULT '{}';
+        """,
     ),
 )
 
@@ -321,10 +325,14 @@ class BenchStore:
         with self._db.lock:
             self._db.conn.executemany(
                 "INSERT INTO series (ts_ms, app, domain, split, source, now_score, factory_score,"
-                " diff, low, high, n, now_tokens, factory_tokens, arm_now, arm_factory)"
+                " diff, low, high, n, now_tokens, factory_tokens, arm_now, arm_factory, parts)"
                 " VALUES (:ts_ms, :app, :domain, :split, :source, :now_score, :factory_score,"
-                " :diff, :low, :high, :n, :now_tokens, :factory_tokens, :arm_now, :arm_factory)",
-                list(rows),
+                " :diff, :low, :high, :n, :now_tokens, :factory_tokens, :arm_now, :arm_factory,"
+                " :parts)",
+                [
+                    {**row, "parts": json.dumps(row.get("parts") or {}, sort_keys=True)}
+                    for row in rows
+                ],
             )
             self._db.conn.commit()
 
@@ -342,6 +350,8 @@ class BenchStore:
         with self._db.lock:
             rows = self._db.conn.execute(sql + " ORDER BY seq DESC LIMIT ?", [*args, limit])
             found = [dict(r) for r in rows.fetchall()]
+        for row in found:
+            row["parts"] = json.loads(row.get("parts") or "{}")
         return list(reversed(found))
 
     def add_night(self, app: str, body: dict[str, Any]) -> None:

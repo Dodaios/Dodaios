@@ -314,6 +314,7 @@ class Night:
             "factory_tokens": round(paired.baseline_tokens, 2),
             "arm_now": now_arm.id,
             "arm_factory": shipped_arm.id,
+            "parts": run.parts(tasks, shipped, now),
         }
 
     # ------------------------------------------------------------------ run

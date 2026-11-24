@@ -379,8 +379,12 @@ While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
    back. After an app update everything learned is checked again.
 2. The learners propose. Each gets practice tasks and nothing else.
 3. The gate measures every candidate on tasks no learner saw.
-4. It measures the learned advantage on the sealed tasks.
-5. It writes down what it did (`nights` and `series` in `bench.db`).
+4. It measures the learned advantage on the sealed tasks, also split into the
+   parts of the area (`run.parts`; for recall: tasks where a memory is needed
+   and tasks where none is), so the page can show where a difference lies. The
+   parts are plain means; every decision rests on the whole.
+5. It writes down what it did (`nights` and `series` in `bench.db`; schema step
+   3 added the `parts` column, older points read as having none).
 
 Before all of this a night copies the memory and builds new tasks from the
 person's own memory and messages (see above), and erases tasks about memories

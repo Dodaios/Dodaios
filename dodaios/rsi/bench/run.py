@@ -27,7 +27,7 @@ from dodaios.rsi.fingerprint import Fingerprint
 from . import recall
 from .model import Domain, Result, Task
 
-__all__ = ["Paired", "Worlds", "arm_of", "measure", "pair", "runnable", "shuffled"]
+__all__ = ["Paired", "Worlds", "arm_of", "measure", "pair", "parts", "runnable", "shuffled"]
 
 #: World name -> what a domain needs to run a task there (a vault, a repository, ...).
 Worlds = Mapping[str, Any]
@@ -148,6 +148,48 @@ def pair(baseline: Sequence[Result], candidate: Sequence[Result]) -> Paired:
         baseline_tokens=sum(b.tokens for b, _ in rows) / n,
         candidate_tokens=sum(c.tokens for _, c in rows) / n,
     )
+
+
+#: Domain -> the part of it a task belongs to, for showing where a difference lies.
+_PARTS: dict[Domain, Callable[[Task], str]] = {Domain.RECALL: recall.part_of}
+
+
+def parts(
+    tasks: Sequence[Task], baseline: Sequence[Result], candidate: Sequence[Result]
+) -> dict[str, dict[str, Any]]:
+    """The two states side by side per part of the domain (``{}`` for a domain without parts).
+
+    Matched like :func:`pair`. Plain means on the tasks of each part, with no
+    interval: they show where a difference lies; decisions rest on the whole.
+    """
+    if not tasks:
+        return {}
+    part_of = _PARTS.get(tasks[0].domain)
+    if part_of is None:
+        return {}
+    kinds = {t.id: part_of(t) for t in tasks}
+    base = {(r.task_id, r.task_digest): r for r in baseline if r.counts}
+    sums: dict[str, list[float]] = {}
+    for r in candidate:
+        b = base.get((r.task_id, r.task_digest))
+        if not r.counts or b is None or r.task_id not in kinds:
+            continue
+        row = sums.setdefault(kinds[r.task_id], [0.0, 0.0, 0.0, 0.0, 0.0])
+        row[0] += 1
+        row[1] += b.score
+        row[2] += r.score
+        row[3] += b.tokens
+        row[4] += r.tokens
+    return {
+        kind: {
+            "n": int(n),
+            "factory_score": round(b / n, 4),
+            "now_score": round(c / n, 4),
+            "factory_tokens": round(bt / n, 2),
+            "now_tokens": round(ct / n, 2),
+        }
+        for kind, (n, b, c, bt, ct) in sorted(sums.items())
+    }
 
 
 def shuffled(tasks: Sequence[Task], seed: str) -> list[Task]:
