@@ -16,7 +16,7 @@ from dodaios.core.paths import user_data_dir
 from dodaios.core.protocols import ContinuousVoiceStart, VoiceStartError
 from dodaios.core.runtime_refs import get_supervisor_tool_gateway
 from dodaios.core.turn_language import resolve_output_language
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.live.state import LiveLedger, TranscriptFragment
 from dodaios.live.tasks import BackgroundTask, report_prompt
 from dodaios.live.timing import StartupTimings

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
 from dodaios.ui.pets.loader import (
     COLOR_KEY,
     builtin_root,
@@ -19,7 +20,7 @@ from dodaios.ui.pets.loader import (
     to_color_key,
 )
 from dodaios.ui.pets.manifest import PetManifestError
-from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_FORMAT, PET_STATES
+from dodaios.ui.pets.states import PET_FORMAT, PET_STATES
 
 USER_ID = "u0123456789abcdef"
 

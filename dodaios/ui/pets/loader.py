@@ -21,6 +21,7 @@ from types import MappingProxyType
 
 from PIL import Image, ImageChops
 
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
 from dodaios.ui.pets.manifest import (
     BUILTIN_ID_RE,
     MAX_SHEET_BYTES,
@@ -32,7 +33,7 @@ from dodaios.ui.pets.manifest import (
     check_sheet_size,
     parse_manifest,
 )
-from dodaios.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID, PET_STATES
+from dodaios.ui.pets.states import NO_PET_ID, PET_STATES
 
 _log = logging.getLogger(__name__)
 

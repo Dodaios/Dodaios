@@ -1,6 +1,6 @@
 """Lazy public exports for the brain layer.
 
-Configuration imports the lightweight ``brain.ack_brain.config`` module while
+Configuration imports the lightweight ``core.ack_brain_config`` module while
 the safety layer may still be initializing. Eagerly importing the dispatcher,
 manager, and tool loop here creates a safety/config/brain cycle, so public
 objects are resolved only when callers request them.

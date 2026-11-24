@@ -11,8 +11,8 @@ import inspect
 
 from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
 from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.core.live_config import LiveConfig
 from dodaios.live import native
-from dodaios.live.config import LiveConfig
 from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool
 
 
