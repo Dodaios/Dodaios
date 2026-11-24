@@ -123,7 +123,9 @@ The memories and messages go to the provider the person's assistant already
 answers on, on its subscription or a local model, and to no one else. Memories
 marked sensitive are never sent. A key that bills per token is never used:
 without a subscription or a local model no tasks are made and the nights stay
-quiet. A night makes at most eight such calls, however much there is to do.
+quiet. A night makes at most eight such calls, however much there is to do; while
+there are fewer than 30 of the person's own tasks in the select split (too few for
+the gate to decide), at most 24, so the first decision comes in one or two nights.
 
 Forgetting reaches the tasks: when a memory is forgotten or replaced, every
 task that names it is retired and its text erased.
@@ -374,11 +376,12 @@ that are gone.
 Nothing is announced: no notice, no sound, no voice. The app looks every ten
 minutes whether a night is due: the person must have been away for 15 minutes,
 and there is at most one night in 20 hours. Measuring the recall asks no
-model; building tasks does, at most eight small calls a night. The limits are
+model; building tasks does, at most eight small calls a night (24 while too few tasks
+exist to decide on). The limits are
 fixed in the code, not in a setting: only while the person is away, on the
 assistant's subscription or a local model, never a key that bills per token.
 (The share of a plan's usage window a night may use, 20 %, is fixed for the
-domains that will run whole turns; eight small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
+domains that will run whole turns; 24 small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
 survives a restart; while it is set nothing is proposed, measured or changed.
 
 ### The tuner

@@ -23,7 +23,15 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, MAX_MODEL_CALLS, Night
+from dodaios.rsi.night import (
+    BUDGET_SHARE,
+    EVERY_S,
+    IDLE_AFTER_S,
+    MAX_MODEL_CALLS,
+    RAMP_MODEL_CALLS,
+    Night,
+    calls_tonight,
+)
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
@@ -202,6 +210,10 @@ def build(
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
             "max_model_calls": MAX_MODEL_CALLS,
+            #: While too few tasks exist to decide on, a night may build with this many.
+            "ramp_model_calls": RAMP_MODEL_CALLS,
+            #: What the next night may use.
+            "model_calls_tonight": calls_tonight(night.bench),
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),

@@ -58,6 +58,7 @@ __all__ = [
     "EVERY_S",
     "IDLE_AFTER_S",
     "MAX_MODEL_CALLS",
+    "RAMP_MODEL_CALLS",
     "Night",
     "NightReport",
     "NightService",
@@ -75,6 +76,10 @@ IDLE_AFTER_S: Final[float] = 15 * 60
 EVERY_S: Final[float] = 20 * 3600
 #: Model calls one night may make to build tasks. Fixed.
 MAX_MODEL_CALLS: Final[int] = 8
+#: The same while the person's own tasks are too few for the gate to decide on
+#: (fewer than ``MIN_PAIRS`` in the select split): the first nights build more,
+#: so the first decision comes in one or two nights instead of three or four.
+RAMP_MODEL_CALLS: Final[int] = 24
 #: For how long a value the gate turned down is not proposed again.
 _SKIP_MS: Final[int] = 30 * 24 * 3600 * 1000
 TUNER: Final = "tuner"
@@ -435,6 +440,14 @@ def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
     return ask
 
 
+def calls_tonight(bench: BenchStore) -> int:
+    """How many model calls tonight's task building may make (``RAMP_MODEL_CALLS`` early on)."""
+    from dodaios.rsi.gate.rules import MIN_PAIRS
+
+    own = bench.tasks(Domain.RECALL, splits=(Split.SELECT,), source=Source.MADE)
+    return RAMP_MODEL_CALLS if len(own) < MIN_PAIRS else MAX_MODEL_CALLS
+
+
 def _past_work(bench: BenchStore, homes: dict[str, Path] | None = None) -> dict[str, Any]:
     """Store the tasks from past coding work before their records are deleted. No model call.
 
@@ -483,7 +496,7 @@ def install(
 
         if world.vault is not None:
             adopt.how_tos(registry, world.vault)
-        return {**maker.run(MAX_MODEL_CALLS), **made}
+        return {**maker.run(calls_tonight(bench)), **made}
 
     night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)
     return NightService(night, _person_idle, chat_db=home / "agent_chat.db")

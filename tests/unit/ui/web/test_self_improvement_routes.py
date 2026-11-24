@@ -58,6 +58,8 @@ def test_the_page_gets_what_was_measured_what_is_in_effect_and_what_the_nights_d
         "every_s": 72000.0,
         "budget_share": 0.2,
         "max_model_calls": 8,
+        "ramp_model_calls": 24,
+        "model_calls_tonight": 8,  # the sandbox's own tasks are enough to decide on
     }
 
     (domain,) = body["domains"]
