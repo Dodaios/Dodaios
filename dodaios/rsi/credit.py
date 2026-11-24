@@ -160,7 +160,8 @@ def count(
     """Each note's track from recorded turns, what each showed, and how each went.
 
     ``rows`` are recorded lead turns (``LeadTurn`` without texts), oldest
-    first; ``shown`` maps a row's ``seq`` to the notes it showed. The period
+    first; ``shown`` maps the ``seq`` of every row that was read to the notes
+    it showed (a row not read, gone in between, is not counted). The period
     of a note starts when it came into effect, or with the oldest record if
     that is later (older turns are not on record).
     """
@@ -168,7 +169,7 @@ def count(
     counted = [
         (r, went[(r.session_id, r.turn_id)])
         for r in rows
-        if not r.continuation and (r.session_id, r.turn_id) in went
+        if not r.continuation and (r.session_id, r.turn_id) in went and int(r.seq) in shown
     ]
     out: dict[str, dict[str, Any]] = {}
     for note in notes:
@@ -177,9 +178,7 @@ def count(
         for row, through in counted:
             if row.ts_ms < note.since_ms:
                 continue
-            (with_it if note.change_id in shown.get(int(row.seq), _NONE) else without).append(
-                through
-            )
+            (with_it if note.change_id in shown[int(row.seq)] else without).append(through)
         out[note.change_id] = _record(max(note.since_ms, first), with_it, without)
     return out
 

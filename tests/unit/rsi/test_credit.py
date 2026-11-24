@@ -342,3 +342,15 @@ def test_the_page_gets_each_notes_track_and_none_for_a_forgotten_note(home) -> N
 def test_without_a_chat_record_a_note_has_no_track(home) -> None:
     _, _, night = home
     assert all(row["track"] is None for row in overview.build(night)["stack"])
+
+
+def test_a_row_gone_before_it_is_read_is_not_counted(tmp_path: Path, monkeypatch) -> None:
+    lead, chat = _records(tmp_path, [Req(shows=(NOTE,))] * 3 + [Req()] * 2)
+    real = lead_turns.LeadTurnStore.turn
+
+    def gone_in_between(self, seq: int):
+        return None if seq in {1, 4} else real(self, seq)  # its chat deleted meanwhile
+
+    monkeypatch.setattr(lead_turns.LeadTurnStore, "turn", gone_in_between)
+    found = credit.track([_note()], lead, chat)["c1"]
+    assert (found["shown"], found["other"]) == (2, 1)
