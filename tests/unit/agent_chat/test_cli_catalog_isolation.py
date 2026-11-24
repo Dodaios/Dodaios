@@ -273,9 +273,11 @@ def test_cli_catalog_reloads_on_account_and_config_change(monkeypatch, tmp_path,
     monkeypatch.setattr(rc, "_account_env", lambda platform: {"AGENT_CONFIG_DIR": seat[0]})
     monkeypatch.setattr(rc.base, "_registry_env", lambda agent, env: env)
     monkeypatch.setattr(rc, "_registry_env", lambda agent, env: env)
+    module = getattr(rc, family)
+    monkeypatch.setattr(module, f"{family}_argv_prefix", lambda: [family])
     monkeypatch.setattr(rc, f"{family}_argv_prefix", lambda: [family])
     monkeypatch.setattr(
-        rc, "_AGY_CATALOG" if family == "agy" else "_OPENCODE_CATALOG", {"at": 0.0, "rows": None}
+        module, "_AGY_CATALOG" if family == "agy" else "_OPENCODE_CATALOG", {"at": 0.0, "rows": None}
     )
 
     def run(*args, **kwargs):
