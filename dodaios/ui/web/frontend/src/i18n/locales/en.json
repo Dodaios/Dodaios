@@ -5254,6 +5254,7 @@
     "approving": "Approving…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Installed, off",
     "install_failed": "Installation failed",
     "title": "Skill Finder",
     "subtitle": "Describe what you need — the mini-agent searches the catalog and ranks with AI.",
@@ -6728,6 +6729,7 @@
     "landed_title": "{title} installed",
     "landed_plugin": "It is in Plugins now. Connect it to start using it.",
     "landed_skill": "It is in Skills now and can be used right away.",
+    "landed_skill_off": "It is in Skills, switched off. Read it there and switch it on to use it.",
     "landed_needs_connect": "Installed, but not usable yet: it still needs to be connected.",
     "sends_data_to": "Once connected, requests and your access token go to:",
     "runs_command": "Once connected, this command runs on your computer:",

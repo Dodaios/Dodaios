@@ -5254,6 +5254,7 @@
     "approving": "A aprovar…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Instalado, desligado",
     "install_failed": "A instalação falhou",
     "title": "Localizador de skills",
     "subtitle": "Descreve o que precisas — o mini-agente pesquisa o catálogo e ordena com IA.",
@@ -6728,6 +6729,7 @@
     "landed_title": "{title} instalado",
     "landed_plugin": "Já está em Plugins. Liga-o para começares a usá-lo.",
     "landed_skill": "Já está em Skills e pode ser usada de imediato.",
+    "landed_skill_off": "Está em Skills, desligado. Lê-o lá e liga-o para o usar.",
     "landed_needs_connect": "Instalado, mas ainda não utilizável: falta ligá-lo.",
     "sends_data_to": "Depois de ligado, os pedidos e o teu token de acesso vão para:",
     "runs_command": "Depois de ligado, este comando corre no teu computador:",

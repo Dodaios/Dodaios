@@ -288,9 +288,15 @@ function LandingNote({
   const setActiveSection = useEventStore((s) => s.setActiveSection);
   const result = landing.type === "installed" ? landing.result : null;
   const ready = result ? result.ready !== false : true;
+  // A downloaded skill lands switched off and waits to be read and switched
+  // on in Skills: like a plugin's connect step, that is its next step.
+  const skillToEnable =
+    Boolean(result) && result?.kind === "skill" && !result?.problem && result?.next_action === "enable";
   // A plugin always lands unconnected — that is its next step, not a fault.
   // Only a named problem (or a skill that is not usable) earns the warning.
-  const warn = result ? Boolean(result.problem) || (!ready && result.kind !== "plugin") : false;
+  const warn = result
+    ? Boolean(result.problem) || (!ready && result.kind !== "plugin" && !skillToEnable)
+    : false;
   const title = result
     ? fill(t("marketplace.landed_title"), { title: result.title ?? result.id ?? "" })
     : fill(t("marketplace.removed_title"), { title: landing.type === "removed" ? landing.title : "" });
@@ -299,7 +305,9 @@ function LandingNote({
       ? result.problem
       : ready || result.kind === "plugin"
         ? t(`marketplace.landed_${result.kind}`)
-        : t("marketplace.landed_needs_connect")
+        : skillToEnable
+          ? t("marketplace.landed_skill_off")
+          : t("marketplace.landed_needs_connect")
     : null;
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center p-5">
