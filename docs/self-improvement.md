@@ -264,6 +264,62 @@ Every result names the state that produced it, as a **fingerprint**
 of the parameter values, model, seat and CLI version. Two runs are a pair only
 when model, seat, CLI and app version agree.
 
+## Lead turns on record
+
+To measure a change to the lead (the assistant's own chat), a benchmark
+replays a past turn: it gives the model exactly what it was given then, with
+one thing changed, and compares the model's first move. A replay needs a
+record of the original turn, and such records take months to collect. So the
+app records the lead's turns from now on. The replay itself is not built yet.
+
+**What the lead is given** comes from one function,
+`runner_cli.lead_model_input`. It returns what the coding CLI gets for a lead
+turn: the system prompt text as passed, the message text, the model, the
+effort and the CLI. The message is the person's text with the lines that go
+beside it (`dodaios_harness.lead_message`), the effort note in front, and, on a
+resumed conversation, the catch-up block. Claude Code gets the identity as a
+system-prompt file; the other CLIs get it inside the message, and every planner
+takes that step from the same helper. A test pins the bytes of the message for
+a set of inputs, so a change to what the lead is given is always a visible
+change. The CLI's own system prompt and, on a resumed turn, the CLI's own
+conversation are not part of it: a row names the conversation it continued.
+
+**What is kept**, one row per lead turn, in `lead_turns.db` in the data
+directory (`dodaios/rsi/lead_turns.py`, a kernel file with a schema version):
+
+- the time, the chat session and turn ids, the CLI, the model and the effort;
+- a hash of the tool list the chat was offered (names, descriptions, schemas);
+- the system prompt text and the message text, exactly as passed, compressed;
+- the conversation a resumed turn continued, whether the turn carried a running
+  task on, and how many pictures went with the message (not the pictures);
+- the first move: the first tool call's name and arguments, and whether a line
+  of text came before it; or that the model answered in text only.
+
+Only lead turns are kept: the `jarvis` surface, not a slash command, not a
+coding thread and not an agent's own chat. A turn that ended before the model
+did anything is not kept. A row is never changed after it is written.
+
+**For how long.** A row is kept for at most 90 days, and the file keeps at most
+200 MB of stored text; when it is full, the oldest rows go first. A lead turn
+takes about 25 KB, so this holds about 8,000 turns. Both limits are checked
+each time a row is written and when the app first opens the file. Deleted text
+is overwritten on disk, not left in free space.
+
+**Deleting.** When the person deletes a chat session, its rows are deleted too
+(`AgentChatStore.delete_session` calls `lead_turns.forget_session`). Forgetting
+a memory does not delete rows: a row holds the whole system prompt the lead
+was given, not a list of the memories in it, and the memory's text can appear
+there shortened or reworded. A row that holds a forgotten memory therefore
+stays until its 90 days are over.
+
+**Nothing leaves the machine.** The file is read only by the benchmark on this
+computer. Nothing sends it, uploads it or adds it to a report.
+
+**It never slows or breaks a turn.** The turn only notes what it saw. The row
+is written by a background task, off the event loop, as soon as the first move
+is known (the first tool call, or the end of a turn that answered in text).
+Any failure is logged once and the row is skipped.
+
 ## Parameters
 
 Behaviour that used to be a constant in the code is a **parameter**
@@ -504,5 +560,7 @@ There is no other control on purpose: the person only stops or undoes
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
 | The tuner, the night cycle, automatic rollback, the sandbox | built |
 | Recall tasks from the person's own memory and messages, made at night | built |
+| The lead's model input as one function (`lead_model_input`), its message bytes pinned by a test | built |
+| Lead turns on record (`lead_turns.db`): what the lead was given and its first move | built; recording, nothing replays it yet |
 | The page that shows it | built |
 | Always-on recording of work, the other domains, lessons, the jury | later |
