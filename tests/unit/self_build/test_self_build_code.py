@@ -1,7 +1,12 @@
 """The code builder end to end: an issue in a sandbox repository becomes a draft
 pull request with a green check, recorded in the ledger and undoable; and every
-guard (other people's repositories, risky issues, pause, off, silent days, caps,
-failing tests, protected files) produces nothing."""
+guard (other people's repositories, risky issues, pause, silent days, caps,
+failing tests, protected files) produces nothing.
+
+Code changes ship at autonomy ``watch``: no new issue, no new build, while the
+pull requests the loop already opened are still watched to their end (the
+tests under "watch only"). The build path waits for a measured path of its
+own, so the ``world`` fixture runs it at ``full`` to keep it proven."""
 
 from __future__ import annotations
 
@@ -196,12 +201,18 @@ class World:
         return [b for b in out.splitlines() if b]
 
 
+def _code_at(monkeypatch: pytest.MonkeyPatch, level: policy.Autonomy) -> None:
+    monkeypatch.setitem(policy._AUTONOMY, Kind.CODE, level)
+
+
 @pytest.fixture
 def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> World:
     monkeypatch.setattr(commands, "_python", lambda folder: sys.executable)
+    # The build path, as it will run once code has its measured path.
+    _code_at(monkeypatch, policy.Autonomy.FULL)
     work = sandbox(tmp_path)
     cfg = SimpleNamespace(
-        self_build=SelfBuildConfig(silent_days=0, code="trial"),
+        self_build=SelfBuildConfig(silent_days=0),
         ui=SimpleNamespace(language="en"),
     )
     service = SelfBuild(tmp_path / "data", lambda: cfg)
@@ -358,7 +369,7 @@ def test_person_closing_the_pull_request_undoes_the_build(world: World) -> None:
 
 
 def test_landing_opt_in_merges_after_green_ci(world: World) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="trial", code_land_repos=["Me/Proj"])
+    world.cfg.self_build = SelfBuildConfig(silent_days=0, code_land_repos=["Me/Proj"])
     world.tick()
     assert world.github.pulls[100]["draft"] is False
     world.github.pulls[100]["checks"] = "SUCCESS"
@@ -457,41 +468,29 @@ def test_unfit_issues_open_nothing(world: World, issue: Issue) -> None:
     assert world.records() == []
 
 
-def test_paused_or_off_makes_no_call_at_all(world: World) -> None:
+def test_paused_makes_no_call_at_all(world: World) -> None:
     policy.set_paused(world.service.ledger, True)
     assert world.tick() == {"skipped": "paused"}
-    policy.set_paused(world.service.ledger, False)
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="off")
-    assert world.tick() == {"skipped": "off"}
     assert world.github.calls == []
     assert world.records() == []
 
 
-def test_suggest_and_silent_days_only_propose(world: World) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="suggest")
-    world.tick()
-    [record] = world.records()
-    assert record.state == State.PROPOSED
-    assert world.runner.prompts == [] and world.github.pulls == {}
-    # Accepting the card builds it (on the next idle pass).
-    asyncio.run(world.service.accept(record.id))
-    world.tick()
-    assert world.service.ledger.get(record.id).state == State.PROVING
-
-
-def test_silent_first_days_record_without_building(world: World) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=7, code="full")
-    world.tick()
-    [record] = world.records()
-    assert record.state == State.PROPOSED
+def test_silent_first_days_open_nothing_and_ask_nothing(world: World) -> None:
+    world.cfg.self_build = SelfBuildConfig(silent_days=7)
+    assert world.tick()["opened"] == 0
+    assert world.records() == []  # no card waits for an OK; the issue comes back later
     assert world.runner.prompts == []
-
-
-def test_daily_code_cap_turns_a_build_into_a_proposal(world: World) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="trial", max_code_runs_per_day=0)
+    world.cfg.self_build = SelfBuildConfig(silent_days=0)
+    world.loop.ctx.store.set_poll("me/proj", 0)
     world.tick()
     [record] = world.records()
-    assert record.state == State.PROPOSED
+    assert record.state == State.PROVING
+
+
+def test_daily_code_cap_opens_nothing(world: World) -> None:
+    world.cfg.self_build = SelfBuildConfig(silent_days=0, max_code_runs_per_day=0)
+    assert world.tick()["opened"] == 0
+    assert world.records() == []
     assert world.runner.prompts == []
 
 
@@ -639,6 +638,8 @@ def test_stale_case_may_be_offered_again(world: World, monkeypatch: pytest.Monke
     world.tick()
     [record] = world.records()
     assert record.state == State.FAILED and record.note.startswith("not run: ")
+    # A day later (the daily code cap counts the failed run today).
+    world.cfg.self_build = SelfBuildConfig(silent_days=0, max_code_runs_per_day=2)
     world.loop.ctx.store.set_poll("me/proj", 0)
     world.tick()
     assert len(world.records()) == 2
@@ -832,10 +833,10 @@ def test_no_seat_means_no_plan_call(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_an_issue_that_changed_before_the_build_is_not_built(
     world: World, now: str | None, note: str
 ) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="suggest")
+    world.idle[0] = False  # the case waits for idle time; the issue changes meanwhile
     world.tick()
     [record] = world.records()
-    assert record.state == State.PROPOSED
+    assert record.state == State.BUILDING
     world.github.fresh[1] = {
         None: None,
         "closed": make_issue(state="CLOSED"),
@@ -843,7 +844,7 @@ def test_an_issue_that_changed_before_the_build_is_not_built(
         "unlabelled": make_issue(labels=()),
         "risky": make_issue(body="Rotate the deploy credentials on the production servers."),
     }[now]
-    asyncio.run(world.service.accept(record.id))
+    world.idle[0] = True
     world.tick()
     record = world.service.ledger.get(record.id)
     assert record.state == State.FAILED
@@ -863,10 +864,10 @@ def test_an_issue_the_person_took_on_themselves_is_still_built(world: World) -> 
 
 
 def test_a_repository_no_longer_owned_is_not_built(world: World) -> None:
-    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="suggest")
+    world.idle[0] = False
     world.tick()
     [record] = world.records()
-    asyncio.run(world.service.accept(record.id))
+    world.idle[0] = True
     world.github.login = "someone-else"
     world.loop.ctx._viewer = None
     world.tick()
@@ -909,3 +910,65 @@ def test_the_status_carries_the_last_pass(world: World) -> None:
     world.tick()
     status = world.service.status()["code"]
     assert status["projects"] == ["me/proj"] and status["not_polled"] == {}
+
+
+# ------------------------------------------------------------------ watch only (as shipped)
+
+
+def test_code_ships_at_watch_with_no_builder_listed(tmp_path: Path) -> None:
+    assert policy.autonomy(Kind.CODE) == policy.Autonomy.WATCH
+    cfg = SimpleNamespace(self_build=SelfBuildConfig(silent_days=0))
+    service = SelfBuild(tmp_path, lambda: cfg)
+    admission = service.admit(Kind.CODE, "code:me/proj#1")
+    assert admission.start is None and admission.reason == "watch"
+    ctx = SimpleNamespace(service=service)
+    CodeLoop(ctx).attach()  # type: ignore[arg-type]
+    status = service.status()
+    assert status["autonomy"]["code"] == "watch"
+    assert "code" not in status["builders"]
+    assert service.undo.has(Kind.CODE)  # what it opened before stays undoable
+    service.ledger.close()
+
+
+def test_code_takes_in_nothing_new_but_watches_its_pull_requests(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.PROVING  # a pull request the loop opened before
+    _code_at(monkeypatch, policy.Autonomy.WATCH)
+    world.github.issues = {"me/proj": [make_issue(1), make_issue(2, title="Add a div function")]}
+    world.loop.ctx.store.set_poll("me/proj", 0)
+    world.github.calls.clear()
+    world.github.pulls[100]["checks"] = "SUCCESS"
+    summary = world.tick()
+    assert summary["watched"] == 1 and summary["autonomy"] == "watch"
+    assert "projects" not in summary and "opened" not in summary
+    assert world.service.ledger.get(record.id).state == State.TRIAL  # CI proved it
+    assert [r.id for r in world.records()] == [record.id]  # issue #2 was not taken in
+    assert not any(c == "viewer" or c.startswith("snapshot") for c in world.github.calls)
+    assert len(world.runner.prompts) == 1  # no new coding run
+    # The person merges it: the record still settles.
+    world.github.pulls[100]["state"] = "MERGED"
+    world.github.pulls[100]["head_oid"] = record.undo.get("head", "")
+    world.tick()
+    assert world.service.ledger.get(record.id).state == State.KEPT
+
+
+def test_watch_closes_a_case_that_waited_to_be_built(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dodaios.self_build.code.loop import NOT_BUILT_NOTE
+
+    world.idle[0] = False
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.BUILDING  # waiting for idle time
+    _code_at(monkeypatch, policy.Autonomy.WATCH)
+    world.idle[0] = True
+    summary = world.tick()
+    assert summary["closed"] == 1
+    record = world.service.ledger.get(record.id)
+    assert record.state == State.FAILED and record.note == NOT_BUILT_NOTE
+    assert world.runner.prompts == [] and world.github.pulls == {}
+    assert world.remote_branches() == ["main"]

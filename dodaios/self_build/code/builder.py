@@ -385,10 +385,10 @@ def target(ctx: Context, record: BuildRecord) -> tuple[str, Issue, dict[str, Any
 async def recheck(ctx: Context, repo: str, issue: Issue, data: dict[str, Any]) -> Issue:
     """The issue as it stands right before the build, or :class:`Obsolete`.
 
-    A proposal can wait days for the person's accept or for idle time; by then
-    the issue may be closed, taken by someone else, relabelled, or the
-    repository may have changed hands. Any of these ends the case before any
-    work. GitHub not answering only puts the case back in the queue.
+    A case can wait days for idle time; by then the issue may be closed, taken
+    by someone else, relabelled, or the repository may have changed hands. Any
+    of these ends the case before any work. GitHub not answering only puts the
+    case back in the queue.
     """
     from dataclasses import replace
 

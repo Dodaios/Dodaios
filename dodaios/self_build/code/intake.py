@@ -269,7 +269,7 @@ async def poll(ctx: Context, project: OwnedProject, who: Viewer, *, budget: int)
         )
         if admission.start is None:
             logger.debug("self-build code: {} not opened: {}", sig, admission.reason)
-            if admission.reason in ("off", "paused"):
+            if admission.reason in ("off", "paused", "watch"):
                 break
             continue
         await asyncio.to_thread(
@@ -279,7 +279,6 @@ async def poll(ctx: Context, project: OwnedProject, who: Viewer, *, budget: int)
             title(ctx, issue, repo),
             case=case(ctx, issue, repo, verdict.signal, project.brief),
             evidence=[issue.url or sig],
-            state=admission.start,
         )
         logger.info("self-build code: opened {} as {} ({})", sig, admission.start, verdict.signal)
         opened += 1

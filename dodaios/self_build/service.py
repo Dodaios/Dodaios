@@ -6,10 +6,14 @@ REST routes through ``app.state.self_build``.
 
 Builders plug in per kind:
 
-* ``register_builder(kind, fn)``: called with the record when a proposed build
-  is accepted (or admitted straight to building); it builds, proves and moves
-  the record on.
+* ``register_builder(kind, fn)``: the kind can be built here; the status lists
+  it. The loop that admits a build hands it to its builder itself.
 * ``undo.register(kind, fn)``: removes what the builder created.
+
+The person is never asked to approve a build or to keep one: a build goes
+live on trial when it can be undone, and :meth:`SelfBuild.sweep` keeps or
+archives a finished trial from its use. What the person has is the kill
+switch (:meth:`SelfBuild.set_paused`) and undo (:meth:`SelfBuild.undo_build`).
 """
 
 from __future__ import annotations
@@ -18,11 +22,11 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from . import policy
 from .ledger import DB_NAME, BuildLedger, now_ms
-from .records import LIVE_STATES, BuildRecord, Kind, State
+from .records import LIVE_STATES, BuildRecord, Kind, State, TransitionError
 from .undo import UndoRegistry
 
 log = logging.getLogger(__name__)
@@ -32,9 +36,10 @@ Publish = Callable[[Any], Awaitable[None]]
 
 _current: SelfBuild | None = None
 
-
-class NoBuilder(RuntimeError):
-    """Nothing is registered that can build this kind yet."""
+#: The note an old proposal is archived with (:meth:`SelfBuild.retire_proposals`).
+RETIRED_NOTE: Final[str] = (
+    "archived: no longer asked. The loop builds what it can undo and measure on its own"
+)
 
 
 class SelfBuild:
@@ -78,37 +83,22 @@ class SelfBuild:
         )
 
     def status(self) -> dict[str, Any]:
+        """What the loop may do right now, as it really is.
+
+        ``autonomy`` is the fixed level per kind (``full``: built on trial and
+        kept or archived by use; ``watch``: nothing new is opened, open work is
+        watched to its end). ``builders`` are the kinds something here can build.
+        """
         cfg = self.config()
-        section = policy.section(cfg)
         return {
-            "enabled": bool(section is not None and section.enabled),
             "paused": policy.paused(self.ledger),
             "silent": policy.silent(self.ledger, cfg),
-            "autonomy": {kind.value: policy.autonomy(cfg, kind).value for kind in Kind},
+            "autonomy": {kind.value: policy.autonomy(kind).value for kind in Kind},
             "builders": sorted(kind.value for kind in self._builders),
             "code": self.code_loop.state() if self.code_loop is not None else {},
         }
 
     # ------------------------------------------------------------ person's actions
-
-    async def accept(self, build_id: str) -> BuildRecord:
-        """The person accepted a proposed build: hand it to its builder."""
-        record = await asyncio.to_thread(self.ledger.get, build_id)
-        if record is None:
-            raise KeyError(build_id)
-        if record.state != State.PROPOSED:
-            return record
-        builder = self._builders.get(record.kind)
-        if builder is None or not self.undo.has(record.kind):
-            raise NoBuilder(record.kind.value)
-        record = await asyncio.to_thread(
-            self.ledger.set_state, build_id, State.BUILDING, "accepted"
-        )
-        self.spawn(builder(record), f"build {build_id}")
-        return record
-
-    async def keep(self, build_id: str) -> BuildRecord:
-        return await asyncio.to_thread(self.ledger.set_state, build_id, State.KEPT, "kept")
 
     async def undo_build(self, build_id: str, note: str = "") -> BuildRecord:
         return await self.undo.undo(self.ledger, build_id, note)
@@ -116,11 +106,31 @@ class SelfBuild:
     def set_paused(self, value: bool) -> None:
         policy.set_paused(self.ledger, value)
 
+    # ------------------------------------------------------------ proposals of old
+
+    def retire_proposals(self) -> list[BuildRecord]:
+        """Archive every case an older version left waiting for the person's OK.
+
+        Called once, when the service starts (:func:`start`). Nothing opens as a
+        proposal any more, so a later start finds none. The record stays
+        (archived, never deleted), and the need can come back as a build on
+        trial. Blocking (SQLite).
+        """
+        retired: list[BuildRecord] = []
+        for record in self.ledger.list(states=[State.PROPOSED], limit=500):
+            try:
+                retired.append(self.ledger.set_state(record.id, State.ARCHIVED, RETIRED_NOTE))
+            except (KeyError, TransitionError):  # moved meanwhile: nothing left to retire
+                continue
+        if retired:
+            log.info("self_build: archived %d proposal(s) that waited for an OK", len(retired))
+        return retired
+
     # ------------------------------------------------------------ trials
 
     async def sweep(self) -> list[BuildRecord]:
-        """Settle trials that are over. Archiving is automatic (restorable);
-        keeping without a look from the person only at autonomy ``full``."""
+        """Settle trials that are over, for every kind, from their use alone: a
+        used trial is kept, an unused one archived (restorable, never deleted)."""
         if policy.paused(self.ledger):
             return []
         cfg = self.config()
@@ -130,8 +140,6 @@ class SelfBuild:
             if not policy.trial_over(record, cfg):
                 continue
             verdict = policy.settle(record)
-            if verdict == State.KEPT and policy.autonomy(cfg, record.kind) != policy.Autonomy.FULL:
-                continue
             note = (
                 "kept: used and accepted"
                 if verdict == State.KEPT
@@ -249,6 +257,7 @@ def start(
     global _current
     if _current is None:
         _current = SelfBuild(data_dir, config, publish=publish)
+        _current.retire_proposals()
     try:
         _current.bind_loop(asyncio.get_running_loop())
     except RuntimeError:  # started outside a loop: events stay off until bind_loop

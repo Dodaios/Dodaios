@@ -81,7 +81,7 @@ KNOWN: frozenset[str] = frozenset(
         "notifications",
         # Keyboard shortcuts: every shortcut in one place, with a key tester.
         "shortcuts",
-        # Built for you: what the self-building loop made, with keep and undo.
+        # Built for you: what the self-building loop made, with pause and undo.
         "self-build",
         # Trust & privacy: what runs without asking, what is known and where
         # it goes. A Settings-hub page.
