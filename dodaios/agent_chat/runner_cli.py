@@ -5015,6 +5015,7 @@ def _lead_record(handle: TurnHandle, user_text: str) -> Any:
 def _note_lead_input(
     plan: CliPlan,
     *,
+    session_id: str,
     runner: str,
     model: str,
     effort: str,
@@ -5024,8 +5025,8 @@ def _note_lead_input(
 ) -> None:
     """Hand the current lead turn's record what its CLI is given (:func:`lead_model_input`)."""
     record = _LEAD_RECORD.get()
-    if record is None:
-        return
+    if record is None or record.session_id != session_id:
+        return  # not a lead turn, or another chat's run started from inside one
     try:
         record.planned(
             lead_model_input(
@@ -5341,6 +5342,7 @@ async def _run_cli_once(
     if planner is not None:
         _note_lead_input(
             plan,
+            session_id=session.session_id,
             runner=runner,
             model=session.model,
             effort=effort,
