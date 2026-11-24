@@ -5,6 +5,7 @@ Each test names the rule and says how to comply. Pure file reads: fast, no app.
 from __future__ import annotations
 
 import json
+from html.parser import HTMLParser
 import re
 from pathlib import Path
 
@@ -15,6 +16,27 @@ from dodaios.nodes import types as node_types
 _REPO = Path(__file__).resolve().parents[2]
 _SRC = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src"
 _LOCALES = sorted((_SRC / "i18n" / "locales").glob("**/*.json"))
+
+
+class _VisibleText(HTMLParser):
+    """Collects the text a person can see: everything outside script and style."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.chunks: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        if tag in ("script", "style"):
+            self._skip += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("script", "style") and self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip and data.strip():
+            self.chunks.append(data)
 
 
 def _frontend_sources() -> list[Path]:
@@ -92,9 +114,8 @@ def test_boot_splash_and_page_title_never_say_jarvis() -> None:
     splash = splash.replace("jarvis-boot-splash", "")
     assert "jarvis" not in splash.lower(), "BootSplash.tsx shows the old product name; use Dodaios or no name."
 
-    html = (_SRC.parent / "index.html").read_text("utf-8")
-    html = re.sub(r"<script.*?</script>|<style.*?</style>", "", html, flags=re.S | re.I)
-    visible = re.findall(r">([^<]+)<", html)
-    assert not [t for t in visible if "jarvis" in t.lower()], (
+    parser = _VisibleText()
+    parser.feed((_SRC.parent / "index.html").read_text("utf-8"))
+    assert not [t for t in parser.chunks if "jarvis" in t.lower()], (
         "index.html shows the old product name (title or splash text); use Dodaios or no name."
     )
