@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 457,
+  "count": 458,
   "forks": 162,
-  "placed": 97,
-  "stated": 116,
-  "generatedAt": "2026-11-24T12:50:36.295Z",
+  "placed": 98,
+  "stated": 117,
+  "generatedAt": "2026-11-24T14:50:26.308Z",
   "clusters": [
     {
       "lat": 22.687,
@@ -249,6 +249,13 @@
       "lon": 47.058,
       "label": "Kermanshah",
       "country": "Iran",
+      "count": 1
+    },
+    {
+      "lat": 35.97,
+      "lon": -83.92,
+      "label": "Knoxville",
+      "country": "United States",
       "count": 1
     },
     {
