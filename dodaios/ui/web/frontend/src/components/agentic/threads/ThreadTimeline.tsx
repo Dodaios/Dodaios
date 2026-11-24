@@ -36,6 +36,7 @@ import { sentCommandSpan } from "@/components/agentchat/typeahead";
 import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
 import { compactionInfo, isCompaction } from "@/components/agentchat/compaction";
 import "./threadCompaction.css";
+import { useContextActions } from "@/hooks/useContextActions";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -553,6 +554,11 @@ function Elapsed({ since }: { since: number }) {
   return <span ref={ref} className="tabular-nums">{traceDuration(Math.max(0, Date.now() - since))}</span>;
 }
 
+/** For a right-click entry: a refused clipboard surfaces as the menu's error toast. */
+async function copyOrThrow(text: string): Promise<void> {
+  if (!(await robustCopy(text))) throw new Error("clipboard refused the text");
+}
+
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false);
   return <button type="button" aria-label={label} title={label}
@@ -632,7 +638,10 @@ function UserBubble({ item }: { item: UserItem }) {
   const magic = useContext(MagicWords);
   const command = useContext(SlashCommands) ? sentCommandSpan(item.text) : null;
   const threadLinked = splitThreadLinks(item.text).some((part) => "sessionId" in part);
-  return <div className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
+  const menuRef = useContextActions(item.text ? () => [
+    { id: "copy-message", label: t("ide_threads.copy_message"), icon: Copy, run: () => copyOrThrow(item.text) },
+  ] : null);
+  return <div ref={menuRef} className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
     {item.author && <div className="flex items-center gap-1.5 pr-1 text-xs text-muted-foreground" data-testid="thread-message-author">
       <Bot aria-hidden className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{t("society.chat.coding_thread_author").replace("{0}", item.author.name)}</span>
@@ -1067,6 +1076,10 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     [turn.blocks, t, lang, turn.status, pictures, plans],
   );
   const answer = answerText(turn);
+  const menuRef = useContextActions(answer && turn.status !== "running" ? () => [
+    { id: "copy-answer", label: t("thread_turn.copy_answer"), icon: Copy, run: () => copyOrThrow(answer) },
+    { id: "read-aloud", label: t("thread_turn.read_aloud"), icon: Volume2, run: () => toggleReadAloud(turn.id, answer) },
+  ] : null);
   const [workOpen, setWorkOpen] = useState(false);
   // Finished: every step and thought folds behind one "Worked for …" line; the answer stays.
   const { work, answer: tail } = useMemo(() => (running ? { work: rows, answer: [] } : foldFinished(rows)), [rows, running]);
@@ -1126,7 +1139,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     const ending = turn.status === "cancelled" ? timed("stopped")
       : turn.status === "error" ? timed("failed")
         : !answer ? timed("no_answer") : "";
-    return <CallMedia.Provider value={pictures.byCall}><div className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
+    return <CallMedia.Provider value={pictures.byCall}><div ref={menuRef} className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
       <ChatThought turn={turn} answering={textRows.length > 0} />
       {textRows.map(renderRow)}
       {!running && <>
@@ -1146,7 +1159,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   if (!folded) while (extraAt > 0 && shown[extraAt - 1].kind === "text") extraAt--;
   // One 20 px gap between every block of the turn: a paragraph, a line of
   // work, a card. Lines of work give some of it back (WorkRow).
-  return <CallMedia.Provider value={pictures.byCall}><div className="flex min-w-0 flex-col gap-5" data-testid="thread-turn" data-status={turn.status}>
+  return <CallMedia.Provider value={pictures.byCall}><div ref={menuRef} className="flex min-w-0 flex-col gap-5" data-testid="thread-turn" data-status={turn.status}>
     {folded && <div>
       <button type="button" aria-expanded={workOpen} onClick={() => setWorkOpen((value) => !value)} data-testid="thread-worked-for"
         className="-my-1.5 flex items-center gap-1 rounded-lg py-[3.5px] text-[15px] leading-[21px] text-muted-foreground transition-colors duration-100 hover:text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
