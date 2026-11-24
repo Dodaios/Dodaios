@@ -49,13 +49,9 @@ def build() -> tuple[AppCommand, ...]:
             id="marketplace-install",
             title="Install from the marketplace",
             description=(
-                "Install ONE published marketplace entry by its exact name. The "
-                "kind is resolved by the app, so the same command installs a "
-                "skill or a plugin. What the user gets differs and the answer "
-                "must say so: a skill is usable right away, a plugin only lands "
-                "on the plugin list and stays powerless until the user connects "
-                "their account. Look the name up with marketplace-browse first "
-                "rather than guessing it; report the result the tool returns."
+                "Install one published marketplace entry by its exact name (look it up with "
+                "marketplace-browse first). A skill is usable at once; a plugin stays "
+                "powerless until the user connects their account: say which it was."
             ),
             method="POST",
             path="/api/marketplace/community/install/{item_id}",

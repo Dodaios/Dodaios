@@ -246,8 +246,8 @@ Run the deterministic suite with:
 ```
 python -m pytest tests/contract/test_browser_contract.py tests/unit/society/test_browser.py
 ```
-Real-browser tests use JARVIS_BROWSER_TEST_PYTHON and
-JARVIS_BROWSER_TEST_EXECUTABLE to select an isolated verified environment.
-Set JARVIS_BROWSER_SOAK_SECONDS=60 for the longer animation measurement.
-Live model tests additionally require JARVIS_BROWSER_MODEL_TEST=1 and an
+Real-browser tests use DODAIOS_BROWSER_TEST_PYTHON and
+DODAIOS_BROWSER_TEST_EXECUTABLE to select an isolated verified environment.
+Set DODAIOS_BROWSER_SOAK_SECONDS=60 for the longer animation measurement.
+Live model tests additionally require DODAIOS_BROWSER_MODEL_TEST=1 and an
 explicit test data root; they never use real third-party forms.

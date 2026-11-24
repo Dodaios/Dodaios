@@ -6,9 +6,12 @@ updates its list → the frontend shows the iframe in the Previews view.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 class StartPreviewServerTool:
@@ -63,5 +66,6 @@ class StartPreviewServerTool:
                 success=True,
                 output=f"Dev server '{title}' registered at {url} in Previews.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, error=f"Preview registration failed: {exc}")

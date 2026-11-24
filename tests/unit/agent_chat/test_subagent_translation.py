@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from dodaios.agent_chat.events import is_transient
+from dodaios.agent_chat.events import is_model_report, is_transient
 from dodaios.agent_chat.runner_cli import (
     _ClaudeState,
     _CodexState,
@@ -160,9 +160,23 @@ def test_claude_background_shell_task_gets_no_agent_card() -> None:
 
 
 def test_subagent_progress_is_live_only() -> None:
-    progress = [ev for ev in _claude_events() if ev["kind"] == "subagent_progress"]
+    progress = [
+        ev for ev in _claude_events()
+        if ev["kind"] == "subagent_progress" and not is_model_report(ev)
+    ]
     assert progress and all(is_transient(ev) for ev in progress)
     assert not any(is_transient(ev) for ev in _claude_events() if ev["kind"] == "subagent_finished")
+
+
+def test_subagent_model_report_is_stored() -> None:
+    """The model is said once; a reload must still know it."""
+    report = {
+        "kind": "subagent_progress",
+        "payload": {"turn_id": "t1", "agent_id": SPAWN, "model": "claude-haiku-5-5"},
+    }
+    assert is_model_report(report) and not is_transient(report)
+    working = {"agent_id": SPAWN, "activity": "Reading", "model": "m"}
+    assert is_transient({"kind": "subagent_progress", "payload": working})
 
 
 def test_subagent_status_words() -> None:

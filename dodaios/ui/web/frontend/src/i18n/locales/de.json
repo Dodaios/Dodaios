@@ -3680,25 +3680,8 @@
     },
     "self_build": {
       "title": "Selbstbau",
-      "description": "Wie weit {name} gehen darf, wenn es von sich aus Dinge für dich baut.",
+      "description": "Die Grenzen, an die sich {name} hält, wenn es dir Helfer baut. Es fragt nie vorher: Es baut nur, was sich rückgängig machen lässt, und behält, was du nutzt. Pausieren oder rückgängig machen kannst du unter „Für dich gebaut“.",
       "open_view": "„Für dich gebaut“ öffnen",
-      "enabled_title": "Von sich aus bauen",
-      "enabled_description": "Bemerken, was du immer wieder tust, und bauen, was es dir abnimmt. Aus: Nichts wird bemerkt oder gebaut.",
-      "autonomy_title": "Wie weit, je Art",
-      "autonomy_description": "Aus: nie. Vorschlagen: Eine Karte fragt zuerst. Probe: gebaut, geprüft und live, mit Rückgängig per Klick. Voll: wie Probe, und eine genutzte Probe wird von selbst behalten.",
-      "levels": {
-        "off": "Aus",
-        "suggest": "Vorschlagen",
-        "trial": "Probe",
-        "full": "Voll"
-      },
-      "kinds": {
-        "memory": "Erinnerungen",
-        "skill": "Skills",
-        "routine": "Routinen",
-        "agent": "Agenten",
-        "code": "Code-Änderungen"
-      },
       "limits_title": "Grenzen",
       "limits_description": "Feste Obergrenzen, die die Schleife nie überschreitet, egal was sie entscheidet.",
       "limits": {
@@ -3708,7 +3691,7 @@
         "max_code_runs_per_day": "Code-Läufe pro Tag",
         "trial_days": "Probedauer in Tagen",
         "trial_uses": "Probedauer in Nutzungen",
-        "max_rejections": "Nach so vielen Absagen nicht mehr anbieten",
+        "max_rejections": "Nach so vielen Rücknahmen nicht mehr bauen",
         "silent_days": "Ruhige erste Tage"
       },
       "save_error": "Speichern fehlgeschlagen: {detail}",
@@ -5254,6 +5237,7 @@
     "approving": "Wird freigegeben…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Installiert, aus",
     "install_failed": "Installation fehlgeschlagen",
     "title": "Skill-Finder",
     "subtitle": "Beschreibe, was du brauchst — der Mini-Agent sucht im Katalog und rankt per KI.",
@@ -5431,7 +5415,11 @@
     "select_all": "Alles auswählen",
     "copy_failed": "Kopieren in die Zwischenablage nicht möglich.",
     "paste_unavailable": "Zwischenablage konnte nicht gelesen werden.",
-    "paste_failed": "Hier kann nicht eingefügt werden."
+    "paste_failed": "Hier kann nicht eingefügt werden.",
+    "open_link": "Link öffnen",
+    "copy_link": "Linkadresse kopieren",
+    "clear_terminal": "Terminal leeren",
+    "action_failed": "Das hat nicht geklappt."
   },
   "workspace_bar": {
     "open_workspaces": "Offene Arbeitsbereiche",
@@ -6728,6 +6716,7 @@
     "landed_title": "{title} installiert",
     "landed_plugin": "Liegt jetzt unter Plugins. Verbinde es, dann kannst du es nutzen.",
     "landed_skill": "Liegt jetzt unter Skills und ist sofort einsatzbereit.",
+    "landed_skill_off": "Liegt ausgeschaltet unter Skills. Erst dort lesen, dann einschalten.",
     "landed_needs_connect": "Installiert, aber noch nicht nutzbar: es muss noch verbunden werden.",
     "sends_data_to": "Sobald verbunden, gehen Anfragen und dein Zugriffstoken an:",
     "runs_command": "Sobald verbunden, läuft dieser Befehl auf deinem Rechner:",
@@ -9558,7 +9547,14 @@
       "unavailable": "Diese Datei lässt sich nicht lesen. Vielleicht wurde sie verschoben oder gelöscht.",
       "no_workspace": "Öffne ein Projekt, um hier Dateien zu lesen.",
       "show_change": "Änderung anzeigen",
-      "change_truncated": "{count} weitere Zeilen werden nicht angezeigt."
+      "change_truncated": "{count} weitere Zeilen werden nicht angezeigt.",
+      "unsaved": "Nicht gespeicherte Änderungen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "conflict": "Die Datei hat sich auf dem Datenträger geändert, seit du sie geöffnet hast.",
+      "overwrite": "Überschreiben",
+      "discard": "Meine Änderungen verwerfen",
+      "save_failed": "Speichern fehlgeschlagen: {error}"
     }
   },
   "appshots": {
@@ -10697,6 +10693,20 @@
     "signin_not_yet": "— die Installation verbindet noch nichts."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Flagge",
+      "set": "Markiert",
+      "mark": "Flagge: {name}",
+      "name_flags": "Flaggen benennen…",
+      "names_title": "Flaggen benennen",
+      "names_body": "Der Name erscheint, wenn der Zeiger auf einer Flagge ruht. Ein leeres Feld setzt den Standardnamen.",
+      "default_red": "Wichtig",
+      "default_orange": "Nachfassen",
+      "default_blue": "Später",
+      "name_red": "Name der roten Flagge",
+      "name_orange": "Name der orangen Flagge",
+      "name_blue": "Name der blauen Flagge"
+    },
     "remove_project": "Projekt entfernen",
     "remove_project_title": "{project} aus der Seitenleiste entfernen?",
     "remove_project_body_none": "Der Ordner auf der Festplatte bleibt unberührt; füge ihn wieder hinzu, um das Projekt zurückzuholen.",

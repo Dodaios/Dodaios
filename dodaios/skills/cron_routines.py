@@ -152,7 +152,7 @@ async def sync_skill_routines(runtime: Any, skills: Iterable[Any] | None) -> dic
                 lead, {"task_id": str(row["id"]), "operation": "delete"}, task_store, scheduler
             )
             counts["removed"] += 1
-        except Exception:  # noqa: BLE001 — a running routine is retried next pass
+        except Exception:  # broad-except: a running routine is retried next pass
             log.info("skill schedules: routine %s not removed yet", row.get("id"), exc_info=True)
 
     seat: dict[str, str] | None = None
@@ -188,7 +188,7 @@ async def sync_skill_routines(runtime: Any, skills: Iterable[Any] | None) -> dic
                 scheduler,
             )
             counts["updated"] += 1
-        except Exception:  # noqa: BLE001 — one bad skill never stops the others
+        except Exception:  # broad-except: one bad skill never stops the others
             log.warning("skill schedules: %s not synced", skill.name, exc_info=True)
     if any(counts.values()):
         log.info("skill schedules synced: %s", counts)
@@ -207,7 +207,7 @@ async def keep_in_sync(runtime: Any, *, interval_s: float = SYNC_INTERVAL_S) -> 
             await sync_skill_routines(runtime, runtime._get_skills())  # noqa: SLF001
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — the loop outlives one bad pass
+        except Exception:  # broad-except: the loop outlives one bad pass
             log.warning("skill schedules: pass failed", exc_info=True)
         await asyncio.sleep(interval_s)
 

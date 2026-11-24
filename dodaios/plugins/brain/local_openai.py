@@ -72,7 +72,7 @@ def _declared_vision_support(model: str) -> bool:
         from dodaios.brain.model_catalog import model_capabilities  # noqa: PLC0415 — lazy (AP-26)
 
         return model_capabilities("local-openai", model)["vision"] is True
-    except Exception:  # noqa: BLE001 — a probe must never break construction
+    except Exception:  # broad-except: a probe must never break construction
         log.debug("local-openai: vision capability probe failed — staying blind")
         return False
 
@@ -196,7 +196,7 @@ class LocalOpenAIBrain:
             window = await local_context.probe_server_window(
                 root, self._model, headers=self._probe_headers()
             )
-        except Exception as exc:  # noqa: BLE001 — sizing must never cost the turn
+        except Exception as exc:  # broad-except: sizing must never cost the turn
             log.debug("local-openai: could not settle the context window early: %s", exc)
             return
         if window is not None:

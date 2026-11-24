@@ -13,7 +13,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Night, NightDecision } from "@/lib/selfImprovementApi";
 import { Section } from "../selfBuild/List";
-import { areaName, effectWords, fmtPoints, fmtValue, nightDate, paramTitle, wordFor } from "./words";
+import { areaName, effectWords, fmtPoints, nightDate, paramTitle, valueWords, wordFor } from "./words";
 
 const SHOWN = 3;
 
@@ -85,8 +85,8 @@ export function nightLines(t: T, night: Night, locale: string): string[] {
     out.push(
       fill(t("self_improvement.nights.proposed"), {
         title: paramTitle(t, row.target),
-        from: fmtValue(row.current, locale),
-        to: fmtValue(row.value, locale),
+        from: valueWords(t, row.current, locale, row.target),
+        to: valueWords(t, row.value, locale, row.target),
       }),
     );
   }

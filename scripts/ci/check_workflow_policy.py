@@ -53,6 +53,38 @@ def audit(workflows: dict[str, dict]) -> list[str]:
     if provenance.get("upload-assets") is not False or "draft-release" in provenance:
         findings.append("sign-installer.yml: provenance must only produce a workflow artifact")
     findings += _release_bot_findings(workflows)
+    findings += _signing_key_findings(workflows)
+    return findings
+
+
+# The offline release signing keys: WAVE2_OFFLINE_KEY_B64 (Ed25519) and
+# WAVE4_MLDSA65_KEY_B64 (ML-DSA-65), and any later WAVE<n> key.
+SIGNING_KEY_REF = re.compile(r"secrets\s*(?:\.\s*|\[\s*['\"])WAVE\d", re.IGNORECASE)
+SIGNING_ENVIRONMENT = "release-signing"
+
+
+def _signing_key_findings(workflows: dict[str, dict]) -> list[str]:
+    """Only jobs in the tag-only release-signing environment may name a signing key.
+
+    The keys are secrets of that environment, not of the repository: a
+    repository secret reaches every workflow run on any branch, while the
+    environment admits only runs on a `v*` tag.
+    """
+    findings = []
+    for filename, workflow in workflows.items():
+        if SIGNING_KEY_REF.search(yaml.safe_dump(workflow.get("env") or {})):
+            findings.append(f"{filename}: the release signing keys must not be in the workflow env")
+        for name, job in workflow.get("jobs", {}).items():
+            if not SIGNING_KEY_REF.search(yaml.safe_dump(job)):
+                continue
+            environment = job.get("environment")
+            if isinstance(environment, dict):
+                environment = environment.get("name")
+            if environment != SIGNING_ENVIRONMENT:
+                findings.append(
+                    f"{filename}/{name}: only a job in the {SIGNING_ENVIRONMENT} "
+                    "environment may read the release signing keys"
+                )
     return findings
 
 

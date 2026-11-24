@@ -1,7 +1,7 @@
 /**
  * "Noticed": the requests the person repeats, each with how close it is to
- * becoming a suggestion. It is the proof that the page is working before
- * anything is built. Only the person's own requests count
+ * the point where the assistant builds a helper for it. It is the proof that
+ * the page is working before anything is built. Only the person's own requests count
  * (dodaios/self_build/miner.py); the labels are their own latest wording, cut
  * short by the route.
  *
@@ -19,13 +19,11 @@ export function NoticedSection({
   data,
   locale,
   paused = false,
-  onOpenBuild,
 }: {
   data: NoticedData | undefined;
   locale: string;
-  /** Building is paused: a ready need waits for the resume, not for a look. */
+  /** Building is paused: a ready need waits for the resume. */
   paused?: boolean;
-  onOpenBuild: (id: string) => void;
 }) {
   const t = useT();
   if (!data || data.needs.length === 0) return null;
@@ -48,7 +46,6 @@ export function NoticedSection({
               times={threshold.times}
               locale={locale}
               paused={paused}
-              onOpenBuild={onOpenBuild}
             />
           ))}
         </Group>
@@ -67,14 +64,12 @@ function NeedRow({
   times,
   locale,
   paused,
-  onOpenBuild,
 }: {
   need: NoticedNeed;
   days: number;
   times: number;
   locale: string;
   paused: boolean;
-  onOpenBuild: (id: string) => void;
 }) {
   const t = useT();
   const reached = Math.min(need.days, days);
@@ -97,16 +92,6 @@ function NeedRow({
           <span className="block h-full rounded-full bg-foreground-strong" style={{ width: `${Math.round((reached / Math.max(1, days)) * 100)}%` }} />
         </span>
       </span>
-    );
-  } else if (need.stage === "proposed" && need.build_id) {
-    right = (
-      <button
-        type="button"
-        onClick={() => onOpenBuild(need.build_id)}
-        className="rounded-sm text-sm font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {t("self_build.noticed.stage.proposed")}
-      </button>
     );
   } else {
     const { text, tone } = stageText(need, days, times, paused, t);
@@ -157,8 +142,6 @@ function stageText(
       return paused
         ? { text: t("self_build.noticed.stage.ready_paused"), tone: "text-muted-foreground" }
         : { text: t("self_build.noticed.stage.ready"), tone: "text-accent" };
-    case "proposed":
-      return { text: t("self_build.noticed.stage.proposed"), tone: "text-accent" };
     default:
       return { text: t(`self_build.noticed.stage.${need.stage}`), tone: "text-muted-foreground" };
   }
@@ -166,7 +149,7 @@ function stageText(
 
 // ------------------------------------------------------------------ how it works
 
-const STEPS = ["notice", "suggest", "try"] as const;
+const STEPS = ["notice", "build", "try"] as const;
 
 export function HowItWorks({ center = false }: { center?: boolean }) {
   const t = useT();

@@ -4,7 +4,7 @@ import type { SubagentRow } from "@/store/threadSubagents";
 import { ThreadTreeSubagents, visibleSubagentRows } from "./ThreadTreeSubagents";
 
 const row = (id: string, over: Partial<SubagentRow> = {}): SubagentRow => ({
-  id, parentId: null, depth: 0, title: `Agent ${id}`, agentType: "", status: "done", waiting: false, ...over,
+  id, parentId: null, depth: 0, title: `Agent ${id}`, agentType: "", model: "", status: "done", waiting: false, ...over,
 });
 
 afterEach(cleanup);

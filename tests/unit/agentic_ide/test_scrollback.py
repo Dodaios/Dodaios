@@ -234,7 +234,7 @@ def test_the_history_is_bounded_by_characters() -> None:
 def test_the_default_bound_matches_the_viewers_scrollback() -> None:
     """Rows past the viewer's own limit would be sent and dropped on arrival."""
     frontend = Path(__file__).parents[3] / "dodaios/ui/web/frontend/src/components/agentic"
-    source = (frontend / "AgenticTerminal.tsx").read_text(encoding="utf-8")
+    source = (frontend / "terminal" / "connect" / "mountTerminal.ts").read_text(encoding="utf-8")
 
     assert f"scrollback: {HISTORY_LIMIT_ROWS}," in source
     assert HISTORY_LIMIT_CHARS >= 80 * HISTORY_LIMIT_ROWS, "a full history of ordinary rows fits"

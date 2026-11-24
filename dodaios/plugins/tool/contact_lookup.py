@@ -101,7 +101,7 @@ class ContactLookupTool:
         log.info("contact-lookup: resolving %r", name)
         try:
             contact = store.find_by_alias(name)
-        except Exception as exc:  # noqa: BLE001 — a store error must not crash the turn
+        except Exception as exc:  # broad-except: a store error must not crash the turn
             log.warning("contact-lookup: store.find_by_alias raised %s", exc)
             return ToolResult(success=False, output="", error="contact lookup failed")
 

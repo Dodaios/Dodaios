@@ -256,7 +256,7 @@ def _forget_prefs(name: str) -> None:
         current = prefs.load_prefs()
         if name in current.order or name in current.state or name in current.autofire:
             prefs.remove_skill(name)
-    except Exception as exc:  # noqa: BLE001 - a stale pref entry only costs tidiness
+    except Exception as exc:  # broad-except: a stale pref entry only costs tidiness
         log.warning("could not drop the preferences of retired skill '%s': %s", name, exc)
 
 

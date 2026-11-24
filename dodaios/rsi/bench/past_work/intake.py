@@ -39,6 +39,8 @@ class Taken:
     retired: int = 0
     #: Opened pull requests that became no task, by reason.
     left_out: Mapping[str, int] = field(default_factory=dict)
+    #: The clones that were read, one per repository (a brief replay works on them).
+    folders: tuple[str, ...] = ()
 
 
 def _pull(group: str) -> tuple[str, int]:
@@ -121,8 +123,7 @@ def take_in(
     folder that is no repository contributes nothing.
     """
     sessions = list(read_sessions(homes))
-    if folders is None:
-        folders = session_folders(sessions)
+    folders = list(session_folders(sessions) if folders is None else folders)
     stored = [task for domain in _DOMAINS for task in store.tasks(domain, source=Source.MINED)]
     # A stored task's pull request is asked about too: its record may be long gone.
     changes = read_changes(sessions, folders, also=(_pull(task.group) for task in stored))
@@ -136,4 +137,5 @@ def take_in(
         in_use={domain.value: len(store.tasks(domain, source=Source.MINED)) for domain in _DOMAINS},
         retired=len(gone),
         left_out=dict(mined.left_out),
+        folders=tuple(str(folder) for folder in folders),
     )

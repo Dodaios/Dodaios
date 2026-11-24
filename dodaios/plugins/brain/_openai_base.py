@@ -671,7 +671,7 @@ async def stream_complete(
                 exc,
             )
             kwargs.pop(offender, None)
-        except Exception as exc:  # noqa: BLE001 — inspect for the transport verdict
+        except Exception as exc:  # broad-except: inspect for the transport verdict
             hint = (
                 tools_rejection_hint(_error_text(exc))
                 if tools_fallback and "tools" in kwargs
@@ -1133,7 +1133,7 @@ async def _create_with_token_param_retry(client: Any, kwargs: dict[str, Any]) ->
             # SDK-level kwarg problems belong to the caller's stream_options
             # handling — never ours.
             raise
-        except Exception as exc:  # noqa: BLE001 — inspect, adapt, or re-raise
+        except Exception as exc:  # broad-except: inspect, adapt, or re-raise
             retry = _compatible_retry_kwargs(exc, current_kwargs, adaptations)
             if retry is None:
                 raise

@@ -206,7 +206,7 @@ def _import_notebooks(writer: _Writer, root: Path) -> None:
 
     try:
         books = JarvisNotebook(root).entries()
-    except Exception as exc:  # noqa: BLE001 — a broken notebook skips this source only
+    except Exception as exc:  # broad-except: a broken notebook skips this source only
         log.info("memory vault import: notebooks unreadable - %s", exc)
         return
     for target, default in (("user", "profile"), ("memory", "reference")):

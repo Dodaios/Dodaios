@@ -1,34 +1,28 @@
 /**
- * Settings → General → Self-building: `[self_build]` (docs/self-build.md).
+ * Settings → General → Self-building: the limits in `[self_build]`
+ * (docs/self-build.md).
  *
- * The master switch, how far the loop may go per kind (off / suggest / trial /
- * full), and the hard caps. Every change is one PUT to
- * `/api/self-build/settings`, written to jarvis.toml and applied at once — the
- * running loop reads the new values on its next decision, no restart.
+ * Only the hard caps, trial lengths and the repositories that may merge on
+ * their own. There is no master switch and no stage per kind: the loop never
+ * asks for an OK, it builds what it can undo and keeps what is used. The
+ * person's controls are the pause switch and undo on "Built for you". Every
+ * change is one PUT to `/api/self-build/settings`, written to jarvis.toml and
+ * applied at once — the running loop reads the new values on its next
+ * decision, no restart.
  */
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { fill, useT } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { useSaveSelfBuildSettings, useSelfBuildSettings } from "@/hooks/useSelfBuild";
-import {
-  BUILD_KINDS,
-  type Autonomy,
-  type SelfBuildSettings,
-  type SelfBuildSettingsPayload,
-} from "@/lib/selfBuildApi";
+import { type SelfBuildSettings, type SelfBuildSettingsPayload } from "@/lib/selfBuildApi";
 import {
   SettingsCard,
   SettingsLinkButton,
   SettingsNote,
   SettingsRow,
   SettingsSection,
-  SettingsSegmented,
 } from "@/views/settings/SettingsLayout";
-
-const LEVELS: readonly Autonomy[] = ["off", "suggest", "trial", "full"];
 
 type NumberKey =
   | "silent_days"
@@ -82,43 +76,6 @@ export function SelfBuildGroup() {
         <SettingsCard><div className="h-24" aria-busy="true" /></SettingsCard>
       ) : (
         <SettingsCard>
-          <SettingsRow
-            id="settings-self-build-enabled"
-            testId="self-build-enabled"
-            title={t("settings_view.self_build.enabled_title")}
-            description={t("settings_view.self_build.enabled_description")}
-            control={
-              <Switch
-                checked={payload.settings.enabled}
-                disabled={save.isPending}
-                aria-label={t("settings_view.self_build.enabled_title")}
-                onCheckedChange={(next) => apply({ enabled: next })}
-              />
-            }
-          />
-          <SettingsRow
-            title={t("settings_view.self_build.autonomy_title")}
-            description={t("settings_view.self_build.autonomy_description")}
-            className={cn(!payload.settings.enabled && "opacity-60")}
-          >
-            <div className="divide-y divide-border rounded-md border border-border">
-              {BUILD_KINDS.map((kind) => (
-                <div key={kind} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2" data-testid={`self-build-autonomy-${kind}`}>
-                  <span className="text-base text-foreground">{t(`settings_view.self_build.kinds.${kind}`)}</span>
-                  <SettingsSegmented<Autonomy>
-                    value={payload.settings[kind]}
-                    ariaLabel={t(`settings_view.self_build.kinds.${kind}`)}
-                    disabled={save.isPending || !payload.settings.enabled}
-                    options={LEVELS.map((level) => ({
-                      value: level,
-                      label: t(`settings_view.self_build.levels.${level}`),
-                    }))}
-                    onChange={(level) => apply({ [kind]: level })}
-                  />
-                </div>
-              ))}
-            </div>
-          </SettingsRow>
           <SettingsRow
             title={t("settings_view.self_build.limits_title")}
             description={t("settings_view.self_build.limits_description")}

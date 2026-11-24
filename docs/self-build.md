@@ -5,6 +5,11 @@ work off them: a memory, a skill, a routine, a specialised agent or a code
 change in one of their projects. It does this without being asked, keeps
 only what proves useful, and lets the person see and undo everything.
 
+It never asks for approval either. There is no switch for it and no "waiting
+for your OK" card: a build goes live on trial when it can be undone, and a
+finished trial is kept or archived from the person's own use, never from a
+click. What the person has is the pause (the loop's kill switch) and undo.
+
 ```
  observe ──> decide ──> build ──> prove ──> trial ──> keep / archive
  (free)     (1 call)  (sandbox) (judge)   (live,     (measured)
@@ -16,15 +21,15 @@ only what proves useful, and lets the person see and undo everything.
   evidence.
 - **Decide** picks the smallest artefact that meets the need, in this order:
   memory, skill, routine, agent, code. "Build nothing" is a valid answer.
-- **Build** goes through the existing creation paths (proposals, the skill
-  creator, routines, the roster, coding threads), never a new back door. No
-  agent gets a tool that creates agents.
+- **Build** goes through the existing creation paths (the learning notebook,
+  the skill creator, routines, the roster, coding threads), never a new back
+  door. No agent gets a tool that creates agents.
 - **Prove**: a judge the builder cannot edit checks the build before it counts
   (replay of the turns that triggered it, shadow runs, tests and CI).
 - **Trial**: the build is live, labelled "built by Dodaios" and undoable with
   one click.
-- **Keep or archive** is decided from use, corrections and cost. Archived
-  builds are restorable, never deleted.
+- **Keep or archive** is decided from use and corrections, never by a click.
+  Archived builds are never deleted.
 
 ## The ledger: `dodaios/self_build/`
 
@@ -35,31 +40,38 @@ writes there and nowhere else.
 |---|---|
 | `records.py` | `Kind`, `State`, `Outcome`, `BuildRecord`, the allowed state moves |
 | `ledger.py` | `BuildLedger`: `open_case`, `set_state`, `attach_proof`, `attach_artefact`, `record_use`, reads, rejections, meta |
-| `policy.py` | `admit` (may a build open, and how far may it go), `trial_over`, `settle`, the kill switch, the silent first days |
+| `policy.py` | the fixed `autonomy` per kind, `admit` (may a build open now), `trial_over`, `settle`, the kill switch, the silent first days |
 | `undo.py` | `UndoRegistry`: one undoer per kind |
 | `cost.py` | `attributed(build_id)` tags model calls; `spent(record)` sums them from the cost ledger |
-| `service.py` | `SelfBuild`, started at boot; `current()` returns it; `register_builder(kind, fn)` |
+| `service.py` | `SelfBuild`, started at boot; `current()` returns it; `register_builder(kind, fn)`; the trial sweep |
 
 States:
 
 ```
-proposed → building → proving → trial → kept | archived | undone
-    │          └──────────┴─────────┴──> failed
-    └─> rejected
+building → proving → trial → kept | archived | undone
+    └──────────┴─────────┴──> failed
 ```
 
-`kept` and `archived` can still be undone; `archived` can be kept again.
+`kept` builds and `archived` builds that made something can still be undone.
+`proposed` and `rejected` exist only in ledgers an older version wrote, when a
+card asked the person first. When the service starts, every record still in
+`proposed` moves to `archived` with the note "archived: no longer asked"; the
+record stays. Such an archived proposal never went on trial, so it neither
+blocks its need nor counts against a cap: the loop may build that need on its
+own later.
 
 ### How a builder plugs in
 
 1. Register an undoer for the kind: `service.undo.register(Kind.SKILL, fn)`. A
-   kind without an undoer is never built, only proposed.
-2. Register a builder: `service.register_builder(Kind.SKILL, fn)`. It is
-   called with the record when a proposal is accepted.
-3. To open a build, call `service.admit(kind, signature)`. `start` is `None`
-   (do not open), `PROPOSED` (open as a card) or `BUILDING` (build now).
-4. Open it with `ledger.open_case(kind, signature, title, case=..., evidence=...,
-   state=admission.start)`. `title` is one sentence the person reads.
+   kind without an undoer is never built.
+2. Register a builder: `service.register_builder(Kind.SKILL, fn)`. The status
+   lists the kind; the loop that admits a build hands it to its builder.
+3. To open a build, call `service.admit(kind, signature)`. `start` is
+   `BUILDING` (build now) or `None` (not now: `reason` says why, and the need
+   comes back on a later pass). It is never a card that waits for the person.
+4. Open it with `ledger.open_case(kind, signature, title, case=...,
+   evidence=...)`; it starts in `building`. `title` is one sentence the person
+   reads.
 5. Run every model call inside `cost.attributed(record.id)`.
 6. Record what you created with `attach_artefact(id, artefact, undo)`, the
    judge's verdict with `attach_proof`, then move the record to `trial` or
@@ -69,8 +81,8 @@ proposed → building → proving → trial → kept | archived | undone
 
 A `signature` is a stable key for the need (for example
 `routine:weekly-sales-report`). Only one build per signature can be open at a
-time, and a signature the person rejected or undid `max_rejections` times is
-not offered again.
+time, and a signature whose builds the person undid `max_rejections` times is
+not built again.
 
 ## The loop for memories, skills, routines and agents
 
@@ -81,7 +93,7 @@ and one undoer for each of the four kinds, and the event subscriptions below.
 |---|---|
 | `miner.py` | counts the person's requests into needs; the thresholds |
 | `signals.py` | `self_build_signals.db`: turns, clusters, verdicts, lessons, specs, artefact index |
-| `decide.py` | the one decide call: prompt, parse, the no-model fallback |
+| `decide.py` | the one decide call: prompt, parse |
 | `brain.py` | model access: signed-in subscriptions and local models only |
 | `judge.py` | the proofs, pure Python |
 | `sandbox.py` | runs a drafted skill's steps read-only on a past request (subscription or local seat, side-effect tools held back) |
@@ -172,7 +184,7 @@ log says once that the fallback is in use). A self-built routine is scheduled
 in the same zone.
 
 **Gate, no model.** A need is dropped when a build for it is open, kept or
-archived, the person rejected or undid one in the last 30 days, a decide
+archived after its trial, the person undid one in the last 30 days, a decide
 verdict said "nothing" in the last 30 days (unless the need has doubled since),
 earlier builds failed their proof twice, an installed skill already catches
 its requests, or `admit` refuses every candidate kind.
@@ -185,9 +197,10 @@ and no open call for those 90 seconds (`core/presence.py`). The operating
 system's input idle time is not asked: a person working in other programs
 moves the mouse every second, and the decide call is light. While the person
 talks to Dodaios the need waits and is looked at again after the next quiet
-stretch, and it is decided at the latest 20 minutes after it was queued. Without a signed-in subscription or a local
-model the loop writes a plain card from the counts and builds nothing until a
-model can write the spec. Calls are tagged `self_build:decide` in the cost
+stretch, and it is decided at the latest 20 minutes after it was queued. Without a
+signed-in subscription or a local model nothing is decided and nothing is put
+to the person; the need comes back once a model can write the spec. Calls are
+tagged `self_build:decide` in the cost
 ledger; build calls `self_build:<id>`.
 
 **Build and prove.**
@@ -219,39 +232,55 @@ turn; no model call and no timer unless a need is waiting to be decided.
 
 ## Settings: `[self_build]`
 
+The section holds the loop's limits, nothing that decides whether it asks:
+
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `true` | master switch |
-| `silent_days` | `7` | the first days after the loop first ran only record cases |
-| `memory`, `skill`, `routine`, `agent`, `code` | `trial`, `suggest`, `suggest`, `suggest`, `suggest` | autonomy per kind: `off`, `suggest`, `trial`, `full` |
+| `silent_days` | `7` | the first days after the loop first ran: needs are counted, nothing is built |
 | `trial_days`, `trial_uses` | `14`, `10` | a trial ends at whichever comes first |
-| `max_builds_per_day` | `3` | builds past the proposal stage per day |
+| `max_builds_per_day` | `3` | builds opened per day |
 | `max_agents_per_week` | `1` | |
 | `max_open_trials` | `5` | |
 | `max_code_runs_per_day` | `1` | |
-| `max_rejections` | `2` | |
+| `max_rejections` | `2` | a need whose builds the person undid this often is not built again |
 | `code_land_repos` | `[]` | repositories (`owner/name`) whose loop pull requests are merged after green CI ([code builds](self-build-code.md)) |
 
-At `suggest` a card asks first. At `trial` the build goes live on trial; an
-unused trial is archived on its own, a used one waits for the person's keep.
-At `full` a used trial is kept on its own too.
+`enabled` and the per-kind stages (`memory`, `skill`, `routine`, `agent`,
+`code`) are no longer read. A config file that still sets them loads; their
+values are ignored. How far each kind goes is fixed in `policy.autonomy`:
+
+| Kind | Autonomy | Means |
+|---|---|---|
+| memory, skill, routine, agent | `full` | built, proven and live on trial with one-click undo; the trial ends by measure |
+| code | `watch` | nothing new: no issue is taken in and nothing is built until code changes have a measured path of their own; the pull requests the loop already opened are still watched until they settle ([code builds](self-build-code.md)) |
+
+Any "not now" (paused, the silent first days, a cap, no undo for the kind)
+opens nothing; the need comes back on a later pass. A build goes live on trial
+as soon as it is proven. When the trial ends, the hourly sweep keeps it if it
+was used at least twice and accepted more often than corrected, and archives
+it otherwise, for every kind. No click keeps it; the person can undo it at
+any time.
 
 ## REST: `/api/self-build`
 
 `GET ""` (builds and status), `GET /digest?hours=24`, `POST /pause`
 (`{"paused": true}` is the kill switch), `GET /{id}` (record, history, cost),
-`POST /{id}/accept`, `POST /{id}/keep`, `POST /{id}/undo`. Every change
-publishes `SelfBuildChanged` on the app bus, and the WebSocket forwards it.
+`POST /{id}/undo`. There is no route that accepts or keeps a build. Every
+change publishes `SelfBuildChanged` on the app bus, and the WebSocket forwards
+it. The status carries `paused`, `silent`, `autonomy` (the fixed level per
+kind: `full` or `watch`), `builders` and `code` (the code pass's last run).
 
-`GET /settings` and `PUT /settings` read and change `[self_build]`. The PUT is
+`GET /settings` and `PUT /settings` read and change the limits in
+`[self_build]` (the keys in the table above, no `levels`). The PUT is
 validated against `SelfBuildConfig`, written to `jarvis.toml` through
 `config_writer.set_self_build_settings` and applied at once: the loop reads
-the config through a getter. `GET /provenance?type=skill` lists the artefacts
+the config through a getter. A body that names `enabled` or a stage is
+refused (422), and the writer refuses those keys too. `GET /provenance?type=skill` lists the artefacts
 builds created, keyed `"<type>:<id>"`, for the "built by Dodaios" badge.
 
-The settings, the pause and accepting or keeping a build are excluded from the
-brain's app actions, and `self_build.*` is on the self-mod deny list: only the
-person decides how far the loop goes (rule 3). Reading the ledger and undoing
+The settings and the pause are excluded from the brain's app actions, and
+`self_build.*` is on the self-mod deny list: only the person sets the loop's
+limits and pauses it (rule 3). Reading the ledger and undoing
 a build stay reachable, so "what did you build?" works when asked.
 
 The society kill switch (`POST /api/society/kill-switch`) also pauses the
@@ -277,38 +306,38 @@ detail.
 ## In the app
 
 - **Built for you** (sidebar, under Agents; section id `self-build`) is one
-  reading column. At the top, one sentence says what the page is and whether
-  it is working, with a ring: the quiet first days fill day by day (with the
-  date suggestions may start), while watching it holds the number of helpers
-  running, paused / off / stopped show their glyph and the one button that
-  undoes that state. Under it, how far the assistant may go per kind, in plain
-  words ("Asks you first", "Tries it, with undo").
-- Then, in the order a person asks about it: **Needs you** (proposals with
-  their first "why" sentence and Build it / Not this), **Working for you**
-  (trials with day and use progress, builds in progress), **Noticed so far**,
-  **Kept**, and **Archived and undone** (folded). While nothing is built, a
-  three-step "How it works" sits above the lists; afterwards it moves small to
-  the bottom. A build opens as a sheet on the right with its case file: why,
-  what it noticed, how it was checked, what it made, use, cost and every state
-  change. Undo is one click with no confirmation.
+  reading column. At the top, one sentence says what the page is. A slim line
+  shows its state when there is something to say: the quiet first days with
+  their progress (and the date helpers may start), paused or stopped, each with
+  the one button that undoes that state. There is no "off".
+- Then, in the order a person asks about it: **Active** (trials with day and
+  use progress, builds in progress, kept helpers), **Noticed**, and
+  **Archived** (folded; undone and failed builds and archived old proposals sit
+  there too). Nothing on the page asks for an OK: there is no "Waiting for your
+  OK" list and no Build it, Keep or Restore button. "How does this work?"
+  explains the three steps behind one toggle. A build opens as a sheet on the
+  right with its case file: why, what it noticed, how it was checked, what it
+  made, use, cost and every state change. Undo is one click with no
+  confirmation, offered while there is something to take back.
 - **Noticed so far** comes from `GET /api/self-build/noticed` (read-only): each
   request the person made more than once in the miner's window, labelled with
   their own latest wording (cut to 90 characters), how often and on how many
   days, pips toward the repeat threshold, and where it stands (counting, ready,
-  answered directly, suggested, declined, nothing to build). Requests made
-  once are only counted. Needs that became a live or kept build are left out.
+  answered directly, undone by the person, already served, nothing to build).
+  Requests made once are only counted. Needs that became a build (in progress,
+  on trial or kept) are left out.
   The response also carries when the quiet start ends.
-- The **digest** is one quiet line under the top: what was proposed, built,
-  kept, archived or undone in the last 24 hours (hidden when nothing was). The
-  nav row shows how many proposals wait. Nothing is announced: no toast, no
-  sound, no voice.
+- `GET /digest` counts what was built, kept, archived or undone in the last
+  24 hours. Nothing is announced: no toast, no sound, no voice, no count on the
+  nav row.
 - **Pause building** is the loop's kill switch. **Stop all agents** sits in
   the page footer and engages the society kill switch after a confirmation
   (which pauses building too); while it is engaged the top says so and offers
   Release.
-- **Settings → General → Self-building** edits `[self_build]`, including the
-  repositories whose loop pull requests merge on green CI (`code_land_repos`),
-  shown with a warning that a listed repository changes without a review.
+- **Settings → General → Self-building** edits the limits in `[self_build]`,
+  including the repositories whose loop pull requests merge on green CI
+  (`code_land_repos`), shown with a warning that a listed repository changes
+  without a review. It has no master switch and no stage per kind.
 - A **"Built by {assistant}"** badge marks skills (Skills list and detail),
   routines (an agent's routines) and agents (the agent card) that a build
   created, and opens that build.
@@ -328,3 +357,6 @@ detail.
 7. Nothing leaves the machine on the loop's initiative: no messages, emails or
    posts, and no comments in other people's repos.
 8. Dodaios never speaks about its builds unprompted.
+9. Nothing asks the person to approve or keep a build: `admit` opens a build
+   or nothing, and the sweep settles trials by measure. The person's controls
+   are the pause and undo.

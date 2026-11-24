@@ -305,3 +305,34 @@ def test_the_installations_own_nights_never_decide_on_the_seed_suite(tmp_path: P
     finally:
         service.night.bench.close()
         registry.close()
+
+
+def test_the_first_nights_may_build_more_tasks_until_there_are_enough_to_decide_on(
+    tmp_path: Path,
+) -> None:
+    import dataclasses
+
+    from dodaios.rsi.bench.model import Source, Split, task_id
+    from dodaios.rsi.bench.store import BenchStore
+    from dodaios.rsi.gate.rules import MIN_PAIRS
+
+    bench = BenchStore(tmp_path / "bench.db")
+    try:
+        assert nights.calls_tonight(bench) == nights.RAMP_MODEL_CALLS
+        made = fakeworld.tasks(400)
+        select = [t for t in made if t.split is Split.SELECT]
+        assert len(select) > MIN_PAIRS and all(t.source is Source.MADE for t in select)
+        bench.put_tasks([t for t in made if t.split is not Split.SELECT])
+        bench.put_tasks(select[: MIN_PAIRS - 1])
+        # Tasks of the other splits, or from the seed suite, do not count.
+        seed = [
+            dataclasses.replace(t, id=task_id(Domain.RECALL, Source.SEED, t.id), source=Source.SEED)
+            for t in select
+        ]
+        bench.put_tasks(seed)
+        assert nights.calls_tonight(bench) == nights.RAMP_MODEL_CALLS
+        bench.put_tasks(select[MIN_PAIRS - 1 : MIN_PAIRS])
+        assert nights.calls_tonight(bench) == nights.MAX_MODEL_CALLS
+        assert nights.RAMP_MODEL_CALLS > nights.MAX_MODEL_CALLS
+    finally:
+        bench.close()

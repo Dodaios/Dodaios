@@ -584,6 +584,73 @@ describe("SelfImprovementView, notes it wrote for itself", () => {
   });
 });
 
+describe("SelfImprovementView, the lead's first move", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_improvement");
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  function withLead(): SelfImprovementOverview {
+    const data = fullOverview();
+    data.limits = { ...data.limits, first_move_calls: 40 };
+    data.domains = [
+      ...data.domains,
+      { domain: "first_move", tasks: { practice: 0, select: 0, guard: 0, sealed: 0 }, tasks_total: 0, all_tasks: {}, measured: false, point: null },
+    ];
+    data.stack = [
+      change({
+        id: "l1",
+        target: "lead.first_line",
+        state: "trial",
+        author: "lines",
+        reason: "on the practice tasks: +0.000 score, 9% cheaper (True -> False, best of 1 moves)",
+        before: null,
+        after: false,
+        default: true,
+        doc: "Beside every request: write one short line that takes the task on before the first tool call.",
+        admitted: { ...measurement("admit", 0, -0.04, 0.04, 150, -66, "as good on 150 tasks, and 9% cheaper"), domain: "first_move" },
+      }),
+      ...data.stack,
+    ];
+    return data;
+  }
+
+  it("is an area of its own with its name, its question and where its tasks come from", async () => {
+    installFetch(withLead());
+    renderView();
+    const areas = await screen.findAllByTestId("si-area");
+    const lead = areas.find((a) => a.dataset.domain === "first_move");
+    expect(lead?.textContent).toContain("First move");
+    expect(lead?.textContent).toContain("reach for the right tool first");
+    expect(lead?.textContent).toContain("answers the assistant got right after you corrected it");
+    const limits = screen.getByTestId("si-limits").textContent ?? "";
+    expect(limits).toContain("at most 40 model calls a night for both together");
+    expect(limits).toContain("never more than 20 % of a window in one night");
+    expect(limits).not.toContain("Measuring itself asks no model.");
+  });
+
+  it("reads a dropped line as one plain sentence in what it changed, with no values", async () => {
+    installFetch(withLead());
+    renderView();
+    const [row] = await screen.findAllByTestId("si-change-row");
+    expect(within(row).getByTestId("si-line-sentence").textContent).toBe(
+      "Dropped the line beside your messages that asks for a short opening line before the first tool.",
+    );
+    expect(row.textContent).not.toMatch(/→|true|false|lead\.first_line/);
+    expect(within(row).getByTestId("si-change-proof").textContent).toContain("as good on 150 tasks");
+    expect(within(row).getByTestId("si-undo")).toBeTruthy();
+    fireEvent.click(row);
+    const detail = await screen.findByTestId("si-change-detail");
+    expect(detail.textContent).toContain("Dropped the line beside your messages");
+    expect(within(detail).getByTestId("si-detail-values").textContent).toBe("on → off");
+    expect(detail.textContent).not.toMatch(/true|false/);
+  });
+});
+
 describe("self-improvement words", () => {
   const t = (key: string) => key;
 

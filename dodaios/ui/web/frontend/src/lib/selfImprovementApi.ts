@@ -26,6 +26,63 @@ export interface Measurement {
   n: number;
   /** Mean cost per task, change minus without it. For the recall it is prompt tokens. */
   cost_diff: number | null;
+  /**
+   * A coding policy's trial only (dodaios/rsi/trainer.py): the metric it claimed
+   * (`pass`, `cost` or `p`). Then `diff` and `low` are that metric's difference and
+   * its lower bound, oriented so that positive is better, `high` is null (the
+   * selector bounds from below only), and `n` counts requests, not tasks.
+   */
+  metric?: string;
+  /** Requests in the other half, without the policy. */
+  n_reference?: number;
+  /** Each half's plain means per request. */
+  arms?: { candidate: ArmMeans; reference: ArmMeans } | null;
+}
+
+/** One half of a coding policy's trial: plain means per request. */
+export interface ArmMeans {
+  n: number;
+  /** Share of requests that passed (0 to 1). */
+  pass: number | null;
+  one: number | null;
+  /** Fix orders per request. */
+  p: number | null;
+  /** USD per request, plus 0.001 USD per second of turn time. */
+  cost: number | null;
+  churn: number | null;
+}
+
+/** How Dodaios steers coding runs in one cell (dodaios/rsi/policy.py). */
+export const POLICY_SURFACE = "coding_policy";
+
+/** A coding policy as the page reads it (`_policy_value` in overview.py). */
+export interface PolicyValue {
+  /** Its answer waits for the checks, and a failed check brings the agent a fix order. */
+  hold: boolean;
+  /** Fix orders a run may get. */
+  p_max: number;
+  evidence_wait_s: number;
+  /** Fixed lines the first brief carries (English: agents read them). */
+  lines: string[];
+}
+
+/** What a coding policy row is about (`_policy` in overview.py). */
+export interface PolicyFacts {
+  cell: string;
+  /** `active` (in effect) or `candidate` (on trial for half of the requests). */
+  slot: string;
+  /** The area of the work: backend, frontend, testing, database, infra_ci, docs, other. */
+  domain: string;
+  /** The requested model; `(default)` when none was named. */
+  model: string;
+  /** The coding CLI and its version line, e.g. `claude-cli 2.1`. */
+  harness: string;
+  /** What changed: hold, release, fewer_fixes, shorter_wait, brief_line. */
+  kinds: string[];
+  /** Lines the change adds to the first brief. */
+  lines: string[];
+  /** What it has to show, fixed before its data: branch A on `pass`, branch B on `cost` or `p`. */
+  claim: { branch: string; target: string } | null;
 }
 
 export type ChangeState = "proposed" | "trial" | "live" | "reverted" | "blocked";
@@ -57,6 +114,11 @@ export interface LearnedChange {
   doc: string;
   admitted: Measurement | null;
   last_check: Measurement | null;
+  /**
+   * A coding policy only (`surface: "coding_policy"`): its cell and what it
+   * changes. Then `before` and `after` are {@link PolicyValue}s.
+   */
+  policy?: PolicyFacts;
 }
 
 /** One measured point of the learned advantage (a row of `series` in bench.db). */
@@ -185,6 +247,8 @@ export interface SelfImprovementLimits {
   max_model_calls: number;
   /** The most while too few tasks exist to decide on (absent on an older backend). */
   ramp_model_calls?: number;
+  /** The most replays of the lead's turns a night may make (absent on an older backend). */
+  first_move_calls?: number;
 }
 
 /** One week of the person's own requests (`daily_use` in dodaios/rsi/overview.py). */

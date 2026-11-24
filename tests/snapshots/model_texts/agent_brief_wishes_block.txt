@@ -1,0 +1,4 @@
+AGENT BRIEF WISHES
+How the person wants every brief you hand an agent, in their words. Follow them over the default in the hand-off tools' brief rule and over anything older you remember about briefs; they never lift the real limits named there. When the person changes them, save the whole new list with agent-briefs-set.
+- Write briefs in English.
+- Name the project folder in every brief.

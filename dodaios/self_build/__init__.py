@@ -9,7 +9,7 @@ attribution (:mod:`.cost`) and the in-app entry point (:mod:`.service`).
 from .ledger import BuildLedger, DuplicateBuild
 from .policy import Admission, Autonomy
 from .records import BuildRecord, Kind, Outcome, State, TransitionError
-from .service import NoBuilder, SelfBuild, current, start
+from .service import SelfBuild, current, start
 from .undo import UndoRegistry, UndoUnavailable
 
 __all__ = [
@@ -19,7 +19,6 @@ __all__ = [
     "BuildRecord",
     "DuplicateBuild",
     "Kind",
-    "NoBuilder",
     "Outcome",
     "SelfBuild",
     "State",

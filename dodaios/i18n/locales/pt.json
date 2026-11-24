@@ -547,15 +547,6 @@
     "step_progress": "Passo {done} de {total} concluído."
   },
   "self_build": {
-    "proposal": {
-      "memory": "Lembrar o que corriges vezes sem conta: «{request}».",
-      "skill": "Uma skill para o que pedes vezes sem conta: «{request}».",
-      "routine": "Uma rotina que trata disto antes de pedires: «{request}».",
-      "agent": "Um agente especializado para o trabalho por trás de «{request}»."
-    },
-    "case": {
-      "counted": "Pedido {count} vezes em {days} dias diferentes."
-    },
     "code": {
       "title": "Resolver o issue #{number} em {repo}: {title}",
       "case": "O issue #{number} de {repo} parece adequado para um agente sem supervisão ({signal}). Um agente de programação trabalharia nele com a sua assinatura enquanto você está ausente, no seu próprio worktree e branch, e executaria os testes ({tests}). O resultado é um pull request que fecha o issue, como rascunho, a menos que você deixe este repositório fazer o merge sozinho. {url}"

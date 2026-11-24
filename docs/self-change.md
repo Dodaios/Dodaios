@@ -76,9 +76,12 @@ A change is core when it touches the persona, a safety, trust or provider
 setting, the provider lock, evaluation code or the golden set, the judges, the
 audit, the registry itself, `AGENTS.md`, or when its text tries to move the
 goal, the limits or the approvals ("ignore previous instructions", "without
-asking"). A core change is recorded as `proposed` and applied only after the
-owner approves it on the Trust page (Self-changes). No gate result stands in
-for that.
+asking"). A coding policy that would tell coding agents something is core too,
+unless its text is made only of the fixed lines written in the code
+(`LINES` in `dodaios/rsi/mining.py`): those go on trial by themselves and the
+selector's gate decides (`docs/rsi-policy-selector.md`). A core change is
+recorded as `proposed` and applied only after the owner approves it on the
+Trust page (Self-changes). No gate result stands in for that.
 
 ## Tamper-proof
 

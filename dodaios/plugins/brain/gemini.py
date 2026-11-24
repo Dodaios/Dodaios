@@ -494,7 +494,7 @@ def _gemini_schema_keys() -> frozenset[str]:
         keys.update(f.alias for f in fields.values() if f.alias)
         if keys:
             return frozenset(keys)
-    except Exception as exc:  # noqa: BLE001 — the fallback list is the answer
+    except Exception as exc:  # broad-except: the fallback list is the answer
         log.debug("gemini: schema field set not introspectable (%s) — using the fallback", exc)
     return _GEMINI_SCHEMA_KEYS_FALLBACK
 
@@ -1122,7 +1122,7 @@ class GeminiBrain:
             config_dict["automatic_function_calling"] = _genai_types.AutomaticFunctionCallingConfig(
                 disable=True
             )
-        except Exception:  # noqa: BLE001 — never break the brain call over an SDK shape change
+        except Exception:  # broad-except: never break the brain call over an SDK shape change
             log.debug("could not disable Gemini automatic_function_calling", exc_info=True)
 
         # Latency-Sprint-1: thinking. Gemini 3 wants ``thinking_level``;
@@ -1138,7 +1138,8 @@ class GeminiBrain:
                 effort=getattr(req, "reasoning_effort", None),
                 rejected_budgets=self._rejected_thinking_budgets,
             )
-        except Exception:  # noqa: BLE001 — old SDK / unexpected shape
+        except Exception:  # broad-except: old SDK / unexpected shape
+            log.warning("complete: old SDK / unexpected shape", exc_info=True)
             thinking_cfg, thinking_kind = None, ""
         if thinking_cfg is not None:
             config_dict["thinking_config"] = thinking_cfg
@@ -1346,7 +1347,7 @@ class GeminiBrain:
                         pending_rejected_budget,
                     )
                 return
-            except Exception as exc:  # noqa: BLE001 — BUG-019 stale-cache recovery
+            except Exception as exc:  # broad-except: BUG-019 stale-cache recovery
                 if attempt == 1 and cache_name and _is_stale_context_cache_error(exc):
                     log.warning(
                         "Gemini stale context-cache (BUG-019) — invalidating "

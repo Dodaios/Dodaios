@@ -2,8 +2,9 @@
 
 Every stage of the self-building loop writes here and nowhere else: the
 observer opens a case, builders attach what they created and how to undo it,
-the judge attaches its verdict, use and outcome are counted, and the person's
-keep / undo decisions land here too. The "Built for you" view reads it.
+the judge attaches its verdict, use and outcome are counted, the trial sweep
+keeps or archives, and the person's undo lands here too. The "Built for you"
+view reads it.
 
 Plain ``sqlite3`` in WAL mode behind one lock: calls are short, so async
 callers wrap them in ``asyncio.to_thread``. Only the server process writes.
@@ -203,14 +204,22 @@ class BuildLedger:
     def count_since(
         self, since_ms: int, *, kind: Kind | None = None, built_only: bool = False
     ) -> int:
-        """Builds opened since ``since_ms`` (``built_only``: past the proposal)."""
+        """Builds opened since ``since_ms``.
+
+        ``built_only`` leaves out cases that never got built: proposals and
+        rejections an older version wrote, and the proposals archived when that
+        version was replaced (archived without ever being on trial).
+        """
         sql = "SELECT COUNT(*) FROM builds WHERE created_ms >= ?"
         args: _List[Any] = [since_ms]
         if kind is not None:
             sql += " AND kind = ?"
             args.append(Kind(kind).value)
         if built_only:
-            sql += " AND state NOT IN ('proposed', 'rejected')"
+            sql += (
+                " AND state NOT IN ('proposed', 'rejected')"
+                " AND NOT (state = 'archived' AND trial_started_ms = 0)"
+            )
         with self._lock:
             return int(self._conn.execute(sql, args).fetchone()[0])
 
@@ -235,7 +244,8 @@ class BuildLedger:
         return [{"ts_ms": r[0], "from": r[1], "to": r[2], "note": r[3]} for r in rows]
 
     def rejections(self, signature: str) -> int:
-        """How often the person rejected or undid a build for ``signature``."""
+        """How often the person undid a build for ``signature`` (or, in an
+        older version, turned its proposal down)."""
         with self._lock:
             row = self._conn.execute(
                 "SELECT count FROM rejections WHERE signature = ?", (signature,)
@@ -252,13 +262,14 @@ class BuildLedger:
         *,
         case: str = "",
         evidence: Iterable[str] = (),
-        state: State = State.PROPOSED,
     ) -> BuildRecord:
-        """Record a new build case. One open build per signature."""
+        """Record a new build case, in ``building``. One open build per signature.
+
+        A case is never opened as a proposal that waits for the person: the
+        policy admits a build or leaves the need for later (``policy.admit``).
+        """
         kind = Kind(kind)
-        state = State(state)
-        if state not in (State.PROPOSED, State.BUILDING):
-            raise TransitionError(f"a build starts as proposed or building, not {state}")
+        state = State.BUILDING
         signature = signature.strip()
         if not signature:
             raise ValueError("signature is required")

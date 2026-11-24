@@ -54,3 +54,13 @@ def pytest_unconfigure(config):  # noqa: ANN001, D401
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(_FINAL_EXITSTATUS["code"])
+
+
+def pytest_addoption(parser):  # noqa: ANN001, ANN201
+    """``--update-model-texts``: rewrite the snapshots of the texts models read."""
+    parser.addoption(
+        "--update-model-texts",
+        action="store_true",
+        default=False,
+        help="rewrite tests/snapshots/model_texts (the texts the lead and agents read)",
+    )

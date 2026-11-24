@@ -16,7 +16,7 @@ Dodaios (called Personal Jarvis until October 2026) is free, open-source softwar
    GitHub, Cursor (Anysphere), Moonshot AI, Zhipu AI / Z.ai, DeepSeek, OpenRouter, NVIDIA,
    or any other AI, voice, or service provider it connects to, nor by any other rights
    holder whose products or characters may share a name with a word you could enter.
-   "Dodaios" is the project's trademark; see [`TRADEMARK.md`](../../TRADEMARK.md).
+   "Dodaios" is the project's trademark; see [`TRADEMARK.md`](TRADEMARK.md).
 4. **Local storage & external processing.** This software runs on the computer or server
    where you install it and stores working data there. Remote AI, voice, plugin,
    messaging, and other connected features transmit the data needed for those features

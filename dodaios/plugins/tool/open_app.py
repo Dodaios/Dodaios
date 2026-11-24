@@ -448,7 +448,8 @@ class OpenAppTool:
                         "[open_app] raise_after_launch for %r exceeded 6s — "
                         "reporting the launch without the raise", app_name,
                     )
-                except Exception:  # noqa: BLE001 — never fail a successful launch
+                except Exception:  # broad-except: never fail a successful launch
+                    logger.warning("execute: never fail a successful launch", exc_info=True)
                     raised = False
             from dodaios.voice.action_phrases import action_phrase  # noqa: PLC0415
 

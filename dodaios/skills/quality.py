@@ -25,9 +25,12 @@ silently, at boot, with no signal — which is AP-27's shape.
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
+
+log = logging.getLogger(__name__)
 
 Severity = Literal["error", "warning"]
 
@@ -115,13 +118,15 @@ def distinctive_terms(skill: Any) -> frozenset[str]:
     """
     try:
         from dodaios.skills.relevance import _skill_surfaces, tokenize
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.debug("distinctive_terms: failed; carrying on with the fallback", exc_info=True)
         return frozenset()
     terms: set[str] = set()
     try:
         for _field, text in _skill_surfaces(skill):
             terms |= set(tokenize(text))
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.warning("distinctive_terms: failed; carrying on with the fallback", exc_info=True)
         return frozenset()
     return frozenset(terms)
 
@@ -280,8 +285,12 @@ def _body_has_instructions(skill: Any) -> bool:
         from dodaios.skills.authoring.service import body_has_instructions
 
         return bool(body_has_instructions(body))
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: Conservative local fallback: at least one
         # Conservative local fallback: at least one non-heading, non-blank line.
+        log.debug(
+            "_body_has_instructions: Conservative local fallback: at least one",
+            exc_info=True,
+        )
         for line in body.splitlines():
             stripped = line.strip()
             if stripped and not stripped.startswith("#"):

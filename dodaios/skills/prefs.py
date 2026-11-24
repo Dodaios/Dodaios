@@ -73,7 +73,7 @@ def _read_raw() -> dict[str, Any]:
         return {}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001 — corrupt file degrades to empty
+    except Exception as exc:  # broad-except: corrupt file degrades to empty
         log.warning("skill_prefs: could not parse %s — %s", path, exc)
         return {}
     return data if isinstance(data, dict) else {}

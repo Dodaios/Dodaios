@@ -290,7 +290,7 @@ class SkillAuthoringService:
             return
         try:
             await bus.publish(SkillCreated(skill_name=skill.name, author=author))
-        except Exception as exc:  # noqa: BLE001 — telemetry must never block create
+        except Exception as exc:  # broad-except: telemetry must never block create
             _LOG.warning("SkillCreated publish failed: %s", exc)
 
 

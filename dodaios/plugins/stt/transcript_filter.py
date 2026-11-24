@@ -307,13 +307,13 @@ def resolve_language(text: str, language: str | None) -> str | None:
 
         code = resolve_transcript_language(language, text)
         return None if code == "unknown" else code
-    except Exception as exc:  # noqa: BLE001 — degrade to the tag alone
+    except Exception as exc:  # broad-except: degrade to the tag alone
         log.debug("Transcript language resolution unavailable (%s).", exc)
     try:
         from dodaios.dictation.cleanup import normalize_language
 
         return normalize_language(language)
-    except Exception as exc:  # noqa: BLE001 — degrade to the neutral rules
+    except Exception as exc:  # broad-except: degrade to the neutral rules
         log.debug("Language normalisation unavailable (%s).", exc)
         return None
 
@@ -334,7 +334,7 @@ def _delegated_cleanup(
     """
     try:
         from dodaios.dictation.cleanup import clean_transcript, tidy_transcript
-    except Exception as exc:  # noqa: BLE001 — a missing table is not a lost turn
+    except Exception as exc:  # broad-except: a missing table is not a lost turn
         log.debug("Transcript cleanup tables unavailable (%s); skipping.", exc)
         return text, "unavailable"
 
@@ -391,7 +391,7 @@ def clean_stt_text(
         if reason not in ("", "unavailable"):
             log.debug("Filler removal skipped (%s).", reason)
         return out
-    except Exception:  # noqa: BLE001 — never lose an utterance to a cleanup bug
+    except Exception:  # broad-except: never lose an utterance to a cleanup bug
         log.warning("Transcript cleanup failed; using the raw text.", exc_info=True)
         return raw.strip()
 

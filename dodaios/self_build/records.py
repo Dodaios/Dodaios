@@ -26,8 +26,9 @@ class Kind(StrEnum):
 
 
 class State(StrEnum):
-    #: A build case was written; nothing exists yet. With autonomy ``suggest``
-    #: this is the card the person accepts or rejects.
+    #: Only in ledgers an older version wrote: a case that waited for the
+    #: person's OK. Nothing opens in it any more; the service archives what is
+    #: left when it starts (``service.SelfBuild.retire_proposals``).
     PROPOSED = "proposed"
     BUILDING = "building"
     PROVING = "proving"
@@ -57,7 +58,7 @@ OPEN_STATES: Final[frozenset[State]] = frozenset(
 LIVE_STATES: Final[frozenset[State]] = frozenset({State.TRIAL, State.KEPT})
 
 _ALLOWED: Final[dict[State, frozenset[State]]] = {
-    State.PROPOSED: frozenset({State.BUILDING, State.REJECTED, State.FAILED}),
+    State.PROPOSED: frozenset({State.ARCHIVED, State.REJECTED, State.FAILED}),
     State.BUILDING: frozenset({State.PROVING, State.TRIAL, State.FAILED, State.UNDONE}),
     State.PROVING: frozenset({State.TRIAL, State.FAILED, State.UNDONE}),
     State.TRIAL: frozenset({State.KEPT, State.ARCHIVED, State.UNDONE, State.FAILED}),

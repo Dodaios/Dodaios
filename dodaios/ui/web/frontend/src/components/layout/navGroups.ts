@@ -130,7 +130,7 @@ export const NAV_GROUPS: NavItem[][] = [
     // assistant and the Agentic IDE are. The id stays until its page goes.
     { id: "agents", labelKey: "nav.agents", icon: AgentsIcon, retired: true },
     // Built for you — what the self-building loop made on its own, why, and
-    // the one place to keep, undo or pause it (docs/self-build.md).
+    // the one place to undo it or pause the loop (docs/self-build.md).
     {
       id: "self-build",
       labelKey: "nav.self_build",

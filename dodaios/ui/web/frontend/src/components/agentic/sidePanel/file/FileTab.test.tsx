@@ -4,7 +4,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiffFile } from "@/components/agentchat/toolDiff";
 import { useIdeChatStore } from "@/store/ideChat";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
+import { getDraft, setDraft } from "./fileDrafts";
 import { FileTab, fileLanguage } from "./FileTab";
+
+// The editor engine does not run in jsdom: a stand-in records what the tab hands it.
+const editorProps = vi.fn();
+vi.mock("./FileEditor", () => ({
+  default: (props: {
+    text: string; version: string; encoding: string; eol: string; path: string; line?: number;
+    onSaved: (saved: { text: string; version: string; encoding: string; eol: string }) => void;
+  }) => {
+    editorProps(props);
+    return <div data-testid="side-file-editor">
+      <pre>{props.text}</pre>
+      <button type="button" onClick={() => props.onSaved({ text: "saved text", version: "v2", encoding: "utf-8", eol: "\n" })}>mock save</button>
+    </div>;
+  },
+}));
 
 const diff: DiffFile[] = [{
   path: "C:/demo/app.py", added: 1, removed: 0, created: false, truncated: 0,
@@ -23,6 +39,7 @@ const textFile = (text: string | null, over: Record<string, unknown> = {}) => ({
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  editorProps.mockClear();
   useSideFileStore.setState({ file: null, nonce: 0 });
   useIdeChatStore.setState({ workspace: { id: "w1", name: "Repo", path: "C:/Repo" } });
   fetchMock = vi.fn();
@@ -46,7 +63,8 @@ describe("the side panel's File tab", () => {
       .mockResolvedValueOnce(answer(textFile("print('hello')\n")));
     act(() => useSideFileStore.getState().show({ path: "app.py", folder: "C:\\demo", diff: null }));
     render(<FileTab />);
-    await waitFor(() => expect(screen.getByText(/print\('hello'\)/)).toBeTruthy());
+    await screen.findByTestId("side-file-editor");
+    expect(screen.getByText(/print\('hello'\)/)).toBeTruthy();
     expect(screen.getByTestId("side-file-name").textContent).toBe("app.py");
     // The relative path is read from the thread's folder.
     const [grantUrl, grantInit] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -55,8 +73,40 @@ describe("the side panel's File tab", () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain("/text-file?path=C%3A%2Fdemo%2Fapp.py");
     // Without a change from the click there is nothing to switch to.
     expect(screen.queryByRole("tab")).toBeNull();
-    // Long lines wrap in the panel instead of scrolling sideways.
-    expect(screen.getByTestId("side-file-text").className).toContain("[&_pre]:whitespace-pre-wrap");
+    // The file opens in the editor, based on the version just read, so a save never overwrites a newer file.
+    expect(editorProps).toHaveBeenLastCalledWith(expect.objectContaining({
+      text: "print('hello')\n", version: "v1", encoding: "utf-8", eol: "\n", path: "C:/demo/app.py",
+    }));
+  });
+
+  it("keeps what was saved when the view flips to the change and back", async () => {
+    fetchMock
+      .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/app.py", kind: "file" }))
+      .mockResolvedValueOnce(answer(textFile("print('hello')\n")));
+    act(() => useSideFileStore.getState().show({ path: "C:/demo/app.py", folder: "", diff }));
+    render(<FileTab />);
+    fireEvent.click(screen.getByRole("tab", { name: "File" }));
+    fireEvent.click(await screen.findByRole("button", { name: "mock save" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Change" }));
+    fireEvent.click(screen.getByRole("tab", { name: "File" }));
+    // The editor comes back on the saved text and version, not on what was read first.
+    await waitFor(() => expect(editorProps).toHaveBeenLastCalledWith(expect.objectContaining({ text: "saved text", version: "v2" })));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops the unsaved text when the file is read again", async () => {
+    fetchMock
+      .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/app.py", kind: "file" }))
+      .mockResolvedValueOnce(answer(textFile("on disk\n")))
+      .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/app.py", kind: "file" }))
+      .mockResolvedValueOnce(answer(textFile("on disk\n")));
+    act(() => useSideFileStore.getState().show({ path: "C:/demo/app.py", folder: "", diff: null }));
+    render(<FileTab />);
+    await screen.findByTestId("side-file-editor");
+    setDraft("w1", "C:/demo/app.py", { text: "typed\n", version: "v1" });
+    fireEvent.click(screen.getByRole("button", { name: "Read the file again" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(getDraft("w1", "C:/demo/app.py")).toBeUndefined();
   });
 
   it("opens a clicked edit on its change, numbered like the Changes view, and switches to the file", async () => {
@@ -89,18 +139,15 @@ describe("the side panel's File tab", () => {
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");
   });
 
-  it("opens at the line a reference named, marked and in view", async () => {
-    const scrolled = vi.fn();
-    Element.prototype.scrollIntoView = scrolled;
+  it("opens at the line a reference named", async () => {
     fetchMock
       .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/notes.cfg2", kind: "file" }))
       .mockResolvedValueOnce(answer(textFile("first\nsecond\nthird\n", { path: "C:/demo/notes.cfg2" })));
     act(() => useSideFileStore.getState().show({ path: "C:/demo/notes.cfg2", folder: "", diff: null, line: 2 }));
-    const { container } = render(<FileTab />);
-    await waitFor(() => expect(container.querySelector(".code-line-marked")?.textContent).toBe("second"));
+    render(<FileTab />);
+    await screen.findByTestId("side-file-editor");
     expect(screen.getByTestId("side-file-line").textContent).toBe("L2");
-    expect(scrolled).toHaveBeenCalledWith({ block: "center" });
-    delete (Element.prototype as Partial<Element>).scrollIntoView;
+    expect(editorProps).toHaveBeenLastCalledWith(expect.objectContaining({ line: 2 }));
   });
 
   it("names a binary file instead of drawing it", async () => {

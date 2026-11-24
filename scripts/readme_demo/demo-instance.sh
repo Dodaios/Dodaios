@@ -61,7 +61,7 @@ mkdir -p "$DEMO_STATE/data" "$PROJECT/src" "$PROJECT/tests"
 
 # The config is the example one, with the data folder moved under DEMO_ROOT.
 sed "s#^data_dir = \"./data\".*#data_dir = \"$DEMO_STATE/data\"#" \
-  "$REPO/dodaios.toml.example" > "$DEMO_STATE/dodaios.toml"
+  "$REPO/docs/examples/dodaios.toml.example" > "$DEMO_STATE/dodaios.toml"
 
 # --- the sample project: a tiny hike planner with four tests -----------------
 cat > "$PROJECT/README.md" <<'EOF'

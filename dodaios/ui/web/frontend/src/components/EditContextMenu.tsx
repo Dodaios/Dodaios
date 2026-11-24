@@ -6,12 +6,18 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { Clipboard, Copy, Scissors, TextSelect } from "lucide-react";
+import { Clipboard, Copy, ExternalLink, Link2, Scissors, TextSelect } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { useEventStore } from "@/store/events";
 import { robustCopy, robustPaste, robustPasteFiles } from "@/lib/clipboard";
+import {
+  collectContextActions,
+  linkUnder,
+  type ContextAction,
+} from "@/lib/contextActions";
+import { openExternalUrl } from "@/lib/openExternal";
 import {
   capabilitiesFor,
   captureEditSnapshot,
@@ -25,7 +31,9 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * App-wide right-click menu offering Cut / Copy / Paste / Select all.
+ * App-wide right-click menu offering Cut / Copy / Paste / Select all, plus the
+ * entries of the area that was clicked (see `lib/contextActions.ts`) and, on a
+ * link, Open link / Copy link address.
  *
  * Text fields and selected text get the engine's own menu instead (see
  * `wantsNativeTextMenu`): it carries the spelling suggestions this menu cannot
@@ -49,6 +57,12 @@ interface MenuState {
   y: number;
   snapshot: EditSnapshot;
   caps: EditCapabilities;
+  /** Area entries, one group per registered area, innermost first. */
+  groups: ContextAction[][];
+}
+
+function hasEditEntry(caps: EditCapabilities): boolean {
+  return caps.canCut || caps.canCopy || caps.canPaste || caps.canSelectAll;
 }
 
 export function EditContextMenu() {
@@ -59,20 +73,27 @@ export function EditContextMenu() {
 
   const close = useCallback(() => setMenu(null), []);
 
+  // Read through a ref so the document listener is installed once.
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     const onContextMenu = (event: MouseEvent) => {
-      // Escape hatch: let the browser's own menu through.
-      if (event.shiftKey) return;
+      // Escape hatch: let the browser's own menu through. A component that
+      // opened its own menu has already claimed the click.
+      if (event.shiftKey || event.defaultPrevented) return;
       const snapshot = captureEditSnapshot(event.target);
       if (wantsNativeTextMenu(snapshot)) return;
       const caps = capabilitiesFor(snapshot);
+      const target = event.target instanceof Element ? event.target : null;
+      const groups = collectContextActions(target);
+      const link = linkUnder(target);
+      if (link) groups.unshift(linkActions(link, tRef.current));
       // Nothing useful to offer (e.g. a right-click on empty chrome with no
       // selection) — stay out of the way rather than show a dead menu.
-      if (!caps.canCut && !caps.canCopy && !caps.canPaste && !caps.canSelectAll) {
-        return;
-      }
+      if (groups.length === 0 && !hasEditEntry(caps)) return;
       event.preventDefault();
-      setMenu({ x: event.clientX, y: event.clientY, snapshot, caps });
+      setMenu({ x: event.clientX, y: event.clientY, snapshot, caps, groups });
     };
 
     document.addEventListener("contextmenu", onContextMenu);
@@ -161,6 +182,19 @@ export function EditContextMenu() {
     [menu, close, pushToast, t],
   );
 
+  const runArea = useCallback(
+    (action: ContextAction) => {
+      close();
+      void Promise.resolve()
+        .then(() => action.run())
+        .catch((error: unknown) => {
+          console.warn(`Context menu entry "${action.id}" failed:`, error);
+          pushToast("error", t("edit_menu.action_failed"));
+        });
+    },
+    [close, pushToast, t],
+  );
+
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     event.preventDefault();
@@ -177,7 +211,8 @@ export function EditContextMenu() {
   };
 
   if (!menu) return null;
-  const { caps } = menu;
+  const { caps, groups } = menu;
+  const showEdit = hasEditEntry(caps);
 
   return (
     <div
@@ -189,13 +224,30 @@ export function EditContextMenu() {
       style={{ width: MENU_WIDTH, visibility: "hidden" }}
       className="fixed z-[100] overflow-hidden rounded-md border border-border bg-background py-1"
     >
-      <MenuItem
+      {groups.map((group, index) => (
+        <div key={index} role="group">
+          {index > 0 && <MenuDivider />}
+          {group.map((action) => (
+            <MenuItem
+              key={action.id}
+              icon={action.icon}
+              label={action.label}
+              shortcut={action.shortcut}
+              disabled={Boolean(action.disabled)}
+              onSelect={() => runArea(action)}
+            />
+          ))}
+        </div>
+      ))}
+      {showEdit && groups.length > 0 && <MenuDivider />}
+      {showEdit && <>
+      {menu.snapshot.kind !== "terminal" && <MenuItem
         icon={Scissors}
         label={t("edit_menu.cut")}
         shortcut="Ctrl+X"
         disabled={!caps.canCut}
         onSelect={() => void run("cut")}
-      />
+      />}
       <MenuItem
         icon={Copy}
         label={t("edit_menu.copy")}
@@ -217,8 +269,35 @@ export function EditContextMenu() {
         disabled={!caps.canSelectAll}
         onSelect={() => void run("selectAll")}
       />
+      </>}
     </div>
   );
+}
+
+/** Open link / Copy link address, for a right-click on a link anywhere. */
+function linkActions(href: string, t: (key: string) => string): ContextAction[] {
+  return [
+    {
+      id: "open-link",
+      label: t("edit_menu.open_link"),
+      icon: ExternalLink,
+      run: async () => {
+        if (!(await openExternalUrl(href))) throw new Error("no browser reached");
+      },
+    },
+    {
+      id: "copy-link",
+      label: t("edit_menu.copy_link"),
+      icon: Link2,
+      run: async () => {
+        if (!(await robustCopy(href))) throw new Error("clipboard refused the link");
+      },
+    },
+  ];
+}
+
+function MenuDivider() {
+  return <div role="separator" className="my-1 h-px bg-border" />;
 }
 
 /**
@@ -249,9 +328,9 @@ function MenuItem({
   disabled,
   onSelect,
 }: {
-  icon: typeof Copy;
+  icon?: ContextAction["icon"];
   label: string;
-  shortcut: string;
+  shortcut?: string;
   disabled: boolean;
   onSelect: () => void;
 }) {
@@ -271,7 +350,11 @@ function MenuItem({
           : "text-foreground hover:bg-primary/10 focus:bg-primary/10 focus:outline-none",
       )}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      {Icon ? (
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      ) : (
+        <span className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      )}
       <span className="flex-1">{label}</span>
       <span className="text-micro tracking-wider text-muted-foreground">
         {shortcut}

@@ -242,7 +242,7 @@ def node_card(node: Node, store: NodeStore) -> dict[str, Any]:
     """
     try:
         preview: dict[str, Any] | None = dict(kind_of(node.type).preview(node.spec))
-    except Exception:  # noqa: BLE001 - a renderer's fault must not take the library down
+    except Exception:  # broad-except: a renderer's fault must not take the library down
         log.warning("node %s: no card preview (%s)", node.id, node.type, exc_info=True)
         preview = None
     kept_current = bool(node.track)

@@ -32,7 +32,7 @@ from dodaios.core import macos_privacy_strings as table_module
 from dodaios.core.branding import PRODUCT_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SPEC_PATH = REPO_ROOT / "dodaios.spec"
+SPEC_PATH = REPO_ROOT / "packaging" / "dodaios.spec"
 TABLE_PATH = REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
 ENTITLEMENTS_PATH = REPO_ROOT / "packaging" / "macos" / "entitlements.plist"
 
@@ -185,13 +185,13 @@ def _exec_spec(monkeypatch: pytest.MonkeyPatch, root: Path) -> dict:
     monkeypatch.setattr(sys, "platform", "darwin")
 
     namespace: dict[str, object] = {
-        "SPECPATH": str(root),
-        "__file__": str(root / "dodaios.spec"),
+        "SPECPATH": str(root / "packaging"),
+        "__file__": str(root / "packaging" / "dodaios.spec"),
     }
     for builtin in ("Analysis", "PYZ", "EXE", "COLLECT", "BUNDLE"):
         namespace[builtin] = recorder(builtin)
-    source = (root / "dodaios.spec").read_text(encoding="utf-8")
-    exec(compile(source, str(root / "dodaios.spec"), "exec"), namespace)  # noqa: S102
+    source = (root / "packaging" / "dodaios.spec").read_text(encoding="utf-8")
+    exec(compile(source, str(root / "packaging" / "dodaios.spec"), "exec"), namespace)  # noqa: S102
     assert "BUNDLE" in calls, "the spec must build a BUNDLE on darwin"
     return calls["BUNDLE"]
 
@@ -203,7 +203,8 @@ def spec_root(tmp_path: Path) -> Path:
     (root / "dodaios" / "core").mkdir(parents=True)
     (root / "dodaios" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
     shutil.copy2(TABLE_PATH, root / "dodaios" / "core" / "macos_privacy_strings.py")
-    shutil.copy2(SPEC_PATH, root / "dodaios.spec")
+    (root / "packaging").mkdir()
+    shutil.copy2(SPEC_PATH, root / "packaging" / "dodaios.spec")
     helper_dir = root / "scripts" / "packaging"
     helper_dir.mkdir(parents=True)
     shutil.copy2(

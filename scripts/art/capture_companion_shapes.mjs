@@ -20,6 +20,6 @@ const result = await build({
 });
 const module = { exports: {} };
 new Function("require", "module", "exports", result.outputFiles[0].text)(require, module, module.exports);
-const output = path.join(root, "art/studies/agent-symbol-companions/source/shapes.json");
+const output = path.join(root, "assets/art/studies/agent-symbol-companions/source/shapes.json");
 fs.writeFileSync(output, JSON.stringify(module.exports.default, null, 2) + "\n");
 console.log("Captured seven source silhouettes.");

@@ -24,7 +24,7 @@ Routines and chat channels keep running after the desktop app is closed.
 The service is the existing headless backend
 (`python -m dodaios.ui.web.launcher --background-service`, which implies
 `--headless`) with no window, no microphone, no wake word and no overlay
-(`JARVIS_VOICE=0`). It runs the same task scheduler, channel stack, agent
+(`DODAIOS_VOICE=0`). It runs the same task scheduler, channel stack, agent
 society runtime and Agentic IDE re-attach as a headless install.
 
 Exactly one of desktop app and service runs at a time. Both go through the
@@ -74,7 +74,7 @@ Log: `<data dir>/jarvis_background.log`, next to `jarvis_desktop.log`.
 ## Verifying
 
 - Unit: `tests/unit/core/test_background_service.py`.
-- Live round trip on an isolated dev instance (`JARVIS_DATA_DIR` and
+- Live round trip on an isolated dev instance (`DODAIOS_DATA_DIR` and
   `LOCALAPPDATA` pointed at a temp folder, `--port` set): start the service
   with `--after-pid` of a short-lived process, confirm it boots only after
   that process exits, fire an `after_delay` task through `POST /api/tasks`,

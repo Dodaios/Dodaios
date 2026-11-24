@@ -32,7 +32,7 @@ an app-saved value on the next start.
 | **API Keys & Providers** | Brain, Tool Model, speech, Realtime, Wiki, and Dodaios-Agent provider choices | Keeps provider selection separate from private credentials and shows only registered provider options |
 | Dodaios CLI and dynamic API commands | Headless use and automation | Calls mounted server routes; run `dodaios refresh` if an upgraded route is missing |
 | `dodaios config` and `/api/control/config` | Allowlisted scalar settings without a dedicated control | Requires authentication and uses the validating, backed-up config mutation path |
-| `jarvis.toml`, profile YAML, and `JARVIS__...` | Managed deployments and advanced settings without a supported control | Bypasses feature-specific option discovery and live-apply logic |
+| `jarvis.toml`, profile YAML, and `DODAIOS__...` | Managed deployments and advanced settings without a supported control | Bypasses feature-specific option discovery and live-apply logic |
 
 A setting is supported only when the current schema defines it and an installed
 feature uses it. A similar source-code name or retained compatibility key does
@@ -48,12 +48,12 @@ highest priority:
 | 1 | Built-in schema default | Used when no higher source supplies the value |
 | 2 | Active `jarvis.toml` | Persistent base for the installation |
 | 3 | Selected profile in `<project-folder>/profiles/` | Recursively replaces matching file values; lists are replaced rather than combined |
-| 4 | `JARVIS__SECTION__KEY` environment value | Overrides the matching value for that process |
+| 4 | `DODAIOS__SECTION__KEY` environment value | Overrides the matching value for that process |
 
-`JARVIS_PROFILE` selects a profile before environment settings are applied.
-`JARVIS_CONFIG` selects another configuration file, which is useful on a
+`DODAIOS_PROFILE` selects a profile before environment settings are applied.
+`DODAIOS_CONFIG` selects another configuration file, which is useful on a
 read-only installation. They control loading and are not nested settings.
-Changing `JARVIS_CONFIG` does not relocate profiles; a missing profile file
+Changing `DODAIOS_CONFIG` does not relocate profiles; a missing profile file
 produces no overlay.
 
 Every variable on this page can also be written with the `DODAIOS_` prefix:
@@ -65,13 +65,13 @@ value under the `JARVIS_` name, and that is the name a program it starts sees.
 
 | Location | Resolution |
 |---|---|
-| Active configuration | Non-blank `JARVIS_CONFIG`; otherwise `<project-folder>/jarvis.toml` |
+| Active configuration | Non-blank `DODAIOS_CONFIG`; otherwise `<project-folder>/jarvis.toml` |
 | Named profiles | `<project-folder>/profiles/<profile>.yaml` |
-| Data directory | Non-blank `JARVIS_DATA_DIR`; otherwise `<project-folder>/data` (`data-dev` for the dev instance) |
-| Local credential fallback | `JARVIS_DATA_DIR/credentials.json` when set; otherwise the writable project data directory, with a per-user fallback such as `%LOCALAPPDATA%\Jarvis` on Windows or `~/.jarvis` elsewhere |
+| Data directory | Non-blank `DODAIOS_DATA_DIR`; otherwise `<project-folder>/data` (`data-dev` for the dev instance) |
+| Local credential fallback | `DODAIOS_DATA_DIR/credentials.json` when set; otherwise the writable project data directory, with a per-user fallback such as `%LOCALAPPDATA%\Jarvis` on Windows or `~/.jarvis` elsewhere |
 
 The data directory holds the saved agents, chats, memory and other runtime
-state. Pointing `JARVIS_DATA_DIR` at a different folder starts the app on that
+state. Pointing `DODAIOS_DATA_DIR` at a different folder starts the app on that
 folder's state: a new or empty folder shows only the default agent, while the
 agents and chats in the previous folder stay where they were. Point the
 variable back to see them again. Each start logs
@@ -79,7 +79,7 @@ variable back to see them again. Each start logs
 `GET /api/diagnostics/data-dir` returns the same `path` and `source`.
 
 Nested environment names use two underscores between path segments. For
-example, `JARVIS__UI__LANGUAGE=en` targets the interface language. Common
+example, `DODAIOS__UI__LANGUAGE=en` targets the interface language. Common
 boolean and numeric forms are converted automatically. Environment overrides
 support scalars only; use a supported request, or an advanced file when no
 control exists, for lists and objects. Environment changes require a restart.
@@ -94,7 +94,7 @@ control exists, for lists and objects. Environment changes require a restart.
 When a setting is surprising, compare each layer instead of treating one file
 or response as the effective value. First note the value shown by the
 feature's current `GET` operation. Then inspect the active TOML path, the
-selected profile, and matching `JARVIS__...` variables in that order. Check
+selected profile, and matching `DODAIOS__...` variables in that order. Check
 whether the route reports an active component, a pending change, or a required
 restart. Finally, verify that the required device, permission, credential, or
 optional package is available.
@@ -216,7 +216,7 @@ fallback. A newer fallback can supersede a stale platform copy during recovery.
 This keeps headless in-app setup usable, but Dodaios does not encrypt the file.
 See [Credentials and Secrets](credentials-and-secrets) for recovery details.
 
-The nested `JARVIS__...` variables described above are for non-secret settings.
+The nested `DODAIOS__...` variables described above are for non-secret settings.
 Provider credentials use their documented credential names and protected
 storage flow; do not derive or guess one from a configuration field.
 
@@ -231,10 +231,10 @@ servers. Applying a value still depends on host capabilities:
   components. A preference cannot override an operating-system denial.
 - A saved value cannot install an optional component. Check feature status
   before assuming it can run.
-- On a read-only deployment, point `JARVIS_CONFIG` at a writable persistent
+- On a read-only deployment, point `DODAIOS_CONFIG` at a writable persistent
   location. Its parent directory must also be writable so same-directory
   temporary files and Control API backups can be created.
-- Put `JARVIS_DATA_DIR` on private, persistent storage when credential fallback
+- Put `DODAIOS_DATA_DIR` on private, persistent storage when credential fallback
   is needed.
 
 See [Platform Support](platform-support) for the capability matrix. Read the
@@ -276,8 +276,8 @@ after restart. Restore the original value. Do not test a desktop-only setting.
 | What you see | What it usually means | What to do |
 |---|---|---|
 | A change works now but returns after restart | The live update succeeded but persistence failed, or a profile/environment value won at boot | Check `persisted`, then remove or update the higher-priority source |
-| The file contains the new value, but Dodaios shows another value | A profile or `JARVIS__...` override masks it | Read the precedence table and inspect the process's deployment configuration |
-| A named profile appears to do nothing | The profile is `default`, the YAML file is missing, or it was placed beside `JARVIS_CONFIG` instead of in the project `profiles/` directory | Check `JARVIS_PROFILE`, the fixed profile path, and the YAML name |
+| The file contains the new value, but Dodaios shows another value | A profile or `DODAIOS__...` override masks it | Read the precedence table and inspect the process's deployment configuration |
+| A named profile appears to do nothing | The profile is `default`, the YAML file is missing, or it was placed beside `DODAIOS_CONFIG` instead of in the project `profiles/` directory | Check `DODAIOS_PROFILE`, the fixed profile path, and the YAML name |
 | Dodaios rejects the configuration on start | An advanced TOML or YAML edit has invalid syntax or a typed value is invalid | Restore your known-good copy; generic Control API writes roll back automatically when their reload test fails |
 | A desktop or audio setting persists but does nothing | The host lacks the required session, device, permission, or optional component | Check the operation's `available` or `supported` result and read [Platform Support](platform-support) |
 | A removed credential still appears configured | It comes from an operator environment, `.env`, or another external login | Remove it from the original source, restart, and follow [Credentials and Secrets](credentials-and-secrets) |

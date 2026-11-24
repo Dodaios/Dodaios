@@ -36,27 +36,16 @@ def build() -> tuple[AppCommand, ...]:
             id="design-save",
             title="Make or change a design",
             description=(
-                "Make a new design for the whole app from what the person "
-                "describes (its colours and an optional animated background), "
-                "or change one of their own designs by passing its id; it is "
-                "switched on right away (apply=false only saves it). Choose "
-                "colours that match the description and keep text readable: "
-                "foreground on background needs a contrast of at least 7:1. "
-                "Give BOTH a `dark` and a `light` palette so the design works "
-                "in either appearance. Each palette needs background, "
-                "foreground and accent as #rrggbb; the app derives every other "
-                "surface, and these keys are optional overrides: sidebar, card, "
-                "popover, surface, border, muted, primary, user_bubble, "
-                "bubble_out, bubble_in, success, warning, destructive. "
-                "`background` moves behind the interface: style glow (soft "
-                "drifting light), waves (bands of light), stars (twinkling "
-                "points), gradient (a slowly turning colour gradient) or none; "
-                "colors 1 to 5 #rrggbb (deep saturated tones suit a dark "
-                "design, soft pastels a light one), speed slow, medium or "
-                "fast, strength 0 to 1 (0.3 subtle, 0.5 normal, 0.8 strong). "
-                "To change a design send its id and only what changes. Tell "
-                "the person they can switch designs or go back to the standard "
-                "look in Settings > Designs."
+                "Make a new design for the whole app from what the person describes, or "
+                "change one of theirs by id (send only what changes); it is switched on at "
+                "once (apply=false only saves it). Keep text readable: contrast of at least "
+                "7:1. Give both a `dark` and a `light` palette, each with background, "
+                "foreground and accent as #rrggbb; optional overrides: sidebar, card, "
+                "popover, surface, border, muted, primary, user_bubble, bubble_out, "
+                "bubble_in, success, warning, destructive. `background` is animated: style "
+                "glow, waves, stars, gradient or none; colors 1 to 5 #rrggbb; speed slow, "
+                "medium or fast; strength 0 to 1. The person can switch designs in "
+                "Settings > Designs."
             ),
             method="POST",
             path="/api/designs",

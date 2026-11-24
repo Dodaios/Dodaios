@@ -96,8 +96,8 @@ where it is. When pasting a snippet by hand, remove an existing
 
 Environment overrides, for a Dodaios that is not on this box:
 
-* `JARVIS_API_URL` — base URL of the Dodaios to drive
-* `JARVIS_CONTROL_KEY` — the control key
+* `DODAIOS_API_URL` — base URL of the Dodaios to drive
+* `DODAIOS_CONTROL_KEY` — the control key
 
 ## 3. Credentials: one per client
 

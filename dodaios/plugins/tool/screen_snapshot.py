@@ -144,7 +144,8 @@ class ScreenSnapshotTool:
             from dodaios.cu.indicator.capture_guard import (  # noqa: PLC0415
                 indicator_suppressed,
             )
-        except Exception:  # noqa: BLE001 — grab must still work without CU
+        except Exception:  # broad-except: grab must still work without CU
+            log.debug("execute: grab must still work without CU", exc_info=True)
             from contextlib import nullcontext  # noqa: PLC0415
 
             indicator_suppressed = nullcontext
@@ -161,7 +162,8 @@ class ScreenSnapshotTool:
                 target = select_capture_monitor(monitors, strategy="foreground")
                 raw = sct.grab(target)
                 image = Image.frombytes("RGB", raw.size, raw.rgb)
-        except Exception as exc:  # noqa: BLE001 — mss/display errors are varied
+        except Exception as exc:  # broad-except: mss/display errors are varied
+            log.warning("execute: mss/display errors are varied", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,

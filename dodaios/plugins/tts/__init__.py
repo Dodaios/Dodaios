@@ -144,7 +144,7 @@ def _tts_has_credential(canonical: str, tts_cfg: Any) -> bool:
         try:
             if _cfg.vertex_credential_configured():
                 return True
-        except Exception as exc:  # noqa: BLE001 — a probe must never break TTS build
+        except Exception as exc:  # broad-except: a probe must never break TTS build
             log.debug("Vertex credential probe failed (%s); using key candidates.", exc)
 
     return _cfg.get_secret_any(candidates) is not None
@@ -275,7 +275,7 @@ def resolve_keyed_fallback(
             continue
         try:
             return _build_provider(cfg_view, cand)
-        except Exception as exc:  # noqa: BLE001 — a bad candidate must not abort the chain
+        except Exception as exc:  # broad-except: a bad candidate must not abort the chain
             log.warning(
                 "Keyed fallback candidate %r not buildable (%s) — trying next.",
                 cand, exc.__class__.__name__,
@@ -439,7 +439,7 @@ def build_realtime_surface_tts(
             family, voice, provider_id,
         )
         return surface
-    except Exception as exc:  # noqa: BLE001 — an unbuildable emergency voice must not crash the turn
+    except Exception as exc:  # broad-except: an unbuildable emergency voice must not crash the turn
         log.warning(
             "Realtime surface TTS resolution failed (%s) — the emergency "
             "re-render stays text-only (strict mode separation).",
@@ -596,7 +596,7 @@ def build_tts_from_config(tts_cfg: Any) -> Any:
 
     try:
         secondary = _build_provider(tts_cfg, fallback_name)
-    except Exception as exc:  # noqa: BLE001 — a bad fallback must not kill audio
+    except Exception as exc:  # broad-except: a bad fallback must not kill audio
         log.warning(
             "TTS fallback provider %r not buildable (%s) — running primary %r only.",
             fallback_name, exc, primary_name,

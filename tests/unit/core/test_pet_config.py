@@ -104,7 +104,7 @@ def test_the_removed_desktop_pet_keys_still_load() -> None:
 
 
 def test_example_config_documents_only_the_active_pet() -> None:
-    example = Path(__file__).resolve().parents[3] / "dodaios.toml.example"
+    example = Path(__file__).resolve().parents[3] / "docs/examples/dodaios.toml.example"
     data = tomllib.loads(example.read_text(encoding="utf-8"))
     assert data["ui"]["pet_id"] == UIConfig().pet_id
     for gone in ("pet_scale", "pet_bubble", "pet_strip_always"):

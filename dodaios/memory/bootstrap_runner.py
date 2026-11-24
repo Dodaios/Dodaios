@@ -555,7 +555,7 @@ if __name__ == "__main__":  # pragma: no cover
     # Windows stdout defaults to cp1252 — we need UTF-8 for umlauts.
     try:
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
-    except Exception:
+    except (AttributeError, OSError, ValueError):  # no reconfigure(): keep the encoding
         pass
 
     # Late imports — so the module can be imported without the package installed

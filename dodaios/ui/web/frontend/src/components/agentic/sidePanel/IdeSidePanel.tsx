@@ -1,3 +1,4 @@
+import { folderOfView, isFolderView } from "@/store/panelWorkspace";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Check, Columns2, Maximize2, Minimize2, MoveHorizontal, Plus, SquareTerminal, X } from "lucide-react";
 import { useT } from "@/i18n";
@@ -6,7 +7,7 @@ import { useResizablePane } from "@/hooks/useResizablePane";
 import { PaneResizer } from "@/components/layout/PaneResizer";
 import { MAX_TERMINAL_TABS, useIdeSidePanelStore, type SidePanelTabId } from "@/store/ideSidePanel";
 import { MAX_PANES, columnCount, placeLayout, type LayoutRect } from "@/store/sidePanelLayout";
-import { useIdeChatStore } from "@/store/ideChat";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { WorkspaceTerminal } from "@/components/workspace/WorkspaceTerminal";
 import type { TerminalAppearance } from "../terminalThemes";
 import { useExplorerPathRouting } from "@/store/ideExplorer";
@@ -192,7 +193,7 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
   const open = useIdeSidePanelStore((state) => state.open);
   const terminals = useIdeSidePanelStore((state) => state.terminals);
   const addTerminalTab = useIdeSidePanelStore((state) => state.addTerminalTab);
-  const workspace = useIdeChatStore((state) => state.workspace);
+  const workspace = usePanelWorkspace();
   const tabs = allTabs.filter((id) => !id.startsWith("terminal:") || terminals.some((terminal) => terminal.id === id && terminal.workspaceId === workspace?.id));
   const active = tabs.includes(storedActive) ? storedActive : tabs[0];
   const terminalCount = terminals.filter((terminal) => terminal.workspaceId === workspace?.id).length;
@@ -438,7 +439,8 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
           {/* A terminal opened on a folder of the tree starts there; `folder` only
               counts when no workspace id is named. */}
           <WorkspaceTerminal paneKey={terminal.id} agentName="shell"
-            workspaceId={terminal.folder ? undefined : terminal.workspaceId} folder={terminal.folder}
+            workspaceId={terminal.folder || isFolderView(terminal.workspaceId) ? undefined : terminal.workspaceId}
+            folder={terminal.folder ?? (folderOfView(terminal.workspaceId) || undefined)}
             title={`${t("ide_side_panel.terminal_label")} ${terminal.number} · ${terminal.workspaceName}`}
             active={onScreen && open && shown(terminal.id)} appearance={appearance} />
         </div>)}

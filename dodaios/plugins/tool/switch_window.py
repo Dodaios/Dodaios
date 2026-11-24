@@ -11,6 +11,7 @@ change can trigger unwanted actions if the user is currently typing.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
@@ -21,6 +22,8 @@ from dodaios.platform.window_state import (
     _find_and_focus_macos,
     _find_and_focus_windows,
 )
+
+log = logging.getLogger(__name__)
 
 
 class SwitchWindowTool:
@@ -56,7 +59,8 @@ class SwitchWindowTool:
         # --- Windows path (unchanged, AD-7) ---
         try:
             found, msg = await asyncio.to_thread(_find_and_focus_windows, title)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False, output=None,
                 error=f"Window enumeration failed: {exc}",
@@ -100,7 +104,11 @@ class SwitchWindowTool:
 
         try:
             found, msg = await asyncio.to_thread(focus_fn, title)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning(
+                "_execute_non_windows: failed; carrying on with the fallback",
+                exc_info=True,
+            )
             return ToolResult(success=False, output=None, error=f"Window switch failed: {exc}")
 
         if found:

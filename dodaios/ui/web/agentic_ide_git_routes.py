@@ -54,6 +54,7 @@ from pydantic import BaseModel, Field
 from dodaios.agentic_ide import (
     branch_contents,
     done_gate_status,
+    folder_view,
     git_changes,
     git_ops,
     git_overview,
@@ -219,11 +220,9 @@ def workspace_overview(
     Workspace-scoped on purpose: the folder comes from the open workspace, so
     this cannot be pointed at an arbitrary path on the machine.
     """
-    session = get_registry().get(workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
+    folder = _workspace_folder(workspace_id)
     # The tab polls again soon while GitHub's first read is still loading.
-    return git_overview.overview(session.folder, refresh=refresh, wait_for_github=False).to_dict()
+    return git_overview.overview(folder, refresh=refresh, wait_for_github=False).to_dict()
 
 
 @router.get("/session-status", summary="Current GitHub branch, pull request and CI status per pane")
@@ -250,6 +249,9 @@ def session_github_status(
     registry = get_registry()
     session = registry.get(workspace_id)
     if session is None:
+        if folder_view.folder_of(workspace_id) is not None:
+            # A folder view has no panes, so nothing to read.
+            return {"panes": {}, "refreshing": False, "age": None, "waiting": [], "failed": False}
         raise HTTPException(status_code=404, detail="Workspace not found.")
     # The tabs behind this one are read ahead, and kept recent while this one
     # is shown, so a header there has its branch the moment someone switches.
@@ -292,6 +294,8 @@ def pane_done_gate(workspace_id: str = Query(..., min_length=1)) -> dict:
     """
     session = get_registry().get(workspace_id)
     if session is None:
+        if folder_view.folder_of(workspace_id) is not None:
+            return {"panes": {}}  # a folder view has no panes
         raise HTTPException(status_code=404, detail="Workspace not found.")
     records = [
         done_gate_status.PaneGateRecord(
@@ -391,9 +395,13 @@ def _native_actions(request: Request) -> bool:
 
 def _workspace_folder(workspace_id: str) -> Path:
     session = get_registry().get(workspace_id)
-    if session is None:
+    if session is not None:
+        return Path(session.folder)
+    # A thread's project with no open workspace: its folder view (sync route, worker thread).
+    folder = folder_view.folder_of(workspace_id)
+    if folder is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")
-    return Path(session.folder)
+    return folder
 
 
 @router.get("/branch/contents", summary="A branch's own commits and changed files")
@@ -455,10 +463,7 @@ def open_branch(request: Request, req: OpenBranchRequest) -> dict:
     """
     if not _native_actions(request):
         raise HTTPException(status_code=404, detail="Folders can only be opened on this computer.")
-    session = get_registry().get(req.workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
-    folder = git_overview.branch_checkout(session.folder, req.branch)
+    folder = git_overview.branch_checkout(_workspace_folder(req.workspace_id), req.branch)
     if folder is None:
         raise HTTPException(
             status_code=404, detail="This branch is not checked out on this computer."
@@ -563,11 +568,9 @@ def github_pull_requests(limit: int = Query(30, ge=1, le=30)) -> dict:
 @router.put("/github/binding", summary="Remember a workspace folder's GitHub repository")
 def bind_github_repository(req: BindingRequest) -> dict:
     """Asked once per folder; every worktree of the same repository shares it."""
-    session = get_registry().get(req.workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
+    folder = _workspace_folder(req.workspace_id)
     try:
-        github_link.bind_repository(session.folder, req.repo)
+        github_link.bind_repository(folder, req.repo)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except OSError as exc:

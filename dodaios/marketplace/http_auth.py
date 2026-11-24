@@ -71,7 +71,7 @@ class PluginHttpAuth(httpx.Auth):
             except asyncio.CancelledError as exc:
                 # Re-raise after the bounded credential save finishes below.
                 cancelled = exc
-            except Exception as exc:  # noqa: BLE001 - re-raised via task.result below
+            except Exception as exc:  # broad-except: re-raised via task.result below
                 log.debug(
                     "plugin %s HTTP refresh ended with %s",
                     self._plugin_id,

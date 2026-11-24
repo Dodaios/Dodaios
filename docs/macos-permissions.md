@@ -887,7 +887,7 @@ The earlier command names `jarvis` and `jarvisctl` still work as aliases.
   from the process that runs the command (a terminal). `--bundle-id` accepts only those two ids,
   for a Mac that has both; any other id is refused (exit 2), so it can never reset another app.
 - **Guard.** It changes the machine directly, so it fails closed without `--yes` (or
-  `JARVIS_CLI_ASSUME_YES=1`), like every destructive CLI action; `--dry-run` prints the exact
+  `DODAIOS_CLI_ASSUME_YES=1`), like every destructive CLI action; `--dry-run` prints the exact
   `tccutil` argv and runs nothing. The subprocess passes `NO_WINDOW_CREATIONFLAGS` and decodes UTF-8
   (AP-1); a failing `tccutil` exits 1 with its status.
 - **Afterwards.** Quit and reopen Dodaios, then use the feature: macOS asks again. The

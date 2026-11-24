@@ -434,6 +434,6 @@ async def close_open_recall_stores(*, timeout_s: float = 5.0) -> int:
         try:
             await asyncio.wait_for(store.close(), timeout=timeout_s)
             closed += 1
-        except Exception:  # noqa: BLE001 — shutdown continues with the next store
+        except Exception:  # broad-except: shutdown continues with the next store
             log.warning("RecallStore %s did not close cleanly", store._db_path, exc_info=True)
     return closed

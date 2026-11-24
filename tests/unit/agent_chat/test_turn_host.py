@@ -1386,6 +1386,21 @@ def test_the_host_keeps_stdin_open_past_the_empty_answer_to_a_task_notice() -> N
     assert turn_host._is_answer(fresh, json.dumps(empty))
 
 
+def test_the_host_keeps_stdin_open_past_one_empty_answer_per_task_notice() -> None:
+    """Two tasks stopped on exit: two notices, then two empty results."""
+    turn = turn_host.HostedTurn(
+        turn_id="t", proc=None, meta={}, started_at=0.0, close_stdin_on="result"  # type: ignore[arg-type]
+    )
+    notice = {"type": "system", "subtype": "task_notification", "task_id": "a", "status": "stopped"}
+    empty = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 0}
+    real = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 3}
+    assert not turn_host._is_answer(turn, json.dumps(notice))
+    assert not turn_host._is_answer(turn, json.dumps({**notice, "task_id": "b"}))
+    assert not turn_host._is_answer(turn, json.dumps(empty))
+    assert not turn_host._is_answer(turn, json.dumps(empty))
+    assert turn_host._is_answer(turn, json.dumps(real))
+
+
 async def test_a_restarted_app_closes_the_question_cards_only_the_old_process_waited_on(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
 ) -> None:

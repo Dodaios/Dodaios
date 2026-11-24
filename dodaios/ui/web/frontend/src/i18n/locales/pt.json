@@ -3680,25 +3680,8 @@
     },
     "self_build": {
       "title": "Autoconstrução",
-      "description": "Até onde {name} pode ir quando constrói coisas para si por iniciativa própria.",
+      "description": "Os limites que {name} respeita ao construir ajudantes para você. Nunca pergunta antes: só constrói o que pode ser desfeito e mantém o que você usa. Pause ou desfaça um ajudante em Feito para si.",
       "open_view": "Abrir Feito para si",
-      "enabled_title": "Construir por iniciativa própria",
-      "enabled_description": "Reparar no que faz repetidamente e construir o que lhe tira esse trabalho. Desligado: nada é notado nem construído.",
-      "autonomy_title": "Até onde, por tipo",
-      "autonomy_description": "Desligado: nunca. Sugerir: um cartão pergunta primeiro. Ensaio: construído, verificado e ativo, com anulação num clique. Total: como ensaio, e um ensaio que foi usado é mantido sozinho.",
-      "levels": {
-        "off": "Desligado",
-        "suggest": "Sugerir",
-        "trial": "Ensaio",
-        "full": "Total"
-      },
-      "kinds": {
-        "memory": "Memórias",
-        "skill": "Competências",
-        "routine": "Rotinas",
-        "agent": "Agentes",
-        "code": "Alterações de código"
-      },
       "limits_title": "Limites",
       "limits_description": "Tetos fixos que o ciclo nunca ultrapassa, decida o que decidir.",
       "limits": {
@@ -3708,7 +3691,7 @@
         "max_code_runs_per_day": "Execuções de código por dia",
         "trial_days": "Duração do ensaio em dias",
         "trial_uses": "Duração do ensaio em utilizações",
-        "max_rejections": "Deixar de propor após tantas recusas",
+        "max_rejections": "Não construir de novo após ser desfeito tantas vezes",
         "silent_days": "Primeiros dias em silêncio"
       },
       "save_error": "Não foi possível guardar: {detail}",
@@ -5254,6 +5237,7 @@
     "approving": "A aprovar…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Instalado, desligado",
     "install_failed": "A instalação falhou",
     "title": "Localizador de skills",
     "subtitle": "Descreve o que precisas — o mini-agente pesquisa o catálogo e ordena com IA.",
@@ -5431,7 +5415,11 @@
     "select_all": "Selecionar tudo",
     "copy_failed": "Não foi possível copiar para a área de transferência.",
     "paste_unavailable": "Não foi possível ler a área de transferência.",
-    "paste_failed": "Não é possível colar aqui."
+    "paste_failed": "Não é possível colar aqui.",
+    "open_link": "Abrir link",
+    "copy_link": "Copiar endereço do link",
+    "clear_terminal": "Limpar terminal",
+    "action_failed": "Não funcionou."
   },
   "workspace_bar": {
     "open_workspaces": "Workspaces abertos",
@@ -6728,6 +6716,7 @@
     "landed_title": "{title} instalado",
     "landed_plugin": "Já está em Plugins. Liga-o para começares a usá-lo.",
     "landed_skill": "Já está em Skills e pode ser usada de imediato.",
+    "landed_skill_off": "Está em Skills, desligado. Lê-o lá e liga-o para o usar.",
     "landed_needs_connect": "Instalado, mas ainda não utilizável: falta ligá-lo.",
     "sends_data_to": "Depois de ligado, os pedidos e o teu token de acesso vão para:",
     "runs_command": "Depois de ligado, este comando corre no teu computador:",
@@ -9558,7 +9547,14 @@
       "unavailable": "Não é possível ler este arquivo. Ele pode ter sido movido ou excluído.",
       "no_workspace": "Abra um projeto para ler arquivos aqui.",
       "show_change": "Mostrar a alteração",
-      "change_truncated": "Mais {count} linhas não são mostradas."
+      "change_truncated": "Mais {count} linhas não são mostradas.",
+      "unsaved": "Alterações não guardadas",
+      "save": "Guardar",
+      "saving": "A guardar…",
+      "conflict": "O ficheiro mudou no disco desde que o abriu.",
+      "overwrite": "Substituir",
+      "discard": "Descartar as minhas alterações",
+      "save_failed": "Não foi possível guardar: {error}"
     }
   },
   "appshots": {
@@ -10697,6 +10693,20 @@
     "signin_not_yet": "— instalar ainda não liga nada."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Bandeira",
+      "set": "Marcado",
+      "mark": "Bandeira: {name}",
+      "name_flags": "Dar nome às bandeiras…",
+      "names_title": "Dê nome às suas bandeiras",
+      "names_body": "O nome aparece quando o ponteiro para sobre uma bandeira. Deixe um campo vazio para o nome padrão.",
+      "default_red": "Importante",
+      "default_orange": "Acompanhar",
+      "default_blue": "Depois",
+      "name_red": "Nome da bandeira vermelha",
+      "name_orange": "Nome da bandeira laranja",
+      "name_blue": "Nome da bandeira azul"
+    },
     "remove_project": "Remover projeto",
     "remove_project_title": "Remover {project} da barra lateral?",
     "remove_project_body_none": "A pasta no disco fica intacta; adicione-a de novo para recuperar o projeto.",
