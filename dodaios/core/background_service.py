@@ -1,8 +1,9 @@
-"""Background agent service — routines and chat channels outlive the window.
+"""Background agent service — routines, chat channels and learning outlive the window.
 
 The desktop app owns everything while it is open. When the user quits it and
-there is work to keep (an armed routine, a running Telegram/Discord channel),
-it starts this service: the same backend as ``launcher --headless``, without a
+there is work to keep (an armed routine, a running Telegram/Discord channel,
+the self-improvement learning the person has not stopped), it starts this
+service: the same backend as ``launcher --headless``, without a
 window, microphone, wake word or overlay. The service takes the single-instance
 lock and the admin port, so routines fire, channels answer, and the Agentic IDE
 re-attaches to its PTY host exactly as in a headless install.
@@ -48,7 +49,8 @@ IDLE_CHECK_S = 300.0
 IDLE_STRIKES = 2
 #: How long the desktop waits for the service to hand back before stopping it.
 TAKEOVER_WAIT_S = 45.0
-#: How long a handing-back service lets routine runs in flight finish.
+#: How long a handing-back service lets routine runs and a learning round in
+#: flight finish.
 HANDOVER_DRAIN_S = 30.0
 
 
@@ -98,9 +100,13 @@ class BackgroundWork:
     routines: int = 0
     running: int = 0
     channels: tuple[str, ...] = ()
+    #: The self-improvement loop runs and the person has not stopped it
+    #: (``dodaios.rsi.night``). Its rounds are periodic, so while this holds
+    #: the service stays for as long as the computer runs.
+    learning: bool = False
 
     def __bool__(self) -> bool:
-        return bool(self.routines or self.running or self.channels)
+        return bool(self.routines or self.running or self.channels or self.learning)
 
     def describe(self) -> str:
         parts: list[str] = []
@@ -110,6 +116,8 @@ class BackgroundWork:
             parts.append(f"{self.running} run(s) in flight")
         if self.channels:
             parts.append("channels: " + ", ".join(self.channels))
+        if self.learning:
+            parts.append("self-improvement learning")
         return "; ".join(parts) or "nothing"
 
 
@@ -139,7 +147,25 @@ def work_from_state(state: Any) -> BackgroundWork:
             )
         except Exception:  # noqa: BLE001 — same: unreadable means none to keep
             logger.opt(exception=True).debug("background: channel state unreadable")
-    return BackgroundWork(routines=int(routines), running=int(running), channels=channels)
+    return BackgroundWork(
+        routines=int(routines),
+        running=int(running),
+        channels=channels,
+        learning=_learning(state),
+    )
+
+
+def _learning(state: Any) -> bool:
+    """The backend has a self-improvement loop and the person has not stopped it."""
+    service = getattr(state, "self_improvement", None)
+    learning = getattr(service, "learning", None)
+    if not callable(learning):
+        return False
+    try:
+        return bool(learning())
+    except Exception:  # noqa: BLE001 — an unreadable loop state means no learning to keep
+        logger.opt(exception=True).debug("background: self-improvement state unreadable")
+        return False
 
 
 #: Channels that only serve the app's own windows — nothing outside reaches them.
@@ -401,7 +427,9 @@ def hand_off_on_quit(state: Any, cfg: Any, *, pid: int | None = None) -> bool:
             return False
         work = work_from_state(state)
         if not persistent and not work:
-            logger.info("background: no routines or channels to keep — no background service")
+            logger.info(
+                "background: no routines, channels or learning to keep — no background service"
+            )
             return False
         # A leftover request would make the new service exit at once.
         clear_handover_request()

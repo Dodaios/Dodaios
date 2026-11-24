@@ -4318,6 +4318,15 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
             logger.opt(exception=exc).debug("Learning loop stop failed")
 
+        # A running self-improvement round makes no more model calls and ends by
+        # writing its report; no new one starts (dodaios/rsi/night.py).
+        nights = getattr(self.app.state, "self_improvement", None)
+        if nights is not None:
+            try:
+                nights.stop()
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                logger.opt(exception=exc).debug("self-improvement stop failed")
+
         team_threads = getattr(self.app.state, "team_threads", None)
         if team_threads is not None:
             # Before the chat turns end: a coordinator that sees its members'

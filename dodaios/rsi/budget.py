@@ -6,7 +6,9 @@ before each call, so no learner, task or loop can spend past them:
 * only on a subscription or a local model, never a key billed per token (the
   world of a domain is not built at all without one: see ``lead_replay``);
 * only while the person is away (the night starts after
-  ``night.IDLE_AFTER_S``; a call is not started once they are back);
+  ``night.IDLE_AFTER_S``; a call is not started once they are back), and
+  only while the backend keeps the night (a call is not started once it
+  halts: the app opens over the background service, or the backend stops);
 * at most :data:`REPLAY_CALLS` calls a night for the domains that replay
   lead turns, ``first_move`` and ``brief`` together: one :class:`Budget`
   object serves both worlds of a night, so neither can spend past it. A
@@ -59,10 +61,12 @@ class Budget:
         *,
         usage: Callable[[], Usage | None] | None = None,
         idle: Callable[[], bool] | None = None,
+        halted: Callable[[], bool] | None = None,
     ) -> None:
         self.cap = int(cap)
         self._usage = usage
         self._idle = idle
+        self._halted = halted
         self._start: dict[str, float] | None = None
         self._lock = threading.Lock()
         self.calls = 0
@@ -76,6 +80,8 @@ class Budget:
     def _why_not(self) -> str:
         if self.calls >= self.cap:
             return f"the night's {self.cap} model calls are spent"
+        if self._halted is not None and self._halted():
+            return "the backend let go of the night"
         if self._idle is not None and not self._idle():
             return "the person is back"
         reading = self._usage() if self._usage is not None else None

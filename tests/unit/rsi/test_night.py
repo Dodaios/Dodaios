@@ -292,6 +292,64 @@ def test_the_app_runs_a_night_only_when_one_is_due_and_the_person_is_away(quiet_
     assert service.tick() is None
 
 
+def test_learning_is_work_to_keep_until_the_person_stops_the_loop(quiet_box) -> None:
+    service = nights.NightService(quiet_box.night, lambda: True)
+    assert service.learning() is True
+    quiet_box.night.pause(True)
+    assert service.learning() is False
+
+
+def test_a_halt_ends_the_running_night_with_its_report_and_starts_no_other(quiet_box) -> None:
+    import asyncio
+    import concurrent.futures
+    import threading
+
+    service = nights.NightService(quiet_box.night, lambda: True)
+    started = threading.Event()
+    cut: list[str | None] = []
+
+    def prepare() -> dict[str, Any]:
+        # A model call in flight, waited for the way the task maker waits for one.
+        started.set()
+        call: concurrent.futures.Future[str] = concurrent.futures.Future()
+        cut.append(nights._wait_for(call, lambda: service.halted, poll_s=0.01))
+        return {}
+
+    quiet_box.night._prepare = prepare
+    worker = threading.Thread(target=service.tick, daemon=True)
+    worker.start()
+    assert started.wait(10) and service.busy
+    assert asyncio.run(service.wind_down(10.0, poll_s=0.01)) is True
+    worker.join(10)
+    assert cut == [None]  # the call was cut, not answered
+    assert not service.busy and service.halted
+    # The night went on without a model and wrote its report, as when the person is back.
+    assert len(quiet_box.bench.nights()) == 1 and quiet_box.night.last_ms() > 0
+    quiet_box.bench.set_meta("loop", {})  # due again
+    assert quiet_box.night.due() and service.tick() is None  # a halted backend starts none
+
+
+def test_a_waited_call_gives_up_at_its_time_limit_and_is_cancelled() -> None:
+    import concurrent.futures
+
+    future: concurrent.futures.Future[str] = concurrent.futures.Future()
+    assert nights._wait_for(future, None, timeout_s=0.05, poll_s=0.01) is None
+    assert future.cancelled()
+    done: concurrent.futures.Future[str] = concurrent.futures.Future()
+    done.set_result("an answer")
+    assert nights._wait_for(done, lambda: False) == "an answer"
+
+
+def test_a_halted_night_asks_no_model() -> None:
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    try:
+        assert nights._model_ask(None, loop, lambda: True)("system", "prompt") is None
+    finally:
+        loop.close()
+
+
 def test_the_installations_own_nights_never_decide_on_the_seed_suite(tmp_path: Path) -> None:
     from dodaios.rsi.bench.model import Source
     from dodaios.self_change import SelfChangeRegistry

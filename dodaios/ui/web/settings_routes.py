@@ -2331,6 +2331,8 @@ def _background_payload(request: Request) -> dict[str, object]:
             "routines": work.routines,
             "running": work.running,
             "channels": list(work.channels),
+            # The self-improvement loop runs and the person has not stopped it.
+            "learning": work.learning,
         },
     }
 
