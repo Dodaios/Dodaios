@@ -107,6 +107,34 @@ def reference_recording(case: Case) -> Recording:
     return Recording(tool=expect.tools[0], input=args)
 
 
+def seed_payload(cases: list[Case]) -> dict[str, Any]:
+    """The golden set as the benchmark ships it (``dodaios/rsi/bench/seed/first_move.json``).
+
+    The YAML files stay the one place a case is written; the packaged file is
+    generated from them (``scripts/lead_routing_eval.py --write-seed``) and a
+    test pins that the two agree, because the installed app has no ``tests/``.
+    """
+    rows: list[dict[str, Any]] = []
+    for case in cases:
+        row: dict[str, Any] = {
+            "key": case.id,
+            "category": case.category,
+            "lang": case.lang,
+            "utterance": case.utterance,
+            "expect": case.expect.to_json(),
+        }
+        if case.requires:
+            row["requires"] = list(case.requires)
+        rows.append(row)
+    return {
+        "about": (
+            "Generated from tests/fixtures/lead_routing/*.yaml by "
+            "scripts/lead_routing_eval.py --write-seed. Edit the YAML, never this file."
+        ),
+        "cases": rows,
+    }
+
+
 def reference_payload(cases: list[Case]) -> dict[str, Any]:
     return {
         "seat": "reference",
@@ -115,4 +143,11 @@ def reference_payload(cases: list[Case]) -> dict[str, Any]:
     }
 
 
-__all__ = ["NO_TOOL", "READ_VERBS", "catalog_problems", "reference_payload", "reference_recording"]
+__all__ = [
+    "NO_TOOL",
+    "READ_VERBS",
+    "catalog_problems",
+    "reference_payload",
+    "reference_recording",
+    "seed_payload",
+]

@@ -36,7 +36,7 @@ export function fmtPercent(share: number, locale: string): string {
 }
 
 /** Domains whose cost is the prompt a task adds, in tokens. */
-const TOKEN_COST_DOMAINS: ReadonlySet<string> = new Set(["recall"]);
+const TOKEN_COST_DOMAINS: ReadonlySet<string> = new Set(["recall", "first_move"]);
 
 export type Certainty = "better" | "worse" | "unclear";
 
@@ -102,6 +102,32 @@ export function paramAbout(t: T, name: string, doc = ""): string {
   const key = `self_improvement.param.${paramKey(name)}.about`;
   const about = t(key);
   return about !== key ? about : doc;
+}
+
+/**
+ * A switched line beside the lead's messages as one plain sentence ("Dropped the
+ * line …"), from the page's strings; "" when `name` switches no line or the value
+ * is no switch. A line switch is a parameter with on/off sentences
+ * (`self_improvement.line.<key>`; the kernel's list is dodaios/rsi/lines.py).
+ */
+export function lineSentence(t: T, name: string, after: unknown): string {
+  if (typeof after !== "boolean") return "";
+  const key = `self_improvement.line.${paramKey(name)}.${after ? "on" : "off"}`;
+  const text = t(key);
+  return text !== key ? text : "";
+}
+
+/** A value as the person reads it, with on and off in words for a switch. */
+export function valueWords(t: T, value: unknown, locale: string): string {
+  if (typeof value === "boolean") return t(value ? "self_improvement.value.on" : "self_improvement.value.off");
+  return fmtValue(value, locale);
+}
+
+/** An area's own wording for `key` ("building", "no_tasks"), else the shared one. */
+export function areaText(t: T, domain: string, key: string): string {
+  const own = `self_improvement.domain.${domain}.${key}`;
+  const text = t(own);
+  return text !== own ? text : t(`self_improvement.area.${key}`);
 }
 
 export function areaName(t: T, domain: string): string {

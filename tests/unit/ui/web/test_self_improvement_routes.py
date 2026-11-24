@@ -60,9 +60,12 @@ def test_the_page_gets_what_was_measured_what_is_in_effect_and_what_the_nights_d
         "max_model_calls": 8,
         "ramp_model_calls": 24,
         "model_calls_tonight": 8,  # the sandbox's own tasks are enough to decide on
+        "first_move_calls": 40,
     }
 
-    (domain,) = body["domains"]
+    domain, lead = body["domains"]
+    # The lead's first move is a measured area too; without recorded lead turns it waits.
+    assert lead["domain"] == "first_move" and lead["tasks_total"] == 0 and not lead["measured"]
     assert domain["domain"] == "recall" and domain["measured"] is True
     assert domain["tasks"] == splits and domain["tasks_total"] == fakeworld.TASKS
     point = domain["point"]

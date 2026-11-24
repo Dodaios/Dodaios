@@ -29,6 +29,12 @@
       "recall": {
         "name": "Memory",
         "about": "Does the right memory come up for a message, and nothing when none is needed?"
+      },
+      "first_move": {
+        "name": "First move",
+        "about": "Does the assistant reach for the right tool first, and say in one line what it takes on before it does?",
+        "building": "{n} test tasks from your own chats with the assistant so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
+        "no_tasks": "There are no tasks from your chats for this area yet. They come from answers you let stand, and from answers the assistant got right after you corrected it."
       }
     },
     "area": {
@@ -120,7 +126,8 @@
       "tuner": "The tuner, which tries nearby values on practice tasks",
       "owner": "You",
       "memory-learner": "The assistant, after a tool failed and a later call worked",
-      "rsi-selector": "The steering learner, which tries one change at a time on half of your coding requests"
+      "rsi-selector": "The steering learner, which tries one change at a time on half of your coding requests",
+      "lines": "The line learner, which tries your messages without one of their standing lines on practice tasks"
     },
     "nights": {
       "title": "The last nights",
@@ -174,6 +181,7 @@
       "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "measure_no_model": "Measuring itself asks no model.",
+      "measure_first_move": "Measuring the first move replays your earlier requests on the assistant's own plan: at most {calls} times a night, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
       "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
     },
     "param": {
@@ -228,6 +236,10 @@
       "lessons_recall_limit": {
         "title": "Lessons per message",
         "about": "The most lessons one message may bring up."
+      },
+      "lead_first_line": {
+        "title": "Opening line before a tool",
+        "about": "Beside each of your messages: write one short line that takes the task on before using a tool."
       }
     },
     "daily": {
@@ -273,6 +285,16 @@
       "other": "other",
       "refactoring": "refactoring",
       "multi_repo": "multi-repository"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Dropped the line beside your messages that asks for a short opening line before the first tool.",
+        "on": "Put back the line beside your messages that asks for a short opening line before the first tool."
+      }
+    },
+    "value": {
+      "on": "on",
+      "off": "off"
     }
   }
 }
