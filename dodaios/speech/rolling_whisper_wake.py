@@ -36,17 +36,17 @@ import numpy as np
 
 from dodaios.audio.capture import pcm_bytes_to_np
 from dodaios.core.protocols import AudioChunk
-from dodaios.plugins.stt.fwhisper import FasterWhisperProvider, TranscribeBusy
 
 # ``pattern=`` accepts a compiled regex or a ``WakeMatcher`` (duck-types
 # ``.search().group(0)``). There is NO default pattern: the product ships no
 # wake word (design 2026-07-07), so every caller passes the configured
 # phrase's matcher from the wake plan — the same object the prefix verifier
 # uses, so the two STT wake paths can never drift apart (BUG-008).
-from dodaios.speech.wake_constants import (
+from dodaios.core.wake_constants import (
     STT_HALLUCINATION_RE,
     normalize_phrase_for_match,
 )
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider, TranscribeBusy
 
 log = logging.getLogger("jarvis.wake.rolling")
 

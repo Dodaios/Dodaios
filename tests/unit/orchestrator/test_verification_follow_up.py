@@ -314,14 +314,14 @@ def test_a_live_check_shows_signs_of_life(rig: Rig):
 # ------------------------------------------------- when the thread is not the agent's
 
 
-def test_the_person_writing_while_the_output_is_checked_supersedes_the_run(rig: Rig):
+def test_the_person_correcting_while_the_output_is_checked_supersedes_the_run(rig: Rig):
     rig.github.answer = RUNNING_CHECKS
     rig.order()
     rig.turn("t1", rig.commit)
-    rig.emit("user_message", {"text": "stop, I take over"})
+    rig.emit("user_message", {"text": "No, stop, I take over"})
     rig.recorder.process_pending()
     run = rig.store.get("job_1")
-    assert (run["state"], run["verdict"]) == (ENDED, "superseded")
+    assert (run["state"], run["verdict"], run["taken_over"]) == (ENDED, "superseded", 1)
     assert rig.verdicts == [("job_1", rig.sid)]
 
 

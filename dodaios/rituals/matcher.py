@@ -20,7 +20,7 @@ import re
 from functools import lru_cache
 from typing import Final
 
-from dodaios.speech.wake_constants import (
+from dodaios.core.wake_constants import (
     WAKE_PREFIXES,
     normalize_phrase_for_match,
     sound_fold,

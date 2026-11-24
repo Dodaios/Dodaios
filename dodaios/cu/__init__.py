@@ -2,8 +2,8 @@
 
 This package is the rebuilt Computer-Use engine ("v2"). It keeps the product
 mechanism unchanged — a screenshot is the perception, mouse + keyboard are the
-actuation — but fixes the structural defects of the legacy monolith
-(`dodaios/harness/screenshot_only_loop.py`):
+actuation — but fixes the structural defects of the former legacy monolith
+(deleted; see git history):
 
 * one `CoordinateMapper` per captured frame, so every click resolves against
   the exact image the model saw (`geometry.py`),

@@ -125,7 +125,7 @@ def test_picking_a_live_voice_rewrites_the_profile(app, monkeypatch) -> None:
         saved.append(body)
         return {"profile": body.model_dump(), "applies": "next_call"}
 
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     app.state.config.voice.mode = "realtime"
     app.state.config.brain.realtime.provider = "openai-live"

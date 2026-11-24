@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.speech.wake_constants import resolve_vosk_model_path
+from dodaios.core.wake_constants import resolve_vosk_model_path
 from dodaios.speech.wake_phrase import resolve_wake_plan
 
 

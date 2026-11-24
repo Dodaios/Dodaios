@@ -44,7 +44,8 @@ from starlette.responses import Response
 from starlette.types import Message, Receive
 
 from dodaios.core.config import normalize_pet_id
-from dodaios.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID, PET_STATES
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
+from dodaios.ui.pets.states import NO_PET_ID, PET_STATES
 
 log = logging.getLogger(__name__)
 

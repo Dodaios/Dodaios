@@ -1,6 +1,6 @@
 """Regression coverage for Ack-Brain provider configuration."""
 
-from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.core.ack_brain_config import AckBrainConfig
 
 
 def test_grok_provider_configuration_is_startup_safe() -> None:

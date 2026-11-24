@@ -1429,7 +1429,7 @@ def enable_local_speech_status(request: Request) -> dict[str, object]:
 @router.get("/wake-word")
 def get_wake_word(request: Request) -> dict[str, object]:
     from dodaios.core.config import WakeWordConfig
-    from dodaios.speech.wake_constants import INSTANT_WAKE_PHRASES, WAKE_ENGINES
+    from dodaios.core.wake_constants import INSTANT_WAKE_PHRASES, WAKE_ENGINES
 
     cfg = _config(request)
     ww = None
@@ -1459,7 +1459,7 @@ def get_wake_word(request: Request) -> dict[str, object]:
 async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, object]:
     from types import SimpleNamespace
 
-    from dodaios.speech.wake_constants import WAKE_ENGINES
+    from dodaios.core.wake_constants import WAKE_ENGINES
     from dodaios.speech.wake_phrase import resolve_wake_plan
 
     engine = body.engine.strip().lower()
@@ -1566,7 +1566,7 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
     phrase_in_vocab: bool | None = None
     if plan is not None and plan.engine == "vosk_kws":
         try:
-            from dodaios.speech.wake_constants import resolve_vosk_model_path
+            from dodaios.core.wake_constants import resolve_vosk_model_path
 
             model_path = resolve_vosk_model_path(_wake_lang)
             if model_path:
@@ -1766,7 +1766,7 @@ async def wake_word_self_test(request: Request) -> dict[str, object]:
     """
     from dodaios.audio.capture import MicrophoneAccessError
     from dodaios.speech.diagnose import measure_mic_dbfs
-    from dodaios.speech.wake_constants import resolve_vosk_model_path
+    from dodaios.core.wake_constants import resolve_vosk_model_path
     from dodaios.speech.wake_model_fetch import resolve_wake_language
     from dodaios.speech.wake_phrase import resolve_wake_plan
 
