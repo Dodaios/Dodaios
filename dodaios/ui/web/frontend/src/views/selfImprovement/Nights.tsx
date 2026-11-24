@@ -1,11 +1,12 @@
 /**
- * "The last nights": per night its date and one short line for each thing it
- * did — an update it found, the test tasks it built from the person's own
- * memory and messages (or that no model could be asked for them), what it
- * checked, proposed and decided (with the
- * outcome and the numbers), and the advantage it measured. Three show; the
- * rest fold away. A change that was already kept and still holds is not news,
- * so those are counted in one line instead of listed.
+ * "The last rounds": per learning round its date and one short line for each
+ * thing it did — an update it found, the test tasks it built from the person's
+ * own memory and messages (or that no model could be asked for them), what it
+ * checked, proposed and decided (with the outcome and the numbers), the
+ * advantage it measured, and the model calls it spent with the share of a
+ * usage window. Three show; the rest fold away. A change that was already kept
+ * and still holds is not news, so those are counted in one line instead of
+ * listed. (The code and the API still call a round a "night".)
  */
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -13,7 +14,17 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Night, NightDecision } from "@/lib/selfImprovementApi";
 import { Section } from "../selfBuild/List";
-import { areaName, effectWords, fmtPoints, nightDate, paramTitle, valueWords, wordFor } from "./words";
+import {
+  areaName,
+  effectWords,
+  fmtPoints,
+  fmtWindowShare,
+  nightDate,
+  paramTitle,
+  roundSpend,
+  valueWords,
+  wordFor,
+} from "./words";
 
 const SHOWN = 3;
 
@@ -41,7 +52,7 @@ function decisionEffect(t: T, row: NightDecision, locale: string): string {
   );
 }
 
-/** The lines of one night, in the order it worked. */
+/** The lines of one round, in the order it worked. */
 export function nightLines(t: T, night: Night, locale: string): string[] {
   if (night.paused) return [t("self_improvement.nights.paused")];
   const out: string[] = [];
@@ -107,6 +118,18 @@ export function nightLines(t: T, night: Night, locale: string): string[] {
         points: fmtPoints(point.diff, locale),
         n: point.n,
       }),
+    );
+  }
+  // What the round spent comes last: as many calls as its work needed, within the plan.
+  const spend = roundSpend(night);
+  if (spend.calls > 0) {
+    out.push(
+      spend.share === null
+        ? fill(t("self_improvement.nights.spent_unread"), { calls: spend.calls })
+        : fill(t("self_improvement.nights.spent"), {
+            calls: spend.calls,
+            share: fmtWindowShare(spend.share, locale),
+          }),
     );
   }
   return out.length ? out : [t("self_improvement.nights.idle")];

@@ -29,7 +29,7 @@ from dodaios.rsi.bench.lead_replay import FirstMoveWorld, LeadInput, Platform
 from dodaios.rsi.bench.model import Domain, Result, Role, Source, Split, Task, task_id
 from dodaios.rsi.bench.own import lead as own_lead
 from dodaios.rsi.bench.store import BenchStore
-from dodaios.rsi.budget import BUDGET_SHARE, FIRST_MOVE_CALLS, Budget
+from dodaios.rsi.budget import BUDGET_SHARE, CEILING_CALLS, FIRST_MOVE_CALLS, Budget
 from dodaios.rsi.gate.alpha import AlphaLedger
 from dodaios.rsi.gate.decide import LIVE
 from dodaios.self_change import Draft, State, Surface
@@ -201,10 +201,49 @@ def test_the_budget_starts_no_call_once_the_backend_lets_go() -> None:
     budget = Budget(40, halted=lambda: gone["now"])
     assert budget.take() == ""
     gone["now"] = True
-    assert budget.take() == "the backend let go of the night" and budget.calls == 1
+    assert budget.take() == "the backend let go of the round" and budget.calls == 1
 
 
-def test_the_cap_per_night_is_forty() -> None:
+def test_the_fixed_cap_holds_only_while_the_windows_cannot_be_read() -> None:
+    reading: dict[str, float] | None = None
+    budget = Budget(CEILING_CALLS, fallback=FIRST_MOVE_CALLS, usage=lambda: reading)
+    assert all(budget.take() == "" for _ in range(FIRST_MOVE_CALLS - 1))
+    reading = {"session": 10.0}  # the window can be read: the work decides, up to the ceiling
+    assert all(budget.take() == "" for _ in range(50))
+    assert budget.calls == FIRST_MOVE_CALLS - 1 + 50 and budget.read is True
+    reading = None  # unreadable again: past the fixed cap, nothing more
+    assert "40 model calls" in budget.take() and budget.read is False
+
+
+def test_the_ceiling_holds_when_the_window_never_moves() -> None:
+    budget = Budget(CEILING_CALLS, fallback=FIRST_MOVE_CALLS, usage=lambda: {"session": 10.0})
+    assert all(budget.take() == "" for _ in range(CEILING_CALLS))
+    assert "ceiling of 200" in budget.take() and budget.calls == CEILING_CALLS
+    assert CEILING_CALLS == 200
+
+
+def test_an_old_usage_snapshot_counts_as_unreadable(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from dodaios import agent_accounts, agent_usage
+    from dodaios.rsi import budget as budgets
+
+    window = SimpleNamespace(kind="session", percent=12.0, scope_label=None, raw_label=None)
+    found = SimpleNamespace(status="ok", windows=(window,), source="cached", as_of=1000.0)
+    account = SimpleNamespace(id="a1")
+    monkeypatch.setattr(agent_usage, "supports_usage", lambda platform: True)
+    monkeypatch.setattr(agent_accounts, "active_account", lambda platform: account)
+    monkeypatch.setattr(agent_usage, "collect", lambda accounts: {"a1": found})
+    assert budgets.plan_usage("claude", now=lambda: 1000.0 + 60) == {"session:": 12.0}
+    assert budgets.plan_usage("claude", now=lambda: 1000.0 + budgets.USAGE_FRESH_S + 1) is None
+    live = SimpleNamespace(status="ok", windows=(window,), source="live", as_of=None)
+    monkeypatch.setattr(agent_usage, "collect", lambda accounts: {"a1": live})
+    assert budgets.plan_usage("claude") == {"session:": 12.0}
+    monkeypatch.setattr(agent_usage, "supports_usage", lambda platform: False)
+    assert budgets.plan_usage("local") is None
+
+
+def test_the_fixed_replay_cap_is_forty() -> None:
     assert FIRST_MOVE_CALLS == 40
 
 

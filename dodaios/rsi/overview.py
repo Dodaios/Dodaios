@@ -23,7 +23,7 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.budget import FIRST_MOVE_CALLS
+from dodaios.rsi.budget import CEILING_CALLS, FIRST_MOVE_CALLS, FULL_PERCENT
 from dodaios.rsi.night import (
     BUDGET_SHARE,
     EVERY_S,
@@ -36,7 +36,7 @@ from dodaios.rsi.night import (
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
-__all__ = ["build", "daily_use"]
+__all__ = ["build", "daily_use", "last_round"]
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +294,22 @@ def _domains(night: Night) -> list[dict[str, Any]]:
     return out
 
 
+def last_round(nights: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """What the newest learning round spent: its model calls, and the most of one
+    usage window it used (``None`` when no window could be read in it)."""
+    if not nights:
+        return None
+    newest = nights[0]
+    if newest.get("paused"):
+        return None
+    made = newest.get("made") or {}
+    spent = [made, *(newest.get("calls") or {}).values()]
+    calls = sum(int(part.get("calls") or 0) for part in spent if isinstance(part, dict))
+    read = [part for part in spent if isinstance(part, dict) and part.get("usage_read")]
+    share = max((float(part.get("share") or 0.0) for part in read), default=None)
+    return {"ts_ms": newest.get("ts_ms"), "calls": calls, "share": share}
+
+
 def build(
     night: Night, *, now_ms: int | None = None, chat_db: Path | None = None
 ) -> dict[str, Any]:
@@ -314,16 +330,24 @@ def build(
             "next_night_ms": last + int(EVERY_S * 1000) if last else 0,
             "decides_on": [s.value for s in night.sources],
             "own_tasks": any(s is not Source.SEED for s in night.sources),
+            #: The newest round's model calls and the share of a usage window it used.
+            "last_round": last_round(nights),
         },
         "limits": {
             "idle_after_s": IDLE_AFTER_S,
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
+            #: No call starts while a usage window is this full (percent).
+            "full_percent": FULL_PERCENT,
+            #: Calls of one kind a round makes at most, whatever the plan says.
+            "ceiling_calls": CEILING_CALLS,
+            #: The fixed caps while the plan's windows cannot be read: building tasks...
             "max_model_calls": MAX_MODEL_CALLS,
-            #: While too few tasks exist to decide on, a night may build with this many.
+            #: ...while too few tasks exist to decide on...
             "ramp_model_calls": RAMP_MODEL_CALLS,
-            #: What the next night may use.
+            #: ...what the next round may use then...
             "model_calls_tonight": calls_tonight(night.bench),
+            #: ...and replaying the lead's turns.
             "first_move_calls": FIRST_MOVE_CALLS,
         },
         "domains": _domains(night),
