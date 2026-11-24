@@ -10682,6 +10682,20 @@
     "signin_not_yet": "— installing does not connect anything yet."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Flag",
+      "set": "Flagged",
+      "mark": "Flag: {name}",
+      "name_flags": "Name flags…",
+      "names_title": "Name your flags",
+      "names_body": "The name shows when the pointer rests on a flag. Leave a field empty for the default.",
+      "default_red": "Important",
+      "default_orange": "Follow up",
+      "default_blue": "Later",
+      "name_red": "Name of the red flag",
+      "name_orange": "Name of the orange flag",
+      "name_blue": "Name of the blue flag"
+    },
     "remove_project": "Remove project",
     "remove_project_title": "Remove {project} from the sidebar?",
     "remove_project_body_none": "The folder on disk stays untouched; add it again to bring the project back.",

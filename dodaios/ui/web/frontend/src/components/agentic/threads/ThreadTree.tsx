@@ -19,6 +19,8 @@ import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopo
 import { ProjectMenu, type ProjectMenuActions } from "./ProjectMenu";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
+import { ThreadFlagMark, ThreadFlagMenuItems, ThreadFlagNamesEditor } from "./ThreadFlags";
+import { useThreadFlagsStore } from "@/store/threadFlags";
 import { ThreadSearch } from "./ThreadSearch";
 import { StartedByBadge } from "./StartedByBadge";
 import { copyThreadCode, shownThreadCode } from "./threadCode";
@@ -195,6 +197,8 @@ export function ThreadTree() {
   const [projectDrop, setProjectDrop] = useState<{ id: string; before: boolean } | null>(null);
   const [reordering, setReordering] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // The row menu shows the flag names to edit in place of its rows.
+  const [editingFlags, setEditingFlags] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   // Threads whose sub-agent rows the person folded away; open by default.
   const [subagentsFolded, setSubagentsFolded] = useState<Record<string, boolean>>({});
@@ -300,6 +304,7 @@ export function ThreadTree() {
     try {
       await useThreadChatStore.getState().removeSession(sessionId);
       forgetThread(sessionId);
+      useThreadFlagsStore.getState().clearFlag(sessionId);
     } finally {
       setBusy(null);
     }
@@ -618,7 +623,8 @@ export function ThreadTree() {
               {/* The full name shows over the name only: on the whole row it came
                   up over the pull request card as well. */}
               <span title={threadTitle(session)} className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
-              {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
+              {/* Marks on the right, one column each: its flag, its pull requests, where it works, what it is doing. */}
+              <ThreadFlagMark sessionId={session.session_id} />
               <ThreadPullRequests sessionId={session.session_id} />
               {/* The pull request and worktree marks stay in sight on hover; only
                   the status mark gives its place to the actions. */}
@@ -683,6 +689,7 @@ export function ThreadTree() {
               onClick={() => openThread(session.session_id, project.id)} title={threadTitle(session)}
               className={cn(ROW, "flex-1 py-1 text-muted-foreground", TITLE_INSET, FOCUS_RING)}>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
+              <ThreadFlagMark sessionId={session.session_id} />
               {busy === session.session_id
                 ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                 : <span className="shrink-0 text-micro tabular-nums transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">{shortAge(session.updated_ms)}</span>}
@@ -752,9 +759,11 @@ export function ThreadTree() {
       threads={projectMenu ? (grouped.get(projectMenu.projectId) ?? []).filter((thread) => !(thread.session_id in archived)) : []}
       busy={projectBusy !== null} actions={projectActions} onClose={() => setProjectMenu(null)} />
 
-    <ThreadPopover anchor={menuAnchor} open={menu !== null && menuSession !== null} onClose={() => { setMenu(null); setConfirmDelete(null); }}
+    <ThreadPopover anchor={menuAnchor} open={menu !== null && menuSession !== null} onClose={() => { setMenu(null); setConfirmDelete(null); setEditingFlags(false); }}
       label={t("ide_threads.thread_actions")} width={250}>
-      {menu && menuSession && (confirmDelete === menu.sessionId
+      {menu && menuSession && (editingFlags
+        ? <ThreadFlagNamesEditor onClose={() => setEditingFlags(false)} />
+        : confirmDelete === menu.sessionId
         ? <div className="p-2">
           <p className="text-sm text-foreground">{t("ide_threads.delete_confirm")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t("ide_threads.delete_body")}</p>
@@ -780,6 +789,8 @@ export function ThreadTree() {
               onSelect={() => { restoreThread(menuSession.session_id); setMenu(null); }} />
             : <ThreadMenuItem icon={<Archive className="h-3.5 w-3.5" />} label={t("ide_threads.archive")} disabled={menuBusy}
               onSelect={() => { archiveThread(menuSession.session_id); setMenu(null); }} />}
+          <ThreadMenuSeparator />
+          <ThreadFlagMenuItems sessionId={menuSession.session_id} onDone={() => setMenu(null)} onEditNames={() => setEditingFlags(true)} />
           <ThreadMenuSeparator />
           <ThreadMenuItem icon={<Trash2 className="h-3.5 w-3.5" />} label={t("common.delete")} danger disabled={Boolean(menuSession.running)}
             onSelect={() => setConfirmDelete(menu.sessionId)} />

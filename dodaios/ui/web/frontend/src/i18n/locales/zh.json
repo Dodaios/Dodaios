@@ -10682,6 +10682,20 @@
     "signin_not_yet": "——安装后尚不会连接任何内容。"
   },
   "ide_threads": {
+    "flags": {
+      "heading": "旗标",
+      "set": "已标记",
+      "mark": "旗标：{name}",
+      "name_flags": "为旗标命名…",
+      "names_title": "为旗标命名",
+      "names_body": "指针停在旗标上时会显示名称。留空则使用默认名称。",
+      "default_red": "重要",
+      "default_orange": "待跟进",
+      "default_blue": "稍后",
+      "name_red": "红色旗标的名称",
+      "name_orange": "橙色旗标的名称",
+      "name_blue": "蓝色旗标的名称"
+    },
     "remove_project": "移除项目",
     "remove_project_title": "从侧边栏移除 {project}？",
     "remove_project_body_none": "磁盘上的文件夹保持不变；重新添加即可恢复该项目。",

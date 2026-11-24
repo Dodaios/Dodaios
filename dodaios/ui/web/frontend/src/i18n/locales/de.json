@@ -10682,6 +10682,20 @@
     "signin_not_yet": "— die Installation verbindet noch nichts."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Flagge",
+      "set": "Markiert",
+      "mark": "Flagge: {name}",
+      "name_flags": "Flaggen benennen…",
+      "names_title": "Flaggen benennen",
+      "names_body": "Der Name erscheint, wenn der Zeiger auf einer Flagge ruht. Ein leeres Feld setzt den Standardnamen.",
+      "default_red": "Wichtig",
+      "default_orange": "Nachfassen",
+      "default_blue": "Später",
+      "name_red": "Name der roten Flagge",
+      "name_orange": "Name der orangen Flagge",
+      "name_blue": "Name der blauen Flagge"
+    },
     "remove_project": "Projekt entfernen",
     "remove_project_title": "{project} aus der Seitenleiste entfernen?",
     "remove_project_body_none": "Der Ordner auf der Festplatte bleibt unberührt; füge ihn wieder hinzu, um das Projekt zurückzuholen.",

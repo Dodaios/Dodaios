@@ -10682,6 +10682,20 @@
     "signin_not_yet": "— instalar ainda não liga nada."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Bandeira",
+      "set": "Marcado",
+      "mark": "Bandeira: {name}",
+      "name_flags": "Dar nome às bandeiras…",
+      "names_title": "Dê nome às suas bandeiras",
+      "names_body": "O nome aparece quando o ponteiro para sobre uma bandeira. Deixe um campo vazio para o nome padrão.",
+      "default_red": "Importante",
+      "default_orange": "Acompanhar",
+      "default_blue": "Depois",
+      "name_red": "Nome da bandeira vermelha",
+      "name_orange": "Nome da bandeira laranja",
+      "name_blue": "Nome da bandeira azul"
+    },
     "remove_project": "Remover projeto",
     "remove_project_title": "Remover {project} da barra lateral?",
     "remove_project_body_none": "A pasta no disco fica intacta; adicione-a de novo para recuperar o projeto.",
