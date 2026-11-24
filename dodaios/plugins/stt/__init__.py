@@ -483,10 +483,16 @@ def _load_provider_class(name: str) -> type | None:
         if ep.name == name:
             try:
                 return ep.load()
-            except (ImportError, ModuleNotFoundError) as exc:
+            except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — stt plugin
+                # Not only a missing dependency: a plugin whose import raises
+                # anything must leave the other providers, and the local
+                # fallback, usable.
+                from dodaios.core import module_health
+
                 logger.warning(
                     "STT entry-point {!r} failed to load: {}", name, exc
                 )
+                module_health.report_failure(f"plugin:stt:{name}", exc)
                 return None
     return None
 
