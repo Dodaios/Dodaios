@@ -1,3 +1,4 @@
+import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
@@ -263,7 +264,7 @@ function HeaderButton({ label, onClick, children, testId }: { label: string; onC
  */
 export function ExplorerPanel({ view }: { view: ExplorerView }) {
   const t = useT();
-  const workspace = useIdeChatStore((state) => state.workspace);
+  const workspace = usePanelWorkspace();
   // Pane titles for the "changed by" line.
   usePaneRecapPoll();
   const [filter, setFilter] = useState("");
@@ -590,7 +591,7 @@ function FileTree({
   const [error, setError] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
-  const workspaceName = useIdeChatStore((state) => state.workspace?.name ?? "");
+  const workspaceName = usePanelWorkspace()?.name ?? "";
   const [menu, setMenu] = useState<{ path: string; isDirectory: boolean; point: { x: number; y: number } } | null>(null);
   // "Select for compare" remembers one file; "Compare with …" on another opens the two side by side.
   const [compareFrom, setCompareFrom] = useState<string | null>(null);

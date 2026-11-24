@@ -1,3 +1,4 @@
+import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FolderPlus, Loader2, Plus, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -90,7 +91,8 @@ export function AgenticIdeView({ onScreen = true }: AgenticIdeViewProps) {
   const layout = useIdeThreadsStore((state) => state.layout);
   const threads = layout === "threads";
   // The code editor lies over the grid or the thread; both stay mounted underneath.
-  const ideWorkspace = useIdeChatStore((state) => state.workspace);
+  // The editor opens files from the side panel, so it follows the panel's workspace.
+  const ideWorkspace = usePanelWorkspace();
   const stagedPane = useIdeChatStore((state) => state.stagedPane);
   const editorShown = useCodeEditorStore((state) => state.visible && state.tabs.some((tab) => tab.workspaceId === ideWorkspace?.id));
   // A maximized side panel (the Verse) covers the grid, which only turns invisible

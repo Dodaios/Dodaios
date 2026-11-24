@@ -1,3 +1,4 @@
+import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
@@ -7,7 +8,6 @@ import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ide
 import { cn } from "@/lib/utils";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
 import { AttentionList } from "./AttentionList";
 import { BranchList } from "./BranchList";
 import { BranchMenu } from "./BranchMenu";
@@ -210,7 +210,7 @@ function LoadingShape() {
 export function RepositoryOverview({ onChanged }: { onChanged?: () => void }) {
   const t = useT();
   const lang = useRunLocale();
-  const workspace = useIdeChatStore((state) => state.workspace);
+  const workspace = usePanelWorkspace();
   const workspaceId = workspace?.id ?? null;
   const { data, error, routeMissing, loading, refresh: reread } = useGitOverview(workspaceId);
   const changed = useRef(onChanged);

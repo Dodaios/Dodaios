@@ -1,3 +1,4 @@
+import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { FileCode2, Loader2, RefreshCw } from "lucide-react";
 
@@ -10,7 +11,6 @@ import { DiffStat } from "@/components/agentic/threads/ThreadDiff";
 import { fill, useT } from "@/i18n";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { cn } from "@/lib/utils";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
 import { editHunks } from "./editHunks";
@@ -62,7 +62,7 @@ export function FileTab() {
   const t = useT();
   const file = useSideFileStore((state) => state.file);
   const nonce = useSideFileStore((state) => state.nonce);
-  const chatWorkspace = useIdeChatStore((state) => state.workspace?.id ?? null);
+  const chatWorkspace = usePanelWorkspace()?.id ?? null;
   const activeWorkspace = useIdeProjectsStore((state) => state.activeWorkspaceId);
   const workspaceId = chatWorkspace ?? activeWorkspace;
   const [view, setView] = useState<"file" | "change">("file");

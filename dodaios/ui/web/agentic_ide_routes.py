@@ -89,6 +89,7 @@ from dodaios.agentic_ide import (
     editor_backups,
     file_editing,
     file_search,
+    folder_view,
     git_changes,
     layout_tree,
     native_picker,
@@ -1846,17 +1847,15 @@ async def get_workspace_files(workspace_id: str, path: str = "") -> WorkspaceFil
     helper resolves them again and rejects traversal and symlink escapes before
     touching a directory, so this endpoint cannot become a general host browser.
     """
-    session = get_registry().get(workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
+    folder = await _workspace_folder(workspace_id)
     try:
-        listing = await asyncio.to_thread(list_workspace_dir, session.folder, path)
+        listing = await asyncio.to_thread(list_workspace_dir, folder, path)
     except (OSError, ValueError):
         raise HTTPException(status_code=404, detail="Workspace folder not found.") from None
 
     return WorkspaceFilesResponse(
         workspace_id=workspace_id,
-        root_name=Path(session.folder).name or str(session.folder),
+        root_name=Path(folder).name or folder,
         path=listing.path,
         entries=[WorkspaceFileItem(**asdict(entry)) for entry in listing.entries],
         truncated=listing.truncated,
@@ -1876,12 +1875,12 @@ async def get_workspace_changes(workspace_id: str) -> WorkspaceChangesResponse:
     not a repository, or a machine without git, answers ``available=false`` with
     the reason rather than an error: the explorer still works without it.
     """
+    folder = await _workspace_folder(workspace_id)
+    # A folder view has no panes, so nobody to name as a change's author.
     session = get_registry().get(workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
-    changes = await asyncio.to_thread(git_changes.workspace_changes, session.folder)
+    changes = await asyncio.to_thread(git_changes.workspace_changes, folder)
     authors: dict[str, list[change_authors.ChangeAuthor]] = {}
-    if changes.files:
+    if changes.files and session is not None:
         records = [
             change_authors.PaneRecord(
                 pane=term.name,
@@ -2136,11 +2135,9 @@ async def get_workspace_file_diff(workspace_id: str, path: str) -> WorkspaceFile
     ``path`` may be workspace-relative or an absolute path inside the workspace
     (what a terminal printed). Anything outside the workspace is refused.
     """
-    session = get_registry().get(workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Workspace not found.")
+    folder = await _workspace_folder(workspace_id)
     try:
-        diff = await asyncio.to_thread(git_changes.file_diff, session.folder, path)
+        diff = await asyncio.to_thread(git_changes.file_diff, folder, path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     return WorkspaceFileDiffResponse(workspace_id=workspace_id, **asdict(diff))
@@ -2315,15 +2312,19 @@ _WORKSPACE_FILE_CSP = (
 
 
 def _resolve_workspace_file(workspace_id: str, path: str) -> Path:
-    """Resolve one file inside an open workspace without leaking host paths."""
+    """Resolve one file inside an open workspace without leaking host paths.
+
+    Blocking (a folder view is checked on disk): runs in a worker thread.
+    """
     session = get_registry().get(workspace_id)
-    if session is None:
+    folder = str(session.folder) if session is not None else folder_view.folder_of(workspace_id)
+    if folder is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
         if file_editing.is_outside_key(path):
-            target = outside_files.granted_target(session.folder, path)
+            target = outside_files.granted_target(str(folder), path)
         else:
-            target = _resolve_terminal_target(session.folder, path)
+            target = _resolve_terminal_target(str(folder), path)
     except (OSError, RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
     if not target.is_file():
@@ -2407,11 +2408,16 @@ async def get_workspace_file_preview(workspace_id: str, path: str) -> WorkspaceF
     )
 
 
-def _workspace_folder(workspace_id: str) -> str:
+async def _workspace_folder(workspace_id: str) -> str:
+    """The open workspace's folder, or the folder a folder view id names."""
     session = get_registry().get(workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="That workspace is not open.")
-    return str(session.folder)
+    if session is not None:
+        return str(session.folder)
+    if folder_view.is_view_id(workspace_id):
+        folder = await asyncio.to_thread(folder_view.folder_of, workspace_id)
+        if folder is not None:
+            return str(folder)
+    raise HTTPException(status_code=404, detail="That workspace is not open.")
 
 
 def _text_file_response(
@@ -2424,7 +2430,7 @@ def _text_file_response(
     return answer
 
 
-def _editor_location(workspace_id: str, path: str) -> tuple[str, str, bool]:
+async def _editor_location(workspace_id: str, path: str) -> tuple[str, str, bool]:
     """Where an editor path lives: (folder, path inside it, outside the workspace).
 
     A workspace file is addressed relative to the workspace. A file opened
@@ -2432,7 +2438,7 @@ def _editor_location(workspace_id: str, path: str) -> tuple[str, str, bool]:
     modifier-click; it is then addressed by name inside its own folder, so the
     usual containment and ``.git`` checks still apply.
     """
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     if not file_editing.is_outside_key(path):
         return folder, path, False
     try:
@@ -2458,7 +2464,7 @@ async def get_workspace_text_file(
     and a byte-order mark come back as they are on disk. ``encoding`` forces
     how the bytes are read ("Reopen with encoding"); otherwise it is detected.
     """
-    folder, relative, outside = _editor_location(workspace_id, path)
+    folder, relative, outside = await _editor_location(workspace_id, path)
     try:
         loaded = await asyncio.to_thread(
             file_editing.read_text_file, folder, relative, encoding=encoding
@@ -2479,7 +2485,7 @@ async def get_workspace_text_file_version(workspace_id: str, path: str) -> dict[
 
     ``version`` is null when the file no longer exists.
     """
-    folder, relative, _ = _editor_location(workspace_id, path)
+    folder, relative, _ = await _editor_location(workspace_id, path)
     try:
         version = await asyncio.to_thread(file_editing.file_version, folder, relative)
     except file_editing.EditError as exc:
@@ -2507,7 +2513,7 @@ async def save_workspace_text_file(
     Answers 409 with ``current_version`` when the file changed on disk since
     the editor loaded it, so an agent's edit is never silently overwritten.
     """
-    folder, relative, outside = _editor_location(workspace_id, req.path)
+    folder, relative, outside = await _editor_location(workspace_id, req.path)
     try:
         saved = await asyncio.to_thread(
             file_editing.write_text_file,
@@ -2543,7 +2549,7 @@ async def get_workspace_head_text(
     ``ref`` names another commit than HEAD — the base of a pane's review.
     ``text`` is null for a file git does not know (new, or not a repository).
     """
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     if file_editing.is_outside_key(path):
         # A file outside the workspace has no committed version here.
         return {"workspace_id": workspace_id, "path": path.replace("\\", "/"), "text": None}
@@ -2560,7 +2566,7 @@ async def get_workspace_head_text(
 )
 async def get_workspace_file_list(workspace_id: str) -> dict[str, object]:
     """Tracked and untracked (not ignored) files; a bounded walk outside git."""
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         paths, truncated = await asyncio.to_thread(file_editing.list_files, folder)
     except OSError as exc:
@@ -2575,7 +2581,7 @@ async def get_workspace_file_list(workspace_id: str) -> dict[str, object]:
 async def create_workspace_entry(
     workspace_id: str, req: WorkspaceEntryRequest
 ) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         created = await asyncio.to_thread(
             file_editing.create_entry, folder, req.path, directory=req.kind == "directory"
@@ -2595,7 +2601,7 @@ async def create_workspace_entry(
 async def move_workspace_entry(
     workspace_id: str, req: MoveWorkspaceEntryRequest
 ) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         moved = await asyncio.to_thread(
             file_editing.rename_entry, folder, req.source, req.destination
@@ -2622,7 +2628,7 @@ async def search_workspace_files(
     exclude: Annotated[str, Query(max_length=1000)] = "",
 ) -> dict[str, object]:
     """Matching lines grouped by file; bounded in matches and time (``truncated``)."""
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     options = file_search.SearchOptions(
         query=q,
         regex=regex,
@@ -2646,7 +2652,7 @@ async def replace_in_workspace_files(
     workspace_id: str, req: ReplaceInFilesRequest
 ) -> dict[str, object]:
     """Each file is rewritten atomically; files that changed meanwhile are skipped."""
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     options = file_search.SearchOptions(
         query=req.query,
         regex=req.regex,
@@ -2672,7 +2678,7 @@ async def python_intel(
     req: PythonIntelRequest,
 ) -> dict[str, object]:
     """Static analysis of the live buffer with the workspace as import root."""
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     handler = {
         "complete": python_intel_module.complete,
         "hover": python_intel_module.hover,
@@ -2699,7 +2705,7 @@ async def python_intel(
 )
 async def get_editor_state(workspace_id: str) -> dict[str, object]:
     """What the editor had open, and every buffer that was not saved, last run."""
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     state = await asyncio.to_thread(editor_backups.load_state, folder)
     return {"workspace_id": workspace_id, **state}
 
@@ -2709,7 +2715,7 @@ async def get_editor_state(workspace_id: str) -> dict[str, object]:
     summary="Remember the code editor's open tabs",
 )
 async def put_editor_tabs(workspace_id: str, req: EditorTabsRequest) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         await asyncio.to_thread(
             editor_backups.save_tabs,
@@ -2727,7 +2733,7 @@ async def put_editor_tabs(workspace_id: str, req: EditorTabsRequest) -> dict[str
     summary="Keep unsaved editor text across a restart",
 )
 async def put_editor_backup(workspace_id: str, req: EditorBackupRequest) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         await asyncio.to_thread(
             editor_backups.save_backup,
@@ -2747,7 +2753,7 @@ async def put_editor_backup(workspace_id: str, req: EditorBackupRequest) -> dict
     summary="Forget the unsaved-text backup of one file",
 )
 async def delete_editor_backup(workspace_id: str, path: str) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         await asyncio.to_thread(editor_backups.drop_backup, folder, path)
     except file_editing.EditError as exc:
@@ -2762,7 +2768,7 @@ async def delete_editor_backup(workspace_id: str, path: str) -> dict[str, object
 async def copy_workspace_entry(
     workspace_id: str, req: CopyWorkspaceEntryRequest
 ) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         copied = await asyncio.to_thread(
             file_editing.copy_entry, folder, req.source, req.destination, unique=req.unique
@@ -2787,7 +2793,7 @@ async def delete_workspace_entry(
     A copy of a small entry is kept first; ``undo_token`` (null when it was
     too large) lets the explorer's Undo put it back.
     """
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     token: str | None = None
     try:
         token = await asyncio.to_thread(delete_undo.keep, folder, req.path)
@@ -2821,7 +2827,7 @@ async def delete_workspace_entry(
 async def restore_workspace_entry(
     workspace_id: str, req: RestoreWorkspaceEntryRequest
 ) -> dict[str, object]:
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         restored = await asyncio.to_thread(delete_undo.restore, folder, req.token)
     except file_editing.EditError as exc:
@@ -2863,11 +2869,9 @@ async def _launch_terminal_target(
     if not getattr(request.app.state, "native_file_actions", False):
         raise HTTPException(status_code=404, detail="native file actions unavailable")
 
-    session = get_registry().get(req.workspace_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="That workspace is not open.")
+    folder = await _workspace_folder(req.workspace_id)
     try:
-        target = await asyncio.to_thread(_launch_target, session.folder, req.target)
+        target = await asyncio.to_thread(_launch_target, folder, req.target)
     except (OSError, RuntimeError, ValueError) as exc:
         # One answer for missing, malformed and outside-workspace paths: never
         # disclose through a crafted terminal payload which local file exists.
@@ -2963,7 +2967,7 @@ async def grant_outside_file(
             status_code=403,
             detail="Outside files can only be opened on the computer running Dodaios.",
         )
-    folder = _workspace_folder(workspace_id)
+    folder = await _workspace_folder(workspace_id)
     try:
         path, kind = await asyncio.to_thread(_grant_outside_file, folder, req.path)
     except (OSError, RuntimeError, ValueError) as exc:

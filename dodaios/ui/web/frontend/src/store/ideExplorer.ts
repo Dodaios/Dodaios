@@ -1,3 +1,4 @@
+import { panelWorkspace } from "@/store/panelWorkspace";
 import { useEffect } from "react";
 import { create } from "zustand";
 
@@ -5,7 +6,6 @@ import { fetchFileVersion, openOutsideFile } from "@/components/agentic/editor/e
 import { OPEN_PATH_EVENT } from "@/lib/terminalLinks";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 
 /**
@@ -148,7 +148,7 @@ export function useExplorerPathRouting(): void {
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<OpenPathDetail>).detail;
-      const workspace = useIdeChatStore.getState().workspace;
+      const workspace = panelWorkspace();
       if (!detail?.workspaceId || !detail.path || workspace?.id !== detail.workspaceId) return;
       event.preventDefault();
       void openPrintedPath(detail.workspaceId, workspace.path, detail.path);

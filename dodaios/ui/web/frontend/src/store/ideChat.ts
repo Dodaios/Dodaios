@@ -85,6 +85,12 @@ export interface TerminalRequest {
 interface IdeChatStore {
   view: WorkspaceView;
   workspace: IdeWorkspace | null;
+  /**
+   * The open thread's folder, as the side panel reads it in the thread layout
+   * (see `store/panelWorkspace`). Published by the thread view; null while no
+   * thread or project is on screen.
+   */
+  threadWorkspace: IdeWorkspace | null;
   paneRequest: PaneRequest | null;
   /** Every open workspace, in the bar's order — the sidebar's bands. */
   workspaces: IdeWorkspaceRow[];
@@ -130,6 +136,7 @@ interface IdeChatStore {
 
   setView: (next: WorkspaceView) => void;
   setWorkspace: (next: IdeWorkspace | null) => void;
+  setThreadWorkspace: (next: IdeWorkspace | null) => void;
   /** Bring a pane to the front, switching to the grid and to its workspace when it lives elsewhere. */
   requestPane: (workspaceId: string, pane: string, options?: { maximize?: boolean; open?: "changes" }) => void;
   /** The grid maximized request `nonce`; drop its maximize flag. */
@@ -153,6 +160,7 @@ interface IdeChatStore {
 export const useIdeChatStore = create<IdeChatStore>((set) => ({
   view: storedViewMode() ?? "grid",
   workspace: null,
+  threadWorkspace: null,
   paneRequest: null,
   stagedPane: null,
   workspaces: [],
@@ -169,6 +177,9 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
   },
 
   setWorkspace: (next) => set({ workspace: next }),
+  // Guarded: the thread view republishes on every poll of the workspace list.
+  setThreadWorkspace: (next) =>
+    set((state) => (sameWorkspace(state.threadWorkspace, next) ? state : { threadWorkspace: next })),
   requestPane: (workspaceId, pane, options) => {
     // A pane lives only in the grid: the thread layout would keep whatever
     // thread was open in front of it, so a request for a pane shows the grid.
@@ -227,6 +238,11 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
       addWorkspaceRequest: { nonce: (state.addWorkspaceRequest?.nonce ?? 0) + 1 },
     })),
 }));
+
+function sameWorkspace(left: IdeWorkspace | null, right: IdeWorkspace | null): boolean {
+  if (!left || !right) return left === right;
+  return left.id === right.id && left.name === right.name && left.path === right.path;
+}
 
 /** The IDE view republishes on every render of its list; equal rows are no change. */
 function sameRows(left: IdeWorkspaceRow[], right: IdeWorkspaceRow[]): boolean {
