@@ -28,8 +28,7 @@ from dodaios.speech import pipeline as _pl
 from dodaios.speech import provider_refusal
 
 if TYPE_CHECKING:
-    from dodaios.speech.pipeline import SpeechPipeline as VoicePipeline
-    from dodaios.speech.pipeline import _SessionInputBuffer
+    from dodaios.speech.pipeline import VoicePipeline, _SessionInputBuffer
 
 # Returned by a start-up phase that wants the next phase to run; any other
 # value is the hangup reason that ends the call.
