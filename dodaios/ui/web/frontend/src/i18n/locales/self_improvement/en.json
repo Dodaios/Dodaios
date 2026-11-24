@@ -168,6 +168,7 @@
       "check_body": "Later nights check each change again on other tasks and take back what no longer helps.",
       "limits": "It works only after you have been away for {minutes} minutes, and at most one night in {hours} hours.",
       "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
+      "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "measure_no_model": "Measuring itself asks no model.",
       "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
     },

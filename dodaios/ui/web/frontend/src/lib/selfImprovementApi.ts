@@ -172,6 +172,8 @@ export interface SelfImprovementLimits {
   budget_share: number;
   /** The most model calls a night may make to build tasks. */
   max_model_calls: number;
+  /** The most while too few tasks exist to decide on (absent on an older backend). */
+  ramp_model_calls?: number;
 }
 
 /** One week of the person's own requests (`daily_use` in dodaios/rsi/overview.py). */

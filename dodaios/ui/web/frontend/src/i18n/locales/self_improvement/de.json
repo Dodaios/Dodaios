@@ -168,6 +168,7 @@
       "check_body": "Spätere Nächte prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
       "limits": "Er arbeitet nur, nachdem du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
       "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
+      "models_ramp": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht ({ramp}-mal in den ersten Nächten, solange es zu wenige Aufgaben zum Entscheiden gibt), über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
       "measure_no_model": "Das Messen selbst fragt kein Modell.",
       "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
     },

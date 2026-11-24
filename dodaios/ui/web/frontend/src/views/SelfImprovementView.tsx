@@ -608,7 +608,12 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
       <div className="mt-5 space-y-2 text-sm leading-relaxed text-muted-foreground">
         <p data-testid="si-limits">
           {fill(t("self_improvement.how.limits"), { minutes, hours })}{" "}
-          {fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
+          {limits.ramp_model_calls && limits.ramp_model_calls > (limits.max_model_calls ?? 8)
+            ? fill(t("self_improvement.how.models_ramp"), {
+                calls: limits.max_model_calls ?? 8,
+                ramp: limits.ramp_model_calls,
+              })
+            : fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
           {modelFree ? ` ${t("self_improvement.how.measure_no_model")}` : ""}
         </p>
         <p data-testid="si-privacy">{t("self_improvement.how.privacy")}</p>

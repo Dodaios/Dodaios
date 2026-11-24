@@ -168,6 +168,7 @@
       "check_body": "As noites seguintes verificam cada alteração de novo noutras tarefas e desfazem o que já não ajuda.",
       "limits": "Só trabalha depois de estar fora há {minutes} minutos, e no máximo uma noite em cada {hours} horas.",
       "models": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite, com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
+      "models_ramp": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite ({ramp} nas primeiras noites, enquanto houver poucas tarefas para decidir), com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
       "measure_no_model": "A medição em si não consulta nenhum modelo.",
       "privacy": "As memórias e mensagens usadas para isto vão apenas para o fornecedor com que o assistente já responde. As memórias marcadas como sensíveis nunca são enviadas."
     },

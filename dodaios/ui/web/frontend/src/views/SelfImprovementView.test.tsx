@@ -228,6 +228,17 @@ describe("SelfImprovementView", () => {
     expect(screen.getByTestId("si-privacy").textContent).toContain("Memories marked sensitive are never sent");
   });
 
+  it("names the larger allowance of the first nights when the backend reports one", async () => {
+    const data = emptyOverview();
+    data.limits = { ...data.limits, ramp_model_calls: 24 };
+    installFetch(data);
+    renderView();
+    await screen.findByTestId("si-empty");
+    const limits = screen.getByTestId("si-limits").textContent ?? "";
+    expect(limits).toContain("at most 8 times a night (24 in the first nights, while there are too few tasks to decide on)");
+    expect(limits).toContain("never on a key that is billed per token");
+  });
+
   it("shows the advantage with the scores behind it, and calls an uncertain number not certain", async () => {
     installFetch(fullOverview());
     renderView();
