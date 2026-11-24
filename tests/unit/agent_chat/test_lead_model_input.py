@@ -25,8 +25,12 @@ _CASES: dict[str, tuple[str, bool, str, bool, str]] = {
     "continuation": ("jarvis", True, "Find me a train to Hamburg tomorrow morning", True, ""),
     "secret": ("jarvis", True, "Here is my GitHub token for the release script", False, ""),
     "language": ("jarvis", True, "What is on today?", False, "de"),
-    "secret_language_continuation": (
-        "jarvis", True, "Use this API key for the weather tool", True, "fr",
+    "secret_lang_continuation": (
+        "jarvis",
+        True,
+        "Use this API key for the weather tool",
+        True,
+        "fr",
     ),
     "slash": ("jarvis", True, "/project list", False, ""),
     "slash_language": ("jarvis", True, "/project list", False, "de"),
@@ -40,7 +44,7 @@ _PINNED: dict[str, str] = {
     "continuation": "9921902baea9b013119131c2d4f7a48c625747915255a213948162882a427d3b",
     "secret": "055b10f6df828bd1d461040858459505004b0eb43786ff2d3af451b8257ffdce",
     "language": "0773291a08531ad0adfb1a505c1b2a44386b98e8776c88761a6505a5c5ab0458",
-    "secret_language_continuation": "e87086032f1b31eba63a7d7d73e109d58ff30fa4cb49b5f446c13598495288ae",
+    "secret_lang_continuation": "e87086032f1b31eba63a7d7d73e109d58ff30fa4cb49b5f446c13598495288ae",
     "slash": "b280fd797dbfb6c3ae2aa87f86c9f2369375e7aba8821f63c379e516728b5639",
     "slash_language": "9ab2e20715c3f3dc5280b3aff468dcebf69d21897948dcf501fcc609b2588de9",
     "goal_language": "9df4053b191b38880e6364380d9ccaa73f291b21f291cdbb5db12e2405edd2c5",
@@ -81,10 +85,19 @@ async def _message_today(monkeypatch: pytest.MonkeyPatch, case: str) -> str:
     monkeypatch.setattr("dodaios.core.brief_wishes.wishes_line", lambda: _WISHES)
     handle = TurnHandle(
         session=SimpleNamespace(
-            surface=surface, session_id="lead-1", vendor_session="vendor-1", account_id="",
+            surface=surface,
+            session_id="lead-1",
+            vendor_session="vendor-1",
+            account_id="",
         ),
-        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
-        surface=surface, stance="ask", continuation=continuation, output_language=language,
+        turn_id="t1",
+        emit=emit,
+        request_approval=deny,
+        cancel=asyncio.Event(),
+        surface=surface,
+        stance="ask",
+        continuation=continuation,
+        output_language=language,
     )
     await runner_cli.run_cli_turn(handle, text, "claude-cli", identity=identity)
     return str(seen["prompt"])
