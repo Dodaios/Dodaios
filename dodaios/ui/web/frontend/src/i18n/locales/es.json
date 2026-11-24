@@ -9546,6 +9546,7 @@
       "too_large": "Este archivo es demasiado grande para mostrarlo aquí.",
       "unavailable": "No se puede leer este archivo. Puede que se haya movido o eliminado.",
       "no_workspace": "Abre un proyecto para leer archivos aquí.",
+      "not_found": "{file} no está en {folder} (la carpeta de este hilo) ni en tu carpeta personal. La respuesta la nombra sin la ruta completa, así que puede pertenecer a otro proyecto.",
       "show_change": "Mostrar el cambio",
       "change_truncated": "No se muestran {count} líneas más.",
       "unsaved": "Cambios sin guardar",
