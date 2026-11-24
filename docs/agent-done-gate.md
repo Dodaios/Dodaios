@@ -62,10 +62,17 @@ read from the commands in the session transcript. Remembered per session in
 | Kimi CLI | `~/.kimi-code/config.toml` via the installer | exit code 2, reason on stderr |
 | OpenCode | `.opencode/plugins/agent-done-gate.js` | on `session.idle`, sends the next step as a prompt |
 
-Codex and Kimi run `~/.agent-done-gate/hook.py`, which finds the session's
-repository and runs that repository's gate; repositories without the gate are
-left alone. Run `python scripts/install_agent_done_gate.py` once per machine
-(`--check`, `--uninstall`). The launcher logs to `~/.agent-done-gate/hook.log`.
+Codex and Kimi run `~/.agent-done-gate/hook.py`. That hook fires in every
+folder a session runs in, so it runs the gate of a registered checkout only:
+`python scripts/install_agent_done_gate.py` (once per machine and checkout;
+`--check`, `--uninstall`) writes the primary checkout it is run from into
+`~/.agent-done-gate/repos.json`. For a session in that checkout or one of its
+linked worktrees the launcher runs the primary checkout's
+`scripts/agent_done_gate.py`, never the session folder's own copy; every other
+repository is left alone, whatever files it has. Run the installer again after
+an update of the launcher: it replaces the copy in the home folder and adds the
+registration a setup from before 2026-11-23 lacks. The launcher logs to
+`~/.agent-done-gate/hook.log`.
 
 While WAIT, the hook itself polls (up to `hook_wait_seconds`) before it answers, so
 an agent does not spin. Agents can also wait explicitly:

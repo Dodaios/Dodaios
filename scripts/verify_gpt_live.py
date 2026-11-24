@@ -17,7 +17,7 @@ async def verify(model: str, provider_name: str = "openai", reconnect: bool = Fa
     from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
     from dodaios.core.runtime_refs import set_supervisor_tool_gateway
     from dodaios.live import session as live_session
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
     from dodaios.plugins.realtime.gemini_live import GeminiLiveProvider
     from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 

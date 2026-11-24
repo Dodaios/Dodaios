@@ -40,6 +40,27 @@ it("reopens a stored voice turn as a timeline", () => {
   expect(refused.textContent).toContain("Blocked: a safety rule blocks this action");
 });
 
+it("loads no remote picture a thought or an agent's message names", async () => {
+  const remote = "https://example.test/t.png?d=c2VjcmV0";
+  const steps: ThinkingStep[] = [
+    step({ id: "b", kind: "brain", labelKey: "thinking.step_brain", detail: "grok · grok-4.3", durationMs: 900 }),
+    step({ id: "p", kind: "thought", labelKey: "thinking.step_thought", detail: `Look: ![chart](${remote})\n\n![own](/api/media/own.png)` }),
+  ];
+  render(<VoiceWorkTrace steps={steps} durationMs={2400} />);
+  const words = document.querySelector<HTMLElement>("[data-trace-entry='reasoning']")!;
+  // What the app serves is drawn; the remote address is a link, as in a chat message.
+  expect(Array.from(words.querySelectorAll("img")).map((image) => image.getAttribute("src"))).toEqual(["/api/media/own.png"]);
+  expect(within(words).getByRole("link", { name: /chart/ }).getAttribute("href")).toBe(remote);
+  cleanup();
+
+  const { TraceMessageLine } = await import("./TraceTimeline");
+  render(<TraceMessageLine message={{ id: "m", name: "Nova", outgoing: false, text: "Done.\n\n![shot](https://example.test/m.png)", failed: false }} />);
+  fireEvent.click(screen.getByRole("button"));
+  const message = document.querySelector<HTMLElement>("[data-trace-entry='message']")!;
+  expect(message.querySelector("img")).toBeNull();
+  expect(within(message).getByRole("link", { name: /shot/ }).getAttribute("href")).toBe("https://example.test/m.png");
+});
+
 it("draws nothing for a turn whose only step is the brain call", () => {
   render(<VoiceWorkTrace steps={[step({ id: "b", kind: "brain", labelKey: "thinking.step_brain", detail: "m" })]} durationMs={0} />);
   expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
