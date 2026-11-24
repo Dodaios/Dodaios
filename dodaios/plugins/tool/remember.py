@@ -14,10 +14,13 @@ Risk tier: safe — only writes local files.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.config import DATA_DIR
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 class RememberTool:
@@ -96,6 +99,7 @@ class RememberTool:
 
         try:
             await asyncio.to_thread(_write)
-        except Exception as exc:  # noqa: BLE001 — reported to the caller as a failed save
+        except Exception as exc:  # broad-except: reported to the caller as a failed save
+            log.warning("_legacy: reported to the caller as a failed save", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
         return ToolResult(success=True, output=f"Remembered: [{category}] {fact}")

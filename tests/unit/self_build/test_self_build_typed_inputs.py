@@ -31,7 +31,7 @@ from dodaios.agentic_ide.prompt_history import PromptHistoryEntry, path_for
 from dodaios.self_build import Kind, State, loop
 
 from .test_self_build_inputs import PANE_ANSWER, PROMPT
-from .test_self_build_loop import _days_ago, _person_zone  # noqa: F401 - autouse fixture
+from .test_self_build_loop import _days_ago, _person_zone, _settle  # noqa: F401 - autouse fixture
 
 PANE = "7f3c2a90b1d24e6f8a5b0c1d2e3f4a5b"
 
@@ -42,7 +42,6 @@ def typed(world: Any, tmp_path: Path) -> Path:
     history = tmp_path / "prompt_history"
     world.loop.builders.env.pane_typed = lambda: folder
     world.loop.builders.env.pane_history = lambda: history
-    world.configure(skill="suggest")
     return folder
 
 
@@ -60,7 +59,7 @@ def _enter(world: Any, at: float, pane: str = PANE) -> None:
     world.loop._keyboard.setdefault(pane, []).append(at)
 
 
-async def test_a_prompt_typed_into_a_pane_on_three_days_becomes_one_proposal(
+async def test_a_prompt_typed_into_a_pane_on_three_days_becomes_one_build(
     world: Any, typed: Path
 ) -> None:
     world.brain.answers = [PANE_ANSWER]
@@ -74,7 +73,8 @@ async def test_a_prompt_typed_into_a_pane_on_three_days_becomes_one_proposal(
     assert {t.channel for t in turns} == {"pane"} and len(turns) == 3
     assert turns[0].conversation == f"pane:{path_for(PANE).stem[:16]}"
     (card,) = await world.loop.run_queue()
-    assert card.kind == Kind.SKILL and card.state == State.PROPOSED
+    assert card.kind == Kind.SKILL and card.state == State.BUILDING
+    await _settle(world, card.id)
 
 
 async def test_a_reported_prompt_without_the_persons_enter_is_not_theirs(

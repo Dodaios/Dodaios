@@ -19,8 +19,8 @@ def build() -> tuple[AppCommand, ...]:
             id="ritual-list",
             title="List the user's rituals",
             description=(
-                _RITUAL_GUIDE + "Lists every ritual with its phrases, steps, times and "
-                "where it stands today (gathered, started). Read it before changing one."
+                _RITUAL_GUIDE + "Lists every ritual with phrases, steps, times and today's state. Read it "
+                "before changing one."
             ),
             method="GET", path="/api/agent-chat/lead/rituals", ui_section="chats",
             voice_aliases={
@@ -34,11 +34,9 @@ def build() -> tuple[AppCommand, ...]:
             id="ritual-create",
             title="Write a ritual for the user",
             description=(
-                _RITUAL_GUIDE + "Write the steps as the user said them, one sentence each, "
-                "and sort them: 'ahead' for what can be found out beforehand, 'now' for "
-                "what must happen at that moment. Do not run the steps now. The result "
-                "reads back the stored ritual; tell the user the phrase that starts it. "
-                "A refusal names what to change (a phrase another ritual uses, a time)."
+                _RITUAL_GUIDE + "Write the steps as the user said them and sort them "
+                "'ahead' or 'now'. Do not run the steps now. Tell the user the phrase that "
+                "starts it; a refusal names what to change."
             ),
             # Not dangerous: the user ordered it, and it is switched off or
             # removed in one step in the assistant's panel.
@@ -56,9 +54,8 @@ def build() -> tuple[AppCommand, ...]:
             id="ritual-update",
             title="Change a ritual",
             description=(
-                "Change a ritual: send only what changes. 'steps' replaces the whole list, "
-                "so read the ritual with ritual-list first and keep each step's id that "
-                "stays. 'enabled' switches it on or off."
+                "Change a ritual: send only what changes. 'steps' replaces the whole list: read "
+                "it with ritual-list first and keep each step's id that stays."
             ),
             method="PATCH", path="/api/agent-chat/lead/rituals/{ritual_id}",
             path_params=("ritual_id",), ui_section="chats",
@@ -93,10 +90,9 @@ def build() -> tuple[AppCommand, ...]:
             id="ritual-run",
             title="Start a ritual now",
             description=(
-                "Start one of the user's rituals now, when they ask for it by name instead "
-                "of saying its phrase ('start my morning ritual'). It runs whatever the "
-                "clock says. Its card appears in the conversation; if 'pending' is true, "
-                "what it gathers follows there shortly, so do not gather it yourself."
+                "Start a ritual now, when the user asks for it by name ('start my morning "
+                "ritual'). If 'pending' is true, what it gathers follows shortly: do not "
+                "gather it yourself."
             ),
             method="POST", path="/api/agent-chat/lead/rituals/{ritual_id}/run",
             path_params=("ritual_id",), ui_section="chats",

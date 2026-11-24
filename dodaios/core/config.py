@@ -4537,21 +4537,30 @@ class VoiceEngineConfig(BaseModel):
 
 
 class SelfBuildConfig(BaseModel):
-    """``[self_build]`` — the self-building loop (docs/self-build.md).
+    """``[self_build]`` — the self-building loop's limits (docs/self-build.md).
 
     Dodaios notices what the person keeps doing and builds what would take it
-    off them: a memory, a skill, a routine, an agent or a code change. Each
-    kind has its own autonomy level: ``off``, ``suggest`` (a card, nothing is
-    built before the person accepts), ``trial`` (built, checked and live with
-    one-click undo) or ``full`` (as trial, and the trial ends by measure).
-    Every key is read by ``dodaios.self_build.policy`` (AP-31).
+    off them: a memory, a skill, a routine, an agent or a code change. It never
+    asks for approval: a build goes live on trial when it can be undone, and a
+    finished trial is kept or archived from the person's own use. How far each
+    kind goes is fixed in ``dodaios.self_build.policy.autonomy``, not set here;
+    the person's controls are the pause switch and undo on "Built for you".
+    The keys below are the hard caps and trial lengths the policy reads.
+
+    ``enabled`` and the per-kind stages (``memory``, ``skill``, ``routine``,
+    ``agent``, ``code``) are no longer read. They stay so that a config file
+    that sets them still loads; their values are ignored.
     """
 
     model_config = {"extra": "allow"}
 
+    #: Ignored. The loop always runs; the pause switch stops it (kept so old
+    #: config files load).
     enabled: bool = True
     #: The first days after the loop first ran only record build cases.
     silent_days: int = Field(default=7, ge=0, le=90)
+    #: Ignored, like the four stages below: autonomy per kind is fixed in
+    #: ``policy.autonomy`` (kept so old config files load).
     memory: Literal["off", "suggest", "trial", "full"] = "trial"
     skill: Literal["off", "suggest", "trial", "full"] = "suggest"
     routine: Literal["off", "suggest", "trial", "full"] = "suggest"
@@ -4564,7 +4573,7 @@ class SelfBuildConfig(BaseModel):
     max_agents_per_week: int = Field(default=1, ge=0, le=10)
     max_open_trials: int = Field(default=5, ge=0, le=50)
     max_code_runs_per_day: int = Field(default=1, ge=0, le=20)
-    #: A need the person rejected or undid this often is not offered again.
+    #: A need whose builds the person undid this often is not built again.
     max_rejections: int = Field(default=2, ge=1, le=20)
     #: Repositories (``owner/name``) whose loop pull requests are merged once CI is
     #: green ("land it"). Empty: every loop pull request is a draft the person merges.

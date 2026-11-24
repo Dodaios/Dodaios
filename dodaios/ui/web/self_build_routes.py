@@ -6,14 +6,14 @@ Endpoints (all under ``/api/self-build``)::
     GET    /digest          What happened in the last ``hours`` (the daily card)
     POST   /pause           The kill switch: ``{"paused": true}`` stops observing and building
     GET    /{build_id}      One build with its history and what it cost
-    POST   /{build_id}/accept  Build a proposed build
-    POST   /{build_id}/keep    Keep a build on trial (or restore an archived one)
-    POST   /{build_id}/undo    Remove what the build created, or reject the proposal
+    POST   /{build_id}/undo    Remove what the build created
     GET    /provenance      Which agents, skills and routines a build created (the badge)
     GET    /noticed         What the loop is counting so far, and when the quiet start ends
-    GET    /settings        ``[self_build]`` with each number's range
-    PUT    /settings        Change ``[self_build]``; written to jarvis.toml, applied at once
+    GET    /settings        The limits in ``[self_build]`` with each number's range
+    PUT    /settings        Change those limits; written to jarvis.toml, applied at once
 
+Nothing here approves, accepts or keeps a build: the loop decides that by
+measure (docs/self-build.md). The person pauses the loop and undoes builds.
 The ledger is opened at boot (``dodaios.self_build.service.start``).
 """
 
@@ -22,14 +22,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from dodaios.self_build import (
     Kind,
-    NoBuilder,
     SelfBuild,
     State,
     TransitionError,
@@ -197,9 +196,7 @@ def noticed_payload(service: SelfBuild, store: Any, *, now: int | None = None) -
         delegated = sum(1 for t in turns if t.channel == PANE)
         needs_tool = not consistent_tools(turns) and delegated < len(turns) * TOOL_SHARE
         decision = store.decision(cluster.signature)
-        if latest is not None and latest.state == State.PROPOSED:
-            stage = "proposed"
-        elif latest is not None and latest.state in (State.REJECTED, State.UNDONE):
+        if latest is not None and latest.state in (State.REJECTED, State.UNDONE):
             stage = "declined"
         elif decision is not None and decision[1] == "served":
             stage = "served"
@@ -218,7 +215,6 @@ def noticed_payload(service: SelfBuild, store: Any, *, now: int | None = None) -
                 "first_ms": turns[0].ts_ms,
                 "last_ms": turns[-1].ts_ms,
                 "stage": stage,
-                "build_id": latest.id if latest is not None and stage == "proposed" else "",
             }
         )
     needs.sort(key=lambda n: (-min(n["days"], REPEAT_DAYS), -n["times"], -n["last_ms"]))
@@ -237,17 +233,15 @@ async def noticed(request: Request) -> dict[str, Any]:
 
 # ------------------------------------------------------------------ settings
 
-_LEVELS = ("off", "suggest", "trial", "full")
-
 
 class SettingsBody(BaseModel):
-    enabled: bool | None = None
+    """The limits the Settings page may change. ``enabled`` and the per-kind
+    stages are gone: autonomy is fixed (``policy.autonomy``), and a body that
+    still names them is refused."""
+
+    model_config = {"extra": "forbid"}
+
     silent_days: int | None = None
-    memory: Literal["off", "suggest", "trial", "full"] | None = None
-    skill: Literal["off", "suggest", "trial", "full"] | None = None
-    routine: Literal["off", "suggest", "trial", "full"] | None = None
-    agent: Literal["off", "suggest", "trial", "full"] | None = None
-    code: Literal["off", "suggest", "trial", "full"] | None = None
     trial_days: int | None = None
     trial_uses: int | None = None
     max_builds_per_day: int | None = None
@@ -286,18 +280,19 @@ def _config(request: Request) -> Any:
 
 
 def _settings_payload(section: Any) -> dict[str, Any]:
+    """The limits as the Settings page shows them; ignored keys are left out."""
     from dodaios.core.config import SelfBuildConfig
+    from dodaios.core.config_writer import SELF_BUILD_SETTING_KEYS
 
     values = (section or SelfBuildConfig()).model_dump()
+    keys = [key for key in SelfBuildConfig.model_fields if key in SELF_BUILD_SETTING_KEYS]
     bounds = {
         name: {"min": _bound(info, "ge"), "max": _bound(info, "le")}
         for name, info in SelfBuildConfig.model_fields.items()
-        if info.annotation is int
+        if info.annotation is int and name in SELF_BUILD_SETTING_KEYS
     }
-    keys = SelfBuildConfig.model_fields.keys()
     return {
         "settings": {key: values[key] for key in keys if key in values},
-        "levels": list(_LEVELS),
         "bounds": bounds,
     }
 
@@ -312,17 +307,17 @@ def _bound(info: Any, name: str) -> int | None:
 
 @router.get("/settings")
 def get_settings(request: Request) -> dict[str, Any]:
-    """``[self_build]`` as the Settings page edits it, with each number's range."""
+    """The limits in ``[self_build]`` as the Settings page edits them, with each range."""
     return _settings_payload(getattr(_config(request), "self_build", None))
 
 
 @router.put("/settings")
 async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
-    """Change ``[self_build]``: validated, written to jarvis.toml, applied now.
+    """Change the limits in ``[self_build]``: validated, written to jarvis.toml, applied now.
 
     The loop reads ``self.cfg`` through a getter, so replacing the in-memory
     section is the whole hot-apply. Excluded from the brain's app actions: only
-    the person changes how far the loop may go (docs/self-build.md, rule 3).
+    the person changes the loop's limits (docs/self-build.md, rule 3).
     """
     from dodaios.core import config_writer
     from dodaios.core.config import SelfBuildConfig
@@ -363,19 +358,9 @@ async def _act(coro: Any) -> dict[str, Any]:
         record = await coro
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="no such build") from exc
-    except (TransitionError, NoBuilder, UndoUnavailable) as exc:
+    except (TransitionError, UndoUnavailable) as exc:
         raise HTTPException(status_code=409, detail=f"{type(exc).__name__}: {exc}") from exc
     return {"build": record.to_json()}
-
-
-@router.post("/{build_id}/accept")
-async def accept(request: Request, build_id: str) -> dict[str, Any]:
-    return await _act(_service(request).accept(build_id))
-
-
-@router.post("/{build_id}/keep")
-async def keep(request: Request, build_id: str) -> dict[str, Any]:
-    return await _act(_service(request).keep(build_id))
 
 
 @router.post("/{build_id}/undo")

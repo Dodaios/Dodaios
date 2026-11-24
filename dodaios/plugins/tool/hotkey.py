@@ -12,6 +12,7 @@ approval required.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
 
@@ -26,6 +27,8 @@ from dodaios.cu.actuate.windows import (  # noqa: E402
 from dodaios.cu.actuate.windows import (
     resolve_vk as _resolve_vk,
 )
+
+log = logging.getLogger(__name__)
 
 
 class _ForegroundTargetChanged(RuntimeError):
@@ -185,5 +188,6 @@ class HotkeyTool:
                 output=None,
                 error=f"Refusing hotkey: {exc}.",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

@@ -1,15 +1,19 @@
 """The code builder's pass: watch open pull requests, take in issues, build one case.
 
-One pass every :data:`TICK_S` (and soon after a proposal is accepted):
+One pass every :data:`TICK_S`:
 
-1. Nothing at all while ``[self_build].code`` is ``off``, the kill switch is
-   on, or GitHub is not connected: no call leaves the machine.
-2. Watch the loop's open pull requests (CI, merges, closes; ``watch``).
-3. Refresh the briefs of the person's own projects and triage their issues
-   (``intake``). Proposals cost no model call.
-4. Build at most one ``building`` case, and only while the person is away and
-   a subscription coding CLI is free (``seat``, ``idle``). A case can wait for
-   that up to :data:`STALE_BUILDING_MS`; then it fails with that reason.
+1. Nothing at all while the kill switch is on or GitHub is not connected: no
+   call leaves the machine.
+2. Watch the loop's open pull requests (CI, merges, closes; ``watch``), so
+   their records settle.
+3. Code changes are at autonomy ``watch`` (``policy.autonomy``) until they
+   have a measured path of their own: the pass stops here. A case still
+   waiting to be built is closed as not built (:meth:`CodeLoop._stand_down`).
+4. At ``full`` only: refresh the briefs of the person's own projects and
+   triage their issues (``intake``), then build at most one ``building``
+   case, and only while the person is away and a subscription coding CLI is
+   free (``seat``, ``idle``). A case can wait for that up to
+   :data:`STALE_BUILDING_MS`; then it fails with that reason.
 
 A pass makes git calls and GitHub reads; the only model calls are the one
 plan call and the coding run of a build.
@@ -43,6 +47,11 @@ STALE_BUILDING_MS: Final[int] = 3 * 86_400_000
 #: Archived builds' pull requests are still watched this long (a late merge).
 WATCH_ARCHIVED_MS: Final[int] = 30 * 86_400_000
 _GITHUB_TTL_S: Final[float] = 600.0
+#: The note a case gets that was waiting to be built when code went to ``watch``.
+NOT_BUILT_NOTE: Final[str] = (
+    "not built: the loop opens no code change until it can measure one; "
+    "its open pull requests are still watched"
+)
 #: How long an undo waits for a running build to reach its next step.
 UNDO_WAIT_S: Final[float] = 20.0
 #: A coding run found still working after a restart gets this much past its limit.
@@ -63,9 +72,12 @@ class CodeLoop:
     # ------------------------------------------------------------ wiring
 
     def attach(self) -> None:
+        """Register the undoer. The pass builds by itself (``_maybe_build``),
+        and only at autonomy ``full``; until then no builder is listed."""
         service = self.ctx.service
         service.undo.register(Kind.CODE, self.undo)
-        service.register_builder(Kind.CODE, self.on_accepted)
+        if policy.autonomy(Kind.CODE) == policy.Autonomy.FULL:
+            service.register_builder(Kind.CODE, self.on_building)
 
     def start(self) -> None:
         if self._task is not None:
@@ -101,9 +113,9 @@ class CodeLoop:
 
     # ------------------------------------------------------------ the ledger's hooks
 
-    async def on_accepted(self, record: BuildRecord) -> None:
-        """A proposal was accepted: it is ``building`` now and waits for idle time."""
-        logger.info("self-build code: {} accepted, waiting for idle time", record.signature)
+    async def on_building(self, record: BuildRecord) -> None:
+        """A case is ``building``: the next pass picks it up when the person is away."""
+        logger.info("self-build code: {} waits for idle time", record.signature)
         self.kick()
 
     async def undo(self, record: BuildRecord) -> None:
@@ -153,14 +165,17 @@ class CodeLoop:
 
     async def _tick(self) -> dict[str, Any]:
         ctx = self.ctx
-        cfg = ctx.config()
-        if policy.autonomy(cfg, Kind.CODE) == policy.Autonomy.OFF:
-            return {"skipped": "off"}
         if policy.paused(ctx.ledger):
             return {"skipped": "paused"}
         if ctx.github() is None:
             return {"skipped": "github not connected"}
         summary: dict[str, Any] = {"watched": await self._watch()}
+        level = policy.autonomy(Kind.CODE)
+        if level != policy.Autonomy.FULL:
+            summary["autonomy"] = level.value
+            summary["closed"] = await self._stand_down()
+            summary["skipped"] = "watching open pull requests only: no new issue, no new build"
+            return summary
         who = await intake.viewer(ctx)
         if who is None:
             summary["skipped"] = "github account unknown"
@@ -192,6 +207,36 @@ class CodeLoop:
             except Exception:  # noqa: BLE001 - one unreadable pull request must not stop the rest
                 logger.opt(exception=True).info("self-build code: watch {} failed", record.id)
         return seen
+
+    async def _stand_down(self) -> int:
+        """Close the cases that wait to be built while code is at ``watch``.
+
+        A case whose pull request already exists goes on to ``proving`` and is
+        watched like the others. Any other ``building`` case (the person
+        accepted it in an older version, or a run the app stopped mid-way) is
+        cleaned up and failed with :data:`NOT_BUILT_NOTE`: nothing new is
+        built. Returns how many were closed.
+        """
+        ctx = self.ctx
+        if self._building is not None and not self._building.done():
+            return 0  # a run of this process ends on its own and is watched after
+        waiting = await asyncio.to_thread(
+            ctx.ledger.list, kinds=[Kind.CODE], states=[State.BUILDING], limit=50
+        )
+        closed = 0
+        for record in waiting:
+            if has_pull(record):
+                await asyncio.to_thread(
+                    ctx.ledger.set_state, record.id, State.PROVING, "pull request opened"
+                )
+                continue
+            try:
+                await cleanup(ctx, record, close_pull=True, force=True)
+            except Exception:  # noqa: BLE001 - the leftovers stay listed in the record's undo
+                logger.opt(exception=True).warning("self-build code: {} not cleaned up", record.id)
+            await asyncio.to_thread(ctx.ledger.set_state, record.id, State.FAILED, NOT_BUILT_NOTE)
+            closed += 1
+        return closed
 
     async def _maybe_build(self) -> str:
         ctx = self.ctx

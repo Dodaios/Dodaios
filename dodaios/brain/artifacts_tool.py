@@ -46,15 +46,13 @@ class ArtifactsTool:
     risk_tier = "safe"
     is_action_tool = False
     description = (
-        "What the agents made: mission outputs and living pages. actions: list (the newest "
-        "outputs: slug, request, status, summary, how many deliverables; limit/offset), files "
-        "(slug: the deliverable files of one output with title and size), read (slug + path "
-        "from files: the text of one file, bounded), living (the living pages the lead keeps "
-        "current: title, what it tracks, cadence, state; with slug it reads one page with its "
-        "rows). Use it for 'what did the agent produce', 'show me the last report', 'what is "
-        "on my dashboard page'. To name a page in a reply, write the `link` that files "
-        "gives for it, exactly as it is: the chat shows it as the page's name and opens "
-        "the page. Read-only; use living_page or create_artifact to make or refresh one."
+        "What the agents made: mission outputs and living pages ('what did the agent produce', "
+        "'show me the last report'). actions: list (newest outputs: slug, request, status, "
+        "summary, deliverable count; limit/offset), files (slug: one output's deliverable "
+        "files), read (slug + path from files: the text of one file, bounded), living (the "
+        "living pages the lead keeps current; with slug one page with its rows). To name a "
+        "page in a reply write the `link` that files gives, exactly as it is. Read-only; to "
+        "make or refresh one use living_page or create_artifact."
     )
     schema: dict[str, Any] = {
         "type": "object",

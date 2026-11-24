@@ -31,10 +31,13 @@ raise a useful error.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "STTHTTPError",
@@ -129,7 +132,8 @@ class _ErrorHeaders(Mapping):
             pairs = source.items() if hasattr(source, "items") else (source or ())
             for key, value in pairs:
                 items[str(key).lower()] = str(value)
-        except Exception:  # noqa: BLE001 — unreadable headers must not mask the error
+        except Exception:  # broad-except: unreadable headers must not mask the error
+            log.debug("__init__: unreadable headers must not mask the error", exc_info=True)
             items = {}
         self._items = items
 
@@ -207,10 +211,12 @@ def _error_detail(response: Any) -> str:
     """
     try:
         payload = response.json()
-    except Exception:  # noqa: BLE001 — body may not be JSON at all
+    except Exception:  # broad-except: body may not be JSON at all
+        log.warning("_error_detail: body may not be JSON at all", exc_info=True)
         try:
             return (getattr(response, "text", "") or "").strip()[:200]
-        except Exception:  # noqa: BLE001 — an unreadable body is simply no detail
+        except Exception:  # broad-except: an unreadable body is simply no detail
+            log.debug("_error_detail: an unreadable body is simply no detail", exc_info=True)
             return ""
     if isinstance(payload, dict):
         err = payload.get("error")

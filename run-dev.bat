@@ -7,7 +7,7 @@ REM icon, no wake word / global hotkeys / chat channels / autostart (those stay
 REM with the regular app). Restart it as often as you like; the regular app and
 REM the coding sessions inside it are never touched.
 REM
-REM Not the same as dev.bat / run.bat --dev (those load the frontend from a Vite
+REM Not the same as run.bat --dev (which loads the frontend from a Vite
 REM HMR server). This one runs the built frontend exactly like run.bat does.
 REM Same as: set JARVIS_INSTANCE=dev && run.bat
 

@@ -43,7 +43,7 @@ def _gpu_usable() -> bool:
         import ctranslate2
 
         return int(ctranslate2.get_cuda_device_count()) > 0
-    except Exception:  # noqa: BLE001 — no CUDA build or no driver: the CPU it is
+    except (ImportError, OSError, RuntimeError):  # no CUDA build or no driver: the CPU it is
         return False
 
 
@@ -57,7 +57,7 @@ def _load() -> Any:
         try:
             fwhisper.ensure_cuda_libraries_findable()
             return fwhisper._new_whisper_model(GPU_MODEL, "cuda", "float16")
-        except Exception as exc:  # noqa: BLE001 — a GPU that will not load: fall back
+        except Exception as exc:  # broad-except: a GPU that will not load: fall back
             log.warning("clip transcribe: GPU model failed (%s); using the CPU", exc)
     try:
         return fwhisper._new_whisper_model(CPU_MODEL, "cpu", "int8")
@@ -156,7 +156,7 @@ def spoken_language(path: Path) -> str | None:
                 language, probability, _ = model.detect_language(mono)
                 if probability >= 0.5:
                     found = str(language)
-            except Exception as exc:  # noqa: BLE001 — an older engine without it: guess per piece
+            except Exception as exc:  # broad-except: an older engine without it: guess per piece
                 log.debug("clip transcribe: language not judged: %s", exc)
     _heard[key] = found
     return found or None

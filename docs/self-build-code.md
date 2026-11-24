@@ -7,6 +7,18 @@ a draft unless the person opted the repository in to landing, and every
 build can be undone with one click. This is the `code` kind of the
 [self-building loop](self-build.md); the code lives in `dodaios/self_build/code/`.
 
+**Status: watch only.** Code changes have no measured path of their own yet,
+so `policy.autonomy(Kind.CODE)` is `watch` and there is no setting that
+changes it. The loop takes in no new issue, opens no case and starts no coding
+run, and it asks the person nothing. Each pass still watches the pull requests
+the loop opened before (CI, merges, closes), so their records settle as below.
+A case that was still waiting to be built is closed as `failed` with the note
+"not built: the loop opens no code change until it can measure one"; one whose
+pull request already exists moves on to `proving` and is watched. The status
+(`status.code`) then reads `autonomy: "watch"`, how many pull requests were
+watched and how many waiting cases were closed. The rest of this page
+describes the build path as it runs once code is at `full`.
+
 ```
  brief ──> intake ──> triage ──> case ──> worktree ──> coding run ──> judge ──> pull request ──> CI ──> trial ──> merged / closed
  (git)     (poll)     (Python)  (ledger)  (branch)    (subscription)  (tests)    (draft)                (learn)
@@ -63,9 +75,10 @@ closed loop pull requests without merging any is left alone.
 
 A fit issue becomes a build case with signature `code:<owner>/<repo>#<n>`
 through `service.admit`, so autonomy, the kill switch, the silent first days
-and the daily code-run cap all apply. At most one new case per pass, and an
-issue that ever had a build is not offered again. Proposals cost no model
-call.
+and the daily code-run cap all apply; any of them opens nothing, and the issue
+comes back on a later poll. A case opens in `building`, never as a card that
+waits for the person. At most one new case per pass, and an issue that ever
+had a build is not offered again. Opening a case costs no model call.
 
 ## Execution
 

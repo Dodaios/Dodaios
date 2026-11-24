@@ -22,8 +22,8 @@ gets a unique key.
   macOS Keychain / Linux Secret Service, service `personal-jarvis`, slot
   `jarvis_control_api_key`). On a headless Linux VPS without a Secret Service
   daemon the keyring silently fails, so the key falls back to a `0600` file at
-  `data/.control_api_key` (or `$JARVIS_DATA_DIR`). Read order:
-  keyring → file → `JARVIS_CONTROL_API_KEY` env seed.
+  `data/.control_api_key` (or `$DODAIOS_DATA_DIR`). Read order:
+  keyring → file → `DODAIOS_CONTROL_API_KEY` env seed.
 - **Runtime reads:** a successful lookup is serialized and cached for the life
   of the Dodaios process, then invalidated by an in-process key replacement.
   Forked children drop the cache. This keeps per-request Bearer checks from
@@ -143,7 +143,7 @@ HTTP calls) instead of calling the `set_config_value` tool.
 
 Pure FastAPI + stdlib `secrets` + keyring — all in the base install, so the
 headless `python:3.11-slim` container boots it unchanged with no GUI extra. The
-config path honours `JARVIS_CONFIG` (a writable file on a VPS where
+config path honours `DODAIOS_CONFIG` (a writable file on a VPS where
 `PROJECT_ROOT` may be read-only). Desktop-only settings (overlay/bar/ducking)
 report `requires_ui` honestly rather than crashing on a server.
 

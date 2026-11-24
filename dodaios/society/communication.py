@@ -15,9 +15,8 @@ REPLY_POLICY_SCHEMA: dict[str, Any] = {
     "type": "string",
     "enum": list(REPLY_POLICIES),
     "description": (
-        "Expected reply: none for information or an explicitly silent task; "
-        "on_error for work needing only blockers reported; always for a question, "
-        "requested result or decision. Choose from the user's intent and context."
+        "none: information or an explicitly silent task; on_error: only blockers "
+        "reported; always: a question, requested result or decision."
     ),
 }
 

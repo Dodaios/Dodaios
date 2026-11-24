@@ -194,7 +194,7 @@ def _remove_entry(entry: Path, *, repo_root: Path | None) -> bool:
         try:
             shutil.rmtree(entry, ignore_errors=True)
             return not entry.exists()
-        except Exception:  # noqa: BLE001
+        except OSError:  # a folder that cannot be removed counts as not cleaned
             return False
 
 

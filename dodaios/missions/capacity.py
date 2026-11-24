@@ -277,7 +277,7 @@ def pinned_to_subscription(*, login_probe: Callable[[], bool] | None = None) -> 
 
         if subscription_mode():
             return True
-    except Exception:  # noqa: BLE001 - unreadable signal: waiting is the safe answer
+    except Exception:  # broad-except: unreadable signal: waiting is the safe answer
         log.warning(
             "capacity: subscription signal unreadable — pinning the mission "
             "to its subscription",
@@ -288,7 +288,7 @@ def pinned_to_subscription(*, login_probe: Callable[[], bool] | None = None) -> 
         return False
     try:
         return bool(login_probe())
-    except Exception:  # noqa: BLE001 - a probe error is "no positive login", logged
+    except Exception:  # broad-except: a probe error is "no positive login", logged
         log.warning("capacity: subscription login probe failed", exc_info=True)
         return False
 
@@ -304,7 +304,7 @@ def paid_api_fallback_enabled() -> bool:
 
         missions = getattr(load_config(), "missions", None)
         return bool(getattr(missions, "paid_api_fallback", False) is True)
-    except Exception:  # noqa: BLE001 - unreadable config: paid use stays off, logged
+    except Exception:  # broad-except: unreadable config: paid use stays off, logged
         log.warning("capacity: [missions] config unreadable — paid fallback OFF", exc_info=True)
         return False
 
@@ -836,7 +836,7 @@ async def capacity_resume_loop(
             resumed = await resume_pass()
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 - logged; the next tick retries
+        except Exception:  # broad-except: logged; the next tick retries
             log.exception("capacity: resume pass failed")
             continue
         if resumed:

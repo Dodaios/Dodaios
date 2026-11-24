@@ -119,7 +119,7 @@ async def run_once(vault: MemoryVault, reviewer: Reviewer, data_dir: Path) -> di
         shown = await asyncio.to_thread(reconcile.nearest, vault, said)
         try:
             raw = await reviewer(reconcile.build_prompt(said, shown))
-        except Exception:  # noqa: BLE001 — a provider fault ends this run; the next boot resumes
+        except Exception:  # broad-except: a provider fault ends this run; the next boot resumes
             log.warning("memory backfill: reviewer failed", exc_info=True)
             raw = None
         if raw is None:

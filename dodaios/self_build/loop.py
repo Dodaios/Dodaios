@@ -28,8 +28,8 @@ Wiring (all event-driven; nothing here runs on a timer that wakes a model):
   hold it up), or until a call ends, and never longer than
   :data:`MAX_WAIT_S` after the first need was queued. Then they get at most
   one model call each on a subscription or local seat, :data:`DECIDE_PER_DAY`
-  at most per day. With no such seat a plain proposal is written from the
-  counts instead.
+  at most per day. With no such seat nothing is decided: the need comes back
+  once a seat is there. Nothing is ever put to the person as a proposal.
 * **Build** through :class:`~.builders.Builders`; **prove** in :mod:`.judge`.
 * **Measure.** Uses are recorded from what really happens: a self-built skill
   fires (``SkillInvoked``) and is or is not corrected in the next turn, a
@@ -39,9 +39,9 @@ Wiring (all event-driven; nothing here runs on a timer that wakes a model):
   corrected. The service's hourly sweep settles trials; kept builds unused
   for :data:`RETIRE_DAYS` are archived here.
 
-The kill switch (``POST /api/self-build/pause``), ``[self_build].enabled`` and
-the per-kind autonomy are read on every event, so pausing stops observation,
-building and measuring at once.
+The kill switch (``POST /api/self-build/pause``) and the per-kind autonomy
+are read on every event, so pausing stops observation, building and measuring
+at once.
 """
 
 from __future__ import annotations
@@ -234,7 +234,7 @@ class SelfBuildLoop:
 
     def _active(self) -> bool:
         cfg = policy.section(self.service.config())
-        return bool(cfg is not None and cfg.enabled) and not policy.paused(self.ledger)
+        return cfg is not None and not policy.paused(self.ledger)
 
     # ------------------------------------------------------------ inputs
 
@@ -412,7 +412,7 @@ class SelfBuildLoop:
         if owning_agent(need):
             return False  # one agent's own work: its learning pass covers it
         before = self.ledger.ever_for(need.signature)
-        if any(r.state in (State.KEPT, State.ARCHIVED) for r in before):
+        if any(_built_and_settled(r) for r in before):
             return False  # built before: kept, or archived because nobody used it
         lessons = self.store.lessons(need.signature)
         if len(lessons) >= MAX_LESSONS:
@@ -507,7 +507,6 @@ class SelfBuildLoop:
         admission = self.service.admit(verdict.kind, need.signature)
         if admission.start is None:
             return None
-        start = State.PROPOSED if verdict.deterministic else admission.start
         record = await asyncio.to_thread(
             self.ledger.open_case,
             verdict.kind,
@@ -515,7 +514,6 @@ class SelfBuildLoop:
             verdict.title,
             case=_case_text(verdict, need, admission.reason),
             evidence=[t.evidence() for t in need.turns],
-            state=start,
         )
         await asyncio.to_thread(
             self.store.put_spec,
@@ -534,8 +532,7 @@ class SelfBuildLoop:
             need.signature,
             admission.reason,
         )
-        if record.state == State.BUILDING:
-            self.service.spawn(self.builders.build(record), f"build {record.id}")
+        self.service.spawn(self.builders.build(record), f"build {record.id}")
         return record
 
     async def _verdict(
@@ -543,7 +540,7 @@ class SelfBuildLoop:
     ) -> Verdict | None:
         config = self.service.config()
         if not await asyncio.to_thread(brain.available, config):
-            return decide.fallback(need, allowed)
+            return None  # no seat to write the spec: the need comes back later
         if not await asyncio.to_thread(self.store.take_daily, "decide", DECIDE_PER_DAY):
             return None
         skills = await asyncio.to_thread(self._skill_names)
@@ -554,8 +551,8 @@ class SelfBuildLoop:
                 text = await brain.ask(
                     config, decide.SYSTEM_PROMPT, prompt, max_tokens=decide.DECIDE_MAX_TOKENS
                 )
-        except brain.BackgroundDeferred:  # no seat after all: propose from the counts
-            return decide.fallback(need, allowed)
+        except brain.BackgroundDeferred:  # no seat after all: the need comes back later
+            return None
         return decide.parse(text, allowed)
 
     def _installed_skills(self) -> list[Any]:
@@ -1069,10 +1066,16 @@ def _case_text(verdict: Verdict, need: Need, reason: str) -> str:
     lines.append(
         f"Signal: {', '.join(need.reasons)}; {need.occurrences} requests on {need.days} days."
     )
-    if verdict.deterministic:
-        lines.append("Written from the counts alone: no subscription or local model was available.")
     lines.append(f"Admitted: {reason}.")
     return "\n".join(lines)
+
+
+def _built_and_settled(record: BuildRecord) -> bool:
+    """Kept, or archived after a trial. A proposal an older version archived
+    unbuilt (no trial) does not count: that need may still be built."""
+    return record.state == State.KEPT or (
+        record.state == State.ARCHIVED and record.trial_started_ms > 0
+    )
 
 
 # ------------------------------------------------------------ process-wide

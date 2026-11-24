@@ -106,7 +106,7 @@ class FallbackTTS:
                 continue
             try:
                 ensure()
-            except Exception as exc:  # noqa: BLE001 — warmup must never crash
+            except Exception as exc:  # broad-except: warmup must never crash
                 log.warning(
                     "TTS %s provider %r _ensure_client failed during warmup: %s",
                     label, getattr(tts, "name", "?"), exc,
@@ -122,7 +122,8 @@ class FallbackTTS:
         """
         try:
             return list(self._primary.list_voices(language) or [])
-        except Exception:  # noqa: BLE001 — an unlistable catalogue means "no match"
+        except Exception:  # broad-except: an unlistable catalogue means "no match"
+            log.warning("list_voices: an unlistable catalogue means \"no match\"", exc_info=True)
             return []
 
     async def synthesize(
@@ -144,7 +145,7 @@ class FallbackTTS:
             ):
                 produced += 1
                 yield chunk
-        except Exception as exc:  # noqa: BLE001 — any primary failure -> fallback
+        except Exception as exc:  # broad-except: any primary failure -> fallback
             self._last_failure = f"{type(exc).__name__}: {exc}"
             if produced:
                 # Audio already reached the speaker; restarting from the

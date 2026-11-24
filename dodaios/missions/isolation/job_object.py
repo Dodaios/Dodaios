@@ -452,7 +452,7 @@ def WindowsJobObject(  # noqa: ANN401, N802
     if sys.platform == "win32":
         try:
             return _Win32JobObjectImpl(name, allow_breakaway=allow_breakaway)
-        except Exception:  # noqa: BLE001 - fall through to dependency-free kernel API
+        except Exception:  # broad-except: fall through to dependency-free kernel API
             try:
                 logger.info(
                     "pywin32 Job Object setup is unavailable; using the Kernel32 "

@@ -10,17 +10,20 @@
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from .schema import Skill, SkillLifecycleState
 
+log = logging.getLogger(__name__)
+
 # Optional: croniter for cron validation
 try:
     from croniter import croniter  # type: ignore
     _HAVE_CRONITER = True
-except Exception:  # pragma: no cover
+except ImportError:  # croniter is optional
     croniter = None  # type: ignore
     _HAVE_CRONITER = False
 
@@ -65,7 +68,8 @@ def _list_tool_plugins() -> set[str]:
     try:
         from dodaios.core import registry as plugin_registry
         return set(plugin_registry.list_plugins("jarvis.tool"))
-    except Exception:  # pragma: no cover
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.debug("_list_tool_plugins: failed; carrying on with the fallback", exc_info=True)
         return set()
 
 
@@ -104,7 +108,8 @@ def validate_skill(
         if hasattr(tool_registry, "list_plugins"):
             try:
                 known_tools = set(tool_registry.list_plugins("jarvis.tool"))
-            except Exception:  # noqa: BLE001
+            except Exception:  # broad-except: failed; carrying on with the fallback
+                log.warning("validate_skill: failed; carrying on with the fallback", exc_info=True)
                 known_tools = set()
         elif hasattr(tool_registry, "__iter__"):
             known_tools = set(tool_registry)  # type: ignore[arg-type]
@@ -115,7 +120,8 @@ def validate_skill(
     if mcp_registry is not None and hasattr(mcp_registry, "list_servers"):
         try:
             mcp_servers = set(mcp_registry.list_servers())
-        except Exception:  # noqa: BLE001
+        except Exception:  # broad-except: failed; carrying on with the fallback
+            log.warning("validate_skill: failed; carrying on with the fallback", exc_info=True)
             mcp_servers = set()
 
     for tool in fm.requires_tools:

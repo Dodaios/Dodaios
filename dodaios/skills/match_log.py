@@ -119,7 +119,7 @@ def record(
             elapsed_us=int(getattr(decision, "elapsed_us", 0) or 0),
             candidates=candidates,
         )
-    except Exception:  # noqa: BLE001 — diagnostics must never break a turn
+    except Exception:  # broad-except: diagnostics must never break a turn
         entry = DecisionRecord(
             utterance_preview=(utterance or "")[:PREVIEW_CHARS],
             utterance_hash=utterance_hash(utterance),

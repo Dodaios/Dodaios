@@ -22,7 +22,7 @@ The command:
    built at the last load (a build takes about 3–5 minutes, a reload without
    frontend changes about one minute);
 4. starts the Dev app from that worktree with the default app's interpreter
-   and `JARVIS_DATA_DIR=<main checkout>/data-dev`, so the Dev app keeps one data
+   and `DODAIOS_DATA_DIR=<main checkout>/data-dev`, so the Dev app keeps one data
    directory across previews, and waits until it is up.
 
 There is one Dev app: the last load wins. Wake word, global hotkeys and chat

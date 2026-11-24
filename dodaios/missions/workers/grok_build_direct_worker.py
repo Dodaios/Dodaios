@@ -91,7 +91,7 @@ def _resolve_grok_binary() -> str | None:
         from dodaios.core.path_augment import ensure_cli_paths
 
         ensure_cli_paths()
-    except Exception as exc:  # noqa: BLE001 — PATH augmentation is best-effort
+    except Exception as exc:  # broad-except: PATH augmentation is best-effort
         logger.debug("CLI PATH augmentation failed during grok discovery: %s", exc)
     for name in ("grok", "grok.exe", "grok.cmd"):
         path = shutil.which(name)
@@ -295,7 +295,7 @@ class GrokBuildDirectWorker:
             if issued_here and broker_binding is not None:
                 try:
                     broker_binding.close()
-                except Exception:  # noqa: BLE001 - cleanup must not mask cancellation
+                except Exception:  # broad-except: cleanup must not mask cancellation
                     logger.exception(
                         "GrokBuildDirectWorker: broker binding cleanup failed"
                     )

@@ -3680,25 +3680,8 @@
     },
     "self_build": {
       "title": "Autoconstrução",
-      "description": "Até onde {name} pode ir quando constrói coisas para si por iniciativa própria.",
+      "description": "Os limites que {name} respeita ao construir ajudantes para você. Nunca pergunta antes: só constrói o que pode ser desfeito e mantém o que você usa. Pause ou desfaça um ajudante em Feito para si.",
       "open_view": "Abrir Feito para si",
-      "enabled_title": "Construir por iniciativa própria",
-      "enabled_description": "Reparar no que faz repetidamente e construir o que lhe tira esse trabalho. Desligado: nada é notado nem construído.",
-      "autonomy_title": "Até onde, por tipo",
-      "autonomy_description": "Desligado: nunca. Sugerir: um cartão pergunta primeiro. Ensaio: construído, verificado e ativo, com anulação num clique. Total: como ensaio, e um ensaio que foi usado é mantido sozinho.",
-      "levels": {
-        "off": "Desligado",
-        "suggest": "Sugerir",
-        "trial": "Ensaio",
-        "full": "Total"
-      },
-      "kinds": {
-        "memory": "Memórias",
-        "skill": "Competências",
-        "routine": "Rotinas",
-        "agent": "Agentes",
-        "code": "Alterações de código"
-      },
       "limits_title": "Limites",
       "limits_description": "Tetos fixos que o ciclo nunca ultrapassa, decida o que decidir.",
       "limits": {
@@ -3708,7 +3691,7 @@
         "max_code_runs_per_day": "Execuções de código por dia",
         "trial_days": "Duração do ensaio em dias",
         "trial_uses": "Duração do ensaio em utilizações",
-        "max_rejections": "Deixar de propor após tantas recusas",
+        "max_rejections": "Não construir de novo após ser desfeito tantas vezes",
         "silent_days": "Primeiros dias em silêncio"
       },
       "save_error": "Não foi possível guardar: {detail}",

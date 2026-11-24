@@ -288,7 +288,7 @@ async def extract(said: list[str], ask: AskModel) -> tuple[list[dict[str, str]],
             reply = await ask(prompt)
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — a provider fault leaves this chunk unread, reported
+        except Exception:  # broad-except: a provider fault leaves this chunk unread, reported
             log.warning("memory import: extraction call failed", exc_info=True)
             continue
         if reply is None:

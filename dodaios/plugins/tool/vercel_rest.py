@@ -13,11 +13,14 @@ deployments). It does not trigger deployments or mutate state.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
 from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _VERCEL_BASE = "https://api.vercel.com"
 
@@ -128,7 +131,8 @@ class VercelRestTool:
                 out = await self.get_deployment(deployment_id=did)
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         if isinstance(out, dict) and out.get("error"):

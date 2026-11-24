@@ -356,7 +356,7 @@ class ClaudeDirectWorker:
             if issued_here and broker_binding is not None:
                 try:
                     broker_binding.close()
-                except Exception:  # noqa: BLE001 - cleanup must not mask cancellation
+                except Exception:  # broad-except: cleanup must not mask cancellation
                     logger.exception("ClaudeDirectWorker: broker binding cleanup failed")
 
     async def _spawn_bound(
