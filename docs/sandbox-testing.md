@@ -25,7 +25,7 @@ The sandbox seals all of these.
 |---|---|
 | Python import | a dedicated venv inside the sandbox; the global `import dodaios` is untouched |
 | Credentials | `keyring` is redirected to an isolated throwaway file backend — your real Credential Manager is never read or written |
-| Config | `JARVIS_CONFIG` points at the sandbox's own `jarvis.toml` |
+| Config | `DODAIOS_CONFIG` points at the sandbox's own `jarvis.toml` |
 | Data | the separate clone makes the repo-relative `data/` resolve inside the sandbox; `LOCALAPPDATA` is also redirected so the subsystems that use the OS user-data dir (board stats, user skills, contacts, cli config — `%LOCALAPPDATA%\Jarvis`) stay in the sandbox too, instead of the real shared location |
 
 **Computer-Use is forced OFF** in the sandbox — a single physical machine cannot

@@ -49,7 +49,7 @@ phone route answer 403.
 ### Reaching the computer from the phone
 
 The desktop app listens on `127.0.0.1` by default; a phone cannot reach that.
-For the LAN case start the app with `JARVIS_BIND_HOST=0.0.0.0` **and** a
+For the LAN case start the app with `DODAIOS_BIND_HOST=0.0.0.0` **and** a
 control key (`assert_bind_safe` refuses a network bind without one; see
 `docs/dodaios-control-api.md`). The Phone page says so and offers no code
 while the bind is loopback-only. A settings switch for "listen on my network"
