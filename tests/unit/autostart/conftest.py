@@ -4,8 +4,19 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from dodaios.platform import PlatformName
 from dodaios.platform.capabilities import Capabilities
+
+
+@pytest.fixture(autouse=True)
+def _not_in_linked_worktree(monkeypatch):
+    """The suite runs from agent worktrees too; the reconcile tests describe the
+    main checkout, so the worktree guard is off unless a test turns it on."""
+    import dodaios.autostart as autostart
+
+    monkeypatch.setattr(autostart, "running_from_linked_worktree", lambda root=None: False)
 
 
 def make_caps(
