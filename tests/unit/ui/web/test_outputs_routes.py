@@ -1449,6 +1449,22 @@ def test_open_native_calls_platform_when_enabled(app):
     opn.assert_called_once()
 
 
+def test_open_native_reveals_a_program_instead_of_launching_it(app):
+    root = Path(app.state.outputs_root)
+    slug = "mission_019ed2dfd0fab"
+    rel = _make_deliverable(root, "019ed2dfd0fab1234", "run.hta", "<hta>")
+    app.state.native_file_actions = True
+    client = TestClient(app)
+    with (
+        patch("dodaios.platform.open_path.open_file", return_value=True) as opn,
+        patch("dodaios.platform.open_path.reveal_in_folder", return_value=True) as rev,
+    ):
+        r = client.post(f"/api/outputs/{slug}/files/{rel}/open-native")
+    assert r.status_code == 200
+    opn.assert_not_called()
+    rev.assert_called_once()
+
+
 def test_download_inline_html_has_csp(app):
     root = Path(app.state.outputs_root)
     slug = "mission_019ed2dfd0fab"

@@ -1,0 +1,243 @@
+{
+  "self_improvement": {
+    "title": "Automejora",
+    "subtitle": "Mientras no estás, el asistente prueba pequeños cambios en su forma de trabajar. Solo conserva un cambio cuando una medición con tareas de tu propio trabajo muestra que ayuda.",
+    "loading": "Cargando las mediciones",
+    "stop": "Detener",
+    "resume": "Reanudar",
+    "error": {
+      "unavailable": "La automejora no está en marcha en esta app. Reinicia Dodaios. Si este mensaje sigue, el registro de la app dice por qué.",
+      "load": "No se pudieron cargar las mediciones ({detail}). Comprueba que Dodaios está en marcha y vuelve a intentarlo.",
+      "retry": "Volver a intentar",
+      "action": "No ha funcionado: {detail}"
+    },
+    "state": {
+      "running": "En marcha",
+      "stopped": "Detenida",
+      "readonly": "Solo lectura",
+      "running_first": "Todavía no ha habido ninguna noche. La primera empieza cuando lleves {minutes} minutos fuera.",
+      "running_body": "La última noche fue {when}. La siguiente llega después de {next}, en cuanto lleves {minutes} minutos fuera.",
+      "running_due": "La última noche fue {when}. La siguiente llega la próxima vez que estés {minutes} minutos fuera.",
+      "stopped_body": "Hasta que reanudes, no se prueba, mide ni cambia nada. Lo que ya aprendió sigue en vigor.",
+      "readonly_body": "Una versión más nueva de la app escribió estos registros. Esta versión solo los muestra y no cambia nada."
+    },
+    "empty": {
+      "title": "Todavía no hay nada medido",
+      "body": "Para medirse, el asistente primero crea por la noche tareas de prueba a partir de tu propia memoria y tus mensajes. Cuando haya suficientes, se pondrá a prueba con ellas, y esta página mostrará si mejoró, qué cambió y qué demostró cada cambio."
+    },
+    "domain": {
+      "recall": {
+        "name": "Memoria",
+        "about": "¿Aparece el recuerdo correcto para un mensaje, y ninguno cuando no hace falta?"
+      }
+    },
+    "area": {
+      "unit": "puntos",
+      "points": "{value} puntos",
+      "badge_better": "demostrado",
+      "badge_worse": "peor",
+      "badge_unclear": "aún no es seguro",
+      "meaning": "Cuántas tareas de prueba más, de cada 100, resuelve el asistente tal como es ahora frente a como se entregó.",
+      "range_better": "La diferencia real está entre {low} y {high} puntos, así que la mejora es segura.",
+      "range_worse": "La diferencia real está entre {low} y {high} puntos: tal como es ahora, rinde peor que como se entregó.",
+      "range_unclear": "La diferencia aún no es segura: el valor real está entre {low} y {high} puntos, y eso incluye el cero.",
+      "scores_label": "Resueltas",
+      "scores": "ahora {now}, como se entregó {shipped}, en {n} tareas de las que nunca aprendió",
+      "part_needs_memory": "Hace falta un recuerdo",
+      "part_needs_none": "No hace falta ningún recuerdo",
+      "part_scores": "ahora {now}, como se entregó {shipped} ({n} tareas)",
+      "cost_label": "Prompt por mensaje",
+      "cost": "{before} → {after} tokens",
+      "cost_same": "{after} tokens, como se entregó",
+      "waiting": "Hay {n} tareas de tu trabajo listas. La primera medición llega con la próxima noche.",
+      "no_tasks": "Todavía no hay tareas de tu trabajo para esta área, así que aquí no se mide nada.",
+      "quality_label": "Tareas resueltas",
+      "shorter": "más corto",
+      "range_unclear_cheaper": "Hasta donde se ha medido, es tan bueno como se entregó: la diferencia de calidad está entre {low} y {high} puntos, y eso incluye el cero. Su prompt es un {pct} más corto.",
+      "building": "Por ahora hay {n} tareas de prueba de tu memoria y tus mensajes. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}."
+    },
+    "curve": {
+      "title": "Ventaja, noche a noche",
+      "caption": "Puntos, con el rango en el que está el valor real",
+      "few": "La curva aparece tras la segunda noche que mide esta área.",
+      "update": "Actualización a {version}",
+      "range_value": "entre {low} y {high}",
+      "col_night": "Noche",
+      "col_advantage": "Puntos",
+      "col_range": "Rango",
+      "col_tasks": "Tareas",
+      "col_app": "Versión de la app",
+      "legend_line": "Ventaja medida",
+      "legend_band": "Rango del valor real",
+      "legend_update": "Actualización de la app"
+    },
+    "stack": {
+      "title": "Lo que cambié en mí",
+      "none": "Nada todavía. Cada valor está como se entregó.",
+      "take_back": "Deshacer",
+      "values": "{before} → {after}",
+      "since": "desde {when}",
+      "held": "confirmado de nuevo en {n} tareas",
+      "kinds": "Dos tipos de cambio: valores que ajustó y demostró con tareas, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
+      "note_title": "Una nota que se escribió a sí mismo",
+      "note_gone": "Esta nota ya no está en la memoria.",
+      "not_measured": "aún sin medir"
+    },
+    "state_word": {
+      "proposed": "En espera",
+      "trial": "A prueba",
+      "live": "Conservado",
+      "reverted": "Deshecho",
+      "blocked": "Rechazado"
+    },
+    "effect": {
+      "better": "{diff} puntos en {n} tareas (entre {low} y {high})",
+      "worse": "{diff} puntos en {n} tareas (entre {low} y {high}), peor",
+      "unclear": "sin diferencia clara en {n} tareas (entre {low} y {high})",
+      "as_good": "igual de bien en {n} tareas",
+      "shorter": "prompt {tokens} tokens más corto",
+      "longer": "prompt {tokens} tokens más largo",
+      "none": "sin medir"
+    },
+    "detail": {
+      "close": "Cerrar",
+      "shipped": "Como se entregó: {value}",
+      "what": "Qué ajusta",
+      "admitted": "Por qué se aceptó",
+      "checked": "Comprobado de nuevo",
+      "not_checked": "Aún no se ha comprobado de nuevo. Lo hace la próxima noche.",
+      "admitted_on": "Medido en {n} tareas reservadas para decidir, {when}.",
+      "checked_on": "Medido en {n} tareas con las que nunca se decidió ningún cambio, {when}.",
+      "proposed_by": "Propuesto por",
+      "dates": "Fechas",
+      "date_admitted": "Aceptado: {date}",
+      "date_since": "En vigor desde: {date}",
+      "date_checked": "Última comprobación: {date}",
+      "measurement": "Medición",
+      "note_unmeasured": "Aún sin medir: todavía no se puede saber si esta nota ayuda. Está en vigor hasta que la deshagas."
+    },
+    "author": {
+      "tuner": "El ajustador, que prueba valores cercanos en tareas de práctica",
+      "owner": "Tú",
+      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara"
+    },
+    "nights": {
+      "title": "Las últimas noches",
+      "paused": "Detenida: no se hizo nada.",
+      "updated": "La app se actualizó de {from} a {to}. Todo lo aprendido se comprobó de nuevo.",
+      "checked": "Comprobado {title}: {outcome}, {effect}.",
+      "checked_bare": "Comprobado {title}: {outcome}.",
+      "holding_one": "1 cambio en vigor se mantiene.",
+      "holding_other": "{count} cambios en vigor se mantienen.",
+      "proposed": "Propuesto: {title}, {from} → {to}.",
+      "decided": "Medido {title}: {outcome}, {effect}.",
+      "decided_bare": "Medido {title}: {outcome}.",
+      "measured": "Ventaja ({area}): {points} puntos en {n} tareas.",
+      "idle": "Revisó y aún no encontró nada que medir.",
+      "show_one": "Mostrar 1 noche anterior",
+      "show_other": "Mostrar {count} noches anteriores",
+      "hide": "Mostrar menos",
+      "built_one": "Creó 1 tarea de prueba a partir de tu memoria y tus mensajes.",
+      "built_other": "Creó {count} tareas de prueba a partir de tu memoria y tus mensajes.",
+      "erased_one": "Borró 1 tarea sobre un recuerdo que ya no existe.",
+      "erased_other": "Borró {count} tareas sobre recuerdos que ya no existen.",
+      "stored_one": "Guardó 1 tarea de tu trabajo de programación anterior.",
+      "stored_other": "Guardó {count} tareas de tu trabajo de programación anterior.",
+      "deferred": "No se pudo consultar ningún modelo, así que no se crearon tareas."
+    },
+    "outcome": {
+      "admitted": "aceptado a prueba",
+      "declined": "rechazado",
+      "waiting": "espera más tareas",
+      "kept": "conservado",
+      "taken_back": "deshecho"
+    },
+    "candidates": {
+      "title": "Esperando una medición",
+      "row": "propuesto {when}, espera hasta que haya suficientes tareas nuevas para decidir"
+    },
+    "resting": {
+      "title": "En reposo tras una actualización",
+      "restale": "Sigue en vigor. El valor de entrega con el que se aprendió cambió con una actualización, así que primero se mide de nuevo.",
+      "dormant": "En reposo y sin efecto, porque esta versión no puede usarlo. Vuelve a aplicarse en cuanto una versión pueda."
+    },
+    "how": {
+      "title": "Cómo funciona",
+      "practise_title": "Practicar",
+      "practise_body": "Prueba otros valores en una parte de las tareas.",
+      "decide_title": "Decidir",
+      "decide_body": "Un cambio solo entra cuando demuestra su valor en tareas con las que nunca practicó.",
+      "check_title": "Seguir comprobando",
+      "check_body": "Las noches siguientes comprueban cada cambio de nuevo con otras tareas y deshacen lo que ya no ayuda.",
+      "limits": "Solo trabaja después de que lleves {minutes} minutos fuera, y como mucho una noche cada {hours} horas.",
+      "models": "Para crear tareas consulta un modelo como mucho {calls} veces por noche, con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
+      "models_ramp": "Para crear tareas consulta un modelo como mucho {calls} veces por noche ({ramp} en las primeras noches, mientras haya muy pocas tareas para decidir), con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
+      "measure_no_model": "La medición en sí no consulta ningún modelo.",
+      "privacy": "Los recuerdos y mensajes que se usan para esto solo van al proveedor con el que el asistente ya responde. Los recuerdos marcados como sensibles nunca se envían."
+    },
+    "param": {
+      "recall_entity_boost": {
+        "title": "Peso de los nombres en un recuerdo",
+        "about": "Cuánto sube un recuerdo cuando nombra a una persona o cosa del mensaje."
+      },
+      "recall_pinned_boost": {
+        "title": "Peso de los recuerdos fijados",
+        "about": "Cuánto sube un recuerdo fijado en una búsqueda."
+      },
+      "recall_recency_floor": {
+        "title": "Peso de los recuerdos antiguos",
+        "about": "Cuánto peso conserva un recuerdo muy antiguo. Con 1, la antigüedad no importa."
+      },
+      "recall_recency_days": {
+        "title": "Rapidez con la que envejecen los recuerdos",
+        "about": "En cuántos días se desvanece la frescura de un recuerdo."
+      },
+      "recall_fetch_factor": {
+        "title": "Amplitud de una búsqueda en la memoria",
+        "about": "Cuántos candidatos ordena una búsqueda, como múltiplo de los que devuelve."
+      },
+      "recall_turn_limit": {
+        "title": "Recuerdos por mensaje",
+        "about": "El máximo de recuerdos que puede traer un mensaje."
+      },
+      "recall_turn_max_chars": {
+        "title": "Espacio para recuerdos por mensaje",
+        "about": "El máximo de caracteres que pueden ocupar en el prompt los recuerdos de un mensaje."
+      },
+      "recall_relative_floor": {
+        "title": "Cercanía al mejor resultado",
+        "about": "Lo cerca del mejor resultado que debe puntuar un recuerdo para mostrarse."
+      },
+      "recall_min_score": {
+        "title": "Coincidencia mínima de un recuerdo",
+        "about": "Lo bien que debe coincidir un recuerdo para mostrarse siquiera. Con 0 se muestra cualquier coincidencia."
+      },
+      "recall_lesson_base": {
+        "title": "Rango inicial de una lección",
+        "about": "Dónde se sitúa una lección adecuada frente al mejor resultado de búsqueda, antes de que cuente su propio encaje."
+      },
+      "recall_lesson_cap": {
+        "title": "Rango máximo de una lección",
+        "about": "Cuánto por encima del mejor resultado de búsqueda puede situarse una lección como mucho."
+      },
+      "lessons_recall_threshold": {
+        "title": "Encaje necesario para una lección",
+        "about": "Cuántas palabras de una lección debe compartir un mensaje para que la lección aparezca."
+      },
+      "lessons_recall_limit": {
+        "title": "Lecciones por mensaje",
+        "about": "El máximo de lecciones que puede traer un mensaje."
+      }
+    },
+    "daily": {
+      "title": "En el uso diario",
+      "summary": "El {pct} de tus {n} peticiones de las últimas {weeks} semanas salió adelante sin una corrección, una repetición ni una interrupción.",
+      "caveat": "Esto muestra lo que pasó, no lo que lo causó: las peticiones de una semana no son las de la siguiente. Las áreas medidas arriba comparan lo mismo con lo mismo.",
+      "col_week": "Semana",
+      "col_requests": "Peticiones",
+      "col_through": "Salieron adelante",
+      "week_of": "desde el {date}",
+      "unrated": "sin cifra"
+    }
+  }
+}

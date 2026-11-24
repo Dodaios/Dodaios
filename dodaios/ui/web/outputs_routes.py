@@ -1333,7 +1333,10 @@ async def open_output_artifact_native(slug: str, path: str, request: Request) ->
     target = _resolve_artifact_target(request, slug, path)
     from dodaios.platform import open_path
 
-    opened = await asyncio.to_thread(open_path.open_file, target)
+    # A worker-written deliverable that could run code is shown in its folder.
+    program = await asyncio.to_thread(open_path.is_program_like, target)
+    launcher = open_path.reveal_in_folder if program else open_path.open_file
+    opened = await asyncio.to_thread(launcher, target)
     return {"opened": bool(opened), "path": str(target)}
 
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const openExternalUrl = vi.fn(async (_url: string) => true);
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }));
 
-import { installExternalLinkGuard, unhandledLinkAction } from "./externalLinkGuard";
+import { installExternalLinkGuard, safeWebUrl, unhandledLinkAction } from "./externalLinkGuard";
 
 const HERE = { href: "http://127.0.0.1:47821/threads/abc", origin: "http://127.0.0.1:47821" };
 
@@ -107,5 +107,19 @@ describe("installExternalLinkGuard", () => {
 
     expect(click(anchor("https://example.test/later"))).toBe(true);
     expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe("safeWebUrl", () => {
+  it("passes an http(s) address and nothing else", () => {
+    expect(safeWebUrl("https://a.example/x")).toBe("https://a.example/x");
+    expect(safeWebUrl("  HTTP://a.example ")).toBe("http://a.example/");
+    expect(safeWebUrl("javascript:alert(1)")).toBeNull();
+    expect(safeWebUrl("file:///x")).toBeNull();
+    expect(safeWebUrl("ms-settings:")).toBeNull();
+    expect(safeWebUrl("search-ms:query=x")).toBeNull();
+    expect(safeWebUrl("//evil.example/")).toBeNull();
+    expect(safeWebUrl("")).toBeNull();
+    expect(safeWebUrl(undefined)).toBeNull();
   });
 });

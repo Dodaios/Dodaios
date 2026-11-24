@@ -14,7 +14,7 @@ from dodaios.rsi.bench.model import Domain, Source
 from dodaios.rsi.bench.past_work import __main__ as report
 from dodaios.rsi.bench.past_work import tasks as tasks_module
 from dodaios.rsi.bench.past_work.history import MergedChange, merged_changes, read_history
-from dodaios.rsi.bench.past_work.intake import take_in
+from dodaios.rsi.bench.past_work.intake import session_folders, take_in
 from dodaios.rsi.bench.past_work.sessions import (
     Opened,
     PastSession,
@@ -595,6 +595,83 @@ def test_the_intake_stores_a_task_once_and_keeps_it_when_its_record_is_gone(tmp_
     assert brief.check["files"] == {"src/parser.py": 1, "tests/test_parser.py": 1}
     assert brief.split is store.tasks(Domain.CODING)[0].split
     store.close()
+
+
+def test_the_repositories_are_the_ones_the_sessions_ran_in_each_read_once(tmp_path, repository):
+    import dataclasses
+
+    folder, _ = repository
+    linked = tmp_path / "linked"
+    git(folder, "worktree", "add", "-q", str(linked), "feature")
+    plain = tmp_path / "plain"
+    plain.mkdir()
+
+    def ran_in(where: Path, *events: tuple[int, str | int]) -> PastSession:
+        return dataclasses.replace(session(*events), cwd=str(where))
+
+    sessions = [
+        ran_in(linked, (0, REQUEST), (1, 1)),  # a worktree of the same repository
+        ran_in(folder, (0, REQUEST), (1, 2)),
+        ran_in(plain, (0, REQUEST), (1, 3)),  # no repository
+        ran_in(tmp_path / "deleted", (0, REQUEST), (1, 4)),
+        ran_in(tmp_path / "elsewhere", (0, REQUEST)),  # opened no pull request
+    ]
+    found = session_folders(sessions)
+    assert len(found) == 1 and found[0] in (folder, linked)
+
+
+def test_the_intake_finds_the_repository_from_the_record_itself(tmp_path, repository):
+    folder, _ = repository
+    pull = PULL + "1"
+    rows = [
+        said(REQUEST, 0, cwd=str(folder)),
+        printed("t", pull, 1, git={"pr": {"url": pull, "action": "created"}}),
+    ]
+    store = BenchStore(tmp_path / "bench.db")
+    taken = take_in(store, homes=claude_home(tmp_path, rows))
+    assert (taken.new, dict(taken.in_use)) == (2, {"brief": 1, "coding": 1})
+    store.close()
+
+
+def test_a_night_stores_the_tasks_and_says_so(tmp_path, repository, real_past_work, monkeypatch):
+    from dodaios.core import config as core_config
+    from dodaios.rsi import night as nights
+
+    monkeypatch.setattr(core_config, "DATA_DIR", tmp_path)  # no brief log of this machine
+    folder, _ = repository
+    pull = PULL + "1"
+    rows = [
+        said(REQUEST, 0, cwd=str(folder)),
+        printed("t", pull, 1, git={"pr": {"url": pull, "action": "created"}}),
+    ]
+    homes = claude_home(tmp_path, rows)
+    store = BenchStore(tmp_path / "bench.db")
+    try:
+        made = nights._past_work(store, homes)
+        assert made == {"past_work": 2, "past_work_retired": 0}
+        report = nights.NightReport(ts_ms=1, app="1.0", made=made)
+        assert not report.idle
+        assert "Stored 2 tasks from your past coding work." in report.lines()
+        assert nights._past_work(store, homes) == {"past_work": 0, "past_work_retired": 0}
+        assert nights.NightReport(ts_ms=1, app="1.0", made={"past_work": 0}).idle
+    finally:
+        store.close()
+
+
+def test_records_that_cannot_be_read_cost_no_night(tmp_path, real_past_work, monkeypatch):
+    from dodaios.rsi import night as nights
+    from dodaios.rsi.bench import past_work
+
+    def broken(*_args, **_kwargs):
+        raise OSError("the records are on a drive that is gone")
+
+    monkeypatch.setattr(past_work, "take_in", broken)
+    monkeypatch.setattr(past_work, "logged_briefs", lambda: None)
+    store = BenchStore(tmp_path / "bench.db")
+    try:
+        assert nights._past_work(store, {}) == {}
+    finally:
+        store.close()
 
 
 def test_the_intake_retires_a_task_whose_pull_request_was_taken_back(tmp_path, repository):

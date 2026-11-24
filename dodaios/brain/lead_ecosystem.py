@@ -65,6 +65,7 @@ SECTION_READS: Final[dict[str, tuple[str, ...]]] = {
     "clis": ("GET /api/clis",),
     "cli-test-hub": ("GET /api/clis",),
     "self-build": ("GET /api/self-build",),
+    "self-improvement": ("GET /api/self-improvement",),
 }
 
 
@@ -148,9 +149,10 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area(
         "Extensions",
-        "skills, plugins, MCP servers, the marketplace, docs, coding-CLI inventory, self-build",
+        "skills, plugins, MCP servers, the marketplace, docs, coding-CLI inventory, self-build, "
+        "self-improvement (what the assistant learned by itself and the measurement behind it)",
         sections=("skills", "plugins", "mcps", "marketplace", "docs", "clis", "cli-test-hub",
-                  "self-build"),
+                  "self-build", "self-improvement"),
         acts=("create-skill", "run-skill", "manage-mcp-server", "marketplace-install"),
     ),
     Area(

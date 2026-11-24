@@ -191,7 +191,7 @@ def test_the_rule_block_names_the_tools():
     assert "message_agent, never gmail" in card
     assert "Agentic IDE" in card and "are NOT agents of this society" in card
     assert "## Communicating with teammates" not in card
-    # Seat inheritance is told once, in the society-create-agent description.
+    # Seat inheritance lives in the roster route, not in a lead tool.
     assert "society-create-routine, never a skill" in card
 
 

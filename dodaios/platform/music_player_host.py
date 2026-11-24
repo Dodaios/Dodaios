@@ -358,6 +358,11 @@ def main(argv: list[str] | None = None) -> int:
         # means the interpreter's default, which is exactly the Python logo the
         # parent passes an icon to avoid.
         icon = args.icon if args.icon and os.path.isfile(args.icon) else None
+        # The player shows a music site: a new-window request from it reaches
+        # the shell only as an http(s) address.
+        from dodaios.platform.webview_new_window_guard import install_new_window_guard
+
+        install_new_window_guard(webview)
         webview.start(
             func=_serve_then_quit,
             private_mode=False,

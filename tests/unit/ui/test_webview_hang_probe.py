@@ -50,3 +50,17 @@ def test_without_an_endpoint_the_probe_is_a_quiet_no_op(tmp_path: Path) -> None:
     probe.arm()
     assert probe.capture() == []
     HangStackProbe(None, "http://127.0.0.1:47821/").arm()
+
+
+def test_the_flag_is_absent_with_the_browser_lock_on() -> None:
+    env: dict[str, str] = {}
+    assert enable_webview_remote_debugging(env=env, platform="win32", browser_locked=True) is False
+    assert env == {}
+    assert enable_webview_remote_debugging(env=env, platform="win32", browser_locked=False) is True
+    assert REMOTE_DEBUGGING_FLAG in env["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"]
+
+
+def test_the_probe_stays_inert_without_a_port(tmp_path: Path) -> None:
+    probe = HangStackProbe(tmp_path, "http://127.0.0.1:1/")
+    probe.arm()
+    assert probe.capture() == []
