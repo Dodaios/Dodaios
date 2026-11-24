@@ -1,0 +1,31 @@
+# daemonkit as its own distribution. Inside Dodaios it ships with the main
+# package (setup.py lists it); this file lets anyone install only this folder:
+#   pip install "git+https://github.com/Dodaios/Dodaios#subdirectory=daemonkit"
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daemonkit"
+version = "0.1.0"
+description = "Keep one server process running per user: start it at login, restart it after a crash, and let clients find it."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = []
+classifiers = [
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Typing :: Typed",
+]
+
+[tool.setuptools]
+# This folder is the package itself.
+package-dir = { "daemonkit" = "." }
+packages = ["daemonkit", "daemonkit.service"]
+
+[tool.setuptools.package-data]
+daemonkit = ["py.typed"]

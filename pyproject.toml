@@ -957,6 +957,7 @@ call-contact = "dodaios.plugins.tool.call_contact:CallContactTool"
 [tool.setuptools.package-data]
 # Read via Path(__file__) by conductor.core.store / conductor.core.seed.
 conductor = ["core/schema.sql", "seed/*.yaml"]
+daemonkit = ["py.typed"]
 dodaios = [
     "ui/web/dist/**/*",
     "ui/web/dist/*",

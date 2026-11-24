@@ -26,7 +26,11 @@ LEGACY_PACKAGE_DIR = "dodaios/_legacy_alias"
 #: and the desktop overlay import it as ``ui.orb…``. Without it in the list,
 #: an installed console script raises ``ModuleNotFoundError: No module named
 #: 'ui'`` while the same command works from a checkout (issue #457).
-INCLUDE = ("dodaios*", "conductor*", "ui*")
+#:
+#: ``daemonkit`` keeps the agent server running per user (lock, record,
+#: supervisor, OS service). It stands alone, with its own pyproject.toml, so
+#: other projects can take it without the rest; Dodaios ships it alongside.
+INCLUDE = ("dodaios*", "conductor*", "ui*", "daemonkit*")
 EXCLUDE = ("*.__pycache__", "*.__pycache__.*", "dodaios._legacy_alias")
 
 
