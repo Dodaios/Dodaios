@@ -975,15 +975,21 @@ def _last_turns(events: list[dict[str, Any]], limit: int) -> list[dict[str, Any]
     return events[starts[-limit] :]
 
 
-def _claude_events(session_id: str, home: Path | None, live: bool) -> list[dict[str, Any]] | None:
-    path = _claude_file(session_id, home)
+def _typed_while_working(a: Any) -> dict[str, Any] | None:
+    origin = a.get("origin") if isinstance(a, dict) else None
+    typed = isinstance(origin, dict) and origin.get("kind") == "human"
+    ok = typed and (a.get("type"), a.get("commandMode", "prompt")) == ("queued_command", "prompt")
+    return a if ok else None
+
+
+def _claude_events(sid: str, home: Path | None, live: bool, path: Path | None = None) -> Any:
+    path0, path = path, path or _claude_file(sid, home)
     if path is None:
         return None
     log = _EventLog(provider="claude", live=live)
     for row in _rows(path):
-        # A sidechain is a sub-agent's own conversation, filed in the same
-        # record; it is not what this pane said.
-        if row.get("isSidechain"):
+        # A sidechain is a sub-agent's, not this pane's: only an explicit ``path`` reads one.
+        if bool(row.get("isSidechain")) != (path0 is not None):
             continue
         kind = str(row.get("type") or "")
         if kind == "permission-mode":
@@ -1007,14 +1013,8 @@ def _claude_events(session_id: str, home: Path | None, live: bool) -> list[dict[
             # A message the person typed while a turn ran: the CLI records it
             # here and hands it to the model at its next step (mid-turn
             # steering). Notices queued by the CLI itself carry another origin.
-            queued = row.get("attachment")
-            if (
-                isinstance(queued, dict)
-                and queued.get("type") == "queued_command"
-                and isinstance(queued.get("origin"), dict)
-                and queued["origin"].get("kind") == "human"
-                and queued.get("commandMode", "prompt") == "prompt"
-            ):
+            queued = _typed_while_working(row.get("attachment"))
+            if queued is not None:
                 log.user(
                     _spoken(str(queued.get("prompt") or "")),
                     _ts_ms(row.get("timestamp") or queued.get("timestamp")) or log.last_ms,
