@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dodaios-hello-tts"
+version = "0.1.0"
+description = "Example Dodaios plugin: a text-to-speech provider that speaks in beeps."
+requires-python = ">=3.11"
+dependencies = ["dodaios-sdk>=0.1.0"]
+
+[project.entry-points."dodaios.tts"]
+hello = "hello_tts:HelloTTS"
+
+[tool.setuptools]
+packages = ["hello_tts"]
