@@ -21,7 +21,12 @@ from daemonkit.supervise import (
 REPO = Path(__file__).resolve().parents[3]
 
 FAST = SupervisorPolicy(
-    min_backoff=0.05, max_backoff=0.2, stable_after=5.0, stop_grace=0.3, standby_poll=0.05, poll=0.02
+    min_backoff=0.05,
+    max_backoff=0.2,
+    stable_after=5.0,
+    stop_grace=0.3,
+    standby_poll=0.05,
+    poll=0.02,
 )
 
 
@@ -77,7 +82,9 @@ def test_a_stop_request_ends_a_running_server_and_the_supervisor(tmp_path: Path)
 
 def test_a_signal_stop_terminates_the_server_at_once(tmp_path: Path) -> None:
     policy = SupervisorPolicy(stop_grace=60.0, poll=0.02)
-    sup = Supervisor([sys.executable, "-c", "import time; time.sleep(60)"], _paths(tmp_path), policy=policy)
+    sup = Supervisor(
+        [sys.executable, "-c", "import time; time.sleep(60)"], _paths(tmp_path), policy=policy
+    )
     result: list[int] = []
     runner = threading.Thread(target=lambda: result.append(sup.run()))
     runner.start()
@@ -105,6 +112,21 @@ def test_stands_by_while_another_server_holds_the_lock(tmp_path: Path) -> None:
     runner.join(10)
     assert result == [0]
     assert sup.starts == 1
+
+
+def test_already_running_backs_off_instead_of_looping(tmp_path: Path) -> None:
+    """Exit 75 with this lock free (the application's own lock is taken) must not spin."""
+    counter = tmp_path / "runs"
+    child = _counting_child(counter, fail_times=0, final=75)
+    policy = SupervisorPolicy(min_backoff=0.2, max_backoff=0.4, stable_after=60.0, poll=0.02)
+    sup = Supervisor(child, _paths(tmp_path), policy=policy)
+    runner = threading.Thread(target=sup.run)
+    runner.start()
+    time.sleep(1.2)
+    sup.request_stop()
+    runner.join(10)
+    # Without the pause this would be dozens of starts in 1.2 s.
+    assert 2 <= sup.starts <= 6
 
 
 def test_an_old_stop_request_does_not_stop_a_new_supervisor(tmp_path: Path) -> None:

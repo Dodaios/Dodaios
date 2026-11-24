@@ -20,7 +20,7 @@ SPEC = ServiceSpec(
     argv=("/opt/my app/python3", "-m", "daemonkit.supervise", "--", "server", "50%", "$HOME"),
     description="My server",
     working_dir="/srv/app",
-    log_path="/tmp/srv.log",
+    log_path="/var/log/srv.log",
 )
 
 
@@ -118,7 +118,9 @@ def test_systemd_uninstall_removes_the_unit(tmp_path: Path) -> None:
 
 
 def test_systemd_unavailable_without_a_user_manager(tmp_path: Path) -> None:
-    tools = FakeTools({("systemctl", "--user", "show-environment"): (1, "Failed to connect to bus")})
+    tools = FakeTools(
+        {("systemctl", "--user", "show-environment"): (1, "Failed to connect to bus")}
+    )
     manager = _systemd(tmp_path, tools)
     status = manager.install(SPEC)
     assert not status.supported and not status.installed
@@ -136,7 +138,7 @@ def test_plist_keeps_alive_only_after_a_failure() -> None:
     assert data["ProgramArguments"] == list(SPEC.argv)
     assert data["RunAtLoad"] is True
     assert data["KeepAlive"] == {"SuccessfulExit": False}
-    assert data["StandardOutPath"] == data["StandardErrorPath"] == "/tmp/srv.log"
+    assert data["StandardOutPath"] == data["StandardErrorPath"] == "/var/log/srv.log"
     assert data["WorkingDirectory"] == "/srv/app"
 
 
@@ -192,7 +194,7 @@ NS = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
 
 def test_task_xml_is_a_logon_task_that_restarts_and_never_times_out() -> None:
     xml = render_task_xml(WIN_SPEC, user_id="PC\\me")
-    root = ET.fromstring(xml.encode("utf-16"))
+    root = ET.fromstring(xml.encode("utf-16"))  # noqa: S314 - our own generated XML
     assert root.findtext("t:Triggers/t:LogonTrigger/t:UserId", namespaces=NS) == "PC\\me"
     principal = root.find("t:Principals/t:Principal", NS)
     assert principal is not None

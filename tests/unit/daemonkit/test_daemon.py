@@ -120,7 +120,7 @@ def test_a_record_written_by_a_live_claim_is_found(tmp_path: Path) -> None:
     d = Daemon("srv", [], state_dir=tmp_path)
     with d.claim() as claim:
         assert d.find() is not None and not d.find().ready  # type: ignore[union-attr]
-        claim.ready(port=7, token="t")
+        claim.ready(port=7, token="t")  # noqa: S106 - a fixture value
         found = d.find()
         assert found is not None and found.ready and found.pid == os.getpid()
         claim.stopping()

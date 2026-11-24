@@ -30,24 +30,24 @@ In the server process:
 
 ```python
 def main() -> None:
-    with daemon.claim() as claim:        # AlreadyRunning if another server holds the name
+    with daemon.claim() as claim:  # AlreadyRunning if another server holds the name
         token = new_token()
         port = start_http_server(token)  # your code
         claim.ready(port=port, token=token)
-        serve_forever()                  # your code; poll claim.stop_requested() if you like
+        serve_forever()  # your code; poll claim.stop_requested() if you like
 ```
 
 In any client:
 
 ```python
-record = daemon.ensure_running(timeout=30)   # starts it if needed
+record = daemon.ensure_running(timeout=30)  # starts it if needed
 call(f"http://127.0.0.1:{record.port}", token=record.token)
 ```
 
 Once, for example from a settings page:
 
 ```python
-status = daemon.install_service()                 # start at login
+status = daemon.install_service()  # start at login
 status = daemon.install_service(start_at="boot")  # Linux: also without a login
 print(status.mechanism, status.installed, status.detail)
 ```

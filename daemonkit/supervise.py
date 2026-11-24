@@ -18,8 +18,9 @@ four things, and nothing that is specific to any one application:
 3. **Respect a clean end.** Exit code 0, or 78 (``EXIT_CONFIG``: the server
    cannot start until someone fixes its configuration), ends the supervisor.
    It then exits 0 itself, so the OS does not start it again in a loop; the
-   server's code is in the log. Code 75 (``EXIT_ALREADY_RUNNING``) sends it
-   back to standby.
+   server's code is in the log. Code 75 (``EXIT_ALREADY_RUNNING``: the
+   application is already running) makes it pause like after a crash, then
+   stand by.
 4. **Stop on request.** ``Daemon.stop()`` drops a stop file. The supervisor
    then lets the server finish on its own for ``--stop-grace`` seconds,
    terminates it if it has not, and exits 0. SIGTERM/SIGINT do the same.
@@ -179,17 +180,23 @@ class Supervisor:
                 if code in self.policy.final_exit_codes:
                     log.info("daemonkit: server ended with code %s; not restarting", code)
                     return code
-                if code in self.policy.standby_exit_codes:
-                    log.info("daemonkit: another server holds the lock; standing by")
-                    continue
                 if ran_for >= self.policy.stable_after:
                     backoff = self.policy.min_backoff
-                log.warning(
-                    "daemonkit: server exited with code %s after %.1f s; restarting in %.1f s",
-                    code,
-                    ran_for,
-                    backoff,
-                )
+                if code in self.policy.standby_exit_codes:
+                    # The server found its own application lock taken. That
+                    # owner may not hold this lock, so standby alone would
+                    # retry at once; the growing pause keeps it from looping.
+                    log.info(
+                        "daemonkit: another instance owns the application; retrying in %.1f s",
+                        backoff,
+                    )
+                else:
+                    log.warning(
+                        "daemonkit: server exited with code %s after %.1f s; restarting in %.1f s",
+                        code,
+                        ran_for,
+                        backoff,
+                    )
                 self._sleep(backoff)
                 if self.stop_requested():
                     return 0
