@@ -78,11 +78,15 @@ Write-Stopped 'The install stopped here.'
 
 
 def _base_env(**extra: str) -> dict[str, str]:
+    # Nothing the look depends on leaks in from the host: a CI runner says
+    # TERM=dumb, which rightly means plain text, and would hide the case
+    # under test. Each test names the terminal it stands for.
     env = {
         name: value
         for name, value in os.environ.items()
         if name not in {"NO_COLOR", "FORCE_COLOR", "COLORTERM", "COLUMNS", "TERM_PROGRAM",
-                        "CI", "WT_SESSION", "WSL_DISTRO_NAME", "LC_ALL", "LC_CTYPE", "LANG"}
+                        "CI", "WT_SESSION", "WSL_DISTRO_NAME", "LC_ALL", "LC_CTYPE", "LANG",
+                        "TERM"}
         and not name.upper().startswith(("JARVIS_", "DODAIOS_"))
     }
     env.update(extra)
@@ -104,6 +108,8 @@ def _run_sh(tmp_path: Path, **env: str) -> str:
     driver = tmp_path / "driver.sh"
     driver.write_text(SH_DRIVER, encoding="utf-8", newline="\n")
     block = _block(INSTALL_SH, tmp_path, ".sh")
+    # A common Unix terminal unless the test names another one.
+    env = {"TERM": "xterm-256color", **env}
     result = subprocess.run(  # noqa: S603 - test-controlled command
         [BASH, str(driver)],
         capture_output=True,
@@ -168,6 +174,7 @@ def test_sh_draws_the_hero_where_colour_unicode_and_room_allow(tmp_path: Path) -
         {"LANG": "C"},
         {"LANG": "C.UTF-8", "JARVIS_INSTALL_ASCII": "1"},
         {"LANG": "C.UTF-8", "TERM": "linux"},
+        {"LANG": "C.UTF-8", "TERM": "dumb"},
     ],
 )
 @needs_bash

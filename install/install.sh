@@ -1625,7 +1625,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
         && migrate_install_dir \
         && git -C "$INSTALL_DIR" checkout --quiet --detach FETCH_HEAD \
         && git -C "$INSTALL_DIR" reset --quiet --hard FETCH_HEAD; then
-        ok "Updated the install to $BRANCH" $((SECONDS - _fetch_t0))
+        ok "Updated the install to $BRANCH" $((SECONDS - ${_fetch_t0:-$SECONDS}))
     else
         note 'existing checkout would not update (broken git state) - reinstalling in place.'
         salvage_reclone
@@ -1635,7 +1635,7 @@ elif [ -e "$INSTALL_DIR" ]; then
     salvage_reclone
 else
     fetch_payload || exit 1
-    ok "Downloaded Dodaios $BRANCH" $((SECONDS - _fetch_t0))
+    ok "Downloaded Dodaios $BRANCH" $((SECONDS - ${_fetch_t0:-$SECONDS}))
 fi
 
 # WAVE 5 — payload-commit pin (axis E, Wave-5 audit Finding 2).
