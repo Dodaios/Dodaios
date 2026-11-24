@@ -212,8 +212,10 @@ def open_download(request: Request, body: PathRequest) -> dict[str, Any]:
     """
     _require_native(request)
     target = _resolve_saved_file(body.path)
-    from dodaios.platform.open_path import open_file
+    from dodaios.platform.open_path import is_program_like, open_file, reveal_in_folder
 
-    opened = open_file(target)
+    # A program-like download is revealed in its folder, never launched.
+    launcher = reveal_in_folder if is_program_like(target) else open_file
+    opened = launcher(target)
     log.info("DownloadOpen: %s (opened=%s)", target, opened)
     return {"opened": opened}
