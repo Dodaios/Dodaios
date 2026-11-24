@@ -7,6 +7,7 @@ fails until the summary is regenerated on purpose.
 """
 from __future__ import annotations
 
+import copy
 import importlib
 import json
 from collections.abc import Callable
@@ -111,7 +112,8 @@ def _lead_catalog() -> list[dict]:
 
     Two things vary by machine and are pinned here: the tool list (read from
     ``pyproject.toml``, not from the installed metadata) and the shell the
-    ``run_shell`` text names (always the Windows one, the product's main target).
+    ``run_shell`` text names (always the Windows one, the product's main target;
+    the text is fixed at import, so the class attributes are replaced).
     """
     global _CATALOG
     if _CATALOG is None:
@@ -121,16 +123,26 @@ def _lead_catalog() -> list[dict]:
         from dodaios.plugins.tool import run_shell
         from tests.eval.lead_routing import build_lead_catalog
 
+        win_label = "Windows PowerShell 5.1"
+        win_hint = (
+            "PowerShell cmdlets, aliases (ls, dir, cat) and pipes work. "
+            "POSIX tools like head/grep/awk and cmd-only syntax like 'dir /b' "
+            "do NOT work unless explicitly installed."
+        )
+        tool = run_shell.RunShellTool
+        # The text is built when the module is imported, from the OS it runs on, so
+        # the class attributes are rewritten to the Windows wording (a patch of the
+        # module-level label would come too late).
+        description = tool.description.replace(run_shell._SHELL_HINT, win_hint).replace(
+            run_shell._SHELL_LABEL, win_label
+        )
+        schema = copy.deepcopy(tool.schema)
+        command = schema["properties"]["command"]
+        command["description"] = command["description"].replace(run_shell._SHELL_LABEL, win_label)
         with (
             patch.object(eps, "entry_points", _repo_tool_entry_points(eps.entry_points)),
-            patch.object(run_shell, "_SHELL_LABEL", "Windows PowerShell 5.1"),
-            patch.object(
-                run_shell,
-                "_SHELL_HINT",
-                "PowerShell cmdlets, aliases (ls, dir, cat) and pipes work. "
-                "POSIX tools like head/grep/awk and cmd-only syntax like 'dir /b' "
-                "do NOT work unless explicitly installed.",
-            ),
+            patch.object(tool, "description", description),
+            patch.object(tool, "schema", schema),
         ):
             _CATALOG = build_lead_catalog().offered()
     return _CATALOG
