@@ -47,10 +47,11 @@ def test_gemini_live_spec_present():
     assert spec.alt_credential is None
 
 
-def test_grok_realtime_spec_stays_removed() -> None:
-    """grok-realtime was removed 2026-07-16 (BUG-064 deaf-session wedge);
-    the API-keys UI must not offer it again."""
-    assert get_spec("grok-realtime") is None
+def test_grok_realtime_spec_present() -> None:
+    spec = get_spec("grok-realtime")
+    assert spec is not None
+    assert spec.tier == "realtime"
+    assert spec.secret_keys == ("grok_api_key",)
 
 
 # ---------------------------------------------------------------------------
@@ -147,26 +148,6 @@ def test_realtime_switch_persists_with_key(monkeypatch):
     assert app.state.config.brain.realtime.provider == "vertex-live"
 
 
-def test_realtime_switch_preserves_pipeline_mode(monkeypatch):
-    """Provider selection configures Realtime without activating the engine."""
-    monkeypatch.setattr(cfg_mod, "get_secret", _only_vertex_key)
-    monkeypatch.setattr(config_writer, "set_realtime_provider", lambda name, **kw: None)
-    voice_mode_writes: list[str] = []
-    monkeypatch.setattr(
-        config_writer, "set_voice_mode", lambda mode, **kw: voice_mode_writes.append(mode)
-    )
-
-    app = _app()
-    app.state.config.voice.mode = "pipeline"
-    client = TestClient(app)
-    resp = client.post(
-        "/api/realtime/switch", json={"provider": "vertex-live", "persist": True}
-    )
-    assert resp.status_code == 200
-    assert voice_mode_writes == []
-    assert app.state.config.voice.mode == "pipeline"
-
-
 def test_realtime_switch_reconnects_the_active_voice_session(monkeypatch):
     monkeypatch.setattr(cfg_mod, "get_secret", _only_vertex_key)
     monkeypatch.setattr(config_writer, "set_realtime_provider", lambda _name: None)
@@ -178,7 +159,6 @@ def test_realtime_switch_reconnects_the_active_voice_session(monkeypatch):
             return True
 
     app = _app()
-    app.state.config.voice.mode = "realtime"
     app.state.speech_pipeline = LivePipeline()
     client = TestClient(app)
 
@@ -356,15 +336,16 @@ def test_get_realtime_options_vertex_live_shares_the_gemini_voice_roster(monkeyp
     assert vertex["preview_available"] is True
 
 
-def test_get_realtime_options_removed_grok_is_unknown(monkeypatch) -> None:
-    """grok-realtime was removed 2026-07-16 (BUG-064 deaf-session wedge); its
-    realtime-options endpoint must answer like any unknown provider."""
+def test_get_realtime_options_grok_lists_models_and_voices(monkeypatch) -> None:
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *a, **kw: "xai-test")
     client = TestClient(_app())
 
     resp = client.get("/api/providers/grok-realtime/realtime-options")
 
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["models"][0]["id"] == "grok-voice-latest"
+    assert body["voices"][0]["id"] == "eve"
 
 
 def test_get_realtime_options_reflects_pinned_selection(monkeypatch):

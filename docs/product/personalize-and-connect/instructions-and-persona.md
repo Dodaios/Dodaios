@@ -140,11 +140,11 @@ runtime safety or tool rules still win. A custom System Prompt replaces the
 packaged persona only; it does not replace the standing instructions or
 runtime controls.
 
-Direct Realtime voice responses receive the active persona and standing
+Direct voice-call responses receive the active persona and standing
 instructions, but they do not currently receive the full Profile or Memory
-context. A Realtime request delegated to the normal brain can use the context
-available there. Read [Voice Conversations](voice-conversations) for the
-difference between voice modes.
+context. A call request delegated to the normal brain can use the context
+available there. Read [Voice Conversations](voice-conversations) for how a
+call hands requests to the normal brain.
 
 ## Check That It Works
 

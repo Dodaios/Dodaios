@@ -209,29 +209,6 @@ async def test_a_pending_call_hangup_is_not_swallowed_by_the_press() -> None:
 
 
 @pytest.mark.asyncio
-async def test_push_to_talk_keeps_the_ordinary_handover(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """PTT records on the pipeline's own stream, so it is not a WebView call."""
-    bus = EventBus()
-    seen = _Collector(bus)
-    pipe = _pipeline(bus)
-    pipe._ptt_mode = True
-    hangups: list[bool] = []
-    monkeypatch.setattr(pipe, "request_hangup", lambda: hangups.append(True))
-
-    assert pipe.start_dictation() is True
-    assert hangups == [True]
-    handover = pipe._dictation_handover_task
-    assert handover is not None
-    handover.cancel()
-    await asyncio.gather(handover, return_exceptions=True)
-    await _drain_bus()
-    assert seen.held == []
-    assert pipe.is_voice_input_held is False
-
-
-@pytest.mark.asyncio
 async def test_no_call_means_no_hold(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live_runtime, "_active", {})
     bus = EventBus()

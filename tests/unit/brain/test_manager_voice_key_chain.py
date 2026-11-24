@@ -20,7 +20,6 @@ def _manager(
     *,
     active: str,
     available: list[str],
-    mode: str = "realtime",
 ) -> BrainManager:
     config = JarvisConfig()
     config.brain.primary = active
@@ -28,7 +27,6 @@ def _manager(
     config.brain.providers["openai"] = BrainProviderConfig(
         model="gpt-5.5", deep_model="gpt-5.5-pro"
     )
-    config.voice.mode = mode
     manager = BrainManager(config=config, bus=EventBus(), tools={})
     manager._registry._loaded = True
     monkeypatch.setattr(manager._registry, "available", lambda: list(available))
@@ -72,16 +70,6 @@ def test_single_key_install_keeps_answering_on_the_voice_key(
     chain = manager._build_fallback_chain("deep")
 
     assert chain[0] == ("openai", "gpt-5.5-pro")
-
-
-def test_pipeline_voice_leaves_openai_in_the_chain(monkeypatch: pytest.MonkeyPatch) -> None:
-    manager = _manager(
-        monkeypatch, active="openai", available=["grok", "openai"], mode="pipeline"
-    )
-
-    chain = manager._build_fallback_chain("fast")
-
-    assert chain[0] == ("openai", "gpt-5.5")
 
 
 def test_tool_lead_prefers_a_family_off_the_voice_key(monkeypatch: pytest.MonkeyPatch) -> None:

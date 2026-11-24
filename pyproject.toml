@@ -665,8 +665,7 @@ whatsapp = "dodaios.channels.whatsapp:WhatsAppChannel"
 # The former codex-subscription-realtime adapter was removed 2026-08-10: the
 # Codex app-server realtime surface is experimental, has no turn-boundary or
 # tool events, and never held a dependable call. The ChatGPT plan keeps voice
-# through the stable classic-pipeline composition (voice.profile =
-# "codex-subscription-voice"), which uses the audited app-server TEXT protocol.
+# through GPT-Live on the ChatGPT subscription (openai-live-subscription).
 openai-realtime = "dodaios.plugins.realtime.openai_realtime:OpenAIRealtimeProvider"
 openai-live = "dodaios.plugins.realtime.openai_live:OpenAILiveProvider"
 openai-live-subscription = "dodaios.plugins.realtime.openai_subscription_live:OpenAISubscriptionLiveProvider"
@@ -675,6 +674,9 @@ gemini-live = "dodaios.plugins.realtime.gemini_live:GeminiLiveProvider"
 # a Cloud project and an AI Studio account fail independently, so crossing
 # between them on a terminal auth/billing error is a real fallback (AP-22).
 vertex-live = "dodaios.plugins.realtime.gemini_live:VertexLiveProvider"
+# xAI Grok realtime voice. Server-owned turns under the native live session;
+# the July 2026 manual-response adapter (BUG-064) is not what runs here.
+grok-realtime = "dodaios.plugins.realtime.grok_realtime:GrokRealtimeProvider"
 # Self-hosted endpoint speaking the same realtime protocol — the local option
 # this tier lacked entirely. Keyless; only ever used when explicitly selected
 # with a server URL configured.

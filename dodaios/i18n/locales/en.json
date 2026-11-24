@@ -170,7 +170,7 @@
   "speech": {
     "brain_unavailable": "Sorry — I can't reach any of my language models right now. Please check whether your providers still have credit.",
     "stt_unavailable": "Sorry, I didn't catch that just now. Could you say it again?",
-    "realtime_unavailable": "The realtime connection is unavailable right now. I am switching this session to the classic voice pipeline.",
+    "realtime_unavailable": "Voice cannot start right now: no realtime voice provider is ready. Check the voice provider under API Keys.",
     "timeout_tool_stall": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",
     "timeout_no_answer": "I couldn't find that out just now.",
     "provider_refused": {
@@ -180,7 +180,6 @@
       "busy": "{provider} voice is busy right now and refused the call.",
       "unreachable": "{provider} voice could not be reached.",
       "rejected": "{provider} rejected the voice settings. Check the voice and model under Voice settings.",
-      "continued_pipeline": "I am continuing this call with the classic voice path.",
       "continued_realtime": "I am continuing this call on another voice connection.",
       "ended": "This call cannot continue right now."
     },
@@ -507,8 +506,7 @@
   },
   "telephony": {
     "default_greetings": "Hello, how can I help?",
-    "named_greetings": "{name} here. How can I help?",
-    "fallback_phrases": "Sorry, I did not catch that. Could you say it again?"
+    "named_greetings": "{name} here. How can I help?"
   },
   "cu": {
     "indicator": {

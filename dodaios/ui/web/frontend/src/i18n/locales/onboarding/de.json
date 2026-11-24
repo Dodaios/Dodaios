@@ -38,7 +38,7 @@
       "key_connected": "Verbunden: {provider}.",
       "key_partial": "Einige Teile wurden nicht umgestellt ({parts}). Du kannst das später auf der Seite API-Schlüssel beheben.",
       "live_ready": "Live-Sprache ist an: Sprich, und {name} antwortet sofort.",
-      "live_missing": "Der Chat funktioniert. Live-Sprache braucht einen OpenAI- oder Gemini-Schlüssel; bis dahin spricht {name} auf die klassische Art, etwas langsamer.",
+      "live_missing": "Der Chat funktioniert. Sprachanrufe brauchen einen Live-Sprachanbieter: einen OpenAI-, Gemini- oder xAI-Schlüssel.",
       "key_security": "Abos kosten einen festen Monatspreis. Schlüssel landen im Schlüsselbund deines Systems und gehen nur an den Anbieter, den du gewählt hast.",
       "nothing_yet": "Noch nichts verbunden. Ohne Abo oder Schlüssel bleiben Chat und Sprache aus. Du kannst später auf der Seite API-Schlüssel etwas verbinden.",
       "later": "Erst mal überspringen"

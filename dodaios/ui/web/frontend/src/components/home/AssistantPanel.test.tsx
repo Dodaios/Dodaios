@@ -37,7 +37,7 @@ vi.mock("@/components/pets/PetMark", async (importOriginal) => ({
   PetMark: ({ state }: { state?: string }) => <span data-testid="pet" data-state={state} />,
 }));
 vi.mock("@/hooks/useVoiceEngineDisplay", () => ({
-  useVoiceEngineDisplay: () => ({ tier: "realtime", providerId: "test", providerLabel: "Test Voice", model: "m1" }),
+  useVoiceEngineDisplay: () => ({ providerId: "test", providerLabel: "Test Voice", model: "m1" }),
 }));
 vi.mock("@/views/assistant/api", () => ({
   useSoulProfile: () => ({ isLoading: false, data: { name: "Nova", wake_phrase: "Hey Nova", learning: true, files: [

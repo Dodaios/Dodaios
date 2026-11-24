@@ -27,12 +27,12 @@ class TelephonyCallStarted(Event):
 
 @dataclass(frozen=True, slots=True)
 class TelephonyCallTurn(Event):
-    """One completed STT -> Brain -> TTS exchange within a call."""
+    """One completed exchange within a call (the realtime session's turn)."""
 
     call_sid: str = ""
     transcript: str = ""
     response_text: str = ""
-    outbound_frames: int = 0
+    outbound_frames: int = 0  # audio chunks sent to Twilio so far
 
 
 @dataclass(frozen=True, slots=True)

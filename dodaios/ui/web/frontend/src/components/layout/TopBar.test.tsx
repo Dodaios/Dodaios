@@ -13,7 +13,7 @@ vi.mock("@/hooks/useUpdate", () => ({
 }));
 // The caption's Dodaios switch draws the voice dot; useVoiceMode would fetch.
 vi.mock("@/hooks/useVoiceMode", () => ({
-  useVoiceMode: () => ({ mode: "pipeline", connecting: false }),
+  useVoiceMode: () => ({ connecting: false }),
 }));
 vi.mock("@/components/MascotGigi", () => ({
   MascotGigi: () => <div data-testid="mascot-gigi" />,

@@ -9,15 +9,12 @@ raw provider text still never does.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 import dodaios.browser_voice.route as route_mod
 from dodaios.browser_voice.route import (
-    _USAGE_FALLBACK_DISABLED_DETAIL,
-    _USAGE_FALLBACK_DISABLED_NOTE,
-    _fallback_disabled_detail,
+    _VOICE_FAILED_DETAIL,
+    _voice_failed_detail,
     browser_voice_ws,
 )
 from dodaios.plugins.realtime.openai_subscription_live import (
@@ -47,27 +44,21 @@ def _provider_errors(ws: _FakeWS) -> list[str]:
 
 
 async def _run_failing_start(monkeypatch, error: BaseException) -> _FakeWS:
-    classic = _RecSession()
-
-    class _SubscriptionOnlyRealtime(_RecSession):
+    class _FailingRealtime(_RecSession):
         is_realtime = True
-        allow_classic_fallback = False
 
         async def handle_control(self, _msg: dict) -> None:
             raise error
 
-    state = _state(classic)
-    state.config.voice = SimpleNamespace(mode="realtime")
     monkeypatch.setattr(
-        route_mod, "_build_browser_session", lambda **_kwargs: _SubscriptionOnlyRealtime()
+        route_mod, "_build_browser_session", lambda **_kwargs: _FailingRealtime()
     )
     ws = _FakeWS(
         [{"type": "websocket.receive", "text": '{"type":"audio_start","sample_rate":48000}'}],
-        state=state,
+        state=_state(None),
     )
     await browser_voice_ws(ws)
-    assert classic.controls == []
-    assert ws.closed == (1011, "automatic API fallback disabled")
+    assert ws.closed == (1011, "realtime voice failed")
     return ws
 
 
@@ -88,8 +79,7 @@ async def test_classified_subscription_failure_reaches_the_surface(
     errors = _provider_errors(ws)
     assert len(errors) == 1
     assert errors[0].startswith(expected_start)
-    assert errors[0].endswith(_USAGE_FALLBACK_DISABLED_NOTE)
-    assert errors[0] != _USAGE_FALLBACK_DISABLED_DETAIL
+    assert errors[0] != _VOICE_FAILED_DETAIL
 
 
 @pytest.mark.asyncio
@@ -102,10 +92,7 @@ async def test_wrapped_subscription_failure_is_still_classified(monkeypatch) -> 
     except RuntimeError as wrapped:
         ws = await _run_failing_start(monkeypatch, wrapped)
 
-    assert _provider_errors(ws) == [
-        "The ChatGPT subscription voice allowance is exhausted. "
-        + _USAGE_FALLBACK_DISABLED_NOTE
-    ]
+    assert _provider_errors(ws) == ["The ChatGPT subscription voice allowance is exhausted."]
 
 
 @pytest.mark.asyncio
@@ -113,18 +100,18 @@ async def test_raw_provider_text_is_never_forwarded(monkeypatch) -> None:
     raw = 'HTTP 500 {"error": {"message": "secret internal detail sk-abc"}}'
     ws = await _run_failing_start(monkeypatch, RuntimeError(raw))
 
-    assert _provider_errors(ws) == [_USAGE_FALLBACK_DISABLED_DETAIL]
+    assert _provider_errors(ws) == [_VOICE_FAILED_DETAIL]
     assert all("secret" not in str(m) for m in ws.sent_json)
 
 
 def test_recorded_failure_strings_only_pass_when_static() -> None:
     message = str(SubscriptionLiveError("voice_not_offered", plan="go"))
     assert static_failure_message(message) == message
-    assert _fallback_disabled_detail(message) == f"{message} {_USAGE_FALLBACK_DISABLED_NOTE}"
+    assert _voice_failed_detail(message) == message
     assert static_failure_message("provider stream ended mid-turn") is None
     assert static_failure_message(message + " extra provider detail") is None
-    assert _fallback_disabled_detail("stream ended") == _USAGE_FALLBACK_DISABLED_DETAIL
-    assert _fallback_disabled_detail(None) == _USAGE_FALLBACK_DISABLED_DETAIL
+    assert _voice_failed_detail("stream ended") == _VOICE_FAILED_DETAIL
+    assert _voice_failed_detail(None) == _VOICE_FAILED_DETAIL
 
 
 @pytest.mark.asyncio
@@ -134,18 +121,18 @@ async def test_login_and_timeout_failures_are_named(monkeypatch) -> None:
 
     expired = "The ChatGPT login expired. Sign in again in Agent accounts."
     ws = await _run_failing_start(monkeypatch, SubscriptionAuthError(expired))
-    assert _provider_errors(ws) == [f"{expired} {_USAGE_FALLBACK_DISABLED_NOTE}"]
+    assert _provider_errors(ws) == [expired]
 
     ws = await _run_failing_start(monkeypatch, TimeoutError())
-    assert _provider_errors(ws) == [f"{TIMED_OUT} {_USAGE_FALLBACK_DISABLED_NOTE}"]
+    assert _provider_errors(ws) == [TIMED_OUT]
 
 
 @pytest.mark.asyncio
-async def test_api_key_refusal_continues_on_the_classic_path_and_says_why(monkeypatch) -> None:
-    """A usage-billed provider that said no (credit, plan, key) is not a
-    provider that might still answer: the call goes on through the classic
-    pipeline and the person is told why (dodaios/speech/provider_refusal;
-    live 2026-11-10). Raw provider text still never reaches the surface."""
+async def test_api_key_refusal_ends_the_call_and_says_why(monkeypatch) -> None:
+    """A usage-billed provider that said no (credit, plan, key) ends the call:
+    realtime is the only voice engine, so nothing takes it over. The person is
+    told why (dodaios/speech/provider_refusal). Raw provider text still never
+    reaches the surface."""
     from dodaios.core.protocols import VoiceStartError
 
     error = VoiceStartError(
@@ -153,11 +140,9 @@ async def test_api_key_refusal_continues_on_the_classic_path_and_says_why(monkey
         user_message="The OpenAI API account has no credit left.",
         code="no_credits",
     )
-    classic = _RecSession()
 
     class _ApiKeyRealtime(_RecSession):
         is_realtime = True
-        allow_classic_fallback = False
         active_provider = "openai-live"
 
         async def handle_control(self, _msg: dict) -> None:
@@ -170,37 +155,34 @@ async def test_api_key_refusal_continues_on_the_classic_path_and_says_why(monkey
         return "said"
 
     monkeypatch.setattr("dodaios.speech.provider_refusal.announce", fake_announce)
-    state = _state(classic)
-    state.config.voice = SimpleNamespace(mode="realtime")
-    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: _ApiKeyRealtime())
+    session = _ApiKeyRealtime()
+    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: session)
     ws = _FakeWS(
         [{"type": "websocket.receive", "text": '{"type":"audio_start","sample_rate":48000}'}],
-        state=state,
+        state=_state(None),
     )
     await browser_voice_ws(ws)
-    assert classic.controls == [{"type": "audio_start", "sample_rate": 48000}]
-    assert {"type": "mode_fallback", "mode": "pipeline"} in ws.sent_json
-    assert _provider_errors(ws) == []
+    assert session.ended
+    assert ws.closed == (1011, "realtime voice failed")
+    assert not any(m.get("type") == "mode_fallback" for m in ws.sent_json)
+    assert len(_provider_errors(ws)) == 1
     assert all("HTTP 429" not in str(m) for m in ws.sent_json)
     (notice,) = announced
     assert notice["provider"] == "openai-live"
     assert notice["refusal"].kind == "credit"
-    assert notice["continued_on"] == "pipeline"
+    assert notice["continued_on"] == ""
 
 
 def test_a_recorded_failure_code_resolves_to_its_sentence() -> None:
-    assert _fallback_disabled_detail("voice_not_offered").startswith(
+    assert _voice_failed_detail("voice_not_offered").startswith(
         "The selected ChatGPT account is not offered subscription voice."
     )
 
 
 @pytest.mark.asyncio
 async def test_an_engine_that_cannot_be_built_says_what_to_do(monkeypatch) -> None:
-    state = _state(_RecSession())
-    state.config.voice = SimpleNamespace(mode="realtime")
     monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: None)
-    monkeypatch.setattr(route_mod, "_automatic_usage_fallback_allowed", lambda _cfg: False)
-    ws = _FakeWS([], state=state)
+    ws = _FakeWS([], state=_state(None))
     await browser_voice_ws(ws)
     assert ws.closed == (1011, "realtime access unavailable")
     assert _provider_errors(ws) == [route_mod._SELECTED_VOICE_NOT_READY_DETAIL]

@@ -113,7 +113,6 @@ def test_does_not_change_ack_behavior_when_primary_has_a_flash_adapter(
 def _live_jcfg(*, brain_primary: str) -> SimpleNamespace:
     """GPT-Live is the voice: the OpenAI key belongs to the voice call."""
     return SimpleNamespace(
-        voice=SimpleNamespace(mode="realtime"),
         brain=SimpleNamespace(
             primary=brain_primary,
             realtime=SimpleNamespace(provider="openai-live"),
@@ -152,18 +151,3 @@ def test_single_voice_key_install_still_gets_a_flash_tier(
 
     assert ack_cfg.provider == "openai"
 
-
-def test_pipeline_voice_keeps_following_an_openai_primary(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Without a realtime voice the key is an ordinary brain key."""
-    monkeypatch.setattr(
-        "dodaios.core.config.get_secret", lambda key, env_fallback=None: "sk-test"
-    )
-    jcfg = _live_jcfg(brain_primary="openai")
-    jcfg.voice.mode = "pipeline"
-
-    ack_cfg = make_ack_config(provider="follow_brain")
-    _build_flash_provider(jcfg, ack_cfg)
-
-    assert ack_cfg.provider == "openai"

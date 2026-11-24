@@ -8,7 +8,7 @@ order: 5
 diataxis: troubleshooting
 status: active
 owner: maintainers
-last_reviewed: 2026-10-02
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [troubleshooting, diagnostics, recovery, startup, providers, voice, connections, support]
@@ -160,8 +160,8 @@ Voice is a chain. Check the first step that fails.
 | **Voice starting…** remains visible | Wait for the warm-up once. If it never clears, check microphone access, the selected input, and the voice provider cards. |
 | The wake phrase does nothing | Open **Settings > Wake Word**, keep **Auto (recommended)** unless you have a reason to choose another engine, and run **Test wake word**. |
 | Listening starts but the transcript is wrong or empty | Select the intended microphone under **Settings > Audio devices**, then use **Rescan devices** if it is missing. |
-| The transcript is correct but no reply is heard | Check the selected output device and the active **Voice Output** provider. |
-| Realtime cannot start or ends early | End the call, test the Realtime provider card, and start a new session. Long gaps can still occur on some Realtime connections. |
+| The transcript is correct but no reply is heard | Check the output device and the realtime provider. |
+| A call cannot start or ends early | Test the realtime provider under **API Keys > Live calls**, then start a new call. |
 | Normal conversation triggers the wake phrase | Choose a distinct two-word or three-word phrase with a prefix. There is no sensitivity slider. |
 
 **Test wake word** checks the configured engine, model or vocabulary when
@@ -169,12 +169,12 @@ applicable, and microphone level. It does not prove the engine recognizes your
 phrase; after it passes, say the phrase once.
 
 On macOS, use the button on the message that appears when the microphone is
-off, and restart only if it offers **Quit and reopen**. A Realtime session opened in a
+off, and restart only if it offers **Quit and reopen**. A call opened in a
 browser uses that browser's microphone permission and device, not the native
 desktop audio selection.
 
 For a recorded voice turn, **Transcription** and **Run Inspector** can show which
-stage (speech recognition, provider, tool, or spoken output) was last recorded.
+stage (transcript, provider, tool, or spoken output) was last recorded.
 They do not diagnose a turn that was never recorded.
 
 ### A Permission or Approval Blocks an Action

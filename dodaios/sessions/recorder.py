@@ -49,7 +49,6 @@ from dodaios.core.events import (
     Event,
     JarvisAgentTaskCompleted,
     JarvisAgentTaskStarted,
-    ListeningStarted,
     RealtimeSessionReady,
     ResponseGenerated,
     SpeechSpoken,
@@ -71,7 +70,6 @@ from .constants import (
     SPOKEN_KIND_COMPLETION,
     SPOKEN_KIND_REPLY,
     SPOKEN_KIND_SUBAGENT,
-    VOICE_MODE_PIPELINE,
     VOICE_MODE_REALTIME,
 )
 from .continuation import CALL_SEGMENT_PREFIX, continued_voice_session
@@ -350,15 +348,6 @@ class SessionRecorder:
             if event.session_id != self._state.session_id:
                 return
             self._on_realtime_ready(event)
-        elif isinstance(event, ListeningStarted):
-            # This event is emitted only after the classic STT -> Brain -> TTS
-            # path has actually begun listening. It therefore also captures a
-            # fallback that follows a successful realtime handshake.
-            self._store.update_session_voice_mode(
-                session_id=self._state.record_id,
-                voice_mode=VOICE_MODE_PIPELINE,
-            )
-            self._ensure_turn_open(event.timestamp_ns // 1_000_000)
         elif isinstance(event, TranscriptFinal):
             self._on_transcript_final(event)
         elif isinstance(event, TranscriptionUpdate):

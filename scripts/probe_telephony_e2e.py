@@ -1,229 +1,98 @@
-"""In-process E2E probe for the telephony media-stream handler (DoD item 3).
+"""In-process E2E probe for the telephony call bridge.
 
-Drives a synthetic Twilio call through ``TelephonyCallSession`` (the same class
-the WS handler uses) and prints the transcript, Jarvis's response, and the
-number of outbound mu-law frames produced. No real Twilio account, no public
-tunnel, no microphone.
-
-By default it uses deterministic FAKES for STT/Brain/TTS so it runs anywhere
-with no API key. Pass ``--real`` to use the configured real STT/Brain/TTS
-(needs provider keys + a 16 kHz WAV fixture for STT).
+Drives a synthetic Twilio call through ``PhoneCall`` (the same class the media
+socket handler uses) against a fake realtime session that answers every caller
+frame, and prints what reached the session, what went back to Twilio and how
+the call ended. No real Twilio account, no public tunnel, no microphone, no
+provider key.
 
 Usage:
     python scripts/probe_telephony_e2e.py
-    python scripts/probe_telephony_e2e.py --real --wav path/to/utterance.wav
 """
 
 from __future__ import annotations
 
-import argparse
 import asyncio
+import base64
 import math
 import struct
 import sys
+from pathlib import Path
+from typing import Any
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 except Exception:  # noqa: BLE001, S110 - console encoding is best-effort
     pass
 
-# Make `tests` importable for the fakes when run from the repo root.
-from pathlib import Path
-
+# Make `tests` importable for the fake session when run from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from dodaios.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
-from dodaios.telephony.session import TelephonyCallSession
+from dodaios.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw  # noqa: E402
+from dodaios.telephony.call import PhoneCall  # noqa: E402
 
 
-def _ulaw_b64(amp: int, ms: int = 20, freq: int = 300) -> str:
-    import base64
+def _tone(rate: int, ms: int, amp: int = 8000, freq: int = 300) -> bytes:
+    n = rate * ms // 1000
+    return b"".join(
+        struct.pack("<h", int(amp * math.sin(2 * math.pi * freq * i / rate))) for i in range(n)
+    )
 
-    n = TWILIO_SAMPLE_RATE * ms // 1000
-    if amp == 0:
-        pcm = b"\x00\x00" * n
-    else:
-        pcm = b"".join(
-            struct.pack("<h", int(amp * math.sin(2 * math.pi * freq * i / TWILIO_SAMPLE_RATE)))
-            for i in range(n)
+
+async def _probe() -> int:
+    from tests.fakes.fake_phone_session import FakePhoneSession
+
+    sent: list[dict[str, Any]] = []
+    sessions: list[FakePhoneSession] = []
+
+    async def send(msg: dict[str, Any]) -> None:
+        sent.append(msg)
+
+    async def hang_up() -> None:
+        print("call: hung up by the bridge")
+
+    def build(*, send_binary: Any, send_json: Any, call_brief: str) -> FakePhoneSession:
+        session = FakePhoneSession(
+            send_binary=send_binary, send_json=send_json, call_brief=call_brief
         )
-    return base64.b64encode(pcm16_to_ulaw(pcm)).decode("ascii")
+        sessions.append(session)
+        return session
 
-
-class _Collector:
-    def __init__(self) -> None:
-        self.media = 0
-        self.marks = 0
-        self.clears = 0
-
-    async def send(self, msg: dict) -> None:
-        ev = msg.get("event")
-        if ev == "media":
-            self.media += 1
-        elif ev == "mark":
-            self.marks += 1
-        elif ev == "clear":
-            self.clears += 1
-
-
-async def _run_fake() -> int:
-    from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
-
-    sink = _Collector()
-    transcript = "Wie spät ist es?"
-    session = TelephonyCallSession(
-        call_sid="PROBE",
+    call = PhoneCall(
+        call_sid="CAPROBE",
         stream_sid="MZPROBE",
-        send=sink.send,
-        stt=FakeSTT([transcript]),
-        brain=FakeBrain("Es ist genau vierzehn Uhr dreißig, alles im grünen Bereich."),
-        tts=FakeTTS(ms_per_char=2),
-        language_code="de-DE",
-        greeting="Hier ist Jarvis.",
+        send=send,
+        hang_up=hang_up,
+        build_session=build,
+        language_code="en-US",
+        greeting="Hello, this is the probe.",
+        max_call_seconds=0,
     )
-    session._endpointer.silence_ms = 100
-    session._endpointer.min_speech_ms = 60
+    if not await call.start():
+        print("FAIL: no session could be built")
+        return 1
+    for _ in range(10):
+        await asyncio.sleep(0)
+    session = sessions[0]
+    for _ in range(10):
+        payload = base64.b64encode(pcm16_to_ulaw(_tone(TWILIO_SAMPLE_RATE, 20))).decode()
+        await call.handle_media(payload)
+    await session.answer(_tone(24_000, 400))
+    await call.end(reason="probe_done")
 
-    await session.speak_greeting()
-    # lead silence -> speech -> trailing silence triggers the turn
-    for _ in range(2):
-        await session.handle_media(_ulaw_b64(0))
-    for _ in range(8):
-        await session.handle_media(_ulaw_b64(15000))
-    for _ in range(12):
-        await session.handle_media(_ulaw_b64(0))
-    for _ in range(200):
-        await asyncio.sleep(0.01)
-        if session.turns >= 1:
-            break
-
-    print("=== Telephony E2E probe (fakes) ===")
-    print(f"Transcript : {transcript}")
-    print("Response   : Es ist genau vierzehn Uhr dreißig, alles im grünen Bereich.")
-    print(f"Turns      : {session.turns}")
-    print(f"Outbound mu-law media frames : {sink.media}")
-    print(f"Marks      : {sink.marks}  Clears: {sink.clears}")
-    ok = session.turns >= 1 and sink.media > 0
-    print("RESULT     :", "OK" if ok else "FAILED")
-    return 0 if ok else 1
-
-
-async def _run_outbound_fake() -> int:
-    """Outbound path (Chunk C): Jarvis speaks the opening FIRST, then converses.
-
-    Proves the contact-agnostic engine end-to-end against the same session loop:
-    a session created with ``direction="outbound"`` + an ``opening`` speaks that
-    opening before any caller audio arrives (N>0 outbound frames), then a normal
-    caller turn still works.
-    """
-    from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
-
-    sink = _Collector()
-    opening = "Guten Tag, hier ist Jarvis. Ich rufe im Auftrag von Ruben an."
-    reply = "Alles klar, ich richte es aus. Vielen Dank!"
-    session = TelephonyCallSession(
-        call_sid="PROBE-OUT",
-        stream_sid="MZOUT",
-        send=sink.send,
-        stt=FakeSTT(["Ja, gerne. Worum geht es?"]),
-        brain=FakeBrain(reply),
-        tts=FakeTTS(ms_per_char=2),
-        language_code="de-DE",
-        direction="outbound",
-        opening=opening,
-    )
-    session._endpointer.silence_ms = 100
-    session._endpointer.min_speech_ms = 60
-
-    # 1) The opening is the FIRST thing spoken — before any inbound media.
-    opening_frames = await session.speak_intro()
-    spoke_opening_first = (
-        opening_frames > 0 and bool(session._tts.calls) and "Guten Tag" in session._tts.calls[0][0]
-    )
-
-    # 2) The conversation then continues exactly like the inbound loop.
-    for _ in range(2):
-        await session.handle_media(_ulaw_b64(0))
-    for _ in range(8):
-        await session.handle_media(_ulaw_b64(15000))
-    for _ in range(12):
-        await session.handle_media(_ulaw_b64(0))
-    for _ in range(200):
-        await asyncio.sleep(0.01)
-        if session.turns >= 1:
-            break
-
-    print("=== Telephony E2E probe (outbound, fakes) ===")
-    print(f"Opening    : {opening}")
-    print(f"Opening spoken first : {spoke_opening_first} ({opening_frames} frames)")
-    print(f"Reply      : {reply}")
-    print(f"Turns      : {session.turns}")
-    print(f"Outbound mu-law media frames : {sink.media}")
-    print(f"Marks      : {sink.marks}  Clears: {sink.clears}")
-    ok = spoke_opening_first and session.turns >= 1 and sink.media > opening_frames
-    print("RESULT     :", "OK" if ok else "FAILED")
-    return 0 if ok else 1
-
-
-async def _run_real(wav_path: str) -> int:
-    import wave
-
-    from dodaios.brain.factory import build_default_brain
-    from dodaios.core.config import load_config
-    from dodaios.plugins.stt import build_stt_from_config
-    from dodaios.plugins.tts import build_tts_from_config
-    from dodaios.telephony.audio import resample_pcm16
-
-    cfg = load_config()
-    with wave.open(wav_path, "rb") as wf:
-        rate = wf.getframerate()
-        pcm = wf.readframes(wf.getnframes())
-    if rate != 16000:
-        pcm = resample_pcm16(pcm, rate, 16000)
-
-    stt = build_stt_from_config(cfg.stt)
-    tts = build_tts_from_config(cfg.tts)
-    brain = build_default_brain(bus=None, tier="router")
-
-    sink = _Collector()
-    session = TelephonyCallSession(
-        call_sid="PROBE-REAL",
-        stream_sid="MZREAL",
-        send=sink.send,
-        stt=stt,
-        brain=brain,
-        tts=tts,
-        language_code=cfg.tts.language_code,
-    )
-    transcript = (await stt.transcribe_pcm(pcm, sample_rate=16000)).text
-    await session._run_turn(pcm)
-    print("=== Telephony E2E probe (real stack) ===")
-    print(f"Transcript : {transcript}")
-    print(f"Turns      : {session.turns}")
-    print(f"Outbound mu-law media frames : {sink.media}")
-    ok = sink.media > 0
-    print("RESULT     :", "OK" if ok else "FAILED")
+    media = [m for m in sent if m.get("event") == "media"]
+    ulaw_bytes = sum(len(base64.b64decode(m["media"]["payload"])) for m in media)
+    print(f"opening line : {session.spoken}")
+    print(f"frames in    : {len(session.audio_in)} (8 kHz PCM16)")
+    print(f"media out    : {len(media)} chunk(s), {ulaw_bytes} mu-law bytes")
+    print(f"call         : status={call.status} reason={call.end_reason}")
+    ok = bool(session.audio_in) and ulaw_bytes > 0 and session.ended_with is not None
+    print("OK" if ok else "FAIL")
     return 0 if ok else 1
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--real", action="store_true", help="Use the configured real stack")
-    parser.add_argument("--wav", default="", help="16 kHz mono WAV for --real STT input")
-    parser.add_argument(
-        "--outbound",
-        action="store_true",
-        help="Drive the outbound path (Chunk C): opening spoken first, then converse",
-    )
-    args = parser.parse_args()
-    if args.outbound:
-        return asyncio.run(_run_outbound_fake())
-    if args.real:
-        if not args.wav:
-            print("--real requires --wav <16kHz mono wav>", file=sys.stderr)
-            return 2
-        return asyncio.run(_run_real(args.wav))
-    return asyncio.run(_run_fake())
+    return asyncio.run(_probe())
 
 
 if __name__ == "__main__":

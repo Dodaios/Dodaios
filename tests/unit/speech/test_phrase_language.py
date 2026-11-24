@@ -1,77 +1,20 @@
 """Canned-phrase language picking must survive full Whisper language NAMES.
 
-Live bug 2026-06-09 ("Jarvis answers almost every turn with an English
-standard phrase like 'could you explain that more'"): the utterance language
-flows from the STT transcript as a full lowercased language NAME —
-``lang = (transcript.language or "en").lower()`` yields ``"german"`` for Groq
-Whisper — but every canned-phrase picker tested ``lang.startswith("de")``.
-``"german"`` does not start with ``"de"``, so ALL AD-OE6 fallback phrases
-(clarify question, action-done ack, brain-timeout, brain-unavailable,
-STT-unavailable, smalltalk fallback) were spoken in ENGLISH to a German
-speaker. The German variants were dead code from day one: the existing tests
-only ever passed ``"de"``, never the live value ``"german"``.
-
-These tests pin the live value. The shared normalizer ``_phrase_lang`` maps
-language names AND BCP-47-ish codes onto the canned-phrase keys ("de"/"en").
+Live bug 2026-06-09: the utterance language can arrive as a full lowercased
+language NAME (``"german"`` from Groq Whisper) while the canned-phrase pickers
+tested ``lang.startswith("de")``, so every spoken notice came out in English
+to a German speaker. The shared normalizer ``_phrase_lang`` maps language
+names AND BCP-47-ish codes onto the canned-phrase keys; the spoken notices
+left in a realtime-only voice (the "voice unavailable" notice, background
+readbacks) must cover every supported locale.
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
 from dodaios.speech import pipeline as pipeline_mod
-from dodaios.speech.pipeline import (
-    _ACTION_DONE_PHRASE,
-    _BRAIN_UNAVAILABLE_PHRASE,
-    _CLARIFY_QUESTION_PHRASE,
-    _REALTIME_UNAVAILABLE_PHRASE,
-    _STT_UNAVAILABLE_PHRASE,
-    _TIMEOUT_NO_ANSWER_PHRASE,
-    _TIMEOUT_TOOL_STALL_PHRASE,
-    SpeechPipeline,
-    TurnTakingState,
-    _smalltalk_fallback_for_non_substantive,
-)
-
-
-class _FakeBrain:
-    def __init__(self, *, executed_action: bool = False) -> None:
-        self._last_turn_all_failed = False
-        self._last_turn_suppressed = False
-        self._last_turn_executed_action_tool = executed_action
-
-
-def _make_pipe(
-    *, executed_action: bool = False, clarify_enabled: bool = True
-) -> SpeechPipeline:
-    """Minimal ``SpeechPipeline`` stub (same pattern as test_clarify_question)."""
-    pipe = SpeechPipeline.__new__(SpeechPipeline)
-    pipe._brain = _FakeBrain(executed_action=executed_action)
-
-    voice_cfg = MagicMock()
-    voice_cfg.clarify_incomplete_enabled = clarify_enabled
-    cfg = MagicMock()
-    cfg.voice = voice_cfg
-    pipe._config = cfg
-
-    pipe._spoken: list[tuple[str, str | None]] = []
-    pipe._state_history: list[TurnTakingState] = []
-
-    async def _fake_speak(
-        text: str, language: str | None = None, *, kind: str = "reply"
-    ) -> bool:
-        pipe._spoken.append((text, language))
-        return True
-
-    async def _fake_set_turn_state(state: TurnTakingState) -> None:
-        pipe._state_history.append(state)
-
-    pipe._speak = _fake_speak  # type: ignore[method-assign]
-    pipe._set_turn_state = _fake_set_turn_state  # type: ignore[method-assign]
-    return pipe
-
+from dodaios.speech.pipeline import _REALTIME_UNAVAILABLE_PHRASE
 
 # --------------------------------------------------------------------------- #
 # The shared normalizer                                                        #
@@ -118,91 +61,10 @@ def test_all_canned_phrase_tables_cover_de_en_es() -> None:
     # "Works for every configured language": no spoken canned table may be
     # de/en-only — an es speaker must never fall back to the wrong language.
     for table in (
-        _BRAIN_UNAVAILABLE_PHRASE,
-        _STT_UNAVAILABLE_PHRASE,
-        _TIMEOUT_TOOL_STALL_PHRASE,
-        _TIMEOUT_NO_ANSWER_PHRASE,
-        _CLARIFY_QUESTION_PHRASE,
-        _ACTION_DONE_PHRASE,
         _REALTIME_UNAVAILABLE_PHRASE,
+        pipeline_mod.SpeechPipeline._BG_READBACK_PHRASES,
     ):
         assert {"de", "en", "es", "pt"} <= set(table), table
-
-
-@pytest.mark.asyncio
-async def test_clarify_question_is_spanish_for_whisper_language_name() -> None:
-    # An es turn (Whisper name "spanish") must get the Spanish clarify phrase,
-    # not the English one — the same regression class as the German case.
-    pipe = _make_pipe(clarify_enabled=True)
-    await pipe._handle_silent_brain_turn("spanish")
-    assert pipe._spoken == [(_CLARIFY_QUESTION_PHRASE["es"], "es")], pipe._spoken
-
-
-# --------------------------------------------------------------------------- #
-# The live regression: lang="german" must select the GERMAN phrases            #
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.asyncio
-async def test_clarify_question_is_german_for_whisper_language_name() -> None:
-    # Live log 2026-06-09 17:52: lang flows in as "german" (Whisper name) and
-    # the clarify fallback spoke "What do you mean exactly?" to a German user.
-    pipe = _make_pipe(clarify_enabled=True)
-    await pipe._handle_silent_brain_turn("german")
-    assert pipe._spoken == [(_CLARIFY_QUESTION_PHRASE["de"], "de")], pipe._spoken
-
-
-@pytest.mark.asyncio
-async def test_action_done_ack_is_german_for_whisper_language_name() -> None:
-    pipe = _make_pipe(executed_action=True)
-    await pipe._handle_silent_brain_turn("german", "öffne chrome")  # i18n-allow
-    assert pipe._spoken == [(_ACTION_DONE_PHRASE["de"], "de")], pipe._spoken
-
-
-@pytest.mark.asyncio
-async def test_brain_timeout_phrase_is_german_for_whisper_language_name() -> None:
-    # A bare brain timeout with no tool evidence honestly admits "couldn't find
-    # that out" — and resolves the Whisper language NAME "german" to the German
-    # phrase, not the English fallback (the 2026-06-09 regression class).
-    pipe = _make_pipe()
-    await pipe._speak_brain_timeout("german")
-    assert pipe._spoken == [(_TIMEOUT_NO_ANSWER_PHRASE["de"], "de")], pipe._spoken
-
-
-def test_smalltalk_fallback_is_german_for_whisper_language_name() -> None:
-    answer = _smalltalk_fallback_for_non_substantive("wie geht es dir", "german")
-    assert answer is not None
-    assert "geht's gut" in answer, answer  # the German variant, not "I'm good"
-
-
-@pytest.mark.parametrize(
-    ("prompt", "lang", "expected"),
-    [
-        ("como estás?", "portuguese", "Estou bem. O que fazemos a seguir?"),  # i18n-allow
-        ("tudo bem contigo?", "pt", "Estou bem. O que fazemos a seguir?"),  # i18n-allow
-        ("¿qué tal estás?", "spanish", "Estoy bien. ¿Qué hacemos ahora?"),  # i18n-allow
-    ],
-)
-def test_smalltalk_fallback_speaks_spanish_and_portuguese(
-    prompt: str, lang: str, expected: str
-) -> None:
-    assert _smalltalk_fallback_for_non_substantive(prompt, lang) == expected
-
-
-@pytest.mark.asyncio
-async def test_english_speaker_still_gets_english_phrases() -> None:
-    # Regression guard: the fix must not over-rotate — a genuinely English
-    # utterance keeps the English phrase set.
-    pipe = _make_pipe(clarify_enabled=True)
-    await pipe._handle_silent_brain_turn("english")
-    assert pipe._spoken == [(_CLARIFY_QUESTION_PHRASE["en"], "en")], pipe._spoken
-
-
-@pytest.mark.asyncio
-async def test_clarify_question_is_portuguese_for_whisper_language_name() -> None:
-    pipe = _make_pipe(clarify_enabled=True)
-    await pipe._handle_silent_brain_turn("portuguese")
-    assert pipe._spoken == [(_CLARIFY_QUESTION_PHRASE["pt"], "pt")], pipe._spoken
 
 
 def test_bcp47_maps_portuguese_to_portugal() -> None:

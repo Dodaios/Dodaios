@@ -6,8 +6,6 @@ class), so this exercises the real tomlkit round-trip against a temp file.
 
 import tomllib
 
-import pytest
-
 from dodaios.core.config_writer import (
     add_telegram_allowed_user_id,
     set_telegram_enabled,

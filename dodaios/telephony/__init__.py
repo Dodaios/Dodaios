@@ -1,15 +1,13 @@
 """Twilio telephony voice-agent package.
 
-A caller dials a Twilio phone number and talks to Jarvis as a real-time voice
-agent. The call audio is bridged via Twilio Media Streams (raw audio over a
-WebSocket) so Jarvis can run its OWN STT -> Brain -> TTS stack and answer in
-its OWN consistent Charon voice — exactly like the "Hey Jarvis" microphone
-path (design spec ``docs/superpowers/specs/2026-05-24-twilio-telephony-design.md``).
+A caller dials a Twilio phone number and talks to the assistant. The call
+audio is bridged via Twilio Media Streams (raw audio over a WebSocket) to a
+realtime speech-to-speech session (``dodaios.realtime.factory`` with the phone
+surface), the same engine every other voice conversation runs on
+(``dodaios.telephony.call``).
 
 Cloud-first doctrine: this package MUST NOT import ``sounddevice`` or the
-``SpeechPipeline`` (both hard-import mic/speaker hardware). It composes the
-three decoupled provider seams directly (``build_stt_from_config``,
-``build_default_brain``, ``build_tts_from_config``).
+``SpeechPipeline`` (both hard-import mic/speaker hardware).
 
 The ``twilio`` SDK is an OPTIONAL extra (``pip install -e .[telephony]``).
 Everything here degrades gracefully when it is not installed: ``is_available()``

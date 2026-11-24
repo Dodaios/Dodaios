@@ -114,13 +114,19 @@ def decision_for(service: Any, event: UrgentEvent) -> Any:
 
 def phone_ringer(service: Any) -> RingFn:
     async def _ring(event: UrgentEvent, number: str) -> bool:
-        from dodaios.plugins.tool.call_contact import _default_call_config
+        from dodaios.plugins.tool.call_contact import _default_call_config, _default_phone_ready
         from dodaios.telephony import decision_calls
         from dodaios.telephony.outbound import place_call
 
         config = _default_call_config()
         if config is None:
             log.info("urgent call: telephony is not set up; the text escalation stands")
+            return False
+        if not await asyncio.to_thread(_default_phone_ready):
+            log.info(
+                "urgent call: no realtime voice can talk on a phone line; "
+                "the text escalation stands"
+            )
             return False
         opening = opening_for(event, _agent_name(service, event))
         try:

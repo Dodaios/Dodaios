@@ -16,7 +16,7 @@ from typing import Any
 from dodaios.core import module_health
 from dodaios.core.config import get_secret_any
 from dodaios.core.registry import list_plugins, load
-from dodaios.realtime.protocol import RealtimeProvider
+from dodaios.realtime.protocol import PHONE_SURFACE, RealtimeProvider, serves_phone
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _explicit_provider_ids(cfg: Any) -> list[str]:
             return []
         try:
             primary = load(_GROUP, primary_id, protocol=RealtimeProvider)
-        except Exception as exc:  # noqa: BLE001 - a broken selection stays unavailable
+        except Exception as exc:  # noqa: BLE001  # broad-except: a broken selection stays unavailable
             log.warning("Realtime primary %s could not load (%s)", primary_id, type(exc).__name__)
             return []
         if not bool(getattr(primary, "provider_fallback_allowed", True)):
@@ -87,7 +87,7 @@ def realtime_implicit_usage_fallback_allowed(cfg: Any) -> bool:
         return False
     try:
         provider_cls = load(_GROUP, primary_id, protocol=RealtimeProvider)
-    except Exception as exc:  # noqa: BLE001 - availability still degrades normally
+    except Exception as exc:  # noqa: BLE001  # broad-except: availability still degrades normally
         log.warning("Realtime primary capability probe failed for %s: %s", primary_id, exc)
         return False
     return bool(getattr(provider_cls, "implicit_usage_fallback_allowed", True))
@@ -182,7 +182,7 @@ def _identified_provider_candidates(
             candidates.append((provider_id, provider))
             if limit is not None and len(candidates) >= limit:
                 break
-        except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — realtime plugin
+        except Exception as exc:  # noqa: BLE001  # broad-except: broad-except: module boundary — realtime plugin
             log.warning("Realtime plugin %s is unavailable: %s", provider_id, exc)
             module_health.report_failure(f"plugin:realtime:{provider_id}", exc)
     return candidates
@@ -223,7 +223,7 @@ def realtime_requires_webrtc_offer(cfg: Any) -> bool:
     for provider_id in _explicit_provider_ids(cfg):
         try:
             provider_cls = load(_GROUP, provider_id, protocol=RealtimeProvider)
-        except Exception as exc:  # noqa: BLE001 - one broken plugin is skipped
+        except Exception as exc:  # noqa: BLE001  # broad-except: one broken plugin is skipped
             log.warning("Realtime WebRTC capability probe failed for %s: %s", provider_id, exc)
             continue
         if bool(getattr(provider_cls, "supports_realtime", False)) and bool(
@@ -262,7 +262,7 @@ def realtime_handshake_budget_s(cfg: Any) -> float:
     instances: dict[str, Any] = {}
     try:
         instances = dict(_identified_provider_candidates(cfg, defer_external_login_probe=True))
-    except Exception as exc:  # noqa: BLE001 - class-level reads still work
+    except Exception as exc:  # noqa: BLE001  # broad-except: class-level reads still work
         log.warning("Realtime handshake-budget candidate build failed: %s", exc)
     for provider_id in _configured_provider_ids(cfg):
         try:
@@ -281,31 +281,9 @@ def realtime_handshake_budget_s(cfg: Any) -> float:
                 # but unselected local card logged this ~10x per voice call).
                 continue
             declared.append(float(budget or 0.0))
-        except Exception as exc:  # noqa: BLE001 - one broken plugin is skipped
+        except Exception as exc:  # noqa: BLE001  # broad-except: one broken plugin is skipped
             log.warning("Realtime handshake-budget probe failed for %s: %s", provider_id, exc)
     return max(declared)
-
-
-def _realtime_is_the_configured_voice_mode(cfg: Any) -> bool:
-    """Whether realtime voice is the mode this install actually runs.
-
-    The same switch ``build_realtime_session`` reads, so warming can never
-    prepare a transport the session builder would refuse. Deliberately about
-    CONFIGURATION, not about a live call: a warm transport is worth having
-    BEFORE the first wake word, which is the entire point of warming.
-    """
-    # The stable ChatGPT-subscription composition intentionally runs through
-    # SpeechPipeline even when an older install still carries
-    # ``voice.mode = realtime`` or the legacy realtime-provider pin. Warming
-    # that retired duplex adapter starts a second App Server and holds the one
-    # subscription-profile lease before the text voice path can answer.
-    from dodaios.voice.subscription_profile import (  # noqa: PLC0415
-        subscription_voice_selected,
-    )
-
-    if subscription_voice_selected(cfg):
-        return False
-    return getattr(getattr(cfg, "voice", None), "mode", "pipeline") == "realtime"
 
 
 def _warm_session_imports(provider: Any) -> None:
@@ -347,19 +325,7 @@ async def realtime_warm_selected_transports(cfg: Any) -> None:
     app-server and verifies the account INSIDE the first call's handshake
     (~1.5 s of 3.0 s, measured 2026-08-02). One broken plugin never stops the
     others, and no failure here reaches the caller.
-
-    Skipped entirely when realtime is not the configured voice mode. Warming a
-    transport the session builder would refuse anyway is pure cost, and for a
-    subscription transport that cost is a spawned process, a live account
-    check, and a HELD profile lock at every boot — which is what makes the
-    user's own login/logout report "busy" for a feature they switched off.
     """
-    if not _realtime_is_the_configured_voice_mode(cfg):
-        log.debug(
-            "Realtime transport warm skipped: realtime is not the configured "
-            "voice mode."
-        )
-        return
     # Selection itself loads the primary's capability class and may scan entry
     # points. Keep that first import off the shared WebSocket loop as well.
     selected = await asyncio.to_thread(_explicit_provider_ids, cfg)
@@ -385,7 +351,7 @@ async def realtime_warm_selected_transports(cfg: Any) -> None:
             warm = getattr(provider_cls, "warm_transport", None)
             if callable(warm):
                 await warm(cfg)
-        except Exception as exc:  # noqa: BLE001 - one broken plugin is skipped
+        except Exception as exc:  # noqa: BLE001  # broad-except: one broken plugin is skipped
             log.warning(
                 "Realtime transport warm failed for %s: %s", provider_id, exc
             )
@@ -404,16 +370,7 @@ async def realtime_prespawn_transports(cfg: Any) -> None:
     plugin must never spawn a process on its own. Best-effort by contract —
     one broken plugin never stops the others and no failure reaches the
     caller.
-
-    Gated on the same voice-mode switch as warming: prestarting a server for
-    a feature this install runs through the classic pipeline is pure cost.
     """
-    if not _realtime_is_the_configured_voice_mode(cfg):
-        log.debug(
-            "Realtime transport prespawn skipped: realtime is not the "
-            "configured voice mode."
-        )
-        return
     for position, provider_id in enumerate(_explicit_provider_ids(cfg)):
         try:
             # Off the loop for the same reason as the warm above.
@@ -427,7 +384,7 @@ async def realtime_prespawn_transports(cfg: Any) -> None:
             prespawn = getattr(provider_cls, "prespawn_transport", None)
             if callable(prespawn):
                 await prespawn(cfg)
-        except Exception as exc:  # noqa: BLE001 - one broken plugin is skipped
+        except Exception as exc:  # noqa: BLE001  # broad-except: one broken plugin is skipped
             log.warning(
                 "Realtime transport prespawn failed for %s: %s", provider_id, exc
             )
@@ -522,7 +479,7 @@ def _warn_on_same_family_delegate_chain(
                 ", ".join(sorted(set(chain))),
                 realtime_family,
             )
-    except Exception:  # noqa: BLE001 - diagnostics must never block the build
+    except Exception:  # noqa: BLE001  # broad-except: diagnostics must never block the build
         log.debug("Realtime credential-family diagnostics failed.", exc_info=True)
 
 
@@ -580,6 +537,21 @@ def realtime_browser_audio(cfg: Any, *, desktop_renderer: str | None = None) -> 
     return _provider_uses_browser_audio(candidates[0][1], desktop_renderer)
 
 
+def realtime_phone_ready(cfg: Any) -> bool:
+    """Whether a phone call could open a realtime session under ``cfg``.
+
+    The same selection ``build_realtime_session`` makes for the phone surface,
+    without opening a socket. It reads credentials, so callers keep it off the
+    event loop.
+    """
+    try:
+        candidates = _provider_candidates(cfg, defer_external_login_probe=True)
+    except Exception:  # noqa: BLE001  # broad-except: a failed probe means no call can open
+        log.warning("Realtime phone readiness probe failed", exc_info=True)
+        return False
+    return any(serves_phone(provider) for provider in candidates)
+
+
 def build_realtime_session(
     *,
     cfg: Any,
@@ -590,19 +562,28 @@ def build_realtime_session(
     half_duplex: bool = False,
     surface: str = "browser",
     brain: Any = None,
+    call_brief: str = "",
 ):
     """Build a transport-neutral realtime session wrapper.
 
-    Returning ``None`` is an honest request for the caller to use the classic
-    pipeline. Actual socket handshakes happen lazily on ``audio_start`` and the
-    wrapper tries every candidate in order before failing.
+    Returns ``None`` when no realtime provider can hold this call; the caller
+    then ends it with an honest error. Actual socket handshakes happen lazily
+    on ``audio_start`` and the wrapper tries every candidate in order before
+    failing.
+
+    ``surface="phone"`` keeps only providers that take PCM themselves
+    (:func:`serves_phone`). ``call_brief`` is what the model has to know about
+    the call it is in (who is on the line, why it was placed); it joins the
+    session instructions.
     """
-    if not _realtime_is_the_configured_voice_mode(cfg):
-        return None
     try:
         providers = _provider_candidates(cfg, defer_external_login_probe=True)
+        if surface == PHONE_SURFACE:
+            providers = [provider for provider in providers if serves_phone(provider)]
         if not providers:
-            log.info("Realtime voice has no credential-ready provider; using pipeline mode.")
+            log.info(
+                "Realtime voice has no credential-ready provider for the %s surface.", surface
+            )
             return None
         primary_provider = providers[0]
         if getattr(primary_provider, "client_managed_delegation", False):
@@ -611,6 +592,7 @@ def build_realtime_session(
             return SubscriptionLiveVoiceSession(
                 session_id=session_id, send_binary=send_binary, send_json=send_json,
                 providers=providers, config=cfg, bus=bus, brain=brain, surface=surface,
+                call_brief=call_brief,
             )
         if getattr(primary_provider, "native_tool_orchestration", False):
             from dodaios.live.native import NativeLiveVoiceSession
@@ -618,6 +600,7 @@ def build_realtime_session(
             return NativeLiveVoiceSession(
                 session_id=session_id, send_binary=send_binary, send_json=send_json,
                 providers=providers, config=cfg, bus=bus, brain=brain, surface=surface,
+                call_brief=call_brief,
             )
         if getattr(primary_provider, "continuous_conversation", False):
             import copy
@@ -634,6 +617,7 @@ def build_realtime_session(
             return LiveVoiceSession(
                 session_id=session_id, send_binary=send_binary, send_json=send_json,
                 providers=providers, config=live_config, bus=bus, brain=brain, surface=surface,
+                call_brief=call_brief,
             )
         _warn_on_same_family_delegate_chain(
             cfg,
@@ -655,18 +639,21 @@ def build_realtime_session(
             half_duplex=half_duplex,
             surface=surface,
             brain=brain,
-            allow_classic_fallback=realtime_implicit_usage_fallback_allowed(cfg),
+            call_brief=call_brief,
         )
-    except Exception as exc:  # noqa: BLE001 — unbuildable stack => classic path
+    except Exception as exc:  # noqa: BLE001  # broad-except: an unbuildable stack ends the call honestly
         log.warning("Realtime session build failed: %s", exc)
         return None
 
 
 __all__ = [
+    "PHONE_SURFACE",
     "build_realtime_session",
     "realtime_available_provider",
     "realtime_handshake_budget_s",
     "realtime_implicit_usage_fallback_allowed",
+    "realtime_phone_ready",
     "realtime_prespawn_transports",
     "realtime_requires_webrtc_offer",
+    "serves_phone",
 ]

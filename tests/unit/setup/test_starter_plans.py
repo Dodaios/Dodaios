@@ -10,7 +10,7 @@ import pytest
 from dodaios.core import config as cfg
 from dodaios.setup import state as st
 from dodaios.setup.starter_plans import (
-    READY_SECTIONS_BY_MODE,
+    READY_SECTIONS,
     STARTER_PLANS,
     get_plan,
     plan_ready_sections,
@@ -29,7 +29,6 @@ _SURFACE_TIER = {
 
 @pytest.mark.parametrize("plan", STARTER_PLANS, ids=lambda p: p.id)
 def test_plan_assignments_point_at_real_providers_of_the_right_tier(plan) -> None:
-    assert plan.mode in READY_SECTIONS_BY_MODE
     for surface, provider_id in plan.assignments.items():
         spec = get_spec(provider_id)
         assert spec is not None, f"{plan.id}: unknown provider {provider_id!r} for {surface}"
@@ -47,26 +46,23 @@ def test_plan_key_families_have_a_primary_slot(plan) -> None:
         assert cfg.secret_family_primary_slot(family), f"{plan.id}: {family} has no key slot"
 
 
-def test_realtime_plans_assign_a_realtime_provider() -> None:
+def test_every_plan_assigns_a_realtime_provider() -> None:
     for plan in STARTER_PLANS:
-        if plan.mode == "realtime":
-            assert "realtime" in plan.assignments, plan.id
+        assert "realtime" in plan.assignments, plan.id
 
 
 def test_every_ready_section_is_a_known_section_health_key() -> None:
     from dodaios.ui.web.provider_routes import _SECTION_HEALTH_KEYS
 
-    for sections in READY_SECTIONS_BY_MODE.values():
-        for name in sections:
-            assert name in _SECTION_HEALTH_KEYS, name
+    for name in READY_SECTIONS:
+        assert name in _SECTION_HEALTH_KEYS, name
 
 
 def test_exactly_one_recommended_plan() -> None:
     assert sum(1 for p in STARTER_PLANS if p.recommended) == 1
     assert get_plan("openai-live") is not None
     assert get_plan("openai-live").assignments["realtime"] == "openai-live"
-    assert plan_ready_sections("pipeline") == ("brain", "computer-use", "tts", "stt")
-    assert plan_ready_sections("nope") == ()
+    assert plan_ready_sections() == ("realtime", "computer-use", "subagents")
 
 
 def test_state_roundtrip_and_reset(tmp_path) -> None:

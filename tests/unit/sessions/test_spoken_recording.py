@@ -19,10 +19,10 @@ import pytest
 
 from dodaios.core.bus import EventBus
 from dodaios.core.events import (
-    ListeningStarted,
     SpeechSpoken,
     VoiceSessionEnded,
     VoiceSessionStarted,
+    WakeWordDetected,
 )
 from dodaios.sessions.recorder import SessionRecorder
 from dodaios.sessions.store import SessionStore
@@ -44,7 +44,7 @@ async def test_spoken_phrase_is_persisted_into_the_session_log(tmp_path) -> None
                 language="de",
             )
         )
-        await bus.publish(ListeningStarted(source_layer="speech"))
+        await bus.publish(WakeWordDetected(source_layer="speech"))
         # A canned timeout apology was VOICED — historically invisible.
         await bus.publish(
             SpeechSpoken(
@@ -96,7 +96,7 @@ async def test_spoken_detail_is_persisted_into_the_session_log(tmp_path) -> None
                 language="en",
             )
         )
-        await bus.publish(ListeningStarted(source_layer="speech"))
+        await bus.publish(WakeWordDetected(source_layer="speech"))
         await bus.publish(
             SpeechSpoken(
                 source_layer="speech.pipeline",

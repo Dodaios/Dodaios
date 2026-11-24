@@ -33,9 +33,8 @@ class _FakeBrain:
         self.seeded = list(turns)
 
 
-def _pipe(*, state=PipelineState.IDLE, gate=True, ptt=False, brain=None):
+def _pipe(*, state=PipelineState.IDLE, gate=True, brain=None):
     p = SpeechPipeline.__new__(SpeechPipeline)
-    p._ptt_mode = ptt
     p._state = state
     p._call_event = asyncio.Event()
     # A deliberate action is judged by the USER gate (not refused), never by the
@@ -91,12 +90,6 @@ def test_visible_wake_candidate_routes_close_x_to_cancellation() -> None:
     p._wake_preroll_active = True
 
     assert p.is_session_active() is True
-
-
-def test_noop_when_ptt_active() -> None:
-    p = _pipe(ptt=True)
-    assert p.request_voice_session() is False
-    assert not p._call_event.is_set()
 
 
 def test_noop_when_the_microphone_is_refused_and_does_not_seed() -> None:
@@ -178,7 +171,6 @@ def test_start_answers_empty_when_armed() -> None:
 
 def test_start_names_a_running_session() -> None:
     assert _pipe(state=PipelineState.ACTIVE).start_voice_session() == start_refusal.BUSY
-    assert _pipe(ptt=True).start_voice_session() == start_refusal.BUSY
 
 
 def test_start_names_mute_instead_of_a_running_session() -> None:

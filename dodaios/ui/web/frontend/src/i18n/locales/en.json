@@ -116,13 +116,8 @@
     "state_ready": "Ready for your next call",
     "state_call": "Call in progress",
     "state_connecting": "Connecting…",
-    "state_backup": "On the backup voice path",
-    "state_off": "Realtime is off",
     "state_none": "No voice provider yet",
     "none_hint": "Pick a provider below and add its key.",
-    "off_hint": "Your voice still runs on the retired classic engine. Turn Realtime on to talk through the provider below.",
-    "off_hint_unavailable": "Your voice still runs on the retired classic engine. Set up a provider below, then turn Realtime on.",
-    "turn_on": "Turn on Realtime",
     "providers_title": "Provider",
     "providers_desc": "Who powers the live conversation. A provider with a saved key takes over with one click.",
     "active": "Active",
@@ -162,7 +157,6 @@
     "subscription_billing": "Voice and thinking use your ChatGPT subscription, subject to its access and usage limits. If unavailable, the call stops without switching to an API key. Subscription voice access is experimental.",
     "options_failed": "The model and voice list could not be loaded. Reopen setup to try again.",
     "active": "Active",
-    "pipeline_fallback": "Realtime could not start for this call, so it runs on the backup voice path. New settings apply to your next call.",
     "open_browser": "Open voice in your browser",
     "loading": "Loading voice setup…",
     "description": "Natural conversation, your chosen thinking model, and Dodaios tools. Choose an OpenAI key or a ChatGPT subscription.",
@@ -919,10 +913,8 @@
     "realtime_webrtc_unsupported": "This window cannot open the audio connection this voice needs (WebRTC is unavailable).",
     "realtime_start_unavailable": "Voice could not start: the selected voice connection is not ready. Check its sign-in or key under API Keys > Live calls.",
     "realtime_browser_tts_unavailable": "This browser has no usable system voice. The answer is still available as text; connect a TTS provider for audio.",
-    "realtime_pipeline_fallback": "Classic pipeline fallback",
     "realtime_unavailable": "Connect or configure a Realtime provider",
     "realtime_error": "Couldn’t start voice. Test the active Realtime provider under API Keys, then retry.",
-    "browser_voice_error": "Couldn’t start voice. Check speech-to-text, the Brain and text-to-speech under API Keys, then retry.",
     "realtime_provider_fallback": "{0} became unavailable, so the call moved to another provider — billing may differ. {1}",
     "realtime_provider_fallback_short": "The call moved off {0} to another provider.",
     "realtime_provider_warning": "The realtime provider reported a recoverable problem; the call continues.",
@@ -2023,12 +2015,6 @@
       "warn": "warn"
     }
   },
-  "voice_mode": {
-    "label": "Mode",
-    "realtime": "Realtime",
-    "pipeline": "Pipeline",
-    "unknown": "Unknown"
-  },
   "transcription": {
     "archive": "Voice archive",
     "intro": "A place for every conversation. Find the words you want to return to.",
@@ -2920,26 +2906,13 @@
     "local_mode_notice": "{0} hosted providers are hidden.",
     "local_mode_notice_active": "The provider currently in use stays visible so you can always see what {name} is running on.",
     "local_mode_show_all": "Show all providers",
-    "mode_pipeline": "Pipeline",
-    "mode_realtime": "Realtime",
     "mode_active_badge": "Active",
     "mode_recommended": "Recommended",
-    "voice_engine_label": "Voice engine",
-    "voice_engine_desc": "How {name} listens and talks — live conversation with tools, or local speech.",
     "mode_needs_credentials": "Connect or configure a Realtime provider below to switch.",
-    "mode_desc_pipeline": "Three steps: speech-to-text, the Brain thinks, text-to-speech.",
-    "mode_desc_realtime": "One model listens and answers in the same live audio stream.",
-    "mode_pick_one_hint": "You only need to set up one voice mode.",
-    "mode_keys_hint": "Realtime needs one live provider, using either a subscription login or an API key. Pipeline needs its own Voice Input, Voice Output and Brain credentials. Tool Model and {name}-Agents apply to both modes.",
-    "mode_realtime_preview": "Research preview — not finished yet. Many tools and features don't work in realtime mode.",
-    "mode_realtime_preview_short": "Research preview",
     "alt_credential_title": "Alternative: {0}",
     "alt_credential_setup": "Set up {0}",
     "runtime_switching": "Restarting the current voice session with the selected engine…",
-    "runtime_idle": "No voice session is active. This selection applies to the next one.",
     "runtime_realtime": "Current session: Realtime",
-    "runtime_pipeline": "Current session: Pipeline",
-    "runtime_fallback_pipeline": "Current session fell back to Pipeline; Realtime is not serving this call.",
     "cat_brain_desc": "The model that writes your chat and voice answers. The separate Tool Model handles actions and Computer Use.",
     "cat_tts_desc": "The voice {name} speaks with.",
     "cat_stt_desc": "How {name} turns your speech into text.",
@@ -3234,7 +3207,7 @@
   "settings_view": {
     "silence_window": {
       "title": "Thinking pause",
-      "description": "How long {name} waits in silence before it takes your turn. On Automatic each voice mode keeps its own factory timing — the shortest pause. Raise it to give yourself more time to pause and finish a thought; if you keep talking inside the pause, the words are added to the same request. Applies to both voice modes — Pipeline right away, Realtime on the next call.",
+      "description": "How long {name} waits in silence before it takes your turn in a voice call. On Automatic the voice provider uses its own turn detection — the shortest pause. Raise it to give yourself more time to pause and finish a thought; if you keep talking inside the pause, the words are added to the same request. Applies from the next call.",
       "unit_seconds": "s",
       "automatic_label": "Automatic",
       "automatic_caption": "The provider's factory timing — the shortest pause.",
@@ -4091,7 +4064,7 @@
     "reply_section": "Reply Language",
     "reply_hint": "Which language {name} speaks when answering you. Proper names, code identifiers and technical terms stay in their original form.",
     "stt_section": "Voice Recognition Language",
-    "stt_hint": "Which language your spoken voice is recognised and turned into text. Automatic detects it for you. After changing this, end any Realtime call and restart Dodaios for Pipeline mode.",
+    "stt_hint": "Which language your spoken voice is recognised and turned into text. Automatic detects it for you. After changing this, end any running call; the next one uses the new language.",
     "options": {
       "auto": {
         "label": "Automatic",
@@ -6951,9 +6924,7 @@
   "ready_note": {
     "title": "All set.",
     "body": "Thinking, tools, agents and {0} are set up. Say your wake word — or just start typing.",
-    "go": "Let's go",
-    "mode_realtime": "live voice",
-    "mode_pipeline": "voice in and out"
+    "go": "Let's go"
   },
   "society": {
     "sandbox": {

@@ -24,7 +24,6 @@ const plan: StarterPlan = {
   id: "openai-live",
   label: "OpenAI GPT-Live",
   summary: "",
-  mode: "realtime",
   recommended: true,
   assignments: {},
   key_slots: [{ family: "openai", slot: "openai_api_key", label: "OpenAI", present: false }],

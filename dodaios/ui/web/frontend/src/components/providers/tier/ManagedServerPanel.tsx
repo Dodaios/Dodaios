@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Brain, Check, ChevronDown, Download, Loader2, Mic, Play, Search, Square, Volume2, XCircle } from "lucide-react";
-import { putVoiceMode } from "@/lib/voiceEngineMode";
 import { Button } from "@/components/ui/button";
 import { BrandedSelect } from "@/components/ui/select";
 import { managedServerInstall, managedServerModelCatalog, managedServerPreflight, managedServerSetup, managedServerStart, managedServerStatus, managedServerStop, managedServerUninstall, modelPullStatus, startModelPull, type ManagedModelCatalog, type ManagedServerRuntime, type ManagedInstallProgress, type ManagedPreflight, type ProviderDescriptor, switchRealtimeProvider } from "@/hooks/useProviders";
@@ -235,7 +234,6 @@ export function ManagedServerPanel({
       if (!descriptor.active) {
         await switchRealtimeProvider(descriptor.id, descriptor.experimental === true);
       }
-      await putVoiceMode("realtime");
       window.dispatchEvent(new CustomEvent("jarvis:realtime-switched"));
       const latency = result.smoke.first_audio_ms;
       setSelectedBrain(brainModel);
