@@ -313,19 +313,13 @@ class YouTubeMusicRestTool:
     name: str = "youtube_music"
     risk_tier: str = "monitor"
     _BASE_DESCRIPTION: str = (
-        "Play and control the user's YouTube Music: start a song, artist, album, "
-        "one of their playlists or their liked songs (opens in YouTube Music in the "
-        "browser and keeps playing like a radio), pause, resume, skip, go back, say "
-        "what is playing right now, like a song, add a song to a playlist, create a "
-        "playlist, list playlists. Use for 'play Radiohead', 'play a nice song', "
-        "'play something I like', 'skip this', 'what song is this', "
-        "'pause the music', 'like this song', 'add this to my running playlist'. "
-        "Actions: now_playing, play, pause, "
-        "next, previous, search, list_playlists, playlist_tracks, liked_songs, "
-        "like, add_to_playlist, create_playlist, open (show the player), "
-        "hide_player, set_volume. Music plays in a background player window "
-        "(or the browser, per the Settings), so 'set_volume' works there. "
-        "Requires the YouTube Music plugin to be connected in the Plugins view."
+        "YouTube Music is the connected music service: use it for any music request that does "
+        "not name another service ('play Radiohead', 'play something I like', 'skip this', "
+        "'what song is this', 'like this song'). Plays in a background player window (or the "
+        "browser, per Settings) like a radio. Actions: now_playing, play, pause, next, "
+        "previous, search, list_playlists, playlist_tracks, liked_songs, like, "
+        "add_to_playlist, create_playlist, open (show the player), hide_player, set_volume. "
+        "Needs the YouTube Music plugin connected."
     )
 
     @property

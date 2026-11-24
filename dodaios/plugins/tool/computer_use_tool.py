@@ -111,25 +111,15 @@ class ComputerUseTool:
     # honours this flag at dodaios/brain/tool_use_loop.py:662-666 / 709-728.
     suppress_response: bool = True
     description: str = (
-        "Control THIS computer's live desktop with mouse and keyboard: open "
-        "apps, click buttons, type into fields, scroll, navigate the screen, "
-        "operate any GUI application. Use this for ANY on-screen / app / "
-        "desktop action the user asks for (e.g. 'open a terminal', 'open Chrome "
-        "and go to gmail', 'click the blue button', 'type X into Notepad', "
-        "'scroll down'). The desktop operator canNOT see this conversation: "
-        "'goal' must be one complete, self-contained instruction. Keep the "
-        "user's own words, and when the request corrects or refers back to an "
-        "earlier turn ('do it in my Chrome browser', 'try again', 'also open "
-        "his newest post'), fold the referenced task and its constraints into "
-        "the goal — the underlying objective, the target app/browser/site, "
-        "and what the previous attempt got wrong. An unexpanded 'do it in "
-        "Chrome' just opens Chrome and stops. This drives the real machine — "
-        "unlike spawn_worker, which only works in an isolated code workspace "
-        "and cannot touch the desktop. NOT a research tool: NEVER use it to "
-        "search the web, google something, or look up facts/information — "
-        "answer from your own knowledge or call search_web instead. Only the "
-        "user's explicit wish to see it happen on their screen ('open the "
-        "browser and search for X') makes a web lookup a computer_use task."
+        "Control THIS computer's live desktop with mouse and keyboard: open apps, click, type, "
+        "scroll, operate any GUI application ('open Chrome and go to gmail', 'click the blue "
+        "button', 'type X into Notepad'). Use it for any on-screen or app action. The operator "
+        "cannot see this conversation: 'goal' must be one complete, self-contained instruction "
+        "in the user's words; when the request refers back to an earlier turn ('do it in my "
+        "Chrome', 'try again'), fold in the task, target app/site and what the previous "
+        "attempt got wrong. Unlike spawn_worker it touches the real machine. NOT for research: "
+        "never use it to search the web or look up facts (answer yourself or use search_web), "
+        "unless the user wants to watch it happen on screen."
     )
     schema: dict[str, Any] = {
         "type": "object",

@@ -311,25 +311,13 @@ class SearchWebTool:
     # read it as an unwanted research spawn for a trivial question. Pinned by
     # tests/unit/brain/test_search_web_freshness_doctrine.py.
     description: str = (
-        "Web search via DuckDuckGo with a short summary — for FRESH, "
-        "time-critical facts. USE THIS TOOL only when the answer needs CURRENT "
-        "or volatile information that may have changed since your knowledge "
-        "cutoff: current news, today's prices/stock quotes, weather, sports "
-        "results, ongoing events, 'latest/current/today/right now' — OR when "
-        "the user EXPLICITLY asks you to search ('search for that', 'google "
-        "that', 'look it up'). "
-        "DO NOT USE for evergreen/general knowledge you can answer directly "
-        "yourself (geography, history, definitions, 'how does X work', general "
-        "procedures/processes like 'what do I need to consider when "
-        "emigrating', well-known concepts) — answer such questions directly "
-        "from your own knowledge, without searching. "
-        "For weather questions, put the location in the query (e.g. 'weather "
-        "Berlin tomorrow'). "
-        "For research questions, pass 2-3 DIFFERENT phrasings via 'queries' "
-        "in ONE call (fetched concurrently) instead of searching again in a "
-        "later round — one call should gather all the evidence you need. "
-        "DO NOT USE for actions on connected systems (use cli_* or MCP tools "
-        "for that) — 'my X' or 'start X' is NEVER search intent."
+        "Web search via DuckDuckGo with a short summary, for FRESH time-critical facts. Use "
+        "ONLY for current or volatile information (news, today's prices, weather, sports, "
+        "'latest/today/right now') or when the user explicitly asks to search ('google that', "
+        "'look it up'). Do NOT use for evergreen knowledge you can answer yourself (geography, "
+        "history, definitions, how things work) nor for actions on connected systems ('my X', "
+        "'start X' is never search intent; use cli_* or MCP tools). Weather: put the location "
+        "in the query. For research pass 2-3 different phrasings in 'queries' in ONE call."
     )
     schema: dict[str, Any] = {
         "type": "object",

@@ -53,19 +53,12 @@ class SwitchProviderTool:
     # ``ask`` is the one tier in ``always_confirm_tiers``). Forensic 2026-06-26.
     risk_tier: ClassVar[str] = "monitor"
     description: ClassVar[str] = (
-        "Switch which AI provider is active for a given tier: 'tts' (text-to-speech "
-        "voice), 'stt' (speech-to-text), or 'subagent' (the heavy background "
-        "worker). Use this for requests like 'change the voice to Cartesia', 'use "
-        "Groq for speech recognition', or 'put the subagent on codex'. "
-        "The 'brain' tier is DELIBERATELY NOT switchable this way: the active "
-        "assistant model is the user's own choice and can only be changed by them "
-        "in the desktop app or the CLI. Do not call this tool for 'switch to "
-        "Gemini', 'use OpenAI', or any other request about the main model — it "
-        "will be refused. Tell the user where to change it instead. "
-        "This only changes which provider is ACTIVE — the "
-        "target provider's API key must already be saved (it does NOT set keys). "
-        "If the key is missing, it says so. TTS takes effect immediately; "
-        "STT and subagent need a restart."
+        "Switch the active AI provider for a tier: 'tts' (voice), 'stt' (speech recognition) "
+        "or 'subagent' (the heavy background worker): 'change the voice to Cartesia', 'put the "
+        "subagent on codex'. The 'brain' tier is NOT switchable this way: the main model is "
+        "the user's own choice, changed only in the desktop app or CLI; for 'switch to Gemini' "
+        "tell them where. The target's API key must already be saved (this does not set keys). "
+        "TTS applies at once; STT and subagent need a restart."
     )
     schema: ClassVar[dict[str, Any]] = {
         "type": "object",

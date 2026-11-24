@@ -40,16 +40,14 @@ class TeamThreadTool:
     is_action_tool = True
     description = (
         "Team threads: several coding agents on different models plan, build and review ONE "
-        "task together (for example Claude plans, Codex builds, Gemini reviews; or three "
-        "models plan and compare). Use it when the person asks for several models, a second "
-        "opinion across models, or plan-build-review on one task. actions: seats (which seats "
-        "are ready), list, start (task + cwd; optional seats[], mode peers|planner_builder, "
-        "title; asks the person first; returns team_id and a job_id: check it with job_status "
-        "or await_jobs, never claim it done on your own), status (team_id; the state, who is "
-        "working, the open issues and the newest entries; after=<seq> for later ones), answer "
-        "(team_id + text: the person's answer or a steer; it settles a disagreement the thread "
-        "waits on), pause, resume, accept (take the plan or work as it is), stop. For ONE "
-        "agent's work use delegate (target agent:<name> or pane:<id>) instead."
+        "task together. Use when the person asks for several models, a cross-model second "
+        "opinion or plan-build-review; for one agent's work use delegate. actions: seats "
+        "(which are ready), list, start (task + cwd; optional seats[], mode "
+        "peers|planner_builder, title; asks the person first; returns team_id and a job_id "
+        "to check with job_status or await_jobs, never claim it done yourself), status "
+        "(team_id; state, who works, open issues, newest entries; after=<seq> for later), "
+        "answer (team_id + text: the person's answer or a steer), pause, resume, accept "
+        "(take the plan or work as it is), stop."
     )
     schema: dict[str, Any] = {
         "type": "object",

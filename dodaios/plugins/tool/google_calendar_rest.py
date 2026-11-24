@@ -143,18 +143,12 @@ class GoogleCalendarRestTool:
     name: str = "google_calendar"
     risk_tier: str = "monitor"
     description: str = (
-        "Read and manage the user's Google Calendar. Use for 'what's on my "
-        "calendar today', 'any meetings tomorrow', 'schedule a meeting', "
-        "'create an event', 'move/reschedule that event', 'delete the event'. "
-        "Actions: list_events (read the schedule in a time window — spans ALL of "
-        "the user's calendars, so nothing is missed), create_event (add an "
-        "event), update_event (change one by id), delete_event (remove one by "
-        "id). list_events returns each event's calendar_id; pass it back as "
-        "calendar_id on update_event/delete_event when the event is not on the "
-        "primary calendar. Times are RFC3339 (e.g. 2026-06-28T15:00:00) with an "
-        "optional IANA time_zone (e.g. Europe/Berlin); a bare date "
-        "(2026-06-28) makes an all-day event. Requires the Google Calendar "
-        "plugin to be connected in the Plugins view."
+        "Read and manage the user's Google Calendar ('what's on today', 'schedule a meeting', "
+        "'move that event'). Actions: list_events (a time window, across ALL calendars), "
+        "create_event, update_event and delete_event (by id). list_events returns each event's "
+        "calendar_id: pass it back on update/delete when the event is not on the primary "
+        "calendar. Times are RFC3339 (2026-06-28T15:00:00) with optional IANA time_zone; a "
+        "bare date makes an all-day event. Needs the Google Calendar plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",

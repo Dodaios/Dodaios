@@ -18,12 +18,10 @@ class LeadMessageAgentTool:
     is_action_tool = True
     schema = MessageAgentTool.schema
     description = (
-        "Send an INTERNAL chat message to one of the user's Dodaios agents by name or id. "
-        "Use for 'send the Gmail agent a test message': this does NOT send email. "
-        "No extra confirmation is needed for internal messages. For assigning work use "
-        "delegate_to_agent, including 'tell X to test Y'. For 'ask X about Y', use kind "
-        "'query' and reply_policy='always'. Include relevant context and the precise "
-        "question; use kind 'say' and reply_policy='none' for information. "
+        "Send an INTERNAL chat message to one of the user's Dodaios agents by name or id; it "
+        "does NOT send email and needs no confirmation. To assign work use delegate_to_agent "
+        "('tell X to test Y'). 'Ask X about Y': kind 'query' with reply_policy='always' and "
+        "the precise question plus context; information: kind 'say' with reply_policy='none'. "
         "Report queued, delivered or failed exactly as returned; delivery is not completion."
     )
 

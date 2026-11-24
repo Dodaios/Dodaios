@@ -86,55 +86,43 @@ class DelegateToAgentTool:
     name: str = "delegate_to_agent"
     risk_tier: str = "monitor"
     description: str = (
-        "Hand a task to one of the user's named agents (their agent society, listed on your "
-        "team card): 'let Scout research X', 'Mailbox, answer the invoice mail', 'give that "
-        "to the team'. Use when a background task fits the persistent team; leave `agent` "
-        "empty to let the lead pick the agent whose hands fit the task. The agent works in "
-        "the background; you acknowledge now and its result follows reply_policy. "
-        "Stay available for conversation while it runs; completion is delivered asynchronously. "
-        "Never for inventory/status questions or tasks the user wants done right here. "
-        "Not for coding panes in the Agentic IDE (T1, or a named Claude Code / Codex "
-        "session): those go through workspace-orchestrate. Pass the agent's name as heard; "
-        "the app matches misheard names and, when unsure, returns needs_clarification with "
-        "a question to ask before calling again. "
-        "Turn the user's intent into an actionable brief: objective, known target, relevant "
-        "context, scope, constraints and completion evidence. Do not merely paraphrase or "
-        "invent facts. Include context and completion_criteria so the agent can act independently. "
-        "Select reply_policy=always for requested findings, on_error for work without a "
-        "requested success report, none only for explicit silence. Report the acknowledgement "
-        "and state exactly. Keep the "
-        "returned assignment_id and trace_id for society_status; never speak those ids."
+        "Hand a task to one of the user's named agents (their society, on your team card): "
+        "'let Scout research X', 'give that to the team'. Leave `agent` empty to let the "
+        "lead pick the best fit; pass a name as heard (misheard names are matched, "
+        "unsure ones return needs_clarification: ask first). It works in the background; "
+        "acknowledge now, the result follows reply_policy (always for requested findings, "
+        "on_error for work without a requested report, none only for explicit silence). "
+        "Not for status questions, tasks to do right here, or coding panes in the "
+        "Agentic IDE (workspace-orchestrate). Write an actionable brief with context and "
+        "completion_criteria; do not just paraphrase or invent facts. Keep the "
+        "assignment_id and trace_id for society_status; never speak them."
     )
     schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "agent": {
                 "type": "string",
-                "description": (
-                    "The agent's name as the user said it; empty when the user did not "
-                    "name one (the best-fitting agent is picked from the task)."
-                ),
+                "description": "The agent's name as the user said it; empty to pick the best fit.",
             },
             "task": {
                 "type": "string",
                 "description": (
-                    "An actionable objective and scope faithful to the user's intent, "
-                    "not just a paraphrase. " + AGENT_BRIEF_RULE
+                    AGENT_BRIEF_RULE
                 ),
             },
             "reply_policy": REPLY_POLICY_SCHEMA,
             "context": {
                 "type": "string",
-                "description": "Relevant prior decisions, constraints and facts; omit secrets.",
+                "description": "Prior decisions, constraints, facts; no secrets.",
             },
             "completion_criteria": {
                 "type": "string",
-                "description": "Required output and the evidence needed to establish completion.",
+                "description": "The output required and the evidence that proves it.",
             },
             "refs": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Relevant file, wiki or conversation references.",
+                "description": "File, wiki or conversation references.",
             },
         },
         "required": ["task"],

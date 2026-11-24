@@ -152,20 +152,14 @@ class CreateArtifactTool:
     name: str = "create_artifact"
     risk_tier: str = "monitor"
     description: str = (
-        "Build an ARTIFACT: one self-contained HTML page the user can look at "
-        "and keep — a dashboard, report, infographic, diagram, comparison, "
-        "timeline, chart, landing page or small interactive tool. A strong "
-        "background agent writes the page; it appears in the Nodes "
-        "section when done (about a minute). Use this ONLY when the user "
-        "literally says the word artifact ('mach mir ein Artefakt draus', "
-        "'build me an artifact', 'hazme un artefacto') or pinned this "
-        "capability via the Add menu. Never call it for 'visualisier', "
-        "'Dashboard', 'Diagramm', 'Seite' or 'Bericht' alone, and never to "
-        "decorate an ordinary answer. To change an existing artifact, the "
-        "user names the artifact again and you pass 'revise' with its title "
-        "(or 'latest'). This does NOT open the Nodes section — that "
-        "is 'navigate'. Prefer this over spawn_worker whenever the "
-        "deliverable is a page to look at."
+        "Build an ARTIFACT: one self-contained HTML page the user can look at and keep "
+        "(dashboard, report, infographic, diagram, comparison, timeline, chart, landing page, "
+        "small tool). A background agent writes it; it appears in the Nodes section in about a "
+        "minute. Use ONLY when the user literally says 'artifact' ('build me an artifact', "
+        "'mach mir ein Artefakt daraus') or pinned this via the Add menu; never for "
+        "'dashboard', 'diagram', 'page' or 'report' alone. To change one, pass 'revise' with "
+        "its title (or 'latest'). Does not open the Nodes section (that is 'navigate'). Prefer "
+        "it over spawn_worker when the deliverable is a page."
     )
     schema: dict[str, Any] = {
         "type": "object",

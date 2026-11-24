@@ -34,14 +34,10 @@ class ManageMcpServerTool:
     name: ClassVar[str] = "manage-mcp-server"
     risk_tier: ClassVar[str] = "ask"
     description: ClassVar[str] = (
-        "Manage the MCP (Model Context Protocol) servers Dodaios connects to, by "
-        "editing mcp.json. Actions: 'add' a new server (give a name and the command "
-        "to run, or a url for http/sse), 'remove' a server, 'enable' a server (start "
-        "it), or 'disable' a server (stop using it). Use this for requests like "
-        "'add a new MCP server', 'enable the GitHub MCP', or 'update the MCP config'. "
-        "A newly added server starts DISABLED so the user can review it first. Never "
-        "put a raw API key in here — reference secrets as $SECRET_NAME placeholders; "
-        "real keys are entered in the Settings tab."
+        "Manage the MCP servers Dodaios connects to (mcp.json): add (name + command, or url "
+        "for http/sse), remove, enable, disable. A new server starts DISABLED for the user to "
+        "review. Never put a raw API key in it: use $SECRET_NAME placeholders; real keys go in "
+        "Settings."
     )
     schema: ClassVar[dict[str, Any]] = {
         "type": "object",
