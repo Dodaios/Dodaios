@@ -256,29 +256,39 @@ class OwnRecallMaker:
         self, m: _Material, budget: _Budget, want: Wants, report: dict[str, Any]
     ) -> tuple[bool, int]:
         """Batches while the gate wants tasks. Returns (material left, dry batches in a row)."""
-        more_questions = more_messages = True
+        more = {"messages": True, "questions": True}
         dry = 0
         # One batch of every round goes to questions while memories wait for one,
         # so both kinds grow from the first round on.
         if want():
-            first = self._questions(m.memories, m.texts, m.state, budget)
-            more_questions = first is not None
-            report["questions"] += first or 0
-            dry = 1 if first == 0 and budget.open and not budget.short else 0
+            dry = self._batch("questions", m, budget, report, more, dry)
         # Real messages first: they are the kind of task that tells changes apart.
-        while budget.open and (more_messages or more_questions) and dry < DRY_BATCHES and want():
-            if more_messages:
-                made = self._messages(m.vault, m.texts, m.in_mind, m.state, budget)
-                # Two calls do not fit what is left: the questions take one each.
-                more_messages = made is not None and not budget.short
-                report["messages"] += made or 0
-            else:
-                made = self._questions(m.memories, m.texts, m.state, budget)
-                more_questions = made is not None and not budget.short
-                report["questions"] += made or 0
-            if made is not None and not budget.short:
-                dry = dry + 1 if made == 0 and budget.open else 0
-        return more_messages or more_questions, dry
+        while budget.open and any(more.values()) and dry < DRY_BATCHES and want():
+            kind = "messages" if more["messages"] else "questions"
+            dry = self._batch(kind, m, budget, report, more, dry)
+        return any(more.values()), dry
+
+    def _batch(
+        self,
+        kind: str,
+        m: _Material,
+        budget: _Budget,
+        report: dict[str, Any],
+        more: dict[str, bool],
+        dry: int,
+    ) -> int:
+        """One batch of ``kind``. Returns the batches in a row that added no task after it."""
+        if kind == "messages":
+            made = self._messages(m.vault, m.texts, m.in_mind, m.state, budget)
+        else:
+            made = self._questions(m.memories, m.texts, m.state, budget)
+        # ``None``: nothing of this kind is left. Short: two calls do not fit what is
+        # left, so the messages give way to the questions, which take one each.
+        more[kind] = made is not None and not budget.short
+        report[kind] += made or 0
+        if made is None or budget.short:
+            return dry
+        return dry + 1 if made == 0 and budget.open else 0
 
 
 class _Material(NamedTuple):
