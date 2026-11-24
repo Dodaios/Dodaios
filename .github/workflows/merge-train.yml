@@ -41,7 +41,11 @@
 #              PR code on that machine; the CLIs are pinned to exact versions.
 #   apply      the write token, runs no PR code: pushes the integrate job's
 #              git bundles (checked to build on the planned head and main),
-#              labels, comments, approves parked CI runs, enqueues.
+#              labels, comments, approves parked CI runs, enqueues. It acts
+#              on the plan job's plan alone; the integrate job's files are
+#              unpacked in a folder of their own and read as data.
+# The rerere cache every later train restores is saved in `integrate` before
+# its last step, the only one that runs PR code.
 # Only people with push access can put a branch on the train (forks are
 # excluded), so a pushed update is no more trusted than their own push: CI
 # and the merge queue test it before anything lands.
@@ -147,8 +151,11 @@ jobs:
         run: |
           python -m pip install -e . --no-deps
           python -m pip install typer platformdirs click httpx rich pyyaml pydantic loguru python-dotenv packaging uv==0.11.19
+      # Restore only. The cache is saved further down, BEFORE the step that
+      # runs pull-request code: every later train restores it, so it may hold
+      # only what main's own script recorded.
       - name: Restore recorded conflict resolutions (git rerere)
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .git/rr-cache
           key: rerere-${{ github.run_id }}
@@ -183,6 +190,14 @@ jobs:
             exit 0
           fi
           python scripts/ci/agent_integrate.py resolve --dir "$RUNNER_TEMP/train" --resolver-cmd "$cmd"
+      # Nothing from a pull request has run on this machine yet. A missing
+      # folder (no conflict recorded so far) only warns.
+      - name: Save the conflict resolutions (before any PR code runs)
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/rr-cache
+          key: rerere-${{ github.run_id }}
       - name: Regenerate and bundle (runs PR code; no secrets, read-only token)
         run: python scripts/ci/agent_integrate.py finish --dir "$RUNNER_TEMP/train"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -236,19 +251,22 @@ jobs:
         with:
           name: merge-train-plan
           path: ${{ runner.temp }}/train
+      # A folder of its own: these files come from the job that ran
+      # pull-request code. Unpacked beside the plan, a file of theirs named
+      # plan.json would replace the plan this job acts on with its write token.
       - name: Download prepared updates
         if: needs.integrate.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: merge-train-updates
-          path: ${{ runner.temp }}/train
+          path: ${{ runner.temp }}/train-updates
       - name: Run the train
         env:
           GH_TOKEN: ${{ steps.bot.outputs.token || github.token }}
           TOKEN_IS_BOT: ${{ steps.bot.outputs.token == '' }}
         run: |
           gh auth setup-git
-          args=(--dir "$RUNNER_TEMP/train")
+          args=(--dir "$RUNNER_TEMP/train" --updates-dir "$RUNNER_TEMP/train-updates")
           [ "$DRY_RUN" = "true" ] && args+=(--dry-run)
           [ "$TOKEN_IS_BOT" = "true" ] && args+=(--token-is-bot)
           python scripts/ci/agent_integrate.py apply "${args[@]}"

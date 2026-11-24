@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.core import paths
+from dodaios.core import paths, wake_constants
 from dodaios.setup import model_report, prefetch
-from dodaios.speech import wake_constants, wake_model_fetch
+from dodaios.speech import wake_model_fetch
 from dodaios.speech.wake_phrase import resolve_wake_plan
 
 

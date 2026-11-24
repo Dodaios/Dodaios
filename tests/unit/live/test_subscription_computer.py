@@ -9,9 +9,9 @@ import httpx
 import pytest
 
 from dodaios.core.http_pool import HttpClientPool
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
 from dodaios.cu.direct import TOOL_DESCRIPTION, tool_schema
-from dodaios.live.config import LiveConfig
 from dodaios.live.state import LiveLedger
 from dodaios.live.subscription_auth import SubscriptionCredentials
 from dodaios.live.subscription_reasoning import SubscriptionReasoning
