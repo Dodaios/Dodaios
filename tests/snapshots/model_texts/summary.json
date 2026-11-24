@@ -1,7 +1,7 @@
 {
   "agent_brief_rule": {
-    "approx_tokens": 428,
-    "chars": 1713
+    "approx_tokens": 392,
+    "chars": 1567
   },
   "agent_brief_skill": {
     "approx_tokens": 3919,
@@ -40,12 +40,12 @@
     "chars": 11978
   },
   "lead_tool_descriptions": {
-    "approx_tokens": 19042,
-    "chars": 76170
+    "approx_tokens": 12846,
+    "chars": 51382
   },
   "lead_tool_schemas": {
-    "approx_tokens": 19690,
-    "chars": 78762
+    "approx_tokens": 18810,
+    "chars": 75238
   },
   "line_brief": {
     "approx_tokens": 372,
