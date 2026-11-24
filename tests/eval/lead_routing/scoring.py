@@ -2,13 +2,27 @@
 from __future__ import annotations
 
 import json
-import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dodaios.rsi.bench.first_move import Move, args_mismatches, matches, verdict
+
 from .cases import NO_TOOL, Case
 from .catalog import LeadCatalog
+
+__all__ = [
+    "CaseResult",
+    "Recording",
+    "Report",
+    "args_mismatches",
+    "format_table",
+    "load_recordings",
+    "matches",
+    "missing_requirements",
+    "score_case",
+    "score_cases",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,44 +66,6 @@ def load_recordings(path: Path) -> tuple[str, dict[str, Recording]]:
     return seat, {str(cid): Recording.from_json(raw) for cid, raw in responses.items()}
 
 
-def _norm(value: Any) -> str:
-    text = unicodedata.normalize("NFKC", str(value)).casefold()
-    return " ".join(text.split())
-
-
-def _matches(expected: Any, actual: Any) -> bool:
-    """One expected value against one actual value.
-
-    A list expects any of its entries. A string matches as a normalised substring
-    (so ``T2`` matches ``terminal T2``). Other scalars match by equality.
-    """
-    if isinstance(expected, list):
-        return any(_matches(item, actual) for item in expected)
-    if isinstance(expected, (bool, int, float)):
-        return bool(actual == expected)
-    return actual is not None and _norm(expected) in _norm(actual)
-
-
-def _flatten(value: Any) -> list[str]:
-    if isinstance(value, dict):
-        return [text for item in value.values() for text in _flatten(item)]
-    if isinstance(value, (list, tuple)):
-        return [text for item in value for text in _flatten(item)]
-    return [] if value is None else [str(value)]
-
-
-def args_mismatches(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
-    """Why the arguments do not satisfy the expectation. The key ``*`` means "any argument"."""
-    problems: list[str] = []
-    for key, want in expected.items():
-        if key == "*":
-            if not any(_matches(want, value) for value in _flatten(actual)):
-                problems.append(f"no argument mentions {want!r}")
-        elif key not in actual or not _matches(want, actual[key]):
-            problems.append(f"{key}: want {want!r}, got {actual.get(key)!r}")
-    return problems
-
-
 @dataclass(frozen=True, slots=True)
 class CaseResult:
     case: Case
@@ -107,24 +83,16 @@ def missing_requirements(case: Case, catalog: LeadCatalog) -> list[str]:
 
 
 def score_case(case: Case, recording: Recording | None, catalog: LeadCatalog) -> CaseResult:
+    """The routing eval's verdict on one case: the benchmark's rules (``first_move.verdict``)."""
     missing = missing_requirements(case, catalog)
     if missing:
         return CaseResult(case, "skipped", f"needs {', '.join(missing)}")
-    if recording is None:
-        return CaseResult(case, "wrong_tool", "no recorded response")
-    if recording.error:
-        return CaseResult(case, "error", recording.error)
-    expect = case.expect
-    if not expect.accepts(recording.tool):
-        want = "no tool" if not expect.expects_tool else " or ".join(expect.tools)
-        got = recording.tool or "no tool"
-        return CaseResult(case, "wrong_tool", f"want {want}, got {got}")
-    if not expect.expects_tool:
-        return CaseResult(case, "pass", tool_ok=True)
-    problems = args_mismatches(expect.args, recording.input)
-    if problems:
-        return CaseResult(case, "wrong_args", "; ".join(problems), tool_ok=True)
-    return CaseResult(case, "pass", tool_ok=True)
+    move = None
+    if recording is not None:
+        move = Move(tool=recording.tool, args=recording.input, error=recording.error)
+    status, detail = verdict(case.expect, move)
+    tool_ok = status in ("pass", "wrong_args")
+    return CaseResult(case, status, detail, tool_ok=tool_ok)
 
 
 @dataclass(slots=True)

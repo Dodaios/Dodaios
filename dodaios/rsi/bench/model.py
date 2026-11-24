@@ -38,8 +38,10 @@ from typing import Any, Final
 
 __all__ = [
     "LEARNER_SPLITS",
+    "NEEDS_MODEL",
     "SPLIT_SHARES",
     "Domain",
+    "Measured",
     "Result",
     "Source",
     "Split",
@@ -59,6 +61,13 @@ class Domain(StrEnum):
     ANSWER = "answer"  # an open answer, judged by a jury
     BRIEF = "brief"  # the brief a coding agent would get
     CODING = "coding"  # a coding run, checked by the tests that were merged
+
+
+#: Domains whose check asks a model. Their results are kept and reused: an arm
+#: that did not change is never paid for twice (``run.measure``).
+NEEDS_MODEL: Final[frozenset[Domain]] = frozenset(
+    {Domain.FIRST_MOVE, Domain.ACTION, Domain.ANSWER, Domain.BRIEF, Domain.CODING}
+)
 
 
 class Split(StrEnum):
@@ -147,6 +156,23 @@ class Task:
         """A hash of the content. A result belongs to the content it was measured on."""
         text = _canonical({"d": self.domain.value, "p": dict(self.payload), "c": dict(self.check)})
         return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+@dataclass(frozen=True, slots=True)
+class Measured:
+    """What one run of a task gave, before it becomes a :class:`Result`."""
+
+    score: float
+    tokens: int
+    detail: str = ""
+    #: What answered, where a model was asked (``<cli>:<model>``). Both results of a
+    #: pair must name the same one, else the pair does not count (``run.pair``).
+    seat: str = ""
+    #: Why the run does not count ("" when it does): the budget was spent, the model
+    #: changed under it, the run failed.
+    void: str = ""
+    #: Model calls the run made.
+    calls: int = 0
 
 
 @dataclass(frozen=True, slots=True)

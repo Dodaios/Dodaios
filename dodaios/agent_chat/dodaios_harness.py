@@ -240,22 +240,40 @@ SECRET_FIELD_LINE: Final[str] = (
 )
 
 
-def message_lines(user_text: str, *, continuation: bool, brief: str) -> str:
+def message_lines(
+    user_text: str, *, continuation: bool, brief: str, first_line: bool = True
+) -> str:
     """The lines the assistant's own chat puts beside the person's message, in order.
 
     The secure-field line only beside a message that names a secret; how much
     the task needs before the lines that shape the reply; the line that takes
-    the task on unless the turn carries a running task on; then the reply's
-    shape, ``brief`` (``brief_line()``, read by the caller) and where a
-    question goes. Pure: the same arguments give the same bytes.
+    the task on unless the turn carries a running task on (or ``first_line`` is
+    off: a measured self-change may switch it off, ``dodaios/rsi/lines.py``);
+    then the reply's shape, ``brief`` (``brief_line()``, read by the caller) and
+    where a question goes. Pure: the same arguments give the same bytes.
     """
     from dodaios.agent_chat.secret_requests import SECRET_NOUN
 
     lines = SECRET_FIELD_LINE if SECRET_NOUN.search(user_text) else ""
     lines += EFFORT_LINE
-    if not continuation:
+    if not continuation and first_line:
         lines += FIRST_LINE
     return lines + REPLY_SHAPE_LINE + brief + QUESTION_CARD_LINE
+
+
+def _switch(name: str) -> bool:
+    """A standing line's switch: on unless a measured self-change turned it off.
+
+    Read on every message, so inside a benchmark run the run's overlay decides.
+    A fault here never fails a turn: the line then stays, as shipped.
+    """
+    try:
+        from dodaios.rsi import params
+
+        return bool(params.get(name))
+    except Exception:  # noqa: BLE001 - an unreadable switch keeps the shipped line
+        log.warning("agent chat: the switch %s is unreadable; the line stays", name, exc_info=True)
+        return True
 
 
 def lead_message(
@@ -277,7 +295,12 @@ def lead_message(
 
     text = user_text
     if not user_text.lstrip().startswith("/"):
-        text += message_lines(user_text, continuation=continuation, brief=(brief or brief_line)())
+        text += message_lines(
+            user_text,
+            continuation=continuation,
+            brief=(brief or brief_line)(),
+            first_line=_switch("lead.first_line"),
+        )
     if output_language and not text.startswith("/goal"):
         text += reply_language_line("jarvis", output_language)
     return text
