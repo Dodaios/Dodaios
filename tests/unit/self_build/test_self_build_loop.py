@@ -130,13 +130,7 @@ async def world(tmp_path: Path, fake_brain: FakeBrain):
     from dodaios.society.roster import Roster
     from dodaios.society.store import SocietyStore
 
-    settings: dict[str, Any] = {
-        "silent_days": 0,
-        "memory": "trial",
-        "skill": "trial",
-        "routine": "trial",
-        "agent": "suggest",
-    }
+    settings: dict[str, Any] = {"silent_days": 0}
     config = SimpleNamespace(self_build=SelfBuildConfig(**settings))
     bus = EventBus()
     service = SelfBuild(tmp_path, lambda: config, publish=bus.publish)
@@ -401,8 +395,8 @@ async def test_unused_trial_is_archived_and_its_routine_paused(world: Any, monke
             break
         await asyncio.sleep(0.02)
     assert record.artefact["task_id"] in world.scheduler.paused
-    # Keeping it again wakes it up; undo removes it.
-    await world.service.keep(record.id)
+    # Kept again wakes it up; undo removes it.
+    world.service.ledger.set_state(record.id, State.KEPT, "kept again")
     for _ in range(50):
         if record.artefact["task_id"] not in world.scheduler.paused:
             break
@@ -560,10 +554,10 @@ async def test_repeated_correction_becomes_a_memory_entry(world: Any) -> None:
     assert "The user's office is the Berlin office, not Munich." not in texts
 
 
-# ------------------------------------------------------------------ agent: last rung, a card
+# ------------------------------------------------------------------ agent: last rung
 
 
-async def test_a_domain_of_needs_proposes_an_agent_and_builds_it_on_accept(world: Any) -> None:
+async def test_a_domain_of_needs_builds_an_agent_on_trial_without_asking(world: Any) -> None:
     world.brain.answers = [
         {
             "build": "agent",
@@ -594,11 +588,9 @@ async def test_a_domain_of_needs_proposes_an_agent_and_builds_it_on_accept(world
     await world.loop.run_queue()
     agents = [r for r in _builds(world) if r.kind == Kind.AGENT]
     assert len(agents) == 1
-    card = agents[0]
-    assert card.state == State.PROPOSED and card.signature == "domain:mcp:github"
-    assert not [a for a in await world.roster.list() if a.name == "Octo"]
-    accepted = await world.service.accept(card.id)
-    record = await _settle(world, accepted.id)
+    assert agents[0].signature == "domain:mcp:github"
+    assert all(r.state != State.PROPOSED for r in _builds(world))
+    record = await _settle(world, agents[0].id)
     assert record.state == State.TRIAL, record.note
     octo = await world.roster.get(record.artefact["agent_id"])
     assert record.artefact["id"] == octo.agent_id
@@ -621,35 +613,38 @@ async def test_a_domain_of_needs_proposes_an_agent_and_builds_it_on_accept(world
 # ------------------------------------------------------------------ control: nothing is built
 
 
-@pytest.mark.parametrize("mode", ["paused", "off", "silent", "suggest"])
-async def test_paused_off_silent_and_suggest_build_nothing(world: Any, mode: str) -> None:
+@pytest.mark.parametrize("mode", ["paused", "silent"])
+async def test_paused_and_silent_build_nothing_and_ask_nothing(world: Any, mode: str) -> None:
     world.brain.answers = [SKILL_ANSWER]
     if mode == "paused":
         world.service.set_paused(True)
-    elif mode == "off":
-        world.configure(enabled=False)
-    elif mode == "silent":
+    else:
         world.configure(silent_days=7)
-    else:
-        world.configure(skill="suggest")
     await _ask_for_status(world)
-    await world.loop.run_queue()
-    records = _builds(world)
-    assert world.registry.list() == []
-    if mode in ("paused", "off"):
-        assert records == [] and world.brain.calls == []
-        assert world.loop.store.recent_turns(since_ms=0) == []  # not even observed
-    else:
-        assert [r.state for r in records] == [State.PROPOSED]
+    assert await world.loop.run_queue() == []
+    assert _builds(world) == []  # no card waits for an OK either
+    assert world.registry.list() == [] and world.brain.calls == []
+    observed = world.loop.store.recent_turns(since_ms=0)
+    assert observed == [] if mode == "paused" else observed  # paused: not even observed
 
 
-async def test_a_rejected_need_is_not_offered_again(world: Any) -> None:
-    world.configure(skill="suggest")
+async def test_the_old_switch_and_stages_change_nothing(world: Any) -> None:
+    world.configure(enabled=False, skill="suggest", memory="off", routine="off", agent="off")
     world.brain.answers = [SKILL_ANSWER]
     await _ask_for_status(world)
-    (card,) = await world.loop.run_queue()
-    await world.service.undo_build(card.id)  # the person rejects the card
-    assert world.service.ledger.get(card.id).state == State.REJECTED
+    (opened,) = await world.loop.run_queue()
+    assert opened.state == State.BUILDING
+    record = await _settle(world, opened.id)
+    assert record.state == State.TRIAL, record.note
+
+
+async def test_an_undone_need_is_not_built_again(world: Any) -> None:
+    world.brain.answers = [SKILL_ANSWER]
+    await _ask_for_status(world)
+    (opened,) = await world.loop.run_queue()
+    card = await _settle(world, opened.id)
+    await world.service.undo_build(card.id)  # the person takes it back
+    assert world.service.ledger.get(card.id).state == State.UNDONE
     calls = world.brain.decide_calls
     for days in (0, 0, 0):
         await _say(
@@ -693,7 +688,7 @@ async def test_kept_build_unused_for_a_month_is_archived(world: Any) -> None:
     await _ask_for_status(world)
     (opened,) = await world.loop.run_queue()
     record = await _settle(world, opened.id)
-    await world.service.keep(record.id)
+    world.service.ledger.set_state(record.id, State.KEPT, "kept: used and accepted")
     await world.loop.maintain(now=record.trial_started_ms + 31 * DAY)
     archived = world.service.ledger.get(record.id)
     assert archived.state == State.ARCHIVED and "unused" in archived.note
@@ -738,20 +733,17 @@ def test_seats_never_include_a_per_token_key(monkeypatch) -> None:
     assert names == ["claude-code", "ollama"]
 
 
-async def test_without_a_seat_the_loop_proposes_and_bills_nothing(world: Any, monkeypatch) -> None:
+async def test_without_a_seat_nothing_opens_and_nothing_is_billed(world: Any, monkeypatch) -> None:
     brain.set_override(None)
     monkeypatch.setattr(brain, "seats", lambda _config: [])
     monkeypatch.setattr(brain, "_instantiate", lambda _seat: pytest.fail("no brain may be built"))
     await _ask_for_status(world)
-    (card,) = await world.loop.run_queue()
-    assert card.state == State.PROPOSED
-    assert "Written from the counts alone" in card.case
-    assert card.title  # from the phrase catalog, in the person's language
-    accepted = await world.service.accept(card.id)
-    await asyncio.sleep(0.1)
-    # Accepted, but nothing can write the spec: it waits, nothing is billed.
-    assert world.service.ledger.get(accepted.id).state == State.BUILDING
-    assert world.registry.list() == []
+    # Nothing can write the spec: no card is put to the person, the need waits.
+    assert await world.loop.run_queue() == []
+    assert _builds(world) == [] and world.registry.list() == []
+    turns = world.loop.store.recent_turns(since_ms=0)
+    signature = world.loop.store.cluster(turns[0].cluster).signature
+    assert world.loop.store.decision(signature) is None  # not decided: it comes back
 
 
 def test_judge_refuses_outbound_routines() -> None:
@@ -868,7 +860,6 @@ def test_no_habit_when_no_zone_can_be_named(tmp_path: Path, monkeypatch) -> None
 
 
 async def test_self_built_agents_ask_before_they_act(world: Any) -> None:
-    world.configure(agent="trial")
     world.brain.answers = [
         {
             "build": "agent",

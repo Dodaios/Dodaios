@@ -1,10 +1,10 @@
 """The one model call before a coding run: a short plan and a size estimate.
 
-It runs only when a build was admitted to building (or accepted), never for a
-proposal, and only through the loop's shared seat list
-(:func:`dodaios.self_build.brain.ask`: signed-in subscriptions, then keyless
-local models, never a per-token key). Without a seat there is no call at all:
-the coding agent plans for itself and the estimate stays unknown.
+It runs only when a build was admitted to building, and only through the
+loop's shared seat list (:func:`dodaios.self_build.brain.ask`: signed-in
+subscriptions, then keyless local models, never a per-token key). Without a
+seat there is no call at all: the coding agent plans for itself and the
+estimate stays unknown.
 Every call runs inside :func:`dodaios.self_build.cost.attributed`, so the
 ledger shows what it cost.
 

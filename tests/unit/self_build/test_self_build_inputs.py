@@ -71,16 +71,13 @@ def _write_history(folder: Path, history_id: str, rows: list[dict[str, Any]]) ->
 def panes(world: Any, tmp_path: Path) -> Path:
     folder = tmp_path / "prompt_history"
     world.loop.builders.env.pane_history = lambda: folder
-    world.configure(skill="suggest")
     return folder
 
 
 # ------------------------------------------------------------------ pane prompts
 
 
-async def test_a_pane_prompt_typed_on_three_days_becomes_one_proposal(
-    world: Any, panes: Path
-) -> None:
+async def test_a_pane_prompt_typed_on_three_days_becomes_one_build(world: Any, panes: Path) -> None:
     world.brain.answers = [PANE_ANSWER]
     path = _write_history(
         panes,
@@ -95,11 +92,12 @@ async def test_a_pane_prompt_typed_on_three_days_becomes_one_proposal(
     opened = await world.loop.run_queue()
     assert len(opened) == 1
     (card,) = opened
-    assert card.kind == Kind.SKILL and card.state == State.PROPOSED
+    assert card.kind == Kind.SKILL and card.state == State.BUILDING
     assert len(card.evidence) == 3 and " pane " in card.evidence[0]
     (decide_prompt,) = [p for s, p in world.brain.calls if "allowed" in p]
     assert json.loads(decide_prompt)["turns"][0]["channel"] == "pane"
     assert len(world.service.ledger.list(limit=100)) == 1
+    await _settle(world, card.id)
 
 
 async def test_prompts_the_brain_or_an_agent_sent_are_not_evidence(world: Any, panes: Path) -> None:
@@ -259,12 +257,12 @@ async def test_a_need_an_agent_has_a_skill_for_is_not_built(world: Any, tmp_path
 
 
 async def test_a_need_that_spans_agents_and_the_assistant_is_the_loops(world: Any) -> None:
-    world.configure(skill="suggest")
     world.brain.answers = [SKILL_ANSWER]
     await _status_in(world, ["octo", "", "nova"])
     (card,) = await world.loop.run_queue()
-    assert card.kind == Kind.SKILL and card.state == State.PROPOSED
+    assert card.kind == Kind.SKILL and card.state == State.BUILDING
     assert world.brain.decide_calls == 1
+    await _settle(world, card.id)
 
 
 def test_an_agent_skill_without_routable_triggers_still_serves_by_its_words(

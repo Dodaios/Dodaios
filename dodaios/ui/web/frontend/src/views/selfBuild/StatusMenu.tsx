@@ -12,7 +12,6 @@ import type { HeroTone } from "./Hero";
 
 export function StatusMenu({
   tone,
-  enabled,
   paused,
   pauseBusy,
   onPause,
@@ -20,7 +19,6 @@ export function StatusMenu({
   onStopAll,
 }: {
   tone: HeroTone | null;
-  enabled: boolean;
   paused: boolean;
   pauseBusy: boolean;
   onPause: (paused: boolean) => void;
@@ -79,16 +77,14 @@ export function StatusMenu({
           role="menu"
           className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-float"
         >
-          {enabled && (
-            <MenuItem
-              testId="self-build-pause"
-              icon={paused ? <Play className="h-4 w-4" aria-hidden /> : <Pause className="h-4 w-4" aria-hidden />}
-              label={paused ? t("self_build.resume") : t("self_build.pause")}
-              hint={paused ? undefined : t("self_build.page.pause_hint")}
-              disabled={pauseBusy}
-              onClick={run(() => onPause(!paused))}
-            />
-          )}
+          <MenuItem
+            testId="self-build-pause"
+            icon={paused ? <Play className="h-4 w-4" aria-hidden /> : <Pause className="h-4 w-4" aria-hidden />}
+            label={paused ? t("self_build.resume") : t("self_build.pause")}
+            hint={paused ? undefined : t("self_build.page.pause_hint")}
+            disabled={pauseBusy}
+            onClick={run(() => onPause(!paused))}
+          />
           <MenuItem
             testId="self-build-settings"
             icon={<Settings2 className="h-4 w-4" aria-hidden />}
@@ -119,7 +115,6 @@ const DOT: Record<HeroTone, string> = {
   silent: "bg-accent",
   paused: "bg-warning",
   stopped: "bg-destructive",
-  off: "bg-border-strong",
 };
 
 function MenuItem({

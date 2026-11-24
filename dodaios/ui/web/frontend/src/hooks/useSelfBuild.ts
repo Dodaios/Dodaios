@@ -4,8 +4,9 @@
  * Nothing here polls fast: the backend publishes `SelfBuildChanged` on every
  * committed change and the WebSocket invalidates `selfBuildKeys.all`
  * (hooks/useWebSocket.ts), so the view repaints when a build moves. The slow
- * interval only covers a dropped socket. Every action writes its answer into
- * the cached list, so a click paints before the refetch lands.
+ * interval only covers a dropped socket. Undo writes its answer into the
+ * cached list, so a click paints before the refetch lands. There is nothing to
+ * accept or keep: the loop decides that by measure (docs/self-build.md).
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -38,13 +39,6 @@ export function useSelfBuildList() {
     refetchInterval: SAFETY_POLL_MS,
     retry: false,
   });
-}
-
-/** How many proposals wait for the person — the quiet number on the nav row. */
-export function useSelfBuildWaiting(): number | undefined {
-  const { data } = useSelfBuildList();
-  if (!Array.isArray(data?.builds)) return undefined;
-  return data.builds.filter((b) => b.state === "proposed").length;
 }
 
 export function useSelfBuildDetail(id: string | null) {
@@ -86,17 +80,11 @@ function patchList(list: BuildList | undefined, build: Build): BuildList | undef
   return { ...list, builds };
 }
 
-export type BuildAction = "accept" | "keep" | "undo";
-
-export function useBuildAction() {
+/** The one thing the person does to a build: take it back. */
+export function useUndoBuild() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: BuildAction }) =>
-      action === "accept"
-        ? selfBuildApi.accept(id)
-        : action === "keep"
-          ? selfBuildApi.keep(id)
-          : selfBuildApi.undo(id),
+    mutationFn: (id: string) => selfBuildApi.undo(id),
     onSuccess: ({ build }) => {
       client.setQueryData<BuildList>(selfBuildKeys.list(), (old) => patchList(old, build));
       void client.invalidateQueries({ queryKey: selfBuildKeys.all });
@@ -131,7 +119,7 @@ export function useSaveSelfBuildSettings() {
     mutationFn: (patch: Partial<SelfBuildSettings>) => selfBuildApi.saveSettings(patch),
     onSuccess: (payload) => {
       client.setQueryData<SelfBuildSettingsPayload>(selfBuildKeys.settings(), payload);
-      // The status block (autonomy per kind) is derived from the same section.
+      // The quiet first days in the status follow `silent_days`.
       void client.invalidateQueries({ queryKey: selfBuildKeys.list() });
     },
   });

@@ -1,6 +1,6 @@
 # ADR-0043 — Skills the self-building loop proved go live on trial
 
-**Status:** Accepted · **Date:** 2026-10-19 · **Amended:** 2026-10-20 (execution proof)
+**Status:** Accepted · **Date:** 2026-10-19 · **Amended:** 2026-10-20 (execution proof), 2026-11-24 (no approval step)
 
 ## Context
 
@@ -107,6 +107,20 @@ not a correction, not corrected by their next turn).
 
 The decision above is unchanged: the judge still decides from recorded facts,
 not from a model's verdict, and the builder cannot change what it checks.
+
+## Amendment 2026-11-24: no approval step
+
+The self-building loop no longer asks the person for anything. The stages in
+`[self_build]` (`off`, `suggest`, `trial`, `full`) and the master switch are
+ignored; how far a kind goes is fixed in `dodaios.self_build.policy.autonomy`,
+and skills are at `full`. So the third condition of decision 1 no longer
+applies: a self-built skill that passed the judge goes live on trial without a
+stage or an accepted card, and decision 3 holds for every kind: a used trial
+is kept by measure, an unused one archived, never on a click. Cards that
+waited for an OK were archived when the app started. The person keeps the
+pause and one-click undo (`docs/self-build.md`). The first two conditions of
+decision 1, the judge out of the builder's reach, and every other path to a
+skill (decision 2) are unchanged.
 
 ## References
 
