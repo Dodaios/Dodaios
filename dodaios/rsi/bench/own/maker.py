@@ -1,6 +1,6 @@
-"""Makes the installation's own recall tasks, a few model calls per night.
+"""Makes the installation's own recall tasks, as many model calls as the gate needs.
 
-Each night, on the night's copy of the memory:
+Each learning round, on the round's copy of the memory:
 
 1. **forgetting first.** Every own task that names a memory which is no longer
    current (forgotten, replaced, ended) is retired and its text erased.
@@ -10,12 +10,17 @@ Each night, on the night's copy of the memory:
 
 ``ask`` is the only way out of the machine: ``(system, prompt) -> text`` on
 the assistant's own provider, or ``None`` when no subscription or local model
-can answer. Then nothing more is made that night, and the next one tries
+can answer. Then nothing more is made that round, and the next one tries
 again.
 
-What a night may ask is counted: at most ``max_calls`` calls, however many
-memories and messages wait. So the cost of a night is bounded by a number in
-the kernel, not by how much there is to do.
+How much is made is the work's to decide: batches go on while ``wants``
+names a reason the gate still lacks tasks (``night.tasks_wanted``) and there
+is material left, and stop when the gate has enough, when the material is
+used up, or when :data:`DRY_BATCHES` batches in a row added no task. What a
+round may ask is the kernel's: every batch asks the round's
+:class:`~dodaios.rsi.budget.Budget` first (the plan's usage windows, the
+person being away, the round's ceiling, or the fixed caps when the windows
+cannot be read).
 """
 
 from __future__ import annotations
@@ -30,16 +35,23 @@ from dodaios.memory.vault.models import Memory
 from dodaios.memory.vault.store import MemoryVault
 from dodaios.rsi.bench.model import Domain, Source, Task
 from dodaios.rsi.bench.store import BenchStore
+from dodaios.rsi.budget import Budget
 
 from . import chat, messages, questions
 from .world import LIVE_WORLD, LiveWorld
 
-__all__ = ["Ask", "OwnRecallMaker"]
+__all__ = ["DRY_BATCHES", "Ask", "OwnRecallMaker", "Wants"]
 
 log = logging.getLogger(__name__)
 
 #: ``(system, prompt) -> the model's text``, or ``None`` when nobody may be asked.
 Ask = Callable[[str, str], str | None]
+#: Why the gate still lacks tasks (``""``: it has enough).
+Wants = Callable[[], str]
+
+#: Batches in a row that added no task, after which a round stops building:
+#: the model's answers no longer turn the material into tasks.
+DRY_BATCHES: Final[int] = 3
 
 _STATE_KEY: Final = "own:recall"
 #: Real messages used as examples of how the person writes.
@@ -53,17 +65,26 @@ _KINDS: Final[frozenset[str]] = frozenset(
 
 
 class _Budget:
-    """Counts the night's model calls and notices when nobody answers."""
+    """Asks the round's allowance before a batch, counts the calls, notices silence."""
 
-    def __init__(self, ask: Ask, limit: int) -> None:
+    def __init__(self, ask: Ask, allowance: Budget) -> None:
         self._ask = ask
-        self.limit = limit
+        self.allowance = allowance
         self.calls = 0
         #: True once a call came back empty-handed: no seat, or the model failed.
         self.deferred = False
+        #: The last batch did not fit what is left (a smaller one may).
+        self.short = False
 
-    def can(self, calls: int = 1) -> bool:
-        return not self.deferred and self.calls + calls <= self.limit
+    @property
+    def open(self) -> bool:
+        return not self.deferred and not self.allowance.stopped
+
+    def take(self, calls: int) -> bool:
+        """The allowance grants the batch's ``calls`` (they are counted against it)."""
+        granted = not self.deferred and self.allowance.take(calls) == ""
+        self.short = not granted and self.open
+        return granted
 
     def ask(self, system: str, prompt: str) -> str | None:
         self.calls += 1
@@ -130,10 +151,12 @@ class OwnRecallMaker:
         if not waiting:
             return None
         batch = waiting[: questions.BATCH]
+        if not budget.take(1):
+            return 0  # not granted: these memories wait for the next round
         style = [t for t in texts if len(t.split()) <= 25][-_STYLE_EXAMPLES:]
         answer = budget.ask(questions.SYSTEM, questions.build_prompt(batch, style))
         if answer is None:
-            return 0  # not asked: these memories wait for the next night
+            return 0  # not asked: these memories wait for the next round
         made = questions.tasks_from(questions.parse(answer), batch)
         self._bench.put_tasks(made)
         state["asked_memories"] += [m.id for m in batch]
@@ -165,14 +188,14 @@ class OwnRecallMaker:
         open_ones = [c for c in batch if c.memories]
         labels: dict[str, frozenset[str]] = {c.key: frozenset() for c in batch if not c.memories}
         if open_ones:
-            if not budget.can(2):
+            if not budget.take(2):
                 return 0
             first = budget.ask(messages.SYSTEM, messages.build_prompt(open_ones))
             second = None
             if first is not None:
                 second = budget.ask(messages.SYSTEM, messages.build_prompt(open_ones, flip=True))
             if first is None or second is None:
-                return 0  # not labelled: these messages wait for the next night
+                return 0  # not labelled: these messages wait for the next round
             labels.update(
                 messages.agreed(
                     messages.parse(first, open_ones),
@@ -186,8 +209,16 @@ class OwnRecallMaker:
 
     # ------------------------------------------------------------------ run
 
-    def run(self, max_calls: int) -> dict[str, Any]:
-        """One night's making. Never raises for a model that does not answer."""
+    def run(self, allowance: Budget | int, wants: Wants | None = None) -> dict[str, Any]:
+        """One round's making. Never raises for a model that does not answer.
+
+        ``allowance`` is the round's budget (a plain number: that many calls,
+        no other rule). ``wants`` says why the gate still lacks tasks; without
+        it the round builds until the allowance or the material ends.
+
+        The report says what was made, the calls, and ``until``: why building
+        stopped (``enough``, ``material``, ``budget``, ``no_model``, ``dry``).
+        """
         report: dict[str, Any] = {
             "forgotten": 0,
             "questions": 0,
@@ -203,26 +234,52 @@ class OwnRecallMaker:
         texts = chat.person_messages(self._chat_db)
         in_mind = vault_runtime.in_mind_ids(vault)
         state = self._state()
-        budget = _Budget(self._ask, max_calls)
+        allowance = allowance if isinstance(allowance, Budget) else Budget(allowance)
+        want = wants or (lambda: "build until the allowance ends")
+        budget = _Budget(self._ask, allowance)
         more_questions = more_messages = True
-        # One call of every night goes to questions while memories wait for one, so both
-        # kinds grow from the first night on.
-        if budget.can(1):
-            first = self._questions(memories, texts, state, budget)
-            more_questions = first is not None
-            report["questions"] += first or 0
+        dry = 0
         try:
+            # One batch of every round goes to questions while memories wait for one,
+            # so both kinds grow from the first round on.
+            if want():
+                first = self._questions(memories, texts, state, budget)
+                more_questions = first is not None
+                report["questions"] += first or 0
+                dry = 1 if first == 0 and budget.open and not budget.short else 0
             # Real messages first: they are the kind of task that tells changes apart.
-            while more_messages and budget.can(2):
-                made = self._messages(vault, texts, in_mind, state, budget)
-                more_messages = made is not None
-                report["messages"] += made or 0
-            while more_questions and budget.can(1):
-                made = self._questions(memories, texts, state, budget)
-                more_questions = made is not None
-                report["questions"] += made or 0
+            while budget.open and (more_messages or more_questions) and dry < DRY_BATCHES:
+                if not want():
+                    break
+                if more_messages:
+                    made = self._messages(vault, texts, in_mind, state, budget)
+                    # Two calls do not fit what is left: the questions take one each.
+                    more_messages = made is not None and not budget.short
+                    report["messages"] += made or 0
+                else:
+                    made = self._questions(memories, texts, state, budget)
+                    more_questions = made is not None and not budget.short
+                    report["questions"] += made or 0
+                if made is not None and not budget.short:
+                    dry = dry + 1 if made == 0 and budget.open else 0
         finally:
             self._save(state)
         report["calls"] = budget.calls
         report["deferred"] = budget.deferred
+        report["until"] = _until(budget, want, more_messages or more_questions, dry)
+        report["share"] = round(allowance.share, 2)
+        report["usage_read"] = allowance.read
         return report
+
+
+def _until(budget: _Budget, want: Wants, more: bool, dry: int) -> str:
+    """Why building stopped, as a word the page translates."""
+    if budget.deferred:
+        return "no_model"
+    if budget.allowance.stopped:
+        return "budget"
+    if dry >= DRY_BATCHES:
+        return "dry"
+    if not more:
+        return "material"
+    return "enough" if not want() else "budget"
