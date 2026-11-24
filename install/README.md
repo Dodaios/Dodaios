@@ -109,9 +109,10 @@ uv lock --config-file packaging/native-crypto-uv.toml --default-index https://py
 
 | File              | Stage | Responsibility |
 |-------------------|-------|----------------|
-| `install.ps1`     | 1     | Windows bootstrap: Python+Git detect/install/re-check, clone, venv, install `rich`, exec `installer.py`. |
+| `install.ps1`     | 1     | Windows bootstrap: Python+Git detect/install/re-check, clone, venv with pip and `packaging`, exec `installer.py`. |
 | `install.sh`      | 1     | macOS/Linux bootstrap: same flow through native package managers, POSIX bash. |
 | `installer.py`    | 2     | Python orchestrator: full-profile install, model prefetch, worker CLI, desktop registration, launch (last). |
+| `../dodaios/setup/install_ui.py` | 2 | How Stage 2 draws in the terminal (standard library only). |
 | `README.md`       | docs  | This file. |
 
 ## Why two stages?
@@ -121,7 +122,7 @@ prerequisite state machine stays explicitly marked and is exercised directly
 by unit tests, while Stage 2 remains in testable Python.
 
 Everything that needs branching logic (platform detection, optional
-extras, error recovery, rich progress UI) lives in `installer.py`, where
+extras, error recovery, progress) lives in `installer.py`, where
 we get unit tests, exceptions with tracebacks, and a real argument
 parser. The trade-off: an extra `python install/installer.py` step at the
 end of stage 1.
@@ -149,7 +150,7 @@ clone manually and call `installer.py` directly:
 git clone https://github.com/Dodaios/Dodaios ~/.personal-jarvis
 cd ~/.personal-jarvis && python -m venv .venv
 . .venv/bin/activate           # Windows: .\.venv\Scripts\Activate.ps1
-pip install rich packaging
+pip install packaging
 python install/installer.py --dry-run
 ```
 
@@ -184,6 +185,30 @@ on macOS at all:
 & "$env:USERPROFILE\.personal-jarvis\.venv\Scripts\python.exe" -m dodaios --uninstall
 ```
 
+## How it looks in a terminal
+
+Both stages share one look: the hooded figure beside the pixel wordmark (the
+README banner, drawn with half blocks), a gold pill per phase, a check per
+finished step with its time on the right, a red rail under a failure with
+what to try, and a framed card at the end with the total time. The shell
+stage draws the hero and phases 1-3 (`installer-ui` block in `install.sh`
+and `install.ps1`), `dodaios/setup/install_ui.py` draws phases 4-6; the
+figure and wordmark bitmaps in the two scripts must stay identical
+(`tests/unit/install/test_install_ui_shell.py`).
+
+All three decide what the terminal can show by the same rules:
+
+| Situation | What the installer does |
+|---|---|
+| Output is not a terminal (a pipe, a file, CI) | No colour, no spinner; a waiting step prints its label once. `FORCE_COLOR=1` brings colour back for logs that render it. |
+| `NO_COLOR` is set, or `TERM=dumb` | No colour at all; phases read `[2/6] Download`. |
+| No UTF-8 locale, `TERM=linux` or `vt*`, or `DODAIOS_INSTALL_ASCII=1` | Plain ASCII glyphs and typography, no art. |
+| A classic Windows console | Only glyphs its default font (Consolas) draws; Windows Terminal gets the full set. |
+| Narrower than 80 columns | The wordmark without the figure; under 58 columns a one-line title. The final card drops its frame when it does not fit. |
+| 256 colours only | The same look on the nearest xterm colours. |
+
+Spinners only redraw while a real command runs; no step waits for effect.
+
 ## Environment overrides
 
 | Variable                  | Effect |
@@ -194,6 +219,7 @@ on macOS at all:
 | `JARVIS_INSTALL_PREREQS`  | `ask` (default), `auto` (explicit unattended consent), or `never`. |
 | `JARVIS_PYTHON`           | Use one explicit Python interpreter; the pin is authoritative. |
 | `JARVIS_INSTALL_NO_PIP`   | Skip the pip steps (re-run only prefetch / launch). |
+| `JARVIS_INSTALL_ASCII`    | Draw with plain ASCII: no Unicode glyphs and no art, for a terminal whose font lacks them. |
 
 Each variable in this table also answers to its `DODAIOS_` spelling
 (`DODAIOS_INSTALL_DIR`, `DODAIOS_INSTALL_REF`, `DODAIOS_PYTHON`, ...). When both

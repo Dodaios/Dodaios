@@ -15,7 +15,7 @@ import pytest
 
 INSTALL_SH = Path(__file__).resolve().parents[3] / "install" / "install.sh"
 BLOCK_START = "# Linux DESKTOP venvs include system site-packages"
-BLOCK_END = "ok 'virtual environment ready'"
+BLOCK_END = "ok 'Virtual environment ready'"
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32" or shutil.which("bash") is None,

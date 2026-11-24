@@ -11,7 +11,7 @@
 #   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).
 #   4. Clones (or updates) Dodaios into ~\.dodaios (an update moves an install
 #      made under the earlier name ~\.personal-jarvis there).
-#   5. Creates a Python venv, installs `rich` + `packaging`.
+#   5. Creates a Python venv with an up-to-date pip and `packaging`.
 #   6. Hands control to install/installer.py (the Stage 2 orchestrator).
 #
 # All heavy logic lives in installer.py so it can be unit-tested and
@@ -20,175 +20,459 @@
 #
 # SOURCE-ENCODING RULE: this file is served BOM-less (a BOM breaks
 # `irm | iex`), and Windows PowerShell then reads it as cp1252. So the
-# source OUTSIDE the banner here-string stays pure ASCII: the glyphs (bullet,
-# check, cross) are built from code points at runtime, never pasted as
-# literals -- a literal check/dash would cp1252-decode into a smart quote and
-# break tokenizing. Console output is forced to UTF-8 so they still render.
+# source stays pure ASCII: the glyphs (check, cross, half blocks, Braille)
+# are built from code points at runtime, never pasted as literals -- a
+# literal check/dash would cp1252-decode into a smart quote and break
+# tokenizing. Console output is forced to UTF-8 so they still render.
 
 $ErrorActionPreference = 'Stop'
 $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 
-# ----------------------------------------------------------------- terminal
-# Render UTF-8 box/block glyphs and 24-bit color. Virtual-terminal (ANSI)
-# processing is on by default on Windows 10 1511+ / Windows Terminal /
-# modern PowerShell hosts.
+# `irm | iex` runs this script inside the person's own PowerShell session,
+# where `exit` would close that session - and with it the finale card or the
+# error they need to read (a classic console window closes outright). A file
+# run (the verifying installer starts it that way) keeps its exit code as the
+# contract. So every stop goes through Exit-Install, never a bare `exit`.
+$InstallRunFromFile = ($MyInvocation.MyCommand.CommandType -eq 'ExternalScript')
+function Exit-Install([int]$Code) {
+    if ($Code -ne 0) {
+        Write-Stopped 'The install stopped here. Nothing was launched; run the same command again once fixed.'
+    }
+    if ($InstallRunFromFile) { exit $Code }
+    $global:LASTEXITCODE = $Code
+    # Ends this script the way Ctrl+C would: the session and its output stay.
+    if ($Code -ne 0) { throw [System.Management.Automation.PipelineStoppedException]::new() }
+}
+
+# --- installer-ui begin (extracted by tests/unit/install/test_install_ui_shell.py)
+# How the installer looks: one design across both stages and every platform.
+# installer.py continues it (dodaios/setup/install_ui.py) and install.sh is
+# the POSIX twin; all three decide what the terminal can show by the same
+# rules, written out in that Python module:
+#   colour  off with NO_COLOR, TERM=dumb, a host without virtual-terminal
+#           output (the ISE) or when output is redirected (FORCE_COLOR turns
+#           it back on); 24-bit in a Windows 10+ console and Windows Terminal.
+#   glyphs  ASCII with JARVIS_INSTALL_ASCII or a console that is not UTF-8;
+#           Windows Terminal and other modern hosts get the full set, a
+#           classic console the set its default font (Consolas) can draw.
+#   motion  spinners only on an interactive console, never in CI.
+#   width   COLUMNS, else the console's, else 80.
+# Nothing here waits for effect: a spinner redraws only while real work runs.
+# Every glyph is built from its code point: the source stays ASCII.
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# 24-bit brand palette (docs/BRAND.md): Signal Yellow on matte black, with the
-# forged-gold wordmark gradient #FFE552 -> #FFD60A -> #B8960A. Embedded as ANSI
-# escapes so the whole line is one gold sweep. NB: brace the var -- "$e[..."
-# would parse as an array index.
-$e        = [char]27
-$GoldHi   = "${e}[38;2;255;229;82m"
-$Gold     = "${e}[38;2;255;214;10m"
-$GoldDeep = "${e}[38;2;184;150;10m"
-$Green    = "${e}[38;2;122;200;140m"
-$Dim      = "${e}[38;2;143;143;143m"
-$Red      = "${e}[38;2;224;122;110m"
-$Bold     = "${e}[1m"
-$Rst      = "${e}[0m"
-
-# Status glyphs from code points (keeps the source ASCII; see encoding rule).
-$Chk = [char]0x2713   # check mark
-$Crs = [char]0x2717   # cross mark
-
-# Connected-journey glyphs (maintainer request 2026-07-16, visuals only):
-# every line hangs off one continuous dim vertical gutter, phases are gold
-# diamonds — the clack-style wizard grammar, recolored to the brand gold.
-# Twins: the phase/ok/note/err helpers in install.sh and installer.py.
-$Dia = [char]0x25C6   # black diamond - phase marker
-$Gut = "$Dim$([char]0x2502)$Rst"   # dim gutter bar
-
-# ----------------------------------------------------------------- helpers
-function Write-Banner {
-    # The mascot is the real Dodaios logo (the gold-eyed ghost), machine-
-    # generated as xterm-256 half-block pixel art from the brand PNG and
-    # stored base64-encoded (the decoded UTF-8 carries real ESC bytes) so
-    # this source file stays ASCII. Regenerate from a new logo file rather
-    # than hand-editing. Skipped when output is redirected: without color
-    # escapes the half blocks would render as shapeless mush.
-    if (-not [Console]::IsOutputRedirected) {
-        $mascotB64 = @'
-ICAgICAgICAgICAgICAgIBtbMG0gICAgICAgICAgIBtbMG0bWzM4OzU7MTAwbeKWhBtbMG0bWzM4OzU7NTht4paE4paEG1sw
-bRtbMzg7NTsyMzVt4paE4paE4paE4paE4paE4paEG1swbRtbMzg7NTs1OG3iloTiloQbWzBtG1szODs1OzEwMG3iloQbWzBt
-ICAgICAgICAgICAbWzBtCiAgICAgICAgICAgICAgICAbWzBtICAgICAgIBtbMG0bWzM4OzU7OTRt4paEG1swbRtbMzg7NTsy
-MzRt4paEG1swbRtbMzg7NTs1OG0bWzQ4OzU7MjM0beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA4paA4paA
-4paA4paA4paA4paA4paA4paA4paA4paA4paA4paAG1swbRtbMzg7NTs1OG0bWzQ4OzU7MjM0beKWgBtbMG0bWzM4OzU7MjM0
-beKWhBtbMG0bWzM4OzU7OTRt4paEG1swbSAgICAgICAbWzBtCiAgICAgICAgICAgICAgICAbWzBtICAgICAbWzBtG1szODs1
-OzEwMG3iloQbWzBtG1szODs1Ozk0bRtbNDg7NTsyMzNt4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzIzNG3iloDiloDiloDi
-loDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloAbWzBtG1szODs1Ozk0bRtbNDg7NTsy
-MzNt4paAG1swbRtbMzg7NTsxMDBt4paEG1swbSAgICAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgICAgG1swbRtbMzg7
-NTs1OG0bWzQ4OzU7MjMzbeKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA4paA4paA4paA4paA4paA4paA4paA
-4paA4paA4paA4paA4paA4paA4paA4paA4paA4paA4paA4paA4paAG1swbRtbMzg7NTs1OG0bWzQ4OzU7MjM0beKWgBtbMG0g
-ICAgIBtbMG0KICAgICAgICAgICAgICAgIBtbMG0gICAgG1swbRtbMzg7NTs1OG0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsy
-MzRtG1s0ODs1OzIzNG3iloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDiloDi
-loDiloDiloDiloDiloAbWzBtG1szODs1OzU4bRtbNDg7NTs1OG3iloAbWzBtICAgIBtbMG0KICAgICAgICAgICAgICAgIBtb
-MG0gICAgG1swbRtbMzg7NTs1OG0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzIzNG3iloDiloDiloDiloDi
-loDiloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzEwMG3iloAbWzBtG1szODs1
-OzIzNG0bWzQ4OzU7MjM2beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA4paA4paA4paA4paAG1swbRtbMzg7
-NTsyMzRtG1s0ODs1OzIzNm3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MTAwbeKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTs1
-OG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7NThtG1s0ODs1OzU4
-beKWgBtbMG0gICAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgG1swbRtbMzg7NTsxNzht4paAG1swbSAbWzBtG1szODs1
-OzU4bRtbNDg7NTs1OG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7NTht
-G1s0ODs1OzE0Mm3iloAbWzBtG1szODs1OzIyMG0bWzQ4OzU7MjIwbeKWgBtbMG0bWzM4OzU7MjI2bRtbNDg7NTsyMjZt4paA
-G1swbRtbMzg7NTsxNDJtG1s0ODs1OzIyMG3iloAbWzBtG1szODs1OzIzNm0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsyMzRt
-G1s0ODs1OzIzNG3iloDiloDiloDiloAbWzBtG1szODs1OzIzNm0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsxNDJtG1s0ODs1
-OzIyMG3iloAbWzBtG1szODs1OzIyNm0bWzQ4OzU7MjIwbeKWgBtbMG0bWzM4OzU7MjIwbRtbNDg7NTsyMjdt4paAG1swbRtb
-Mzg7NTs1OG0bWzQ4OzU7MTQybeKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA4paA4paA4paAG1swbRtbMzg7
-NTs1OG0bWzQ4OzU7NTht4paAG1swbSAgICAbWzBtCiAgICAgICAgICAgICAgICAbWzBtICAgIBtbMG0bWzM4OzU7NThtG1s0
-ODs1OzU4beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA4paA4paA4paAG1swbRtbMzg7NTsxNzhtG1s0ODs1
-OzE0Mm3iloAbWzBtG1szODs1OzIyMG0bWzQ4OzU7MjE0beKWgBtbMG0bWzM4OzU7MjM4bRtbNDg7NTsyMzRt4paAG1swbRtb
-Mzg7NTsxNzhtG1s0ODs1OzEzNm3iloAbWzBtG1szODs1OzEwMG0bWzQ4OzU7OTRt4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1
-OzIzNG3iloDiloDiloDiloAbWzBtG1szODs1Ozk0bRtbNDg7NTs1OG3iloAbWzBtG1szODs1OzIyMG0bWzQ4OzU7MjIwbeKW
-gBtbMG0bWzM4OzU7MTAwbRtbNDg7NTs1OG3iloAbWzBtG1szODs1OzEwMW0bWzQ4OzU7MjM0beKWgBtbMG0bWzM4OzU7MTc4
-bRtbNDg7NTsxNzht4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzIzNG3iloDiloDiloDiloDiloAbWzBtG1szODs1OzU4bRtb
-NDg7NTs1OG3iloAbWzBtG1szODs1OzIyNm3iloAbWzBtICAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgICAbWzBtG1sz
-ODs1OzU4bRtbNDg7NTsyMzRt4paAG1swbRtbMzg7NTsyMzNtG1s0ODs1OzIzNW3iloAbWzBtG1szODs1OzIzNW0bWzQ4OzU7
-NTht4paA4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzIzNW3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgBtbMG0b
-WzM4OzU7NThtG1s0ODs1OzIzNG3iloAbWzBtG1szODs1OzIxNG0bWzQ4OzU7NTht4paAG1swbRtbMzg7NTsxNzJtG1s0ODs1
-Ozk0beKWgBtbMG0bWzM4OzU7MTM2bRtbNDg7NTsyMzZt4paAG1swbRtbMzg7NTsyMzZtG1s0ODs1OzIzNG3iloAbWzBtG1sz
-ODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7MjM2bRtbNDg7NTsyMzRt4paAG1swbRtbMzg7NTsx
-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
-MjM1bRtbNDg7NTs1OG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKW
-gOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7OTRtG1s0ODs1OzU4beKWgBtb
-MG0gG1swbRtbMzg7NTsxODRt4paEG1swbSAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgICAbWzBtG1szODs1OzU4bRtb
-NDg7NTs5NG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7MjM0bRtb
-NDg7NTs1OG3iloDiloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgOKWgOKWgOKWgBtbMG0bWzM4OzU7MjM0bRtb
-NDg7NTs1OG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MTAwbeKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA
-4paA4paA4paA4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1OzEwMG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKW
-gBtbMG0bWzM4OzU7NThtG1s0ODs1OzU4beKWgBtbMG0gICAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgICAgG1swbRtb
-Mzg7NTsxMDBt4paAG1swbRtbMzg7NTsyMzRtG1s0ODs1Ozk0beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paA4paA
-G1swbRtbMzg7NTsyMzRtG1s0ODs1OzU4beKWgBtbMG0bWzM4OzU7NTht4paAG1swbSAgG1swbRtbMzg7NTs1OG3iloAbWzBt
-G1szODs1OzIzNG0bWzQ4OzU7MjM1beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsyMzRt4paAG1swbRtbMzg7NTsyMzRtG1s0
-ODs1OzIzNW3iloAbWzBtG1szODs1OzIzNW3iloAbWzBtICAbWzBtG1szODs1OzU4beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7
-NTs1OG3iloAbWzBtG1szODs1OzIzNG0bWzQ4OzU7MjM0beKWgOKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTsxMDBt4paAG1sw
-bRtbMzg7NTsxMDBt4paAG1swbSAbWzBtG1szODs1Ozk0beKWgBtbMG0bWzM4OzU7MjM0bRtbNDg7NTs1OG3iloAbWzBtG1sz
-ODs1OzIzNW0bWzQ4OzU7MjM1beKWgBtbMG0gICAgG1swbQogICAgICAgICAgICAgICAgG1swbSAgICAgICAbWzBtG1szODs1
-OzU4beKWgOKWgBtbMG0gICAgICAbWzBtG1szODs1OzU4beKWgBtbMG0bWzM4OzU7MTAwbeKWgBtbMG0gICAgIBtbMG0bWzM4
-OzU7NTht4paA4paAG1swbSAgICAgG1swbRtbMzg7NTsxMDBt4paAG1swbSAgICAbWzBt
-'@
-        try {
-            $mascot = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($mascotB64))
-            Write-Host ""
-            Write-Host $mascot
-        } catch {
-            # Best-effort decoration only - never let the mascot block an install.
-        }
-    }
-    # Wordmark glyphs are machine-generated (figlet ANSI Shadow, DODAIOS) and
-    # live inside this here-string, where non-ASCII is syntactically inert. Do
-    # not hand-edit -- that is how the historical Harvis typo crept in. The 6
-    # rows carry ONE continuous vertical gradient (hi -> brand -> deep) so the
-    # word reads as a single forged-gold wordmark.
-    $art = @"
-
-$GoldHi       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗$Rst
-$GoldHi       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝$Rst
-$Gold       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗$Rst
-$Gold       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║$Rst
-$GoldDeep       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║$Rst
-$GoldDeep       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝$Rst
-
-$Dim     talk to your computer · installs the full profile · launches when done$Rst
-
-$Dim┌$Rst  ${Gold}Dodaios installer$Rst
-"@
-    Write-Host $art
+function Test-UiTruthy([string]$Value) {
+    if (-not $Value) { return $false }
+    return ($Value.Trim().ToLowerInvariant() -notin @('0', 'false', 'no', 'off'))
 }
+
+$UiTty = $false
+try { $UiTty = -not [Console]::IsOutputRedirected } catch { $UiTty = $false }
+$UiVt = $false
+try { $UiVt = [bool]$Host.UI.SupportsVirtualTerminal } catch { $UiVt = $false }
+if ($Host.Name -eq 'Windows PowerShell ISE Host') { $UiVt = $false }
+$UiTerm = "$env:TERM"
+$UiWindows = ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT)
+if ($env:NO_COLOR -or $UiTerm -eq 'dumb') {
+    $UiColor = 'none'
+} elseif (($UiTty -and $UiVt) -or (-not $UiTty -and (Test-UiTruthy $env:FORCE_COLOR))) {
+    if ($UiWindows -or $env:WT_SESSION -or @('truecolor', '24bit') -contains "$env:COLORTERM") {
+        $UiColor = 'truecolor'
+    } elseif ($UiTerm -like '*256*') {
+        $UiColor = '256'
+    } else {
+        $UiColor = '16'
+    }
+} else {
+    $UiColor = 'none'
+}
+$UiUtf8 = $true
+try { $UiUtf8 = ([Console]::OutputEncoding.CodePage -eq 65001) } catch { $UiUtf8 = $true }
+if ((Test-UiTruthy $env:JARVIS_INSTALL_ASCII) -or (Test-UiTruthy $env:DODAIOS_INSTALL_ASCII) -or -not $UiUtf8 -or
+    @('linux', 'dumb', 'ansi') -contains $UiTerm -or $UiTerm -like 'vt*') {
+    $UiGlyphs = 'ascii'
+} elseif ($env:WT_SESSION -or @('vscode', 'WezTerm', 'ghostty', 'iTerm.app') -contains "$env:TERM_PROGRAM" -or
+          "$env:ConEmuANSI" -eq 'ON' -or -not $UiWindows) {
+    $UiGlyphs = 'full'
+} else {
+    $UiGlyphs = 'basic'
+}
+$UiMotion = ($UiTty -and $UiVt -and $UiTerm -ne 'dumb' -and -not (Test-UiTruthy $env:CI))
+$UiCols = 0
+if ("$env:COLUMNS" -match '^\d+$') { $UiCols = [int]$env:COLUMNS }
+if ($UiCols -le 0) {
+    try { $UiCols = [int]$Host.UI.RawUI.WindowSize.Width } catch { $UiCols = 0 }
+}
+if ($UiCols -le 0) { $UiCols = 80 }
+if ($UiCols -lt 20) { $UiCols = 20 }
+$UiLayout = [Math]::Min($UiCols, 88)
+
+$Esc = [char]27
+if ($UiGlyphs -eq 'ascii') {
+    $GOk = '+'; $GFail = 'x'; $GSkip = '-'; $GRail = '|'; $GPoint = '>'; $GEll = '...'; $GBar = '#'; $GTrack = '-'
+    $GDot = '-'
+    $UiSpinFrames = @('|', '/', '-', '\')
+} else {
+    $GOk = if ($UiGlyphs -eq 'full') { [string][char]0x2713 } else { [string][char]0x221A }
+    $GFail = [string][char]0x00D7; $GSkip = [string][char]0x00B7; $GRail = [string][char]0x2503
+    $GPoint = [string][char]0x25B8; $GEll = [string][char]0x2026; $GBar = [string][char]0x2501
+    $GTrack = if ($UiColor -eq 'none') { [string][char]0x2500 } else { $GBar }
+    $GDot = $GSkip
+    if ($UiGlyphs -eq 'full') {
+        $UiSpinFrames = @(0x280B, 0x2819, 0x2839, 0x2838, 0x283C, 0x2834, 0x2826, 0x2827, 0x2807, 0x280F) |
+            ForEach-Object { [string][char]$_ }
+    } else {
+        $UiSpinFrames = @('|', '/', '-', '\')
+    }
+}
+$GWarn = '!'
+
+# Brand palette (docs/BRAND.md): signal gold, deep gold, the status colours.
+# Plain text keeps the console's own foreground, so light themes read it too.
+function Get-UiSgr([string]$True24, [string]$Xterm256, [string]$Basic16) {
+    switch ($UiColor) {
+        'truecolor' { return "$Esc[$($True24)m" }
+        '256' { return "$Esc[$($Xterm256)m" }
+        '16' { return "$Esc[$($Basic16)m" }
+        default { return '' }
+    }
+}
+$CGold = Get-UiSgr '38;2;255;214;10' '38;5;220' '33'
+$COk = Get-UiSgr '38;2;34;195;94' '38;5;35' '32'
+$CWarn = Get-UiSgr '38;2;245;158;11' '38;5;214' '33'
+$CBad = Get-UiSgr '38;2;223;58;58' '38;5;167' '31'
+$CMuted = Get-UiSgr '38;2;138;138;138' '38;5;245' '90'
+$CBold = Get-UiSgr '1' '1' '1'
+$CRst = Get-UiSgr '0' '0' '0'
+$PGold = Get-UiSgr '1;38;2;10;10;10;48;2;255;214;10' '1;38;5;232;48;5;220' '1;30;43'
+$PBad = Get-UiSgr '1;38;2;10;10;10;48;2;223;58;58' '1;38;5;232;48;5;167' '1;30;41'
+
+function Format-UiDuration([double]$Seconds) {
+    $total = [int][Math]::Floor($Seconds)
+    if ($total -lt 1) { return '' }
+    if ($total -lt 60) { return "$($total)s" }
+    return ('{0}m {1:00}s' -f [int][Math]::Floor($total / 60), ($total % 60))
+}
+
+# A line with $Right on the layout's right edge; $Visible is the width of $Line.
+function Write-UiRight([string]$Line, [int]$Visible, [string]$Right) {
+    if (-not $Right) { Write-Host $Line; return }
+    $gap = [Math]::Max(2, $UiLayout - 2 - $Visible - $Right.Length)
+    Write-Host ($Line + (' ' * $gap) + $CMuted + $Right + $CRst)
+}
+
+$script:UiInFail = $false
+$script:UiLastSeconds = 0
 
 # One six-phase journey spans BOTH installer stages: this shell owns phases
 # 1-3, installer.py continues with 4-6 -- keep the numbering in sync there.
-function Write-Phase([string]$Num, [string]$Text) { Write-Host $Gut; Write-Host "$Gold$Dia$Rst  $Gold$Num$Rst  $Bold$Text$Rst" }
-function Write-Ok([string]$Text)     { Write-Host "$Gut  $Green$Chk$Rst $Dim$Text$Rst" }
-function Write-Note([string]$Text)   { Write-Host "$Gut    $Dim$Text$Rst" }
-function Write-Err([string]$Text)    { Write-Host "$Gut  $Red$Crs $Text$Rst" }
+function Write-Phase([string]$Num, [string]$Text) {
+    $script:UiInFail = $false
+    Write-Host ''
+    if ($UiColor -eq 'none') {
+        Write-Host "  [$Num] $Text"
+    } else {
+        Write-Host "  $PGold $Num $CRst  $CBold$Text$CRst"
+    }
+}
+function Write-Ok([string]$Text, [double]$Seconds = 0, [string]$Detail = '') {
+    $script:UiInFail = $false
+    if ($Detail) {
+        Write-Host "     $COk$GOk$CRst  $Text  $CMuted$Detail$CRst"
+        return
+    }
+    Write-UiRight "     $COk$GOk$CRst  $Text" (8 + $Text.Length) (Format-UiDuration $Seconds)
+}
+function Write-Skip([string]$Text) {
+    $script:UiInFail = $false
+    Write-Host "     $CMuted$GSkip  $Text$CRst"
+}
+function Write-Warn([string]$Text) {
+    $script:UiInFail = $false
+    Write-Host "     $CWarn$CBold$GWarn$CRst  $Text"
+}
+# After Write-Err, the notes that follow hang on its red rail until the next step.
+function Write-Note([string]$Text) {
+    if ($script:UiInFail) {
+        Write-Host "     $CBad$GRail$CRst  $Text"
+    } else {
+        Write-Host "        $CMuted$Text$CRst"
+    }
+}
+function Write-Err([string]$Text) {
+    $script:UiInFail = $true
+    Write-Host "     $CBad$CBold$GFail$CRst  $CBold$Text$CRst"
+}
+function Write-Stopped([string]$Text) {
+    Write-Host ''
+    if ($UiColor -eq 'none') {
+        Write-Host "  [STOPPED] $Text"
+    } else {
+        Write-Host "  $PBad STOPPED $CRst  $Text"
+    }
+}
 
-Write-Banner
+# The live line of a running step, redrawn in place. $Extra (a bar) is
+# already coloured; $ExtraWidth is its visible width.
+function Write-UiLive([int]$Frame, [string]$Label, [double]$Seconds, [string]$Extra = '', [int]$ExtraWidth = 0) {
+    $glyph = $UiSpinFrames[$Frame % $UiSpinFrames.Count]
+    $time = Format-UiDuration $Seconds
+    if (-not $time) { $time = '0s' }
+    $body = $Label
+    $visible = 8 + $Label.Length
+    if ($Extra) { $body = "$Label $Extra"; $visible += 1 + $ExtraWidth }
+    $gap = $UiLayout - 2 - $visible - $time.Length
+    if ($gap -lt 2) {
+        # Never wrap the live line: a wrapped line cannot be redrawn in place.
+        [Console]::Write("`r$Esc[K     $CGold$glyph$CRst  $CMuted$time$CRst")
+    } else {
+        [Console]::Write("`r$Esc[K     $CGold$glyph$CRst  $body$(' ' * $gap)$CMuted$time$CRst")
+    }
+}
+
+# One argument for a Windows command line (the MSVCRT quoting rules).
+function ConvertTo-UiArgument([string]$Argument) {
+    if ($Argument -eq '') { return '""' }
+    if ($Argument -notmatch '[\s"]') { return $Argument }
+    $quoted = $Argument -replace '(\\*)"', '$1$1\"'
+    $quoted = $quoted -replace '(\\+)$', '$1$1'
+    return '"' + $quoted + '"'
+}
+
+# Run a slow, otherwise-silent command behind a spinner and its elapsed time,
+# so a long step never looks hung. Interactive consoles only: elsewhere the
+# label is printed once and the command runs in plain view. Output is
+# captured to temp files whose tail is shown on failure, so errors are never
+# swallowed. Returns the exit code and sets $script:UiLastSeconds. Never wrap
+# anything that may prompt: its prompt would land in the capture file.
+function Invoke-UiSpin {
+    param([string]$Label, [string]$FilePath, [string[]]$Arguments)
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    if (-not $UiMotion) {
+        Write-Host "     $CMuted$GSkip  $Label$GEll$CRst"
+        & $FilePath @Arguments
+        $code = $LASTEXITCODE
+        $script:UiLastSeconds = $watch.Elapsed.TotalSeconds
+        if ($code -ne 0) { Write-Err "$Label failed (exit code $code)" }
+        return $code
+    }
+    $outFile = [IO.Path]::GetTempFileName()
+    $errFile = [IO.Path]::GetTempFileName()
+    try {
+        $line = ($Arguments | ForEach-Object { ConvertTo-UiArgument $_ }) -join ' '
+        $proc = Start-Process -FilePath $FilePath -ArgumentList $line -NoNewWindow -PassThru `
+            -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $null = $proc.Handle  # keeps ExitCode readable after the process ends
+        $frame = 0
+        [Console]::Write("$Esc[?25l")
+        while (-not $proc.HasExited) {
+            Write-UiLive $frame $Label $watch.Elapsed.TotalSeconds
+            $frame++
+            Start-Sleep -Milliseconds 120
+        }
+        $proc.WaitForExit()
+        $code = $proc.ExitCode
+        [Console]::Write("`r$Esc[K$Esc[?25h")
+        $script:UiLastSeconds = $watch.Elapsed.TotalSeconds
+        if ($code -ne 0) {
+            Write-Err "$Label failed (exit code $code)"
+            $tail = @(Get-Content -LiteralPath $outFile, $errFile -ErrorAction SilentlyContinue |
+                Where-Object { $_ } | Select-Object -Last 20)
+            foreach ($tailLine in $tail) { Write-Note ([string]$tailLine) }
+        }
+        return $code
+    } finally {
+        Remove-Item -LiteralPath $outFile, $errFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Run git with its transfer progress drawn as one live bar (download, unpack,
+# write) instead of git's raw chatter; errors come through on the red rail.
+# Interactive consoles only: elsewhere git runs quietly in plain view.
+function Invoke-UiGit {
+    param([string[]]$Arguments)
+    if (-not $UiMotion) {
+        & git @Arguments --quiet
+        return $LASTEXITCODE
+    }
+    $outFile = [IO.Path]::GetTempFileName()
+    $errFile = [IO.Path]::GetTempFileName()
+    try {
+        $line = (@($Arguments) + '--progress' | ForEach-Object { ConvertTo-UiArgument $_ }) -join ' '
+        $git = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+        $proc = Start-Process -FilePath $git -ArgumentList $line -NoNewWindow -PassThru `
+            -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $null = $proc.Handle
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $frame = 0
+        $labels = @{ 'Receiving objects' = 'Downloading'; 'Resolving deltas' = 'Unpacking'; 'Updating files' = 'Writing files' }
+        [Console]::Write("$Esc[?25l")
+        while (-not $proc.HasExited) {
+            $label = 'Connecting'
+            $extra = ''
+            $extraWidth = 0
+            try {
+                $stream = [IO.File]::Open($errFile, 'Open', 'Read', 'ReadWrite')
+                try {
+                    $start = [Math]::Max(0, $stream.Length - 4096)
+                    $null = $stream.Seek($start, 'Begin')
+                    $text = (New-Object IO.StreamReader($stream)).ReadToEnd()
+                } finally { $stream.Dispose() }
+                $last = @($text -split "[`r`n]" | Where-Object { $_ -match '^(Receiving objects|Resolving deltas|Updating files):' }) |
+                    Select-Object -Last 1
+                if ($last -and $last -match '^([^:]+):\s+(\d+)%') {
+                    $label = $labels[$Matches[1]]
+                    $pct = [int]$Matches[2]
+                    $done = [int][Math]::Floor($pct * 24 / 100)
+                    $bar = "$CGold$($GBar * $done)$CMuted$($GTrack * (24 - $done))$CRst"
+                    $speed = ''
+                    if ($last -match '(\d[\d.]* [KMGT]?iB) \| (\d[\d.]* [KMGT]?iB/s)') { $speed = "$($Matches[1])  $($Matches[2])" }
+                    $extra = "$bar  $('{0,3}' -f $pct)%  $CMuted$speed$CRst"
+                    $extraWidth = 24 + 2 + 4 + 2 + $speed.Length
+                }
+            } catch {
+                # The progress file is mid-write; the next frame reads it again.
+                $extra = ''
+            }
+            Write-UiLive $frame ('{0,-13}' -f $label) $watch.Elapsed.TotalSeconds $extra $extraWidth
+            $frame++
+            Start-Sleep -Milliseconds 150
+        }
+        $proc.WaitForExit()
+        $code = $proc.ExitCode
+        [Console]::Write("`r$Esc[K$Esc[?25h")
+        if ($code -ne 0) {
+            $errors = @(Get-Content -LiteralPath $errFile -ErrorAction SilentlyContinue |
+                ForEach-Object { $_ -split "`r" } | Where-Object { $_ -match '^(error|fatal|warning):' })
+            foreach ($errorLine in $errors | Select-Object -Last 8) {
+                Write-Host "     $CBad$GRail$CRst  $errorLine"
+            }
+        }
+        return $code
+    } finally {
+        Remove-Item -LiteralPath $outFile, $errFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# The hero: the hooded figure beside the pixel wordmark, the README banner
+# drawn with half blocks (two pixels per text cell). '#' is gold on a
+# vertical gradient and 's' the wordmark's drop shadow. Drawn with colour,
+# Unicode and room for it; otherwise a plain title stands in. The two images
+# are the same as install.sh's (tests/unit/install/test_install_ui_shell.py).
+$UiMascot = @(
+    '..........###.........'
+    '........######........'
+    '......########.##.....'
+    '....##.#######.#####..'
+    '...##.....####.####...'
+    '..##......#####.##....'
+    '.##.####...####.......'
+    '.#.#######..####......'
+    '..##########.###......'
+    '.#.######..##.###.....'
+    '#..#..###..##..##.....'
+    '#..#..###..###.###....'
+    '#..##.########.##.....'
+    '.#...#######.##.......'
+    '..###...#####.##......'
+    '...#####...####.##....'
+    '...########...#..####.'
+    '...###########..######'
+    '...############..#####'
+    '...#############..###.'
+    '...######.########....'
+    '...#####.#########....'
+    '...#####.########.....'
+    '....###...######......'
+)
+$UiWordmark = @(
+    '#####....####...#####.....##....####...####....#####'
+    '######..######..######...####...####..######..######'
+    '##ss##..##ss##..##ss##..######..s##s..##ss##..##ssss'
+    '##..##..##..##..##..##..##ss##...##...##..##..#####.'
+    '##..##..##..##..##..##..######...##...##..##..s#####'
+    '##..##..##..##..##..##..######...##...##..##...sss##'
+    '######..######..######..##ss##..####..######..######'
+    '#####s..s####s..#####s..##..##..####..s####s..#####s'
+    'sssss....ssss...sssss...ss..ss..ssss...ssss...sssss.'
+    '....................................................'
+)
+# The gold of pixel row $Row in an image $Rows tall (an SGR colour without its
+# 38/48 prefix): #FFF07A at the top, #FFD60A in the middle, #B8860B at the
+# bottom, as in the banner.
+function Get-UiGold([int]$Row, [int]$Rows) {
+    $t = [int][Math]::Floor($Row * 1000 / ($Rows - 1))
+    if ($UiColor -eq 'truecolor') {
+        if ($t -le 500) {
+            return ('2;255;{0};{1}' -f (240 - [int][Math]::Floor(26 * $t / 500)), (122 - [int][Math]::Floor(112 * $t / 500)))
+        }
+        $t -= 500
+        return ('2;{0};{1};{2}' -f (255 - [int][Math]::Floor(71 * $t / 500)), (214 - [int][Math]::Floor(80 * $t / 500)), (10 + [int][Math]::Floor($t / 500)))
+    }
+    if ($t -lt 200) { return '5;228' }
+    if ($t -lt 400) { return '5;227' }
+    if ($t -lt 620) { return '5;220' }
+    if ($t -lt 820) { return '5;178' }
+    return '5;136'
+}
+# One text row of an image from its upper and lower pixel rows.
+function Get-UiArtRow([string]$Upper, [string]$Lower, [int]$Row, [int]$Rows) {
+    $shadow = if ($UiColor -eq 'truecolor') { '2;107;78;0' } else { '5;94' }
+    $goldA = Get-UiGold $Row $Rows
+    $goldB = Get-UiGold ($Row + 1) $Rows
+    $top = [string][char]0x2580
+    $bottom = [string][char]0x2584
+    $out = New-Object System.Text.StringBuilder
+    $last = ''
+    for ($x = 0; $x -lt $Upper.Length; $x++) {
+        $a = switch ($Upper[$x]) { '#' { $goldA } 's' { $shadow } default { '' } }
+        $b = switch ($Lower[$x]) { '#' { $goldB } 's' { $shadow } default { '' } }
+        if (-not $a -and -not $b) { $sgr = '0'; $glyph = ' ' }
+        elseif (-not $b) { $sgr = "0;38;$a"; $glyph = $top }
+        elseif (-not $a) { $sgr = "0;38;$b"; $glyph = $bottom }
+        else { $sgr = "0;38;$a;48;$b"; $glyph = $top }
+        if ($sgr -ne $last) { $null = $out.Append("$Esc[$($sgr)m"); $last = $sgr }
+        $null = $out.Append($glyph)
+    }
+    $null = $out.Append("$Esc[0m")
+    return $out.ToString()
+}
+function Write-Hero([string]$Subtitle, [string]$Meta) {
+    Write-Host ''
+    if ($UiColor -eq 'none' -or $UiColor -eq '16' -or $UiGlyphs -eq 'ascii' -or $UiCols -lt 58) {
+        if ($UiColor -eq 'none') {
+            Write-Host "  DODAIOS  $Subtitle"
+            Write-Host "  $Meta"
+        } else {
+            Write-Host "  $PGold DODAIOS $CRst  $CBold$Subtitle$CRst"
+            Write-Host "  $CMuted$Meta$CRst"
+        }
+        return
+    }
+    if ($UiCols -lt 80) {
+        # No room beside the figure: the wordmark alone, the words below it.
+        for ($y = 0; $y -lt 10; $y += 2) {
+            Write-Host ('  ' + (Get-UiArtRow $UiWordmark[$y] $UiWordmark[$y + 1] $y 8))
+        }
+        Write-Host "  $CBold$Subtitle$CRst"
+        Write-Host "  $CMuted$Meta$CRst"
+        return
+    }
+    for ($y = 0; $y -lt 12; $y++) {
+        $left = Get-UiArtRow $UiMascot[$y * 2] $UiMascot[$y * 2 + 1] ($y * 2) 24
+        $right = ''
+        if ($y -ge 1 -and $y -le 5) {
+            $w = ($y - 1) * 2
+            $right = Get-UiArtRow $UiWordmark[$w] $UiWordmark[$w + 1] $w 8
+        } elseif ($y -eq 7) {
+            $right = "$CBold$Subtitle$CRst"
+        } elseif ($y -eq 8) {
+            $right = "$CMuted$Meta$CRst"
+        }
+        Write-Host "  $left   $right"
+    }
+}
+# --- installer-ui end
 
 # ----------------------------------------------------------------- config
 # Every JARVIS_ option this script reads also answers to its DODAIOS_
@@ -199,7 +483,7 @@ Write-Banner
 # the signed commit the verifying installer hands over, and no second name
 # may override it.
 function Use-InstallOptionNames {
-    foreach ($Option in 'INSTALL_REPO', 'INSTALL_REF', 'INSTALL_DIR', 'INSTALL_PREREQS', 'OFFICIAL_REPO_SLUG', 'PYTHON') {
+    foreach ($Option in 'INSTALL_REPO', 'INSTALL_REF', 'INSTALL_DIR', 'INSTALL_PREREQS', 'OFFICIAL_REPO_SLUG', 'PYTHON', 'INSTALL_ASCII') {
         $NewName = "DODAIOS_$Option"
         $OldName = "JARVIS_$Option"
         $NewValue = [Environment]::GetEnvironmentVariable($NewName)
@@ -263,6 +547,25 @@ $InitialPath = $env:Path
 
 # Forward any extra args to installer.py (e.g. --no-launch, --dry-run, --with-voice-local)
 $ExtraArgs = $args
+
+# The whole run is timed from here (or from the verifying wrapper, when it
+# started the clock); installer.py shows the total on its finale card.
+if (-not $env:JARVIS_INSTALL_STARTED_AT) {
+    $env:JARVIS_INSTALL_STARTED_AT = [string][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+}
+
+# The machine this runs on, for the line under the wordmark.
+function Get-UiPlatform {
+    $build = [Environment]::OSVersion.Version.Build
+    $name = if ($build -ge 22000) { 'Windows 11' } elseif ($build -ge 10240) { 'Windows 10' } else { 'Windows' }
+    $arch = "$env:PROCESSOR_ARCHITEW6432"
+    if (-not $arch) { $arch = "$env:PROCESSOR_ARCHITECTURE" }
+    $arch = switch ($arch) { 'AMD64' { 'x64' } 'ARM64' { 'arm64' } default { $arch } }
+    return "$name ($arch)"
+}
+$UiMeta = "Open source $GSkip MIT $GSkip github.com/$OfficialRepoSlug"
+$UiVerb = if (Test-Path -LiteralPath (Join-Path $InstallDir '.git')) { 'Updating Dodaios on' } else { 'Installing on' }
+Write-Hero "$UiVerb $(Get-UiPlatform)" $UiMeta
 
 # --- prerequisite-bootstrap begin ------------------------------------------
 # This block stays shell-native because Python may not exist yet. Tests extract
@@ -510,7 +813,7 @@ function Get-PrerequisiteState {
 function Write-PrerequisiteState {
     param($State, [switch]$ShowMissing)
     if ($State.Python.Found) {
-        Write-Ok "Python $($State.Python.Version) ($($State.Python.Exe))"
+        Write-Ok "Python $($State.Python.Version)" 0 $State.Python.Exe
     } elseif ($ShowMissing) {
         Write-Err 'Python 3.11+ not found.'
         if ($null -ne $State.Python.Closest) {
@@ -519,7 +822,7 @@ function Write-PrerequisiteState {
         }
     }
     if ($State.GitFound) {
-        Write-Ok $State.GitVersion
+        Write-Ok ("$($State.GitVersion)" -replace '^git version ', 'Git ')
     } elseif ($ShowMissing) {
         Write-Err 'git not found.'
     }
@@ -717,7 +1020,7 @@ Write-Phase '1/6' 'Prerequisites'
 $prerequisites = Ensure-Prerequisites
 if ($null -eq $prerequisites) {
     Write-Err 'Prerequisite setup was not completed.'
-    exit 1
+    Exit-Install 1
 }
 $pythonExe = $prerequisites.Python.Exe
 $pythonVer = "Python $($prerequisites.Python.Version)"
@@ -730,7 +1033,7 @@ $pythonVer = "Python $($prerequisites.Python.Version)"
 # Skipped entirely on the headless / tiny-VPS path (--headless): a cloud-only
 # base install that never spawns a local CLI worker.
 if ($ExtraArgs -contains '--headless') {
-    Write-Note 'Node.js check skipped (--headless): the cloud-only base install does not use it.'
+    Write-Skip 'Node.js check skipped (--headless): the cloud-only base install does not use it.'
 } else {
     $nodeOk = $false
     $nodeCheck = Test-Tool 'node'
@@ -740,22 +1043,20 @@ if ($ExtraArgs -contains '--headless') {
     if ($nodeOk) {
         Write-Ok "Node.js $($nodeCheck.Version)"
     } else {
-        Write-Note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
+        Write-Skip 'Node.js 18+ not found: optional, Dodaios runs fine without it.'
         Write-Note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         Write-Note 'Install the LTS build any time from https://nodejs.org/ and add the'
-        Write-Note 'worker later in-app.'
+        Write-Note 'worker later in the app.'
     }
 }
 
 # ----------------------------------------------------------------- clone / update
-Write-Phase '2/6' 'Fetching Dodaios'
-Write-Note $InstallDir
+Write-Phase '2/6' 'Download'
 
-# On an interactive console, git paints its own "Receiving objects: NN%"
-# progress (on stderr) so a slow download never looks hung (maintainer
-# report 2026-07-15); a redirected/CI run keeps --quiet for a clean
-# transcript. Real errors still surface on stderr either way.
-$GitVerbosity = if ([Console]::IsErrorRedirected) { '--quiet' } else { '--progress' }
+# On an interactive console the transfer shows as one live progress bar
+# (Invoke-UiGit) so a slow download never looks hung (maintainer report
+# 2026-07-15); a redirected/CI run keeps git --quiet for a clean transcript.
+# Real errors surface either way.
 
 # The payload is a single ~80 MB stream and git cannot resume a clone, so a
 # flaky network kills installs two ways (maintainer's Mac, 2026-07-18:
@@ -798,7 +1099,7 @@ function Get-RefArchivePath {
 # --- install-ref end
 
 function Invoke-CloneWithRetry {
-    Write-Note 'downloading ~80 MB - a few minutes on slow connections'
+    Write-Note 'About 80 MB: a few minutes on a slow connection.'
     $Attempt = 1
     while ($true) {
         # Attempt 1 uses git's default transport; later attempts force
@@ -806,15 +1107,15 @@ function Invoke-CloneWithRetry {
         # early EOF" aborts that only bite the bulk pack stream while small
         # requests sail through (observed on the test Mac, 2026-07-18).
         $HttpMode = if ($Attempt -gt 1) { @('-c', 'http.version=HTTP/1.1') } else { @() }
-        & git @GitNetOpts @HttpMode clone $GitVerbosity --depth 1 --branch $Branch $RepoUrl $InstallDir
-        if ($LASTEXITCODE -eq 0) { return $true }
+        $code = Invoke-UiGit -Arguments (@($GitNetOpts) + @($HttpMode) + @('clone', '--depth', '1', '--branch', $Branch, $RepoUrl, $InstallDir))
+        if ($code -eq 0) { return $true }
         try { Remove-Item -LiteralPath $InstallDir -Recurse -Force -ErrorAction Stop } catch {}
         if ($Attempt -ge 3) {
-            Write-Note 'git could not finish the download on this network (3 attempts).'
+            Write-Warn 'git could not finish the download on this network (3 attempts).'
             return $false
         }
         $Attempt++
-        Write-Note "connection dropped mid-download - retrying ($Attempt/3, compatibility transfer mode) ..."
+        Write-Warn "The download did not finish: retrying ($Attempt/3, compatibility transfer mode)."
         Start-Sleep -Seconds 3
     }
 }
@@ -845,7 +1146,7 @@ function Invoke-TarballFallback {
         $SnapshotUrl = "https://codeload.github.com/$RepoPath/tar.gz/$($env:JARVIS_PAYLOAD_COMMIT)"
     }
     $Tmp = "$InstallDir.payload.tar.gz"
-    Write-Note 'git transfer keeps stalling on this network - switching to a resumable archive download'
+    Write-Warn 'The git transfer keeps stalling on this network: switching to a resumable archive download.'
     $Got = $false
     foreach ($AssetName in $AssetNames) {
         # A partial download of one archive must never be resumed as another.
@@ -883,9 +1184,9 @@ function Invoke-TarballFallback {
 function Invoke-FetchPayload {
     if (Invoke-CloneWithRetry) { return $true }
     if (Invoke-TarballFallback) { return $true }
-    Write-Err 'the download kept failing (connection dropped mid-transfer).'
-    Write-Note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the'
-    Write-Note 'installer - it is safe to re-run and picks up where it makes sense.'
+    Write-Err 'The download kept failing (the connection dropped mid-transfer).'
+    Write-Note 'Check your internet connection (Wi-Fi, VPN, proxy), then run the installer'
+    Write-Note 'again. It is safe to re-run and picks up where it makes sense.'
     return $false
 }
 
@@ -923,21 +1224,21 @@ function Test-RepositoryReachable {
 # checkout. A stale folder must never require manual cleanup to install.
 function Invoke-SalvageReclone {
     if (-not (Test-RepositoryReachable)) {
-        Write-Err 'cannot reach the download server right now - nothing was changed.'
+        Write-Err 'Cannot reach the download server right now; nothing was changed.'
         Write-Note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
-        exit 1
+        Exit-Install 1
     }
     Stop-RunningApp
     $StaleBackup = "$InstallDir.stale-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     try {
         Move-Item -LiteralPath $InstallDir -Destination $StaleBackup -ErrorAction Stop
     } catch {
-        Write-Err "cannot move the broken install dir aside ($InstallDir -> $StaleBackup)."
+        Write-Err "Cannot move the broken install folder aside ($InstallDir -> $StaleBackup)."
         Write-Note 'Close any program using that folder (or move it yourself), then re-run.'
-        exit 1
+        Exit-Install 1
     }
     Write-Note "moved the old directory to $StaleBackup (nothing was deleted)"
-    if (-not (Invoke-FetchPayload)) { exit 1 }
+    if (-not (Invoke-FetchPayload)) { Exit-Install 1 }
     # Everything a user can lose: config, credentials file-fallback + DBs
     # (inside data/), the dotenv, AND the wiki vault (its absence from this
     # list is what destroyed a user's wiki pages on 2026-07-20). A failed
@@ -966,7 +1267,7 @@ function Invoke-SalvageReclone {
             }
         }
     }
-    Write-Ok 'reinstalled fresh (previous state preserved in the backup dir)'
+    Write-Ok 'Reinstalled fresh (your previous state is kept in the backup folder)'
 }
 
 # A checkout cloned before the GitHub rename still stores the old origin. Git
@@ -1053,7 +1354,7 @@ function Stop-RunningApp {
         Write-Note 'Updating stops the app, which would end this installer with it.'
         Write-Note 'Nothing was changed. Run the install command again from a normal'
         Write-Note 'terminal outside the app.'
-        exit 1
+        Exit-Install 1
     }
 }
 
@@ -1125,7 +1426,8 @@ function Invoke-InstallDirMigration {
 }
 
 $Branch = Resolve-InstallRef
-Write-Note "installing $Branch"
+Write-Note "Release $Branch into $InstallDir"
+$FetchWatch = [Diagnostics.Stopwatch]::StartNew()
 
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
@@ -1135,8 +1437,8 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
     $UpdateOk = $true
     Push-Location $InstallDir
     try {
-        & git @GitNetOpts fetch $GitVerbosity --depth 1 origin $Branch
-        if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
+        $code = Invoke-UiGit -Arguments (@($GitNetOpts) + @('fetch', '--depth', '1', 'origin', $Branch))
+        if ($code -ne 0) { $UpdateOk = $false }
         if ($UpdateOk) {
             Stop-RunningApp
             $InstallDir = [string](Invoke-InstallDirMigration)
@@ -1153,7 +1455,7 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
         Pop-Location
     }
     if ($UpdateOk) {
-        Write-Ok 'updated existing checkout to latest'
+        Write-Ok "Updated the install to $Branch" $FetchWatch.Elapsed.TotalSeconds
     } else {
         Write-Note 'existing checkout would not update (broken git state) - reinstalling in place.'
         Invoke-SalvageReclone
@@ -1163,8 +1465,8 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
         Write-Note "$InstallDir exists but is not a git repo (leftover from an earlier install) - reinstalling in place."
         Invoke-SalvageReclone
     } else {
-        if (-not (Invoke-FetchPayload)) { exit 1 }
-        Write-Ok 'downloaded'
+        if (-not (Invoke-FetchPayload)) { Exit-Install 1 }
+        Write-Ok "Downloaded Dodaios $Branch" $FetchWatch.Elapsed.TotalSeconds
     }
 }
 
@@ -1179,7 +1481,7 @@ if ($env:JARVIS_PAYLOAD_COMMIT) {
     $PayloadCommit = $env:JARVIS_PAYLOAD_COMMIT
     if ($PayloadCommit -notmatch '^[0-9a-f]{40}([0-9a-f]{24})?$') {
         Write-Err "JARVIS_PAYLOAD_COMMIT is not a well-formed git SHA: '$PayloadCommit' - refusing."
-        exit 1
+        Exit-Install 1
     }
     if (-not (Test-Path (Join-Path $InstallDir '.git'))) {
         # Tarball-fallback install: the tree was fetched from the commit-
@@ -1206,13 +1508,13 @@ if ($env:JARVIS_PAYLOAD_COMMIT) {
         if ($LASTEXITCODE -ne 0) {
             Write-Err "failed to checkout payload-commit $PayloadCommit - refusing."
             Write-Note 'the cloned tree does not contain the signed commit; release may be inconsistent.'
-            exit 1
+            Exit-Install 1
         }
         # Defensive verify: HEAD must be exactly the signed SHA byte-for-byte.
         $ActualHead = (& git rev-parse HEAD).Trim()
         if ($ActualHead -ne $PayloadCommit) {
             Write-Err "HEAD drift detected: pinned=$PayloadCommit, actual=$ActualHead - refusing."
-            exit 1
+            Exit-Install 1
         }
         Write-Ok "pinned to signed commit $($PayloadCommit.Substring(0,12))"
     } finally {
@@ -1236,39 +1538,40 @@ $VenvPython = Join-Path $VenvPath 'Scripts\python.exe'
 # this second call catches one the login autostart revived in between.
 Stop-RunningApp
 
+$script:UiLastSeconds = 0
 if (-not (Test-Path $VenvPython)) {
-    & $pythonExe -m venv $VenvPath
-    if ($LASTEXITCODE -ne 0) { Write-Err 'venv creation failed.'; exit 1 }
+    $code = Invoke-UiSpin -Label 'Virtual environment' -FilePath $pythonExe -Arguments @('-m', 'venv', $VenvPath)
+    if ($code -ne 0) { Exit-Install 1 }
 }
-Write-Ok 'virtual environment ready'
+Write-Ok 'Virtual environment ready' $script:UiLastSeconds
 
-Write-Note 'installing bootstrap dependencies (rich, packaging) - this can take a moment'
-& $VenvPython -m pip install --quiet --upgrade pip rich packaging
-if ($LASTEXITCODE -ne 0) {
+# installer.py itself needs only the standard library and this checkout
+# until its own phase 4 has run; an up-to-date pip installs that phase.
+$BootstrapArgs = @('-m', 'pip', 'install', '--quiet', '--upgrade', 'pip', 'packaging')
+$code = Invoke-UiSpin -Label 'Installer tools (pip, packaging)' -FilePath $VenvPython -Arguments $BootstrapArgs
+if ($code -ne 0) {
     # Once more: a dropped connection or a file an antivirus scanner still
     # holds open usually clears within seconds.
-    Write-Note 'bootstrap install failed - retrying once ...'
+    Write-Note 'A dropped connection or a locked file often clears up, so: retrying once.'
     Start-Sleep -Seconds 4
-    & $VenvPython -m pip install --quiet --upgrade pip rich packaging
+    $code = Invoke-UiSpin -Label 'Installer tools (pip, packaging), retry' -FilePath $VenvPython -Arguments $BootstrapArgs
 }
-if ($LASTEXITCODE -ne 0) {
-    Write-Err 'bootstrap pip install failed.'
+if ($code -ne 0) {
+    Write-Err 'The installer tools could not be installed.'
     Write-Note 'Check your connection, then run the installer again.'
     Write-Note 'If your antivirus quarantined a file, restore it and allow the Dodaios folder first.'
     Write-Note 'Help: https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#troubleshooting'
-    exit 1
+    Exit-Install 1
 }
-Write-Ok 'bootstrap dependencies ready'
+Write-Ok 'Installer tools ready (pip, packaging)' $script:UiLastSeconds
 
 # ----------------------------------------------------------------- hand off
 $InstallerPy = Join-Path $InstallDir 'install\installer.py'
 if (-not (Test-Path $InstallerPy)) {
-    Write-Err "$InstallerPy not found in the clone."
-    Write-Note 'The repo seems incomplete. File a bug.'
-    exit 1
+    Write-Err "$InstallerPy not found in the download."
+    Write-Note 'The download seems incomplete. Please file a bug.'
+    Exit-Install 1
 }
-
-Write-Note 'handing over to the Python installer (phases 4-6)'
 
 # The LFS skip is for this script's own git calls only. Drop it before the
 # hand-off so the app installer.py launches (and every git it runs in the
@@ -1278,7 +1581,7 @@ Remove-Item Env:GIT_LFS_SKIP_SMUDGE -ErrorAction SilentlyContinue
 Push-Location $InstallDir
 try {
     & $VenvPython $InstallerPy @ExtraArgs
-    exit $LASTEXITCODE
+    Exit-Install $LASTEXITCODE
 } finally {
     Pop-Location
 }
