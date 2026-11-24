@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -128,3 +130,142 @@ async def test_the_message_bytes_are_pinned(monkeypatch: pytest.MonkeyPatch, cas
     assert message == _composed(case)
     digest = hashlib.sha256(message.encode("utf-8")).hexdigest()
     assert digest == _PINNED[case], f"the lead's message for {case!r} changed; now {digest}"
+
+
+def test_the_lead_message_is_one_pure_function() -> None:
+    """The lines beside the person's message come from ``message_lines`` alone."""
+    from dodaios.agent_chat import dodaios_harness as h
+
+    lines = h.message_lines("Find me a train", continuation=False, brief="\nB")
+    assert lines == h.EFFORT_LINE + h.FIRST_LINE + h.REPLY_SHAPE_LINE + "\nB" + h.QUESTION_CARD_LINE
+    assert h.lead_message("Find me a train", continuation=False, brief=lambda: "\nB") == (
+        "Find me a train" + lines
+    )
+
+    # A slash command goes out alone: the wishes are not even read.
+    def unread() -> str:
+        raise AssertionError("read for a slash command")
+
+    assert h.lead_message("/project list", continuation=False, brief=unread) == "/project list"
+
+
+def _identity(tmp_path: Path) -> Any:
+    from dodaios.agent_chat import dodaios_harness
+
+    path = tmp_path / "identity.md"
+    path.write_text("FULL IDENTITY", encoding="utf-8")
+    return dodaios_harness.Identity(
+        "lead-1", "FULL IDENTITY", "SHORT", path=path, catchup="CATCH-UP\n\n"
+    )
+
+
+def _claude_message(plan: Any) -> str:
+    return str(json.loads(plan.stdin_text.splitlines()[0])["message"]["content"])
+
+
+def _argv_message(plan: Any) -> str:
+    return str(plan.argv[plan.argv.index("-p") + 1])
+
+
+@pytest.mark.parametrize("resume", [None, "vendor-1"])
+@pytest.mark.parametrize(
+    ("runner", "prefix", "message_of"),
+    [
+        ("claude-cli", "claude_argv_prefix", _claude_message),
+        ("codex-cli", "codex_argv_prefix", lambda plan: plan.stdin_text),
+        ("grok-cli", "grok_argv_prefix", _argv_message),
+    ],
+)
+def test_lead_model_input_is_what_the_planner_hands_the_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    runner: str,
+    prefix: str,
+    message_of: Any,
+    resume: str | None,
+) -> None:
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+
+    monkeypatch.setattr(runner_cli, prefix, lambda: [runner.removesuffix("-cli")])
+    monkeypatch.setattr(dodaios_harness, "mcp_config_json", lambda *_a: '{"mcpServers": {}}')
+    identity = _identity(tmp_path)
+    plan = runner_cli._PLANNERS[runner](  # noqa: SLF001
+        prompt="hello",
+        cwd=tmp_path,
+        model="m",
+        effort="high",
+        permission_mode="bypassPermissions",
+        resume=resume,
+        identity=identity,
+    )
+    got = runner_cli.lead_model_input(
+        runner=runner,
+        model="m",
+        effort="high",
+        prompt="hello",
+        identity=identity,
+        resume=resume,
+        tools="--mcp-config" in plan.argv,
+    )
+    assert (got.cli, got.model, got.effort) == (runner, "m", "high")
+    assert got.message == message_of(plan)
+    if resume:
+        assert got.message == "CATCH-UP\n\nhello"
+    if runner == "claude-cli":
+        # The identity is the system-prompt file, read as the CLI reads it.
+        flag = plan.argv.index("--append-system-prompt-file")
+        assert got.system == Path(plan.argv[flag + 1]).read_text(encoding="utf-8")
+        assert got.system == "FULL IDENTITY"
+        if not resume:
+            assert got.message == "hello"
+    else:
+        # Other seats carry the identity in the message, on a fresh conversation.
+        assert got.system == ""
+        if not resume:
+            cut = "SHORT" if runner == "grok-cli" else "FULL IDENTITY"
+            assert got.message == f"<jarvis_identity>\n{cut}\n</jarvis_identity>\n\nhello"
+
+
+def test_without_the_tool_server_claude_code_gets_no_system_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(dodaios_harness, "mcp_config_json", lambda *_a: None)
+    identity = _identity(tmp_path)
+    plan = runner_cli.plan_claude(
+        prompt="hello",
+        cwd=tmp_path,
+        model="m",
+        effort="high",
+        permission_mode="bypassPermissions",
+        resume=None,
+        identity=identity,
+    )
+    assert "--append-system-prompt-file" not in plan.argv
+    got = runner_cli.lead_model_input(
+        runner="claude-cli",
+        model="m",
+        effort="high",
+        prompt="hello",
+        identity=identity,
+        resume=None,
+        tools="--mcp-config" in plan.argv,
+    )
+    assert (got.system, got.message) == ("", "hello")
+
+
+def test_lead_model_input_refuses_a_society_seat(tmp_path: Path) -> None:
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+
+    seat = dodaios_harness.Identity("society:scout", "BRIEFING", "BRIEFING")
+    with pytest.raises(ValueError, match="lead"):
+        runner_cli.lead_model_input(
+            runner="codex-cli",
+            model="m",
+            effort="",
+            prompt="hello",
+            identity=seat,
+            resume=None,
+        )
