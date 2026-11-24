@@ -190,11 +190,11 @@ def _call_name(call: ast.Call) -> str:
 
 
 def test_the_web_server_attaches_the_bus_before_anything_else_in_start() -> None:
-    tree = ast.parse((_JARVIS / "ui/web/server.py").read_text(encoding="utf-8"))
+    tree = ast.parse((_JARVIS / "ui/web/server_parts/lifecycle.py").read_text(encoding="utf-8"))
     start = next(
         node
         for cls in tree.body
-        if isinstance(cls, ast.ClassDef) and cls.name == "WebServer"
+        if isinstance(cls, ast.ClassDef) and cls.name == "LifecycleMixin"
         for node in cls.body
         if isinstance(node, ast.AsyncFunctionDef) and node.name == "start"
     )
