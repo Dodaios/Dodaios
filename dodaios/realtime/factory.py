@@ -13,6 +13,7 @@ import asyncio
 import logging
 from typing import Any
 
+from dodaios.core import module_health
 from dodaios.core.config import get_secret_any
 from dodaios.core.registry import list_plugins, load
 from dodaios.realtime.protocol import RealtimeProvider
@@ -181,8 +182,9 @@ def _identified_provider_candidates(
             candidates.append((provider_id, provider))
             if limit is not None and len(candidates) >= limit:
                 break
-        except Exception as exc:  # noqa: BLE001 — one plugin must not brick others
+        except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — realtime plugin
             log.warning("Realtime plugin %s is unavailable: %s", provider_id, exc)
+            module_health.report_failure(f"plugin:realtime:{provider_id}", exc)
     return candidates
 
 
