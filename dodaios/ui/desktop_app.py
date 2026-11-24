@@ -6222,9 +6222,11 @@ class DesktopApp:
         # A local DevTools endpoint, so a hung page can be asked where its
         # script is stuck before the watchdog ends the renderer (see
         # dodaios/ui/webview_hang_probe.py). WebView2 only; a no-op elsewhere.
+        from dodaios.ui.web.surface_security import browser_login_required
         from dodaios.ui.webview_hang_probe import enable_webview_remote_debugging
 
-        enable_webview_remote_debugging()
+        # Never with the browser lock on: the port would bypass the lock.
+        enable_webview_remote_debugging(browser_locked=browser_login_required())
         try:
             import webview  # type: ignore[import-not-found]
         except ModuleNotFoundError as exc:
@@ -6244,6 +6246,12 @@ class DesktopApp:
                     f'      {sys.executable} -m pip install -e ".[desktop]"\n'
                 ),
             )
+
+        # New-window requests from a framed page must reach the OS only as
+        # http(s) (pywebview would otherwise hand any URI to os.startfile).
+        from dodaios.platform.webview_new_window_guard import install_new_window_guard
+
+        install_new_window_guard(webview)
 
         if not self._wait_for_backend():
             detail = self._format_backend_boot_failure()

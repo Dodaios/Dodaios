@@ -172,11 +172,11 @@ def _ctx() -> SimpleNamespace:
 
 
 async def test_creating_the_agent_and_its_routine_reports_what_blocks_them(commands) -> None:
-    created = await commands["society-create-agent"].execute(
-        {"name": "Herald", "title": "Marketing", "services": SERVICES}, _ctx()
-    )
-    assert created.success, created.error
-    assert created.output["response"]["readiness"]["status"] == BLOCKED
+    from dodaios.society import runtime as society_runtime
+
+    runtime = society_runtime.current_runtime()
+    await runtime.ensure_started()
+    await runtime.roster.create(name="Herald", title="Marketing")
     routine = await commands["society-create-routine"].execute(
         {
             "agent_id": "herald",
@@ -207,10 +207,9 @@ async def test_creating_the_agent_and_its_routine_reports_what_blocks_them(comma
 
 
 def test_the_rule_reaches_the_lead_with_the_tools_and_in_its_doctrine() -> None:
-    for name in ("society-create-agent", "society-create-routine"):
-        command = get_command(name)
-        assert "services" in command.params["properties"]
-        assert "only status 'ready'" in command.description
+    command = get_command("society-create-routine")
+    assert "services" in command.params["properties"]
+    assert "only status 'ready'" in command.description
     assert get_command("society-check-readiness") is not None
     assert "ready only when its readiness status is 'ready'" in LEAD_DOCTRINE
 

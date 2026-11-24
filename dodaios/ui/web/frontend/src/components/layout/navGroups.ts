@@ -24,6 +24,7 @@ import {
   FeedbackIcon,
   AssistantIcon,
   MarketplaceIcon,
+  MeasureIcon,
   MicrophoneIcon,
   PetsIcon,
   ProfileIcon,
@@ -135,6 +136,14 @@ export const NAV_GROUPS: NavItem[][] = [
       labelKey: "nav.self_build",
       icon: BuiltIcon,
       fallbackLabel: "Built for you",
+    },
+    // Self-improvement — is the assistant getting better, what it changed in
+    // itself and what proved it, with stop and undo (docs/self-improvement.md).
+    {
+      id: "self-improvement",
+      labelKey: "nav.self_improvement",
+      icon: MeasureIcon,
+      fallbackLabel: "Self-improvement",
     },
     // The compact catalog opens on Plugins; direct section navigation selects
     // its corresponding tab and keeps this shared row highlighted.

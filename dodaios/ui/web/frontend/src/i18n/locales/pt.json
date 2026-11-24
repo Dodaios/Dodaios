@@ -339,6 +339,7 @@
     "shortcuts": "Atalhos de teclado",
     "pets": "Os meus Pets",
     "self_build": "Feito para si",
+    "self_improvement": "Automelhoria",
     "notifications": "Notificações",
     "phone": "Telefone"
   },
@@ -10915,6 +10916,7 @@
     "scroll_newest": "Ir para a mensagem mais recente",
     "open_side_by_side": "Abrir ao lado",
     "drop_side_by_side": "Largue para abrir ao lado",
+    "drop_mention": "Largue aqui para nomear este agente na sua mensagem",
     "drop_replace": "Largue para substituir este thread",
     "close_column": "Fechar {target}",
     "plan_usage": {

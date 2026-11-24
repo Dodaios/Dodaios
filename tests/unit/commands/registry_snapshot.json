@@ -1,67 +1,5 @@
 [
  {
-  "id": "society-create-agent",
-  "title": "Create a persistent team agent",
-  "method": "POST",
-  "path": "/api/society/agents",
-  "path_params": [],
-  "dangerous": false,
-  "worker_allowed": false,
-  "ui_section": "agents",
-  "description_sha256": "28a69d56d8fd32cdb3262b7fa9152c25e18064a8206f224bb1de6f13889ab5d4",
-  "params_sha256": "9051fbbcea697a28580df5649270f1efb5cc9a871c5559faa921d556a4158333",
-  "voice_aliases": {
-   "de": "7a548fc50efe609dc2f4b5208b93df6679d0a013daad4da480c5a54e55854f13",
-   "en": [
-    "create an agent for researching suppliers"
-   ],
-   "es": "263b2f6b1e0d365b9f202c6fa4e2711fcc5e639051568b7858a43162dbed7363",
-   "pt": "beb875b799a02f1d9909245fee1c291afc3ed133c0f02d27c56e861105073d21"
-  }
- },
- {
-  "id": "society-update-agent",
-  "title": "Update a persistent team agent",
-  "method": "PATCH",
-  "path": "/api/society/agents/{agent_id}",
-  "path_params": [
-   "agent_id"
-  ],
-  "dangerous": false,
-  "worker_allowed": false,
-  "ui_section": "agents",
-  "description_sha256": "796e29453e867d87fbea0602f199cfafd7e8acf6a0a36d7f74a0e5528e770e45",
-  "params_sha256": "4ce0454dbba2548754e653d82f330caaa94df18cb7964490be05e297a3f2a7e7",
-  "voice_aliases": {
-   "de": "e07f9e7057786a0177b8dbdfeb3a7f7b012de56624391bc828b3573f36a464d9",
-   "en": [
-    "update Scout's responsibilities"
-   ],
-   "es": "08fbedc5f91509a89cbcf190773d0e72bf0a63410dc8019bda897c6218ed0bd2",
-   "pt": "d44d813de8bb9d29a5e25fbd07f3ff215752500ad957a2a6ca9d955fcf6dffc6"
-  }
- },
- {
-  "id": "society-capability-catalog",
-  "title": "Read the team's capability catalog",
-  "method": "GET",
-  "path": "/api/society/capabilities",
-  "path_params": [],
-  "dangerous": false,
-  "worker_allowed": false,
-  "ui_section": "agents",
-  "description_sha256": "b0b5f458177e69ba3c3abcb148ee083bddcae3a95045928c581fd52c5b980f51",
-  "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-  "voice_aliases": {
-   "de": "c0e0b14a94578e268738f598d8cdba41d7f60e93eacd39b6c32dce0113b480b7",
-   "en": [
-    "which capabilities can my agents use"
-   ],
-   "es": "71365926581817e5b20e76c960705a97eb0a29fe130214d873519a55f0884394",
-   "pt": "0f9164031c573467f5b066e38e8b4601037edb106e3a9c00dbb52cffbf424a20"
-  }
- },
- {
   "id": "society-agent-catalog",
   "title": "Read available agent models",
   "method": "GET",
@@ -101,28 +39,6 @@
    ],
    "es": "f8ab9c64e2766d98166961b0a1972ac0235a36834a5b4cb834b13964f8dcceb6",
    "pt": "97ef00ccc28a8729c6d917163ed405d17ed6619fa7b7aca0d92ca2bd94594343"
-  }
- },
- {
-  "id": "society-archive-agent",
-  "title": "Archive a team agent",
-  "method": "DELETE",
-  "path": "/api/society/agents/{agent_id}",
-  "path_params": [
-   "agent_id"
-  ],
-  "dangerous": true,
-  "worker_allowed": false,
-  "ui_section": "agents",
-  "description_sha256": "5e799d29ad2efce81de9ff6137f7e5a9a3393dee27d6515a144d4351d1283acd",
-  "params_sha256": "cb6a1f3d05d5f5024f2131513eafc7d09d90bf1e06d9c80d0aad0add9f1e9b72",
-  "voice_aliases": {
-   "de": "f067348127fb8479dbc5701f5c24d89bca77893dc1c7002765336b8454263de1",
-   "en": [
-    "delete the agent Scout"
-   ],
-   "es": "b4a3b8c3b6b8d7f7c91d5ef80b67964f4562ede0c7a6fa3821ab572d781feb99",
-   "pt": "c7469fe89c4e7861fd0656814f075a53a21f39d82fc709f831de75d2a7dcf7e1"
   }
  },
  {

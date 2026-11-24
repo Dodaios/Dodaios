@@ -134,6 +134,15 @@ export const BuiltIcon = defineIcon(
   </>,
 );
 
+/** Two axes and a measured line that steps up: the assistant measuring itself. */
+export const MeasureIcon = defineIcon(
+  "MeasureIcon",
+  <>
+    <path d="M4 4v16h16" />
+    <path d="M7.5 15.5 11 12l3 2.5 5-6" />
+  </>,
+);
+
 /** Three tiles and a fourth turned on its corner: something added on. */
 export const ExtensionsIcon = defineIcon(
   "ExtensionsIcon",

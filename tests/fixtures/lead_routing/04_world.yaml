@@ -216,11 +216,6 @@
   lang: en
   utterance: "Restart the app."
   expect: {tool: app-restart, approval: true}
-- id: approval-archive-agent-en
-  category: approval
-  lang: en
-  utterance: "Archive the agent Scout, we do not need him anymore."
-  expect: {tool: society-archive-agent, approval: true}
 - id: approval-delete-skill-de
   category: approval
   lang: de
@@ -293,5 +288,5 @@
   category: ambiguous
   lang: en
   utterance: "What can the Archivist actually do?"
-  expect: {tools: [society_status, society-capability-catalog, society-agent-catalog], effect: read}
+  expect: {tools: [society_status, society-agent-catalog], effect: read}
   note: "A question about an agent is a read, not an assignment."
