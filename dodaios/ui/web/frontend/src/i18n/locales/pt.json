@@ -116,13 +116,8 @@
     "state_ready": "Pronto para a próxima chamada",
     "state_call": "Chamada em curso",
     "state_connecting": "A ligar…",
-    "state_backup": "No percurso de voz de reserva",
-    "state_off": "O Realtime está desligado",
     "state_none": "Ainda sem fornecedor de voz",
     "none_hint": "Escolhe um fornecedor abaixo e adiciona a chave.",
-    "off_hint": "A tua voz ainda funciona com o motor clássico descontinuado. Liga o Realtime para falar através do fornecedor abaixo.",
-    "off_hint_unavailable": "A tua voz ainda funciona com o motor clássico descontinuado. Configura um fornecedor abaixo e depois liga o Realtime.",
-    "turn_on": "Ligar Realtime",
     "providers_title": "Fornecedor",
     "providers_desc": "Quem gere a conversa ao vivo. Um fornecedor com chave guardada assume com um clique.",
     "active": "Ativo",
@@ -162,7 +157,6 @@
     "subscription_billing": "A voz e o raciocínio usam a tua subscrição ChatGPT, sujeitos aos respetivos limites de acesso e utilização. Se não estiver disponível, a chamada termina sem mudar para uma chave de API. O acesso de voz por subscrição é experimental.",
     "options_failed": "Não foi possível carregar a lista de modelos e vozes. Reabre a configuração para tentar novamente.",
     "active": "Ativo",
-    "pipeline_fallback": "Não foi possível iniciar o Realtime nesta chamada, por isso funciona no percurso de voz de reserva. As novas definições aplicam-se à próxima chamada.",
     "open_browser": "Abrir voz no navegador",
     "loading": "A carregar configuração de voz…",
     "description": "Conversa natural, o modelo de raciocínio que escolheres e as ferramentas do Dodaios. Escolhe uma chave OpenAI ou uma subscrição ChatGPT.",
@@ -919,10 +913,8 @@
     "realtime_webrtc_unsupported": "Esta janela não consegue abrir a ligação de áudio de que esta voz precisa (o WebRTC não está disponível).",
     "realtime_start_unavailable": "Não foi possível iniciar a voz: a ligação de voz selecionada não está pronta. Verifica o início de sessão ou a chave em API Keys > Live calls.",
     "realtime_browser_tts_unavailable": "Este navegador não tem uma voz de sistema utilizável. A resposta continua disponível em texto; liga um fornecedor TTS para áudio.",
-    "realtime_pipeline_fallback": "Reserva do pipeline clássico",
     "realtime_unavailable": "Liga ou configura um fornecedor Realtime",
     "realtime_error": "Não foi possível iniciar a voz. Testa o fornecedor Realtime ativo em Chaves de API e tenta novamente.",
-    "browser_voice_error": "Não foi possível iniciar a voz. Verifica a conversão de voz em texto, o Cérebro e a conversão de texto em voz em Chaves de API e tenta novamente.",
     "realtime_provider_fallback": "{0} ficou indisponível, por isso a chamada passou para outro fornecedor — a faturação pode ser diferente. {1}",
     "realtime_provider_fallback_short": "A chamada saiu de {0} para outro fornecedor.",
     "realtime_provider_warning": "O fornecedor Realtime reportou um problema recuperável; a chamada continua.",
@@ -2023,12 +2015,6 @@
       "warn": "aviso"
     }
   },
-  "voice_mode": {
-    "label": "Modo",
-    "realtime": "Tempo real",
-    "pipeline": "Pipeline",
-    "unknown": "Desconhecido"
-  },
   "transcription": {
     "archive": "Arquivo de voz",
     "intro": "Um lugar para cada conversa. Encontra as palavras a que queres voltar.",
@@ -2920,26 +2906,13 @@
     "local_mode_notice": "{0} fornecedores alojados estão ocultos.",
     "local_mode_notice_active": "O fornecedor atualmente em uso continua visível para que vejas sempre onde o {name} está a correr.",
     "local_mode_show_all": "Mostrar todos os fornecedores",
-    "mode_pipeline": "Pipeline",
-    "mode_realtime": "Tempo real",
     "mode_active_badge": "Ativo",
     "mode_recommended": "Recomendado",
-    "voice_engine_label": "Motor de voz",
-    "voice_engine_desc": "Como o {name} ouve e fala — conversa ao vivo com ferramentas ou fala local.",
     "mode_needs_credentials": "Liga ou configura um fornecedor de tempo real abaixo para mudar.",
-    "mode_desc_pipeline": "Três passos: fala para texto, o cérebro pensa, texto para fala.",
-    "mode_desc_realtime": "Um só modelo ouve e responde no mesmo fluxo de áudio ao vivo.",
-    "mode_pick_one_hint": "Só precisas de configurar um modo de voz.",
-    "mode_keys_hint": "O tempo real precisa de um fornecedor ao vivo, com início de sessão por subscrição ou chave API. O pipeline precisa das suas próprias credenciais de entrada de voz, saída de voz e cérebro. O modelo de ferramentas e os agentes {name} aplicam-se a ambos os modos.",
-    "mode_realtime_preview": "Pré-visualização de investigação — ainda não está concluída. Muitas ferramentas e funcionalidades não funcionam no modo de tempo real.",
-    "mode_realtime_preview_short": "Pré-visualização de investigação",
     "alt_credential_title": "Alternativa: {0}",
     "alt_credential_setup": "Configurar {0}",
     "runtime_switching": "A reiniciar a sessão de voz atual com o motor selecionado…",
-    "runtime_idle": "Nenhuma sessão de voz ativa. Esta seleção aplica-se à próxima.",
     "runtime_realtime": "Sessão atual: tempo real",
-    "runtime_pipeline": "Sessão atual: pipeline",
-    "runtime_fallback_pipeline": "A sessão atual recorreu ao pipeline; o tempo real não está a servir esta chamada.",
     "cat_brain_desc": "O modelo que escreve as respostas de chat e voz. O modelo de ferramentas, separado, trata das ações e do Computer Use.",
     "cat_tts_desc": "A voz com que o {name} fala.",
     "cat_stt_desc": "Como o {name} converte a tua fala em texto.",
@@ -3234,7 +3207,7 @@
   "settings_view": {
     "silence_window": {
       "title": "Pausa para pensar",
-      "description": "Quanto tempo o {name} espera em silêncio antes de assumir a tua vez. Em Automático, cada modo de voz mantém o seu tempo de fábrica — a pausa mais curta. Aumenta-o para teres mais tempo para fazer pausas e acabar um pensamento; se continuares a falar dentro da pausa, as palavras são adicionadas ao mesmo pedido. Aplica-se aos dois modos de voz — Pipeline de imediato, Realtime na próxima chamada.",
+      "description": "Quanto tempo o {name} espera em silêncio antes de assumir a tua vez numa chamada de voz. Em Automático, o fornecedor de voz usa a sua própria deteção de turnos — a pausa mais curta. Aumenta para teres mais tempo para fazer pausas e terminar uma ideia; se continuares a falar dentro da pausa, as palavras são acrescentadas ao mesmo pedido. Aplica-se a partir da próxima chamada.",
       "unit_seconds": "s",
       "automatic_label": "Automático",
       "automatic_caption": "O tempo de fábrica do fornecedor — a pausa mais curta.",
@@ -4091,7 +4064,7 @@
     "reply_section": "Idioma de resposta",
     "reply_hint": "Em que idioma o {name} fala quando te responde. Nomes próprios, identificadores de código e termos técnicos ficam na forma original.",
     "stt_section": "Idioma de reconhecimento de voz",
-    "stt_hint": "Em que idioma a tua voz é reconhecida e convertida em texto. Automático deteta-o por ti. Depois de alterar, termina qualquer chamada Realtime e reinicia o Dodaios para o modo Pipeline.",
+    "stt_hint": "Em que idioma a tua voz é reconhecida e convertida em texto. Automático deteta-o por ti. Depois de alterar, termina qualquer chamada em curso; a seguinte usa o novo idioma.",
     "options": {
       "auto": {
         "label": "Automático",
@@ -6951,9 +6924,7 @@
   "ready_note": {
     "title": "Tudo pronto.",
     "body": "Raciocínio, ferramentas, agentes e {0} estão configurados. Diz a tua palavra de ativação — ou começa simplesmente a escrever.",
-    "go": "Vamos lá",
-    "mode_realtime": "voz em direto",
-    "mode_pipeline": "voz de entrada e saída"
+    "go": "Vamos lá"
   },
   "society": {
     "sandbox": {
@@ -9546,6 +9517,7 @@
       "too_large": "Este arquivo é grande demais para ser exibido aqui.",
       "unavailable": "Não é possível ler este arquivo. Ele pode ter sido movido ou excluído.",
       "no_workspace": "Abra um projeto para ler arquivos aqui.",
+      "not_found": "{file} não está em {folder} (a pasta deste tópico) nem na sua pasta pessoal. A resposta indica o ficheiro sem o caminho completo, por isso pode pertencer a outro projeto.",
       "show_change": "Mostrar a alteração",
       "change_truncated": "Mais {count} linhas não são mostradas.",
       "unsaved": "Alterações não guardadas",

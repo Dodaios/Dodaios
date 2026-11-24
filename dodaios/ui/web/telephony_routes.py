@@ -5,8 +5,8 @@ Base path: ``/api/telephony``.
 Twilio-facing (not consumed by the UI):
   * ``POST /api/telephony/voice`` — Voice webhook; validates signature; returns
     TwiML ``<Connect><Stream>`` pointing at the media socket.
-  * ``WS  /api/telephony/media``  — Media Streams socket; runs the per-call
-    STT -> Brain -> TTS turn loop.
+  * ``WS  /api/telephony/media``  — Media Streams socket; bridges the call to
+    a realtime speech-to-speech session (``dodaios.telephony.call``).
 
 UI-facing JSON:
   * ``GET  /api/telephony/status``
@@ -39,9 +39,9 @@ from pydantic import BaseModel, Field
 from dodaios.core import config as cfg_mod
 from dodaios.core.config import get_secret, set_secret
 from dodaios.telephony import is_available
+from dodaios.telephony.call import PhoneCall
 from dodaios.telephony.constants import (
     CALL_COMPLETED,
-    CALL_FAILED,
     CALL_IN_PROGRESS,
     CallStatusLiteral,
 )
@@ -120,12 +120,38 @@ def _mask_sid(sid: str) -> str:
     return sid[:2] + "•" * 6 + sid[-4:]
 
 
-def _tts_info(request: Request) -> tuple[str, str]:
+def _call_voice_info(request: Request) -> tuple[str, str]:
+    """The realtime engine a phone call talks through, and its configured voice.
+
+    Phone calls run only on realtime speech-to-speech; the selected realtime
+    provider and its voice are what the caller hears. Empty when none is set.
+    """
     cfg = _resolve_cfg(request)
-    tts = getattr(cfg, "tts", None)
-    provider = getattr(tts, "provider", "gemini-flash-tts") or "gemini-flash-tts"
-    voice = getattr(tts, "voice_de", "Charon") or "Charon"
+    brain = getattr(cfg, "brain", None)
+    provider = str(getattr(getattr(brain, "realtime", None), "provider", "") or "")
+    settings = (getattr(brain, "providers", None) or {}).get(provider) if provider else None
+    voice = str(getattr(settings, "voice", "") or "")
     return provider, voice
+
+
+def _phone_ready(cfg: Any) -> bool:
+    """Whether a realtime session could hold a phone call (reads credentials)."""
+    if cfg is None:
+        return False
+    try:
+        from dodaios.realtime.factory import realtime_phone_ready
+
+        return realtime_phone_ready(cfg)
+    except Exception:  # noqa: BLE001 - an unreadable stack cannot hold a call
+        log.warning("telephony: realtime readiness could not be read", exc_info=True)
+        return False
+
+
+# Spoken by Twilio itself (TwiML <Say>) when no realtime voice can hold the call.
+_NO_REALTIME_VOICE = (
+    "Sorry, the assistant cannot talk on the phone right now: no live voice "
+    "connection that can serve a phone line is set up."
+)
 
 
 def _apply_live_twilio_updates(request: Request, updates: dict[str, object]) -> None:
@@ -182,7 +208,8 @@ async def get_status(request: Request) -> JSONResponse:
     phone_number = getattr(twilio, "phone_number", "") or ""
     public_base_url = getattr(twilio, "public_base_url", "") or ""
     configured = bool(account_sid and phone_number and token)
-    tts_provider, tts_voice = _tts_info(request)
+    # Kept under the established wire keys: the voice a call speaks with.
+    tts_provider, tts_voice = _call_voice_info(request)
     webhook_url = public_url_for(public_base_url, "/api/telephony/voice") if public_base_url else ""
     return JSONResponse(
         {
@@ -440,85 +467,38 @@ async def post_test(request: Request) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 
-# Self-test transcript fed to the brain, and the canned spoken fallback, per
-# call language (de/en/es/pt; any other code uses English).
-_SELFTEST_TRANSCRIPT: dict[str, str] = {
-    "de": "Hallo, funktioniert das Telefon?",  # i18n-allow: German voice input
-    "en": "Hello, is the phone working?",
-    "es": "Hola, ¿funciona el teléfono?",  # i18n-allow: Spanish voice input
-    "pt": "Olá, o telefone está a funcionar?",  # i18n-allow: PT voice input
-}
-_SELFTEST_FALLBACK: dict[str, str] = {
-    "de": "Ja, das Telefon funktioniert. Ich höre dich klar und deutlich.",  # i18n-allow
-    "en": "Yes, the phone works. I can hear you loud and clear.",
-    "es": "Sí, el teléfono funciona. Te oigo alto y claro.",  # i18n-allow: Spanish TTS
-    "pt": "Sim, o telefone funciona. Ouço-te alto e bom som.",  # i18n-allow: PT TTS
-}
-
-
 @router.post("/selftest")
 async def post_selftest(request: Request) -> JSONResponse:
-    """Run a fixed utterance through STT->Brain->TTS shape (no PSTN call).
+    """Check that a phone call could talk, without placing one.
 
-    Proves the chain and that the brain answer is NOT truncated. To stay
-    corpus-free and key-free, the canned transcript is fed straight to the
-    configured brain; if the real brain/TTS cannot be built (no key in this
-    env), we fall back to a deterministic echo so the button still proves the
-    transcode + framing path. STT-on-a-WAV-fixture is a separate slow test.
+    A call runs on a realtime speech-to-speech session, so the check is
+    whether such a session could open for the phone (a provider that takes
+    PCM itself, with its sign-in or key in place), plus the mu-law transcode
+    a call's audio passes through. No provider connection is opened.
     """
-    response_text = ""
+    cfg = _resolve_cfg(request)
+    ready = await asyncio.to_thread(_phone_ready, cfg)
     audio_bytes = 0
     error: str | None = None
-
-    cfg = _resolve_cfg(request)
-    language_code = getattr(getattr(cfg, "tts", None), "language_code", "de-DE") or "de-DE"
-    short_lang = language_code.lower().split("-")[0]
-    phrase_lang = short_lang if short_lang in _SELFTEST_TRANSCRIPT else "en"
-    transcript = _SELFTEST_TRANSCRIPT[phrase_lang]
-
-    # Brain
     try:
-        brain = getattr(request.app.state, "brain", None)
-        if brain is None:
-            from dodaios.brain.factory import build_default_brain
+        from dodaios.telephony.audio import pcm16_to_ulaw, resample_pcm16
 
-            bus = getattr(request.app.state, "bus", None)
-            brain = build_default_brain(bus=bus, tier="router")
-        chunks: list[str] = []
-        async for chunk in brain.generate_stream(transcript):
-            if chunk:
-                chunks.append(chunk)
-        response_text = "".join(chunks).strip()
-    except Exception as exc:  # noqa: BLE001
-        error = f"brain: {internal_error('selftest brain call', exc, logger=log)}"
-
-    if not response_text:
-        response_text = _SELFTEST_FALLBACK[phrase_lang]
-
-    # Scrub + TTS -> count synthesized bytes after transcode to Twilio mu-law.
-    try:
-        from dodaios.brain.output_filter import scrub_for_voice
-        from dodaios.plugins.tts import build_tts_from_config
-        from dodaios.telephony.audio import tts_pcm_to_twilio_ulaw
-
-        spoken = scrub_for_voice(response_text, language=phrase_lang).cleaned
-        tts = build_tts_from_config(cfg.tts) if cfg is not None else None
-        if tts is not None:
-            async for chunk in tts.synthesize(spoken, language_code=language_code):
-                pcm = getattr(chunk, "pcm", b"")
-                rate = getattr(chunk, "sample_rate", 24_000)
-                if pcm:
-                    audio_bytes += len(tts_pcm_to_twilio_ulaw(pcm, source_rate=rate))
-    except Exception as exc:  # noqa: BLE001
-        message = internal_error("selftest speech synthesis", exc, logger=log)
-        if error is None:
-            error = f"tts: {message}"
-
+        # 100 ms of 24 kHz silence -> 8 kHz mu-law: the outbound leg of a call.
+        audio_bytes = len(pcm16_to_ulaw(resample_pcm16(b"\x00\x00" * 2400, 24_000, 8_000)))
+    except Exception as exc:  # noqa: BLE001 - reported to the UI, never a 500
+        error = f"audio: {internal_error('selftest transcode', exc, logger=log)}"
+    if not ready and error is None:
+        error = (
+            "No live voice connection can take a phone call. Set one up under "
+            "API Keys > Live calls; a connection that needs a browser cannot "
+            "serve a phone line."
+        )
+    provider, _voice = _call_voice_info(request)
     return JSONResponse(
         {
-            "ok": error is None and bool(response_text),
-            "transcript": transcript,
-            "response_text": response_text,
+            "ok": error is None,
+            "transcript": "",
+            "response_text": f"Calls talk through {provider}." if ready and provider else "",
             "audio_bytes": audio_bytes,
             "error": error,
         }
@@ -584,8 +564,8 @@ async def get_scripts(request: Request) -> JSONResponse:
             "name": "E2E probe",
             "path": "scripts/probe_telephony_e2e.py",
             "description": (
-                "Drive the media WS handler with a synthetic Twilio call and print "
-                "transcript + response + outbound-frame count. No real account needed."
+                "Drive the call bridge with a synthetic Twilio call against a fake "
+                "realtime session and print what went each way. No real account needed."
             ),
             "command": "python scripts/probe_telephony_e2e.py",
         },
@@ -753,6 +733,13 @@ async def post_voice(request: Request) -> Response:
         log.warning("telephony: refused an inbound call from a number that is not allowed")
         return Response(content=build_reject_twiml(), media_type="text/xml")
 
+    # A call talks only through a realtime speech-to-speech session. When none
+    # can serve a phone line, Twilio says so and hangs up before any stream
+    # opens (there is no other voice to fall back to).
+    if not await asyncio.to_thread(_phone_ready, _resolve_cfg(request)):
+        log.warning("telephony: refused a call: no realtime voice can serve a phone line")
+        return Response(content=build_reject_twiml(_NO_REALTIME_VOICE), media_type="text/xml")
+
     secret = generate_call_secret()
     mgr.register_pending(call_sid, secret, from_number=from_number, to_number=to_number)
 
@@ -773,9 +760,21 @@ async def post_voice(request: Request) -> Response:
 # ---------------------------------------------------------------------------
 
 
+def _call_config(state: Any) -> Any:
+    """The running config for a call, or a fresh load; ``None`` refuses it."""
+    cfg = getattr(state, "config", None) or getattr(state, "cfg", None)
+    if cfg is not None:
+        return cfg
+    try:
+        return cfg_mod.load_config()
+    except Exception:  # noqa: BLE001  # broad-except: no config means no session; refused
+        log.warning("telephony: config could not be loaded for a call", exc_info=True)
+        return None
+
+
 @router.websocket("/media")
 async def media_socket(ws: WebSocket) -> None:
-    """Twilio Media Streams socket: run the per-call turn loop."""
+    """Twilio Media Streams socket: bridge the call to a realtime session."""
     await ws.accept()
 
     app = ws.scope.get("app")
@@ -787,21 +786,20 @@ async def media_socket(ws: WebSocket) -> None:
             state.telephony_manager = mgr
 
     bus = getattr(state, "bus", None)
-    cfg = getattr(state, "config", None) or getattr(state, "cfg", None)
-    if cfg is None:
-        try:
-            cfg = cfg_mod.load_config()
-        except Exception:  # noqa: BLE001
-            cfg = None
+    cfg = _call_config(state)
     twilio = getattr(getattr(cfg, "integrations", None), "twilio", None)
 
-    session = None
+    call: PhoneCall | None = None
     started_at = time.time()
     call_sid = ""
     record_status = CALL_IN_PROGRESS
 
     async def _send(msg: dict[str, object]) -> None:
         await ws.send_json(msg)
+
+    async def _hang_up() -> None:
+        # Closing a <Connect><Stream> socket ends the call: no TwiML follows it.
+        await ws.close()
 
     try:
         while True:
@@ -812,11 +810,11 @@ async def media_socket(ws: WebSocket) -> None:
             except RuntimeError:
                 # The socket is gone — e.g. starlette raises
                 # RuntimeError('WebSocket is not connected ...') after an
-                # unclean client disconnect instead of WebSocketDisconnect.
-                # `continue` here would re-call receive_json on the dead
-                # socket forever (AP-20 log-storm); treat it as a disconnect
-                # and leave the loop. Cleanup below is unconditional (finally).
-                log.warning("telephony: media socket receive aborted for %s", call_sid)
+                # unclean client disconnect or after the call hung up from our
+                # side. `continue` would re-call receive_json on the dead
+                # socket forever (AP-20 log-storm); leave the loop. Cleanup
+                # below is unconditional (finally).
+                log.info("telephony: media socket closed for %s", call_sid)
                 break
             event = data.get("event")
 
@@ -862,7 +860,7 @@ async def media_socket(ws: WebSocket) -> None:
                     await ws.close(code=1008, reason="call already active or missing")
                     break
                 call_sid = requested_call_sid
-                session = _build_session(
+                call = _build_call(
                     state=state,
                     cfg=cfg,
                     twilio=twilio,
@@ -873,163 +871,135 @@ async def media_socket(ws: WebSocket) -> None:
                     to_number=to_number,
                     language_code=language,
                     send=_send,
+                    hang_up=_hang_up,
                     direction=direction,
                     opening=opening,
                 )
-                if session is None:
-                    record_status = CALL_FAILED
-                    await ws.close(code=1011, reason="speech stack unavailable")
-                    break
-                mgr.register_active(call_sid, session)
                 started_at = time.time()
+                if not await call.start():
+                    record_status = call.status
+                    await ws.close(code=1011, reason="no realtime voice for a phone call")
+                    break
+                mgr.register_active(call_sid, call)
                 _publish_start(bus, call_sid, from_number, to_number, stream_sid)
-                # Speak the call-opening off the receive loop so we keep draining
-                # inbound media (and can detect barge-in). Awaiting it inline
-                # would backpressure the socket against a client that is still
-                # sending audio. ``speak_intro`` speaks the outbound opening for
-                # an outbound call and the greeting otherwise (inbound unchanged).
-                import asyncio as _asyncio
-
-                async def _greet(sess=session) -> None:
-                    try:
-                        await sess.speak_intro()
-                    except Exception as exc:  # noqa: BLE001
-                        log.debug("telephony greeting failed: %s", exc)
-
-                _asyncio.create_task(_greet())
                 continue
 
-            if event == "media" and session is not None:
+            if call is None:
+                continue
+
+            if event == "media":
                 payload = data.get("media", {}).get("payload", "")
                 if payload:
-                    await session.handle_media(payload)
-                if session.check_time_cap():
-                    await session.end(reason="max_call_seconds", status=CALL_COMPLETED)
-                    record_status = session.status
-                    break
-                if session.ended:
-                    record_status = session.status
-                    break
-                continue
-
-            if event == "mark":
-                continue
-
-            if event == "stop":
-                if session is not None:
-                    await session.end(reason="twilio_stop", status=CALL_COMPLETED)
-                    record_status = session.status
+                    await call.handle_media(payload)
+            elif event == "mark":
+                call.handle_mark(str((data.get("mark") or {}).get("name", "") or ""))
+            elif event == "stop":
+                await call.end(reason="twilio_stop", status=CALL_COMPLETED)
+            if call.ended:
+                record_status = call.status
                 break
     finally:
-        if session is not None and not session.ended:
-            await session.end(reason="socket_closed", status=record_status)
-            record_status = session.status
+        if call is not None and not call.ended:
+            await call.end(reason="socket_closed", status=record_status)
+        if call is not None:
+            record_status = call.status
         if call_sid:
-            # Only remove the session this socket registered, never a replacement.
-            if session is not None and mgr.active_session(call_sid) is session:
+            # Only remove the call this socket registered, never a replacement.
+            if call is not None and mgr.active_session(call_sid) is call:
                 mgr.unregister_active(call_sid)
-            duration = session.duration_s if session is not None else time.time() - started_at
-            turns = session.turns if session is not None else 0
-            from_number = getattr(session, "from_number", "") if session else ""
-            to_number = getattr(session, "to_number", "") if session else ""
             try:
                 mgr.record_call(
                     CallRecord(
                         call_sid=call_sid,
-                        from_number=from_number,
-                        to_number=to_number,
+                        from_number=call.from_number if call is not None else "",
+                        to_number=call.to_number if call is not None else "",
                         started_at=started_at,
                         ended_at=time.time(),
-                        duration_s=duration,
+                        duration_s=(
+                            call.duration_s if call is not None else time.time() - started_at
+                        ),
                         # CallRecord runtime-asserts membership in CALL_STATUSES;
                         # the cast only satisfies the static Literal annotation.
                         status=cast(CallStatusLiteral, record_status),
-                        turns=turns,
+                        turns=call.turns if call is not None else 0,
                     )
                 )
-            except Exception as exc:  # noqa: BLE001
-                log.debug("telephony record_call failed: %s", exc)
+            except Exception:  # noqa: BLE001 - the recent-calls list is best-effort
+                log.warning("telephony: call record for %s failed", call_sid, exc_info=True)
         try:
             await ws.close()
         except Exception:  # noqa: BLE001, S110 - socket may already be closed
             pass
 
 
-def _build_session(
+def _build_call(
     *,
-    state,
-    cfg,
-    twilio,
-    bus,
+    state: Any,
+    cfg: Any,
+    twilio: Any,
+    bus: Any,
     call_sid: str,
     stream_sid: str,
     from_number: str,
     to_number: str,
     language_code: str,
-    send,
+    send: Any,
+    hang_up: Any,
     direction: str = "inbound",
     opening: str = "",
-):
-    """Build a TelephonyCallSession with per-call brain + shared STT/TTS.
+) -> PhoneCall:
+    """Build the :class:`PhoneCall` that bridges this stream to a realtime session.
 
-    Returns ``None`` when the speech stack cannot be constructed (e.g. no
-    provider key) — the caller then closes the socket cleanly. ``direction`` /
-    ``opening`` carry the Chunk-C outbound metadata (inbound -> defaults).
+    The realtime session is built with ``surface="phone"``, so only a provider
+    that takes PCM itself is chosen. An integration test injects
+    ``state.telephony_realtime_session_factory`` (same keywords) to run the
+    bridge against a fake session.
     """
-    from dodaios.telephony.session import TelephonyCallSession
+    session_factory = getattr(state, "telephony_realtime_session_factory", None)
 
-    # An integration test can inject a pre-built session factory. The factory
-    # signature is a frozen test seam, so the outbound metadata is set on the
-    # returned session afterwards rather than threaded through the factory.
-    factory = getattr(state, "telephony_session_factory", None)
-    if factory is not None:
-        session = factory(
-            call_sid=call_sid,
-            stream_sid=stream_sid,
-            from_number=from_number,
-            to_number=to_number,
-            language_code=language_code,
-            send=send,
+    def build_session(*, send_binary: Any, send_json: Any, call_brief: str) -> Any:
+        if session_factory is not None:
+            return session_factory(
+                send_binary=send_binary, send_json=send_json, call_brief=call_brief
+            )
+        if cfg is None:
+            return None
+        from dodaios.realtime.factory import PHONE_SURFACE, build_realtime_session
+
+        return build_realtime_session(
+            cfg=cfg,
+            bus=bus,
+            session_id=f"phone-{call_sid}",
+            send_binary=send_binary,
+            send_json=send_json,
+            surface=PHONE_SURFACE,
+            brain=getattr(state, "brain", None),
+            call_brief=call_brief,
         )
-        if session is not None:
-            session.direction = direction or "inbound"
-            session.opening = opening
-        return session
-
-    try:
-        from dodaios.brain.factory import build_default_brain
-        from dodaios.plugins.stt import build_stt_from_config
-        from dodaios.plugins.tts import build_tts_from_config
-
-        stt = build_stt_from_config(cfg.stt)
-        tts = build_tts_from_config(cfg.tts)
-        brain = build_default_brain(bus=bus, tier="router")
-    except Exception as exc:  # noqa: BLE001
-        log.warning("telephony: speech stack build failed: %s", exc)
-        return None
 
     try:
         from dodaios.brain.assistant_name import resolve_assistant_name
 
-        _assistant_name = resolve_assistant_name(cfg)
+        assistant_name = resolve_assistant_name(cfg)
     except Exception:  # noqa: BLE001 — never break call setup on name resolution
-        _assistant_name = ""
+        log.debug("telephony: assistant name unavailable", exc_info=True)
+        assistant_name = ""
 
-    return TelephonyCallSession(
+    return PhoneCall(
         call_sid=call_sid,
         stream_sid=stream_sid,
         send=send,
-        stt=stt,
-        brain=brain,
-        tts=tts,
+        hang_up=hang_up,
+        build_session=build_session,
         from_number=from_number,
         to_number=to_number,
         language_code=language_code or "de-DE",
-        greeting=getattr(twilio, "greeting", "") if twilio else "",
-        assistant_name=_assistant_name,
         direction=direction or "inbound",
         opening=opening,
+        greeting=getattr(twilio, "greeting", "") if twilio else "",
+        assistant_name=assistant_name,
         max_call_seconds=int(getattr(twilio, "max_call_seconds", 600) or 600) if twilio else 600,
+        volume=float(getattr(getattr(cfg, "tts", None), "volume", 1.0)),
         bus=bus,
     )
 

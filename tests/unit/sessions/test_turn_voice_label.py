@@ -19,12 +19,12 @@ import pytest
 
 from dodaios.core.bus import EventBus
 from dodaios.core.events import (
-    ListeningStarted,
     SpeechSpoken,
     VoiceSessionEnded,
     VoiceSessionStarted,
     VoiceTurnCompleted,
     VoiceTurnStarted,
+    WakeWordDetected,
 )
 from dodaios.sessions.constants import SPOKEN_KIND_REPLY
 from dodaios.sessions.formatter import format_session_markdown
@@ -65,7 +65,7 @@ async def _run_session(tmp_path, publish_between):
 @pytest.mark.asyncio
 async def test_reply_voice_lands_on_the_turn(tmp_path) -> None:
     async def scenario(bus):
-        await bus.publish(ListeningStarted(source_layer="speech"))
+        await bus.publish(WakeWordDetected(source_layer="speech"))
         await bus.publish(
             SpeechSpoken(
                 source_layer="speech.pipeline",
@@ -175,7 +175,7 @@ async def test_audible_track_beats_the_session_level_claim(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_unknown_voice_stays_empty_never_guessed(tmp_path) -> None:
     async def scenario(bus):
-        await bus.publish(ListeningStarted(source_layer="speech"))
+        await bus.publish(WakeWordDetected(source_layer="speech"))
         await bus.publish(
             SpeechSpoken(
                 source_layer="speech.pipeline",

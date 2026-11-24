@@ -1,6 +1,6 @@
 """Chunk C — outbound telephony engine tests (twilio mocked, no PSTN).
 
-Covers the three new surfaces:
+Covers two surfaces (the opening spoken first is ``tests/unit/telephony/test_call.py``):
 
 * ``dodaios.telephony.outbound.place_call`` — Contract 2 (frozen). The twilio
   REST ``Client`` is faked, so ``calls.create`` is asserted against without any
@@ -9,8 +9,6 @@ Covers the three new surfaces:
 * the outbound ``<Connect><Stream>`` TwiML (``build_connect_stream_twiml`` with
   the new ``direction``/``opening`` parameters) — and a regression check that the
   inbound TwiML stays byte-identical.
-* the session speaking the opening first on an outbound call
-  (``speak_opening`` / ``speak_intro``), reusing the existing conversation loop.
 """
 
 from __future__ import annotations
@@ -243,65 +241,3 @@ def test_outbound_twiml_with_special_chars_in_opening_is_escaped():
     root = ET.fromstring(xml)  # parses cleanly -> escaping correct
     params = {p.get("name"): p.get("value") for p in root.iter("Parameter")}
     assert params["opening"] == 'Sag "Hallo" & <Tschüss>'
-
-
-# --------------------------------------------------------------------------- #
-# Session: outbound opening spoken first (reuses the conversation loop)
-# --------------------------------------------------------------------------- #
-
-
-def _sink():
-    msgs: list[dict] = []
-
-    async def send(msg: dict) -> None:
-        msgs.append(msg)
-
-    return msgs, send
-
-
-def _make_session(send, **kw):
-    from dodaios.telephony.session import TelephonyCallSession
-    from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
-
-    params = {
-        "call_sid": "CAOUT",
-        "stream_sid": "MZOUT",
-        "send": send,
-        "stt": FakeSTT(["Hallo?"]),
-        "brain": FakeBrain("Antwort."),
-        "tts": FakeTTS(ms_per_char=2),
-        "language_code": "de-DE",
-    }
-    params.update(kw)
-    return TelephonyCallSession(**params)
-
-
-async def test_outbound_opening_is_spoken_first():
-    msgs, send = _sink()
-    session = _make_session(send, direction="outbound", opening="Guten Tag, hier ist Jarvis.")
-    n = await session.speak_intro()
-    assert n > 0
-    media = [m for m in msgs if m.get("event") == "media"]
-    assert len(media) == n
-    # The opening (scrubbed) was the first — and only — thing synthesized.
-    assert session._tts.calls, "opening must be synthesized"
-    first_text = session._tts.calls[0][0]
-    assert "Guten Tag" in first_text
-
-
-async def test_speak_intro_inbound_speaks_greeting_unchanged():
-    msgs, send = _sink()
-    session = _make_session(send, greeting="Willkommen bei Jarvis.")
-    # Default direction is inbound -> intro must speak the greeting.
-    n = await session.speak_intro()
-    assert n > 0
-    assert session._tts.calls
-    assert "Willkommen" in session._tts.calls[0][0]
-
-
-async def test_outbound_without_opening_falls_back_to_greeting():
-    msgs, send = _sink()
-    session = _make_session(send, direction="outbound", opening="", greeting="Standardbegrüßung.")
-    n = await session.speak_intro()
-    assert n > 0
-    assert "Standardbegrüßung" in session._tts.calls[0][0]

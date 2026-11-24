@@ -12,8 +12,7 @@ vi.mock("@/hooks/useWebSocket", async (importOriginal) => ({
   getWSClient: () => ({ send: wsSend }),
 }));
 
-// The composer names the model that will answer (useVoiceEngineDisplay →
-// useVoiceMode, a query), so it mounts under a query client like the app.
+// The composer mounts under a query client like the app.
 function render(ui: React.ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },

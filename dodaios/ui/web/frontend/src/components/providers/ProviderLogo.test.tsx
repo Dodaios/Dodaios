@@ -14,4 +14,10 @@ describe("ProviderLogo", () => {
     expect(tile.getAttribute("data-family")).toBe("deepseek");
     expect(tile.querySelector("img")?.getAttribute("src")).toBe(deepseekLogo);
   });
+
+  it("draws the xAI mark on the Grok Live realtime card", () => {
+    expect(providerFamily("grok-realtime")).toBe("xai");
+    render(<ProviderLogo providerId="grok-realtime" label="xAI Grok Live" />);
+    expect(screen.getByTestId("provider-logo-grok-realtime").getAttribute("data-family")).toBe("xai");
+  });
 });

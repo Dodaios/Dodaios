@@ -57,14 +57,6 @@ class FakeBus:
         self.published.append(event)
 
 
-class FakeVad:
-    def __init__(self) -> None:
-        self.ensure_calls = 0
-
-    def _ensure_model(self) -> None:
-        self.ensure_calls += 1
-
-
 class FakeTts:
     """Records init + synthesize; synthesize yields one chunk per call."""
 
@@ -104,7 +96,6 @@ def _new_pipe(monkeypatch, *, bus=None, ack_phrase: str = "Ja?") -> SpeechPipeli
     # the wake model loads (custom rolling-whisper). With _stt=None this is the
     # openWakeWord path, exactly as the real __init__ computes it.
     pipe._whisper_wake_enabled = False
-    pipe._vad = FakeVad()
     pipe._tts = FakeTts()
     pipe._wake = FakeWake()
     pipe._openwakeword_enabled = True
@@ -169,67 +160,63 @@ async def test_phase_a_runs_wake_critical_loaders(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_deferred_loaders_eventually_load_vad_and_tts(monkeypatch) -> None:
-    """VAD + TTS are not skipped — they load via the background deferred task so
-    they are ready by the first post-wake turn, just off the wake-ready path."""
+async def test_deferred_loaders_eventually_load_tts(monkeypatch) -> None:
+    """The TTS client is not skipped — it loads via the background deferred task
+    so spoken notices are ready, just off the wake-ready path."""
     pipe = _new_pipe(monkeypatch, bus=FakeBus())
 
     await pipe._warmup()
     dbg = pipe._deferred_warmup_task
-    assert dbg is not None, "deferred VAD/STT/TTS load must run as a background task"
+    assert dbg is not None, "the deferred TTS load must run as a background task"
     await dbg
 
-    assert pipe._vad.ensure_calls >= 1
     assert pipe._tts.ensure_calls >= 1
 
 
 @pytest.mark.asyncio
 async def test_phase_a_does_not_block_on_heavy_loads(monkeypatch) -> None:
     """The wake-critical path (audio-stabilize + OpenWakeWord start) must reach
-    ready WITHOUT waiting on the heavy VAD/STT/TTS model loads.
+    ready WITHOUT waiting on the heavy deferred loads (here the TTS client).
 
     Forensic (2026-06-22): those loads each lazy-import a big C-extension
     (onnxruntime for the wake model + Silero, ctranslate2 for Whisper). Run
     concurrently inside the boot storm they serialize on the Python import lock
     and get starved to 7-24 s (measured: ``wake-start=14187, vad-load=12672``).
     Because the wake loop was started only AFTER the whole warm-up finished,
-    "Hey Jarvis" was dead for that entire window. VAD/STT/TTS are only needed
-    AFTER a wake (and load lazily on first use), so they must move off the
-    ready path into a background task and never gate wake readiness.
+    "Hey Jarvis" was dead for that entire window. Those loads are only needed
+    AFTER a wake (and load lazily on first use), so they must stay off the
+    ready path in a background task and never gate wake readiness.
     """
     import threading
 
     pipe = _new_pipe(monkeypatch, bus=FakeBus())
 
-    vad_release = threading.Event()
+    tts_release = threading.Event()
 
-    class _BlockingVad:
-        def __init__(self) -> None:
-            self.ensure_calls = 0
-
-        def _ensure_model(self) -> None:
+    class _BlockingTts(FakeTts):
+        def _ensure_client(self) -> None:
             # Synchronous load (runs in a worker thread via asyncio.to_thread);
-            # block until the test releases it, modelling a starved model load.
-            vad_release.wait(5.0)
+            # block until the test releases it, modelling a starved load.
+            tts_release.wait(5.0)
             self.ensure_calls += 1
 
-    pipe._vad = _BlockingVad()
+    pipe._tts = _BlockingTts()
 
-    # Phase A must COMPLETE (wake model started) even though the VAD load is
+    # Phase A must COMPLETE (wake model started) even though the TTS load is
     # still blocked. Without the decoupling this awaits the blocked load and the
     # wait_for trips → the regression is reproduced.
     await asyncio.wait_for(pipe._warmup_phase_a(), timeout=3.0)
 
     assert pipe._wake.started is True, "wake model must be started by Phase A"
-    assert pipe._vad.ensure_calls == 0, "the heavy VAD load must NOT block Phase A"
+    assert pipe._tts.ensure_calls == 0, "the heavy TTS load must NOT block Phase A"
 
     # The load is not skipped — it runs as a background (deferred) task that the
     # release lets finish.
     dbg = getattr(pipe, "_deferred_warmup_task", None)
-    assert dbg is not None, "VAD/STT/TTS must load via a background deferred task"
-    vad_release.set()
+    assert dbg is not None, "the TTS client must load via a background deferred task"
+    tts_release.set()
     await asyncio.wait_for(dbg, timeout=3.0)
-    assert pipe._vad.ensure_calls >= 1, "the deferred VAD load must eventually run"
+    assert pipe._tts.ensure_calls >= 1, "the deferred TTS load must eventually run"
 
 
 @pytest.mark.asyncio

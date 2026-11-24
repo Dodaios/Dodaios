@@ -1,21 +1,12 @@
-"""A conversation session must stay active until a MANUAL hangup when the idle
-timeout is disabled.
+"""``[trigger] session_idle_timeout_s``: the configured idle window.
 
-User mandate 2026-06-30: in conversation mode (``single_turn_mode = false``) the
-only time-based auto-ender is the idle/silence timeout in ``_active_session``
-(default 30 s). The user wants the session to stay active indefinitely and end
-ONLY on an explicit hangup ("auflegen" / the hangup hotkey). Setting
-``[trigger] session_idle_timeout_s = 0`` (any value <= 0) disables the idle
-hangup: ``SpeechPipeline(idle_timeout_s=0)`` then never returns
-``HANGUP_IDLE_TIMEOUT`` on its own — it waits forever for the next utterance or a
-manual hangup.
-
-These guards pin that contract; pre-fix the session hung up on the first idle
-window.
+User mandate 2026-06-30: a call stays active until a MANUAL hangup when the
+idle timeout is disabled. Any value <= 0 disables it; the pipeline keeps a
+sane positive window internally and records the effective value (0 when
+disabled) in the call's termination snapshot.
 """
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
@@ -23,8 +14,6 @@ import pytest
 
 from dodaios.core.bus import EventBus
 from dodaios.core.protocols import AudioChunk
-from dodaios.sessions.constants import HANGUP_HOTKEY, HANGUP_IDLE_TIMEOUT
-from dodaios.speech import pipeline as pipeline_mod
 from dodaios.speech.pipeline import SpeechPipeline
 
 
@@ -41,28 +30,6 @@ class FakeTTS:
         self.calls.append((text, language_code))
         if False:  # pragma: no cover
             yield  # type: ignore[unreachable]
-
-
-class _FakeMic:
-    async def __aenter__(self) -> _FakeMic:
-        return self
-
-    async def __aexit__(self, *args: object) -> bool:
-        return False
-
-    def stream(self):
-        async def gen():
-            await asyncio.Event().wait()  # pragma: no cover — never yields
-            yield b""
-        return gen()
-
-
-class _FakeVAD:
-    def utterances(self, stream):
-        async def gen():
-            await asyncio.Event().wait()  # silence: never an utterance
-            yield b""  # pragma: no cover
-        return gen()
 
 
 def _pipeline(idle_timeout_s: float) -> SpeechPipeline:
@@ -93,51 +60,3 @@ def test_trigger_config_session_idle_timeout_default() -> None:
 def test_idle_hangup_enabled_flag(value: float, enabled: bool) -> None:
     pipe = _pipeline(value)
     assert pipe._idle_hangup_enabled is enabled
-
-
-# ---------------------------------------------------------------------------
-# Behavioural: the real bug repro (drives the actual ``_active_session`` loop)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_active_session_never_idle_hangs_up_when_disabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """With the idle timeout disabled, a silent session must NOT hang up — it
-    stays open until a manual hangup. Pre-fix (``timeout=0``) the idle branch
-    fired immediately and returned ``HANGUP_IDLE_TIMEOUT``."""
-    pipe = _pipeline(0)
-    monkeypatch.setattr(
-        pipeline_mod, "MicrophoneCapture", lambda device=None, **kwargs: _FakeMic(),
-    )
-    pipe._vad = _FakeVAD()
-
-    session = asyncio.create_task(pipe._active_session())
-    # Many "idle windows" worth of silence — the session must still be alive.
-    await asyncio.sleep(0.25)
-    assert not session.done(), (
-        "the session hung up by itself — with the idle timeout disabled it must "
-        "stay active until a manual hangup"
-    )
-
-    # A manual hangup (hotkey / 'auflegen' setting the event) ends it cleanly.
-    pipe._hangup_event.set()
-    reason = await asyncio.wait_for(session, timeout=2.0)
-    assert reason == HANGUP_HOTKEY
-
-
-@pytest.mark.asyncio
-async def test_active_session_still_idle_hangs_up_when_enabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Regression guard the other way: a positive timeout still auto-hangs-up so
-    the default behaviour (and every downloader) is unchanged."""
-    pipe = _pipeline(0.05)  # tiny positive window → fast test
-    monkeypatch.setattr(
-        pipeline_mod, "MicrophoneCapture", lambda device=None, **kwargs: _FakeMic(),
-    )
-    pipe._vad = _FakeVAD()
-
-    reason = await asyncio.wait_for(pipe._active_session(), timeout=2.0)
-    assert reason == HANGUP_IDLE_TIMEOUT

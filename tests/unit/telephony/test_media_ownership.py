@@ -45,7 +45,7 @@ def test_invalid_secret_leaves_all_call_state_unchanged(requested, monkeypatch):
     def never_build(**kwargs):
         pytest.fail("unauthenticated socket reached session factory")
 
-    monkeypatch.setattr(telephony_routes, "_build_session", never_build)
+    monkeypatch.setattr(telephony_routes, "_build_call", never_build)
     with TestClient(app) as client:
         with client.websocket_connect("/api/telephony/media") as ws:
             ws.send_json(start(requested, "invalid"))
@@ -63,7 +63,7 @@ def test_valid_socket_records_its_identity_once(monkeypatch, second_start):
     mgr.register_pending("other-call", "other-secret")
     ended = []
 
-    class Session:
+    class Call:
         ended = False
         status = "completed"
         duration_s = 1
@@ -71,14 +71,14 @@ def test_valid_socket_records_its_identity_once(monkeypatch, second_start):
         from_number = "from"
         to_number = "to"
 
+        async def start(self):
+            return True
+
         async def end(self, **kwargs):
             self.ended = True
             ended.append(1)
 
-        async def speak_intro(self):
-            return None
-
-    monkeypatch.setattr(telephony_routes, "_build_session", lambda **kwargs: Session())
+    monkeypatch.setattr(telephony_routes, "_build_call", lambda **kwargs: Call())
     with TestClient(app) as client:
         with client.websocket_connect("/api/telephony/media") as ws:
             ws.send_json(start("valid-call", "valid-secret"))

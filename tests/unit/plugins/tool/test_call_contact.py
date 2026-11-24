@@ -89,11 +89,13 @@ def _tool(
     store: Any,
     place_call: Any,
     config: Any = _VALID_CONFIG,
+    phone_ready: bool = True,
 ) -> CallContactTool:
     return CallContactTool(
         store_resolver=lambda: store,
         place_call=place_call,
         call_config_resolver=lambda: config,
+        phone_ready=lambda: phone_ready,
     )
 
 
@@ -205,6 +207,20 @@ async def test_telephony_unconfigured_points_to_section() -> None:
 
 
 @pytest.mark.asyncio
+async def test_no_realtime_voice_for_a_phone_line_does_not_dial() -> None:
+    """A call talks only through a realtime voice; without one that can serve a
+    phone line the tool says so instead of dialing someone into a refusal."""
+    store = _FakeStore([_FakeContact(name="Christoph", phones=["+4915112345678"])])
+    pc = _RecordingPlaceCall()
+    result = await _tool(store=store, place_call=pc, phone_ready=False).execute(
+        {"name": "Christoph"}, None
+    )
+    assert result.success is False
+    assert "live voice" in (result.error or "")
+    assert pc.calls == []
+
+
+@pytest.mark.asyncio
 async def test_place_call_provision_error_is_surfaced_gracefully() -> None:
     """When place_call raises (twilio missing/unconfigured per Contract 2) the
     tool surfaces a clean message, never an unhandled exception."""
@@ -229,6 +245,7 @@ async def test_engine_absent_degrades_gracefully(monkeypatch) -> None:
         store_resolver=lambda: store,
         place_call=None,
         call_config_resolver=lambda: _VALID_CONFIG,
+        phone_ready=lambda: True,
     )
     result = await tool.execute({"name": "Christoph"}, None)
     assert result.success is False

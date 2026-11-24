@@ -33,7 +33,10 @@ def fake_cfg() -> JarvisConfig:
 
 
 @pytest.fixture
-def app(fake_cfg: JarvisConfig) -> FastAPI:
+def app(fake_cfg: JarvisConfig, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    # A realtime voice that can serve a phone line is set up (see the refusal
+    # tests below for the other case).
+    monkeypatch.setattr(routes, "_phone_ready", lambda _cfg: True)
     application = FastAPI()
     application.include_router(telephony_router)
     application.state.config = fake_cfg
@@ -84,7 +87,8 @@ def test_status_shape(app, secret_store):
     assert body["webhook_url"] == "https://jarvis.example.com/api/telephony/voice"
     assert body["account_sid_masked"].startswith("AC")
     assert "0123456789abcdef0123456789abcdef" not in body["account_sid_masked"]
-    assert body["tts_voice"] == "Charon"
+    # The voice a call speaks with is the realtime engine's (none set here).
+    assert body["tts_provider"] == ""
     assert body["auth_token_set"] is True
 
 
@@ -318,6 +322,38 @@ def test_voice_webhook_returns_connect_stream_with_valid_signature(app, secret_s
     # A per-call secret was minted and registered.
     pending = app.state.telephony_manager.peek_pending("CA42")
     assert pending is not None
+
+
+def test_voice_webhook_refuses_aloud_when_no_realtime_voice_can_take_the_call(
+    app, secret_store, monkeypatch
+):
+    monkeypatch.setattr(routes, "_phone_ready", lambda _cfg: False)
+    app.state.telephony_skip_signature = True
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/telephony/voice", data={"CallSid": "CA7", "From": "+4915112345678"}
+        )
+    assert r.status_code == 200
+    assert "<Say>" in r.text and "<Hangup" in r.text
+    assert "<Connect>" not in r.text
+    assert app.state.telephony_manager.peek_pending("CA7") is None
+
+
+def test_selftest_reports_a_ready_phone_voice(app, secret_store, fake_cfg):
+    fake_cfg.brain.realtime = None
+    with TestClient(app) as client:
+        body = client.post("/api/telephony/selftest").json()
+    assert body["ok"] is True
+    assert body["error"] is None
+    assert body["audio_bytes"] > 0
+
+
+def test_selftest_names_the_missing_phone_voice(app, secret_store, monkeypatch):
+    monkeypatch.setattr(routes, "_phone_ready", lambda _cfg: False)
+    with TestClient(app) as client:
+        body = client.post("/api/telephony/selftest").json()
+    assert body["ok"] is False
+    assert "API Keys > Live calls" in body["error"]
 
 
 def test_voice_webhook_rejects_bad_signature(app, secret_store):

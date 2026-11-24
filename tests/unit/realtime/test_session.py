@@ -7282,23 +7282,6 @@ async def test_hangup_abandons_a_coding_brief_that_is_still_being_written(
     assert "hotkey" in reasons[0]
 
 
-async def test_a_handover_keeps_the_coding_brief_alive(monkeypatch):
-    """desktop_fallback is not a hangup: the same call continues elsewhere."""
-    from dodaios.agentic_ide import fanout as ide_fanout
-
-    called: list[str] = []
-    monkeypatch.setattr(
-        ide_fanout,
-        "cancel_spoken_deliveries",
-        lambda *, reason="": called.append(reason) or 0,
-    )
-
-    sess = _session(FakeProvider([]))
-    await sess.end(reason="desktop_fallback")
-
-    assert called == []
-
-
 # ---------------------------------------------------------------------------
 # BUG-071: in-place transport rebuild after a mid-call provider death
 # ---------------------------------------------------------------------------
@@ -7610,7 +7593,8 @@ async def test_live_resource_exhausted_does_not_reconnect_the_same_provider():
     assert sess.failed
     assert vertex.open_calls == 1
     assert len([m for m in jsons if m.get("type") == "provider_error"]) == 1
-    assert [m for m in jsons if m.get("type") == "error_spoken"] == []
+    # No other voice path takes the call over, so the person hears why.
+    assert len([m for m in jsons if m.get("type") == "error_spoken"]) == 1
     await sess.end(reason="test")
 
 
@@ -8279,13 +8263,14 @@ async def test_the_same_advice_right_after_a_rebuild_ends_the_call_honestly():
         bus=None,
     )
     await sess.handle_control({"type": "audio_start", "sample_rate": 16_000})
-    await _wait_until(lambda: sess.failed)
+    # The spoken reason goes out first, then the terminal provider_error.
+    await _wait_until(lambda: any(m.get("type") == "provider_error" for m in jsons))
 
     # Exactly one rebuild was attempted; the relapse ended the call instead of
     # spending the rest of the budget on transports that cannot help.
     assert provider.open_calls == 2
     errors = [m for m in jsons if m.get("type") == "provider_error"]
-    assert errors, "a call that stops must say so"
+    errors = [m for m in jsons if m.get("type") == "provider_error"]
     assert "after a transport rebuild" in str(errors[-1].get("error"))
     await sess.end(reason="test")
 
@@ -9022,7 +9007,6 @@ def _no_metered_fallback_session(provider, *, jsons=None, language_cfg=None):
         config=cfg,
         half_duplex=True,
         surface="desktop",
-        allow_classic_fallback=False,
     )
 
 
@@ -9148,29 +9132,6 @@ async def test_the_handshake_notice_follows_the_pinned_reply_language():
     assert len(set(seen.values())) == 4, (
         f"each supported locale needs its own wording, got {seen}"
     )
-
-
-@pytest.mark.asyncio
-async def test_a_recoverable_handshake_failure_stays_silent():
-    """Silence is correct when the classic pipeline still answers the user.
-
-    The notice exists because the call ENDS. When usage-billed fallback is
-    permitted the pipeline picks the same call up and the user gets a normal
-    answer; announcing a failure there would be false.
-    """
-    provider = _UnreachableProvider(
-        TimeoutError("realtime handshake exceeded 45.0s provider budget")
-    )
-    jsons = []
-    sess = _session(provider, jsons=jsons)  # allow_classic_fallback defaults True
-
-    with pytest.raises(RuntimeError):
-        await sess.handle_control({"type": "audio_start", "sample_rate": 16_000})
-
-    assert not [m for m in jsons if m.get("type") == "error_spoken"], (
-        "the classic pipeline owns this call; nothing should be announced"
-    )
-    await sess.end(reason="test")
 
 
 @pytest.mark.asyncio

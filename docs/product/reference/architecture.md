@@ -8,7 +8,7 @@ order: 5
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-07-21
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [architecture, desktop, web, api, providers, jarvis-agents, data]
@@ -16,7 +16,7 @@ related: [providers-and-api-keys, jarvis-agents, safety-and-approvals, control-a
 ---
 
 Dodaios is one local supervisor with several ways in. The desktop
-window, browser interface, Dodaios CLI, Pipeline and Realtime voice modes, and
+window, browser interface, Dodaios CLI, realtime voice calls, and
 connected channels are not separate assistants. They share core services, but
 each surface can use only the capabilities available to its client and host.
 
@@ -52,23 +52,21 @@ and recover independently.
 | Path | Typical request | What happens |
 |---|---|---|
 | **Direct local operation** | Open a view, read settings, list documentation, inspect status, or perform a supported app command | The local API or a deterministic handler returns the result. A Brain provider is not required unless that operation explicitly asks one to interpret or generate content. |
-| **Brain answer** | Explain something, continue a conversation, summarize available context, or decide which tool fits | The shared Brain manager selects a suitable model, streams the response when supported, and records the turn. Text and Pipeline voice use the same Brain stack, while their saved text and voice records remain distinct sources shown together in Chats. |
+| **Brain answer** | Explain something, continue a conversation, summarize available context, or decide which tool fits | The shared Brain manager selects a suitable model, streams the response when supported, and records the turn. Saved text and voice records remain distinct sources shown together in Chats. |
 | **Protected tool call** | Search, control an app, use a connected service, or change something through a Dodaios tool | A tool-capable model can propose the call. Dodaios evaluates the exact tool and arguments, requests approval when required, then runs the call through the supervised executor. A button or direct API operation can have a separate route-specific confirmation path. |
 | **Background mission** | Build a deliverable, change a project, or complete substantial multi-step work | Dodaios saves a mission, plans bounded steps, runs each step in an isolated workspace, reviews the result, and keeps the mission record plus any archived output. |
 
-Pipeline voice adds speech-to-text before the shared Brain path and
-text-to-speech after the response has been cleaned for speech. Realtime voice
-uses one live-audio provider session. In its normal delegated mode, requests
-about your data or actions return to the shared router through one
-`jarvis_action` bridge, so tool safety and mission dispatch still apply.
-Realtime does not automatically inherit every Pipeline-only feature.
+Every voice call uses one live-audio session with a realtime provider. In its
+normal delegated mode, requests about your data or actions return to the shared
+router through one `jarvis_action` bridge, so tool safety and mission dispatch
+still apply.
 
 The reply language is separate from the interface language. One resolver chooses
 English, German, or Spanish for each turn. An explicit reply-language choice
 wins; otherwise a short interjection keeps the established conversation
 language, a substantive turn follows detected input, and an unclear turn falls
 back to English. The Brain prompt, status phrases, action readbacks, and
-text-to-speech voice are expected to use that same decision.
+spoken voice are expected to use that same decision.
 
 ## Eight Layers and Replaceable Edges
 
@@ -123,11 +121,10 @@ current session or cooldown. A tool turn still needs a model that can call
 tools, and a vision turn needs image understanding. Fallback does not add a
 missing capability or make an unavailable account healthy.
 
-Realtime voice has its own credential-aware provider chain. If no Realtime
-session opens, the caller can use an available Pipeline or classic browser
-voice path. Once a Realtime provider has accepted a meaningful turn, Dodaios does
-not replay the captured audio through another path because that could repeat an
-action.
+Realtime voice has its own credential-aware provider chain. If no realtime
+session opens, the call ends with a reason. Once a provider has accepted a
+meaningful turn, Dodaios does not replay the captured audio because that could
+repeat an action.
 
 If every compatible provider fails, Dodaios returns an unavailable or
 provider-down result. It does not treat a local server response as proof that a
@@ -200,8 +197,8 @@ action succeeded.
 Headless mode keeps the browser UI, REST and WebSocket APIs, text chat, Docs,
 missions, and file work. It has no host desktop window, local wake listener,
 global shortcut, overlay, or physical Computer Use target. Browser voice is a
-separate path: it needs an enabled voice surface, browser microphone permission,
-working providers, and HTTPS when the browser is on another computer. Linux
+separate path: it needs browser microphone permission, a ready realtime voice
+provider, and HTTPS when the browser is on another computer. Linux
 Wayland can also prevent global input and desktop control even when a display is
 present.
 
@@ -254,7 +251,7 @@ Tools, voice, and Dodaios-Agents each need their own feature check.
 | Health is online, but chat, voice, or missions are unavailable | Health proves the web server, not every provider or runtime | Test the relevant category in **API Keys & Providers** and check the dedicated feature page. |
 | A chat message is saved, but no normal answer appears | The Brain failed to build or no connected provider could serve the turn | Open **API Keys & Providers > Brain**, test the active card, and try a ready provider from another compatible family. |
 | An action waits, is denied, or has no effect | A safety decision, operating-system permission, service scope, or route-specific confirmation blocked it | Review the exact request and permission. Do not bypass a block; use [Safety and Approvals](safety-and-approvals) to find the missing boundary. |
-| Browser voice is absent on a headless host | Browser voice is disabled, the browser lacks microphone permission, the connection is not secure, or a speech provider is unavailable | Keep using text, then check the browser permission, HTTPS, voice mode, and matching provider cards. |
+| Browser voice is absent on a headless host | The browser lacks microphone permission, the connection is not secure, or no realtime voice provider is ready | Keep using text, then check the browser permission, HTTPS, and the realtime provider under **API Keys & Providers > Live calls**. |
 | A mission is missing, stays active, or finishes without the expected file | The request was not delegated, the worker or Critic is unavailable, review is still running, or only partial work was archived | Open **Dodaios-Agents** for live state and **Outputs** for the durable record, then follow [Dodaios-Agents](jarvis-agents). |
 
 ## Next Steps

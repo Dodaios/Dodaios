@@ -5,12 +5,12 @@ shares the ``/api/setup`` prefix.
 
     GET  /api/setup/starter-plans          → plans + which of their keys are saved
     POST /api/setup/starter-plans/{id}     → remember the plan the user picked
-    GET  /api/setup/readiness              → is the active voice mode fully set up?
+    GET  /api/setup/readiness              → is the voice setup complete?
     POST /api/setup/readiness/celebrated   → the one-time "all set" note was shown
 
 Readiness reuses the section-health rollup instead of a second opinion. That
 rollup sends nothing to any provider: it reads credential presence and the
-passive record of real calls. "Ready" means every section the mode needs is
+passive record of real calls. "Ready" means every section the setup needs is
 ``ok``, or set up but not used yet (``unknown`` / ``unverified`` — its first
 real call checks it). A section with a known failure is never ready. Reads
 fail open — a broken check reports not-ready, never a 5xx.
@@ -79,12 +79,11 @@ async def list_starter_plans() -> dict[str, Any]:
                 "id": plan.id,
                 "label": plan.label,
                 "summary": plan.summary,
-                "mode": plan.mode,
                 "recommended": plan.recommended,
                 "assignments": dict(plan.assignments),
                 "key_slots": slots,
                 "keys_complete": bool(slots) and all(s["present"] for s in slots),
-                "ready_sections": list(plan_ready_sections(plan.mode)),
+                "ready_sections": list(plan_ready_sections()),
             }
         )
     return {"plans": plans, "selected": st.get_starter_plan(_path()), "custom_id": CUSTOM_PLAN_ID}
@@ -96,12 +95,6 @@ async def select_starter_plan(plan_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Unknown starter plan: {plan_id}")
     st.set_starter_plan(plan_id, _path())
     return {"ok": True, "selected": plan_id}
-
-
-def _voice_mode(request: Request) -> str:
-    cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
-    mode = str(getattr(getattr(cfg, "voice", None), "mode", "") or "").strip().lower()
-    return mode if mode in ("pipeline", "realtime") else "realtime"
 
 
 def _section_ready(entry: dict[str, Any]) -> bool:
@@ -121,13 +114,12 @@ def _section_ready(entry: dict[str, Any]) -> bool:
 
 @router.get("/readiness")
 async def readiness(request: Request, refresh: bool = False) -> dict[str, Any]:
-    """Whether every section the active voice mode needs answers ``ok``.
+    """Whether every section the setup needs answers ``ok``.
 
     ``celebrated`` tells the UI whether the one-time note was already shown;
     the UI shows it exactly once, when ``ready`` first turns true.
     """
-    mode = _voice_mode(request)
-    required = plan_ready_sections(mode)
+    required = plan_ready_sections()
     sections: dict[str, Any] = {}
     try:
         from . import provider_routes
@@ -151,7 +143,6 @@ async def readiness(request: Request, refresh: bool = False) -> dict[str, Any]:
         }
     ready = bool(required) and all(_section_ready(sections[name]) for name in required)
     return {
-        "mode": mode,
         "required": list(required),
         "sections": sections,
         "ready": ready,

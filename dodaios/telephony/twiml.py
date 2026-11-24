@@ -15,7 +15,7 @@ bidirectional Media Streams socket:
 
 ``<Connect><Stream>`` (as opposed to ``<Start><Stream>``) gives a *bidirectional*
 stream: Twilio sends caller audio AND plays back the audio we send on the same
-socket. That is what lets Jarvis speak in its own Charon voice.
+socket. That is what lets the realtime voice session answer on the same call.
 
 This module builds the XML with the ``twilio`` SDK when available, and falls
 back to a hand-written but valid TwiML string when the SDK is absent — so the

@@ -203,21 +203,10 @@ def put_reply_language(body: ReplyLanguageBody, request: Request) -> dict[str, o
 
 
 # ---------------------------------------------------------------------------
-# Voice mode: pipeline (the classic STT→Brain→TTS pipeline) vs realtime (a
-# full-duplex provider transport, including subscription-authenticated Codex).
-# GET reports the current mode and provider readiness; PUT switches it.
-# Persisted to jarvis.toml [voice].mode via config_writer.set_voice_mode
-# (Task 1); the persist is best-effort so a locked/read-only toml never blocks
-# the live in-memory switch that already succeeded. See
-# docs/realtime-voice/PLAN-phase-0-1.md Task 8.
+# Voice call status. Calls run only on realtime speech-to-speech providers;
+# GET reports which provider a call would use, its readiness and the state of
+# a running call. The path keeps its historical name for existing clients.
 # ---------------------------------------------------------------------------
-
-_VOICE_MODES = ("pipeline", "realtime")
-
-
-class VoiceModeBody(BaseModel):
-    mode: str = Field(..., min_length=1)
-    persist: bool = Field(default=True, description="Persist as boot default in jarvis.toml")
 
 
 def _realtime_provider_display(
@@ -277,47 +266,15 @@ async def get_voice_mode(request: Request) -> dict[str, object]:
     from dodaios.realtime.factory import realtime_browser_audio
 
     cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
-    mode = getattr(getattr(cfg, "voice", None), "mode", "pipeline")
-    from dodaios.voice.subscription_profile import (
-        LEGACY_CODEX_REALTIME_PROVIDER,
-        configured_voice_profile,
-    )
-
-    profile = configured_voice_profile(cfg) if cfg is not None else ""
-    if profile:
-        mode = "pipeline"
     # Cross-family (AP-22): resolved via the SAME ordering the realtime
-    # session factory uses, so this never disagrees with what a realtime
-    # session would actually build (Gemini-only users now get `true` too,
-    # not just OpenAI — Feature A2).
-    # External-login adapters may need a bounded CLI status probe. Keep that
-    # subprocess off the event loop so a settings poll cannot punch a hole in
-    # live Realtime audio playback.
-    prov = (
-        LEGACY_CODEX_REALTIME_PROVIDER
-        if profile
-        else await asyncio.to_thread(_realtime_available_provider, cfg)
-    )
+    # session factory uses, so this never disagrees with what a call would
+    # actually build. External-login adapters may need a bounded CLI status
+    # probe; keep that subprocess off the event loop so a settings poll cannot
+    # punch a hole in live audio playback.
+    prov = await asyncio.to_thread(_realtime_available_provider, cfg)
     realtime_available = prov is not None
     realtime_availability_pending = False
-    codex_status: dict[str, object] | None = None
-    if profile:
-        # The classic subscription composition is judged by the ISOLATED
-        # voice-profile login, surfaced below as subscription_voice_capability.
-        from dodaios.ui.web.provider_routes import (
-            _codex_binary_path,
-            _codex_subscription_status_payload,
-        )
-
-        codex_status = await asyncio.to_thread(
-            _codex_subscription_status_payload,
-            _codex_binary_path(request),
-        )
-    requires_webrtc_offer = (
-        False
-        if profile
-        else await asyncio.to_thread(_realtime_requires_webrtc_offer, cfg)
-    )
+    requires_webrtc_offer = await asyncio.to_thread(_realtime_requires_webrtc_offer, cfg)
     # Capability, not a provider id (AP-21): the surface must not call a start
     # attempt dead while the backend is still inside a budget it declared.
     handshake_budget_s = await asyncio.to_thread(_realtime_handshake_budget_s, cfg)
@@ -352,34 +309,12 @@ async def get_voice_mode(request: Request) -> dict[str, object]:
             )
         )
     prov_label, prov_model, prov_model_label = _realtime_provider_display(cfg, prov)
-    if profile:
-        # The legacy provider id remains user-visible for migration only. Its
-        # active generation path is stable subscription text, not ChatGPT-Live.
-        prov_model = "subscription-text"
-        prov_model_label = "Codex App Server (subscription text)"
     from dodaios.ui.web.voice_runtime import voice_engine_status
 
     runtime = voice_engine_status(request)
     session_provider = str(runtime.get("active_session_provider", "") or "")
     session_model = str(runtime.get("active_session_model", "") or "")
-    subscription_capability: dict[str, object] | None = None
-    if profile:
-        from dodaios.platform.capabilities import detect_capabilities
-        from dodaios.voice.subscription_profile import subscription_voice_capability
-
-        host = detect_capabilities()
-        subscription_capability = subscription_voice_capability(
-            cfg,
-            account_ready=bool(codex_status and codex_status.get("connected")),
-            runtime_attached=bool(
-                getattr(request.app.state, "speech_pipeline", None)
-            ),
-            display_present=host.display_present,
-        ).to_dict()
     return {
-        "mode": mode,
-        "profile": profile,
-        "subscription_voice_capability": subscription_capability,
         "realtime_available": realtime_available,
         "realtime_availability_pending": realtime_availability_pending,
         "requires_webrtc_offer": requires_webrtc_offer,
@@ -397,7 +332,6 @@ async def get_voice_mode(request: Request) -> dict[str, object]:
         "active_model": prov_model,
         "active_model_label": prov_model_label,
         "session_active": bool(runtime.get("session_active", False)),
-        "active_session_mode": runtime.get("active_session_mode"),
         "active_session_provider": session_provider,
         "active_session_model": session_model,
         "active_session_model_label": _realtime_model_label(
@@ -408,64 +342,6 @@ async def get_voice_mode(request: Request) -> dict[str, object]:
         # or null): rendered by the surfaces when a connecting window closes
         # without a session instead of a silent fall-back to "idle".
         "last_start_error": runtime.get("last_start_error"),
-    }
-
-
-@router.put("/voice-mode")
-async def put_voice_mode(body: VoiceModeBody, request: Request) -> dict[str, object]:
-    if body.mode not in _VOICE_MODES:
-        raise HTTPException(status_code=400, detail=f"mode must be one of {_VOICE_MODES}")
-
-    cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
-    from dodaios.voice.subscription_profile import subscription_voice_selected
-
-    if body.mode == "realtime" and cfg is not None and subscription_voice_selected(cfg):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "ChatGPT subscription voice uses the stable Pipeline engine. "
-                "Select a different Realtime provider before enabling Realtime mode."
-            ),
-        )
-
-    # A3: never pin the boot default to an unreachable engine. A provider may
-    # use an API key or an external subscription login, so readiness — not a
-    # particular credential shape — is the boundary.
-    if body.mode == "realtime":
-        prov = await asyncio.to_thread(_realtime_available_provider, cfg)
-        if prov is None:
-            raise HTTPException(
-                status_code=400,
-                detail="no realtime provider is configured and ready",
-            )
-
-    if cfg is not None and getattr(cfg, "voice", None) is not None:
-        try:
-            cfg.voice.mode = body.mode  # type: ignore[attr-defined]
-            if body.mode == "realtime":
-                cfg.voice.profile = ""  # type: ignore[attr-defined]
-        except Exception as exc:  # noqa: BLE001 — frozen model is not an error
-            log.debug("in-memory cfg.voice.mode update skipped: %s", exc)
-
-    from dodaios.ui.web.voice_runtime import apply_voice_mode
-
-    session_restarted = apply_voice_mode(request, body.mode)
-
-    persisted = False
-    if body.persist:
-        try:
-            from dodaios.core import config_writer
-
-            config_writer.set_voice_mode(body.mode)
-            persisted = True
-        except Exception as exc:  # noqa: BLE001
-            log.warning("voice-mode persist failed (live switch still applied): %s", exc)
-
-    return {
-        "ok": True,
-        "mode": body.mode,
-        "persisted": persisted,
-        "session_restarted": session_restarted,
     }
 
 
@@ -1765,8 +1641,8 @@ async def wake_word_self_test(request: Request) -> dict[str, object]:
     is exactly what (1) surfaces.
     """
     from dodaios.audio.capture import MicrophoneAccessError
-    from dodaios.speech.diagnose import measure_mic_dbfs
     from dodaios.core.wake_constants import resolve_vosk_model_path
+    from dodaios.speech.diagnose import measure_mic_dbfs
     from dodaios.speech.wake_model_fetch import resolve_wake_language
     from dodaios.speech.wake_phrase import resolve_wake_plan
 
@@ -3540,15 +3416,13 @@ def put_browser_login(
 
 # ---------------------------------------------------------------------------
 # Voice silence window (the user-tunable "think buffer"). GET current + bounds;
-# PUT to change. Persisted to jarvis.toml [speech].vad_silence_ms AND live-applied
-# to the running SpeechPipeline (set_silence_window_ms → SileroEndpointer), so a
-# change takes effect immediately without a restart; a headless/down pipeline
-# falls back to "applies on next start".
+# PUT to change. Persisted to jarvis.toml [speech].vad_silence_ms and updated in
+# the running config, which every realtime call reads when it starts, so the
+# next call uses it without a restart.
 #
-# 0 = AUTOMATIC and is the default: every voice engine keeps its own factory
-# turn detection — the local VAD its 1.5 s rule, a realtime provider whatever
-# its API does out of the box (no override is sent at all). A positive value
-# is an explicit patience override and lives in 500–5000 ms.
+# 0 = AUTOMATIC and is the default: the realtime provider keeps whatever turn
+# detection its API does out of the box (no override is sent at all). A
+# positive value is an explicit patience override and lives in 500–5000 ms.
 # ---------------------------------------------------------------------------
 
 _SILENCE_WINDOW_AUTOMATIC = 0
@@ -3601,11 +3475,13 @@ def get_silence_window(request: Request) -> dict[str, object]:
 def put_silence_window(body: SilenceWindowBody, request: Request) -> dict[str, object]:
     ms = _normalise_silence_window_ms(body.ms)
 
-    # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
+    # In-memory cfg update: the next realtime call reads it at its start.
+    applied_live = False
     cfg = _config(request)
     if cfg is not None and getattr(cfg, "speech", None) is not None:
         try:
             cfg.speech.vad_silence_ms = ms  # type: ignore[attr-defined]
+            applied_live = True
         except Exception as exc:  # noqa: BLE001 — frozen model is not an error
             log.debug("in-memory speech.vad_silence_ms update skipped: %s", exc)
 
@@ -3618,19 +3494,7 @@ def put_silence_window(body: SilenceWindowBody, request: Request) -> dict[str, o
             config_writer.set_silence_window_ms(ms, path=resolve_config_path())
             persisted = True
         except Exception as exc:  # noqa: BLE001 — persist is best-effort
-            log.warning("silence-window persist failed (live apply still attempted): %s", exc)
-
-    # Live-apply to the running voice pipeline so the new window works
-    # immediately — no app restart. Best-effort: a headless/down pipeline just
-    # means it applies on next start.
-    applied_live = False
-    pipeline = getattr(request.app.state, "speech_pipeline", None)
-    if pipeline is not None and hasattr(pipeline, "set_silence_window_ms"):
-        try:
-            pipeline.set_silence_window_ms(ms)
-            applied_live = True
-        except Exception as exc:  # noqa: BLE001 — never fail the save on a live-apply hiccup
-            log.warning("silence-window live-apply failed (persisted; applies on restart): %s", exc)
+            log.warning("silence-window persist failed (in-memory value still set): %s", exc)
 
     return {
         "ok": True,

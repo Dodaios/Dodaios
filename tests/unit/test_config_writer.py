@@ -188,11 +188,11 @@ def test_atomic_write_retries_transient_replace_denial(
     monkeypatch.setattr(config_writer.os, "replace", flaky_replace)
     monkeypatch.setattr(config_writer.time, "sleep", lambda _seconds: None)
 
-    config_writer.set_voice_mode("realtime", path=sample_toml)
+    config_writer.set_computer_use_engine("current", path=sample_toml)
 
     text = sample_toml.read_text(encoding="utf-8")
-    assert "[voice]" in text
-    assert 'mode = "realtime"' in text
+    assert "[computer_use]" in text
+    assert 'engine = "current"' in text
     assert len(attempted_sources) == 3
     assert len(set(attempted_sources)) == 1
     assert attempted_sources[0].name.startswith(f".{sample_toml.name}.")

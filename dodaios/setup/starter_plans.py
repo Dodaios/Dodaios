@@ -14,13 +14,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-#: Sections the section-health rollup must report ``ok`` for before a mode
-#: counts as "ready": Pipeline = brain + tool model + voice out + voice in,
-#: Realtime = live voice + tool model + agents.
-READY_SECTIONS_BY_MODE: dict[str, tuple[str, ...]] = {
-    "pipeline": ("brain", "computer-use", "tts", "stt"),
-    "realtime": ("realtime", "computer-use", "subagents"),
-}
+#: Sections the section-health rollup must report ``ok`` for before the setup
+#: counts as "ready": live voice + tool model + agents.
+READY_SECTIONS: tuple[str, ...] = ("realtime", "computer-use", "subagents")
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +24,6 @@ class StarterPlan:
     id: str
     label: str
     summary: str
-    mode: str  # "pipeline" | "realtime"
     #: Provider families whose primary key the plan needs (config families).
     key_families: tuple[str, ...]
     #: Surface → provider id. Applied in this order by the frontend.
@@ -41,7 +36,6 @@ STARTER_PLANS: tuple[StarterPlan, ...] = (
         id="openai-live",
         label="OpenAI GPT-Live",
         summary="Live conversation and its thinking model use one OpenAI API key.",
-        mode="realtime",
         key_families=("openai",),
         assignments={"brain": "openai", "computer-use": "openai", "realtime": "openai-live"},
         recommended=True,
@@ -50,7 +44,6 @@ STARTER_PLANS: tuple[StarterPlan, ...] = (
         id="gemini-live",
         label="Gemini Live",
         summary="Live conversation uses a Gemini Live API key.",
-        mode="realtime",
         key_families=("gemini",),
         assignments={"brain": "gemini", "computer-use": "gemini", "realtime": "gemini-live"},
     ),
@@ -67,13 +60,13 @@ def get_plan(plan_id: str) -> StarterPlan | None:
     return None
 
 
-def plan_ready_sections(mode: str) -> tuple[str, ...]:
-    return READY_SECTIONS_BY_MODE.get(mode, ())
+def plan_ready_sections() -> tuple[str, ...]:
+    return READY_SECTIONS
 
 
 __all__ = [
     "CUSTOM_PLAN_ID",
-    "READY_SECTIONS_BY_MODE",
+    "READY_SECTIONS",
     "STARTER_PLANS",
     "StarterPlan",
     "get_plan",

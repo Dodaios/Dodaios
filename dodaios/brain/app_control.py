@@ -103,6 +103,7 @@ AUTH_PROVIDER_ALIASES: dict[str, str] = {
     "gemini-live": "gemini-live",
     "grok": "grok",
     "grok-voice": "grok",
+    "grok-realtime": "grok-realtime",
     "openai-realtime": "openai-realtime",
     "openai-live": "openai",
     # Codex-as-brain accepts its dedicated slot OR the general OpenAI key

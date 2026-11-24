@@ -1,8 +1,8 @@
+import { usePanelWorkspace } from "@/store/ideChat";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fill, useT } from "@/i18n";
 import { prepareGit } from "@/lib/gitApi";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useGitSessionStore } from "@/store/gitSession";
 import { useWorkspacePanes } from "@/store/workspacePanes";
 import { RepositoryOverview, RestartToConnectCard } from "./RepositoryOverview";
@@ -47,7 +47,7 @@ const MESSAGE_KEY = (workspaceId: string) => `jarvis.git.scm.message.${workspace
  */
 export function GitOverviewTab() {
   const t = useT();
-  const workspace = useIdeChatStore((state) => state.workspace);
+  const workspace = usePanelWorkspace();
   const workspaceId = workspace?.id ?? null;
   const pushToast = useEventStore((state) => state.pushToast);
   const quick = useQuickInput();

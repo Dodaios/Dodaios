@@ -8,7 +8,7 @@ order: 3
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [languages, voice, speech, settings]
@@ -20,7 +20,7 @@ separate choices.
 
 ## Before You Start
 
-Voice conversations need a microphone and a working Pipeline or Realtime setup.
+Voice conversations need a microphone and a ready realtime voice provider.
 Enter credentials only in **API Keys & Providers**, never in chat or speech.
 
 ## Understand the Language Settings
@@ -32,7 +32,8 @@ Enter credentials only in **API Keys & Providers**, never in chat or speech.
 | **Reply Language** | **Settings → Languages** | Answers, acknowledgements, status messages, action readbacks, and spoken output |
 | **Dictation Language** | **Voice → Language** | Speech inserted into another app or the assistant's text box |
 | **Translation target** | **Voice → Language** | The fixed language in which translated dictation is delivered |
-| **Speaking voice** | **API Keys & Providers** | The sound of the audio, not its words |
+| **Call voice** | **API Keys & Providers > Live calls**, on the realtime provider card | The sound of a call, not its words |
+| **Read-aloud voice** | **API Keys & Providers > Live calls > Read-aloud voice** | The voice that reads answers aloud and speaks notices outside calls |
 
 Interface Language supports English, German, Spanish, Simplified Chinese, and
 European Portuguese. The first-run setup window offers the same five choices in
@@ -86,48 +87,46 @@ opts in. A local provider such as Ollama can keep the pass on-device.
 If source and target are pinned to the same language, nothing is translated.
 Read [Dictate Into Any App](dictation) for history and recovery.
 
-## Choose Pipeline or Realtime Voice
+## Choose the Call Voice and the Read-Aloud Voice
 
-Open **API Keys & Providers > Live calls** and choose the **Voice engine**:
+Open **API Keys & Providers > Live calls**. There are two kinds of voice:
 
-| Engine | How it works | Where the voice comes from |
+| Voice | Where you pick it | Where you hear it |
 |---|---|---|
-| **Pipeline** | Speech recognition creates text, the Brain writes a reply, and text-to-speech creates audio | The active **Voice Output** provider, listed on the same tab |
-| **GPT-Live** (Realtime) | One live provider listens and speaks in the same session | The voice selected in the GPT-Live settings |
+| **Call voice** | On the realtime provider card you use for calls, such as GPT-Live, Gemini Live, or xAI Grok Live | Every voice conversation |
+| **Read-aloud voice** | Under **Read-aloud voice**, at the bottom of the tab | Answers read aloud and spoken notices outside a call |
 
-The engines keep separate choices. Realtime requires a ready Realtime provider;
-if no session opens, the app can fall back to Pipeline. Any fallback can change
-the exact sound.
+For a call, choose a model and voice on the realtime provider card. Catalogs
+are provider-specific. **xAI Grok Live**, for example, offers the models
+`grok-voice-latest` (default) and `grok-voice-3.0` and voices such as Eve
+(default), Ara, Leo, Rex, and Sal. **Provider default** clears an explicit
+voice pin and cannot be previewed. If the call moves to another realtime
+provider, the exact sound can change.
 
-For Pipeline, activate a **Voice Output** provider and use its model or voice
-list. Catalogs are provider-specific. Where **Preview voice** is offered,
-listening does not save the voice.
-
-For Realtime, choose a model and voice on each provider card. **Provider
-default** clears an explicit voice pin and cannot be previewed.
+For read-aloud, activate a text-to-speech provider and use its model or voice
+list. Where **Preview voice** is offered, listening does not save the voice.
 
 ### Use Local Piper Voices
 
-**Piper (on this machine)** is keyless Pipeline output. Its in-app install
+**Piper (on this machine)** is a keyless read-aloud voice. Its in-app install
 downloads about 270 MB: one voice each for English, German, Spanish, and
 European Portuguese. Piper selects the voice matching each reply; text and
 speech stay on-device.
 
-Piper runs on CPU, may sound less natural than cloud speech, and is not a
-Realtime voice. A missing language voice can cause the wrong accent; complete
-the provider-card download. See [Use Local AI Providers](local-ai-providers).
+Piper runs on CPU, may sound less natural than cloud speech, and is not a call
+voice. A missing language voice can cause the wrong accent; complete the
+provider-card download. See [Use Local AI Providers](local-ai-providers).
 
 ## Know When Changes Apply
 
 | Change | When it applies |
 |---|---|
 | Interface language | Immediately in every open client |
-| Reply language | On new turns; an active Realtime call reconnects |
-| Pipeline recognition language | The running recognizer is swapped when possible; restart the app only if the change does not take effect |
-| Realtime recognition language | End and start the current Realtime call |
+| Reply language | On new turns; an active call reconnects |
+| Recognition language | End and start the current call |
 | Dictation language, wording, or translation | The next dictation; no app restart |
-| Pipeline provider, model, or voice | Next spoken turn when live switching succeeds; otherwise next voice start or app restart |
-| Realtime provider, model, voice, or engine | The active call reconnects; otherwise the next call |
+| Read-aloud provider, model, or voice | The next spoken output when live switching succeeds; otherwise after an app restart |
+| Realtime provider, model, or voice | The active call reconnects; otherwise the next call |
 
 A running turn may finish with its old setting. Restart only when live switching
 did not apply; a restart interrupts live terminal panes before they reattach.
@@ -136,8 +135,8 @@ did not apply; a restart interrupts live terminal panes before they reattach.
 
 1. Recognition creates a transcript; Dictation has its own setting.
 2. The reply resolver applies a pin or follows the conversation language.
-3. Pipeline sends that language to text-to-speech; Realtime uses its live
-   provider.
+3. The realtime provider speaks the call in that language; the read-aloud
+   voice uses it outside calls.
 4. Voice selection changes sound, never reply policy.
 
 ## Check That It Works
@@ -152,17 +151,17 @@ did not apply; a restart interrupts live terminal panes before they reattach.
 | What you see | What to do |
 |---|---|
 | The interface changed but replies did not | Change **Reply Language**, not Interface Language |
-| Speech is transcribed in the wrong language | Pin **Voice Recognition Language**; restart only if the running Pipeline recognizer did not switch |
+| Speech is transcribed in the wrong language | Pin **Voice Recognition Language**, then start a new call |
 | Dictation is wrong while voice chat is correct | Change **Voice → Language**; it is independent of normal recognition |
 | Translation returns the spoken language | Check that translation is on, the target differs from a pinned source, and the wording provider test succeeds; failures return raw text |
 | A short turn does not change reply language | Use a complete sentence or temporarily pin Reply Language |
 | A voice is missing | Open the active provider card; catalogs do not transfer between providers |
-| Piper is silent or has the wrong accent | Complete its local voice download and confirm Piper is the active Pipeline output |
-| A Realtime call reconnects | A language, engine, provider, model, or voice setting changed at session level; test the next turn |
+| Piper is silent or has the wrong accent | Complete its local voice download and confirm Piper is the active **Read-aloud voice** |
+| A call reconnects | A language, provider, model, or voice setting changed at session level; test the next turn |
 
 ## Next Steps
 
-- Read [Voice Conversations](voice-conversations) for Pipeline and Realtime use.
+- Read [Voice Conversations](voice-conversations) for realtime providers and calls.
 - Read [Dictate Into Any App](dictation) for shortcuts, delivery, and history.
 - Read [Use Local AI Providers](local-ai-providers) for offline speech options.
 - Read [Providers and API Keys](providers-and-api-keys) for setup and fallback.

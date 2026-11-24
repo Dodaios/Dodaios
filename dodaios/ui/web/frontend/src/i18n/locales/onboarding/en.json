@@ -38,7 +38,7 @@
       "key_connected": "Connected: {provider}.",
       "key_partial": "Some parts did not switch ({parts}). You can fix them later on the API Keys page.",
       "live_ready": "Live voice is on: talk, and {name} answers right away.",
-      "live_missing": "Chat works. Live voice needs an OpenAI or Gemini key; until then {name} speaks the classic way, a little slower.",
+      "live_missing": "Chat works. Voice calls need a live voice provider: an OpenAI, Gemini or xAI key.",
       "key_security": "Subscriptions are billed at a flat monthly price. Keys go into your system's keychain and only ever to the provider you picked.",
       "nothing_yet": "Nothing connected yet. Without a subscription or a key, chat and voice stay off. You can connect one later on the API Keys page.",
       "later": "Skip for now"

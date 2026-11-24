@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import { getWSClient } from "@/hooks/useWebSocket";
-import { useVoiceEngineDisplay } from "@/hooks/useVoiceEngineDisplay";
 import { useAutoGrowTextarea } from "@/hooks/useAutoGrowTextarea";
 import { useEventStore } from "@/store/events";
+import { prettyProviderName } from "@/lib/prettyProviderName";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 import { DictationButton } from "@/components/agentchat/DictationButton";
@@ -28,9 +28,10 @@ export function ChatInput() {
   const textareaRef = useAutoGrowTextarea(value);
   const connected = useEventStore((s) => s.connected);
   const setActiveSection = useEventStore((s) => s.setActiveSection);
-  // What will answer: the classic brain, or the realtime engine when voice
-  // mode is realtime — the same resolver the header and the sidebar use.
-  const engine = useVoiceEngineDisplay();
+  // What will answer a typed message: the brain. Calls run on the realtime
+  // provider, which never answers this box.
+  const brainProvider = useEventStore((s) => s.brainProvider);
+  const brainModel = useEventStore((s) => s.brainModel);
   const wsWarming = useEventStore((s) => s.wsWarming);
   // The turn's progress is no longer mirrored in the composer — the chat
   // column renders the live steps (components/home/TurnSteps) as the
@@ -152,9 +153,9 @@ export function ChatInput() {
           data-testid="composer-model"
           className="inline-flex h-8 max-w-[280px] items-center gap-1.5 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
-          <span className="truncate font-medium text-foreground">{engine.providerLabel}</span>
-          {engine.model && (
-            <span className="truncate font-mono text-micro text-muted-foreground">{engine.model}</span>
+          <span className="truncate font-medium text-foreground">{prettyProviderName(brainProvider)}</span>
+          {brainModel && (
+            <span className="truncate font-mono text-micro text-muted-foreground">{brainModel}</span>
           )}
         </button>
         <button
