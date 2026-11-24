@@ -1158,62 +1158,6 @@ def _start_background_service_duties(state, stop_event, *, persistent: bool = Fa
     return task, tray
 
 
-async def _drain_running_routines(state, *, drain_s: float, poll_s: float) -> None:
-    """Let routine runs already in flight finish (bounded) before stopping.
-
-    Stopping cancels their token; a long agent run would otherwise be lost
-    just because the user opened the window. The desktop waits longer than
-    this budget before it stops the service itself.
-    """
-    from loguru import logger
-
-    from dodaios.core import background_service as bg
-
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + drain_s
-    running = bg.work_from_state(state).running
-    if running:
-        logger.info(
-            "background: {} routine run(s) still in flight — up to {:.0f}s to finish",
-            running,
-            drain_s,
-        )
-    while running and loop.time() < deadline:
-        await asyncio.sleep(poll_s)
-        running = bg.work_from_state(state).running
-    if running:
-        logger.warning("background: {} run(s) still going — they stop with the service", running)
-
-
-async def _hand_back(state, *, drain_s: float, poll_s: float) -> None:
-    """Let the work in flight end before the service lets go, all within ``drain_s``.
-
-    A learning round (``dodaios.rsi.night``) is halted at once: no model call
-    starts, the one in flight is cut, and the round ends by writing its report,
-    like a round the person came back to. Routine runs get the same window to
-    finish. What is still running when it closes stops with the service; a
-    round stopped that way wrote nothing half (its files are written in whole
-    transactions, and without its report it counts as not run).
-    """
-    from loguru import logger
-
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + drain_s
-    learning = getattr(state, "self_improvement", None)
-    halt = getattr(learning, "halt", None)
-    if callable(halt):
-        halt()
-    await _drain_running_routines(state, drain_s=drain_s, poll_s=poll_s)
-    wind_down = getattr(learning, "wind_down", None)
-    if not callable(wind_down) or not getattr(learning, "busy", False):
-        return
-    logger.info("background: a learning round is running — it ends without more model calls")
-    if await wind_down(max(0.0, deadline - loop.time()), poll_s=poll_s):
-        logger.info("background: the learning round ended and wrote its report")
-    else:
-        logger.warning("background: the learning round did not end in time — it stops unfinished")
-
-
 async def _watch_background_service(
     state,
     stop_event,
@@ -1238,7 +1182,7 @@ async def _watch_background_service(
     while not stop_event.is_set():
         await asyncio.sleep(poll)
         if bg.handover_requested():
-            await _hand_back(state, drain_s=bg.HANDOVER_DRAIN_S, poll_s=poll)
+            await bg.hand_back(state, drain_s=bg.HANDOVER_DRAIN_S, poll_s=poll)
             logger.info("background: the desktop app is opening — handing the agents back")
             stop_event.set()
             return

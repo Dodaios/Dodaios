@@ -329,6 +329,19 @@ def test_a_halt_ends_the_running_night_with_its_report_and_starts_no_other(quiet
     assert quiet_box.night.due() and service.tick() is None  # a halted backend starts none
 
 
+def test_the_backend_loop_ending_halts_the_nights(quiet_box) -> None:
+    import asyncio
+
+    service = nights.NightService(quiet_box.night, lambda: True)
+
+    async def backend() -> None:
+        service.start()
+        await asyncio.sleep(0)  # the watch is waiting for its next look
+
+    asyncio.run(backend())  # the loop ends: its tasks are cancelled before its threads are joined
+    assert service.halted and service.tick() is None
+
+
 def test_a_waited_call_gives_up_at_its_time_limit_and_is_cancelled() -> None:
     import concurrent.futures
 

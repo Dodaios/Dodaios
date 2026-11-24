@@ -647,8 +647,6 @@ def test_service_is_findable_the_moment_it_holds_the_lock(monkeypatch) -> None:
 
 
 def test_hand_back_lets_running_routines_finish_first() -> None:
-    from dodaios.ui.web import launcher
-
     class _Draining:
         def __init__(self) -> None:
             self.calls = 0
@@ -659,19 +657,15 @@ def test_hand_back_lets_running_routines_finish_first() -> None:
 
     scheduler = _Draining()
     state = SimpleNamespace(task_scheduler=scheduler, channel_manager=_Channels())
-    asyncio.run(launcher._drain_running_routines(state, drain_s=5.0, poll_s=0.01))
+    asyncio.run(bg.drain_running_routines(state, drain_s=5.0, poll_s=0.01))
     assert scheduler.calls == 4
 
 
 def test_drain_is_bounded() -> None:
-    from dodaios.ui.web import launcher
-
     state = _state(running=1)
 
     async def scenario() -> None:
-        await asyncio.wait_for(
-            launcher._drain_running_routines(state, drain_s=0.05, poll_s=0.01), 1.0
-        )
+        await asyncio.wait_for(bg.drain_running_routines(state, drain_s=0.05, poll_s=0.01), 1.0)
 
     asyncio.run(scenario())
 

@@ -538,12 +538,17 @@ class NightService:
     async def _watch(self) -> None:
         import asyncio
 
-        while True:
-            await asyncio.sleep(self.LOOK_EVERY_S)
-            try:
-                await asyncio.to_thread(self.tick)
-            except Exception:  # noqa: BLE001 — a failed night never takes the app down
-                log.warning("self-improvement: the night failed", exc_info=True)
+        try:
+            while True:
+                await asyncio.sleep(self.LOOK_EVERY_S)
+                try:
+                    await asyncio.to_thread(self.tick)
+                except Exception:  # noqa: BLE001 — a failed night never takes the app down
+                    log.warning("self-improvement: the night failed", exc_info=True)
+        finally:
+            # The backend's loop ends (its tasks are cancelled before it waits for
+            # its worker threads): a running night winds down instead of holding it.
+            self.halt()
 
     def start(self) -> None:
         import asyncio

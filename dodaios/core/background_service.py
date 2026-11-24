@@ -108,6 +108,15 @@ class BackgroundWork:
     def __bool__(self) -> bool:
         return bool(self.routines or self.running or self.channels or self.learning)
 
+    def payload(self) -> dict[str, Any]:
+        """The work as the Settings page reads it (``/api/settings/background``)."""
+        return {
+            "routines": self.routines,
+            "running": self.running,
+            "channels": list(self.channels),
+            "learning": self.learning,
+        }
+
     def describe(self) -> str:
         parts: list[str] = []
         if self.routines:
@@ -163,7 +172,7 @@ def _learning(state: Any) -> bool:
         return False
     try:
         return bool(learning())
-    except Exception:  # noqa: BLE001 — an unreadable loop state means no learning to keep
+    except Exception:  # noqa: BLE001  # broad-except: an unreadable loop state is no learning to keep
         logger.opt(exception=True).debug("background: self-improvement state unreadable")
         return False
 
@@ -447,6 +456,65 @@ def hand_off_on_quit(state: Any, cfg: Any, *, pid: int | None = None) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Handing back (the service, when the desktop asks for the app)
+# ---------------------------------------------------------------------------
+
+
+async def drain_running_routines(state: Any, *, drain_s: float, poll_s: float) -> None:
+    """Let routine runs already in flight finish (bounded) before stopping.
+
+    Stopping cancels their token; a long agent run would otherwise be lost
+    just because the user opened the window. The desktop waits longer than
+    this budget before it stops the service itself.
+    """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + drain_s
+    running = work_from_state(state).running
+    if running:
+        logger.info(
+            "background: {} routine run(s) still in flight — up to {:.0f}s to finish",
+            running,
+            drain_s,
+        )
+    while running and loop.time() < deadline:
+        await asyncio.sleep(poll_s)
+        running = work_from_state(state).running
+    if running:
+        logger.warning("background: {} run(s) still going — they stop with the service", running)
+
+
+async def hand_back(state: Any, *, drain_s: float, poll_s: float) -> None:
+    """Let the work in flight end before the service lets go, all within ``drain_s``.
+
+    A learning round (``dodaios.rsi.night``) is halted at once: no model call
+    starts, the one in flight is cut, and the round ends by writing its report,
+    like a round the person came back to. Routine runs get the same window to
+    finish. What is still running when it closes stops with the service; a
+    round stopped that way wrote nothing half (its files are written in whole
+    transactions, and without its report it counts as not run).
+    """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + drain_s
+    learning = getattr(state, "self_improvement", None)
+    halt = getattr(learning, "halt", None)
+    if callable(halt):
+        halt()
+    await drain_running_routines(state, drain_s=drain_s, poll_s=poll_s)
+    wind_down = getattr(learning, "wind_down", None)
+    if not callable(wind_down) or not getattr(learning, "busy", False):
+        return
+    logger.info("background: a learning round is running — it ends without more model calls")
+    if await wind_down(max(0.0, deadline - loop.time()), poll_s=poll_s):
+        logger.info("background: the learning round ended and wrote its report")
+    else:
+        logger.warning("background: the learning round did not end in time — it stops unfinished")
+
+
+# ---------------------------------------------------------------------------
 # Taking over from the service (desktop launch)
 # ---------------------------------------------------------------------------
 
@@ -509,6 +577,8 @@ __all__ = [
     "BackgroundWork",
     "clear_handover_request",
     "clear_marker",
+    "drain_running_routines",
+    "hand_back",
     "hand_off_on_quit",
     "handover_requested",
     "keep_running_enabled",

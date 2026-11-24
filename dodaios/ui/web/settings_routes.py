@@ -2327,13 +2327,7 @@ def _background_payload(request: Request) -> dict[str, object]:
         "supported": current_instance().owns_ambient_duties or bool(
             getattr(request.app.state, "agent_server_mode", False)
         ),
-        "work": {
-            "routines": work.routines,
-            "running": work.running,
-            "channels": list(work.channels),
-            # The self-improvement loop runs and the person has not stopped it.
-            "learning": work.learning,
-        },
+        "work": work.payload(),
     }
 
 
