@@ -234,6 +234,12 @@ def test_the_replay_takes_the_first_move_and_stops_the_cli(tmp_path: Path) -> No
     argv = json.loads((out / "argv.json").read_text())
     for flag in ("--strict-mcp-config", "--no-session-persistence", "--disallowedTools"):
         assert flag in argv
+    # Whatever the person's settings allow, a replay can change no file.
+    denied = argv[argv.index("--disallowedTools") + 1].split(",")
+    assert {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"} <= set(denied)
+    assert argv.count("--disallowedTools") == 1
+    assert argv[argv.index("--permission-mode") + 1] == "dontAsk"
+    assert "bypassPermissions" not in argv
     assert argv[argv.index("--model") + 1] == "opus"
     stdin = (out / "stdin.jsonl").read_text().splitlines()
     assert json.loads(stdin[1])["message"]["content"] == "Let Scout compare note apps"
