@@ -139,3 +139,49 @@ def test_source_text_tests_counts_product_reads(tmp_path) -> None:
     front = tmp_path / "a.test.ts"
     front.write_text("import s from './a.tsx?raw'\nreadFileSync(x)\nok()\n", encoding="utf-8")
     assert gate.count_frontend(front) == 2
+
+
+def test_restrict_keeps_only_touched_files() -> None:
+    r = _load("_ratchet")
+    counts = {"a.py": 1, "b.py::f": 2, "b.py::g#complexity": 3, "c.py": 4}
+    assert r.restrict(counts, {"b.py"}) == {"b.py::f": 2, "b.py::g#complexity": 3}
+
+
+def _git(cwd, *args) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def test_touched_only_judges_changed_files(tmp_path, monkeypatch, capsys) -> None:
+    r = _load("_ratchet")
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "old.py").write_text("x = 1" + chr(10), encoding="utf-8")
+    (tmp_path / "other.py").write_text("x = 1" + chr(10), encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-qm", "base")
+    base = _git(tmp_path, "rev-parse", "HEAD").strip()
+    (tmp_path / "touched.py").write_text("x = 1" + chr(10), encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-qm", "change")
+    monkeypatch.setattr(r, "REPO", tmp_path)
+    monkeypatch.setattr(r, "CI_DIR", tmp_path)
+    (tmp_path / "x.json").write_text('{"files": {"zzz.py": 1}}', encoding="utf-8")
+    # old.py and other.py violate but were not touched; touched.py is clean.
+    scan = lambda: {"old.py": 5}  # noqa: E731
+    args = ["--base", base]
+    assert r.run("t", scan, "x.json", "u", "rule", "fix", args) == 0
+    # The same tree judged whole fails: old.py is not in the baseline.
+    assert r.run("t", scan, "x.json", "u", "rule", "fix", ["--all", *args]) == 1
+    # A touched file that is new or grew fails.
+    bad = lambda: {"touched.py": 3}  # noqa: E731
+    assert r.run("t", bad, "x.json", "u", "rule", "fix", args) == 1
+    assert "touched.py" in capsys.readouterr().out
+    # Without a base the whole tree is judged.
+    assert r.run("t", scan, "x.json", "u", "rule", "fix", []) == 1

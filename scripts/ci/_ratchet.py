@@ -7,6 +7,10 @@ with its current value. The gate fails when
 * a key appears that the baseline does not list (a new violation),
 * a value is higher than its baseline (an existing violation grew).
 
+With a diff base (``--base`` or ``$RATCHET_BASE``, which run_gates.py sets from its
+``--base``) only the files the change touches are judged; ``--all`` or ``--update``
+judge the whole tree, and so does a run without a base.
+
 A stale baseline entry (the value shrank or the key is gone) is only a note and
 exits 0: many pull requests delete code at once and must not fight over the
 baseline files. ``ratchet-baselines.yml`` runs ``--update`` daily and opens one
@@ -23,6 +27,7 @@ import argparse
 import ast
 import json
 import os
+import subprocess
 from collections.abc import Callable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -85,6 +90,29 @@ def pmap(func: Callable, paths: list[Path]) -> list:
         return list(pool.map(func, paths, chunksize=32))
 
 
+def touched_paths(base: str) -> set[str] | None:
+    """Repo-relative paths changed between ``base`` and HEAD, or None if unknown."""
+    try:
+        proc = subprocess.run(  # noqa: S603
+            ["git", "diff", "--name-only", "--no-renames", base, "HEAD"],  # noqa: S607
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+
+
+def restrict(counts: dict[str, int], touched: set[str]) -> dict[str, int]:
+    """Keep only entries whose file (the part before ``::``) the change touches."""
+    return {k: v for k, v in counts.items() if k.split("::", 1)[0] in touched}
+
+
 def load_baseline(path: Path) -> dict[str, int]:
     if not path.exists():
         return {}
@@ -142,6 +170,15 @@ def run(
     parser.add_argument(
         "--allow-increase", action="store_true", help="with --update: permit growth"
     )
+    parser.add_argument(
+        "--all", action="store_true", help="judge every file, not just touched ones"
+    )
+    parser.add_argument(
+        "--base",
+        default=os.environ.get("RATCHET_BASE", ""),
+        help="diff base (sha or ref): judge only files changed since it "
+        "(default: $RATCHET_BASE; without one the whole tree is judged)",
+    )
     args = parser.parse_args(argv)
 
     script = f"check_{name.replace('-', '_')}.py"
@@ -160,6 +197,14 @@ def run(
         return 0
 
     baseline = load_baseline(path)
+    have_baseline = bool(baseline)
+    touched = None if (args.all or args.update or not args.base) else touched_paths(args.base)
+    if touched is not None:
+        # In a pull request or merge queue only the files the change touches are
+        # judged: main moves while a PR waits, so a whole-tree comparison against
+        # a baseline captured on the branch is stale by merge time.
+        current = restrict(current, touched)
+        baseline = restrict(baseline, touched)
     new, grown, stale = compare(current, baseline)
 
     if args.update:
@@ -171,7 +216,7 @@ def run(
         print(f"{name}: baseline written, {len(current)} entries, total {total} {unit}.")
         return 0
 
-    if not baseline:
+    if not have_baseline:
         print(f"{name}: no baseline yet. Run with --update to create one.")
         return 1
 

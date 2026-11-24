@@ -112,6 +112,10 @@ def main(argv: list[str] | None = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
 
+    if args.base:
+        # The ratchet gates judge only the files changed since the base.
+        os.environ["RATCHET_BASE"] = args.base
+
     only = {x for x in args.only.split(",") if x}
     skip = {x for x in args.skip.split(",") if x}
     has_docker = shutil.which("docker") is not None
