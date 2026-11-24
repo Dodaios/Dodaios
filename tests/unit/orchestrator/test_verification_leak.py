@@ -53,7 +53,9 @@ def test_red_merged_work_is_a_leak_and_no_longer_counts_as_passed(rig: Rig):
     rig.github.answer = RED
     assert rig.recorder.read_leaks(run["leak_due_ms"]) == 1
     run = rig.store.get("job_1")
-    assert (run["leaked"], run["leak_due_ms"], run["verdict"]) == (1, None, "verified")
+    # Marked once; the watch still looks once more for what the person did next.
+    assert (run["leaked"], run["verdict"]) == (1, "verified")
+    assert run["leak_due_ms"] == run["ended_ms"] + LEAK_CHECKS_H[1] * HOUR
     assert [s["step"] for s in rig.store.steps("job_1")][-1] == "leak"
     counted = selector.metrics_of(run)
     assert (counted.passed, counted.hard) == (0.0, True)
@@ -78,10 +80,14 @@ def test_a_restart_keeps_the_watch(rig: Rig):
     assert rig.store.get("job_1")["leaked"] == 1
 
 
-def test_work_that_did_not_merge_is_not_watched(rig: Rig):
+def test_work_that_did_not_merge_is_watched_but_never_leaks(rig: Rig):
     rig.github.answer = evidence.Evidence("pushed", "passing", reason="pushed")
     rig.order()
     run = rig.turn("t1", rig.commit)
     assert run["verdict"] == "verified"
-    assert run["leak_due_ms"] is None
+    # Watched for what came next (a closed pull request, a revert, a correction).
+    assert run["leak_due_ms"] == run["ended_ms"] + LEAK_CHECKS_H[0] * HOUR
+    rig.github.answer = evidence.Evidence("pushed", "failing", reason="pushed")
+    rig.recorder.read_leaks(run["leak_due_ms"])
+    assert rig.store.get("job_1")["leaked"] == 0
     assert PASSING.landing == "merged"

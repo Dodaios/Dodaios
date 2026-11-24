@@ -8,6 +8,14 @@ every new worktree; Kimi CLI reads hooks only from the user config. For those
 two this script copies ``scripts/agent_done_gate_launcher.py`` to
 ``~/.agent-done-gate/hook.py`` and registers it as their Stop hook.
 
+A user-level hook fires in every folder, so the launcher runs the gate of a
+registered checkout only. This script registers the primary checkout it is
+run from in ``~/.agent-done-gate/repos.json``; the launcher runs that
+checkout's ``scripts/agent_done_gate.py`` for the checkout and its linked
+worktrees, and nothing for any other repository. Running it again on a
+machine set up before the registry existed replaces the launcher and adds
+the registration.
+
     python scripts/install_agent_done_gate.py            # install / refresh
     python scripts/install_agent_done_gate.py --check    # report only
     python scripts/install_agent_done_gate.py --uninstall
@@ -23,11 +31,13 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKER = ".agent-done-gate"
+REGISTRY_NAME = "repos.json"
 
 
 def home() -> Path:
@@ -36,6 +46,79 @@ def home() -> Path:
 
 def launcher_path() -> Path:
     return home() / MARKER / "hook.py"
+
+
+def registry_path() -> Path:
+    return home() / MARKER / REGISTRY_NAME
+
+
+def same_path(path: str | Path) -> str:
+    """A form of ``path`` two spellings of one folder share (as in the launcher)."""
+    return os.path.normcase(os.path.realpath(str(path)))
+
+
+def primary_checkout(root: Path | None = None) -> Path:
+    """The checkout whose gate the launcher runs for this repository: the
+    parent of the git common dir, so a run from a linked worktree registers
+    the checkout that worktree belongs to. Without git, or in a layout with
+    no such checkout, the folder this script lives in."""
+    root = REPO_ROOT if root is None else root
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return root
+    common = Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else None
+    if common is None or common.name != ".git":
+        return root
+    return common.parent
+
+
+def registered_repos() -> list[str]:
+    """The registered checkouts as written; an unreadable registry is empty."""
+    try:
+        data = json.loads(registry_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    repos = data.get("repos") if isinstance(data, dict) else None
+    if not isinstance(repos, list):
+        return []
+    return [item for item in repos if isinstance(item, str) and item]
+
+
+def is_registered(checkout: Path) -> bool:
+    return same_path(checkout) in {same_path(item) for item in registered_repos()}
+
+
+def write_registry(repos: list[str]) -> None:
+    path = registry_path()
+    if not repos:
+        path.unlink(missing_ok=True)
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"repos": repos}, indent=2) + "\n", encoding="utf-8")
+
+
+def register(checkout: Path) -> bool:
+    """Add ``checkout`` to the registry; True when the file changed."""
+    if is_registered(checkout):
+        return False
+    write_registry(sorted({*registered_repos(), checkout.resolve().as_posix()}))
+    return True
+
+
+def unregister(checkout: Path) -> bool:
+    """Take ``checkout`` out of the registry; True when the file changed."""
+    kept = [item for item in registered_repos() if same_path(item) != same_path(checkout)]
+    if len(kept) == len(registered_repos()):
+        return False
+    write_registry(kept)
+    return True
 
 
 def python_command() -> str:
@@ -141,19 +224,28 @@ def main(argv: list[str] | None = None) -> int:
 
     launcher = launcher_path()
     source = REPO_ROOT / "scripts" / "agent_done_gate_launcher.py"
+    checkout = primary_checkout()
     report: list[str] = []
 
     if args.uninstall:
         if launcher.exists() and not args.check:
             launcher.unlink()
         report.append(f"launcher removed: {launcher}")
+        if is_registered(checkout) and not args.check:
+            unregister(checkout)
+        report.append(f"gate no longer runs for: {checkout}")
     elif args.check:
         same = launcher.is_file() and launcher.read_bytes() == source.read_bytes()
         report.append(f"launcher {'current' if same else 'missing or stale'}: {launcher}")
+        known = is_registered(checkout)
+        state = "registered" if known else "NOT registered (its gate does not run)"
+        report.append(f"checkout {state}: {checkout}")
     else:
         launcher.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, launcher)
         report.append(f"launcher installed: {launcher}")
+        added = register(checkout)
+        report.append(f"checkout {'registered' if added else 'already registered'}: {checkout}")
 
     codex = codex_file()
     if codex.parent.is_dir():

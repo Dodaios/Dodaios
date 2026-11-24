@@ -8,8 +8,10 @@ line stayed the same throughout.
 
 **Per run** (only runs that ended with a verdict under enforced checks):
 
-* ``pass`` 1 when the run ended ``verified``; 0 otherwise. ``superseded``
-  runs (the person took over) are nobody's result and are left out.
+* ``pass`` 1 when the run ended ``verified`` and nothing the person or the
+  repository did next took it back (``NEGATIVE_SIGNALS``); 0 otherwise. A run
+  the person took over counts, as not passed; a run a new order superseded
+  is nobody's result and is left out.
 * ``one`` ``pass`` and no follow-up order, no person stepping in.
 * ``P`` follow-up orders; a run that ran into the limit counts the limit.
 * ``C`` cost in USD plus 0.001 USD per second of turn time.
@@ -147,16 +149,27 @@ def cell_of(run: dict[str, Any]) -> str:
     return f"{domain}|{model}|{harness.strip()}"
 
 
+#: Run columns that each mean the person did not get what they wanted.
+NEGATIVE_SIGNALS: Final[tuple[str, ...]] = (
+    "leaked", "taken_over", "asked_again", "pr_closed", "reverted",
+)
+
+
 def metrics_of(run: dict[str, Any]) -> RunMetrics | None:
     """What one recorded run counts for, or ``None`` when it does not count at all."""
     verdict = str(run.get("verdict") or "")
-    if run.get("state") != "ended" or not verdict or verdict == "superseded":
+    if run.get("state") != "ended" or not verdict:
         return None
+    if verdict == "superseded" and not run.get("taken_over"):
+        return None  # a new order took the thread: nobody's result
     reason = str(run.get("verdict_reason") or "")
     follow_ups = int(run.get("follow_ups") or 0)
     at_limit = "no further follow-up order" in reason
-    # Verified work that turned red after it merged did not pass.
-    passed = 1.0 if verdict == "verified" and not run.get("leaked") else 0.0
+    # What the person and the repository did next can take a pass back: merged
+    # work that turned red, the person taking the result over or asking again,
+    # a pull request closed without merging, a reverted commit.
+    negative = any(run.get(flag) for flag in NEGATIVE_SIGNALS)
+    passed = 1.0 if verdict == "verified" and not negative else 0.0
     seconds = float(run.get("wall_ms") or 0) / 1000
     return RunMetrics(
         run_id=str(run.get("run_id") or ""),

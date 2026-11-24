@@ -12,8 +12,8 @@ longer read by ``resolve_wake_plan``.
 """
 from __future__ import annotations
 
+from dodaios.core import wake_constants
 from dodaios.core.config import TriggerConfig, WakeWordConfig
-from dodaios.speech import wake_constants
 
 
 def test_defaults_are_neutral_empty_auto() -> None:

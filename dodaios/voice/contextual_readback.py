@@ -54,7 +54,7 @@ from dodaios.brain.output_filter import scrub_for_voice
 
 if TYPE_CHECKING:
     from dodaios.brain.ack_brain.circuit_breaker import CircuitBreaker
-    from dodaios.brain.ack_brain.config import AckBrainConfig
+    from dodaios.core.ack_brain_config import AckBrainConfig
     from dodaios.brain.ack_brain.providers.base import AbstractAckProvider
 
 log = logging.getLogger(__name__)

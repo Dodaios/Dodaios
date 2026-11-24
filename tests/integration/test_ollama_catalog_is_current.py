@@ -24,7 +24,6 @@ import datetime
 import httpx
 import pytest
 
-from dodaios.brain.ack_brain.config import AckBrainConfig
 from dodaios.brain.ollama_library import parse_tags_html
 from dodaios.brain.ollama_pull import (
     CURATED_MAX_AGE_DAYS,
@@ -32,6 +31,7 @@ from dodaios.brain.ollama_pull import (
     RECOMMENDED_MODELS,
     ROLE_ORDER,
 )
+from dodaios.core.ack_brain_config import AckBrainConfig
 from dodaios.dictation.polish_client import POLISH_FAMILIES
 from dodaios.realtime.local_server import brain_link, tiers
 

@@ -19,10 +19,9 @@ Modes (all runnable on Windows, macOS and Linux/X11):
       engine): proves the v2 coordinate pipeline end-to-end on THIS machine.
 
   python scripts/cu_test_rig.py --mode engine --engine v2
-  python scripts/cu_test_rig.py --mode engine --engine current
-      Run the REAL engine (v2 or a legacy one) with a SCRIPTED brain that
+      Run the REAL v2 engine with a SCRIPTED brain that
       emits the targets' coordinates — model variance is excluded, so two
-      runs compare the ENGINES, not the model. Includes the duplicate-type
+      runs compare builds, not the model. Includes the duplicate-type
       and misaimed-click provocations.
 
 This script controls the real mouse/keyboard while it runs — keep hands off.
@@ -503,49 +502,6 @@ def _real_tools() -> dict[str, Any]:
     return tools
 
 
-class LegacyVisionShim:
-    """Minimal ``vision_engine`` for the legacy engines: one mss screenshot
-    per observe(), saved to disk, with the capture monitor's geometry."""
-
-    async def observe(self, **_kw: Any) -> Any:
-        import hashlib
-        import time as _time
-        from uuid import uuid4
-
-        from PIL import Image
-
-        from dodaios.cu.capture import mss_grab, select_monitor
-
-        monitor = await asyncio.to_thread(select_monitor, "all")
-        (w, h), rgb = await asyncio.to_thread(mss_grab, monitor.bbox)
-        img = Image.frombytes("RGB", (w, h), rgb)
-        blob_dir = REPO_ROOT / "data" / "flight_recorder" / "blobs"
-        blob_dir.mkdir(parents=True, exist_ok=True)
-        import io
-
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        data = buf.getvalue()
-        sha = hashlib.sha256(data).hexdigest()
-        path = blob_dir / f"{sha}.jpg"
-        if not path.exists():
-            path.write_bytes(data)
-        from dodaios.core.protocols import Observation
-
-        return Observation(
-            trace_id=uuid4(),
-            timestamp_ns=_time.time_ns(),
-            screenshot_path=str(path),
-            screenshot_hash=sha,
-            nodes=(),
-            window_title="CU-RIG target window",
-            active_pid=0,
-            source="screenshot_only",
-            pruning_stats={"nodes_before": 0, "nodes_after": 0, "depth_used": 0},
-            monitor_geom=(monitor.left, monitor.top, monitor.width, monitor.height),
-        )
-
-
 def _ensure_measurable(rig: RigWindow) -> None:
     """Re-check the environment before EVERY mission: the rig must be the
     foreground window (an elevated foreground app makes UIPI discard our
@@ -567,26 +523,14 @@ async def _run_engine_mission(
     """Run one mission through the selected engine; returns (chunks, seconds)."""
     tools = _real_tools()
     executor = PassthroughExecutor()
-    if engine == "v2":
-        ctx: Any = SimpleNamespace(
-            brain_manager=brain, tool_executor=executor, tools=tools,
-            bus=None, step_budget=30, monitor="all",
-            main_monitor="primary", settle_scale=1.0, strict_verify=True,
-            image_max_dimension=1366, coordinate_space="auto",
-        )
-        from dodaios.cu.engine import run_cu_loop
-    else:
-        from dodaios.harness.computer_use_context import ComputerUseContext
-
-        ctx = ComputerUseContext(
-            vision_engine=LegacyVisionShim(),
-            brain_manager=brain,
-            tool_executor=executor,
-            tools=tools,
-            bus=None,
-            monitor="all",
-        )
-        from dodaios.harness.screenshot_only_loop import run_cu_loop
+    del engine  # only the v2 engine exists
+    ctx: Any = SimpleNamespace(
+        brain_manager=brain, tool_executor=executor, tools=tools,
+        bus=None, step_budget=30, monitor="all",
+        main_monitor="primary", settle_scale=1.0, strict_verify=True,
+        image_max_dimension=1366, coordinate_space="auto",
+    )
+    from dodaios.cu.engine import run_cu_loop
 
     task = SimpleNamespace(prompt=goal, env={}, timeout_s=180, cwd=".")
     chunks: list[str] = []
@@ -712,7 +656,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["raw", "engine"], default="raw")
     parser.add_argument(
-        "--engine", choices=["v2", "current"], default="v2",
+        "--engine", choices=["v2"], default="v2",
         help="engine to drive in --mode engine",
     )
     args = parser.parse_args()
