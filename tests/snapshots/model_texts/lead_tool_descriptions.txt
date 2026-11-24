@@ -298,17 +298,8 @@ Search, read and post in the user's connected Slack workspace, acting as the use
 society-agent-catalog
 Read the live provider and model catalog for persistent society agents before a requested model change. Executes the app's own validated endpoint (GET /api/agent-chat/catalog); report the result the tool returns, never your assumption.
 
-society-archive-agent
-Archive (remove from the team) one agent on explicit user request; its chat history is kept. Delete its routines first with society-routine-operation so none keeps firing. Requires the user's spoken confirmation before it runs. Executes the app's own validated endpoint (DELETE /api/society/agents/{agent_id}); report the result the tool returns, never your assumption.
-
-society-capability-catalog
-Read the live capability ids, descriptions and connection state available to the persistent Agents team. Use these ids when setting agent focus; unconnected capabilities are not available hands. This reads no model catalog. Executes the app's own validated endpoint (GET /api/society/capabilities); report the result the tool returns, never your assumption.
-
 society-check-readiness
 Check whether an agent and its routines can do their job right now: the services named are connected (plugins, CLIs), the websites have a stored login for this agent, and the model seat is usable. Call it before you tell the user a delegated or scheduled job is ready, and again after they connected or signed in. On 'blocked', call each blocker's fix tool. Executes the app's own validated endpoint (POST /api/society/agents/{agent_id}/readiness); report the result the tool returns, never your assumption.
-
-society-create-agent
-Create an agent in the user's existing Agents team, only when requested. This creates a roster profile and starts no work. Responsibilities derive capabilities through the same service as the Agents UI. When a team agent creates a teammate, the new agent inherits that creator's model seat (provider, model, effort, subscription account) and permission setup (approval mode, ceiling, grant mode, grants, denies) and cannot exceed them. Read the returned agent and created flag: an existing name is adopted, never duplicated. Use society-switch-agent-model only if a different provider is requested. Design the agent before calling: turn the user's words into a complete brief — mission, 3-6 responsibilities, working rules naming the data sources, output format and boundaries — inferring sensible defaults instead of copying the request verbatim. A requested schedule is a separate society-create-routine call. Pass services. The result's readiness says whether the job can run: only status 'ready' may be reported as ready or done. On 'blocked', call each blocker's fix tool in the same turn so its Connect or login card is shown, and tell the user it is set up but blocked until they connect or sign in. On 'unverified', call society-check-readiness with the services first. Executes the app's own validated endpoint (POST /api/society/agents); report the result the tool returns, never your assumption.
 
 society-create-routine
 The ONLY way to make an agent do something on a schedule (daily briefing, weekly report, every morning at 8). Never use create-skill for this. The prompt is the complete task the agent runs each time: sources, steps, output. For a routine that watches something, write into the prompt that the agent stays quiet while nothing changed and reports only a real change, a completion, a failure or something the user must do, unless the user asked for regular updates. Speak the returned next_run; on timezone_required ask the user. Pass services. The result's readiness says whether the job can run: only status 'ready' may be reported as ready or done. On 'blocked', call each blocker's fix tool in the same turn so its Connect or login card is shown, and tell the user it is set up but blocked until they connect or sign in. On 'unverified', call society-check-readiness with the services first. Executes the app's own validated endpoint (POST /api/society/agents/{agent_id}/routines); report the result the tool returns, never your assumption.
@@ -321,9 +312,6 @@ Pause, resume, delete or run-now one agent routine on user request. Requires the
 
 society-switch-agent-model
 Change one persistent agent's provider/model/effort only on user request. Use society-agent-catalog to select a supported model. Reuses the Agents UI model-switch endpoint and preserves the canonical chat. Report the returned stored state and whether reseated is confirmed. Executes the app's own validated endpoint (POST /api/society/agents/{agent_id}/model); report the result the tool returns, never your assumption.
-
-society-update-agent
-Change an existing agent's responsibilities, skills, focus, budget or paused/active state as requested by the user. Resolve its real id with society_status first. Only send requested fields. Existing learned focus and approval rules survive prose edits. Report the returned stored agent. Executes the app's own validated endpoint (PATCH /api/society/agents/{agent_id}); report the result the tool returns, never your assumption.
 
 society-update-routine
 Change a routine's title, prompt or schedule. Send all three: read the current values with society-list-routines and change only what was asked. Executes the app's own validated endpoint (PATCH /api/society/agents/{agent_id}/routines/{task_id}); report the result the tool returns, never your assumption.
