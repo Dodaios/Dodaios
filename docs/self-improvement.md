@@ -358,6 +358,34 @@ see it. The entry holds the memory's id and none of its words: a note the
 person forgot leaves nothing behind. A how-to is not measured yet; the list
 says so.
 
+## How coding agents are steered
+
+How Dodaios steers the coding runs it hands out is a coding policy per cell
+(the area of the work, the model, the coding CLI and its version line). The
+trainer changes it one measured step at a time, on the person's real requests
+rather than on benchmark tasks (`docs/rsi-policy-selector.md`). A candidate
+runs on half of the requests in its cell, the other half stays as it is, and
+the selector's gate decides on the judged runs.
+
+- **Holding.** A cell starts without holding: the lead's job ends with the
+  agent's turn and nothing is sent back to the agent. Waiting for the checks
+  and ordering fixes is the first thing tried there. It has to make clearly
+  more runs pass (at least 10 points, within 125 % of the cost), or the cell
+  stays as it was.
+- **Steering.** In a cell that holds, fewer fix orders or a shorter wait for
+  checks are tried, and kept only when they cost less and nothing else gets
+  worse.
+- **A line for the first brief.** When the same fix order keeps coming, one
+  fixed sentence from the code goes into the first brief on trial.
+
+Nothing waits for the person. Every policy the trainer put in place is in the
+list of what the assistant changed in itself, with one plain sentence ("Waits
+for the checks and asks for fixes, for <model> in <harness>"), the measurement
+that let it in (pass rate of each half and the lower bound of the difference)
+and Take back, which restores the exact policy from before. A candidate on
+trial is listed among the candidates. The first run under a new policy that
+weakened a check rolls the policy back by itself.
+
 ## The gate's answer
 
 The gate compares two states on the same tasks and answers with **evidence**
@@ -563,4 +591,7 @@ There is no other control on purpose: the person only stops or undoes
 | The lead's model input as one function (`lead_model_input`), its message bytes pinned by a test | built |
 | Lead turns on record (`lead_turns.db`): what the lead was given and its first move | built; recording, nothing replays it yet |
 | The page that shows it | built |
+| Holding learned per cell of coding work: put on trial where a cell does not hold, kept only if more runs pass | built |
+| A mined line for the first brief goes on trial by itself; nothing waits for the owner | built |
+| Coding policy changes in `GET /api/self-improvement`, with the measurement that let them in | built |
 | Always-on recording of work, the other domains, lessons, the jury | later |

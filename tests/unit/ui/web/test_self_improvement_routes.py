@@ -100,9 +100,7 @@ def test_the_person_can_stop_the_loop_and_take_a_change_back(http, box) -> None:
     undone = http.post(f"/api/self-improvement/changes/{newest['id']}/undo")
     assert undone.status_code == 200 and undone.json()["reverted"] == [newest["id"]]
     assert params.get(LIMIT) == 6 and params.get(SCORE) == 8.0  # only that one
-    assert [row["id"] for row in http.get("/api/self-improvement").json()["stack"]] == [
-        first["id"]
-    ]
+    assert [row["id"] for row in http.get("/api/self-improvement").json()["stack"]] == [first["id"]]
     again = http.post(f"/api/self-improvement/changes/{newest['id']}/undo")
     assert again.status_code == 409  # nothing in effect to take back
     assert http.post("/api/self-improvement/changes/nope/undo").status_code == 409
@@ -127,3 +125,90 @@ def test_there_is_no_route_that_lets_a_change_in_or_writes_a_result() -> None:
     text = source.read_text(encoding="utf-8")
     for verb in ("admit(", "decline(", "settle(", "propose(", "add_results", "record_evidence"):
         assert verb not in text
+
+
+def test_the_page_lists_a_coding_policy_change_with_the_measurement_that_let_it_in(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import time
+
+    from dodaios.orchestrator.verification.store import VerificationStore
+    from dodaios.rsi import trainer
+    from dodaios.rsi.policy import ACTIVE, DEFAULT, Policy, PolicyStore
+    from dodaios.self_change import Surface
+    from tests.unit.rsi import test_replay_and_trainer as loop
+
+    built = fakeworld.sandbox(tmp_path, monkeypatch)
+    runs = VerificationStore(tmp_path / "verification.db")
+    policies = PolicyStore(tmp_path / "rsi.db")
+    built.registry.register_handler(Surface.CODING_POLICY, policies)
+    learner = trainer.Trainer(runs, policies, lambda: built.registry, samples=300)
+    app = FastAPI()
+    app.include_router(router)
+    app.state.self_improvement = nights.NightService(built.night, lambda: True)
+    http = TestClient(app)
+    hold = Policy(hold=True)
+    try:
+        loop._factory_cell(runs, passing=50, withheld=15)
+        assert learner.consider(loop.CELL) == f"candidate {hold.id} on trial"
+
+        body = http.get("/api/self-improvement").json()
+        assert body["stack"] == []  # on trial for half the requests: not learned yet
+        (trial,) = body["candidates"]
+        assert (trial["surface"], trial["state"]) == ("coding_policy", "trial")
+        assert trial["policy"]["slot"] == "candidate" and trial["policy"]["kinds"] == ["hold"]
+        assert trial["policy"]["claim"] == {"branch": "A", "target": "pass"}
+        assert trial["admitted"] is None
+
+        later = int(time.time() * 1000) + 10_000
+        for i in range(65):
+            loop.record(
+                runs,
+                policy=hold,
+                outputs=[{}],
+                started_ms=later,
+                verdict="verified" if i < 60 else "failed",
+            )
+            if i < 42:
+                loop.record(runs, outputs=[{}], started_ms=later)
+            else:
+                loop._withheld(runs, started_ms=later)
+        assert learner.consider(loop.CELL) == "trial ended: accept"
+
+        body = http.get("/api/self-improvement").json()
+        assert body["candidates"] == []  # the trial ended; its removal is no policy
+        (row,) = body["stack"]  # the earlier candidate and its removal are left out
+        assert (row["surface"], row["target"]) == ("coding_policy", f"{loop.CELL}#active")
+        assert (row["state"], row["author"]) == ("trial", "rsi-selector")
+        policy = row["policy"]
+        assert policy["kinds"] == ["hold"] and policy["slot"] == "active"
+        assert (policy["domain"], policy["model"], policy["harness"]) == (
+            "backend",
+            "claude-opus-5-5",
+            "claude-cli 2.1",
+        )
+        assert row["before"] == {"hold": False, "p_max": 2, "evidence_wait_s": 2700, "lines": []}
+        assert row["after"]["hold"] is True and row["measured"] is True
+        admitted = row["admitted"]
+        assert (admitted["step"], admitted["verdict"], admitted["metric"]) == (
+            "admit",
+            "accept",
+            "pass",
+        )
+        assert (admitted["n"], admitted["n_reference"]) == (65, 65)
+        assert admitted["diff"] == pytest.approx(18 / 65) and admitted["low"] > 0
+        assert admitted["high"] is None  # the selector bounds from below only
+        assert admitted["arms"]["candidate"]["pass"] == pytest.approx(60 / 65)
+        assert admitted["arms"]["reference"]["pass"] == pytest.approx(42 / 65)
+        assert admitted["reason"].startswith("branch A")
+
+        # Take back: the cell runs under the factory policy again, nothing held.
+        undone = http.post(f"/api/self-improvement/changes/{row['id']}/undo")
+        assert undone.status_code == 200 and undone.json()["reverted"] == [row["id"]]
+        assert policies.policy(loop.CELL, ACTIVE) is None
+        assert http.get("/api/self-improvement").json()["stack"] == []
+        assert DEFAULT.hold is False
+    finally:
+        runs.close()
+        policies.close()
+        built.close()

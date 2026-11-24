@@ -38,6 +38,8 @@ import { AdvantageCurve } from "./selfImprovement/AdvantageCurve";
 import { ChangeDetail } from "./selfImprovement/ChangeDetail";
 import { DailyUseSection } from "./selfImprovement/DailyUse";
 import { NightsSection } from "./selfImprovement/Nights";
+import { claimWords, isPolicy, policyProof, policySentence } from "./selfImprovement/policy";
+import { PolicyLines } from "./selfImprovement/PolicyLines";
 import {
   DECIDE_MIN_TASKS,
   MODEL_FREE_DOMAINS,
@@ -506,19 +508,30 @@ function ChangeRow({
 }) {
   const t = useT();
   const note = isNote(change);
+  // How coding agents are steered: a sentence instead of a value, proved on requests.
+  const policy = isPolicy(change) ? change : null;
   const before = change.before ?? change.default;
-  const values = note ? "" : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
+  const values = note || policy ? "" : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
   const when = relativeTime(change.since_ms, locale);
   // Two lines: where the change stands, then what proved it. The proof is the
   // line a person reads for, so it never shares its width with anything else.
   const standing = candidate
-    ? [fill(t("self_improvement.candidates.row"), { when })]
+    ? [fill(t(policy ? "self_improvement.policy.on_trial" : "self_improvement.candidates.row"), { when })]
     : [wordFor(t, "state_word", change.state), fill(t("self_improvement.stack.since"), { when })];
   if (!candidate && change.last_check && change.last_check.verdict === "accept") {
     standing.push(fill(t("self_improvement.stack.held"), { n: change.last_check.n }));
   }
   // A note it wrote for itself has no measurement: it says so instead of a proof.
-  const proof = candidate ? "" : note ? t("self_improvement.stack.not_measured") : effectWords(t, change.admitted, locale);
+  // A policy on trial says what it has to show; one in effect, what showed it.
+  const proof = policy
+    ? candidate
+      ? claimWords(t, policy.policy)
+      : policyProof(t, change.admitted, locale)
+    : candidate
+      ? ""
+      : note
+        ? t("self_improvement.stack.not_measured")
+        : effectWords(t, change.admitted, locale);
   return (
     <Row
       testId="si-change-row"
@@ -528,6 +541,10 @@ function ChangeRow({
       title={
         note ? (
           t("self_improvement.stack.note_title")
+        ) : policy ? (
+          <span className="whitespace-normal" data-testid="si-policy-sentence">
+            {policySentence(t, policy)}
+          </span>
         ) : (
           <>
             {paramTitle(t, change.target, change.doc)}
@@ -538,6 +555,7 @@ function ChangeRow({
       sub={
         <>
           {note && <NoteWords text={change.text ?? ""} />}
+          {policy && policy.policy.lines.length > 0 && <PolicyLines lines={policy.policy.lines} />}
           <span className="block truncate">{standing.join(" · ")}</span>
           {proof && (
             <span
