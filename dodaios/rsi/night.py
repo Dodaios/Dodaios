@@ -753,7 +753,6 @@ def install(
     )
 
     tonight: dict[str, Any] = {}
-    usage = _seat_usage(config)
 
     def prepare() -> dict[str, Any]:
         clones: list[str] = []
@@ -768,7 +767,7 @@ def install(
         allowance = Budget(
             CEILING_CALLS,
             fallback=calls_tonight(bench),
-            usage=usage,
+            usage=_seat_usage(config),  # the seat may have changed since the last round
             idle=_person_idle,
             halted=halt.is_set,
         )
