@@ -1,15 +1,21 @@
 # Telephony — call Dodaios on a phone number
 
 Dodaios can answer a real phone call. A caller dials a Twilio number and talks to
-Dodaios as a real-time voice agent, using **Dodaios's own** speech stack — the
-same STT, the same Brain, and the same **Charon** voice as the desktop
-microphone path. Nothing about the voice changes between the desk and the phone.
+Dodaios through the same **realtime speech-to-speech** engine every voice
+conversation runs on (API Keys > Live calls). Nothing about the voice changes
+between the desk and the phone.
 
 Under the hood the call audio is bridged with **Twilio Media Streams** (raw
 audio over a WebSocket), not Twilio's ConversationRelay. Media Streams is the
-only mode that lets Dodaios run its own STT and speak in its own consistent
-voice — ConversationRelay would force Twilio's TTS voices, so it is disqualified
-for the default path (design decision AD-T1).
+only mode that lets Dodaios's own realtime voice hear the caller and answer in
+its own voice — ConversationRelay would force Twilio's speech and voices, so it
+is disqualified (design decision AD-T1).
+
+**Which realtime connections can take a call.** A phone line carries plain
+audio, so the connection has to take that audio itself. A connection that needs
+a browser to set up its audio (a WebRTC offer, such as the GPT-Live connections)
+cannot serve a phone line. When no connection that can is set up, Twilio tells
+the caller so and hangs up; a call never falls back to another voice engine.
 
 > **Cloud-first.** The telephony feature is an **optional extra**
 > (`pip install -e .[telephony]`). The base install boots without it, and the
@@ -120,13 +126,12 @@ restart, so re-run `set-webhook` each time. The VPS path avoids this.
 ## 4. Verify and call
 
 - In the Telephony section, click **Test connection** (calls the Twilio REST API
-  to confirm the Auth Token), then **Self-test voice** (runs a fixed utterance
-  through STT → Brain → TTS with no real call, and shows the transcript +
-  response so you can confirm there is no text truncation).
-- Call your Twilio number. Dodaios greets you, you talk, it answers in the Charon
-  voice. Say **"auflegen"** (or "tschüss", "goodbye", "hang up") to end the <!-- i18n-allow: voice hangup trigger words -->
-  call; barge-in is supported (start talking while Dodaios is speaking and it
-  stops to listen). <!-- i18n-allow -->
+  to confirm the Auth Token), then **Self-test voice** (checks, without a call,
+  that a realtime connection that can serve a phone line is ready).
+- Call your Twilio number. Dodaios greets you, you talk, it answers in its
+  realtime voice. Ask it to hang up, or just hang up yourself, to end the call;
+  barge-in is supported (start talking while Dodaios is speaking and it stops to
+  listen).
 
 Recent calls appear in the **Recent calls** table.
 
@@ -160,24 +165,29 @@ Caller -> Twilio number
                                               secret and return TwiML)
        -> <Connect><Stream wss://…/api/telephony/media>  (bidirectional)
        -> WS /api/telephony/media           (validates the per-call secret,
-                                              then runs the turn loop)
+                                              then starts a realtime session)
 
-per turn:  inbound mu-law 8 kHz
-           -> linear PCM -> resample 16 kHz -> VAD endpoint
-           -> STT.transcribe_pcm -> hangup-regex guard
-           -> per-call BrainManager.generate_stream
-           -> scrub_for_voice (regex only)
-           -> TTS.synthesize (24 kHz Charon)
-           -> resample 8 kHz -> mu-law -> 20 ms paced frames
-           -> Twilio plays them back to the caller
+caller:    inbound mu-law 8 kHz -> linear PCM 8 kHz -> realtime session
+           (the session resamples to its provider's rate)
+answer:    realtime session PCM (provider rate) -> resample 8 kHz -> volume
+           -> mu-law -> Twilio media + mark -> Twilio plays it to the caller
+barge-in:  the session cancels its answer -> Twilio "clear" drops the rest
 ```
 
-- The Brain is built **per call** so phone and desktop conversations never share
-  memory.
+- Each call gets its **own** realtime session (`surface="phone"`): it never takes
+  over the desktop's voice call, never follows the desk microphone's mute and
+  never starts from the desk conversation. The session's instructions carry a
+  brief of the call: who is on the line and, for a call Dodaios placed, its
+  purpose. A call to someone else is told not to share the owner's private
+  information or act on that person's requests.
+- A call placed for one decision (`dodaios/telephony/decision_calls.py`) reads
+  the owner's spoken yes / no / later from the session's transcript, settles the
+  card, has the voice say the outcome, and hangs up.
 - The path never imports `sounddevice` or `SpeechPipeline` — it runs headless on
   a VPS with no audio hardware.
-- Modules: `dodaios/telephony/` (audio, session, twiml, security, provisioning,
-  status, events, constants) + `dodaios/ui/web/telephony_routes.py`.
+- Modules: `dodaios/telephony/` (audio, call, twiml, security, provisioning,
+  status, events, constants, decision_calls) +
+  `dodaios/ui/web/telephony_routes.py`.
 
 ### Probe without a phone
 
@@ -185,10 +195,9 @@ per turn:  inbound mu-law 8 kHz
 python scripts/probe_telephony_e2e.py
 ```
 
-drives the media-stream session with synthetic frames and prints a transcript,
-a Dodaios response, and the outbound mu-law frame count — the in-repo proof of
-correctness. Add `--real --wav utterance.wav` to run the configured real stack
-against a 16 kHz mono WAV.
+drives the call bridge with synthetic frames against a fake realtime session
+and prints what reached the session and the outbound mu-law chunk count — the
+in-repo proof of the transcode and the call lifecycle.
 
 ### REST API
 

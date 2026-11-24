@@ -26,11 +26,8 @@ vi.mock("@/hooks/useVoiceReadiness", () => ({
 
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: "pipeline",
     realtimeAvailable: false,
-    setMode: vi.fn(),
     isLoading: false,
-    isSaving: false,
   }),
 }));
 

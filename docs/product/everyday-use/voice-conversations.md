@@ -1,17 +1,17 @@
 ---
 title: "Voice Conversations"
 slug: voice-conversations
-summary: "Understand how Pipeline and Realtime handle spoken questions, actions, privacy, interruptions, and fallback."
+summary: "Understand how a realtime voice call handles spoken questions, actions, privacy, interruptions, and failures."
 section: "Everyday use"
 section_order: 2
 order: 2
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
-tags: [voice, microphone, wake-word, speech-recognition, text-to-speech, pipeline, realtime, language]
+tags: [voice, microphone, wake-word, speech-recognition, realtime, language]
 related: [audio-and-wake-word, dictation, local-ai-providers, sessions-and-run-inspector]
 ---
 
@@ -31,11 +31,11 @@ reason, act, or speak a reply.
 - On macOS, allow **Microphone** access. The Call shortcut also needs
   Input Monitoring access, which macOS asks for when you save a shortcut. Other systems use their own audio
   and shortcut permissions.
-- Open **API Keys & Providers > Live calls** and review **Voice engine**.
-  **GPT-Live** is the Realtime engine and needs one ready live voice
-  connection. **Pipeline** needs usable Voice Input, Brain, and Voice Output
-  paths, which can be local, hosted, or mixed; the tab lists all three once
-  Pipeline is selected.
+- Open **API Keys & Providers > Live calls** and pick one realtime voice
+  provider, such as **OpenAI GPT-Live**, GPT-Live on your ChatGPT
+  subscription, **Gemini Live**, **Vertex AI Live**, or **xAI Grok Live**.
+  Every call runs on the provider you pick there. Without a ready realtime
+  provider, a call does not start.
 
 On a headless computer, native wake detection, desktop shortcuts, microphone,
 and speaker output are unavailable. A browser can offer **Start Realtime
@@ -56,67 +56,66 @@ contain several turns.
    request itself.
 2. **Speak while the app shows Listening.** Dodaios waits for a pause long
    enough to mark the end of your request — the **Thinking pause** setting
-   says how long, in Pipeline and Realtime alike. If you keep talking inside
-   that pause, the new words are added to the same request instead of being
-   sent as a second one; a clearly finished sentence is answered as soon as
-   the pause has passed.
-3. **Dodaios prepares one understood request.** Pipeline converts the captured
-   audio into text first. Realtime receives transcript updates from the live
-   connection. Your Speech Dictionary corrects known names and terms in both
-   modes before routing and session history use the text.
+   says how long; **Automatic** keeps the provider's own turn detection. If
+   you keep talking inside that pause, the new words are added to the same
+   request instead of being sent as a second one; a clearly finished sentence
+   is answered as soon as the pause has passed.
+3. **Dodaios prepares one understood request.** The live connection hears
+   your audio and sends transcript updates. Your Speech Dictionary corrects
+   known names and terms before routing and session history use the text.
 4. **Dodaios chooses the path.** An ordinary question can be answered directly.
    A request that needs an app, connected service, Computer Use, or longer work
-   goes through the regular planning and Tool Model path. Realtime can hand an
-   action request to that path instead of pretending the live voice model has
-   every tool.
+   goes through the regular planning and Tool Model path. The live voice model
+   hands an action request to that path instead of pretending it has every
+   tool.
 5. **Safety rules check an action.** Low-risk work may continue immediately.
    An ask-level action pauses for a clear yes or no, and a blocked action does
    not run. Review the exact target and effect before saying yes.
-6. **Hear the result.** Pipeline sends reply text to Voice Output. Realtime
-   normally returns speech through the open live connection. The visible flow
+6. **Hear the result.** The reply comes back as speech through the open live
+   connection. The visible flow
    is usually **Listening → Thinking → Speaking → Listening**.
 7. **Continue or hang up.** Conversation mode listens for another turn. An
    optional single-turn setting ends the session after each answer. Silence can
    also end a conversation when an idle limit is enabled.
 
-### Choose Pipeline or Realtime
+### Choose a Realtime Provider
 
-| Question | Pipeline | Realtime |
+Every voice conversation runs on one realtime speech-to-speech provider: one
+live model listens and answers within the same audio session. There is no
+separate speech-to-text, Brain, and text-to-speech chain for calls.
+
+| Provider | What it needs | Notes |
 |---|---|---|
-| How is speech handled? | Voice Input creates text, the Brain handles it, and Voice Output speaks | One live model listens and answers within an audio session |
-| What can you choose? | Separate compatible providers for input, reasoning, and output | One compatible Realtime provider and model |
-| Can speech run locally? | Yes. Local recognition and Piper voice output are available on supported computers | No local Realtime engine is currently offered; live audio goes to the connected service |
-| How do actions work? | Broadest feature and tool coverage | Ordinary conversation stays live; supported action requests use the regular planner and Tool Model |
-| How does interruption work? | Sustained user speech can stop playback | Browser audio uses echo cancellation; desktop interruption is checked locally to avoid reacting to speaker echo |
-| What happens on failure? | An unavailable stage can use another ready compatible choice or report the missing stage | Another ready Realtime family can be tried; before a turn is committed, the call can fall back to Pipeline |
-| Current maturity | Established staged path | Recommended conversational default, but still a research preview with feature gaps |
+| **OpenAI GPT-Live** | An OpenAI API key | Has its own voice, thinking model, and instructions settings on the same tab |
+| **OpenAI GPT-Live (ChatGPT subscription)** | A ChatGPT sign-in | Experimental; uses the subscription's access and limits and never switches to an API key on its own |
+| **Gemini Live** | A Gemini API key | |
+| **Vertex AI Live** | A Vertex AI key | |
+| **xAI Grok Live** | The xAI API key, the same key as the xAI Grok Brain and xAI Text to Speech | Models `grok-voice-latest` (default) and `grok-voice-3.0`; voices such as Eve (default), Ara, Leo, Rex, and Sal; billed per minute on your xAI account |
+| **Local voice** | No account | Experimental cards that run the call on this computer or on a local server you set up |
 
-Use Realtime for faster back-and-forth when its current feature set covers your
-request. Use Pipeline when you need local speech, independent providers, or the
-broadest tool support.
+| Question | Answer |
+|---|---|
+| How do actions work? | Ordinary conversation stays live; supported action requests use the regular planner and Tool Model |
+| How does interruption work? | Browser audio uses echo cancellation; desktop interruption is checked locally to avoid reacting to speaker echo |
+| What happens on failure? | Another ready realtime provider can take the call, and the app says so because billing may differ. When no realtime provider is ready, the call does not start: it ends and says why |
 
-The **Voice engine** selection says what Dodaios should try next. Its runtime
-line says what the current session actually uses. Changing the engine during
-an active desktop call closes and reopens that call with the new choice.
+Pick the provider on its card under **API Keys & Providers > Live calls**. The
+call status at the top of that tab says what the current call actually uses.
+Changing the provider during an active desktop call reconnects that call with
+the new choice; otherwise the change applies to the next call.
 
 ### Know What Stays Local
 
-“Local” applies to one Pipeline stage, not automatically to the whole
-conversation.
+“Local” depends on the realtime provider you pick, not on other voice
+settings.
 
 - Desktop wake detection runs locally and only activates the session.
-- Local Voice Input keeps recognition audio on the computer. If local
-  recognition fails, Dodaios does not silently upload that recording just to
-  recover.
-- A hosted Brain can still receive the resulting transcript, even when Voice
-  Input is local.
-- Piper creates speech locally, but the text it speaks may have come from a
-  hosted Brain.
-- Realtime sends the live conversation audio to the selected Realtime service
-  and bypasses the separate Pipeline Voice Input, Brain, and Voice Output
-  selections.
-- A failed local Brain may cross to another ready provider family. If that
-  choice is hosted, the request can leave the device and the effective provider
+- A hosted realtime provider receives the live conversation audio. The Voice
+  Input, Brain, and Read-aloud voice selections do not change that.
+- The experimental **Local voice** cards keep the call on this computer or on
+  a local server you set up.
+- A request handed to the planner and Tool Model uses those models. If they
+  are hosted, the request text can leave the device, and the effective provider
   is reported in the session data.
 
 Read [Local AI Providers](local-ai-providers) before treating a mixed setup as
@@ -136,9 +135,8 @@ context gives a clear answer, English is the fallback.
 That one decision covers clarification questions, approval prompts, status and
 error phrases, the final answer, and the speaking-language choice. A provider
 fallback can change the sound of the voice without changing the language rule.
-After changing recognition language, end an active Realtime call; Pipeline
-applies that recognition change after the app restart requested by the
-**Languages** view.
+After changing recognition language, end an active call; the next call uses
+the new language.
 
 ### Interrupt, Cancel, or End the Call
 
@@ -146,8 +144,8 @@ applies that recognition change after the app restart requested by the
   sustained speech so the assistant's own speaker output is less likely to
   trigger a false interruption. A whisper may not interrupt reliably; use
   **Hangup** when you need an immediate stop.
-- **Reject an approval:** answer with a clear no. In Realtime, changing the
-  subject is not a reliable denial; say no or end the call.
+- **Reject an approval:** answer with a clear no. Changing the subject is not
+  a reliable denial; say no or end the call.
 - **End the session:** say a clear end-call command, press the configured
   **Hangup** shortcut, or use the active voice control. Hangup stops listening
   and playback and cancels the active assistant or Computer Use turn.
@@ -158,7 +156,7 @@ applies that recognition change after the app restart requested by the
 
 ### Give Several Orders in One Call
 
-In a Realtime call you do not have to wait for one order to finish before
+In a call you do not have to wait for one order to finish before
 giving the next. Say "brief the agent in terminal two about the login bug",
 and while that is still being sent, "and create an agent for the
 documentation":
@@ -175,22 +173,22 @@ documentation":
 - Ask "how far are you with the agent?" for the state of the running work.
   A clear stop command cancels all of it; "stop the briefing" cancels one.
 
-Pipeline calls still handle one request at a time, and background agent
-missions run one after another: a second mission is accepted and starts when
-the first has ended. A second mission ordered by voice within half a minute of
-the first is treated as a repeat of it; wait a moment, or type the order.
+Background agent missions run one after another: a second mission is accepted
+and starts when the first has ended. A second mission ordered by voice within
+half a minute of the first is treated as a repeat of it; wait a moment, or type
+the order.
 
 Stopping a call does not undo a tool effect that already completed. If a
-Realtime connection fails after a request or action has been committed, Dodaios
-ends the call instead of replaying the captured audio through Pipeline and
-risking a duplicate action. Start a new call for the next turn.
+realtime connection fails after a request or action has been committed,
+Dodaios ends the call instead of replaying the captured audio and risking a
+duplicate action. Start a new call for the next turn.
 
 ### Understand Session Records
 
 The local session recorder is enabled by default. **Transcription** groups the
 recognized user text, recorded replies, spoken notices, and available provider
 details by voice session. It does not save the microphone audio for these
-views. If a provider supplies no transcript for part of a Realtime exchange,
+views. If a provider supplies no transcript for part of an exchange,
 Dodaios cannot reconstruct those missing words later.
 
 **Run Inspector** adds captured routing, tool, timing, approval, and error
@@ -202,21 +200,22 @@ recovery audio only for incomplete results when that option is enabled.
 1. [Audio and Wake Word](audio-and-wake-word) supplies the desktop devices and
    optional activation phrase; Call or the in-app control can open the same
    session without wake detection.
-2. The chosen voice engine receives the request. Pipeline connects Voice
-   Input, the Brain, and Voice Output; Realtime uses one live audio connection.
-3. The Speech Dictionary corrects recognized terms in both engines. The turn's
+2. The selected realtime provider receives the request over one live audio
+   connection.
+3. The Speech Dictionary corrects recognized terms. The turn's
    recognition and reply language settings keep the conversation consistent.
 4. The planner keeps ordinary conversation on the simplest path and sends
    supported actions through the Tool Model, connected tools, permissions, and
    any required safety confirmation.
 5. The reply returns as speech. Transcription and Run Inspector record the
    available text and events without controlling the live turn.
-6. [Dictation](dictation) can use the same microphone and recognition choices,
-   but its result goes to a text field instead of the Brain or spoken output.
+6. [Dictation](dictation) uses the same microphone with its own Voice Input
+   provider, and its result goes to a text field instead of a spoken reply.
 
-When the preferred provider is unavailable, Dodaios uses another compatible,
-ready path when it can and names the effective mode. When no safe path remains,
-it reports the unavailable part and leaves Chats usable.
+When the selected provider is unavailable, Dodaios uses another ready realtime
+provider when it can and names it. When none is ready, the call ends and says
+why: no realtime voice provider is ready, check the voice provider under API
+Keys. Chats stays usable.
 
 ## Check That It Works
 
@@ -227,8 +226,8 @@ it reports the unavailable part and leaves Chats usable.
 4. Use **Hangup**, confirm **Ready**, then open **Transcription** and find the
    completed turn.
 
-For Realtime, also check the runtime line under **API Keys & Providers > Voice
-engine**. It should name Realtime, Pipeline, or a Pipeline fallback honestly.
+During the call, also check the call status at the top of **API Keys &
+Providers > Live calls**. It should name the provider the call actually uses.
 
 ## Troubleshooting
 
@@ -236,11 +235,11 @@ engine**. It should name Realtime, Pipeline, or a Pipeline fallback honestly.
 |---|---|---|
 | Wake or Call does not reach **Listening** | Voice is still warming, the microphone is unavailable, or activation is not ready | Wait for **Ready**, check **Audio devices**, and run **Test wake word**; use an in-app control meanwhile |
 | The transcript is empty, wrong, or misses a name | The input device, recognition language, provider, or vocabulary is wrong | Try one short sentence, review **Languages**, and add repeated term mistakes under **Voice > Dictionary** |
-| Realtime is selected but the runtime line says Pipeline | No compatible live session opened safely | Test the active Realtime provider in **API Keys & Providers**, or choose Pipeline deliberately |
-| **Speaking** appears but you hear nothing | The output device, volume, or speech path is unavailable | Check the selected speaker and system volume; in Pipeline, test another ready Voice Output choice |
-| Browser Realtime is unavailable or cannot hear you | The page is not localhost/HTTPS, microphone access is denied, or the browser lacks required audio support | Use a secure address, allow microphone access, and retry; continue in Chats if audio remains unavailable |
+| The call ends at once and says no realtime voice provider is ready | The selected provider has no usable key or sign-in, and no other realtime provider is ready | Open **API Keys & Providers > Live calls**, test the selected provider, or set up another one |
+| **Speaking** appears but you hear nothing | The output device, volume, or live connection is unavailable | Check the selected speaker and system volume, then test the realtime provider |
+| Browser voice is unavailable or cannot hear you | The page is not localhost/HTTPS, microphone access is denied, or the browser lacks required audio support | Use a secure address, allow microphone access, and retry; continue in Chats if audio remains unavailable |
 
-If a Realtime call ends after an error, check Transcription and Run Inspector
+If a call ends after an error, check Transcription and Run Inspector
 before repeating an action. The safe recovery may be a new call rather than an
 automatic replay.
 
@@ -250,7 +249,7 @@ automatic replay.
   and the Call and Hangup controls.
 - Use [Dictation](dictation) when you want speech inserted into another app
   without an assistant reply.
-- Read [Local AI Providers](local-ai-providers) to separate local recognition,
-  local reasoning, and local speech output.
+- Read [Local AI Providers](local-ai-providers) to see which voice parts can
+  run on your computer.
 - Open [Sessions and Run Inspector](sessions-and-run-inspector) to review saved
   turns, effective providers, actions, and failures.

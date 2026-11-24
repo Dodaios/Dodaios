@@ -2,7 +2,7 @@
 
 This is the **Chunk C** half of the contacts feature: a contact-agnostic engine
 that dials a *raw* E.164 number and lets Jarvis speak an opening line, then
-converse — reusing the entire inbound conversation loop (``session.py`` +
+converse — reusing the entire inbound conversation path (``call.py`` +
 the ``/api/telephony/media`` Media Streams socket). No knowledge of contacts
 lives here; the caller passes a bare number.
 
@@ -16,7 +16,8 @@ The mechanism mirrors the inbound path exactly:
   2. When the callee answers, Twilio fetches that webhook, which returns
      ``<Connect><Stream>`` TwiML carrying ``direction=outbound`` + the ``opening``
      (plus the per-call secret) and pointing at the media socket.
-  3. The session speaks the opening first, then runs the normal turn loop.
+  3. The realtime session is told the opening as the call's purpose and says it
+     first, then the conversation runs like an inbound call.
 
 Cloud-first doctrine: the ``twilio`` SDK is an OPTIONAL extra
 (``pip install -e .[telephony]``). When it is absent or the account is not
@@ -62,6 +63,18 @@ def _client(account_sid: str, auth_token: str):  # noqa: ANN202 - twilio Client 
     return Client(account_sid, auth_token)
 
 
+def phone_voice_ready(cfg: object) -> bool:
+    """Whether a realtime session could talk on a phone line under ``cfg``.
+
+    The telephony-side door to ``dodaios.realtime.factory.realtime_phone_ready``
+    for callers that may reach telephony but not the realtime stack (the
+    ``call-contact`` plugin). Reads credentials; call it off the event loop.
+    """
+    from dodaios.realtime.factory import realtime_phone_ready
+
+    return realtime_phone_ready(cfg)
+
+
 def place_call(
     *,
     to: str,
@@ -80,7 +93,7 @@ def place_call(
             engine is contact-agnostic — it never resolves a name.
         opening: Optional first line Jarvis speaks once the callee answers. It is
             delivered to the session through the voice webhook (URL query ->
-            TwiML ``<Parameter>``) and scrubbed before TTS like any spoken text.
+            TwiML ``<Parameter>``) and becomes the purpose of the realtime call.
         account_sid: Twilio Account SID (``AC…``; an identifier, not a secret).
         auth_token: Twilio Auth Token — always supplied by the caller via
             ``get_secret`` (AP-12), never read here from config/env.

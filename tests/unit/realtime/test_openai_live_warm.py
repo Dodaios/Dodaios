@@ -69,11 +69,7 @@ async def test_factory_warm_reaches_openai_live(monkeypatch) -> None:
         factory, "load", lambda _group, pid, protocol=None: OpenAILiveProvider
     )
     cfg = SimpleNamespace(
-        voice=SimpleNamespace(mode="realtime", profile=""),
         brain=SimpleNamespace(realtime=SimpleNamespace(provider="openai-live")),
-    )
-    monkeypatch.setattr(
-        factory, "_realtime_is_the_configured_voice_mode", lambda _cfg: True
     )
     await factory.realtime_warm_selected_transports(cfg)
     assert len(seen) == 1

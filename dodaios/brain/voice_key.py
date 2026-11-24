@@ -26,13 +26,10 @@ _REALTIME_GROUP = "jarvis.realtime"
 def voice_key_slots(cfg: Any) -> frozenset[str]:
     """Keyring slots the configured realtime voice provider bills, or empty.
 
-    Empty when the voice runs in pipeline mode, no realtime provider is set, or
-    the provider signs in without a key (a subscription voice owns no key).
-    Never raises: a plugin that cannot load owns nothing.
+    Empty when no realtime provider is set, or the provider signs in without a
+    key (a subscription voice owns no key). Never raises: a plugin that cannot
+    load owns nothing.
     """
-    voice = getattr(cfg, "voice", None)
-    if str(getattr(voice, "mode", "") or "").strip() != "realtime":
-        return frozenset()
     brain = getattr(cfg, "brain", None)
     realtime = getattr(brain, "realtime", None)
     provider_id = str(getattr(realtime, "provider", "") or "").strip()

@@ -5059,14 +5059,10 @@ async def stt_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
 async def realtime_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
     """Switch the active realtime provider.
 
-    The desktop and browser runtimes resolve ``voice.mode`` plus the selected
-    provider whenever a voice session opens. An active realtime call is closed
-    and reopened against the new provider; no application restart is required.
-    Realtime is cross-family (AP-22), so validation is registry/tier based.
-
-    Provider selection and voice-engine selection are intentionally independent.
-    This route never changes ``[voice].mode``; only the explicit voice-mode
-    settings action may switch between Pipeline and Realtime.
+    The desktop and browser runtimes resolve the selected provider whenever a
+    voice call opens. An active call is closed and reopened against the new
+    provider; no application restart is required. Realtime is cross-family
+    (AP-22), so validation is registry/tier based.
     """
     spec = get_spec(body.provider)
     if spec is None:
@@ -5119,39 +5115,16 @@ async def realtime_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     cfg = _resolve_cfg(request)
-    from dodaios.voice.subscription_profile import subscription_voice_selected
-
-    effective_mode = str(
-        getattr(getattr(cfg, "voice", None), "mode", "pipeline") or "pipeline"
-    ).strip().lower()
-
     if body.persist:
         try:
-            from dodaios.core.config_writer import (
-                set_realtime_provider,
-                set_realtime_voice_selection,
-            )
+            from dodaios.core.config_writer import set_realtime_provider
 
-            if cfg is not None and subscription_voice_selected(cfg):
-                # Switching to a Realtime provider retires the classic
-                # subscription voice profile in the same atomic write.
-                set_realtime_voice_selection(
-                    body.provider,
-                    profile="",
-                    mode=effective_mode,
-                )
-            else:
-                set_realtime_provider(body.provider)
+            set_realtime_provider(body.provider)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=f"TOML write failed: {exc}") from exc
 
-    if cfg is not None and getattr(cfg, "voice", None) is not None:
-        try:
-            cfg.voice.profile = ""
-        except Exception as exc:  # noqa: BLE001 - detached config is harmless
-            log.debug("In-memory voice.profile update skipped: %s", exc)
     if cfg is not None and getattr(cfg, "brain", None) is not None:
         try:
             realtime_cfg = getattr(cfg.brain, "realtime", None)
@@ -5165,13 +5138,7 @@ async def realtime_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
             log.debug("In-memory realtime.provider update skipped: %s", exc)
     await _emit(request, SecretConfigured(key="brain.realtime.provider", action="set"))
 
-    from dodaios.ui.web.voice_runtime import (
-        apply_voice_profile,
-        reconnect_realtime,
-        voice_engine_status,
-    )
-
-    profile_session_restarted = apply_voice_profile(request, "")
+    from dodaios.ui.web.voice_runtime import reconnect_realtime, voice_engine_status
 
     # A switch REOPENS an open call immediately. A transport that needs a
     # browser WebRTC offer cannot start without one, and the client only learns
@@ -5189,7 +5156,7 @@ async def realtime_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001 — never block a switch on this
             log.debug("Realtime offer pre-wait skipped: %s", exc)
 
-    session_restarted = profile_session_restarted or reconnect_realtime(
+    session_restarted = reconnect_realtime(
         request, reason=f"realtime_provider:{body.provider}"
     )
 
@@ -5197,8 +5164,6 @@ async def realtime_switch(body: SwitchBody, request: Request) -> dict[str, Any]:
     return {
         "ok": True,
         "active": body.provider,
-        "profile": "",
-        "mode": effective_mode,
         "persisted": body.persist,
         "restart_required": False,
         "session_restarted": session_restarted,

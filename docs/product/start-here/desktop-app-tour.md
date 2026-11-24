@@ -8,7 +8,7 @@ order: 4
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-07-30
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [desktop-app, navigation, chats, agents, tools, settings, help]
@@ -32,9 +32,9 @@ voice warms.
 The Agents area, personal instructions file, and Voice hub adapt to your chosen
 name. This guide calls them **Agents**, **Instructions**, and **Voice**.
 
-The bottom card shows the Pipeline **Brain** or **Realtime** provider and model.
-Select it to open **API Keys**; during a Realtime call it follows the provider
-actually serving the session.
+The bottom card shows the realtime voice provider and model. Select it to open
+**API Keys**; during a call it follows the provider actually serving the
+session.
 
 Drag the sidebar divider to resize it. When it becomes an icon rail, hover for
 labels; double-click the divider to restore its width.
@@ -72,7 +72,7 @@ conditions. Follow the action shown in the notice.
 | **Wiki** | Browse your knowledge vault. |
 | **Contacts**, **Profile**, and **Instructions** | Store people, facts, memory, and standing preferences. |
 | **Docs** | Search guides, related pages, and the current contents list. |
-| **API Keys** | Choose providers, Pipeline or Realtime, the Control Key, and advanced connections. |
+| **API Keys** | Choose providers, the realtime voice provider for calls (**Live calls**), the Control Key, and advanced connections. |
 | **Settings** | Change language, audio, wake behavior, appearance, permissions, and app behavior. |
 | **Voice** | Open Dictation, Dictionary, Language, and speech-input keys. The dictation shortcuts are under **Settings > Keyboard shortcuts**. |
 | **Outputs** | Find reports and files produced by chats, tools, or Agents. |
@@ -91,8 +91,8 @@ Large hubs use a top tab bar:
 - **Voice** has **Dictation**, **Dictionary**, **Language**, and
   speech-input **API Keys**. Full provider setup remains in the main **API
   Keys** area. See [Dictation](dictation).
-- **API Keys** changes provider tabs with Pipeline or Realtime and also holds
-  Tool Model, Agents, the Control Key, and **Advanced**. See [Use Local AI
+- **API Keys** has two tabs, **Agents** and **Live calls**, and also holds
+  Tool Model, the Control Key, and **Advanced**. See [Use Local AI
   Providers](local-ai-providers).
 - **Settings** now includes language choices and on-screen overlay controls
   that previously had separate sidebar entries.

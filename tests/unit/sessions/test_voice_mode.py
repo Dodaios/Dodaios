@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from dodaios.core.bus import EventBus
 from dodaios.core.events import (
-    ListeningStarted,
     RealtimeSessionReady,
     VoiceSessionEnded,
     VoiceSessionStarted,
@@ -103,8 +102,6 @@ async def _publish_session(
                     model="test-model",
                 )
             )
-        elif mode == "pipeline":
-            await bus.publish(ListeningStarted(source_layer="speech"))
     await bus.publish(
         VoiceSessionEnded(
             source_layer="speech.pipeline",
@@ -115,26 +112,19 @@ async def _publish_session(
 
 
 @pytest.mark.asyncio
-async def test_recorder_persists_pipeline_fallback_and_unknown_modes(tmp_path) -> None:
+async def test_recorder_persists_realtime_and_unknown_modes(tmp_path) -> None:
     store = SessionStore(tmp_path / "sessions.db")
     store.open()
     try:
         bus = EventBus()
         SessionRecorder(store).attach(bus)
 
-        await _publish_session(bus, session_id="pipeline", evidence=("pipeline",))
-        await _publish_session(
-            bus,
-            session_id="fallback",
-            evidence=("realtime", "pipeline"),
-        )
+        await _publish_session(bus, session_id="live", evidence=("realtime",))
         await _publish_session(bus, session_id="unknown", evidence=())
 
-        pipeline = store.get_session("pipeline")
-        fallback = store.get_session("fallback")
+        live = store.get_session("live")
         unknown = store.get_session("unknown")
-        assert pipeline is not None and pipeline.voice_mode == "pipeline"
-        assert fallback is not None and fallback.voice_mode == "pipeline"
+        assert live is not None and live.voice_mode == "realtime"
         assert unknown is not None and unknown.voice_mode == "unknown"
     finally:
         store.close()

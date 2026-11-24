@@ -202,7 +202,14 @@ PROVIDER_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("vertex_api_key", "VERTEX_API_KEY"),
         ("google_vertex_api_key", "GOOGLE_VERTEX_API_KEY"),
     ),
-    # No "grok-realtime" slot (deaf-session wedge); a stored realtime_grok_api_key stays unused.
+    # xAI Grok realtime voice: the one xAI key first (it also serves the Grok
+    # brain and Grok Voice TTS), then a dedicated realtime slot that older
+    # installs may still hold from the July 2026 adapter.
+    "grok-realtime": (
+        ("grok_api_key", "GROK_API_KEY"),
+        ("xai_api_key", "XAI_API_KEY"),
+        ("realtime_grok_api_key", "JARVIS_REALTIME_GROK_API_KEY"),
+    ),
 }
 
 # Agent API credentials are replaceable from the Agent tab; scoped Agent keys win and are never used
@@ -337,9 +344,13 @@ class TriggerConfig(BaseModel):
     session_idle_timeout_s: float = 30.0
     push_to_talk: bool = False
 
-    def resolve_hotkeys(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        """Return the active call hotkey and an empty legacy PTT slot."""
-        return (tuple(h for h in (self.hotkey_call,) if h.strip()), ())
+    def resolve_hotkeys(self) -> tuple[str, ...]:
+        """Return the active call hotkey.
+
+        A blank call key means the user explicitly cleared the action in
+        Settings.
+        """
+        return tuple(h for h in (self.hotkey_call,) if h.strip())
 
     # False (default): lightweight local wake (openWakeWord only, CPU, no faster-whisper). True adds
     # the heavy RollingWhisperWake backstop + VAD probe (see
@@ -1018,10 +1029,6 @@ class RouterVisionConfig(BaseModel):
     capture_mode: str = "screenshot"  # "screenshot" | "composite"
     max_image_kb: int = 500
     pause_on_idle: bool = True
-    voice_pause_phrase_de: str = "privacy"
-    voice_pause_phrase_en: str = "privacy mode"
-    voice_resume_phrase_de: str = "du darfst wieder sehen"
-    voice_resume_phrase_en: str = "vision back on"
 
     model_config = {"extra": "allow"}
 
@@ -1976,25 +1983,20 @@ class LocalActionConfig(BaseModel):
 
 
 class PerformanceConfig(BaseModel):
-    """Latency optimisations with rollback switches; ``streaming_tts`` sends sentence chunks to TTS.
+    """Latency optimisations with rollback switches.
     The prompt/context caches (``cache_control`` / Gemini cache, 1 h TTL) default off.
     """
 
     model_config = {"extra": "allow"}
 
-    streaming_tts: bool = True
     anthropic_prompt_cache: bool = False
     gemini_context_cache: bool = False
-    # Sentences synthesized ahead of playback (``_brain_streaming``); 1 bounds barge-over waste.
-    tts_lookahead_sentences: int = 1
+    # Wave 1 (omni-latency): conditional vision. Drop the screenshot on
+    # confidently text-only turns (skip-when-safe gate, dodaios/brain/vision_gate.py);
+    # keep it whenever in doubt. Cuts the per-turn image tax on cheap turns.
     conditional_vision: bool = True
     # Per-turn context goes in the user message so the static prefix hits the cache.
     cache_optimized_prompt: bool = True
-
-    @field_validator("tts_lookahead_sentences")
-    @classmethod
-    def _floor_lookahead(cls, v: int) -> int:
-        return max(1, int(v))
 
 
 class LatencyConfig(BaseModel):
@@ -2078,20 +2080,29 @@ class WikiIntegrationConfig(BaseModel):
 
 
 class VoiceConfig(BaseModel):
-    """Voice-flow knobs outside STT/TTS/Trigger. ``extra="allow"`` is mandatory (AP-16)."""
+    """Voice-call knobs that are not STT/TTS/Trigger-specific.
+
+    Voice calls run only on realtime speech-to-speech providers; the former
+    ``mode`` ("pipeline"/"realtime") and ``profile`` keys are retired and
+    removed from old configs at boot (``config_writer.migrate_retired_voice_
+    pipeline``). ``extra="allow"`` is mandatory — a self-mod or drift-guard
+    write of an unknown future key must NOT block boot (AP-16).
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    completion_detection_enabled: bool = True
-    # "realtime" (full-duplex) or "pipeline" (STT->brain->TTS); read once per session. Without
-    # a realtime key it falls back silently unless the mode was EXPLICITLY set in the TOML.
-    mode: str = "realtime"
-    # Empty = the engine's normal brain. ``codex-subscription-voice`` swaps only text generation
-    # for the Codex App Server; never implied by the Realtime provider.
-    profile: str = ""
-    # Realtime tool exposure (ADR-0035): "hybrid" = live model calls tools itself plus
-    # ``jarvis_action`` for the rest; "delegate" = only jarvis_action; "direct" = whole catalog
-    # (diagnostic, ~26k tokens per response, BUG-051). Unknown values fail closed to "delegate".
+    # Realtime tool exposure (ADR-0035, 2026-08-19). "hybrid" (default): the
+    # live model calls every Jarvis tool itself — the supervisor catalog minus
+    # the computer-use vehicles, rendered compactly under
+    # ``realtime_tool_declaration_budget_tokens`` — plus one ``jarvis_action``
+    # function for computer use, screen looks and any capability it has no
+    # function for; the Tool Model runs only those delegated turns. "delegate":
+    # the pre-ADR-0035 default — one compact jarvis_action function, every
+    # action turn goes to the key-aware router Brain. "direct": the whole
+    # dynamic catalog natively and no jarvis_action (diagnostic; a live
+    # reproduction on a TPM-metered wire cost ~26k input tokens per response,
+    # BUG-051). Read once per session; unknown values fail closed to
+    # "delegate".
     realtime_tool_mode: str = "hybrid"
     # Token bound (chars / 4) for tool declarations; overflow is dropped by priority and logged
     # (still reachable via jarvis_action). A provider capability (AP-21) may lower it. 0 = off.
@@ -2102,76 +2113,41 @@ class VoiceConfig(BaseModel):
     # ADR-0034: a NEW turn while a jarvis_action call is unanswered answers it with "still
     # executing"; the result is spoken later. False = the transport waits.
     realtime_unblock_pending_tool_calls: bool = True
-    # Per-gap budget before a stale pending fragment is discarded; each continuation resets it.
-    completion_wait_ms: int = 15000
-    # Grace after a COMPLETE classification before dispatch, so "Hey Jarvis, ... [pause]
-    # Ich wollte wissen ..." merges into ONE turn. 0 = immediate dispatch.
-    complete_grace_ms: int = 1500
-    completion_max_chain: int = 3
-    # Clarifying question on a trailing-off fragment or empty brain turn. OFF: it fired on
-    # every empty brain turn. The AD-OE6 acks are unaffected.
+    # The owner's opt-in to clarifying questions from agents (read by
+    # ``dodaios.agent_chat.ask_gate`` and ``dodaios.society.ask_tool``).
+    # DEFAULT OFF since 2026-06-09 (maintainer mandate): a question fired on
+    # every unclear turn interrogated the user about perfectly clear commands.
     clarify_incomplete_enabled: bool = False
-    # Grace after an incomplete fragment before the clarifying question fires; a
-    # continuation within it cancels the question and joins the turn.
-    clarify_after_ms: int = 2500
-    # --- Continuation recombine ---
-    # When the user keeps talking after an utterance was dispatched, abort the half-formed
-    # answer and re-think the COMBINED sentence instead of dropping the earlier half.
-    continuation_interrupt_enabled: bool = True
-    continuation_grace_ms: int = 2500
-    # Max fragments coalesced into one turn; a low cap drops the earliest context.
-    continuation_max_chain: int = 8
-    # Floor (s) below which the "that took too long" phrase is suppressed as a stale-state
-    # guard (AP-19): no real timeout path fires faster. Clamped to <= the stall window.
-    min_timeout_phrase_s: float = 30.0
-    # Floor for the NO-FIRST-FRAME path (shorter TTS ceiling). None = derived; clamped to <= it.
-    no_first_frame_phrase_floor_s: float | None = None
-
-
-class BrowserVoiceConfig(BaseModel):
-    """``[browser_voice]``: the browser microphone streams to ``/ws/audio`` on mic-less hosts."""
-
-    model_config = ConfigDict(extra="allow")
-
-    # Classic bridge in PIPELINE mode only (realtime always serves the socket); read at connect
-    # by ``browser_voice.route.browser_voice_enabled``.
-    enabled: bool = True
-
-
-class CompletenessConfig(BaseModel):
-    """``[speech.completeness]``: is a transcript a complete instruction?"""
-
-    model_config = ConfigDict(extra="allow")
-
-    enabled: bool = True
-    signal_mode: Literal["auto", "earcon", "spoken"] = "auto"
-    pending_discard_s: float = 8.0
-    max_pending_fragments: int = 2
-    # Gray-zone LLM escalation: reserved; an LLM on the voice critical path violates AP-9/AP-11.
-    llm_escalation_enabled: bool = False
-
-    @field_validator("pending_discard_s")
-    @classmethod
-    def _pending_discard_s_must_be_positive(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError(
-                f"pending_discard_s must be > 0, got {v!r}. "
-                "Use a positive value such as 8.0 (seconds)."
-            )
-        return v
 
 
 class SpeechConfig(BaseModel):
-    """Top-level [speech] block (stt, tts, trigger stay at the root)."""
+    """Top-level [speech] config block.
+
+    Speech settings that do not already have a dedicated top-level field on
+    JarvisConfig (stt, tts and trigger stay at the root for backward
+    compatibility).
+
+    TOML path: [speech]
+    Attribute path: JarvisConfig.speech
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    completeness: CompletenessConfig = Field(default_factory=CompletenessConfig)
-
-    # Silence window before an utterance is finished (Settings > Voice). 0 = AUTOMATIC: factory
-    # turn detection (classic 1.5 s; realtime sends NO override, since a fixed window on top
-    # made sentences wait twice). 500-5000 ms overrides both engines. Live-applied via
-    # /api/settings/silence-window.
+    # Voice-call silence window: how long a call waits in silence before
+    # treating an utterance as finished. User-tunable "think buffer" (desktop
+    # Settings → Voice slider).
+    #
+    # 0 = AUTOMATIC and the default: Jarvis sends NO turn-detection override,
+    # so the realtime provider ends the turn on its own timing — the same
+    # latency a caller gets straight from the vendor's API (maintainer,
+    # 2026-08-23: "it should just be what the API does out of the box").
+    #
+    # Any other value (500–5000 ms) is an EXPLICIT patience override: a
+    # realtime session forwards it as the provider's silence window plus the
+    # "read a pause as a pause" sensitivity, for a user who would rather wait
+    # than be cut off mid-sentence. Read once per call, so a Settings change
+    # applies to the next call. extra="allow" keeps the self-mod pre-validate
+    # path safe (AP-16).
     vad_silence_ms: int = Field(default=0, ge=0, le=5000)
 
     @field_validator("vad_silence_ms")
@@ -2834,16 +2810,6 @@ class VoiceEngineConfig(BaseModel):
 class SelfBuildConfig(BaseModel):
     """``[self_build]`` — the self-building loop's limits (docs/self-build.md).
 
-<<<<<<< HEAD
-    Per need kind: ``off``, ``suggest``, ``trial`` (live with undo) or ``full``.
-||||||| 030bbb15a5
-    Dodaios notices what the person keeps doing and builds what would take it
-    off them: a memory, a skill, a routine, an agent or a code change. Each
-    kind has its own autonomy level: ``off``, ``suggest`` (a card, nothing is
-    built before the person accepts), ``trial`` (built, checked and live with
-    one-click undo) or ``full`` (as trial, and the trial ends by measure).
-    Every key is read by ``dodaios.self_build.policy`` (AP-31).
-=======
     Dodaios notices what the person keeps doing and builds what would take it
     off them: a memory, a skill, a routine, an agent or a code change. It never
     asks for approval: a build goes live on trial when it can be undone, and a
@@ -2855,7 +2821,6 @@ class SelfBuildConfig(BaseModel):
     ``enabled`` and the per-kind stages (``memory``, ``skill``, ``routine``,
     ``agent``, ``code``) are no longer read. They stay so that a config file
     that sets them still loads; their values are ignored.
->>>>>>> origin/main
     """
 
     model_config = {"extra": "allow"}
@@ -3020,9 +2985,8 @@ class JarvisConfig(BaseModel):
     dictation: DictationConfig = Field(default_factory=DictationConfig)
     # Voice-flow knobs (incomplete-prompt completion buffer).
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
-    # [browser_voice] — browser-microphone bridge for hosts without a microphone.
-    browser_voice: BrowserVoiceConfig = Field(default_factory=BrowserVoiceConfig)
-    # AI Pointer — "what is under the mouse cursor" context (docs/plans/ai-pointer/DESIGN.md).
+    # AI Pointer — deictic-gated "what is under the mouse cursor" context.
+    # Spec: docs/plans/ai-pointer/DESIGN.md
     pointer: PointerConfig = Field(default_factory=PointerConfig)
     # [codex] — OpenAI Codex CLI integration (binary path override).
     codex: CodexConfig = Field(default_factory=CodexConfig)
@@ -3338,7 +3302,7 @@ _LEGACY_CODEX_REALTIME_HEALED: set[Path] = set()
 
 
 def _heal_legacy_codex_realtime_once(path: Path) -> None:
-    """Route a removed Codex Realtime selection onto the stable composition."""
+    """Route a removed Codex Realtime selection onto ChatGPT Live."""
     if path in _LEGACY_CODEX_REALTIME_HEALED:
         return
     _LEGACY_CODEX_REALTIME_HEALED.add(path)
@@ -3355,31 +3319,31 @@ def _heal_legacy_codex_realtime_once(path: Path) -> None:
     if migrated:
         logging.getLogger(__name__).warning(
             "Migrated the removed codex-subscription-realtime selection to "
-            "the stable ChatGPT subscription voice profile (Pipeline mode)."
+            "GPT-Live with the ChatGPT subscription."
         )
 
 
-_LIVE_VOICE_PROFILE_HEALED: set[Path] = set()
+_RETIRED_VOICE_PIPELINE_HEALED: set[Path] = set()
 
 
-def _heal_live_voice_profile_once(path: Path) -> None:
-    """Free a saved GPT-Live setup from a leftover classic voice profile."""
-    if path in _LIVE_VOICE_PROFILE_HEALED:
+def _heal_retired_voice_pipeline_once(path: Path) -> None:
+    """Move a config off the retired pipeline voice mode. Never blocks a load."""
+    if path in _RETIRED_VOICE_PIPELINE_HEALED:
         return
-    _LIVE_VOICE_PROFILE_HEALED.add(path)
+    _RETIRED_VOICE_PIPELINE_HEALED.add(path)
     try:
-        from dodaios.core.config_writer import retire_voice_profile_under_live
+        from dodaios.core.config_writer import migrate_retired_voice_pipeline
 
-        healed = retire_voice_profile_under_live(path=path)
-    except Exception:  # noqa: BLE001 - a boot repair must not block startup
+        migrated = migrate_retired_voice_pipeline(path=path)
+    except Exception:  # noqa: BLE001 - a boot migration must not block startup
         logging.getLogger(__name__).warning(
-            "Could not repair the voice profile of the saved GPT-Live setup.",
-            exc_info=True,
+            "Could not migrate the retired pipeline voice settings.", exc_info=True
         )
         return
-    if healed:
+    if migrated:
         logging.getLogger(__name__).warning(
-            "Retired a classic voice profile that blocked the saved GPT-Live setup."
+            "Voice calls now run only on realtime providers; removed the retired "
+            "[voice] mode/profile settings from the config."
         )
 
 
@@ -3408,14 +3372,19 @@ def load_config(
     if config_file is None:
         config_file = resolve_config_path()
         # The codex-subscription-realtime adapter was removed 2026-08-10. A
-        # config still pinning it is routed onto the stable subscription
-        # profile before the first parse so the UI and runtime see one state.
+        # config still pinning it is routed onto GPT-Live with the ChatGPT
+        # subscription before the first parse so the UI and runtime see one
+        # state.
         _heal_legacy_codex_realtime_once(config_file)
-        # A GPT-Live setup saved over a classic voice profile could not start
-        # a call (issue #828). Repair that pairing before the first parse.
-        _heal_live_voice_profile_once(config_file)
-        # One-time dictation-shortcut backfill before the file is read; only for
-        # the resolved path (an explicit file is read, never rewritten).
+        # The pipeline voice mode was retired 2026-11-24: drop its [voice]
+        # mode/profile keys and move a subscription profile onto GPT-Live.
+        _heal_retired_voice_pipeline_once(config_file)
+        # One-time dictation-shortcut backfill BEFORE the file is read, so the
+        # very first boot after the update already sees the healed values
+        # (BUG-010 config drift; see config_writer for why a marker and not an
+        # empty-means-default rule). Only for the RESOLVED path: a caller that
+        # names a file explicitly — a test, a doctor script — gets it read, not
+        # rewritten. Process-local guard so repeated loads cost nothing.
         _heal_dictation_hotkeys_once(config_file)
     if not config_file.exists():
         # No config file → pure defaults (useful for tests)

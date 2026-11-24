@@ -737,8 +737,7 @@ class WebServer:
         app.state.telephony_manager = TelephonyManager()
         # Browser-microphone voice bridge (B2): /ws/audio — the headless/VPS
         # voice path via the browser's own mic/speaker, no sounddevice. Always
-        # mounted; checked at connect time: realtime mode always serves it,
-        # pipeline mode while [browser_voice].enabled is on (the default).
+        # mounted; every call on it runs on a realtime voice session.
         from dodaios.browser_voice.route import router as browser_voice_router
 
         app.include_router(browser_voice_router)

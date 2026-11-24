@@ -975,9 +975,8 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     # contract. Subscription and API billing remain independently selectable.
     # The former "ChatGPT subscription (Codex)" realtime card was removed
     # 2026-08-10 together with its plugin: Codex's experimental realtime
-    # surface never held a dependable call. Subscription voice continues as
-    # the stable classic-pipeline composition (voice.profile =
-    # "codex-subscription-voice") over the audited app-server text protocol.
+    # surface never held a dependable call. A ChatGPT plan talks through
+    # GPT-Live on the ChatGPT subscription (openai-live-subscription).
     ProviderSpec(
         id="openai-live",
         label="OpenAI GPT-Live",
@@ -1090,8 +1089,23 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         ),
         experimental=True,
     ),
-    # grok-realtime was removed 2026-07-16 (BUG-064: the xAI realtime server
-    # drops its session contract after any response cancel and goes deaf).
+    # xAI Grok realtime voice. Runs with server-owned turns under the native
+    # live session; the July 2026 adapter that wedged (BUG-064) used the
+    # manual-response contract this one avoids.
+    ProviderSpec(
+        id="grok-realtime",
+        label="xAI Grok Live",
+        tier="realtime",
+        auth_mode="api_key",
+        secret_keys=("grok_api_key",),
+        dashboard_url="https://console.x.ai/",
+        signup_url="https://console.x.ai/",
+        credential_help=(
+            "One xAI API key (starts with xai-) for Grok voice calls. The same "
+            "key also serves the Grok brain and Grok Voice TTS. Calls are billed "
+            "per minute on your xAI account."
+        ),
+    ),
 )
 
 

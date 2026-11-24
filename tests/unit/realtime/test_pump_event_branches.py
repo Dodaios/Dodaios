@@ -127,7 +127,10 @@ async def test_terminal_provider_error_fails_the_call():
     assert await sess._pump_transport_once() is None
     assert sess._failed.is_set()
     assert sess._failure_detail == "boom"
-    assert jsons == [{"type": "provider_error", "error": "boom"}]
+    # No other voice path takes the call over: the person hears why it ended.
+    assert [m["type"] for m in jsons] == ["error_spoken", "provider_error"]
+    assert jsons[0]["text"] == "The voice connection dropped."
+    assert jsons[1] == {"type": "provider_error", "error": "boom"}
     assert not any(m.get("text") == "never seen" for m in jsons)
 
 
@@ -153,7 +156,10 @@ async def test_receive_exception_ends_the_pump_as_a_failure():
     assert await sess._pump_transport_once() is None
     assert sess._failed.is_set()
     assert sess._failure_detail == "socket died"
-    assert jsons == [{"type": "provider_error", "error": "socket died"}]
+    # No other voice path takes the call over: the person hears why it ended.
+    assert [m["type"] for m in jsons] == ["error_spoken", "provider_error"]
+    assert jsons[0]["text"] == "The voice connection dropped."
+    assert jsons[1] == {"type": "provider_error", "error": "socket died"}
 
 
 @pytest.mark.asyncio

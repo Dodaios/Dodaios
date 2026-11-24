@@ -18,7 +18,6 @@ import { BrowserRealtimeControl, localStartFailureKey, waveformPhase } from "./B
 const fakes = vi.hoisted(() => ({
   prepareAudio: vi.fn(() => vi.fn()),
   native: false,
-  mode: "realtime",
   available: true,
   requiresWebRtcOffer: false,
   browserAudio: false,
@@ -45,13 +44,10 @@ vi.mock("@/hooks/useCapabilities", () => ({
 
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: fakes.mode,
     realtimeAvailable: fakes.available,
     requiresWebRtcOffer: fakes.requiresWebRtcOffer,
     browserAudio: fakes.browserAudio,
-    setMode: vi.fn(),
     isLoading: false,
-    isSaving: false,
   }),
 }));
 
@@ -99,7 +95,6 @@ describe("BrowserRealtimeControl", () => {
   beforeEach(() => {
     fakes.prepareAudio.mockClear();
     fakes.native = false;
-    fakes.mode = "realtime";
     fakes.available = true;
     fakes.requiresWebRtcOffer = false;
     fakes.browserAudio = false;
@@ -127,7 +122,7 @@ describe("BrowserRealtimeControl", () => {
     const view = render(<BrowserRealtimeControl controlOnly />);
     expect(fakes.prepareAudio).toHaveBeenCalledOnce();
     const dispose = fakes.prepareAudio.mock.results[0].value;
-    fakes.mode = "pipeline";
+    fakes.available = false;
     view.rerender(<BrowserRealtimeControl controlOnly />);
     expect(dispose).toHaveBeenCalledOnce();
     expect(fakes.connect).not.toHaveBeenCalled();
@@ -463,12 +458,6 @@ describe("BrowserRealtimeControl", () => {
     expect(screen.getByRole("button", { name: "sidebar.realtime_start" })).toBeTruthy();
   });
 
-  it("is hidden while the classic pipeline is selected", () => {
-    fakes.mode = "pipeline";
-    render(<BrowserRealtimeControl />);
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
   it("starts browser-owned realtime audio from an explicit user gesture", async () => {
     render(<BrowserRealtimeControl />);
 
@@ -739,17 +728,14 @@ describe("BrowserRealtimeControl", () => {
   });
 
   // Issue #399: on a host with no speech pipeline the browser that presses
-  // Start holds the call itself, in pipeline mode through the classic chain.
+  // Start holds the call itself, on a realtime session.
   describe("call held by this browser", () => {
     beforeEach(() => {
-      fakes.mode = "pipeline";
       fakes.available = false;
       useEventStore.setState({ toasts: [] });
     });
 
-    it("starts in pipeline mode with plain PCM and keeps the call through the mode gate", async () => {
-      // A realtime transport pinned in the settings must not leak into a
-      // classic call: it has no WebRTC peer and no browser-audio contract.
+    it("starts without waiting for the availability probe and keeps the transport's options", async () => {
       fakes.requiresWebRtcOffer = true;
       fakes.browserAudio = true;
       render(<BrowserRealtimeControl controlOnly />);
@@ -759,13 +745,12 @@ describe("BrowserRealtimeControl", () => {
       });
 
       await waitFor(() => expect(fakes.connect).toHaveBeenCalledTimes(1));
-      expect(fakes.options).toMatchObject({ requiresWebRtcOffer: false, browserAudio: false });
+      expect(fakes.options).toMatchObject({ requiresWebRtcOffer: true, browserAudio: true });
       expect(useEventStore.getState().voiceState).toBe("connecting");
       expect(browserVoiceCallLive()).toBe(true);
 
       act(() => fakes.callbacks?.onStatus?.("audio_ready", {}));
       expect(useEventStore.getState().voiceState).toBe("listening");
-      // Pipeline mode hides the realtime surface; it must not hang this up.
       expect(fakes.disconnect).not.toHaveBeenCalled();
 
       act(() => {
@@ -785,11 +770,9 @@ describe("BrowserRealtimeControl", () => {
       });
 
       await waitFor(() => expect(useEventStore.getState().voiceState).toBe("idle"));
-      // A classic call has no realtime provider to blame; the line points at
-      // the chain it actually runs on.
       expect(
         useEventStore.getState().toasts.map(({ kind, message }) => ({ kind, message })),
-      ).toEqual([{ kind: "error", message: "sidebar.browser_voice_error" }]);
+      ).toEqual([{ kind: "error", message: "sidebar.realtime_error" }]);
       expect(screen.queryByRole("alert")).toBeNull();
       expect(browserVoiceCallLive()).toBe(false);
     });

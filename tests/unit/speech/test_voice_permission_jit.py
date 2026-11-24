@@ -2,8 +2,8 @@
 
 The contract (docs/macos-permissions.md, 4.6 rows on the voice gates, and 4.7 boot rule):
 
-* A GESTURE (the dictation key or button, push-to-talk, the call key, "speak in
-  this conversation") calls ``ensure(MICROPHONE, wait_s=0)``. The first press of an
+* A GESTURE (the dictation key or button, the call key, "speak in this
+  conversation") calls ``ensure(MICROPHONE, wait_s=0)``. The first press of an
   undecided microphone makes macOS ask and is refused for now (``DictationRefused``
   with the existing ``microphone_unavailable`` reason, plus the ``PermissionNeeded``
   episode the service publishes); nothing starts retroactively once it is answered,
@@ -71,11 +71,9 @@ def _pipeline(
     pipe._dictation_task = None
     pipe._dictation_stop_event = asyncio.Event()
     pipe._dictation_wake_block_until = 0.0
-    pipe._ptt_mode = False
     pipe._state = PipelineState.IDLE
     pipe._muted = False
     pipe._call_event = asyncio.Event()
-    pipe._ptt_release_event = asyncio.Event()
     pipe._explicit_call_pending = False
     pipe._runtime_loop = None
     pipe._brain = None
@@ -204,48 +202,6 @@ async def test_dictation_without_an_stt_provider_does_not_ask_the_os() -> None:
     assert gate.calls == []
 
 
-def test_ptt_press_asks_once_per_press_and_arms_only_on_a_grant() -> None:
-    gate = FakePermissionService()
-    gate.script(_MIC, PermissionOutcome.PENDING, PermissionOutcome.GRANTED)
-    pipe = _pipeline(permission=gate)
-
-    pipe._on_ptt_press()
-    assert pipe._ptt_mode is False
-    assert not pipe._call_event.is_set()
-
-    pipe._ptt_key_seen_at = 0.0
-    pipe._on_ptt_press()
-    assert pipe._ptt_mode is True
-    assert pipe._call_event.is_set()
-
-    calls = gate.ensure_calls(_MIC)
-    assert [(c.feature, c.interactive, c.wait_s) for c in calls] == [("voice", True, 0.0)] * 2
-
-
-def test_a_muted_ptt_press_never_asks_the_os() -> None:
-    gate = FakePermissionService()
-    gate.script(_MIC, PermissionOutcome.PENDING)
-    pipe = _pipeline(permission=gate)
-    pipe._muted = True
-
-    pipe._on_ptt_press()
-
-    assert gate.calls == []
-    assert pipe._ptt_mode is False
-
-
-def test_a_denied_ptt_press_does_not_arm_a_recording() -> None:
-    gate = FakePermissionService()
-    gate.script(_MIC, PermissionOutcome.DENIED)
-    pipe = _pipeline(permission=gate)
-
-    pipe._on_ptt_press()
-
-    assert pipe._ptt_mode is False
-    assert not pipe._call_event.is_set()
-    assert len(gate.ensure_calls(_MIC)) == 1
-
-
 def test_the_call_key_asks_and_opens_a_session_only_on_a_grant() -> None:
     gate = FakePermissionService()
     gate.script(_MIC, PermissionOutcome.PENDING, PermissionOutcome.GRANTED)
@@ -285,9 +241,12 @@ def test_an_unreadable_permission_refuses_the_gesture() -> None:
 
     pipe = _pipeline(permission=_Broken())
 
-    pipe._on_ptt_press()
+    pipe._dispatch_hotkey_event("call")
 
-    assert pipe._ptt_mode is False
+    assert not pipe._call_event.is_set()
+    assert pipe._explicit_call_pending is False
+    assert pipe.request_voice_session() is False
+    assert not pipe._call_event.is_set()
 
 
 # --------------------------------------------------------------------------
@@ -360,11 +319,11 @@ async def test_denied_microphone_second_press_adds_no_request(
     assert any(event.reason == "denied" and event.phase == "blocked" for event in seen.needed)
 
 
-async def test_a_denied_microphone_refuses_ptt_and_speak_with_one_card_per_episode(
+async def test_a_denied_microphone_refuses_call_and_speak_with_one_card_per_episode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The microphone was denied in an earlier run: the silent user predicate is closed,
-    yet the PTT press and the speak button still reach ``ensure`` so the refusal is
+    yet the call key and the speak button still reach ``ensure`` so the refusal is
     never silent. They publish ONE ``PermissionNeeded`` (denied, blocked, user) per
     episode, make no native request and never arm anything."""
     tcc = _mac(monkeypatch)
@@ -377,17 +336,15 @@ async def test_a_denied_microphone_refuses_ptt_and_speak_with_one_card_per_episo
     )
     assert pipe._user_capture_allowed() is False, "the harness must model the closed predicate"
 
-    pipe._on_ptt_press()
+    pipe._dispatch_hotkey_event("call")
     await _drain()
-    assert pipe._ptt_mode is False
     assert not pipe._call_event.is_set()
     assert [(e.permissions, e.reason, e.phase, e.origin, e.feature) for e in seen.needed] == [
         (("microphone",), "denied", "blocked", "user", "voice")
     ]
 
     # Another gesture family in the same episode adds neither a request nor a card.
-    pipe._ptt_key_seen_at = 0.0
-    pipe._on_ptt_press()
+    pipe._dispatch_hotkey_event("call")
     assert pipe.request_voice_session() is False
     await _drain()
     assert len(seen.needed) == 1, "a refusal publishes once per episode"
@@ -417,9 +374,9 @@ async def test_non_macos_gestures_consult_nothing(monkeypatch: pytest.MonkeyPatc
     started = _record_commits(pipe)
 
     assert pipe.start_dictation() is True
-    pipe._on_ptt_press()
-    assert pipe._ptt_mode is True
-    pipe._ptt_mode = False
+    pipe._dispatch_hotkey_event("call")
+    assert pipe._call_event.is_set()
+    pipe._call_event.clear()
     pipe._state = PipelineState.IDLE
     assert pipe.request_voice_session() is True
     await _drain()

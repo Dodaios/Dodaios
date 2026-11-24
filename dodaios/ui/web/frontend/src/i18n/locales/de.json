@@ -116,13 +116,8 @@
     "state_ready": "Bereit für dein nächstes Gespräch",
     "state_call": "Gespräch läuft",
     "state_connecting": "Verbinde…",
-    "state_backup": "Auf dem Ersatz-Sprachweg",
-    "state_off": "Realtime ist aus",
     "state_none": "Noch kein Sprach-Provider",
     "none_hint": "Wähle unten einen Provider und hinterlege seinen Key.",
-    "off_hint": "Deine Stimme läuft noch über die alte klassische Engine. Schalte Realtime ein, um über den Provider unten zu sprechen.",
-    "off_hint_unavailable": "Deine Stimme läuft noch über die alte klassische Engine. Richte unten einen Provider ein und schalte dann Realtime ein.",
-    "turn_on": "Realtime einschalten",
     "providers_title": "Provider",
     "providers_desc": "Wer das Live-Gespräch führt. Ein Provider mit gespeichertem Key übernimmt mit einem Klick.",
     "active": "Aktiv",
@@ -162,7 +157,6 @@
     "subscription_billing": "Sprache und Denken nutzen dein ChatGPT-Abo innerhalb seiner Zugangs- und Nutzungslimits. Ist es nicht verfügbar, stoppt das Gespräch ohne Wechsel auf einen API-Key. Der Abo-Sprachzugang ist experimentell.",
     "options_failed": "Die Modell- und Stimmenliste konnte nicht geladen werden. Öffne die Einrichtung erneut.",
     "active": "Aktiv",
-    "pipeline_fallback": "Realtime konnte für dieses Gespräch nicht starten, deshalb läuft es über den Ersatz-Sprachweg. Neue Einstellungen gelten ab dem nächsten Gespräch.",
     "open_browser": "Sprache im Browser öffnen",
     "loading": "Spracheinstellungen werden geladen…",
     "description": "Natürlich sprechen, Denkmodell selbst wählen und Dodaios-Tools nutzen. Wähle einen OpenAI-Key oder ein ChatGPT-Abo.",
@@ -919,10 +913,8 @@
     "realtime_webrtc_unsupported": "Dieses Fenster kann die Audioverbindung nicht öffnen, die diese Sprache benötigt (WebRTC ist nicht verfügbar).",
     "realtime_start_unavailable": "Die Sprache konnte nicht starten: Die gewählte Sprachverbindung ist nicht bereit. Prüfe Anmeldung oder Schlüssel unter API Keys > Live calls.",
     "realtime_browser_tts_unavailable": "Dieser Browser hat keine nutzbare Systemstimme. Die Antwort bleibt als Text verfügbar; verbinde für Audio einen TTS-Anbieter.",
-    "realtime_pipeline_fallback": "Klassische Pipeline als Fallback",
     "realtime_unavailable": "Realtime-Anbieter verbinden oder einrichten",
     "realtime_error": "Die Sprachverbindung konnte nicht gestartet werden. Teste den aktiven Realtime-Anbieter unter API Keys und versuche es erneut.",
-    "browser_voice_error": "Die Sprachverbindung konnte nicht gestartet werden. Prüfe Sprache zu Text, das Brain und Text zu Sprache unter API Keys und versuche es erneut.",
     "realtime_provider_fallback": "{0} war nicht mehr verfügbar, deshalb läuft das Gespräch jetzt über einen anderen Anbieter — die Abrechnung kann abweichen. {1}",
     "realtime_provider_fallback_short": "Das Gespräch hat {0} verlassen und läuft über einen anderen Anbieter.",
     "realtime_provider_warning": "Der Realtime-Anbieter meldet ein behebbares Problem; das Gespräch läuft weiter.",
@@ -2023,12 +2015,6 @@
       "warn": "Warnung"
     }
   },
-  "voice_mode": {
-    "label": "Modus",
-    "realtime": "Realtime",
-    "pipeline": "Pipeline",
-    "unknown": "Unbekannt"
-  },
   "transcription": {
     "archive": "Spracharchiv",
     "intro": "Ein Ort für deine Gespräche. Finde die Worte, zu denen du zurückkehren möchtest.",
@@ -2920,26 +2906,13 @@
     "local_mode_notice": "{0} Cloud-Anbieter sind ausgeblendet.",
     "local_mode_notice_active": "Der gerade genutzte Anbieter bleibt sichtbar, damit du immer siehst, worauf {name} läuft.",
     "local_mode_show_all": "Alle Anbieter zeigen",
-    "mode_pipeline": "Pipeline",
-    "mode_realtime": "Realtime",
     "mode_active_badge": "Aktiv",
     "mode_recommended": "Empfohlen",
-    "voice_engine_label": "Sprach-Engine",
-    "voice_engine_desc": "Wie {name} zuhört und spricht — Live-Gespräche mit Tools oder lokale Sprache.",
     "mode_needs_credentials": "Verbinde oder konfiguriere unten einen Realtime-Anbieter, um umzuschalten.",
-    "mode_desc_pipeline": "Drei Schritte: Sprache zu Text, das Brain denkt, Text zu Sprache.",
-    "mode_desc_realtime": "Ein Modell hört zu und antwortet im selben Live-Audiostrom.",
-    "mode_pick_one_hint": "Du musst nur einen Sprachmodus einrichten.",
-    "mode_keys_hint": "Realtime braucht einen aktiven Anbieter mit Subscription-Login oder API-Key. Die Pipeline braucht eigene Zugangsdaten für Spracheingabe, Sprachausgabe und Brain. Tool Model und {name}-Agents gelten für beide Modi.",
-    "mode_realtime_preview": "Research-Preview – noch nicht fertig. Viele Tools und Funktionen laufen im Realtime-Modus noch nicht.",
-    "mode_realtime_preview_short": "Research-Preview",
     "alt_credential_title": "Alternative: {0}",
     "alt_credential_setup": "{0} einrichten",
     "runtime_switching": "Die aktuelle Sprach-Session wird mit der ausgewählten Engine neu gestartet…",
-    "runtime_idle": "Keine Sprach-Session ist aktiv. Die Auswahl gilt für die nächste Session.",
     "runtime_realtime": "Aktuelle Session: Realtime",
-    "runtime_pipeline": "Aktuelle Session: Pipeline",
-    "runtime_fallback_pipeline": "Die aktuelle Session ist auf die Pipeline zurückgefallen; Realtime bedient diesen Anruf nicht.",
     "cat_brain_desc": "Das Modell, das deine Chat- und Sprachantworten formuliert. Aktionen und Computer-Use übernimmt das separate Tool-Modell.",
     "cat_tts_desc": "Die Stimme, mit der {name} spricht.",
     "cat_stt_desc": "Wie {name} deine Sprache in Text umwandelt.",
@@ -3234,7 +3207,7 @@
   "settings_view": {
     "silence_window": {
       "title": "Denkpause",
-      "description": "Wie lange {name} in Stille wartet, bevor er deinen Satz übernimmt. Auf Automatisch nutzt jeder Sprachmodus seine eigene Werkseinstellung — das ist die kürzeste Pause. Höher stellen, um mehr Zeit zum Innehalten und Zu-Ende-Denken zu haben; sprichst du innerhalb der Pause weiter, wird das Gesagte an dieselbe Anfrage angehängt. Gilt für beide Sprachmodi — Pipeline sofort, Realtime ab dem nächsten Anruf.",
+      "description": "Wie lange {name} in einem Sprachanruf in Stille wartet, bevor er deinen Satz übernimmt. Auf Automatisch nutzt der Sprachanbieter seine eigene Sprechpausen-Erkennung — das ist die kürzeste Pause. Erhöhe den Wert, um dir mehr Zeit für Pausen und zum Zu-Ende-Denken zu geben; sprichst du innerhalb der Pause weiter, werden die Worte derselben Anfrage hinzugefügt. Gilt ab dem nächsten Anruf.",
       "unit_seconds": "s",
       "automatic_label": "Automatisch",
       "automatic_caption": "Werkseinstellung des Anbieters — kürzeste Pause.",
@@ -4091,7 +4064,7 @@
     "reply_section": "Antwort-Sprache",
     "reply_hint": "In welcher Sprache {name} antwortet. Eigennamen, Code-Bezeichner und Fachbegriffe bleiben in ihrer Originalform.",
     "stt_section": "Erkennungssprache (Stimme)",
-    "stt_hint": "In welcher Sprache deine Stimme erkannt und in Text umgewandelt wird. Automatisch erkennt sie selbst. Beende nach einer Änderung jeden Realtime-Anruf und starte Dodaios für den Pipeline-Modus neu.",
+    "stt_hint": "In welcher Sprache deine Stimme erkannt und in Text umgewandelt wird. Automatisch erkennt sie selbst. Beende nach einer Änderung jeden laufenden Anruf; der nächste nutzt die neue Sprache.",
     "options": {
       "auto": {
         "label": "Automatisch",
@@ -6951,9 +6924,7 @@
   "ready_note": {
     "title": "Alles eingerichtet.",
     "body": "Denken, Werkzeuge, Agenten und {0} sind eingerichtet. Sag dein Wake-Word — oder tipp einfach los.",
-    "go": "Los geht's",
-    "mode_realtime": "Live-Stimme",
-    "mode_pipeline": "Stimme rein und raus"
+    "go": "Los geht's"
   },
   "society": {
     "sandbox": {
@@ -9546,6 +9517,7 @@
       "too_large": "Diese Datei ist zu groß, um sie hier anzuzeigen.",
       "unavailable": "Diese Datei lässt sich nicht lesen. Vielleicht wurde sie verschoben oder gelöscht.",
       "no_workspace": "Öffne ein Projekt, um hier Dateien zu lesen.",
+      "not_found": "{file} liegt weder in {folder} (dem Ordner dieses Threads) noch in deinem Home-Ordner. Die Antwort nennt die Datei ohne vollständigen Pfad, sie gehört vielleicht zu einem anderen Projekt.",
       "show_change": "Änderung anzeigen",
       "change_truncated": "{count} weitere Zeilen werden nicht angezeigt.",
       "unsaved": "Nicht gespeicherte Änderungen",

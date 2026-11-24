@@ -147,13 +147,13 @@ async function reportNativeStartupFailure(requestId: string): Promise<void> {
  * Two ways a call starts here. The desktop hands a realtime call to this
  * document (`BrowserVoiceRequested`). Or, on a host with no speech pipeline
  * at all, the person presses Start and useVoiceCall asks this control to hold
- * the call itself (lib/browserVoiceCall) — in either voice mode, because the
- * server picks a realtime session or the classic STT -> brain -> TTS chain.
+ * the call itself (lib/browserVoiceCall). Either way the call runs on a
+ * realtime session; when none can start, the server ends it with an error.
  */
 export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: boolean } = {}) {
   const t = useT();
   const capabilities = useCapabilities();
-  const { mode, realtimeAvailable, requiresWebRtcOffer, webRtcStartEventRequired, startBudgetMs, browserAudio } =
+  const { realtimeAvailable, requiresWebRtcOffer, webRtcStartEventRequired, startBudgetMs, browserAudio } =
     useVoiceMode();
   const setVoice = useEventStore((store) => store.setVoice);
   const setTranscription = useEventStore((store) => store.setTranscription);
@@ -208,9 +208,8 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     capabilities.data &&
       (browserAudio || capabilities.data.native_file_actions === false || !hasEmbeddedDesktopBridge()),
   );
-  const visible = browserSurface && mode === "realtime";
-  // A locally started call is live in either voice mode; leaving realtime
-  // mode must not hang it up.
+  const visible = browserSurface;
+  // A locally started call stays live even where this surface is hidden.
   const callSurface = visible || localCall;
   const supportIssue = visible ? browserRealtimeSupportIssue() : null;
 
@@ -259,9 +258,9 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
   }, [setVoice]);
 
   const start = useCallback(async (options?: { fromGesture?: boolean; local?: boolean; requestId?: string | null }) => {
-    // A local start does not wait for realtime: on a host with no speech
-    // pipeline the server answers with a realtime session or the classic
-    // chain, whichever it can build.
+    // A local start does not wait for the availability probe: on a host with
+    // no speech pipeline the server answers with a realtime session, or ends
+    // the call with an error frame when none can start.
     const local = options?.local === true;
     if ((!local && !realtimeAvailable) || clientRef.current || state === "connecting") return;
     const generation = connectionGenerationRef.current + 1;
@@ -284,16 +283,8 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     levelRef.current = 0;
     clearVoiceInputLevel("browser");
     clearVoiceOutputLevel("browser");
-    // A local call in pipeline mode has no realtime transport, so none of its
-    // media options apply: the classic bridge streams plain PCM both ways. A
-    // call the desktop hands over keeps exactly the options it always had.
-    const realtimeTransport = !local || mode === "realtime";
-    const callBrowserAudio = realtimeTransport && browserAudio;
-    // A classic call has no realtime provider to test, so its fallback line
-    // points at the three providers that chain runs on instead.
-    const startFailed = t(
-      realtimeTransport ? "sidebar.realtime_error" : "sidebar.browser_voice_error",
-    );
+    const callBrowserAudio = browserAudio;
+    const startFailed = t("sidebar.realtime_error");
     // A call the person started here reports a failure as a toast and frees
     // the controls again; there is no card on the page to hold an error line.
     const endLocalCall = (message: string) => {
@@ -368,8 +359,6 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
             setState("connected");
             setNotice("");
             setVoice("listening");
-          } else if (status === "mode_fallback") {
-            setEffectiveProvider(t("sidebar.realtime_pipeline_fallback"));
           } else if (status === "provider_fallback") {
             // The call just moved to a DIFFERENT provider family — which can
             // mean different billing. Saying nothing here is an AP-22
@@ -471,7 +460,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
         },
       },
       {
-        requiresWebRtcOffer: realtimeTransport && requiresWebRtcOffer,
+        requiresWebRtcOffer,
         webRtcStartEventRequired,
         startBudgetMs,
         browserAudio: callBrowserAudio,
@@ -517,7 +506,6 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
       setVoice("error");
     }
   }, [
-    mode,
     pushToast,
     realtimeAvailable,
     requiresWebRtcOffer,

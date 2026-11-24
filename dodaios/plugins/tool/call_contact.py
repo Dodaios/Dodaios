@@ -6,7 +6,7 @@ What it does
 ------------
 "ruf Christoph an" -> resolve "Christoph" to a phone number (Contract 1:
 ``ContactStore.find_by_alias``), then dial it and have Jarvis speak an opening
-in the Charon voice before conversing (Contract 2:
+through the realtime voice before conversing (Contract 2:
 ``dodaios.telephony.outbound.place_call``). An optional ``message`` becomes the
 spoken opening; otherwise a short default opener is used so the callee is not
 greeted by silence.
@@ -32,6 +32,7 @@ passes the real store resolver; ``place_call``/config default to lazy loaders.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -41,8 +42,8 @@ from dodaios.core.protocols import ToolResult
 log = logging.getLogger(__name__)
 
 # Spoken first when the user gives no explicit message. English per the Output
-# Language Policy; the runtime TTS is bilingual, and the brain can always pass a
-# localized ``message`` to override this.
+# Language Policy; the realtime voice says it in the call's language, and the brain
+# can pass a localized ``message`` to override this.
 _DEFAULT_OPENING: str = (
     "Hello, this is an assistant calling on behalf of my user. "
     "Do you have a moment?"
@@ -115,6 +116,30 @@ def _default_call_config() -> dict[str, str] | None:
         return None
 
 
+def _default_phone_ready() -> bool:
+    """Whether a realtime voice session could talk on a phone call right now.
+
+    A call talks only through realtime speech-to-speech (``surface="phone"``);
+    without a connection that can serve a phone line the callee would only
+    hear a refusal, so the tool does not dial. Reads credentials; it runs on
+    a worker thread.
+    """
+    try:
+        from dodaios.core import config as cfg
+        from dodaios.telephony.outbound import phone_voice_ready
+
+        return phone_voice_ready(cfg.load_config())
+    except Exception as exc:  # broad-except: an unreadable voice setup cannot talk
+        log.warning("call-contact: realtime voice readiness unavailable: %s", exc)
+        return False
+
+
+_NO_PHONE_VOICE_MSG: str = (
+    "I can't place the call: no live voice connection that can talk on a phone "
+    "line is set up. Set one up under API Keys > Live calls; a connection that "
+    "needs a browser cannot serve a phone line."
+)
+
 _TELEPHONY_UNAVAILABLE_MSG: str = (
     "I can't place calls yet — telephony is not set up. Configure Twilio in the "
     "Telephony section first."
@@ -161,8 +186,10 @@ class CallContactTool:
         store_resolver: Callable[[], Any],
         place_call: Callable[..., str] | None = None,
         call_config_resolver: Callable[[], dict[str, str] | None] | None = None,
+        phone_ready: Callable[[], bool] | None = None,
     ) -> None:
         self._resolve_store = store_resolver
+        self._phone_ready = phone_ready or _default_phone_ready
         # When None, resolved lazily at execute time via _load_place_call().
         self._place_call = place_call
         self._resolve_call_config = call_config_resolver or _default_call_config
@@ -221,6 +248,12 @@ class CallContactTool:
         if place_call is None:
             log.info("call-contact: telephony engine unavailable; not dialing %s", name)
             return ToolResult(success=False, output="", error=_TELEPHONY_UNAVAILABLE_MSG)
+
+        # A call talks only through a realtime voice; without one that can
+        # serve a phone line the callee would hear nothing but a refusal.
+        if not await asyncio.to_thread(self._phone_ready):
+            log.info("call-contact: no realtime voice can talk on a phone line; not dialing")
+            return ToolResult(success=False, output="", error=_NO_PHONE_VOICE_MSG)
 
         opening = str(args.get("message") or "").strip() or _DEFAULT_OPENING
         display = getattr(contact, "name", name)

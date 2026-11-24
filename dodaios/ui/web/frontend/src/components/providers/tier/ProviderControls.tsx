@@ -524,11 +524,11 @@ export function CodexAuthWidget({
   useEffect(() => {
     if (!loginPolling) return;
     if (loginReady) {
-      // The login just landed. `/api/providers` alone does not unlock the
-      // engine switch: realtime AVAILABILITY lives on the voice-mode snapshot,
+      // The login just landed. `/api/providers` alone does not refresh call
+      // readiness: realtime AVAILABILITY lives on the voice-mode snapshot,
       // which listens for this event. Without it the card went green while the
-      // Pipeline|Realtime segment stayed disabled — for up to five minutes, and
-      // on a long-open window indefinitely.
+      // call surfaces still said no voice provider was ready — for up to five
+      // minutes, and on a long-open window indefinitely.
       window.dispatchEvent(new CustomEvent("jarvis:realtime-switched"));
       return;
     }
@@ -588,8 +588,8 @@ export function CodexAuthWidget({
       await codexLogout(subscriptionOnly);
       pushToast("info", t("apikeys_codex.disconnected"));
       onChanged();
-      // Losing the login removes a realtime provider: the engine switch has to
-      // re-read availability, or it keeps offering a mode that cannot start.
+      // Losing the login removes a realtime provider: the call surfaces have to
+      // re-read availability, or they keep offering a call that cannot start.
       window.dispatchEvent(new CustomEvent("jarvis:realtime-switched"));
     } catch (e) {
       pushToast("error", (e as Error).message);

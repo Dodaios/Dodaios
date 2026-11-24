@@ -409,13 +409,10 @@ def test_a_settings_change_asks_for_a_fresh_resolution(
     pipe, built = _pipeline(monkeypatch, store)
     first = pipe._dictation_resolution()
 
-    pipe._voice_stt_fallback_chain = ("openai-api",)
-    pipe._voice_stt_fallback_instances = {"openai-api": object()}
     pipe._reset_dictation_stt()
 
     assert pipe._dictation_resolution() is not first
     assert built == ["groq-api", "groq-api"]
-    assert pipe._voice_stt_fallback_chain is None
 
 
 def test_the_reader_for_kept_recordings_uses_the_same_recognizers(

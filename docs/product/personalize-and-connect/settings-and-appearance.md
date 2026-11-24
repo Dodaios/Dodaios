@@ -8,7 +8,7 @@ order: 4
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [settings, appearance, startup, keyboard-shortcuts, jarvis-bar, sound]
@@ -44,12 +44,12 @@ that have their own guides.
 
 | Group | What you can change | When it applies |
 |---|---|---|
-| **Languages** | Interface, Voice Recognition Language, and Reply Language | Interface and reply choices apply live. After changing recognition, end any Realtime call and restart Dodaios for Pipeline recognition |
+| **Languages** | Interface, Voice Recognition Language, and Reply Language | Interface and reply choices apply live. After changing recognition, end any running call; the next call uses the new language |
 | **App settings** | Launch the app when you sign in | The operating-system startup entry is added or removed immediately |
 | **System Prompt** | The assistant's general style and behavior | On the next message; no restart |
 | **Wake Word** | Activation, phrase, spoken language, detection engine, and self-test | Usually live when desktop voice is ready; otherwise on the next voice start |
-| **Thinking pause** | How long you may pause before Dodaios takes your turn — one value for Pipeline and Realtime. If you keep talking inside the pause, the words are added to the same request instead of being sent twice | Live with Pipeline running; Realtime uses the value on the next turn (some voice models on the next call) |
-| **Volume** | Local spoken-output volume | Live in running desktop voice; browser-owned Realtime uses browser or system volume |
+| **Thinking pause** | How long you may pause in a call before Dodaios takes your turn. **Automatic** keeps the realtime provider's own turn detection. If you keep talking inside the pause, the words are added to the same request instead of being sent twice | On the next turn (some voice models on the next call) |
+| **Volume** | Local spoken-output volume | Live in running desktop voice; a browser-owned call uses browser or system volume |
 | **Audio devices** | Local microphone and voice output | Live for devices known to the running app; a newly connected device may need the next app start |
 | **Voice Keybinds** | **Call (answer / start talking)** and **Hangup** shortcuts | Live with the desktop voice listener running; otherwise on the next voice start |
 | **Autopilot Toasts** | A visible switch with no connected setting | Not connected to persistence or behavior; do not rely on it |
@@ -68,18 +68,18 @@ is spoken in German.
 
 ### Realtime Voice and Providers
 
-The voice engine, Pipeline or GPT-Live (Realtime), is chosen in one place:
-**API Keys & Providers > Live calls > Voice engine**. It saves immediately; an
-active desktop call reconnects when the engine changes, otherwise the next
-call uses the choice. The provider, model, and speaking voice are configured
-on the same tab, see [Providers and API Keys](providers-and-api-keys). When the optional Realtime
-engine is installed, the current adapters are OpenAI Realtime and Gemini Live.
+Every voice call runs on a realtime speech-to-speech provider, chosen in one
+place: **API Keys & Providers > Live calls**. The providers include OpenAI
+GPT-Live (with an OpenAI key or on a ChatGPT subscription), Gemini Live,
+Vertex AI Live, and xAI Grok Live. The choice saves immediately; an active
+desktop call reconnects when it changes, otherwise the next call uses it. The
+model and speaking voice are configured on the same tab, see
+[Providers and API Keys](providers-and-api-keys).
 
-Dodaios skips installed Realtime providers that have no usable credential and
-tries another ready provider. If none is available, Realtime cannot be enabled
-or a failed call returns to Pipeline. Turning Realtime off remains available.
-The status below the switch shows whether voice is idle, switching, using
-Pipeline fallback, or connected to a Realtime provider and model.
+Dodaios skips realtime providers that have no usable credential and tries
+another ready provider. If none is ready, a call does not start: it ends and
+says that no realtime voice provider is ready. The status at the top of the
+tab shows whether a call is running and which provider and model it uses.
 
 ## Start Dodaios When You Sign In
 
@@ -176,15 +176,15 @@ keys are allowed but warn you that they also fire while editing text.
    microphone, speaker, activation phrase, and spoken-language setting. Voice
    keybinds provide another way to start the desktop voice path.
 4. [Languages and Voices](languages-and-voices) controls recognition and reply
-   language. Thinking pause applies to Pipeline and Realtime. Local Volume and Audio
-   device controls cover desktop voice, while browser-owned Realtime uses the
-   browser's audio devices and volume.
+   language. Thinking pause applies to calls. Local Volume and Audio device
+   controls cover desktop voice, while a browser-owned call uses the browser's
+   audio devices and volume.
 5. [Permissions](permissions) decides whether macOS allows microphone input,
    global shortcuts, Keychain storage, screen capture, and computer control. A
    saved preference cannot override an operating-system denial.
 6. [Providers and API Keys](providers-and-api-keys) supplies the credential,
-   model, and voice for Realtime. Dodaios can try another installed, ready
-   Realtime provider before returning a failed call to Pipeline.
+   model, and voice for the realtime provider. Dodaios can try another ready
+   realtime provider before it ends a call that cannot start.
 7. If a live capability is unavailable, Dodaios keeps a saved preference for the
    next compatible start. Platform-specific features can remain unavailable
    without stopping Chats or other text-based work.
@@ -208,7 +208,7 @@ returns to idle.
 | A display choice says a restart is required | The new Bar or Mascot surface cannot be created safely during the current run | Finish active missions, select **Restart now**, and check the chosen style after the app returns |
 | Restart is refused | One or more Dodaios-Agent missions are still running | Wait for them to finish; force only if stopping them is acceptable |
 | **Launch app at login** is unavailable | The current host has no supported graphical login session | Use the desktop app on a supported host; a headless system needs its own service setup |
-| **GPT-Live** cannot be made the voice engine | No installed Realtime provider has a usable credential, or this build does not include the optional Realtime engine | Connect OpenAI Realtime or Gemini Live under **API Keys**. If it stays unavailable, use Pipeline |
+| A call ends at once and says no realtime voice provider is ready | No realtime provider has a usable credential | Connect a realtime provider, such as GPT-Live, Gemini Live, or xAI Grok Live, under **API Keys & Providers > Live calls** |
 | Music keeps playing after you enable muting | The platform backend is unavailable, macOS Automation access was denied, or the media app is unsupported | Accept the macOS Automation prompt when offered. On Linux or for unsupported players, use the operating system or media app controls |
 | **Save** stays disabled for a shortcut | The combination is incomplete, reserved, or overlaps another action | Follow the inline message and the on-screen keyboard markers, then choose a distinct combination |
 | A macOS feature remains blocked | The operating system has not granted the required access, or the new grant needs an app restart | Use the button on the short message Dodaios shows (**Open System Settings**, **Ask macOS now**, or **Quit and reopen**); [App Permissions](permissions) explains how to start over |
