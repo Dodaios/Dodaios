@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { createAgentChatStore, type ProviderOption } from "@/store/agentChat";
@@ -42,12 +42,24 @@ export const THREAD_PROJECT_DRAG_MIME = "application/x-jarvis-thread-project";
  */
 let draggedThreadId: string | null = null;
 
+const draggedThreadListeners = new Set<() => void>();
+
 export function setDraggedThread(sessionId: string | null): void {
+  if (draggedThreadId === sessionId) return;
   draggedThreadId = sessionId;
+  for (const listener of draggedThreadListeners) listener();
 }
 
 export function draggedThread(): string | null {
   return draggedThreadId;
+}
+
+/** The thread being dragged right now, for a view that shows where it can be dropped. */
+export function useDraggedThread(): string | null {
+  return useSyncExternalStore((listener) => {
+    draggedThreadListeners.add(listener);
+    return () => { draggedThreadListeners.delete(listener); };
+  }, draggedThread);
 }
 
 /** How a row in the thread list reads at a glance. */
