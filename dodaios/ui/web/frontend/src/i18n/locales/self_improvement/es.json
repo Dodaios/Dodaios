@@ -35,6 +35,16 @@
         "about": "¿Usa el asistente primero la herramienta correcta, y dice antes en una línea de qué se encarga?",
         "building": "Por ahora hay {n} tareas de prueba de tus propios chats con el asistente. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}.",
         "no_tasks": "Todavía no hay tareas de tus chats para esta área. Salen de respuestas que dejaste como estaban y de respuestas que el asistente acertó después de que lo corrigieras."
+      },
+      "brief": {
+        "name": "Encargos",
+        "about": "¿El encargo que el asistente escribe para un agente de código señala los archivos que el trabajo acabó necesitando?",
+        "building": "Por ahora hay {n} tareas de prueba de tu trabajo de programación anterior. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}.",
+        "no_tasks": "Todavía no hay tareas de tu trabajo de programación anterior para esta área. Salen de peticiones que escribiste a un agente de código y del pull request que se fusionó para ellas.",
+        "cost_label": "Mensaje y encargo por tarea",
+        "effect_shorter": "mensaje y encargo {tokens} tokens más cortos",
+        "effect_longer": "mensaje y encargo {tokens} tokens más largos",
+        "range_unclear_cheaper": "Hasta donde se ha medido, es tan bueno como se entregó: la diferencia de calidad está entre {low} y {high} puntos, y eso incluye el cero. Su mensaje y su encargo son un {pct} más cortos."
       }
     },
     "area": {
@@ -181,7 +191,7 @@
       "models": "Para crear tareas consulta un modelo como mucho {calls} veces por noche, con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "models_ramp": "Para crear tareas consulta un modelo como mucho {calls} veces por noche ({ramp} en las primeras noches, mientras haya muy pocas tareas para decidir), con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "measure_no_model": "La medición en sí no consulta ningún modelo.",
-      "measure_first_move": "Para medir el primer paso repite tus peticiones anteriores con la suscripción del propio asistente: como mucho {calls} veces por noche, nunca mientras una ventana de uso esté llena al 80 %, y nunca más del {share} % de una ventana en una noche.",
+      "measure_first_move": "Para medir el primer paso y los encargos repite tus peticiones anteriores con la suscripción del propio asistente: como mucho {calls} llamadas al modelo por noche entre los dos, nunca mientras una ventana de uso esté llena al 80 %, y nunca más del {share} % de una ventana en una noche.",
       "privacy": "Los recuerdos y mensajes que se usan para esto solo van al proveedor con el que el asistente ya responde. Los recuerdos marcados como sensibles nunca se envían."
     },
     "param": {
@@ -240,6 +250,10 @@
       "lead_first_line": {
         "title": "Línea inicial antes de una herramienta",
         "about": "Junto a cada uno de tus mensajes: escribir una línea corta que asume la tarea antes de usar una herramienta."
+      },
+      "lead_brief_line": {
+        "title": "Redacción de la línea de encargos",
+        "about": "Junto a cada uno de tus mensajes: cómo se pide al asistente que consulte los archivos antes de dar un encargo a un agente de código."
       }
     },
     "daily": {
@@ -290,11 +304,23 @@
       "lead_first_line": {
         "off": "Se quitó la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta.",
         "on": "Se volvió a poner la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta."
+      },
+      "lead_brief_line": {
+        "v0": "Se volvió a poner la redacción original de la línea junto a tus mensajes que dice cómo encargar trabajo a un agente de código.",
+        "v1": "La línea junto a tus mensajes ahora pide con menos palabras consultar los archivos antes de encargar trabajo a un agente de código.",
+        "v2": "La línea junto a tus mensajes ya no pide consultar los archivos antes de encargar trabajo a un agente de código."
       }
     },
     "value": {
       "on": "activada",
       "off": "desactivada"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "como se entregó",
+        "v1": "consulta más corta",
+        "v2": "sin consulta"
+      }
     }
   }
 }

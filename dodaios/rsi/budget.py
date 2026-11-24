@@ -7,8 +7,13 @@ before each call, so no learner, task or loop can spend past them:
   world of a domain is not built at all without one: see ``lead_replay``);
 * only while the person is away (the night starts after
   ``night.IDLE_AFTER_S``; a call is not started once they are back);
-* at most :data:`FIRST_MOVE_CALLS` calls a night for the ``first_move``
-  domain. A lead call carries the lead's whole system prompt, about 50 000
+* at most :data:`REPLAY_CALLS` calls a night for the domains that replay
+  lead turns, ``first_move`` and ``brief`` together: one :class:`Budget`
+  object serves both worlds of a night, so neither can spend past it. A
+  first_move replay is one call; a brief replay one, and one more for each
+  call of the lead it answers (the kit, a look into the repository: each makes
+  the CLI ask the model again; ``brief_replay``). A lead call carries the
+  lead's whole system prompt, about 50 000
   characters (some 12 500 tokens) plus the CLI's own prompt and the tool list,
   so 40 calls are roughly half a million input tokens, most of it read from
   the provider's cache because the system prompt repeats. That is about what
@@ -28,15 +33,18 @@ import threading
 from collections.abc import Callable, Mapping
 from typing import Final
 
-__all__ = ["BUDGET_SHARE", "FIRST_MOVE_CALLS", "FULL_PERCENT", "Budget", "Usage"]
+__all__ = ["BUDGET_SHARE", "FIRST_MOVE_CALLS", "FULL_PERCENT", "REPLAY_CALLS", "Budget", "Usage"]
 
 #: Share of a plan's usage window a night may use for model calls. Fixed.
 BUDGET_SHARE: Final[float] = 0.20
 #: A usage window this full leaves the plan to the person: no call starts.
 #: The same line the self-build loop keeps (``self_build.code.seat.FULL_PERCENT``).
 FULL_PERCENT: Final[float] = 80.0
-#: Replays of a lead turn one night may make for the ``first_move`` domain.
-FIRST_MOVE_CALLS: Final[int] = 40
+#: Model calls one night may make replaying lead turns, for ``first_move`` and
+#: ``brief`` together.
+REPLAY_CALLS: Final[int] = 40
+#: The same cap under the name it had while only ``first_move`` replayed.
+FIRST_MOVE_CALLS: Final[int] = REPLAY_CALLS
 
 #: Window name -> how full it is, in percent (``agent_usage.UsageWindow``).
 Usage = Mapping[str, float]
@@ -84,8 +92,12 @@ class Budget:
                 return f"this night used {BUDGET_SHARE:.0%} of the {name} window"
         return ""
 
-    def take(self) -> str:
-        """Ask for one call. ``""``: go ahead (it is counted); else why not."""
+    def take(self, calls: int = 1) -> str:
+        """Ask for ``calls`` calls at once. ``""``: go ahead (they are counted); else why not.
+
+        A request for more than is left is refused without stopping the night:
+        a smaller one may still fit.
+        """
         with self._lock:
             if self.stopped:
                 return self.stopped
@@ -93,5 +105,7 @@ class Budget:
             if why:
                 self.stopped = why
                 return why
-            self.calls += 1
+            if self.calls + calls > self.cap:
+                return f"the night's {self.cap} model calls are nearly spent"
+            self.calls += calls
             return ""

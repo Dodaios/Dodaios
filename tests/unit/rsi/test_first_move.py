@@ -98,9 +98,9 @@ def test_the_seed_suite_carries_the_routing_cases_with_languages_grouped() -> No
 
 
 def test_only_lines_a_benchmark_can_see_are_learnable() -> None:
-    assert set(lines.LEARNABLE) == {SWITCH}
+    assert set(lines.LEARNABLE) == {SWITCH, "lead.brief_line"}
     switches = {p.name for p in params.CATALOG if isinstance(p.default, bool)}
-    assert switches == set(lines.LEARNABLE)  # no switch without a measured line
+    assert switches == {SWITCH}  # no switch without a measured line
     for line in lines.LINES:
         assert line.text(), line.name  # every listed line exists in the harness
         assert line.why, line.name
@@ -108,7 +108,8 @@ def test_only_lines_a_benchmark_can_see_are_learnable() -> None:
             assert params.INDEX.by_name(line.param).domains == (line.domain,)
     names = {line.name for line in lines.LINES}
     assert {"REPLY_SHAPE_LINE", "BRIEF_LINE", "EFFORT_LINE", "QUESTION_CARD_LINE"} <= names
-    assert not any(lines.LEARNABLE.get(f"lead.{n.lower()}") for n in names - {"FIRST_LINE"})
+    learnable = {"FIRST_LINE", "BRIEF_LINE"}
+    assert not any(lines.LEARNABLE.get(f"lead.{n.lower()}") for n in names - learnable)
 
 
 def test_the_switch_takes_the_line_out_of_a_message_and_puts_it_back_in_its_place() -> None:
@@ -134,7 +135,8 @@ def test_the_line_learner_offers_only_measurable_lines() -> None:
         seen.append(dict(values))
         return Trial(0.9, 90.0 if values else 100.0, 30)
 
-    current = {SWITCH: True, "lead.reply_shape_line": True, "lead.brief_line": True}
+    # The night hands the learner the first_move domain's lines only: never the brief's.
+    current = {SWITCH: True, "lead.reply_shape_line": True}
     found = LineLearner().propose(current, try_values)
     assert found is not None and found.name == SWITCH and found.value is False
     assert seen == [{}, {SWITCH: False}]  # nothing else was ever tried
@@ -241,6 +243,7 @@ def test_the_replay_takes_the_first_move_and_stops_the_cli(tmp_path: Path) -> No
     assert argv[argv.index("--permission-mode") + 1] == "dontAsk"
     assert "bypassPermissions" not in argv
     assert argv[argv.index("--model") + 1] == "opus"
+    assert "PowerShell" in denied and "Read" not in denied  # a first move keeps its reading tools
     stdin = (out / "stdin.jsonl").read_text().splitlines()
     assert json.loads(stdin[1])["message"]["content"] == "Let Scout compare note apps"
     time.sleep(1.0)
@@ -255,8 +258,10 @@ def test_the_replay_offers_the_lead_tools_through_a_server_that_runs_none(tmp_pa
     seen: dict[str, Any] = {}
     real = driver._argv  # noqa: SLF001
 
-    def keep(platform: Platform, work: Path, system_file: Path) -> list[str]:
-        argv = real(platform, work, system_file)
+    def keep(
+        platform: Platform, work: Path, system_file: Path, answers: Path | None = None
+    ) -> list[str]:
+        argv = real(platform, work, system_file, answers)
         seen["config"] = json.loads((work / "mcp.json").read_text())
         seen["system"] = system_file.read_text()
         return argv

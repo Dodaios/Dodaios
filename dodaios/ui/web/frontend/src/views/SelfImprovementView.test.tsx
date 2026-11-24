@@ -628,7 +628,7 @@ describe("SelfImprovementView, the lead's first move", () => {
     expect(lead?.textContent).toContain("reach for the right tool first");
     expect(lead?.textContent).toContain("answers the assistant got right after you corrected it");
     const limits = screen.getByTestId("si-limits").textContent ?? "";
-    expect(limits).toContain("at most 40 times a night");
+    expect(limits).toContain("at most 40 model calls a night for both together");
     expect(limits).toContain("never more than 20 % of a window in one night");
     expect(limits).not.toContain("Measuring itself asks no model.");
   });

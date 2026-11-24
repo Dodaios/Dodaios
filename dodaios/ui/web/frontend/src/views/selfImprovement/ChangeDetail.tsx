@@ -80,10 +80,10 @@ export function ChangeDetail({
         ) : (
           <>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground-strong" data-testid="si-detail-values">
-              {fill(t("self_improvement.stack.values"), { before: valueWords(t, before, locale), after: valueWords(t, change.after, locale) })}
+              {fill(t("self_improvement.stack.values"), { before: valueWords(t, before, locale, change.target), after: valueWords(t, change.after, locale, change.target) })}
             </p>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-              {fill(t("self_improvement.detail.shipped"), { value: valueWords(t, change.default, locale) })}
+              {fill(t("self_improvement.detail.shipped"), { value: valueWords(t, change.default, locale, change.target) })}
             </p>
           </>
         )}
