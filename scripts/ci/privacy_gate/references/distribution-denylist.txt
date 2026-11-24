@@ -172,6 +172,11 @@ skillbook/**
 keyproxy/**
 src/**
 
+# --- Internal maintainer demo / perf scripts (2026-06-27) -------------------
+# tools/ holds board_demo.py / board_pentest.py / board_perf.py — internal
+# bring-up & perf probes for the Board, not product code. A fork has no use for
+# them (the product's own tooling lives inside the dodaios/ package).
+tools/**
 
 # --- Internal QA protocols (2026-06-27) -------------------------------------
 # docs/qa/ is the maintainer's internal voice-QA checklist — same internal-

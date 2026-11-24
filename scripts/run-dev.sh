@@ -8,7 +8,7 @@
 # the coding sessions inside it are never touched.
 #
 # Usage: ./scripts/run-dev.sh [--debug|--headless]
-# Same as: JARVIS_INSTANCE=dev ./scripts/run.sh
+# Same as: JARVIS_INSTANCE=dev ./run.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
