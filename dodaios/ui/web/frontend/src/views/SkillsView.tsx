@@ -62,6 +62,7 @@ import {
 } from "@/components/extensions/primitives";
 import { FileTree, MarkdownBody, ModeButton } from "@/components/extensions/FileCard";
 import { cn } from "@/lib/utils";
+import { safeWebUrl } from "@/lib/externalLinkGuard";
 import { robustCopy } from "@/lib/clipboard";
 import { fill, translate, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
@@ -1013,13 +1014,13 @@ function SkillDetailPage({
       icon: <Copy className="h-3.5 w-3.5" />,
       onSelect: () => void copyPath(),
     },
-    ...(data.origin?.source === "marketplace" && data.origin.source_url
+    ...(data.origin?.source === "marketplace" && safeWebUrl(data.origin.source_url)
       ? [
           {
             id: "listing",
             label: t("marketplace_origin.view_source"),
             icon: <ExternalLink className="h-3.5 w-3.5" />,
-            onSelect: () => window.open(data.origin?.source_url ?? "", "_blank", "noopener,noreferrer"),
+            onSelect: () => window.open(safeWebUrl(data.origin?.source_url) ?? "", "_blank", "noopener,noreferrer"),
           },
         ]
       : []),
@@ -1540,12 +1541,12 @@ function SkillLinks({
 }) {
   const t = useT();
   if (!frontmatter) return null;
-  const visible = LINK_FIELDS.filter((f) => Boolean(frontmatter[f.key]));
+  const visible = LINK_FIELDS.filter((f) => safeWebUrl(String(frontmatter[f.key] ?? "")) !== null);
   if (visible.length === 0) return null;
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
       {visible.map((f) => {
-        const url = String(frontmatter[f.key]);
+        const url = safeWebUrl(String(frontmatter[f.key])) ?? "";
         const h = health?.[f.key] ?? null;
         const Icon = f.icon;
         return (

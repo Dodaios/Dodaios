@@ -36,6 +36,22 @@ function clickedAnchor(event: MouseEvent): HTMLAnchorElement | null {
 }
 
 /**
+ * `href` as an absolute http(s) address, or null. For a link built from data
+ * that someone else wrote (a catalog entry, a skill's frontmatter): any other
+ * scheme would reach the system's URI handlers once it leaves the window.
+ */
+export function safeWebUrl(href: string | null | undefined, base?: string): string | null {
+  const text = (href ?? "").trim();
+  if (!text) return null;
+  try {
+    const url = new URL(text, base);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Keep a link from replacing the app window with another site.
  *
  * Text the app shows is often written elsewhere: a model's reasoning, a

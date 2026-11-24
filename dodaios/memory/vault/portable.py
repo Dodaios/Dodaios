@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,6 +30,31 @@ from dodaios.memory.vault.store import MemoryVault
 FORMAT = "portable-memory"
 FORMAT_VERSION = "1.0"
 APP = "dodaios"
+
+# A bundle is text: one list per kind of memory and a few small files. The
+# limits below are far above any real vault. They keep a crafted archive from
+# filling memory or keeping the import busy for minutes.
+MAX_BUNDLE_FILE_BYTES = 200 * 1024 * 1024
+MAX_BUNDLE_TOTAL_BYTES = 400 * 1024 * 1024
+MAX_BUNDLE_ENTRIES = 2000
+#: A zip's own list of its entries (the central directory). ``zipfile`` builds
+#: one object per entry while it opens an archive, before any limit here could
+#: count them, so the declared size of that list is checked first.
+MAX_BUNDLE_DIRECTORY_BYTES = 512 * 1024
+
+#: The files an import reads. Anything else in a bundle (the readable copy and
+#: ``memories.json`` of the "everything" download, what an archive tool adds)
+#: is never opened.
+_BUNDLE_FILES = frozenset(
+    {
+        "manifest.json",
+        "CHECKSUMS",
+        "entities.jsonl",
+        "audit/log.jsonl",
+        "audit/tombstones.jsonl",
+    }
+)
+_ITEMS_FILE = re.compile(r"items/[a-z0-9_-]{1,64}\.jsonl")
 
 _KIND_TITLES = {
     "profile": "About me",
@@ -158,11 +184,7 @@ def read_bundle(src: str | Path | bytes) -> dict[str, bytes]:
     else:
         path = Path(src)
         if path.is_dir():
-            files = {
-                p.relative_to(path).as_posix(): p.read_bytes()
-                for p in path.rglob("*")
-                if p.is_file()
-            }
+            files = _read_folder(path)
         else:
             files = _unzip(path.read_bytes())
     _verify(files)
@@ -283,25 +305,91 @@ def _zip(files: dict[str, bytes]) -> bytes:
     return buffer.getvalue()
 
 
+def _is_bundle_file(name: str) -> bool:
+    return name in _BUNDLE_FILES or _ITEMS_FILE.fullmatch(name) is not None
+
+
+def _admit(name: str, size: int, total: int) -> int:
+    """Count one bundle file of ``size`` bytes against the limits; the new total."""
+    if size > MAX_BUNDLE_FILE_BYTES:
+        raise BundleError(f"file too large in bundle: {name}")
+    total += size
+    if total > MAX_BUNDLE_TOTAL_BYTES:
+        raise BundleError("bundle too large: its files exceed the size a memory bundle may have")
+    return total
+
+
+def _read_folder(path: Path) -> dict[str, bytes]:
+    """The bundle files of an unpacked bundle; nothing else in the folder is read."""
+    candidates = [path / name for name in sorted(_BUNDLE_FILES)]
+    candidates += sorted((path / "items").glob("*.jsonl"))
+    files: dict[str, bytes] = {}
+    total = 0
+    for candidate in candidates:
+        name = candidate.relative_to(path).as_posix()
+        if not candidate.is_file() or not _is_bundle_file(name):
+            continue
+        total = _admit(name, candidate.stat().st_size, total)
+        files[name] = candidate.read_bytes()
+    return files
+
+
+def _declared_directory_bytes(data: bytes) -> int | None:
+    """How large the zip says its list of entries is; ``None`` when it cannot tell.
+
+    Asked of the standard library's own end-record reader. It is the record
+    ``ZipFile`` goes on to use, in its ZIP64 form too, so the two cannot
+    disagree about which record counts.
+    """
+    reader = getattr(zipfile, "_EndRecData", None)
+    if reader is None:  # pragma: no cover - an interpreter without the reader
+        return None
+    try:
+        record = reader(io.BytesIO(data))
+        return None if not record else int(record[getattr(zipfile, "_ECD_SIZE", 5)])
+    except (zipfile.BadZipFile, OSError, IndexError, TypeError, ValueError):
+        # Not a zip, or a record it cannot read: ZipFile says so below.
+        return None
+
+
 def _unzip(data: bytes) -> dict[str, bytes]:
+    directory = _declared_directory_bytes(data)
+    if directory is not None and directory > MAX_BUNDLE_DIRECTORY_BYTES:
+        raise BundleError("too many files in bundle")
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as zf:
-            files: dict[str, bytes] = {}
-            for info in zf.infolist():
+            infos = zf.infolist()
+            if len(infos) > MAX_BUNDLE_ENTRIES:
+                raise BundleError("too many files in bundle")
+            members: dict[str, zipfile.ZipInfo] = {}
+            for info in infos:
                 if info.is_dir():
                     continue
                 name = info.filename.replace("\\", "/")
                 if name.startswith("/") or ".." in name.split("/"):
                     raise BundleError(f"unsafe path in bundle: {name}")
-                if info.file_size > 200 * 1024 * 1024:
-                    raise BundleError(f"file too large in bundle: {name}")
-                files[name] = zf.read(info)
+                members[name] = info
             # A zip of the folder may wrap everything in one top folder.
-            if "manifest.json" not in files:
-                roots = {n.split("/", 1)[0] for n in files if "/" in n}
+            if "manifest.json" not in members:
+                roots = {n.split("/", 1)[0] for n in members if "/" in n}
                 if len(roots) == 1:
                     root = roots.pop() + "/"
-                    files = {n[len(root) :]: d for n, d in files.items() if n.startswith(root)}
+                    members = {
+                        n[len(root) :]: info for n, info in members.items() if n.startswith(root)
+                    }
+            files: dict[str, bytes] = {}
+            total = 0
+            for name, info in members.items():
+                if not _is_bundle_file(name):
+                    continue
+                total = _admit(name, info.file_size, total)
+                # The size in the header is a claim; one byte more than it
+                # would show a file that is larger than it says.
+                with zf.open(info) as handle:
+                    content = handle.read(info.file_size + 1)
+                if len(content) > info.file_size:
+                    raise BundleError(f"file larger than declared in bundle: {name}")
+                files[name] = content
             return files
     except zipfile.BadZipFile as exc:
         raise BundleError("not a zip file") from exc
@@ -325,6 +413,10 @@ def _verify(files: dict[str, bytes]) -> None:
         if not line.strip():
             continue
         digest, _, name = line.partition("  ")
+        if not _is_bundle_file(name):
+            # A file this version does not read (a later format may list more):
+            # there is nothing of it here to check.
+            continue
         if name not in files:
             raise BundleError(f"missing file listed in CHECKSUMS: {name}")
         if hashlib.sha256(files[name]).hexdigest() != digest:

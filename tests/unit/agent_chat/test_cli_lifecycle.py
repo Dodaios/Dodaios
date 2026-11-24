@@ -851,3 +851,67 @@ async def test_a_picture_sent_to_a_waiting_agent_goes_as_an_image_block(tmp_path
     assert proc.returncode == 0
     texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
     assert texts == ["A screenshot.", "Done."]
+
+
+async def test_two_resumed_task_notices_each_get_an_empty_result_and_the_turn_goes_on(
+    tmp_path: Path,
+):
+    """Resumed after a background agent AND a background shell were stopped,
+    Claude Code 2.1.325 prints both notices, then one empty result for each
+    (recorded live). Only the first was skipped: the second ended the turn
+    after 15 s with "Finished without an answer" while the CLI worked on
+    unseen, until the next message killed it."""
+    notices = [
+        json.dumps(
+            {"type": "system", "subtype": "task_notification", "task_id": tid, "status": "stopped"}
+        )
+        for tid in ("agent-1", "shell-1")
+    ]
+    phantom = json.dumps(
+        {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "num_turns": 0,
+            "result": "",
+            "usage": {"output_tokens": 0},
+        }
+    )
+    answer = json.dumps(
+        {
+            "type": "assistant",
+            "message": {"id": "m1", "content": [{"type": "text", "text": "Carrying on."}]},
+        }
+    )
+    source = (
+        "import sys, time\n"
+        "sys.stdin.readline()\n"
+        + "".join(f"print({n!r}, flush=True)\n" for n in notices)
+        + f"print({phantom!r}, flush=True)\n"
+        + f"print({phantom!r}, flush=True)\n"
+        + "time.sleep(1.5)\n"
+        + f"print({answer!r}, flush=True)\n"
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        # Waits for stdin to close: only the real result may close it.
+        + "sys.stdin.read()\n"
+    )
+    events: list = []
+    outcome, _proc = await _drive_fake_claude(tmp_path, source, events=events, keep_stdin=True)
+    assert outcome.status == "done", outcome.error
+    texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
+    assert texts == ["Carrying on."]
+    assert outcome.usage["output_tokens"] == 1
+
+
+def test_each_notice_excuses_one_empty_result_only():
+    st = runner_cli._ClaudeState(turn_id="t")
+    notice = {"type": "system", "subtype": "task_notification", "task_id": "a", "status": "stopped"}
+    empty = {"type": "result", "is_error": False, "num_turns": 0, "result": ""}
+    runner_cli.translate_claude_line(notice, st)
+    runner_cli.translate_claude_line({**notice, "task_id": "b"}, st)
+    runner_cli.translate_claude_line(empty, st)
+    runner_cli.translate_claude_line(empty, st)
+    assert not st.saw_result
+    # A third empty result has no notice left to answer: it ends the turn.
+    runner_cli.translate_claude_line(empty, st)
+    assert st.saw_result

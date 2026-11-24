@@ -339,6 +339,7 @@
     "shortcuts": "键盘快捷键",
     "pets": "我的宠物",
     "self_build": "为你构建",
+    "self_improvement": "自我改进",
     "notifications": "通知",
     "phone": "手机"
   },
@@ -5253,6 +5254,7 @@
     "approving": "正在批准…"
   },
   "skill_finder_dialog": {
+    "installed_off": "已安装，未开启",
     "install_failed": "安装失败",
     "title": "技能查找器",
     "subtitle": "描述你的需求——小助手会搜索目录并用 AI 排序。",
@@ -6727,6 +6729,7 @@
     "landed_title": "{title} 已安装",
     "landed_plugin": "它现在在“插件”中。连接后即可开始使用。",
     "landed_skill": "它现在在“技能”中，可以立即使用。",
+    "landed_skill_off": "已放入技能，处于关闭状态。请先在那里阅读，再开启使用。",
     "landed_needs_connect": "已安装，但还不能使用：它仍需连接。",
     "sends_data_to": "连接后，请求和你的访问令牌会发送到：",
     "runs_command": "连接后，此命令会在你的电脑上运行：",

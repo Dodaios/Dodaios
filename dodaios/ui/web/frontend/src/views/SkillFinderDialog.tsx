@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { safeWebUrl } from "@/lib/externalLinkGuard";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import {
@@ -477,7 +478,7 @@ function CandidateCard({
           {installed ? (
             <Badge className="gap-1" variant="default">
               <Check className="h-3 w-3" />
-              {t("skill_finder_dialog.installed")}
+              {t("skill_finder_dialog.installed_off")}
             </Badge>
           ) : (
             <Button
@@ -500,9 +501,9 @@ function CandidateCard({
               )}
             </Button>
           )}
-          {candidate.source_url && (
+          {safeWebUrl(candidate.source_url) && (
             <a
-              href={candidate.source_url}
+              href={safeWebUrl(candidate.source_url) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-micro text-muted-foreground hover:text-primary"

@@ -34,6 +34,7 @@ import {
 import { SelfBuildApiError, shelfOf, trialProgress, type Build, type SelfBuildStatus } from "@/lib/selfBuildApi";
 import { BuildActions } from "./selfBuild/BuildActions";
 import { BuildDetail } from "./selfBuild/BuildDetail";
+import { DetailSheet } from "./selfBuild/DetailSheet";
 import { StatusBanner, heroTone, type BannerAction } from "./selfBuild/Hero";
 import { Group, Row, Section } from "./selfBuild/List";
 import { HowItWorks, NoticedSection } from "./selfBuild/Noticed";
@@ -406,31 +407,7 @@ function PastSection({
   );
 }
 
-// ------------------------------------------------------------------ sheet, confirm
-
-function DetailSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    panel.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-[100] flex justify-end" data-testid="build-sheet">
-      <div role="presentation" className="absolute inset-0 bg-background/50" onPointerDown={onClose} />
-      <div
-        ref={panel}
-        tabIndex={-1}
-        className="relative flex h-full w-full max-w-[520px] flex-col p-3 outline-none motion-safe:animate-in motion-safe:slide-in-from-right-4 [&>article]:h-full [&>article]:shadow-float"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
+// ------------------------------------------------------------------ confirm
 
 function Centered({ children }: { children: ReactNode }) {
   return <div className="flex flex-1 items-center justify-center py-24">{children}</div>;
