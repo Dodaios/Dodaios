@@ -78,7 +78,7 @@
       "values": "{before} → {after}",
       "since": "since {when}",
       "held": "held again on {n} tasks",
-      "kinds": "Two kinds of change: values it tuned and proved on tasks, and notes it wrote for itself, which are in effect but not measured yet.",
+      "kinds": "Three kinds of change: values it tuned and proved on tasks, how it steers coding agents, proved on half of your requests, and notes it wrote for itself, which are in effect but not measured yet.",
       "note_title": "A note it wrote for itself",
       "note_gone": "This note is gone from the memory.",
       "not_measured": "not measured yet"
@@ -119,7 +119,8 @@
     "author": {
       "tuner": "The tuner, which tries nearby values on practice tasks",
       "owner": "You",
-      "memory-learner": "The assistant, after a tool failed and a later call worked"
+      "memory-learner": "The assistant, after a tool failed and a later call worked",
+      "rsi-selector": "The steering learner, which tries one change at a time on half of your coding requests"
     },
     "nights": {
       "title": "The last nights",
@@ -238,6 +239,40 @@
       "col_through": "Went through",
       "week_of": "from {date}",
       "unrated": "no figure"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "for {area} work with {model} in {harness}",
+      "default_model": "the default model",
+      "hold": "Waits for the checks and asks for fixes",
+      "release": "Stops waiting for the checks",
+      "no_fixes": "Asks for no fixes",
+      "fewer_fixes_one": "Asks for at most one fix",
+      "fewer_fixes_other": "Asks for at most {n} fixes",
+      "shorter_wait": "Waits at most {minutes} minutes for the checks",
+      "brief_line": "Adds a line to the first brief",
+      "other": "Changes how coding agents are steered",
+      "on_trial": "on trial on half of your requests since {when}",
+      "claim_pass": "kept only if clearly more requests pass",
+      "claim_cost": "kept only if it costs less and nothing gets worse",
+      "claim_p": "kept only if fewer fixes are needed and nothing gets worse",
+      "proof_pass": "Passed {with} of {n} requests, against {without} of {m} without it (at least {low} points)",
+      "proof_cost": "{diff} less per request in cost and time, on {n} requests against {m} without it (at least {low} less)",
+      "proof_p": "{diff} fewer fixes per request, on {n} requests against {m} without it (at least {low} fewer)",
+      "measured_on": "Measured on {n} of your requests with it and {m} without it, {when}.",
+      "about": "How Dodaios hands coding work to agents for this kind of work, this model and this coding tool: whether its answer waits for the checks, how many fixes it asks for, and what the first brief says. It was tried on half of your requests and compared with the other half.",
+      "probation": "On probation: the first run under it that weakens a check takes it back by itself."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "testing",
+      "database": "database",
+      "infra_ci": "infrastructure and CI",
+      "docs": "documentation",
+      "other": "other",
+      "refactoring": "refactoring",
+      "multi_repo": "multi-repository"
     }
   }
 }

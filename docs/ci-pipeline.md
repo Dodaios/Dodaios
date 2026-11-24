@@ -101,7 +101,7 @@ request, merge queue, and again on the push of the same commit).
 | `detect` | Picks the tier and the matrices, then classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group is classified against the queue base. Only a push the merge queue already proved turns every lane off. | `scripts/ci/plan_run.py`, `scripts/ci/classify_changes.py` |
 | `static gates` | ~20 repository gates (keys, bundle, AGENTS.md, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
-| `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
+| `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`DODAIOS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | Merge queue, main and nightly: the whole suite in six shards. Pull request: the tests the change can reach, selected once in `detect`, on one runner (two for more than 450 files); a change that reaches everything runs the six shards, one that reaches no test runs the smoke tests. Six shards on every push held a third of the 60-job pool on 2026-11-09, while 21 of 30 merged changes reached fewer than 900 of 2809 test files. The price: a Windows-only failure in a test the change does not reach shows up in the merge queue, not on the pull request. | `scripts/ci/select_tests.py`, `scripts/ci/run_tests_parallel.py` |
@@ -176,6 +176,29 @@ python scripts/ci/ratchet_tests.py prune --baseline scripts/ci/test-baseline-lin
 
 A missing list means no failures have been approved for that OS; new failures
 block immediately. Missing, empty or malformed reports also block.
+
+### Count ratchets: size, broad excepts, type ignores, source-text tests
+
+Five gates in `scripts/ci/` grandfather today's debt and block new debt:
+`file-size` (Python files in `dodaios/` max 2000 lines, TS/TSX max 1000),
+`function-size` (functions max 300 lines, complexity max 20),
+`broad-except` (`except Exception`, `BaseException`, bare `except:`),
+`type-ignore` (a bare `# type: ignore` without an error code) and
+`source-text-tests` (tests that read product source text). Each has a
+`*-baseline.json` listing every current violation with its current value. The gate
+fails when a violation is new or grew; the failure text says how to fix the code.
+In a pull request or the merge queue (`run_gates.py --base`) it judges only the files
+the change touches, because main moves while a PR waits and a whole-tree comparison
+would be stale by merge time; `--all`, `--update` and a run without a base judge the
+whole tree.
+A violation that shrank or vanished is only a printed note, so parallel pull
+requests that delete code never fight over the baselines. `ratchet-baselines.yml`
+runs every gate with `--update` daily and opens one bot pull request
+("chore(ci): tighten ratchet baselines") when anything shrank; run
+`python scripts/ci/check_<name>.py --update` yourself to lock a gain in sooner.
+`--update` refuses to raise a value unless you pass `--allow-increase` and say why
+in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
+`except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
 
 ### Flaky tests
 
@@ -684,7 +707,7 @@ Steps:
    pip then skips it unless someone pins that exact version. Never delete it:
    the number can never be reused anyway.
 5. **Leave the evidence.** Do not delete the bad release, its assets or its
-   tag, and never re-tag. Installs pinned with `JARVIS_INSTALL_TAG`, the
+   tag, and never re-tag. Installs pinned with `DODAIOS_INSTALL_TAG`, the
    signed manifests and the attestations all point at them. Add a short note
    to the release body instead.
 

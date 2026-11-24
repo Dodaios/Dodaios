@@ -123,7 +123,9 @@ The memories and messages go to the provider the person's assistant already
 answers on, on its subscription or a local model, and to no one else. Memories
 marked sensitive are never sent. A key that bills per token is never used:
 without a subscription or a local model no tasks are made and the nights stay
-quiet. A night makes at most eight such calls, however much there is to do.
+quiet. A night makes at most eight such calls, however much there is to do; while
+there are fewer than 30 of the person's own tasks in the select split (too few for
+the gate to decide), at most 24, so the first decision comes in one or two nights.
 
 Forgetting reaches the tasks: when a memory is forgotten or replaced, every
 task that names it is retired and its text erased.
@@ -131,6 +133,19 @@ task that names it is retired and its text erased.
 On the maintainer's installation one run of three calls gave 24 question
 tasks from 12 memories and 6 message tasks from 8 messages, 5 of which need no
 memory; the two askings disagreed on the other 2, which were left out.
+
+Five whole nights on a copy of the maintainer's memory and messages
+(2026-11-24, 27 model calls, eight per night before the ramp-up above existed):
+the nights built 197 tasks, 107 of them real messages that need no memory.
+Nothing could be decided in the first two nights (15 and 28 select tasks). In
+night 3 the tuner proposed `recall.min_score` 0 -> 4 and the gate let it in
+(as good on 44 tasks and 33 % cheaper); night 4 checked it again on 26 new
+guard tasks, kept it, and let in 4 -> 8 the same way. Night 5 turned down
+`recall.entity_boost` 1.5 -> 1.9 (no gain, 14 % dearer). The learned advantage
+on 36 sealed tasks went from 0 to +11.1 points (0.583 as shipped, 0.694 now),
+and the memories a message brings into the prompt from 112 to 43 tokens on
+average: the shipped settings bring up a weak match for many messages that need
+none.
 
 ### Splits
 
@@ -249,6 +264,62 @@ Every result names the state that produced it, as a **fingerprint**
 of the parameter values, model, seat and CLI version. Two runs are a pair only
 when model, seat, CLI and app version agree.
 
+## Lead turns on record
+
+To measure a change to the lead (the assistant's own chat), a benchmark
+replays a past turn: it gives the model exactly what it was given then, with
+one thing changed, and compares the model's first move. A replay needs a
+record of the original turn, and such records take months to collect. So the
+app records the lead's turns from now on. The replay itself is not built yet.
+
+**What the lead is given** comes from one function,
+`runner_cli.lead_model_input`. It returns what the coding CLI gets for a lead
+turn: the system prompt text as passed, the message text, the model, the
+effort and the CLI. The message is the person's text with the lines that go
+beside it (`dodaios_harness.lead_message`), the effort note in front, and, on a
+resumed conversation, the catch-up block. Claude Code gets the identity as a
+system-prompt file; the other CLIs get it inside the message, and every planner
+takes that step from the same helper. A test pins the bytes of the message for
+a set of inputs, so a change to what the lead is given is always a visible
+change. The CLI's own system prompt and, on a resumed turn, the CLI's own
+conversation are not part of it: a row names the conversation it continued.
+
+**What is kept**, one row per lead turn, in `lead_turns.db` in the data
+directory (`dodaios/rsi/lead_turns.py`, a kernel file with a schema version):
+
+- the time, the chat session and turn ids, the CLI, the model and the effort;
+- a hash of the tool list the chat was offered (names, descriptions, schemas);
+- the system prompt text and the message text, exactly as passed, compressed;
+- the conversation a resumed turn continued, whether the turn carried a running
+  task on, and how many pictures went with the message (not the pictures);
+- the first move: the first tool call's name and arguments, and whether a line
+  of text came before it; or that the model answered in text only.
+
+Only lead turns are kept: the `jarvis` surface, not a slash command, not a
+coding thread and not an agent's own chat. A turn that ended before the model
+did anything is not kept. A row is never changed after it is written.
+
+**For how long.** A row is kept for at most 90 days, and the file keeps at most
+200 MB of stored text; when it is full, the oldest rows go first. A lead turn
+takes about 25 KB, so this holds about 8,000 turns. Both limits are checked
+each time a row is written and when the app first opens the file. Deleted text
+is overwritten on disk, not left in free space.
+
+**Deleting.** When the person deletes a chat session, its rows are deleted too
+(`AgentChatStore.delete_session` calls `lead_turns.forget_session`). Forgetting
+a memory does not delete rows: a row holds the whole system prompt the lead
+was given, not a list of the memories in it, and the memory's text can appear
+there shortened or reworded. A row that holds a forgotten memory therefore
+stays until its 90 days are over.
+
+**Nothing leaves the machine.** The file is read only by the benchmark on this
+computer. Nothing sends it, uploads it or adds it to a report.
+
+**It never slows or breaks a turn.** The turn only notes what it saw. The row
+is written by a background task, off the event loop, as soon as the first move
+is known (the first tool call, or the end of a turn that answered in text).
+Any failure is logged once and the row is skipped.
+
 ## Parameters
 
 Behaviour that used to be a constant in the code is a **parameter**
@@ -286,6 +357,34 @@ note is ended in the memory), and a run of the assistant as it ships does not
 see it. The entry holds the memory's id and none of its words: a note the
 person forgot leaves nothing behind. A how-to is not measured yet; the list
 says so.
+
+## How coding agents are steered
+
+How Dodaios steers the coding runs it hands out is a coding policy per cell
+(the area of the work, the model, the coding CLI and its version line). The
+trainer changes it one measured step at a time, on the person's real requests
+rather than on benchmark tasks (`docs/rsi-policy-selector.md`). A candidate
+runs on half of the requests in its cell, the other half stays as it is, and
+the selector's gate decides on the judged runs.
+
+- **Holding.** A cell starts without holding: the lead's job ends with the
+  agent's turn and nothing is sent back to the agent. Waiting for the checks
+  and ordering fixes is the first thing tried there. It has to make clearly
+  more runs pass (at least 10 points, within 125 % of the cost), or the cell
+  stays as it was.
+- **Steering.** In a cell that holds, fewer fix orders or a shorter wait for
+  checks are tried, and kept only when they cost less and nothing else gets
+  worse.
+- **A line for the first brief.** When the same fix order keeps coming, one
+  fixed sentence from the code goes into the first brief on trial.
+
+Nothing waits for the person. Every policy the trainer put in place is in the
+list of what the assistant changed in itself, with one plain sentence ("Waits
+for the checks and asks for fixes, for <model> in <harness>"), the measurement
+that let it in (pass rate of each half and the lower bound of the difference)
+and Take back, which restores the exact policy from before. A candidate on
+trial is listed among the candidates. The first run under a new policy that
+weakened a check rolls the policy back by itself.
 
 ## The gate's answer
 
@@ -364,8 +463,12 @@ While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
    back. After an app update everything learned is checked again.
 2. The learners propose. Each gets practice tasks and nothing else.
 3. The gate measures every candidate on tasks no learner saw.
-4. It measures the learned advantage on the sealed tasks.
-5. It writes down what it did (`nights` and `series` in `bench.db`).
+4. It measures the learned advantage on the sealed tasks, also split into the
+   parts of the area (`run.parts`; for recall: tasks where a memory is needed
+   and tasks where none is), so the page can show where a difference lies. The
+   parts are plain means; every decision rests on the whole.
+5. It writes down what it did (`nights` and `series` in `bench.db`; schema step
+   3 added the `parts` column, older points read as having none).
 
 Before all of this a night copies the memory and builds new tasks from the
 person's own memory and messages (see above), and erases tasks about memories
@@ -374,11 +477,12 @@ that are gone.
 Nothing is announced: no notice, no sound, no voice. The app looks every ten
 minutes whether a night is due: the person must have been away for 15 minutes,
 and there is at most one night in 20 hours. Measuring the recall asks no
-model; building tasks does, at most eight small calls a night. The limits are
+model; building tasks does, at most eight small calls a night (24 while too few tasks
+exist to decide on). The limits are
 fixed in the code, not in a setting: only while the person is away, on the
 assistant's subscription or a local model, never a key that bills per token.
 (The share of a plan's usage window a night may use, 20 %, is fixed for the
-domains that will run whole turns; eight small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
+domains that will run whole turns; 24 small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
 survives a restart; while it is set nothing is proposed, measured or changed.
 
 ### The tuner
@@ -484,5 +588,10 @@ There is no other control on purpose: the person only stops or undoes
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
 | The tuner, the night cycle, automatic rollback, the sandbox | built |
 | Recall tasks from the person's own memory and messages, made at night | built |
+| The lead's model input as one function (`lead_model_input`), its message bytes pinned by a test | built |
+| Lead turns on record (`lead_turns.db`): what the lead was given and its first move | built; recording, nothing replays it yet |
 | The page that shows it | built |
+| Holding learned per cell of coding work: put on trial where a cell does not hold, kept only if more runs pass | built |
+| A mined line for the first brief goes on trial by itself; nothing waits for the owner | built |
+| Coding policy changes in `GET /api/self-improvement`, with the measurement that let them in | built |
 | Always-on recording of work, the other domains, lessons, the jury | later |

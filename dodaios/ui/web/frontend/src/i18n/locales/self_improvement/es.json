@@ -78,7 +78,7 @@
       "values": "{before} → {after}",
       "since": "desde {when}",
       "held": "confirmado de nuevo en {n} tareas",
-      "kinds": "Dos tipos de cambio: valores que ajustó y demostró con tareas, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
+      "kinds": "Tres tipos de cambio: valores que ajustó y demostró con tareas, cómo dirige a los agentes de código, demostrado en la mitad de tus peticiones, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
       "note_title": "Una nota que se escribió a sí mismo",
       "note_gone": "Esta nota ya no está en la memoria.",
       "not_measured": "aún sin medir"
@@ -119,7 +119,8 @@
     "author": {
       "tuner": "El ajustador, que prueba valores cercanos en tareas de práctica",
       "owner": "Tú",
-      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara"
+      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara",
+      "rsi-selector": "El aprendiz de dirección, que prueba un cambio cada vez en la mitad de tus peticiones de código"
     },
     "nights": {
       "title": "Las últimas noches",
@@ -238,6 +239,40 @@
       "col_through": "Salieron adelante",
       "week_of": "desde el {date}",
       "unrated": "sin cifra"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "para trabajo de {area} con {model} en {harness}",
+      "default_model": "el modelo predeterminado",
+      "hold": "Espera a las comprobaciones y pide correcciones",
+      "release": "Deja de esperar a las comprobaciones",
+      "no_fixes": "No pide correcciones",
+      "fewer_fixes_one": "Pide como mucho una corrección",
+      "fewer_fixes_other": "Pide como mucho {n} correcciones",
+      "shorter_wait": "Espera como mucho {minutes} minutos a las comprobaciones",
+      "brief_line": "Añade una línea a la primera instrucción",
+      "other": "Cambia cómo se dirige a los agentes de código",
+      "on_trial": "a prueba en la mitad de tus peticiones desde {when}",
+      "claim_pass": "se queda solo si salen bien claramente más peticiones",
+      "claim_cost": "se queda solo si cuesta menos y nada empeora",
+      "claim_p": "se queda solo si hacen falta menos correcciones y nada empeora",
+      "proof_pass": "Salieron bien {with} de {n} peticiones, frente a {without} de {m} sin él (al menos {low} puntos)",
+      "proof_cost": "{diff} menos por petición en coste y tiempo, en {n} peticiones frente a {m} sin él (al menos {low} menos)",
+      "proof_p": "{diff} correcciones menos por petición, en {n} peticiones frente a {m} sin él (al menos {low} menos)",
+      "measured_on": "Medido en {n} de tus peticiones con él y {m} sin él, {when}.",
+      "about": "Cómo Dodaios pasa el trabajo de código a los agentes para este tipo de trabajo, este modelo y esta herramienta de código: si su respuesta espera a las comprobaciones, cuántas correcciones pide y qué dice la primera instrucción. Se probó en la mitad de tus peticiones y se comparó con la otra mitad.",
+      "probation": "A prueba: la primera ejecución con él que debilite una comprobación lo retira por sí sola."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "pruebas",
+      "database": "base de datos",
+      "infra_ci": "infraestructura y CI",
+      "docs": "documentación",
+      "other": "otro tipo",
+      "refactoring": "refactorización",
+      "multi_repo": "varios repositorios"
     }
   }
 }

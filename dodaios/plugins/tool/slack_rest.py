@@ -258,17 +258,12 @@ class SlackRestTool:
     # Static tier is the conservative one; reads are downgraded per call.
     risk_tier: str = "ask"
     description: str = (
-        "Search, read and post in the user's connected Slack workspace, acting "
-        "as the user. Use for 'what did Anna say in Slack', 'search Slack for "
-        "the release date', 'what's new in #general', 'read that thread', "
-        "'post in #team that I'm late'. Actions: search_messages (query, Slack "
-        "search syntax works: in:#channel from:@name), list_conversations "
-        "(channels, private channels, group DMs and DMs the user belongs to), "
-        "read_history (channel by #name, @person for an existing DM, or id), "
-        "read_thread (channel + thread_ts), get_user (user id), find_users "
-        "(name), post_message (channel + text, optional thread_ts to reply in "
-        "a thread). Requires the Slack plugin to be connected in the Plugins "
-        "view. Posting needs the user's confirmation."
+        "Search, read and post in the user's connected Slack, acting as the user ('what did "
+        "Anna say in Slack', 'what's new in #general', 'post in #team that I'm late'). "
+        "Actions: search_messages (Slack syntax: in:#channel from:@name), list_conversations, "
+        "read_history (channel by #name, @person or id), read_thread (channel + thread_ts), "
+        "get_user, find_users, post_message (channel + text, optional thread_ts). Posting "
+        "needs the user's confirmation. Needs the Slack plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",

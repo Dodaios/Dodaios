@@ -65,13 +65,12 @@ class FindAppActionTool:
     name: str = "find-app-action"
     risk_tier: str = "safe"
     description: str = (
-        "Search ALL actions of the Dodaios desktop app (settings, IDE panes and "
-        "workspaces, skills, local models, computers, marketplace, MCP servers, "
-        "dictation, chats, agents, automations …) when no other tool does what the "
-        "user asked. Pass English keywords; returns action ids, what each does, its "
-        "parameters and whether it runs freely, asks first or is blocked. Then call "
-        "run-app-action. A result under use_instead names the tool that does that job: "
-        "use it, no app action does. Starting a new coding agent is never an app action "
+        "Search ALL actions of the Dodaios desktop app (settings, IDE panes and workspaces, "
+        "skills, local models, computers, marketplace, MCP servers, dictation, chats, "
+        "automations ...) when no other tool does what the user asked. Pass English keywords; "
+        "returns action ids, what each does, its parameters and whether it runs freely, asks "
+        "first or is blocked. Then call run-app-action. A result under use_instead names the "
+        "tool that does the job: use it. Starting a new coding agent is never an app action "
         "(delegate target coding_agent, or workspace-orchestrate create)."
     )
     schema: dict[str, Any] = {

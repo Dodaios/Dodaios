@@ -19,7 +19,7 @@ from .test_session import FakeProvider, _cfg
 
 def desktop_facade(brain: BrainManager) -> Any:
     """Exercise the actual nested desktop facade without starting native UI/audio."""
-    source = Path(__file__).resolve().parents[3] / "dodaios/ui/desktop_app.py"
+    source = Path(__file__).resolve().parents[3] / "dodaios/ui/desktop_boot.py"
     tree = ast.parse(source.read_text(encoding="utf-8-sig"))
     facade = next(
         node

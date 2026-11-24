@@ -32,15 +32,13 @@ class WorkBoardTool:
     risk_tier = "safe"
     is_action_tool = False
     description = (
-        "One board of everything running for the user and who needs them: coding agents "
-        "in the Agentic IDE with each workspace's git state, the missions that have not "
-        "ended, running routines and the agent team's working members. needs_you comes "
-        "first and names what is waiting for the user (an agent showing a question or "
-        "stopped, a mission waiting for capacity). Summary-first: busy agents only, idle "
-        "ones are counted. Use it for 'what is running', 'what happened', 'who needs me' "
-        "instead of calling several list tools; set detail=true for every agent row. For "
-        "one agent, workspace or mission use workspace-orchestrate (status, observe), "
-        "society_status (mode=agent) or missions-list."
+        "One board of everything running and who needs the user: coding agents in the Agentic "
+        "IDE with each workspace's git state, unfinished missions, running routines, working "
+        "team members. needs_you comes first (an agent with a question or stopped, a mission "
+        "waiting for capacity). Summary-first: busy agents only, idle ones counted; "
+        "detail=true lists every row. Use it for 'what is running', 'who needs me' instead of "
+        "several list tools. For one agent, workspace or mission use workspace-orchestrate "
+        "(status, observe), society_status (mode=agent) or missions-list."
     )
     schema: dict[str, Any] = {
         "type": "object",

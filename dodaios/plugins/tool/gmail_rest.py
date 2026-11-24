@@ -177,17 +177,13 @@ class GmailRestTool:
     name: str = "gmail"
     risk_tier: str = "ask"
     description: str = (
-        "Read, send, organize and delete email in the user's connected Gmail "
-        "inbox. Use for 'check my mail', 'any new emails from X', 'read the last "
-        "mail', 'send an email to X', 'archive that', 'mark it read', 'move it to "
-        "trash', 'delete it permanently'. Actions: list_messages (search the "
-        "inbox), get_message (read one by id), send_message (compose + send), "
-        "modify_message (add/remove labels by id — archive = remove 'INBOX', "
-        "mark read = remove 'UNREAD', star = add 'STARRED'), trash_message (move "
-        "to Trash, reversible), delete_message (permanent, irreversible). "
-        "Every message in a result carries `url`, where it opens in Gmail: link the "
-        "mail you sent or name with it. "
-        "Requires the Gmail plugin to be connected in the Plugins view."
+        "Read, send, organize and delete email in the user's connected Gmail ('check my mail', "
+        "'mail from X', 'send an email to X', 'archive that', 'delete it permanently'). "
+        "Actions: list_messages (search), get_message (by id), send_message, modify_message "
+        "(labels by id: archive = remove INBOX, mark read = remove UNREAD, star = add "
+        "STARRED), trash_message (reversible), delete_message (permanent). Results carry `url` "
+        "(where the mail opens in Gmail): link the mail you sent or name. Needs the Gmail "
+        "plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",

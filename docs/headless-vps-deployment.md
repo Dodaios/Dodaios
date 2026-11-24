@@ -152,7 +152,7 @@ control key — deliberately, because on a VPS the key is the only boundary
 there is:
 
 ```bash
-export JARVIS_BIND_HOST=0.0.0.0
+export DODAIOS_BIND_HOST=0.0.0.0
 ```
 
 Without a key that raises `Refusing to bind the Dodaios Control API to a
@@ -261,7 +261,7 @@ headless box is normal for the voice-related entries.
 | Symptom | Cause |
 |---|---|
 | The page loads, the microphone button does nothing | Not a secure context — see step 4. Use the SSH tunnel. |
-| `Refusing to bind … without a control key` | You set a public `JARVIS_BIND_HOST`. Generate a control key, or use the tunnel. |
+| `Refusing to bind … without a control key` | You set a public `DODAIOS_BIND_HOST`. Generate a control key, or use the tunnel. |
 | Voice answers in the wrong language | The reply language is decided once per turn from your configured pin; set it in Settings rather than per provider. |
 | `dodaios` exits immediately | You ran bare `dodaios`, which wants a display. Use `dodaios serve`. |
 | The brain says no provider is configured | No key reached the process. A key in your shell is not a key in the systemd unit — put it in the unit file. |
