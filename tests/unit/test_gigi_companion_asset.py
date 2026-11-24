@@ -5,7 +5,7 @@ import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-STUDY = ROOT / "art/studies/gigi-hover-companion"
+STUDY = ROOT / "assets/art/studies/gigi-hover-companion"
 
 
 def test_review_glb_has_editable_body_and_expression_nodes():

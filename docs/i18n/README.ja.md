@@ -30,15 +30,15 @@
   <a href="https://dodaios.ai">Web サイト</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/README.md">English</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.es.md">Español</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.hi.md">हिन्दी</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ar.md">العربية</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.fr.md">Français</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.bn.md">বাংলা</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.pt-BR.md">Português (Brasil)</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.ru.md">Русский</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.id.md">Bahasa Indonesia</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.es.md">Español</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.hi.md">हिन्दी</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ar.md">العربية</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.fr.md">Français</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.bn.md">বাংলা</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.ru.md">Русский</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/i18n/README.id.md">Bahasa Indonesia</a>
 </p>
 
 </div>
@@ -170,9 +170,9 @@ Dodaios は無料です。Dodaios のアカウントも有料プランもあり�
 [MIT License](https://github.com/Dodaios/Dodaios/blob/main/LICENSE) で、
 [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE) の帰属表示が付きます。
 名前とロゴは
-[商標ポリシー](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md) の対象です。
+[商標ポリシー](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/TRADEMARK.md) の対象です。
 Dodaios は独立したプロジェクトです。連携する製品はそれぞれの製作者に帰属し、
 あるツールに対応していることは、その製作者が Dodaios を承認していることを意味しません。
 2026 年 10 月までは Personal Jarvis という名前でした
 （[名前を変えた理由](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)）。
-スポンサーは [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md) に掲載しています。
+スポンサーは [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/docs/legal/SPONSORS.md) に掲載しています。

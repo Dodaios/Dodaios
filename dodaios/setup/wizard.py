@@ -30,13 +30,13 @@ the app.  API keys must be provided before boot via one of these two paths
 
 2. **``.env`` file** at the repo root (dev convenience)::
 
-       cp .env.example .env
+       cp docs/examples/.env.example .env
        # edit .env and fill in your keys
        python -m dodaios.ui.web.launcher --headless
 
 The full list of recognised ENV variable names mirrors the ``env_fallback``
 field in the ``SECRETS`` list defined in this module (e.g. ``GEMINI_API_KEY``,
-``ANTHROPIC_API_KEY``, ``GROQ_API_KEY``, etc.).  See ``.env.example`` for the
+``ANTHROPIC_API_KEY``, ``GROQ_API_KEY``, etc.).  See ``docs/examples/.env.example`` for the
 complete reference.
 """
 from __future__ import annotations
@@ -1325,7 +1325,7 @@ def run() -> int:
         _println("Non-interactive mode detected (no TTY or JARVIS_NONINTERACTIVE=1).")
         _println("Skipping interactive prompts.  API keys will be read from")
         _println("environment variables or the .env file at runtime.")
-        _println("See .env.example for the full list of recognised variable names.")
+        _println("See docs/examples/.env.example for the full list of recognised variable names.")
         _println()
         from dodaios.setup.onboarding_meta import CURRENT_TERMS_VERSION
 

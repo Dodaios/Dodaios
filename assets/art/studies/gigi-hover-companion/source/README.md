@@ -4,7 +4,7 @@ Author with Blender 5.0.1 (the exact build is in `build-report.json`):
 
 ```text
 blender --background --factory-startup --disable-autoexec --python scripts/art/build_gigi_companion.py
-blender --background --factory-startup --disable-autoexec --python scripts/art/export_study.py -- --manifest art/studies/gigi-hover-companion/study.json --asset gigi-companion
+blender --background --factory-startup --disable-autoexec --python scripts/art/export_study.py -- --manifest assets/art/studies/gigi-hover-companion/study.json --asset gigi-companion
 ```
 
 Run at the repository root. Keep `gigi.blend`, the builder and manifest together.

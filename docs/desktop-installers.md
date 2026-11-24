@@ -43,7 +43,7 @@ produce a *managed* or *dev* install, which updates through git - see
 Everything starts from one PyInstaller build:
 
 ```bash
-pyinstaller dodaios.spec --noconfirm --clean
+pyinstaller packaging/dodaios.spec --noconfirm --clean
 ```
 
 `onedir`, not `onefile`: no 3-5 second extraction on every launch, and each DLL

@@ -17,7 +17,7 @@ GitHub Release for the tag.
 
 Shared pieces that are not per-OS:
 
-- **`../dodaios.spec`** - the PyInstaller build every script starts from. One
+- **`dodaios.spec`** - the PyInstaller build every script starts from. One
   `onedir` bundle: the windowed launcher (`DodaiosApp`, built a second time as
   `PersonalJarvis`, its name from when Dodaios was called Personal Jarvis) and
   the console CLI (`dodaios`, built a second time as `jarvis`, its earlier name).

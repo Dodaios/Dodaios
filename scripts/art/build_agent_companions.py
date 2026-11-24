@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from companion_bodies import EYE_X, EYE_Y, FACETED, Surface, build_body, frame  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-STUDY = ROOT / "art/studies/agent-symbol-companions"
+STUDY = ROOT / "assets/art/studies/agent-symbol-companions"
 CATALOG = ROOT / "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
 RUNTIME_COPY = ROOT / "dodaios/ui/web/frontend/src/assets/society/companions/companions.glb"
 # Eye radii in symbol units (x, y) and their thickness in metres.

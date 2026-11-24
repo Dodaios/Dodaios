@@ -12,7 +12,7 @@ REM HMR server). This one runs the built frontend exactly like run.bat does.
 REM Same as: set JARVIS_INSTANCE=dev && run.bat
 
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat

@@ -6,7 +6,7 @@ import bpy
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
-source = ROOT / "art/studies/agent-symbol-companions/source/gigi-reference.blend"
+source = ROOT / "assets/art/studies/agent-symbol-companions/source/gigi-reference.blend"
 bpy.ops.wm.open_mainfile(filepath=str(source), use_scripts=False)
 scene = bpy.context.scene
 camera = scene.camera

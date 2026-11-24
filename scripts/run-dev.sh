@@ -7,10 +7,10 @@
 # with the regular app). Restart it as often as you like; the regular app and
 # the coding sessions inside it are never touched.
 #
-# Usage: ./run-dev.sh [--debug|--headless]
+# Usage: ./scripts/run-dev.sh [--debug|--headless]
 # Same as: JARVIS_INSTANCE=dev ./run.sh
 set -u
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 if [ -f ".venv/bin/activate" ]; then
     # shellcheck disable=SC1091

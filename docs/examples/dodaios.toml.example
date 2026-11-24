@@ -5,10 +5,10 @@
 #  (every value below has a built-in default in dodaios/core/config.py).
 #  Copy this to `dodaios.toml` only if you want to override defaults
 #  (an install that already has a `jarvis.toml` keeps using that file):
-#      cp dodaios.toml.example dodaios.toml
+#      cp docs/examples/dodaios.toml.example dodaios.toml
 #
 #  SECRETS DO NOT GO HERE. API keys live in your OS credential manager
-#  (run `python -m dodaios --wizard`) or in `.env` (see .env.example).
+#  (run `python -m dodaios --wizard`) or in `.env` (see docs/examples/.env.example).
 #  Never commit a real jarvis.toml — it is gitignored.
 #
 #  Overrides cascade: jarvis.toml  →  ENV (JARVIS__SECTION__KEY=...)

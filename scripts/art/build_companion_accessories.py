@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from companion_bodies import FACETED, Surface, build_body  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-STUDY = ROOT / "art/studies/agent-symbol-companions"
+STUDY = ROOT / "assets/art/studies/agent-symbol-companions"
 CATALOG = ROOT / "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
 RUNTIME_COPY = ROOT / "dodaios/ui/web/frontend/src/assets/society/companions/accessories.glb"
 
