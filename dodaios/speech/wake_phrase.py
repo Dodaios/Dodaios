@@ -27,8 +27,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
-from dodaios.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
-from dodaios.speech.wake_constants import (
+from dodaios.core.wake_constants import (
     DEFAULT_WAKE_PHRASE,
     WAKE_ENGINES,
     WAKE_PREFIXES,
@@ -39,6 +38,7 @@ from dodaios.speech.wake_constants import (
     resolve_vosk_model_paths,
     sound_fold,
 )
+from dodaios.plugins.wake.openwakeword_provider import PRODUCTION_WAKE_THRESHOLD
 
 log = logging.getLogger("jarvis.wake.phrase")
 

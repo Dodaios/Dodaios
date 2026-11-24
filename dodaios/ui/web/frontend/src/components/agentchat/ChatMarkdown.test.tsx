@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatMarkdown, mediaKind, normalizeMediaMarkup, safeMediaUrl } from "./ChatMarkdown";
-import { PictureDisplayContext } from "./MediaPreview";
+import { isRemoteMedia, PictureDisplayContext } from "./MediaPreview";
 
 // The diagram library needs a real layout engine; what it is asked to draw is checked here.
 const renderMermaid = vi.hoisted(() => vi.fn());
@@ -102,10 +102,10 @@ describe("chat visual fences", () => {
 
 describe("shared chat media", () => {
   it("renders every image and video in a mixed response", () => {
-    const { container } = render(<ChatMarkdown text={'![First](https://example.test/a.png)\n\n![Second](https://example.test/b.webp)\n\n[Clip](https://example.test/video.mp4)\n\n[Audio](https://example.test/audio.mp3)'} />);
+    const { container } = render(<ChatMarkdown text={'![First](/api/media/a.png)\n\n![Second](/api/media/b.webp)\n\n[Clip](/api/media/video.mp4)\n\n[Audio](/api/media/audio.mp3)'} />);
     expect(screen.getAllByRole("img")).toHaveLength(2);
     const video = container.querySelector("video")!;
-    expect(video.getAttribute("src")).toBe("https://example.test/video.mp4");
+    expect(video.getAttribute("src")).toBe("/api/media/video.mp4");
     expect(video.hasAttribute("controls")).toBe(true);
     expect(video.hasAttribute("autoplay")).toBe(false);
     expect(video.getAttribute("preload")).toBe("metadata");
@@ -120,13 +120,13 @@ describe("shared chat media", () => {
   });
 
   it("honors an extensionless video URL without altering its signed query", () => {
-    const url = "https://example.test/object?signature=a%2Bb#jarvis-media=video%2Fmp4";
+    const url = "/api/media/object?signature=a%2Bb#jarvis-media=video%2Fmp4";
     render(<ChatMarkdown text={`[Video](<${url}>)`} />);
     expect(screen.getByLabelText("Video").getAttribute("src")).toBe(url);
   });
 
   it("renders a video even when a provider used Markdown image syntax", () => {
-    const { container } = render(<ChatMarkdown text="![Movie](https://example.test/movie.webm)" />);
+    const { container } = render(<ChatMarkdown text="![Movie](/api/media/movie.webm)" />);
     expect(container.querySelector("video")).toBeTruthy();
     expect(container.querySelector("img")).toBeNull();
   });
@@ -139,16 +139,16 @@ describe("shared chat media", () => {
   });
 
   it("opens images in an accessible viewer", () => {
-    render(<ChatMarkdown text="![Photo](https://example.test/photo.png)" />);
+    render(<ChatMarkdown text="![Photo](/api/media/photo.png)" />);
     fireEvent.click(screen.getByRole("button", {name:"Enlarge Photo"}));
-    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("https://example.test/photo.png");
+    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("/api/media/photo.png");
   });
 
   it("lists a picture as its download link where the transcript lists files, and still plays a video", () => {
     const base = "/api/outputs/run/files/tasks/chat/artifacts/files/photo.png/download";
     const { container } = render(
       <PictureDisplayContext.Provider value="files">
-        <ChatMarkdown text={`![Photo](${base})\n\n[Clip](https://example.test/video.mp4)`} />
+        <ChatMarkdown text={`![Photo](${base})\n\n[Clip](/api/media/video.mp4)`} />
       </PictureDisplayContext.Provider>,
     );
     expect(container.querySelector("img")).toBeNull();
@@ -157,29 +157,29 @@ describe("shared chat media", () => {
   });
 
   it("shows an explicit error and retains access to a failed video", () => {
-    render(<ChatMarkdown text="[Clip](https://example.test/clip.mp4)" />);
+    render(<ChatMarkdown text="[Clip](/api/media/clip.mp4)" />);
     fireEvent.error(screen.getByLabelText("Clip"));
     expect(screen.getByRole("status").textContent).toContain("cannot be loaded or played");
-    expect(screen.getByRole("link", {name:/Open file/}).getAttribute("href")).toBe("https://example.test/clip.mp4");
+    expect(screen.getByRole("link", {name:/Open file/}).getAttribute("href")).toBe("/api/media/clip.mp4");
   });
 
   it("retries a changed source without retaining the previous error", () => {
-    const {rerender} = render(<ChatMarkdown text="![Photo](https://example.test/old.png)" />);
+    const {rerender} = render(<ChatMarkdown text="![Photo](/api/media/old.png)" />);
     fireEvent.error(screen.getByRole("img"));
-    rerender(<ChatMarkdown text="![Photo](https://example.test/new.png)" />);
-    expect(screen.getByRole("img").getAttribute("src")).toBe("https://example.test/new.png");
+    rerender(<ChatMarkdown text="![Photo](/api/media/new.png)" />);
+    expect(screen.getByRole("img").getAttribute("src")).toBe("/api/media/new.png");
   });
 
   it("preserves playback when streamed text and another image arrive", () => {
-    const text = "[Clip](https://example.test/clip.mp4)";
+    const text = "[Clip](/api/media/clip.mp4)";
     const {rerender} = render(<ChatMarkdown text={text} />);
     (screen.getByLabelText("Clip") as HTMLVideoElement).currentTime = 1.25;
-    rerender(<ChatMarkdown text={text + "\n\nMore text.\n\n![Photo](https://example.test/photo.png)"} />);
+    rerender(<ChatMarkdown text={text + "\n\nMore text.\n\n![Photo](/api/media/photo.png)"} />);
     expect((screen.getByLabelText("Clip") as HTMLVideoElement).currentTime).toBe(1.25);
   });
 
   it("retries without changing a signed media URL", () => {
-    const url = "https://example.test/clip.mp4?signature=abc";
+    const url = "/api/media/clip.mp4?signature=abc";
     render(<ChatMarkdown text={`[Clip](${url})`} />);
     fireEvent.error(screen.getByLabelText("Clip"));
     fireEvent.click(screen.getByRole("button", {name:"Retry"}));
@@ -187,10 +187,77 @@ describe("shared chat media", () => {
   });
 
   it("recognizes safe HTML media tags without running their handlers", () => {
-    const {container} = render(<ChatMarkdown text={'<video controls><source src="https://example.test/clip.mp4" type="video/mp4"></video>\n\n<img src="https://example.test/photo.png" onerror="alert(1)" alt="Photo">'} />);
+    const {container} = render(<ChatMarkdown text={'<video controls><source src="/api/media/clip.mp4" type="video/mp4"></video>\n\n<img src="/api/media/photo.png" onerror="alert(1)" alt="Photo">'} />);
     expect(container.querySelector("video")).toBeTruthy();
     expect(screen.getByRole("img").hasAttribute("onerror")).toBe(false);
     expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("loads nothing from a remote address: a picture, a video and a sound are links that open in the browser", () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ opened: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const picture = "https://example.test/a.png?d=c2VjcmV0";
+    const { container } = render(<ChatMarkdown text={[
+      `![Chart](${picture})`,
+      "![Movie](https://example.test/movie.webm)",
+      "[Clip](https://example.test/video.mp4)",
+      "[Audio](https://example.test/audio.mp3)",
+      '<video controls><source src="https://example.test/tag.mp4" type="video/mp4"></video>',
+      '<img src="https://example.test/tag.png" alt="Tag">',
+    ].join("\n\n")} />);
+    // No element that would fetch: the answer was drawn and no host was asked.
+    expect(container.querySelector("img, video, audio, source, iframe")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    const media = screen.getAllByTestId("chat-media");
+    expect(media).toHaveLength(6);
+    for (const item of media) expect(item.getAttribute("data-remote")).toBe("true");
+    // The link says where it leads before the click, and opens it outside the window.
+    const link = screen.getByRole("link", { name: /Chart/ });
+    expect(link.getAttribute("title")).toBe(picture);
+    expect(link.hasAttribute("download")).toBe(false);
+    fireEvent.click(link);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/open-external", expect.objectContaining({
+      body: JSON.stringify({ url: picture }),
+    }));
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    "//example.test/a.png",
+    "http://example.test/a.png",
+    "HTTPS://EXAMPLE.TEST/a.png",
+  ])("treats %s as remote however it is written", url => {
+    const { container } = render(<ChatMarkdown text={`![Chart](<${url}>)`} />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByTestId("chat-media").getAttribute("data-remote")).toBe("true");
+  });
+
+  it("tells what the app serves from what another host serves", () => {
+    for (const own of ["/api/media/a.png", "/api/outputs/run/files/a.png/download", `${window.location.origin}/api/media/a.png`, "data:image/png;base64,AAAA"]) {
+      expect(isRemoteMedia(own), own).toBe(false);
+    }
+    // A leading slash is not enough: these begin like a path of the app and lead to another host.
+    for (const other of ["https://example.test/a.png", "//example.test/a.png", "/\\example.test/a.png", "\\\\example.test\\a.png", "http://localhost.example.test/a.png", "http://[bad"]) {
+      expect(isRemoteMedia(other), other).toBe(true);
+    }
+  });
+
+  it("still draws a picture inside the text itself and one the app serves", () => {
+    const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    render(<ChatMarkdown text={`![Inline](${pixel})\n\n![Stored](/api/media/photo.png)`} />);
+    expect(screen.getAllByRole("img").map(image => image.getAttribute("src"))).toEqual([pixel, "/api/media/photo.png"]);
+  });
+
+  it("lists a remote video as a link where the transcript lists files too", () => {
+    const { container } = render(
+      <PictureDisplayContext.Provider value="files">
+        <ChatMarkdown text={"[Clip](https://example.test/video.mp4)\n\n![Photo](https://example.test/photo.png)"} />
+      </PictureDisplayContext.Provider>,
+    );
+    expect(container.querySelector("img, video")).toBeNull();
+    expect(screen.getByRole("link", { name: /Clip/ }).getAttribute("href")).toBe("https://example.test/video.mp4");
+    expect(screen.getByRole("link", { name: /Photo/ }).getAttribute("href")).toBe("https://example.test/photo.png");
   });
 
   it("does not turn HTML code examples into media tags", () => {
@@ -351,12 +418,42 @@ describe("web links in an answer", () => {
     vi.unstubAllGlobals();
   });
 
-  it("draws a globe when the site has no logo", async () => {
+  it("draws a globe when a named site's logo does not load", async () => {
     const { resetLinkIconsForTests } = await import("./WebLink");
     resetLinkIconsForTests();
-    render(<ChatMarkdown text="[Somewhere](https://nologo.example/)" />);
+    render(<ChatMarkdown text="[Repo](https://github.com/Dodaios/Dodaios)" />);
     fireEvent.error(screen.getByTestId("web-link-icon"));
     expect(screen.getByTestId("web-link-globe")).toBeTruthy();
+    expect(screen.queryByTestId("web-link-icon")).toBeNull();
+    resetLinkIconsForTests();
+  });
+
+  it.each([
+    "https://nologo.example/",
+    "https://docs.python.org/3/library/re.html",
+    // What an answer wrote into a name: no logo is asked for, so the name goes nowhere.
+    "https://c2vjcmv0lxrva2vu.collect.example.net/x",
+    "https://github.com.example.net/x",
+    "https://a.b.wikipedia.org/wiki/X",
+  ])("draws a globe and asks for no logo for %s", async url => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ opened: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ChatMarkdown text={`[Somewhere](${url})`} />);
+    const link = screen.getByTestId("web-link");
+    expect(within(link).getByTestId("web-link-globe")).toBeTruthy();
+    // The card on the pointer names the address and asks for no logo either.
+    fireEvent.mouseEnter(link.parentElement!);
+    const card = await screen.findByTestId("web-link-card");
+    expect(within(card).getByTestId("web-link-globe")).toBeTruthy();
+    expect(document.querySelector("img")).toBeNull();
+    expect(screen.queryByTestId("web-link-icon")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("draws a sub-domain of a named site with that site's logo", () => {
+    render(<ChatMarkdown text="[Turing](https://en.wikipedia.org/wiki/Alan_Turing)" />);
+    expect(screen.getByTestId("web-link-icon").getAttribute("src")).toBe("/api/link-icon?host=wikipedia.org");
   });
 
   it("keeps bold words inside a link", () => {

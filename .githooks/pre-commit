@@ -1,9 +1,9 @@
 #!/bin/sh
 # pre-commit: branch gate, AGENTS.md-only gate, content gates.
 #
-# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath=.githooks
-# (set by scripts/ci/install_git_hooks.py on a fresh clone). It never sets that
-# itself.
+# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath, the
+# absolute path of the primary checkout's .githooks (set by
+# scripts/ci/install_git_hooks.py on a fresh clone). It never sets that itself.
 #
 # Fail-open when Python cannot run; CI runs the same gates.
 

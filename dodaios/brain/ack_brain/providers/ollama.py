@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 
-from dodaios.brain.ack_brain.config import OllamaAckProviderConfig
+from dodaios.core.ack_brain_config import OllamaAckProviderConfig
 
 log = logging.getLogger(__name__)
 

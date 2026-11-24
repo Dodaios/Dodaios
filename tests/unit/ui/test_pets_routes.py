@@ -23,10 +23,11 @@ from PIL import Image
 from dodaios.core import config as config_module
 from dodaios.core.config import UIConfig
 from dodaios.core.events import PetChanged
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
 from dodaios.ui.pets import loader
 from dodaios.ui.pets import store as store_module
 from dodaios.ui.pets.manifest import MAX_SHEET_BYTES
-from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_STATES
+from dodaios.ui.pets.states import PET_STATES
 from dodaios.ui.web.pets_routes import MAX_REQUEST_BYTES, router
 
 FRAME = 32

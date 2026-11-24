@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from dodaios.core.events import BrainTurnCompleted, VoiceTranscriptUpdated
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.live.state import LiveLedger
 from dodaios.live.tools import LiveTools
 from tests.fakes.fake_subscription_session import (

@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import io
 import os
+import re
 import time
+from pathlib import Path
 
 import httpx
 import pytest
@@ -16,7 +18,9 @@ from PIL import Image
 from dodaios.ui.web import link_icon_routes as icons
 
 
-def _picture(size: int, fmt: str = "PNG", colour: tuple[int, int, int, int] = (255, 69, 0, 255)) -> bytes:
+def _picture(
+    size: int, fmt: str = "PNG", colour: tuple[int, int, int, int] = (255, 69, 0, 255)
+) -> bytes:
     out = io.BytesIO()
     image = Image.new("RGBA", (size, size), colour)
     if fmt == "ICO":
@@ -107,7 +111,10 @@ def _site(routes: dict[str, tuple[int, bytes]]) -> httpx.AsyncClient:
 
 
 def test_the_first_sharp_icon_wins() -> None:
-    page = b'<link rel="icon" href="/small.png" sizes="16x16"><link rel="apple-touch-icon" href="/big.png">'
+    page = (
+        b'<link rel="icon" href="/small.png" sizes="16x16">'
+        b'<link rel="apple-touch-icon" href="/big.png">'
+    )
     client = _site({
         "https://example.com/": (200, page),
         "https://example.com/small.png": (200, _picture(16)),
@@ -129,7 +136,10 @@ def test_a_tiny_icon_is_used_when_there_is_nothing_larger() -> None:
 
 
 def test_a_site_without_a_readable_icon_has_none() -> None:
-    client = _site({"https://example.com/": (200, b"<html></html>"), "https://example.com/favicon.ico": (200, b"nope")})
+    client = _site({
+        "https://example.com/": (200, b"<html></html>"),
+        "https://example.com/favicon.ico": (200, b"nope"),
+    })
     assert asyncio.run(icons.fetch_icon("example.com", client)) is None
 
 
@@ -162,15 +172,66 @@ def test_a_site_without_icon_is_not_asked_again_for_a_day(icon_dir, monkeypatch)
 
     monkeypatch.setattr(icons, "fetch_icon", fake_fetch)
     client = _client()
-    assert client.get("/api/link-icon", params={"host": "nologo.example.org"}).status_code == 404
-    assert client.get("/api/link-icon", params={"host": "nologo.example.org"}).status_code == 404
-    # The sub-domain had none, so its parent was asked once too.
-    assert calls == ["nologo.example.org", "example.org"]
+    assert client.get("/api/link-icon", params={"host": "news.ycombinator.com"}).status_code == 404
+    assert client.get("/api/link-icon", params={"host": "news.ycombinator.com"}).status_code == 404
+    # The sub-domain had none, so its parent (a named website too) was asked once.
+    assert calls == ["news.ycombinator.com", "ycombinator.com"]
     (marker,) = icon_dir.glob("*.none")
     old = time.time() - icons.KEEP_MISSING_S - 10
     os.utime(marker, (old, old))
-    client.get("/api/link-icon", params={"host": "nologo.example.org"})
-    assert calls.count("nologo.example.org") == 2
+    client.get("/api/link-icon", params={"host": "news.ycombinator.com"})
+    assert calls.count("news.ycombinator.com") == 2
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "nologo.example.org",
+        "docs.python.org",
+        # What an answer wrote into a name must not leave in a look-up.
+        "c2vjcmv0lxrva2vu.collect.example.net",
+        # Neither below a named website nor with its name in front.
+        "anything.github.com",
+        "github.com.example.net",
+    ],
+)
+def test_a_site_the_chat_does_not_name_is_never_asked(icon_dir, monkeypatch, host: str) -> None:
+    async def never(host: str, client=None) -> bytes:
+        raise AssertionError(f"must not fetch {host}")
+
+    monkeypatch.setattr(icons, "fetch_icon", never)
+    assert icons.normalize_host(host) == host  # a well-formed host: only the list refuses it
+    assert _client().get("/api/link-icon", params={"host": host}).status_code == 404
+    assert asyncio.run(icons.icon_for(host)) is None
+    assert list(icon_dir.iterdir()) == []
+
+
+def test_a_parent_that_is_not_a_named_website_is_not_asked(icon_dir, monkeypatch) -> None:
+    calls: list[str] = []
+
+    async def fake_fetch(host: str, client=None) -> None:
+        calls.append(host)
+        return None
+
+    monkeypatch.setattr(icons, "fetch_icon", fake_fetch)
+    # Named for this test only: a sub-domain whose parent is not on the list.
+    monkeypatch.setattr(icons, "KNOWN_SITES", frozenset({"status.example.org"}), raising=False)
+    assert _client().get("/api/link-icon", params={"host": "status.example.org"}).status_code == 404
+    assert calls == ["status.example.org"]
+
+
+def test_the_named_websites_are_the_ones_the_chat_names() -> None:
+    """The frontend asks for a logo only for a site it names; the route serves
+    no other. Both lists are written out, so this keeps them equal."""
+    source = (
+        Path(__file__).resolve().parents[4]
+        / "dodaios/ui/web/frontend/src/components/agentchat/webLinks.ts"
+    ).read_text(encoding="utf-8")
+    block = re.search(r"const SITE_NAMES: Record<string, string> = \{(.*?)\n\};", source, re.S)
+    assert block is not None
+    named = set(re.findall(r'^\s*"([^"]+)":', block.group(1), re.M))
+    assert named == set(icons.KNOWN_SITES)
+    assert all(icons.normalize_host(host) == host for host in icons.KNOWN_SITES)
 
 
 def test_a_host_that_is_not_a_web_site_gets_no_fetch(icon_dir, monkeypatch) -> None:

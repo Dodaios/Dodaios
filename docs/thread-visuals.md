@@ -16,6 +16,7 @@ Markdown, and the thread draws it.
 | A fenced `html` block | The page or fragment, laid out, as tall as its content. |
 | `![title](chart.png)`, a picture in the thread's folder or a temp folder | The picture. |
 | `![title](report.html)`, a self-contained HTML file in the thread's folder or a temp folder | The page, as a figure with the title as its caption. |
+| A picture, a video or a sound at a web address (`![title](https://…/chart.png)`) | A link that opens in the browser. Drawing an answer loads nothing from another host. |
 
 A figure takes the height of what is in it, up to 640 px; a taller one scrolls
 inside. Pointing at a figure shows its tools: the source, a copy button and a
