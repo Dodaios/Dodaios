@@ -386,6 +386,11 @@ def _foreground(listed: list[BranchStatus]) -> BranchStatus:
     return next((status for status in listed if status.state not in SETTLED_STATES), listed[0])
 
 
+def _first_few(ranked: list[list[Any]]) -> list[list[Any]]:
+    """Every branch is known locally for free; only the first few are asked of GitHub."""
+    return [listed[:MAX_PANE_BRANCHES] for listed in ranked]
+
+
 def statuses(
     records: list[PaneBranchRecord] | dict[str, str], *, live_ttl: float = _LIVE_TTL
 ) -> dict[str, dict[str, Any] | None]:
@@ -402,9 +407,8 @@ def statuses(
     # Every step asks git or GitHub once per pane or branch and waits for the
     # answer. Asked one after another, a workspace with eight branches took
     # ten seconds; side by side it takes about as long as the slowest answer.
-    # Every branch is known locally for free; only the first few are asked of GitHub.
     ranked = _each(_tolerant(ranked_branches, [], "reading a pane's branches"), records)
-    owned_by_pane = [listed[:MAX_PANE_BRANCHES] for listed in ranked]
+    owned_by_pane = _first_few(ranked)
     keys = list(
         dict.fromkeys(
             (owned.folder, owned.branch, owned.created_at)
