@@ -55,7 +55,7 @@ class WorkspaceOrchestrationTool:
     is_action_tool = True
     description = (
         "Drive the user's coding agents: the chat threads and terminal panes of the Agentic IDE "
-        "(Projects > Workspaces > agents). 'Agent' with no other context means one of these. "
+        "(Projects > Workspaces > agents). When the user says 'agent' with no other context they mean one of these. "
         "The user's named Dodaios agents (a Scout, a Gmail agent) are not panes: use "
         "delegate_to_agent or message_agent; a resolve result with jarvis_agent means that. "
         "These are the user's own app actions: run them when asked, without asking back. "
