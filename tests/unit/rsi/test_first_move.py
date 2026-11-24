@@ -196,6 +196,14 @@ def test_the_budget_stops_when_the_person_comes_back() -> None:
     assert budget.take() == "the person is back"
 
 
+def test_the_budget_starts_no_call_once_the_backend_lets_go() -> None:
+    gone = {"now": False}
+    budget = Budget(40, halted=lambda: gone["now"])
+    assert budget.take() == ""
+    gone["now"] = True
+    assert budget.take() == "the backend let go of the night" and budget.calls == 1
+
+
 def test_the_cap_per_night_is_forty() -> None:
     assert FIRST_MOVE_CALLS == 40
 
@@ -251,6 +259,25 @@ def test_the_replay_takes_the_first_move_and_stops_the_cli(tmp_path: Path) -> No
     # The run's own folder is removed; every replay works in the same empty folder.
     assert [p.name for p in (tmp_path / "scratch").iterdir()] == ["cwd"]
     assert not list((tmp_path / "scratch" / "cwd").iterdir())
+
+
+def test_a_halt_cuts_the_replay_in_flight_and_stops_the_cli(tmp_path: Path) -> None:
+    import threading
+
+    from dodaios.rsi.bench.lead_cli import HALTED
+
+    driver, out = _driver(tmp_path, "hang")
+    gone = threading.Event()
+    driver.halted = gone.is_set
+    threading.Timer(1.0, gone.set).start()
+    started = time.monotonic()
+    move = driver(
+        LeadInput("SYSTEM PROMPT", "Let Scout compare note apps"), Platform("claude-cli", "opus")
+    )
+    assert time.monotonic() - started < 10  # not the CLI's 30 s, not the replay's own limit
+    assert move.error == HALTED and move.tool is None
+    time.sleep(1.0)
+    assert not (out / "ran-on.txt").exists()  # the CLI was stopped, not left behind
 
 
 def test_the_replay_offers_the_lead_tools_through_a_server_that_runs_none(tmp_path: Path) -> None:

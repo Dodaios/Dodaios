@@ -437,7 +437,9 @@ Fixed in `dodaios/rsi/budget.py` and asked before every call:
 - only on the lead's plan: Claude Code signed in, no API key in its
   environment (it would bill that key per token), not cooling down after a
   limit. Without that, no replay is built and the tasks wait;
-- only while the person is away; a call is not started once they are back;
+- only while the person is away; a call is not started once they are back,
+  nor once the backend lets go of the night (the app opens over the
+  background service, or the backend stops);
 - at most **40 replay calls a night**, for first_move and brief together (one
   `Budget` object serves both; a brief replay takes one call and one more for
   each call it answers). A lead call carries the lead's system prompt,
@@ -695,9 +697,21 @@ Before all of this a night copies the memory and builds new tasks from the
 person's own memory and messages (see above), and erases tasks about memories
 that are gone.
 
-Nothing is announced: no notice, no sound, no voice. The app looks every ten
-minutes whether a night is due: the person must have been away for 15 minutes,
-and there is at most one night in 20 hours. Measuring the recall asks no
+Nothing is announced: no notice, no sound, no voice. The backend looks every
+ten minutes whether a night is due: the person must have been away for 15
+minutes, and there is at most one night in 20 hours, at any time of day.
+
+The backend is the desktop app while its window is open, and the windowless
+background service while it is closed ([background-service.md](background-service.md)).
+While the person has not stopped the loop, the learning is work that service
+keeps: quitting the app hands it over, and the service stays for as long as
+the computer runs. Both read and write the same `bench.db`, registry and
+parameter files, so the page shows what the service did when the app opens
+again. When the app opens over the service, a running night is halted
+(`NightService.halt`): no model call starts, the call in flight is cut, and
+the night writes its report without further calls, as when the person comes
+back. The service waits for that at most 30 s; a night still running then
+stops with it, writes no report, and runs again later. Measuring the recall asks no
 model; building tasks does, at most eight small calls a night (24 while too few
 tasks exist to decide on). Measuring the first move and the briefs replays lead
 turns, at most 40 calls a night for both together (see "What a night's replays
@@ -839,6 +853,7 @@ There is no other control on purpose: the person only stops or undoes
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
 | The tuner, the night cycle, automatic rollback, the sandbox | built |
+| Nights while the window is closed: the background service keeps the learning; a hand-back halts a running night and waits for its report | built |
 | Recall tasks from the person's own memory and messages, made at night | built |
 | The lead's model input as one function (`lead_model_input`), its message bytes pinned by a test | built |
 | Lead turns on record (`lead_turns.db`): what the lead was given and its first move | built; replayed by the first_move domain |
