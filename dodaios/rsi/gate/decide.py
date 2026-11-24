@@ -12,9 +12,10 @@ The only thing that changes anything is the registry call at the end
 
 **What a task can tell.** A task whose truth the person confirmed by correcting
 the assistant (``Role.GAIN``) can show a gain; one they only accepted
-(``Role.GUARD``) can show a regression and nothing else. So a candidate is let
-in on the gain tasks of the select split, and the guard tasks of the same split
-must not get clearly worse; keeping a change rests on all guard-split tasks.
+(``Role.GUARD``) can show a regression and nothing else. So "better" rests on
+the gain tasks of the select split, "as good" on all of them, and the guard
+tasks alone must not get clearly worse; keeping a change rests on all
+guard-split tasks.
 
 **A night's budget.** A domain that asks a model may run out of calls in the
 middle of a comparison (``budget.Budget``). Its interval is still valid on the
@@ -55,22 +56,20 @@ from .rules import MIN_PAIRS, Compared, admit_verdict, keep_verdict
 __all__ = ["LIVE", "Decision", "MeasuredGate"]
 
 
-def _clear(found: Evidence) -> bool:
+def _clear(found: Evidence, gain: Compared | None = None) -> bool:
     """A verdict that stands on part of the tasks: the interval left zero on one side.
 
     Its bounds hold at every look, so "better", "worse" and "as good and cheaper"
     are as true on the tasks measured so far as they will be on all of them.
     "No clear difference" is not: it needs every task of the split.
     """
-    target = found.target
-    if target is None:
-        return False
     if found.verdict is Verdict.ACCEPT:
         return True
-    worse = target.high < 0 or any(
-        other.n >= MIN_PAIRS and other.high < 0 for other in found.others
-    )
-    return found.verdict is Verdict.REJECT and worse
+    if found.verdict is not Verdict.REJECT or found.target is None:
+        return False
+    if found.target.high < 0 or any(o.n >= MIN_PAIRS and o.high < 0 for o in found.others):
+        return True
+    return gain is not None and gain.interval.n >= MIN_PAIRS and gain.interval.high < 0
 
 
 log = logging.getLogger(__name__)
@@ -183,7 +182,7 @@ class MeasuredGate:
 
         False while there are too few of them, and when their budget is used up.
         """
-        if len(self.tasks(domain, Split.SELECT, Role.GAIN)) < MIN_PAIRS:
+        if len(self.tasks(domain, Split.SELECT)) < MIN_PAIRS:
             return False
         groups = self.bench.groups(domain, Split.SELECT, self.sources)
         return self._alpha.left(domain, Split.SELECT, groups) > 0
@@ -229,9 +228,10 @@ class MeasuredGate:
             return Evidence(Verdict.UNMEASURED, reason="there are no tasks yet to measure it on")
         candidate = overlays.Overlay(label=f"candidate:{change.id}", params={param.name: value})
         compared: list[Compared] = []
+        gain: Compared | None = None
         spend: list[Domain] = []
         for domain in domains:
-            have = len(self.tasks(domain, Split.SELECT, Role.GAIN))
+            have = len(self.tasks(domain, Split.SELECT))
             if have < MIN_PAIRS:
                 # Too few tasks decide nothing, so none of the budget is spent on asking.
                 reason = f"only {have} tasks to decide on; {MIN_PAIRS} are needed"
@@ -241,38 +241,34 @@ class MeasuredGate:
                 reason = "the tasks it would be decided on are used up until new ones arrive"
                 return Evidence(Verdict.UNDECIDED, split=Split.SELECT.value, reason=reason)
             seed = self._seed("admit", change)
-            compared.append(
-                self.compare(
-                    domain, Split.SELECT, LIVE, candidate, seed=seed, alpha=ALPHA, role=Role.GAIN
+
+            def part(role: Role | None, *, on: Domain = domain, seed: str = seed) -> Compared:
+                return self.compare(
+                    on, Split.SELECT, LIVE, candidate, seed=seed, alpha=ALPHA, role=role
                 )
-            )
+
+            compared.append(part(None))
             spend.append(domain)
             if self.tasks(domain, Split.SELECT, Role.GUARD):
-                # What the person accepted must not get clearly worse.
-                compared.append(
-                    self.compare(
-                        domain,
-                        Split.SELECT,
-                        LIVE,
-                        candidate,
-                        seed=seed,
-                        alpha=ALPHA,
-                        role=Role.GUARD,
-                    )
-                )
+                # What the person only accepted shows harm, never a gain: "better" rests
+                # on the rest, and the accepted part alone must not get clearly worse.
+                if domain is domains[0]:
+                    gain = part(Role.GAIN)
+                compared.append(part(Role.GUARD))
         found = admit_verdict(
             compared[0],
             tuple(compared[1:]),
             alpha=ALPHA,
             baseline=self.live().id,
             split=Split.SELECT.value,
+            gain=gain,
         )
-        unfinished = sum(c.unfinished for c in compared)
-        if unfinished and not _clear(found):
-            done = compared[0].interval.n
+        cut = any(c.unfinished for c in (*compared, *([gain] if gain else [])))
+        if cut and not _clear(found, gain):
+            done, left = compared[0].interval.n, compared[0].unfinished
             reason = (
                 f"measured on {done} tasks so far; the night's model calls ran out before "
-                f"the other {unfinished}, which the next night measures"
+                f"the other {left}, which the next night measures"
             )
             return Evidence(
                 Verdict.UNDECIDED, target=found.target, split=Split.SELECT.value, reason=reason

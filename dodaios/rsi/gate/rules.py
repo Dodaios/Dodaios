@@ -21,6 +21,12 @@ of scores per task, and what each state cost. From that the gate answers.
 The interval is a confidence sequence (:mod:`dodaios.rsi.sequential`): its
 bounds are valid whenever they are read.
 
+**Tasks whose truth the person only accepted** (``Role.GUARD``: the assistant's
+own move that nobody objected to) say whether a candidate is no worse, never
+whether it is better. Where a domain has them, ``gain`` is the comparison on
+the tasks whose right answer is known: rule 3 ("better") rests on it alone,
+while rules 1, 2 and 4 rest on all tasks of the split.
+
 **Keeping a change that is in effect** (decided on the guard split, by
 comparing the assistant as it is with the assistant without that change):
 
@@ -104,9 +110,19 @@ def _percent(ratio: float) -> str:
 
 
 def admit_verdict(
-    target: Compared, others: tuple[Compared, ...] = (), *, alpha: float, baseline: str, split: str
+    target: Compared,
+    others: tuple[Compared, ...] = (),
+    *,
+    alpha: float,
+    baseline: str,
+    split: str,
+    gain: Compared | None = None,
 ) -> Evidence:
-    """May this candidate go in? ``target`` is the domain it claims; ``others`` must not lose."""
+    """May this candidate go in? ``target`` is the domain it claims; ``others`` must not lose.
+
+    ``gain``: the same comparison on the tasks that can show a gain, when the
+    domain also has tasks that can only show a regression (see above).
+    """
 
     def evidence(verdict: Verdict, reason: str) -> Evidence:
         return Evidence(
@@ -127,10 +143,14 @@ def admit_verdict(
             return evidence(Verdict.REJECT, f"it makes {other.domain} worse")
     if found.high < 0:
         return evidence(Verdict.REJECT, f"worse on {found.n} tasks")
-    if found.low > 0:
+    better = found if gain is None else gain.interval
+    if gain is not None and better.n >= MIN_PAIRS and better.high < 0:
+        return evidence(Verdict.REJECT, f"worse on {better.n} tasks whose right answer is known")
+    if better.n >= MIN_PAIRS and better.low > 0:
         if ratio > COST_CAPS.get(target.domain, 1.0 + COST_SLACK):
             return evidence(Verdict.REJECT, f"better, but it costs {_percent(ratio)} more")
-        return evidence(Verdict.ACCEPT, f"better on {found.n} tasks")
+        where = "" if gain is None else " whose right answer is known"
+        return evidence(Verdict.ACCEPT, f"better on {better.n} tasks{where}")
     if ratio <= 1.0 - CHEAPER and found.low > -NOT_WORSE:
         reason = f"as good on {found.n} tasks, and {_percent(ratio)} cheaper"
         return evidence(Verdict.ACCEPT, reason)
