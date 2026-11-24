@@ -273,7 +273,7 @@ def track(
             return cached[2]
         try:
             found = _read(notes, lead_db, chat_db, now_ms=int(stamp * 1000))
-        except Exception:  # noqa: BLE001 — the page lists the notes without their track
+        except Exception:  # broad-except: an unreadable record costs the track, not the page
             log.info("self-improvement: the notes' track could not be read", exc_info=True)
             found = {}
         _cache[place] = (stamp, key, found)
