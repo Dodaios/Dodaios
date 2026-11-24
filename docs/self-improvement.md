@@ -191,6 +191,16 @@ The repository is read in two steps: one walk over the subjects of the default
 branch, then the paths and line counts of only the pull requests that are
 asked about.
 
+Every night does this intake first (`night._past_work`), before its records
+are gone. The repositories are the ones the recorded sessions ran in, one per
+repository however many worktrees it has (`intake.session_folders`). It calls
+no model; a record or clone that cannot be read is logged and costs nothing
+else of the night. The night's report says how many tasks it stored. Measured
+on 2026-11-23 on the maintainer's machine: 154 sessions in 2 repositories, 261
+tasks stored in 48 seconds the first night, 31 seconds on later nights with
+nothing new. No runner is registered for `brief` and `coding` yet, so these
+tasks are kept, not measured.
+
 Measured on 2026-11-23 on the maintainer's machine: 151 sessions had opened
 235 pull requests; 133 pieces of work became 133 brief and 117 coding tasks,
 in 20 seconds. In a hand check of 22 of them, every request asked for the
@@ -461,7 +471,7 @@ is never regenerated.
 | Kernel and evidence paths refused by the registry | built |
 | Parameters with limits, read by the memory recall; learned values survive updates | built |
 | A recall that can be replayed without leaving a trace (no use count, no cache) | built |
-| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | built; stored with `--store`, not yet run |
+| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | stored every night; no runner yet, so not measured |
 | The brief domain's check: does a brief point at where the work turned out to be | built; nothing writes the brief for a task yet |
 | The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
