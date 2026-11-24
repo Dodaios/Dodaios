@@ -18,6 +18,15 @@ spec + token into a claude-cli `mcpServers` entry:
   real MCP server claude-cli can speak to.
 
 User ``mcp.json`` servers can be merged in via ``extra_servers``.
+
+A coding CLI that reads such a map replaces variable references in it from
+its OWN environment: ``${NAME}`` in a command, an argument, an env value, a
+url or a header (some CLIs also ``$NAME``). So an entry built here must hold
+no ``$`` once the plugin's own placeholder is filled in. A plugin whose
+entry or token still does is left out of the map (see
+``_holds_variable_reference``): what came from a manifest or from the
+plugin's own sign-in server must never be answered with a variable of the
+owner's environment and sent to the plugin's server.
 """
 
 from __future__ import annotations
@@ -31,6 +40,10 @@ from dodaios.marketplace.catalog import PluginCatalog
 from dodaios.marketplace.token_store import TokenStore
 
 log = logging.getLogger(__name__)
+
+#: Plugins already reported as left out, so one warning per plugin and process
+#: instead of one per mission.
+_REPORTED_LEFT_OUT: set[str] = set()
 
 
 def _resolve_placeholders(value: str, replacements: dict[str, str]) -> str:
@@ -78,6 +91,44 @@ def _http_entry(spec: dict[str, Any], repl: dict[str, str]) -> dict[str, Any] | 
     return entry
 
 
+def _holds_variable_reference(entry: dict[str, Any], access_token: str) -> bool:
+    """Whether a CLI could replace part of ``entry`` with one of its own variables.
+
+    True when the token the plugin was connected with contains a ``$``, or
+    when any text of the built entry still does after the plugin's own
+    placeholder was filled in. No shipped plugin needs one: every string of
+    every ``mcp_server`` block in the bundled catalog is free of ``$`` once
+    its own placeholder is resolved.
+
+    The interpreter path a bundled server is started with is this machine's
+    own (``sys.executable``), not catalog text, and is not looked at.
+    """
+    if "$" in access_token:
+        return True
+    values: list[str] = [str(entry.get("url") or "")]
+    command = entry.get("command")
+    if command is not None and command != sys.executable:
+        values.append(str(command))
+    values.extend(str(arg) for arg in entry.get("args") or ())
+    for mapping in (entry.get("env"), entry.get("headers")):
+        for key, value in (mapping or {}).items():
+            values.extend((str(key), str(value)))
+    return any("$" in value for value in values)
+
+
+def _report_left_out(plugin_id: str) -> None:
+    """One warning per plugin: the id only, never the entry or the token."""
+    if plugin_id in _REPORTED_LEFT_OUT:
+        return
+    _REPORTED_LEFT_OUT.add(plugin_id)
+    log.warning(
+        "mcp_bridge: plugin %s is not handed to a coding CLI: its server entry "
+        "or its token holds a '$', which a CLI would replace with a variable of "
+        "its own environment. Reconnect the plugin or correct its entry.",
+        plugin_id,
+    )
+
+
 def assemble_claude_mcp_servers(
     catalog: PluginCatalog,
     token_store: TokenStore,
@@ -88,8 +139,11 @@ def assemble_claude_mcp_servers(
 
     A plugin counts as *connected* when ``token_store.load(plugin.id)`` returns
     a token. Plugins without an MCP-capable transport (e.g. Vercel's
-    ``rest_wrapper``) are skipped. Plugin entries take precedence over
-    ``extra_servers`` on a name clash.
+    ``rest_wrapper``) are skipped, and so is a plugin whose entry or token
+    still holds a ``$`` (``_holds_variable_reference``). Plugin entries take
+    precedence over ``extra_servers`` on a name clash; a plugin that is left
+    out also removes an extra of the same name, so its id never points at a
+    different server.
     """
     servers: dict[str, dict] = dict(extra_servers or {})
 
@@ -121,7 +175,12 @@ def assemble_claude_mcp_servers(
             # rest_wrapper / unknown -> not a claude-cli MCP server
             entry = None
 
-        if entry is not None:
-            servers[plugin.id] = entry
+        if entry is None:
+            continue
+        if _holds_variable_reference(entry, tokens.access):
+            _report_left_out(plugin.id)
+            servers.pop(plugin.id, None)
+            continue
+        servers[plugin.id] = entry
 
     return servers

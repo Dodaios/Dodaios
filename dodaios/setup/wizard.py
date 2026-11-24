@@ -978,7 +978,7 @@ def step_wake_word_setup() -> str:
     A failed write or download is a printed warning, never a crash — the wizard
     always reaches the finish.
     """
-    from dodaios.speech.wake_constants import DEFAULT_WAKE_PHRASE
+    from dodaios.core.wake_constants import DEFAULT_WAKE_PHRASE
 
     _println()
     _println("=" * 60)

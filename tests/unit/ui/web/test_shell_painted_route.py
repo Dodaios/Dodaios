@@ -33,12 +33,10 @@ def test_full_app_accepts_shell_painted_acknowledgement(monkeypatch) -> None:
 async def test_shared_startup_does_not_provision_optional_browser(monkeypatch, tmp_path):
     from dodaios.memory.learning import loop as learning
     from dodaios.society.browser import install
-    from dodaios.ui.web import mars_routes
 
     installs = []
     monkeypatch.setattr(install, "start_install", lambda *args: installs.append(args))
     monkeypatch.setattr(learning, "start_learning", lambda *args: None)
-    monkeypatch.setattr(mars_routes, "schedule_mars_resume", lambda *args: None)
     cfg = JarvisConfig()
     cfg.memory.data_dir = str(tmp_path)
     server = WebServer(cfg, bus=EventBus())

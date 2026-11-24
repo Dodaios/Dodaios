@@ -21,6 +21,3 @@ assets/demo/readme/dodaios-demo.gif
 # Built frontend bundle: rebuilt by the bot on main; the ONNX runtime and the
 # editor workers are large by nature.
 dodaios/ui/web/dist/*
-
-# Mars outpost model the society map loads (OutpostReference.tsx).
-art/studies/mars-outpost-reference/exports/communications-outpost.glb

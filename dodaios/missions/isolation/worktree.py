@@ -294,7 +294,7 @@ class WorktreeManager:
 
         if not needs_repo:
             workspace.parent.mkdir(parents=True, exist_ok=True)
-            return self._create_lean(workspace, branch_hint=task_part)
+            return self._create_lean(workspace)
 
         # The capability probe above established that this is a real source
         # checkout. Only now may full-worktree scaffolding be created.
@@ -327,7 +327,7 @@ class WorktreeManager:
     _LEAN_COMMIT_NAME = "Dodaios"
     _LEAN_COMMIT_EMAIL = "noreply@personal-jarvis.local"
 
-    def _create_lean(self, workspace: Path, *, branch_hint: str) -> Path:
+    def _create_lean(self, workspace: Path) -> Path:
         """Create a lean (empty) git workspace with one initial empty commit.
 
         The directory is a standalone git repo — NOT a registered worktree of

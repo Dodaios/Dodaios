@@ -10,8 +10,8 @@ import pytest
 
 from dodaios.core import runtime_refs
 from dodaios.core.events import AnnouncementRequested, BrowserVoiceRequested
+from dodaios.core.live_config import LiveConfig
 from dodaios.live import runtime
-from dodaios.live.config import LiveConfig
 from dodaios.live.state import LiveLedger
 from dodaios.live.tools import LiveTools
 from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState

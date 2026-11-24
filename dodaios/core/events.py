@@ -2447,25 +2447,6 @@ class JarvisAgentBackgroundCompleted(Event):
 
 
 @dataclass(frozen=True, slots=True)
-class JarvisChatTurnFinished(Event):
-    """A turn of a typed chat with Jarvis itself (surface ``jarvis``) ended.
-
-    Published by ``AgentChatService`` once the turn's ``turn_finished`` is
-    stored, so a listener the user is not looking at can react to it (the
-    progression service counts it). Chats with other
-    agents publish nothing here. A cancelled turn is not announced.
-    """
-
-    session_id: str = ""
-    turn_id: str = ""
-    #: ``done`` or ``error`` (the turn's own ``turn_finished`` status).
-    status: str = "done"
-    #: The user's message that started the turn, and Jarvis's reply.
-    user_text: str = ""
-    reply_text: str = ""
-
-
-@dataclass(frozen=True, slots=True)
 class JarvisAgentAnnouncement(Event):
     """Jarvis-Agent spawn start signal for UI/telemetry, without a voice ACK."""
     action: str = ""   # z.B. "eine Flask-App baut"
@@ -2619,50 +2600,6 @@ class SocietyMessageSent(Event):
     #: Length of the original, so the bubble can offer "read the rest".
     text_chars: int = 0
     truncated: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class SocietyResultPosted(Event):
-    """An agent finished (or gave up on) a piece of work: a RESULT on the board.
-
-    Published by :class:`dodaios.society.world_feed.WorldFeed` after the
-    envelope is stored. Carries no text — the result itself stays behind
-    ``GET /api/society/events``. The level system pays the agent for it
-    (``dodaios/progression``).
-    """
-
-    #: The board envelope's uuid7, stable for dedupe.
-    event_id: str = ""
-    agent_id: str = ""
-    #: ``done`` or ``blocked`` (the RESULT payload's own status).
-    status: str = ""
-    society_trace: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class ProgressionAwarded(Event):
-    """A subject of the level system earned XP.
-
-    Published by :class:`dodaios.progression.service.ProgressionService`
-    after the award is stored. ``level > previous_level`` is a level-up;
-    ``unlocked`` names the cosmetics that level-up opened
-    (``dodaios/progression/rules.py`` REWARDS).
-    """
-
-    seq: int = 0
-    #: ``person``, ``agent:<agent_id>`` or ``pet:<pet_id>``.
-    subject_id: str = ""
-    subject_kind: str = ""
-    #: The rule that paid (``RULES`` source id).
-    xp_source: str = ""
-    xp: int = 0
-    total_xp: int = 0
-    level: int = 1
-    previous_level: int = 1
-    title: str = ""
-    unlocked: tuple[str, ...] = ()
-    #: Agent looks (``LOOK_UNLOCKS``) this level-up opened; agents only.
-    unlocked_looks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

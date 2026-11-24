@@ -8,7 +8,7 @@ import pytest
 
 from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 from dodaios.core import runtime_refs
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.live.product import PRODUCT_BRIEF
 from dodaios.plugins.tool import product_help
 from dodaios.plugins.tool.product_help import ProductHelpTool

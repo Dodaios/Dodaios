@@ -557,10 +557,6 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
         )
     except RosterError as exc:
         raise _typed_error(exc) from exc
-    progression = getattr(request.app.state, "progression", None)
-    if created and progression is not None:
-        # Growing the team levels the person up (dodaios/progression).
-        await progression.note_agent_hired(agent.agent_id)
     if created and str(agent.runtime) not in ("", "jarvis"):
         # Hermes / OpenClaw install or update themselves in the background;
         # the agent's first turn waits for that (runner_acp._ready).
@@ -1071,9 +1067,6 @@ async def create_team_lead(
         raise _team_error(exc) from exc
     except RosterError as exc:
         raise _typed_error(exc) from exc
-    progression = getattr(request.app.state, "progression", None)
-    if progression is not None:
-        await progression.note_agent_hired(agent.agent_id)
     return {**await rt.team_leads.snapshot(group_id), "agent": _agent_row(agent, request)}
 
 

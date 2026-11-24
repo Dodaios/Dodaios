@@ -120,7 +120,7 @@ noisy STT transcript ("Athena" → Whisper may emit "Athene", "Atena", "a Tina")
 [`docs/anti-drift-three-layer.md`](../anti-drift-three-layer.md) this gets the five-layer
 treatment:
 
-- **Single source of truth:** `dodaios/speech/wake_constants.WAKE_ENGINES`.
+- **Single source of truth:** `dodaios/core/wake_constants.WAKE_ENGINES`.
 - **Pydantic:** `WakeWordConfig` validates `engine` against the SoT and coerces an unknown
   value to `"auto"` with a warning (boot-resilient — AP-16: a stale/garbage value must not
   brick the boot).
@@ -168,7 +168,7 @@ surfaces it.
 
 ## 8. Files touched
 
-**New:** `dodaios/speech/wake_constants.py`, `dodaios/speech/wake_phrase.py`,
+**New:** `dodaios/core/wake_constants.py`, `dodaios/speech/wake_phrase.py`,
 `tests/unit/speech/test_wake_phrase.py`, `tests/unit/speech/test_wake_engine_parity.py`,
 `tests/unit/core/test_wake_word_config.py`,
 `dodaios/ui/web/frontend/src/constants/wakeEngines.ts`.

@@ -488,9 +488,14 @@ def _validate_mcp(mcp: dict[str, Any], *, plugin_json: Mapping[str, Any]) -> str
         return "mcp_json must define exactly one server"
     server_name, server = next(iter(servers.items()))
 
+    # The installer checks the header template against the plugin's own name;
+    # the same name here, so a template it would refuse is refused before the
+    # submission leaves the machine.
+    declared = plugin_json.get("name")
+    plugin_name = declared if isinstance(declared, str) and _is_valid_name(declared) else None
     try:
         converted = _install_time_validate_mcp_server(
-            str(server_name), server, extension_of(plugin_json)
+            str(server_name), server, extension_of(plugin_json), plugin_name=plugin_name
         )
     except AgentPluginError as exc:
         return str(exc)
