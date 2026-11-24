@@ -76,6 +76,14 @@ def _task_snapshot(task: asyncio.Task[Any]) -> dict[str, Any]:
     }
 
 
+@router.get("/modules")
+def modules() -> dict[str, Any]:
+    """Optional modules that failed to start or load, each with its reason."""
+    from dodaios.core import module_health
+
+    return {"degraded": module_health.snapshot()}
+
+
 @router.get("/data-dir")
 def data_dir() -> dict[str, str]:
     """The data directory this process reads and writes, and its source.

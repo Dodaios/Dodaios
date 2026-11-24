@@ -17,6 +17,8 @@ import os
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
+from dodaios.core import module_health
+
 log = logging.getLogger(__name__)
 
 BrainCallback = Callable[[str], Awaitable[str]]
@@ -587,8 +589,9 @@ def _load_tools_for_tier(
                     register_tool(tool, source=ep.name, virtual=True)
             else:
                 register_tool(inst, source=ep.name, virtual=False)
-        except Exception as exc:  # noqa: BLE001
-            log.debug("Tool %s not loadable: %s", ep.name, exc)
+        except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — tool plugin
+            log.warning("Tool %s not loadable: %s", ep.name, exc)
+            module_health.report_failure(f"plugin:tool:{ep.name}", exc)
 
     # Phase 7.3 — self-mod tools are not discoverable via entry_points
     # (they require a shared state writer + PendingMutationStore). Plan-§AD-2:
@@ -1443,8 +1446,9 @@ def _legacy_full_brain(bus: Any | None = None) -> Any:
                     tools[tool.name] = tool
             else:
                 tools[inst.name] = inst
-        except Exception as exc:  # noqa: BLE001
-            log.debug("Tool %s not loadable: %s", ep.name, exc)
+        except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — tool plugin
+            log.warning("Tool %s not loadable: %s", ep.name, exc)
+            module_health.report_failure(f"plugin:tool:{ep.name}", exc)
 
     manager = BrainManager(
         config=config,
