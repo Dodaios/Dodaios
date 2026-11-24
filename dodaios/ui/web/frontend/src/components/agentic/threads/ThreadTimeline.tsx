@@ -1,5 +1,5 @@
 import { createContext, memo, startTransition, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, Square, SquareTerminal, Volume2, VolumeX, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, Loader2, ChevronRight, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, Square, SquareTerminal, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { isRemoteMedia, MediaViewerContent } from "@/components/agentchat/MediaPreview";
@@ -14,7 +14,6 @@ import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from
 import { fill, useI18nStore, useT } from "@/i18n";
 import { localeForUiLanguage, useRunLocale } from "@/components/runs/format";
 import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/actionCard/ApprovalActionCard";
-import { robustCopy } from "@/lib/clipboard";
 import { isReadingAloud, stopReadAloud, toggleReadAloud, useReadAloud } from "@/lib/readAloud";
 import { dismissAside } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
@@ -36,7 +35,7 @@ import { sentCommandSpan } from "@/components/agentchat/typeahead";
 import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
 import { compactionInfo, isCompaction } from "@/components/agentchat/compaction";
 import "./threadCompaction.css";
-import { useContextActions } from "@/hooks/useContextActions";
+import { CopyButton, useAnswerMenu, useMessageMenu } from "./threadMessageActions";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -554,20 +553,6 @@ function Elapsed({ since }: { since: number }) {
   return <span ref={ref} className="tabular-nums">{traceDuration(Math.max(0, Date.now() - since))}</span>;
 }
 
-/** For a right-click entry: a refused clipboard surfaces as the menu's error toast. */
-async function copyOrThrow(text: string): Promise<void> {
-  if (!(await robustCopy(text))) throw new Error("clipboard refused the text");
-}
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
-  return <button type="button" aria-label={label} title={label}
-    onClick={() => { void robustCopy(text).then(() => { setDone(true); window.setTimeout(() => setDone(false), 1200); }); }}
-    className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    {done ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-  </button>;
-}
-
 /**
  * Reads the answer aloud with the person's own voice; while it reads, the
  * same button stops it. Leaving the conversation stops it too.
@@ -638,9 +623,7 @@ function UserBubble({ item }: { item: UserItem }) {
   const magic = useContext(MagicWords);
   const command = useContext(SlashCommands) ? sentCommandSpan(item.text) : null;
   const threadLinked = splitThreadLinks(item.text).some((part) => "sessionId" in part);
-  const menuRef = useContextActions(item.text ? () => [
-    { id: "copy-message", label: t("ide_threads.copy_message"), icon: Copy, run: () => copyOrThrow(item.text) },
-  ] : null);
+  const menuRef = useMessageMenu(item.text);
   return <div ref={menuRef} className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
     {item.author && <div className="flex items-center gap-1.5 pr-1 text-xs text-muted-foreground" data-testid="thread-message-author">
       <Bot aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -1076,10 +1059,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     [turn.blocks, t, lang, turn.status, pictures, plans],
   );
   const answer = answerText(turn);
-  const menuRef = useContextActions(answer && turn.status !== "running" ? () => [
-    { id: "copy-answer", label: t("thread_turn.copy_answer"), icon: Copy, run: () => copyOrThrow(answer) },
-    { id: "read-aloud", label: t("thread_turn.read_aloud"), icon: Volume2, run: () => toggleReadAloud(turn.id, answer) },
-  ] : null);
+  const menuRef = useAnswerMenu(turn.id, answer, turn.status === "running");
   const [workOpen, setWorkOpen] = useState(false);
   // Finished: every step and thought folds behind one "Worked for …" line; the answer stays.
   const { work, answer: tail } = useMemo(() => (running ? { work: rows, answer: [] } : foldFinished(rows)), [rows, running]);
