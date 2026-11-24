@@ -6,6 +6,7 @@ Model names are namespaced ("anthropic/claude-opus-4.7", "openai/gpt-5").
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import replace
 from typing import Any
@@ -14,6 +15,8 @@ from dodaios.core import config as cfg
 from dodaios.core.protocols import BrainDelta, BrainRequest
 
 from ._openai_base import CLIENT_TIMEOUT, stream_complete
+
+log = logging.getLogger(__name__)
 
 # Last-resort default when the brain is built with NO model. OpenRouter is a
 # gateway, so this must NEVER be a paid Anthropic id — that silently billed the
@@ -48,7 +51,8 @@ class OpenRouterBrain:
             caps = model_capabilities("openrouter", self._model)
             self.supports_vision = True if caps["vision"] is None else bool(caps["vision"])
             self.supports_tools = True if caps["tools"] is None else bool(caps["tools"])
-        except Exception:  # noqa: BLE001 — capability probe must never break construction
+        except Exception:  # broad-except: capability probe must never break construction
+            log.debug("__init__: capability probe must never break construction", exc_info=True)
             self.supports_vision = True
             self.supports_tools = True
 
@@ -98,7 +102,7 @@ class OpenRouterBrain:
             first = await anext(stream)
         except StopAsyncIteration:
             return
-        except Exception as exc:  # noqa: BLE001 — inspect, fall back, or re-raise
+        except Exception as exc:  # broad-except: inspect, fall back, or re-raise
             # Fail open: a latency hint must never brick a turn. If the model
             # (or an exotic upstream) rejects the reasoning parameter itself,
             # retry once without it; unrelated errors propagate unchanged.

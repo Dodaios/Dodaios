@@ -19,6 +19,8 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 INSTALL_SH = Path(__file__).resolve().parents[3] / "install" / "install.sh"
 STOP_BEFORE_CLONE = 'if [ -d "$INSTALL_DIR/.git" ]; then'
+UI_BEGIN = "# --- installer-ui begin"
+UI_END = "# --- installer-ui end"
 
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux bootstrap proof")
@@ -152,10 +154,9 @@ class LinuxStage1BootstrapTests(unittest.TestCase):
 
     def test_spinner_child_cannot_steal_the_piped_installer(self) -> None:
         source = INSTALL_SH.read_text(encoding="utf-8")
-        definition = "run_spin() {" + source.split("run_spin() {", 1)[1].split("# The mascot", 1)[0]
-        self._assert_helper_preserves_script_stream(
-            "note() { :; }\n" + definition, "run_spin 'test' drain\n"
-        )
+        # The whole UI block: run_spin uses its glyphs, colours and helpers.
+        definition = source.split(UI_BEGIN, 1)[1].split("\n", 1)[1].split(UI_END, 1)[0]
+        self._assert_helper_preserves_script_stream(definition, "run_spin 'test' drain\n")
 
     def test_git_child_cannot_steal_the_piped_installer(self) -> None:
         source = INSTALL_SH.read_text(encoding="utf-8")

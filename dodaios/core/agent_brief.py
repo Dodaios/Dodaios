@@ -56,15 +56,13 @@ REAL_LIMITS: Final[str] = (
 #: brief for another agent. Kept short: it rides in the voice tool catalog,
 #: which has a byte budget (``dodaios.live.tools._CATALOG_BYTE_BUDGET``).
 AGENT_BRIEF_RULE: Final[str] = (
-    "The agent sees only this brief, never this chat. Lead with the "
-    "outcome and why it matters, give what it cannot see (errors verbatim, real files to "
-    "start from, decisions made), the fact where the person's words leave one open ('looks "
-    "bad': which fault), a done the agent can check itself and only the limits the person "
-    "set; state the goal, never a step script, and mark a suspected cause as unverified "
-    "(full guide: skill:agent-brief). A brief is checked before it is sent and comes back "
-    "once with what to fix. It is a work order: find the cause and make the change. 'Check' "
-    "or 'deep dive' include fixing; never add read-only limits unless the user explicitly "
-    "asked for analysis only. " + SHIP_DEFAULT + " " + REAL_LIMITS
+    "The agent sees only this brief, never this chat. Lead with the outcome and why; give "
+    "what it cannot see (errors verbatim, real files, decisions made), the fact where the "
+    "person's words leave one open, a done it can check itself and only the limits the "
+    "person set. State the goal, never a step script; mark a suspected cause unverified "
+    "(guide: skill:agent-brief). It is a work order: find the cause and make the change; "
+    "'check' or 'deep dive' include fixing; never add read-only limits unless the user "
+    "explicitly asked for analysis only. " + SHIP_DEFAULT + " " + REAL_LIMITS
 )
 
 __all__ = ["AGENT_BRIEF_RULE", "REAL_LIMITS", "SHIP_DEFAULT"]

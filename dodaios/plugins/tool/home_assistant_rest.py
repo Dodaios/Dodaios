@@ -26,11 +26,14 @@ rather than this tool deciding on its own.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
 from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _NOT_CONNECTED = (
     "Home Assistant is not connected — connect it in the Plugins view."
@@ -74,12 +77,9 @@ class HomeAssistantRestTool:
     name: str = "home_assistant"
     risk_tier: str = "ask"
     description: str = (
-        "Control and read the user's Home Assistant smart home: list devices, "
-        "read the state of one device, or call a service to act on it. Use for "
-        "'turn the living room lights off', 'is the garage door still open', "
-        "'set the heating to 21 degrees', 'what is the temperature in the "
-        "bedroom'. Actions: list_entities, get_state, call_service. Requires "
-        "the Home Assistant plugin to be connected in the Plugins view."
+        "Control and read the user's Home Assistant smart home ('turn the living room lights "
+        "off', 'is the garage door open', 'set the heating to 21'). Actions: list_entities, "
+        "get_state, call_service. Needs the Home Assistant plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -239,7 +239,8 @@ class HomeAssistantRestTool:
                 )
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=self._explain(exc))
 
         if isinstance(out, dict) and out.get("error"):

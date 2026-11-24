@@ -1,0 +1,8 @@
+[SHIP_DEFAULT]
+A change ends shipped: after its own review, with tests and CI green, the agent commits, pushes and merges it itself. Add no git limits (no push or merge, hold labels, worktree or folder rules) unless the person asked for them, in the request or in their standing brief wishes.
+
+[REAL_LIMITS]
+Name the real limits only when a task touches them, and keep them unless the person asked for that very step: nothing posted or sent in their name, no payments, no untrusted code run with their real credentials.
+
+[AGENT_BRIEF_RULE]
+The agent sees only this brief, never this chat. Lead with the outcome and why; give what it cannot see (errors verbatim, real files, decisions made), the fact where the person's words leave one open, a done it can check itself and only the limits the person set. State the goal, never a step script; mark a suspected cause unverified (guide: skill:agent-brief). It is a work order: find the cause and make the change; 'check' or 'deep dive' include fixing; never add read-only limits unless the user explicitly asked for analysis only. A change ends shipped: after its own review, with tests and CI green, the agent commits, pushes and merges it itself. Add no git limits (no push or merge, hold labels, worktree or folder rules) unless the person asked for them, in the request or in their standing brief wishes. Name the real limits only when a task touches them, and keep them unless the person asked for that very step: nothing posted or sent in their name, no payments, no untrusted code run with their real credentials.

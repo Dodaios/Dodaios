@@ -536,7 +536,7 @@ replayed during `session/load` is swallowed because the chat already shows it.
   Gateway restart. Neither refusal reaches a model.
 - **Dodaios tools:** OpenClaw rejects per-session `mcpServers`, so the Dodaios
   server is configured in the agent's own state directory. Values such as
-  `${JARVIS_CONTROL_API_KEY}` are substituted from the Gateway's environment,
+  `${DODAIOS_CONTROL_API_KEY}` are substituted from the Gateway's environment,
   so no key is written to disk. OpenClaw names them `dodaios__<tool>`; Dodaios
   normalises that to `mcp__dodaios__<tool>`. Names under the server's earlier
   name (`jarvis__<tool>`, `mcp__jarvis__<tool>`) are read the same way

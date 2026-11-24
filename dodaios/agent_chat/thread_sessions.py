@@ -40,6 +40,7 @@ _COPIED_KINDS = frozenset(
         "tool_call",
         "tool_result",
         "subagent_started",
+        "subagent_progress",
         "subagent_finished",
     }
 )

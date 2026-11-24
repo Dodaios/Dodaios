@@ -31,7 +31,7 @@ The device may simply run older code.
   `git log --oneline public/main..main` (unpublished commits) and
   `git status --short` (uncommitted work — exists on the dev box ONLY).
 - **Delivery pipeline facts:** a fresh install clones the newest published
-  release tag (`install/install.sh` / `install.ps1`; `JARVIS_INSTALL_REF`
+  release tag (`install/install.sh` / `install.ps1`; `DODAIOS_INSTALL_REF`
   picks another ref, `main` is the fallback when no release can be looked
   up); the in-app updater (`dodaios/ui/web/update_routes.py`) moves a
   managed install only between **published GitHub Releases** — pushing a tag

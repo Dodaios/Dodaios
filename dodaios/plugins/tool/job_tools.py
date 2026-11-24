@@ -80,14 +80,12 @@ class JobStatusTool:
     risk_tier: str = "safe"
     is_action_tool: bool = False
     description: str = (
-        "Check jobs you started. Every async hand-off (a mission, an artifact, "
-        "delegate_to_agent, message_agent, a prompt to a coding pane, a team thread) "
-        "returned a job_id. With 'ids' it reports those jobs; with none it lists this "
-        "chat's open jobs first, then the most recent settled ones. Each row says "
-        "state (queued, running, done, failed, blocked, interrupted, cancelled), a "
-        "result_ref to read the outcome, and a short summary. Read-only and instant: "
-        "never poll a shell or a log file instead. 'done' is only reported from the "
-        "job's own record."
+        "Check jobs you started. Every async hand-off (mission, artifact, delegate_to_agent, "
+        "message_agent, a prompt to a coding pane, a team thread) returned a job_id. With "
+        "'ids' it reports those jobs; with none, this chat's open jobs, then the latest "
+        "settled ones: state (queued, running, done, failed, blocked, interrupted, cancelled), "
+        "a result_ref to read the outcome, a short summary. Read-only and instant: never poll "
+        "a shell or log file instead. 'done' comes only from the job's own record."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -162,15 +160,12 @@ class AwaitJobsTool:
     risk_tier: str = "safe"
     is_action_tool: bool = False
     description: str = (
-        "Wait for jobs you started (by job_id) instead of polling a shell. Waits up "
-        f"to timeout_s seconds (default {int(DEFAULT_AWAIT_S)}, max {int(MAX_AWAIT_S)}) "
-        "for ALL of them to settle, or for the FIRST one with mode 'any', and returns "
-        "which finished with their state, result_ref and summary, and which are still "
-        "running. A job that is still running when the time is up is reported as "
-        "running, never as done: call await_jobs again, or tell the person it is still "
-        "going. 'blocked' means the job needs input or could not be verified; "
-        "'interrupted' means the app restarted and its outcome is unknown. Verify "
-        "results you rely on; a finished job is the worker's own record."
+        "Wait for jobs you started (by job_id) instead of polling a shell: up to timeout_s "
+        "seconds (default 60, max 540) for ALL to settle, or the FIRST with mode 'any'. "
+        "Returns which finished (state, result_ref, summary) and which still run; a job still "
+        "running at the deadline is reported as running, never done: call again or tell the "
+        "person. 'blocked' means it needs input or could not be verified; 'interrupted' means "
+        "the app restarted and the outcome is unknown. Verify results you rely on."
     )
     schema: dict[str, Any] = {
         "type": "object",

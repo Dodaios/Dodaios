@@ -114,14 +114,11 @@ class UpdateProfileTool:
 
     name: str = "update_profile"
     description: str = (
-        "Persist a durable, factual detail the user states (or corrects) ABOUT "
-        "THEMSELVES into their structured profile, so you and the Knowledge "
-        "matrix remember it across sessions. Call this the moment the user says "
-        "things like 'my name is …', 'call me …', 'I speak … / switch to …', "
-        "'my favourite … is …', 'I hate it when …', 'I'm in timezone …', 'I work "
-        "on a …'. Do NOT use it for transient state, tasks, one-off requests, or "
-        "facts about OTHER people. Do NOT ask for confirmation — store it "
-        "silently in addition to your normal reply. One call per fact."
+        "Store a durable fact the user states or corrects ABOUT THEMSELVES in their profile, "
+        "so you remember it across sessions: 'my name is ...', 'call me ...', 'I speak ...', "
+        "'my favourite ... is ...', 'I hate it when ...', 'I'm in timezone ...'. Not for "
+        "transient state, tasks, one-off requests or facts about other people. Do not ask for "
+        "confirmation: store it silently alongside your normal reply. One call per fact."
     )
     # `monitor`: real side effect (writes USER.md) but no confirmation prompt
     # (anti-confirmation-fatigue); every call is logged. Mirrors wiki-ingest.
@@ -261,7 +258,7 @@ class UpdateProfileTool:
             profile.append_observation(
                 f"{cluster}.{field}", _short(value), evidence or "via update_profile tool"
             )
-        except Exception:  # noqa: BLE001 — the audit line must never block the write
+        except Exception:  # broad-except: the audit line must never block the write
             log.debug("update_profile: append_observation failed", exc_info=True)
 
         try:

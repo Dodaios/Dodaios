@@ -84,7 +84,7 @@ def load_openwakeword_model_class() -> type:
         try:
             with _inference_only_openwakeword_import():
                 from openwakeword.model import Model
-        except Exception as exc:  # noqa: BLE001 — retried in full right below
+        except Exception as exc:  # broad-except: retried in full right below
             log.debug("Lean openWakeWord import failed (%s); retrying in full", exc)
             # Drop only what this attempt left half-imported.
             for name in set(sys.modules) - before:
@@ -416,7 +416,7 @@ class OpenWakeWordProvider:
         try:
             dummy = np.zeros(OWW_FRAME_SAMPLES, dtype=np.int16)
             model.predict(dummy)
-        except Exception as exc:  # noqa: BLE001 — warm-up must never break boot
+        except Exception as exc:  # broad-except: warm-up must never break boot
             log.debug("OWW warm-up inference skipped: %s", exc)
 
     async def start(self) -> None:

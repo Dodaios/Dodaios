@@ -3,7 +3,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { Group, Material, Mesh, Object3D, Texture } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import gigiUrl from "../../../../../../../../art/studies/gigi-hover-companion/exports/gigi.glb";
+import gigiUrl from "../../../../../../../../assets/art/studies/gigi-hover-companion/exports/gigi.glb";
 import { createMotion, expressionFor, type AssistantPresentation, type CompanionWorld, type PlayerPose, type Point } from "./kinematics";
 
 import { createCompanionFrame } from "./companionFrame";

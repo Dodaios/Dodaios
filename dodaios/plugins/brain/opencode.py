@@ -148,7 +148,7 @@ def _installed_free_model() -> str | None:
         from dodaios.agent_chat.runner_cli import read_opencode_models
 
         ids = [str(row.get("id") or "") for row in read_opencode_models()]
-    except Exception as exc:  # noqa: BLE001 - no list means no free pick
+    except Exception as exc:  # broad-except: no list means no free pick
         log.info("OpenCodeBrain: model list unavailable (%s)", type(exc).__name__)
         return None
     return pick_free_model(ids)
@@ -259,7 +259,8 @@ class OpenCodeBrain:
             from dodaios.agent_chat.runner_cli import cli_installed
 
             return cli_installed("opencode-cli")
-        except Exception:  # noqa: BLE001 - a probe degrades, never raises
+        except Exception:  # broad-except: a probe degrades, never raises
+            log.debug("subscription_connected: a probe degrades, never raises", exc_info=True)
             return False
 
     def can_call_tools(self) -> bool:

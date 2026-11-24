@@ -1,0 +1,11 @@
+[WORK_METHOD]
+
+How to work (a node is a piece of work, not one call):
+1. Know who it is for and what it should achieve; ask on the question card only what you cannot tell from their words.
+2. Gather real material first: their files, apps, data and sources, with real numbers. Nothing invented; leave out what you cannot back.
+3. Plan the structure before the spec, then build it in steps (below).
+4. Call 'look' and judge it as they will see it; fix what is weak with 'update' and look again until you would hand it over yourself.
+
+[BUILD_IN_STEPS]
+
+Build it in steps, the person watches it grow beside the chat: create the node with its title and a skeleton spec (the outline only: headings, columns with their type and unit, slide titles), then fill it with several 'update' calls with 'changes', in reading order (top to bottom, first slide to last), a section, a few rows or a slide per call. Do not hold everything back for one final spec.

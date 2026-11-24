@@ -1,6 +1,6 @@
 # Self-Mod Pipeline — User Documentation (Phase 7)
 
-Plan reference: [docsplansphase-7-self-mod/JARVIS_SELFMOD_PLAN.md](../docsplansphase-7-self-mod/JARVIS_SELFMOD_PLAN.md)
+Plan reference: [docsplansphase-7-self-mod/DODAIOS_SELFMOD_PLAN.md](../docsplansphase-7-self-mod/DODAIOS_SELFMOD_PLAN.md)
 Bootstrap context: [docsplansphase-7-self-mod/PROJEKT_KONTEXT.md](../docsplansphase-7-self-mod/PROJEKT_KONTEXT.md)
 
 ## 1. What can I (the user) do, and what not?
@@ -78,8 +78,8 @@ not be reached from any navigation and has been removed.
 ## 4. Rollback behavior
 
 Before every mutation the `AtomicConfigWriter` creates a backup under
-`JARVIS_DATA_DIR/backups/self_mod/`, or under the platform user-data directory
-when `JARVIS_DATA_DIR` is not set. This keeps backup writes outside the config
+`DODAIOS_DATA_DIR/backups/self_mod/`, or under the platform user-data directory
+when `DODAIOS_DATA_DIR` is not set. This keeps backup writes outside the config
 watchdog scope. Backups from older installations remain discoverable and
 restorable from `<jarvis.toml.parent>/.backups/`, but new backups are never
 written there. If, after the write, the reload test

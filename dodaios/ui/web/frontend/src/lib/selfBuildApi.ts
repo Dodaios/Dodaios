@@ -18,7 +18,12 @@ export type BuildState =
   | "undone"
   | "rejected"
   | "failed";
-export type Autonomy = "off" | "suggest" | "trial" | "full";
+/**
+ * How far a kind goes, fixed in dodaios/self_build/policy.py: `full` is built on
+ * trial and kept or archived by use; `watch` opens nothing new and only watches
+ * what is already open (code changes, for now). There is no setting for it.
+ */
+export type Autonomy = "full" | "watch";
 export type BuildOutcome = "used" | "accepted" | "corrected" | "ignored";
 
 export const BUILD_KINDS: readonly BuildKind[] = ["memory", "skill", "routine", "agent", "code"];
@@ -67,11 +72,10 @@ export interface Build {
 }
 
 export interface SelfBuildStatus {
-  enabled: boolean;
   paused: boolean;
   silent: boolean;
   autonomy: Record<BuildKind, Autonomy>;
-  /** Kinds a builder is registered for; a proposal of another kind cannot be built yet. */
+  /** Kinds something in the app can build. */
   builders: BuildKind[];
 }
 
@@ -101,14 +105,9 @@ export interface BuildDigest {
   items: Build[];
 }
 
+/** The loop's limits: the only part of `[self_build]` the person sets. */
 export interface SelfBuildSettings {
-  enabled: boolean;
   silent_days: number;
-  memory: Autonomy;
-  skill: Autonomy;
-  routine: Autonomy;
-  agent: Autonomy;
-  code: Autonomy;
   trial_days: number;
   trial_uses: number;
   max_builds_per_day: number;
@@ -122,19 +121,11 @@ export interface SelfBuildSettings {
 
 export interface SelfBuildSettingsPayload {
   settings: SelfBuildSettings;
-  levels: Autonomy[];
   bounds: Partial<Record<keyof SelfBuildSettings, { min: number | null; max: number | null }>>;
 }
 
 /** Where a noticed request stands against the repeat threshold (self_build_routes.noticed_payload). */
-export type NoticedStage =
-  | "counting"
-  | "ready"
-  | "direct"
-  | "proposed"
-  | "declined"
-  | "served"
-  | "nothing";
+export type NoticedStage = "counting" | "ready" | "direct" | "declined" | "served" | "nothing";
 
 export interface NoticedNeed {
   id: number;
@@ -145,8 +136,6 @@ export interface NoticedNeed {
   first_ms: number;
   last_ms: number;
   stage: NoticedStage;
-  /** The proposal this need became, when `stage` is "proposed". */
-  build_id: string;
 }
 
 export interface Noticed {
@@ -207,8 +196,6 @@ export const selfBuildApi = {
     call<BuildDetail>(`/${encodeURIComponent(id)}`, { signal }),
   digest: (hours = 24, signal?: AbortSignal) =>
     call<BuildDigest>(`/digest?hours=${hours}`, { signal }),
-  accept: (id: string) => post<{ build: Build }>(`/${encodeURIComponent(id)}/accept`),
-  keep: (id: string) => post<{ build: Build }>(`/${encodeURIComponent(id)}/keep`),
   undo: (id: string, note = "") =>
     post<{ build: Build }>(`/${encodeURIComponent(id)}/undo`, { note }),
   pause: (paused: boolean) => post<SelfBuildStatus>("/pause", { paused }),
@@ -263,13 +250,15 @@ export function reachedStep(build: Build, history?: BuildHistoryEntry[]): number
   return build.trial_started_ms ? 3 : 0;
 }
 
-/** Which shelf of the view a build sits on — what, if anything, it asks of the person. */
-export type Shelf = "waiting" | "trial" | "working" | "kept" | "past";
+/**
+ * Which shelf of the view a build sits on. Nothing waits for the person: a
+ * proposal an older version left behind is archived when the app starts, and
+ * until then it sits with the past.
+ */
+export type Shelf = "trial" | "working" | "kept" | "past";
 
 export function shelfOf(build: Build): Shelf {
   switch (build.state) {
-    case "proposed":
-      return "waiting";
     case "trial":
       return "trial";
     case "building":

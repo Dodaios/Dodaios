@@ -767,7 +767,7 @@ class NodeStore:
                 # node again so it gets the current look.
                 spec = _checked_spec(node.type, _prepared(node.type, node.spec, run_dir))
                 node = self._write(run_dir, replace(node, spec=spec))
-            except Exception:  # noqa: BLE001 — one node's renderer fault must not hide the others
+            except Exception:  # broad-except: one node's renderer fault must not hide the others
                 log.warning("node %s: page not redrawn", node.id, exc_info=True)
         return node
 

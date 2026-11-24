@@ -31,9 +31,12 @@ or an injected synchronous searcher.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final, Literal
+
+log = logging.getLogger(__name__)
 
 SearchResult = dict[str, str]
 SearchStatus = Literal["ok", "empty", "unavailable"]
@@ -70,11 +73,12 @@ async def ddg_instant_search(query: str, max_results: int, client: Any) -> Searc
             params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1},
             follow_redirects=True,
         )
-    except Exception:  # noqa: BLE001 — network / transport error -> unavailable
+    except Exception:  # broad-except: network / transport error -> unavailable
+        log.debug("ddg_instant_search: network / transport error -> unavailable", exc_info=True)
         return SearchOutcome(results=[], backend="ddg_instant", status="unavailable")
     try:
         data = resp.json()
-    except Exception:  # noqa: BLE001 — a 202/empty/non-JSON body is DDG's "I
+    except ValueError:  # a 202/empty/non-JSON body means no instant answer, not a failure
         # have no instant answer" signal: a genuine EMPTY, not a failure.
         data = {}
 
@@ -151,7 +155,7 @@ def _default_ddgs_searcher(query: str, max_results: int) -> list[dict[str, Any]]
         # ``backend`` is the modern multi-engine ddgs surface; the legacy
         # ``duckduckgo_search.text`` below does not accept it.
         text_kwargs["backend"] = _DDGS_BACKENDS
-    except Exception:  # noqa: BLE001 — older package name
+    except Exception:  # broad-except: older package name
         try:
             from duckduckgo_search import DDGS  # type: ignore
         except Exception as exc:  # noqa: BLE001
@@ -177,7 +181,8 @@ async def ddg_serp_search(
     fn = searcher or _default_ddgs_searcher
     try:
         rows = await asyncio.to_thread(fn, query, max_results)
-    except Exception:  # noqa: BLE001 — library missing / rate-limit / parse
+    except Exception:  # broad-except: library missing / rate-limit / parse
+        log.warning("ddg_serp_search: library missing / rate-limit / parse", exc_info=True)
         return SearchOutcome(results=[], backend="ddg_serp", status="unavailable")
     results: list[SearchResult] = [{
         "title": str(row.get("title", "")),
@@ -250,14 +255,15 @@ async def apifare_search(
             },
             json={"q": query, "count": max(1, min(int(max_results), 100))},
         )
-    except Exception:  # noqa: BLE001 — network / transport error -> unavailable
+    except Exception:  # broad-except: network / transport error -> unavailable
+        log.debug("apifare_search: network / transport error -> unavailable", exc_info=True)
         return SearchOutcome(results=[], backend="apifare", status="unavailable")
     status_code = getattr(resp, "status_code", 0)
     if status_code != 200:
         return SearchOutcome(results=[], backend="apifare", status="unavailable")
     try:
         payload = resp.json()
-    except Exception:  # noqa: BLE001 — non-JSON body is not a usable SERP
+    except ValueError:  # a non-JSON body is not a usable SERP
         return SearchOutcome(results=[], backend="apifare", status="unavailable")
     mapped: list[SearchResult] = []
     for item in _apifare_items(payload):

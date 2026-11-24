@@ -231,7 +231,8 @@ def _politeness_fillers() -> frozenset[str]:
         from dodaios.skills.trigger_matcher import _FILLER_WORDS
 
         return frozenset(normalize_text(word) for word in _FILLER_WORDS)
-    except Exception:  # noqa: BLE001 — never let a refactor there break scoring
+    except Exception:  # broad-except: never let a refactor there break scoring
+        log.debug("_politeness_fillers: never let a refactor there break scoring", exc_info=True)
         return frozenset()
 
 
@@ -738,10 +739,10 @@ def _skill_mtime(skill: Any) -> float:
     """
     try:
         return float(skill.path.stat().st_mtime)
-    except Exception:  # noqa: BLE001
+    except (AttributeError, OSError):  # no readable file time: fall back to the recorded mtime
         try:
             return float(getattr(skill, "mtime", 0.0))
-        except Exception:  # noqa: BLE001
+        except (TypeError, ValueError):  # an unusable recorded mtime counts as zero
             return 0.0
 
 
@@ -852,7 +853,8 @@ def _source_skills(registry: Any, include_inactive: bool) -> list[Any]:
         if include_inactive:
             return list(registry.list())
         return list(registry.list_active())
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.warning("_source_skills: failed; carrying on with the fallback", exc_info=True)
         return []
 
 

@@ -106,7 +106,7 @@ async def process(vault: MemoryVault, reviewer: Reviewer) -> int:
         )
         try:
             raw = await reviewer(prompt)
-        except Exception:  # noqa: BLE001 — a provider fault leaves the item queued
+        except Exception:  # broad-except: a provider fault leaves the item queued
             log.warning("memory episodes: reviewer failed", exc_info=True)
             break
         if raw is None:

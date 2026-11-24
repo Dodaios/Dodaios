@@ -141,7 +141,7 @@ async def _post_page_card(session_id: str, title: str, filename: str, *, since: 
             session_id,
             page_card(located.title or title, f"{located.slug}::{located.artifact_path}"),
         )
-    except Exception:  # noqa: BLE001 — the page exists either way; the card is a courtesy
+    except Exception:  # broad-except: the page exists either way; the card is a courtesy
         log.warning("create_artifact: page card not posted", exc_info=True)
         return False
 
@@ -152,20 +152,14 @@ class CreateArtifactTool:
     name: str = "create_artifact"
     risk_tier: str = "monitor"
     description: str = (
-        "Build an ARTIFACT: one self-contained HTML page the user can look at "
-        "and keep — a dashboard, report, infographic, diagram, comparison, "
-        "timeline, chart, landing page or small interactive tool. A strong "
-        "background agent writes the page; it appears in the Nodes "
-        "section when done (about a minute). Use this ONLY when the user "
-        "literally says the word artifact ('mach mir ein Artefakt draus', "
-        "'build me an artifact', 'hazme un artefacto') or pinned this "
-        "capability via the Add menu. Never call it for 'visualisier', "
-        "'Dashboard', 'Diagramm', 'Seite' or 'Bericht' alone, and never to "
-        "decorate an ordinary answer. To change an existing artifact, the "
-        "user names the artifact again and you pass 'revise' with its title "
-        "(or 'latest'). This does NOT open the Nodes section — that "
-        "is 'navigate'. Prefer this over spawn_worker whenever the "
-        "deliverable is a page to look at."
+        "Build an ARTIFACT: one self-contained HTML page the user can look at and keep "
+        "(dashboard, report, infographic, diagram, comparison, timeline, chart, landing page, "
+        "small tool). A background agent writes it; it appears in the Nodes section in about a "
+        "minute. Use ONLY when the user literally says 'artifact' ('build me an artifact', "
+        "'mach mir ein Artefakt daraus') or pinned this via the Add menu; never for "
+        "'dashboard', 'diagram', 'page' or 'report' alone. To change one, pass 'revise' with "
+        "its title (or 'latest'). Does not open the Nodes section (that is 'navigate'). Prefer "
+        "it over spawn_worker when the deliverable is a page."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -347,7 +341,7 @@ class CreateArtifactTool:
                     target=brief.title,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — see comment above
+        except Exception as exc:  # broad-except: see comment above
             log.warning("create_artifact announce failed error=%s", exc)
 
         # The job exists before the mission does; its id goes into the result.
@@ -390,7 +384,7 @@ class CreateArtifactTool:
                         source_layer="brain.tool.create_artifact",
                     )
                 )
-            except Exception as exc:  # noqa: BLE001 — see comment above
+            except Exception as exc:  # broad-except: see comment above
                 log.warning("create_artifact navigate failed error=%s", exc)
 
         ack = (str(args.get("spoken_ack") or "").strip()) or action_phrase(
@@ -427,7 +421,7 @@ class CreateArtifactTool:
         if self._tools_resolver is not None:
             try:
                 tools = self._tools_resolver() or {}
-            except Exception as exc:  # noqa: BLE001 — a broken resolver reads as "no tools"
+            except Exception as exc:  # broad-except: a broken resolver reads as "no tools"
                 log.warning("create_artifact: tools resolver failed: %s", exc)
                 tools = {}
         if self._executor is None or not tools:
@@ -512,7 +506,7 @@ class CreateArtifactTool:
             log.info("create_artifact background dispatch cancelled (app shutdown)")
             mission_jobs.interrupted(job_id, "The dispatch was cancelled.")
             raise
-        except BaseException as exc:  # noqa: BLE001 — fire-and-forget task, see docstring
+        except BaseException as exc:  # broad-except: fire-and-forget task, see docstring
             log.exception("create_artifact background dispatch crashed")
             mission_jobs.failed(job_id, f"{type(exc).__name__}: {exc}")
             if not background:
@@ -529,7 +523,7 @@ class CreateArtifactTool:
                     duration_s=0.0,
                 )
             )
-        except Exception:  # noqa: BLE001 — dead bus at shutdown; leave a trace
+        except Exception:  # broad-except: dead bus at shutdown; leave a trace
             log.exception("create_artifact failure publish crashed")
 
 

@@ -483,6 +483,8 @@ tests/unit/sessions/test_chat_titles.py
 
 # --- Lead routing golden set: simulated bilingual user requests are the data under test ---
 tests/fixtures/lead_routing/*
+# ... and the copy the benchmark ships of it (generated from those files, pinned by a test)
+dodaios/rsi/bench/seed/first_move.json
 
 # --- Brief quality golden set: dictated German requests are the data under test ---
 tests/fixtures/brief_quality/*
@@ -500,3 +502,7 @@ tests/unit/life_admin/*
 
 # --- Stargazer map gazetteer: place names and their local spellings (data, not prose) ---
 .github/stargazer-map/gazetteer.json
+
+# --- Model-text snapshots: verbatim copies of tool schemas whose examples are German on purpose ---
+tests/snapshots/model_texts/lead_tool_descriptions.txt
+tests/snapshots/model_texts/lead_tool_schemas.txt

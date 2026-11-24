@@ -48,7 +48,7 @@ _GMAIL_BODY_CHAR_CAP = 20_000
 def _decode_b64url(data: str) -> str:
     try:
         return base64.urlsafe_b64decode(data.encode("ascii")).decode("utf-8", "replace")
-    except Exception:  # noqa: BLE001
+    except (ValueError, AttributeError):  # an undecodable body part reads as empty
         return ""
 
 
@@ -177,17 +177,13 @@ class GmailRestTool:
     name: str = "gmail"
     risk_tier: str = "ask"
     description: str = (
-        "Read, send, organize and delete email in the user's connected Gmail "
-        "inbox. Use for 'check my mail', 'any new emails from X', 'read the last "
-        "mail', 'send an email to X', 'archive that', 'mark it read', 'move it to "
-        "trash', 'delete it permanently'. Actions: list_messages (search the "
-        "inbox), get_message (read one by id), send_message (compose + send), "
-        "modify_message (add/remove labels by id — archive = remove 'INBOX', "
-        "mark read = remove 'UNREAD', star = add 'STARRED'), trash_message (move "
-        "to Trash, reversible), delete_message (permanent, irreversible). "
-        "Every message in a result carries `url`, where it opens in Gmail: link the "
-        "mail you sent or name with it. "
-        "Requires the Gmail plugin to be connected in the Plugins view."
+        "Read, send, organize and delete email in the user's connected Gmail ('check my mail', "
+        "'mail from X', 'send an email to X', 'archive that', 'delete it permanently'). "
+        "Actions: list_messages (search), get_message (by id), send_message, modify_message "
+        "(labels by id: archive = remove INBOX, mark read = remove UNREAD, star = add "
+        "STARRED), trash_message (reversible), delete_message (permanent). Results carry `url` "
+        "(where the mail opens in Gmail): link the mail you sent or name. Needs the Gmail "
+        "plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -284,7 +280,8 @@ class GmailRestTool:
                 refreshed = bool(await _default_refresher(observed_token))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
+            log.warning("_with_auth_retry: refresher must never crash the tool", exc_info=True)
             refreshed = False
         if not refreshed:
             return {"error": _NEEDS_RECONNECT}
@@ -371,7 +368,7 @@ class GmailRestTool:
                 profile = await self._with_auth_retry(
                     lambda headers: self._get("/profile", {}, headers)
                 )
-            except Exception as exc:  # noqa: BLE001 - a link without the account still opens Gmail
+            except Exception as exc:  # broad-except: a link without the account still opens Gmail
                 log.debug("Gmail profile lookup failed: %s", type(exc).__name__)
                 profile = {}
             address = profile.get("emailAddress") if isinstance(profile, dict) else None
@@ -462,7 +459,8 @@ class GmailRestTool:
                 out = await self.delete_message(message_id=mid)
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         if isinstance(out, dict) and out.get("error"):

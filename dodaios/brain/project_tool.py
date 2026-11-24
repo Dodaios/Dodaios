@@ -54,17 +54,15 @@ class ProjectTool:
     risk_tier = "monitor"
     is_action_tool = False
     description = (
-        "Long-horizon projects: use when the owner asks for multi-step or multi-day work. "
-        "actions: create (title, goal, criteria[] = how we know it is met, subgoals[] with id, "
-        "title, owner, depends_on, evidence), plan (project_id + subgoals[] to add or edit "
-        "pending ones, drop[] to skip, criteria[]), link (project_id, subgoal_id, job_id: "
-        "attach the job you started for a ready sub-goal), note, status (project_id: refreshes "
-        "from the jobs ledger and says which sub-goals are ready; without project_id lists "
-        "open projects), pause, resume, close (outcome complete: only when every sub-goal is "
-        "done and an independent check says the criteria are met, else it tells what is "
-        "missing; outcome abandon asks the owner first). Sub-goals are started with the usual "
-        "tools (delegate_to_agent, workspace-orchestrate, team_thread): link their job_id. "
-        "You cannot mark a sub-goal done: only job evidence can."
+        "Long-horizon projects, for multi-step or multi-day work. actions: create (title, "
+        "goal, criteria[], subgoals[] with id, title, owner, depends_on, evidence), plan "
+        "(project_id + subgoals[] to add or edit pending ones, drop[], criteria[]), link "
+        "(project_id, subgoal_id, job_id of the job you started for it), note, status "
+        "(refreshes from the jobs ledger and names ready sub-goals; without project_id lists "
+        "open projects), pause, resume, close (complete only when every sub-goal is done "
+        "and an independent check meets the criteria; abandon asks the owner first). Start "
+        "sub-goals with delegate_to_agent, workspace-orchestrate or team_thread and link "
+        "the job_id. Only job evidence marks a sub-goal done."
     )
     schema: dict[str, Any] = {
         "type": "object",

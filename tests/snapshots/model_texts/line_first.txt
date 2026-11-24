@@ -1,0 +1,2 @@
+
+If this needs a tool: first write one short line that takes the task on and repeats its concrete details, as a message of its own, then call the tool in the same step. The result follows as the next message; what comes below about the reply is about that result.

@@ -57,7 +57,7 @@ def current_process_identity() -> tuple[int, int]:
     if _current_identity is None or _current_identity[0] != pid:
         try:
             start_ms = _process_start_ms(pid) or 0
-        except Exception as exc:  # noqa: BLE001 - our own pid always exists; stay best-effort
+        except Exception as exc:  # broad-except: our own pid always exists; stay best-effort
             log.debug("mission ownership: own start time unavailable: %s", exc)
             start_ms = 0
         _current_identity = (pid, start_ms)
@@ -85,7 +85,7 @@ def owner_is_alive(pid: int, start_ms: int) -> bool | None:
         actual_start = _process_start_ms(pid)
     except psutil.NoSuchProcess:  # the owner process is gone: that is the answer
         return False
-    except Exception as exc:  # noqa: BLE001 - an unreadable owner must count as "unknown", not "dead"
+    except Exception as exc:  # broad-except: an unreadable owner must count as "unknown", not
         log.debug("mission ownership: liveness of pid %s unknown: %s", pid, exc)
         return None
     if actual_start is None:

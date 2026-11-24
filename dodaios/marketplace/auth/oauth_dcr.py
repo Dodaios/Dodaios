@@ -456,7 +456,7 @@ class HostedMcpDcrHandler:
         if pending is not None:
             try:
                 await pending.callback_server.stop()
-            except Exception:  # noqa: BLE001 — cancel stays best-effort
+            except Exception:  # broad-except: cancel stays best-effort
                 log.debug("dcr cancel stop failed for %s", self.plugin_id)
 
     async def _exchange(self, pending: _PendingFlow, *, code: str) -> Tokens:

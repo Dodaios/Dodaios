@@ -75,7 +75,8 @@ def _lang(args: dict[str, Any], ctx: Any) -> str:
             from dodaios.voice.action_phrases import resolve_ambient_language
 
             value = resolve_ambient_language()
-        except Exception:  # noqa: BLE001 — a spoken fallback beats a crash on the voice path
+        except Exception:  # broad-except: a spoken fallback beats a crash on the voice path
+            log.debug("_lang: a spoken fallback beats a crash on the voice path", exc_info=True)
             value = "en"
     return value if value in _ACK else "en"
 
@@ -86,55 +87,43 @@ class DelegateToAgentTool:
     name: str = "delegate_to_agent"
     risk_tier: str = "monitor"
     description: str = (
-        "Hand a task to one of the user's named agents (their agent society, listed on your "
-        "team card): 'let Scout research X', 'Mailbox, answer the invoice mail', 'give that "
-        "to the team'. Use when a background task fits the persistent team; leave `agent` "
-        "empty to let the lead pick the agent whose hands fit the task. The agent works in "
-        "the background; you acknowledge now and its result follows reply_policy. "
-        "Stay available for conversation while it runs; completion is delivered asynchronously. "
-        "Never for inventory/status questions or tasks the user wants done right here. "
-        "Not for coding panes in the Agentic IDE (T1, or a named Claude Code / Codex "
-        "session): those go through workspace-orchestrate. Pass the agent's name as heard; "
-        "the app matches misheard names and, when unsure, returns needs_clarification with "
-        "a question to ask before calling again. "
-        "Turn the user's intent into an actionable brief: objective, known target, relevant "
-        "context, scope, constraints and completion evidence. Do not merely paraphrase or "
-        "invent facts. Include context and completion_criteria so the agent can act independently. "
-        "Select reply_policy=always for requested findings, on_error for work without a "
-        "requested success report, none only for explicit silence. Report the acknowledgement "
-        "and state exactly. Keep the "
-        "returned assignment_id and trace_id for society_status; never speak those ids."
+        "Hand a task to one of the user's named agents (their society, on your team card): "
+        "'let Scout research X', 'give that to the team'. Leave `agent` empty to let the "
+        "lead pick the best fit; pass a name as heard (misheard names are matched, "
+        "unsure ones return needs_clarification: ask first). It works in the background; "
+        "acknowledge now, the result follows reply_policy (always for requested findings, "
+        "on_error for work without a requested report, none only for explicit silence). "
+        "Not for status questions, tasks to do right here, or coding panes in the "
+        "Agentic IDE (workspace-orchestrate). Write an actionable brief with context and "
+        "completion_criteria; do not just paraphrase or invent facts. Keep the "
+        "assignment_id and trace_id for society_status; never speak them."
     )
     schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "agent": {
                 "type": "string",
-                "description": (
-                    "The agent's name as the user said it; empty when the user did not "
-                    "name one (the best-fitting agent is picked from the task)."
-                ),
+                "description": "The agent's name as the user said it; empty to pick the best fit.",
             },
             "task": {
                 "type": "string",
                 "description": (
-                    "An actionable objective and scope faithful to the user's intent, "
-                    "not just a paraphrase. " + AGENT_BRIEF_RULE
+                    AGENT_BRIEF_RULE
                 ),
             },
             "reply_policy": REPLY_POLICY_SCHEMA,
             "context": {
                 "type": "string",
-                "description": "Relevant prior decisions, constraints and facts; omit secrets.",
+                "description": "Prior decisions, constraints, facts; no secrets.",
             },
             "completion_criteria": {
                 "type": "string",
-                "description": "Required output and the evidence needed to establish completion.",
+                "description": "The output required and the evidence that proves it.",
             },
             "refs": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Relevant file, wiki or conversation references.",
+                "description": "File, wiki or conversation references.",
             },
         },
         "required": ["task"],
@@ -271,7 +260,7 @@ class DelegateToAgentTool:
                         return None
                 else:
                     await runtime.ensure_started()
-        except Exception:  # noqa: BLE001 — a missing society is a spoken "not ready"
+        except Exception:  # broad-except: a missing society is a spoken "not ready"
             log.warning("delegate_to_agent: society runtime unavailable", exc_info=True)
             return None
         return runtime
@@ -439,20 +428,14 @@ class SocietyStatusTool:
     risk_tier: str = "safe"
     description: str = (
         "Answer 'what is <agent> doing?', 'is Scout done?', 'who is on the team?' from the "
-        "agent society's board. Read-only. By default it returns a summary: one line per "
-        "agent (id, name, seat, busy or idle, state of its last result), small enough to "
-        "read in full. Go deeper only when you need to: mode=agent (with agent) gives one "
-        "agent's responsibilities, capabilities, state and recorded activity/cost statistics "
-        "(observations, not quality scores; details=true with agent is the same); "
-        "mode=assignment (with assignment_id) gives one assignment with its task and result; "
-        "mode=events pages through the recorded events, newest first (agent optional; pass "
-        "the returned next_cursor as cursor for older ones). Pass the agent's name for a "
-        "one-sentence status. Set board=true for one short row per agent: working or idle, "
-        "and its newest note. If prior tool ids are no longer in context, use agent + "
-        "latest_assignment=true to retrieve the newest assignment you sent that agent from "
-        "the stored board, including its task and result. This means newest assignment, "
-        "not an arbitrary recent event. If 'that task' could mean an older task or several "
-        "agents, clarify the agent/task first."
+        "agent society's board. Read-only. Default: a summary, one line per agent (id, name, "
+        "seat, busy or idle, last result state). mode=agent (with agent): one agent's "
+        "responsibilities, capabilities, state and activity/cost statistics; mode=assignment "
+        "(with assignment_id): one assignment with task and result; mode=events: recorded "
+        "events, newest first (agent optional; pass next_cursor as cursor for older ones). "
+        "board=true: one short row per agent with its newest note. If prior tool ids are gone, "
+        "agent + latest_assignment=true returns the newest assignment you sent that agent; if "
+        "'that task' could mean several, clarify first."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -515,7 +498,7 @@ class SocietyStatusTool:
                         runtime = None
                 else:
                     await runtime.ensure_started()
-        except Exception:  # noqa: BLE001 — see DelegateToAgentTool._runtime
+        except Exception:  # broad-except: see DelegateToAgentTool._runtime
             log.warning("society_status: runtime resolver failed", exc_info=True)
             runtime = None
         if runtime is None:

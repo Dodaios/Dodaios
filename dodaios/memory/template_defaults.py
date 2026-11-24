@@ -48,7 +48,7 @@ def computer_follows(zone_name: str) -> bool | None:
         from zoneinfo import ZoneInfo
 
         zone = ZoneInfo(zone_name)
-    except Exception:  # noqa: BLE001 - no tzdata or an unknown zone: cannot tell
+    except (ImportError, KeyError, ValueError, OSError):  # no tzdata or unknown zone
         return None
     start = time.time()
     for i in range(_SAMPLES):

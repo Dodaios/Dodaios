@@ -47,7 +47,7 @@ def _resolve_linux_prctl() -> Callable[..., int] | None:
     try:
         libc = ctypes.CDLL(None, use_errno=True)  # noqa: SIM115 - not a file handle
         return libc.prctl  # type: ignore[no-any-return]
-    except Exception:  # noqa: BLE001 - discovery must never break a worker spawn
+    except (OSError, AttributeError, TypeError):  # no libc prctl on this platform
         return None
 
 
@@ -80,7 +80,7 @@ def _linux_pdeathsig_preexec_fn(prctl: Callable[..., int]) -> Callable[[], None]
     def _preexec() -> None:
         try:
             prctl(_PR_SET_PDEATHSIG, _SIGKILL)
-        except Exception:  # noqa: BLE001, S110 - must never abort the spawn
+        except Exception:  # broad-except: must never abort the spawn; no logging between fork and
             pass
 
     return _preexec

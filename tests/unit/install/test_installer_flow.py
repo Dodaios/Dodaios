@@ -1,5 +1,6 @@
 """Installer flow: no wizard, explanatory steps, launch is the LAST action."""
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -432,7 +433,8 @@ def test_linux_gui_gets_full_profile_and_app_menu_registration(
     assert rc == 0
     assert ".[full]" in out
     assert "repair desktop-shell registration" in out
-    assert 'app menu -> "Dodaios"' in out
+    # The arrow is the terminal's: "→", or "->" where only ASCII shows.
+    assert re.search(r'App menu (→|->) "Dodaios"', out)
 
 
 def test_update_summary_promises_no_reonboarding(monkeypatch, capsys, tmp_path) -> None:

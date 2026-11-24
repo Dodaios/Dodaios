@@ -251,7 +251,7 @@ export function ThreadView({ onScreen, column }: {
     if (column) return;
     const rows: SubagentRow[] = agents.map((entry) => ({
       id: entry.id, parentId: entry.parentId, depth: entry.depth, title: entry.title,
-      agentType: entry.agentType, status: entry.status, waiting: entry.waiting,
+      agentType: entry.agentType, model: entry.model, status: entry.status, waiting: entry.waiting,
     }));
     useThreadSubagentsStore.getState().publish(selection.team ? null : selection.sessionId, rows);
   }, [agents, selection.sessionId, selection.team, column]);
@@ -353,6 +353,7 @@ export function ThreadView({ onScreen, column }: {
         <div ref={composerBox} className="selection-text-only pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[length:calc(100%-1.5rem)] to-transparent px-5 pb-4 pt-6">
           <div className="selection-text-only pointer-events-auto">
             <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen}
+              subagentModel={agent?.model ?? ""}
               tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />
           </div>
         </div>

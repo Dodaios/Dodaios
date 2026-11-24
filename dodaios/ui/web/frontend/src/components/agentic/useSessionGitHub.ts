@@ -25,6 +25,8 @@ export interface SessionGitHubStatus {
   deletions?: number;
   /** The session's other branches, newest first. Absent from an older backend. */
   others?: SessionGitHubStatus[];
+  /** Branches of the session beyond the ones read; the count is then "N+". */
+  more?: number;
 }
 
 export type SessionCiState = CiStatus["state"] | "cancelled" | "neutral" | "skipped"

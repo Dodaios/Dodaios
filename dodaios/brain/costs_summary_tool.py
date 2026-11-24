@@ -134,12 +134,11 @@ class CostsSummaryTool:
     risk_tier = "safe"
     is_action_tool = False
     description = (
-        "What the app spent: today and this week (local days), with the cost and tokens per "
-        "agent (the lead included), per provider seat and per model, how much a subscription "
-        "covered, and the seats that are in trouble right now (usage limit, login rejected) "
-        "with the headroom left in each subscription window. Use it for 'what did that cost', "
-        "'how much did the agents use today' and to check a seat has room before you delegate "
-        "a long job. Read-only. For a longer range or line items open the Spend & Tokens "
+        "What the app spent today and this week (local days): cost and tokens per agent (the "
+        "lead included), provider seat and model, what a subscription covered, and seats in "
+        "trouble now (usage limit, login rejected) with the headroom left per subscription "
+        "window. For 'what did that cost', 'how much did the agents use today', and to check a "
+        "seat has room before a long job. Read-only. For longer ranges open the Spend & Tokens "
         "section (navigate costs)."
     )
     schema: dict[str, Any] = {

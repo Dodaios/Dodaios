@@ -547,15 +547,6 @@
     "step_progress": "Step {done} of {total} done."
   },
   "self_build": {
-    "proposal": {
-      "memory": "Remember what you keep correcting: \"{request}\".",
-      "skill": "A skill for what you keep asking: \"{request}\".",
-      "routine": "A routine that does this before you ask: \"{request}\".",
-      "agent": "A specialised agent for the work behind \"{request}\"."
-    },
-    "case": {
-      "counted": "Asked {count} times on {days} different days."
-    },
     "code": {
       "title": "Fix issue #{number} in {repo}: {title}",
       "case": "Issue #{number} in {repo} looks right for an unattended agent ({signal}). A coding agent would work on it on your subscription while you are away, in its own worktree and branch, and run the tests ({tests}). The result is a pull request that closes the issue, a draft unless you let this repository land on its own. {url}"

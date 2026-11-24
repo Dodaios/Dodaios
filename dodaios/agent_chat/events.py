@@ -58,7 +58,8 @@ Kinds (``payload`` keys in brackets):
                         ``agent_id`` is the spawning tool call's id
 ``subagent_progress``  [turn_id, agent_id, activity, last_tool, tokens?, tool_uses?,
                         duration_ms?, model?] — live only: what the sub-agent is doing
-                        now; ``model`` is the model its own messages report
+                        now; ``model`` is the model its own messages report. A line that
+                        carries only ``model`` is stored (:func:`is_model_report`)
 ``subagent_finished``  [turn_id, agent_id, status, summary?, tokens?, tool_uses?,
                         duration_ms?]   status: done | failed | stopped
 ``background_wait``    [turn_id, tasks] — the agent ended its message but the CLI
@@ -243,8 +244,22 @@ def person_words(events: list[dict[str, Any]]) -> list[dict[str, str]]:
     return out
 
 
+def is_model_report(event: dict[str, Any]) -> bool:
+    """A ``subagent_progress`` that only names the model the sub-agent runs on.
+
+    It is sent once per model, so it is cheap to keep, and it is the only place
+    the model is said: without it a reloaded thread shows no model on its cards.
+    """
+    if event.get("kind") != "subagent_progress":
+        return False
+    payload = event.get("payload") or {}
+    return bool(payload.get("model")) and not (
+        payload.get("activity") or payload.get("last_tool")
+    )
+
+
 def is_transient(event: dict[str, Any]) -> bool:
-    return event.get("kind") in TRANSIENT_KINDS
+    return event.get("kind") in TRANSIENT_KINDS and not is_model_report(event)
 
 
 #: Notice kinds that only record background work (see :func:`is_background_notice`).

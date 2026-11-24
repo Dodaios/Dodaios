@@ -173,7 +173,7 @@ def changed(
             session_id=author.session_id,
         )
         _publish(event)
-    except Exception:  # noqa: BLE001 - the node is written; a missed event is caught up by polling
+    except Exception:  # broad-except: the node is written; a missed event is caught up by polling
         log.warning("node %s: change not announced", getattr(node, "id", "?"), exc_info=True)
 
 
@@ -221,7 +221,7 @@ def _assistant_name() -> str:
         from dodaios.society.display_name import lead_display_name
 
         return lead_display_name()
-    except Exception:  # noqa: BLE001 - the app shows its own name for the assistant then
+    except Exception:  # broad-except: the app shows its own name for the assistant then
         log.debug("node live: assistant name unresolved", exc_info=True)
         return ""
 
@@ -264,7 +264,7 @@ async def author_for(session_id: str) -> Author:
             id=f"thread:{session_id}",
             session_id=session_id,
         )
-    except Exception:  # noqa: BLE001 - an unreadable session is shown as the assistant
+    except Exception:  # broad-except: an unreadable session is shown as the assistant
         log.debug("node live: author of %s unresolved", session_id, exc_info=True)
         return lead
 

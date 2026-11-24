@@ -293,7 +293,7 @@ def _cron_is_valid(cron: str) -> bool:
         from croniter import croniter  # type: ignore
 
         return bool(croniter.is_valid(cron))
-    except Exception:  # noqa: BLE001 — croniter optional; superficial check stands
+    except (ImportError, ValueError, TypeError):  # croniter optional; superficial check stands
         return True
 
 
@@ -519,7 +519,7 @@ def build_authoring_context(
             tools.append((str(name), desc))
             if len(tools) >= _MAX_TOOLS_IN_PROMPT:
                 break
-    except Exception:  # noqa: BLE001 — a broken tool object costs one line, not the draft
+    except Exception:  # broad-except: a broken tool object costs one line, not the draft
         _LOG.debug("authoring context: tool inventory unreadable", exc_info=True)
     skills: list[tuple[str, str]] = []
     try:
