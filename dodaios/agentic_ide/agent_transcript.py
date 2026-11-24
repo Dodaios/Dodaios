@@ -979,11 +979,16 @@ def _claude_events(session_id: str, home: Path | None, live: bool) -> list[dict[
     path = _claude_file(session_id, home)
     if path is None:
         return None
+    return _claude_log(path, live)
+
+
+def _claude_log(path: Path, live: bool, *, sidechain: bool = False) -> _EventLog:
+    """One Claude Code record as events; ``sidechain`` reads a sub-agent's own file."""
     log = _EventLog(provider="claude", live=live)
     for row in _rows(path):
         # A sidechain is a sub-agent's own conversation, filed in the same
         # record; it is not what this pane said.
-        if row.get("isSidechain"):
+        if bool(row.get("isSidechain")) != sidechain:
             continue
         kind = str(row.get("type") or "")
         if kind == "permission-mode":
@@ -1274,6 +1279,59 @@ def stamp(agent: str, session_id: str, *, home: Path | None = None) -> tuple[int
         # Unreadable for a moment (the CLI is rotating it): reading it decides.
         return None
     return info.st_size, info.st_mtime_ns
+
+
+def _claude_subagent_files(session_id: str, home: Path | None) -> list[Path]:
+    """Claude Code files each sub-agent's own record beside the session's:
+    ``<project>/<session-id>/subagents/agent-<id>.jsonl``."""
+    projects = agent_sessions._claude_home(home) / "projects"
+    if not projects.is_dir():
+        return []
+    return sorted(projects.glob(f"*/{session_id}/subagents/*.jsonl"))
+
+
+def subagent_stamp(
+    agent: str, session_id: str, *, home: Path | None = None
+) -> tuple[int, int, int] | None:
+    """Count, total size and newest modification time of a session's sub-agent records.
+
+    ``None`` for a CLI that keeps no sub-agent records this module reads, or
+    when a file vanished mid-look. A session without sub-agents is ``(0, 0, 0)``.
+    """
+    session = str(session_id or "").strip()
+    if _agent_key(agent) != "claude" or not session:
+        return None
+    try:
+        infos = [path.stat() for path in _claude_subagent_files(session, home)]
+    except OSError:
+        return None
+    return (
+        len(infos),
+        sum(info.st_size for info in infos),
+        max((info.st_mtime_ns for info in infos), default=0),
+    )
+
+
+def read_subagent_events(
+    agent: str, session_id: str, *, home: Path | None = None
+) -> list[dict[str, Any]] | None:
+    """The tool events of every sub-agent a session spawned, oldest first.
+
+    A lead that delegates its work leaves the commands in the sub-agents' own
+    records, not in its own. ``None`` when a record cannot be read right now.
+    """
+    session = str(session_id or "").strip()
+    if _agent_key(agent) != "claude" or not session:
+        return []
+    events: list[dict[str, Any]] = []
+    try:
+        for path in _claude_subagent_files(session, home):
+            events.extend(_claude_log(path, False, sidechain=True).events)
+    except OSError as exc:
+        logger.warning("Agent transcript: sub-agents of {} unreadable: {}", session, exc)
+        return None
+    events.sort(key=lambda event: event.get("ts_ms") or 0)
+    return events
 
 
 def read_events(
@@ -2081,6 +2139,8 @@ __all__ = [
     "can_read",
     "read",
     "read_events",
+    "read_subagent_events",
     "read_timeline",
     "stamp",
+    "subagent_stamp",
 ]

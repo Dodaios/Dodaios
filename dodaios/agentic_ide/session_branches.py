@@ -134,6 +134,15 @@ def _lex(text: str) -> list[str] | None:
         return None
 
 
+def _is_landing(args: list[str]) -> bool:
+    """Is this ``python scripts/agent_land.py``, however the interpreter is spelled?"""
+    return (
+        len(args) >= 2
+        and re.fullmatch(r"(?:.*[\\/])?(?:python[\d.]*|py)(?:\.exe)?", args[0], re.I) is not None
+        and re.search(r"(?:^|[\\/])agent_land\.py$", args[1]) is not None
+    )
+
+
 def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
     """Every literal ``git`` call: its folder, its arguments, the chain's length."""
     words = _lex(command)
@@ -161,6 +170,10 @@ def _git_calls(command: str, folder: str) -> list[tuple[Path, list[str], int]]:
             continue
         if args[0].lower() in {"cd", "set-location", "pushd"} and len(args) == 2:
             cwd = _enter(cwd, args[1])
+            continue
+        if _is_landing(args):
+            # The landing script rebases and pushes the checkout it runs in.
+            calls.append((cwd, ["push"], len(segments)))
             continue
         if args[0] not in {"git", "git.exe"}:
             continue
@@ -379,6 +392,8 @@ class _Evidence:
     # The record's size and modification time when it was read; None when the
     # record is not one file whose growth can be seen.
     stamp: tuple[int, int] | None
+    # The same for the sub-agent records filed beside it; None when there are none to see.
+    substamp: tuple[int, int, int] | None
     candidates: list[CreatedBranch]
     worked: list[tuple[str, float]]
 
@@ -466,7 +481,13 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
     # seconds once it is tens of megabytes, and a session waiting for its next
     # prompt, in a tab nobody is looking at, adds nothing to it.
     stamp = agent_transcript.stamp(record.agent, record.session_id, home=record.home)
-    if cached is not None and stamp is not None and stamp == cached.stamp:
+    substamp = agent_transcript.subagent_stamp(record.agent, record.session_id, home=record.home)
+    if (
+        cached is not None
+        and stamp is not None
+        and stamp == cached.stamp
+        and substamp == cached.substamp
+    ):
         cached.used_at = now
         return cached.candidates, cached.worked
     events = agent_transcript.read_events(record.agent, record.session_id, home=record.home)
@@ -474,12 +495,21 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
         # Not read (locked, being rotated): that is no evidence about the
         # record, so it is not kept beyond the short window either.
         events, stamp = [], None
+    # A lead that hands its Git work to sub-agents has none of it in its own
+    # record; their records belong to this thread all the same.
+    delegated = agent_transcript.read_subagent_events(
+        record.agent, record.session_id, home=record.home
+    )
+    if delegated is None:
+        stamp = None
+    elif delegated:
+        events = sorted([*events, *delegated], key=lambda event: event.get("ts_ms") or 0)
     candidates = created_branches(
         events, record.folder, not_before=record.started_at, unconfirmed=True
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
     with _cache_lock:
-        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
+        _cache[key] = _Evidence(now, now, stamp, substamp, candidates, worked)
         for expired in [key for key, entry in _cache.items() if now - entry.used_at > 1800]:
             del _cache[expired]
     return candidates, worked
@@ -511,7 +541,7 @@ def _own_evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[t
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
     with _cache_lock:
-        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
+        _cache[key] = _Evidence(now, now, stamp, None, candidates, worked)
     return candidates, worked
 
 
