@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
-from dodaios.live.config import LiveConfig
 from dodaios.live.coordination import NAMED_TOOLS
 from dodaios.live.session import LiveVoiceSession
 from dodaios.live.state import LiveLedger, TranscriptFragment

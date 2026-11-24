@@ -444,7 +444,7 @@ class _EnvCapturingManager(_FakeHarnessManager):
 
 
 async def test_tool_threads_output_language_into_harness_env() -> None:
-    from dodaios.harness.screenshot_only_loop import _OUTPUT_LANGUAGE_ENV_KEY
+    from dodaios.cu.engine import _OUTPUT_LANGUAGE_ENV_KEY
     from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     bus = _FakeBus()

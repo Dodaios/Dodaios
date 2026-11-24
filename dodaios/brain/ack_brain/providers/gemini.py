@@ -11,7 +11,7 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
-from dodaios.brain.ack_brain.config import GeminiAckProviderConfig
+from dodaios.core.ack_brain_config import GeminiAckProviderConfig
 from dodaios.core import config as cfg
 
 log = logging.getLogger(__name__)

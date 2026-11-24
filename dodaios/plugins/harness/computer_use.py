@@ -99,8 +99,8 @@ def _resolve_run_cu_loop():
             sys.platform,
         )
         engine = "v2"
-    # One engine, one import. The frozen loop (screenshot_only_loop.py) is
-    # deliberately NOT reachable from here: every value above normalizes to v2,
+    # One engine, one import. The legacy loop (screenshot_only_loop.py) was
+    # deleted; nothing but v2 is reachable from here: every value above normalizes to v2,
     # so a branch per engine would be code that can never run while reading as
     # if the choice were live. Its former _stable / _june13 snapshots are in the
     # git history only.

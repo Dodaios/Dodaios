@@ -18,7 +18,7 @@ import json
 import logging
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from dodaios.core.protocols import HarnessTask
 from dodaios.core.review.errors import (
@@ -31,7 +31,9 @@ from dodaios.core.review.io import RunDirectory
 from dodaios.core.review.prompts import build_reviewer_prompt, build_worker_prompt
 from dodaios.core.review.state import RunState
 from dodaios.core.review.verdict import ReviewVerdict
-from dodaios.harness.manager import HarnessManager
+
+if TYPE_CHECKING:
+    from dodaios.harness.manager import HarnessManager
 
 _LOG = logging.getLogger(__name__)
 

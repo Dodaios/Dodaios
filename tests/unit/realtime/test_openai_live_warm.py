@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 
 
 @pytest.mark.asyncio
