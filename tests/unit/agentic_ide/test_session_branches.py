@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 
-from dodaios.agentic_ide import agent_transcript
+from dodaios.agentic_ide import agent_transcript, claude_subagents
 from dodaios.agentic_ide import session_branches as branches
 
 
@@ -652,8 +652,12 @@ def test_a_thread_record_is_read_again_once_it_grows(repository, monkeypatch):
     started = time.time()
     _git(repository, "branch", "grok/topic")
     log.extend(
-        timed("git switch -c grok/topic", "Switched to a new branch 'grok/topic'",
-              started=started - 1, ended=time.time() + 1)
+        timed(
+            "git switch -c grok/topic",
+            "Switched to a new branch 'grok/topic'",
+            started=started - 1,
+            ended=time.time() + 1,
+        )
     )
     branches._cache.clear()
 
@@ -661,3 +665,128 @@ def test_a_thread_record_is_read_again_once_it_grows(repository, monkeypatch):
 
     assert owned is not None and owned.branch == "grok/topic"
     assert calls == [0, 2]
+
+
+def _claude_rows(*calls):
+    """Claude Code rows for shell calls: (id, command, output) each."""
+    rows = []
+    for index, (identity, command, output) in enumerate(calls):
+        stamp = f"2030-01-01T00:00:{index * 2:02d}Z"
+        rows.append(
+            {
+                "type": "assistant",
+                "timestamp": stamp,
+                "uuid": f"a{identity}",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": identity,
+                            "name": "Bash",
+                            "input": {"command": command},
+                        }
+                    ],
+                },
+            }
+        )
+        rows.append(
+            {
+                "type": "user",
+                "timestamp": f"2030-01-01T00:00:{index * 2 + 1:02d}Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": identity, "content": output}
+                    ],
+                },
+            }
+        )
+    return rows
+
+
+def _write_rows(path, rows, sidechain=False):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(json.dumps({**row, "isSidechain": sidechain}) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_lead_that_delegates_git_work_lists_its_subagents_branches(repository, tmp_path):
+    home = tmp_path / "claude-home"
+    project = home / "projects" / "proj"
+    _write_rows(
+        project / "session.jsonl",
+        _claude_rows(("lead1", "echo hello", "hello")),
+    )
+    _write_rows(
+        project / "session" / "subagents" / "agent-a1.jsonl",
+        _claude_rows(
+            (
+                "sub1",
+                "git worktree add -b claude/delegated ../wt origin/main",
+                "Preparing worktree (new branch 'claude/delegated')",
+            ),
+            ("sub2", "git -C ../wt push -u origin claude/delegated", "done"),
+        ),
+        sidechain=True,
+    )
+    record = branches.PaneBranchRecord(
+        "t1", "history", str(repository), "claude", "session", home=home
+    )
+
+    assert [entry.branch for entry in branches.pane_branches(record)] == ["claude/delegated"]
+
+
+def test_subagent_records_are_not_the_leads_own_events(tmp_path):
+    home = tmp_path / "claude-home"
+    project = home / "projects" / "proj"
+    _write_rows(project / "session.jsonl", _claude_rows(("lead1", "echo hi", "hi")))
+    _write_rows(
+        project / "session" / "subagents" / "agent-a1.jsonl",
+        _claude_rows(("sub1", "git switch -c inner", "Switched to a new branch 'inner'")),
+        sidechain=True,
+    )
+
+    own = agent_transcript.read_events("claude", "session", home=home) or []
+    delegated = claude_subagents.read_events("claude", "session", home=home) or []
+    assert {event["payload"]["call_id"] for event in own if event["kind"] == "tool_call"} == {
+        "lead1"
+    }
+    assert {event["payload"]["call_id"] for event in delegated if event["kind"] == "tool_call"} == {
+        "sub1"
+    }
+    assert claude_subagents.read_events("codex", "session", home=home) == []
+
+
+def test_a_new_subagent_record_is_noticed_without_the_lead_growing(repository, tmp_path):
+    home = tmp_path / "claude-home"
+    project = home / "projects" / "proj"
+    _write_rows(project / "session.jsonl", _claude_rows(("lead1", "echo hi", "hi")))
+    record = branches.PaneBranchRecord(
+        "t1", "history", str(repository), "claude", "session", home=home
+    )
+    assert branches._evidence(record) == ([], [])
+    _write_rows(
+        project / "session" / "subagents" / "agent-a1.jsonl",
+        _claude_rows(("sub1", "git switch -c later", "Switched to a new branch 'later'")),
+        sidechain=True,
+    )
+    for entry in branches._cache.values():
+        entry.read_at -= 60
+
+    assert [found.branch for found in branches._evidence(record)[0]] == ["later"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd ../wt && python scripts/agent_land.py",
+        r'cd ../wt && "C:\Program Files\Python311\python.exe" scripts\\agent_land.py',
+    ],
+)
+def test_landing_script_counts_as_working_in_its_folder(command, tmp_path):
+    folders = branches.written_by_command(command, str(tmp_path))
+    assert [folder.replace("\\", "/").rsplit("/", 1)[-1] for folder in folders] == ["wt"]
+    assert branches.written_by_command("python scripts/other.py", str(tmp_path)) == []
