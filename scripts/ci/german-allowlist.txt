@@ -436,7 +436,7 @@ tests/unit/brain/test_agentic_ide_clarify_fast_path.py
 #     scripts/ci/gen_commands_reference.py, so an inline i18n-allow is
 #     impossible: the next regeneration would drop it. Nobody hand-writes prose
 #     here, so this is not a "narrow it later" exemption — the SOURCE
-#     (dodaios/commands/registry.py) stays English-checked, which is where a real
+#     (dodaios/commands/registry.py + defs/) stays English-checked, which is where a real
 #     German leak would have to be fixed. ---
 docs/commands-reference.md
 

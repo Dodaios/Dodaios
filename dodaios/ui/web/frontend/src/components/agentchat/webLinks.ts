@@ -60,7 +60,7 @@ export const MAX_LABEL_CHARS = 56;
 export interface WebLinkInfo {
   /** The address to open, as written. */
   url: string;
-  /** Host without `www.`, which also names the logo (`/api/link-icon?host=…`). */
+  /** Host without `www.`. Its logo is the one of its named website ({@link iconSite}), if it has one. */
   host: string;
   /** The website's name: a known name (`Reddit`) or the host. */
   site: string;
@@ -85,13 +85,33 @@ export function bareHost(url: URL): string {
   return url.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
 }
 
+/** Whether the list names this host itself (an own entry, not something every object has). */
+function isNamed(host: string): boolean {
+  return Object.prototype.hasOwnProperty.call(SITE_NAMES, host);
+}
+
+/**
+ * The named website a host belongs to: the host itself, or its parent
+ * (`en.wikipedia.org`, `de.linkedin.com`, `someone.substack.com`); null for
+ * every other host.
+ *
+ * It is also the only host a logo is asked for. The host of a link is text an
+ * answer wrote: asking that host for its icon, or only looking its name up,
+ * would tell whoever runs it what the answer put into the name. So a link to
+ * a site the list does not name is drawn with a globe, and the backend asks
+ * no other host either (`KNOWN_SITES` in `dodaios/ui/web/link_icon_routes.py`;
+ * a test keeps both lists equal).
+ */
+export function iconSite(host: string): string | null {
+  if (isNamed(host)) return host;
+  const parent = host.split(".").slice(1).join(".");
+  return parent.includes(".") && isNamed(parent) ? parent : null;
+}
+
 /** The website's name for a host: a known name, the parent's known name, or the host itself. */
 export function siteName(host: string): string {
-  if (SITE_NAMES[host]) return SITE_NAMES[host];
-  // en.wikipedia.org, de.linkedin.com, someone.substack.com
-  const parent = host.split(".").slice(1).join(".");
-  if (parent.includes(".") && SITE_NAMES[parent]) return SITE_NAMES[parent];
-  return host;
+  const site = iconSite(host);
+  return site === null ? host : SITE_NAMES[site];
 }
 
 function decode(segment: string): string {

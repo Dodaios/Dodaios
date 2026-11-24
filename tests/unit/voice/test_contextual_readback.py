@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 
 from dodaios.brain.ack_brain import CircuitBreaker
-from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.core.ack_brain_config import AckBrainConfig
 from dodaios.voice.contextual_readback import ReadbackComposer, render_readback
 
 CANNED = "CANNED FALLBACK LINE"

@@ -39,8 +39,11 @@
 #
 # Together: under two seconds. A push is a push again.
 #
-# This hook is VERSIONED in .githooks/; the orchestrator wires it via
-# `git config core.hooksPath .githooks` (this hook never sets that itself).
+# This hook is VERSIONED in .githooks/; `python scripts/ci/install_git_hooks.py`
+# wires it by pointing core.hooksPath at the primary checkout's .githooks, as
+# an absolute path (this hook never sets that itself). Never set the relative
+# `.githooks`: git would then run the hook files of whichever tree a worktree
+# has checked out.
 #
 # Bypass once:  git push --no-verify
 #

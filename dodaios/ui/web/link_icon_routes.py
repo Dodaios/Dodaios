@@ -2,16 +2,24 @@
 
 Endpoint:
     GET /api/link-icon?host=reddit.com -> the site's icon as a 64 px PNG
-                                          (404 when the site has none)
+                                          (404 when the site has none, or
+                                          is not one of the named websites)
 
 A link in an answer is drawn as a short name with the logo of its website
 (``WebLink.tsx`` in the chat frontend). The logo is the site's own icon: the
 backend reads the icons the home page names (``<link rel="icon">``), falls
 back to ``/favicon.ico`` and the ``apple-touch-icon``, decodes the first one
 that is a real picture with Pillow and keeps it as a PNG under
-``<data>/link_icons`` (named by a hash of the host). So each site is asked once, the window never loads a
-third-party address itself, and nothing but a decoded PNG is served from the
-app's own origin (an SVG icon could carry script).
+``<data>/link_icons`` (named by a hash of the host). So each site is asked
+once, the window never loads a third-party address itself, and nothing but a
+decoded PNG is served from the app's own origin (an SVG icon could carry
+script).
+
+Only the named websites are asked (:data:`KNOWN_SITES`). The host of a link
+comes from the text of an answer, and a request to it, or only the look-up of
+its name, tells whoever runs that host what the answer wrote. So a link to
+any other site is drawn with a globe and no request leaves this machine for
+it.
 
 Only public https hosts are reached (``dodaios.core.http_guard``), on the
 first request and on every redirect.
@@ -27,6 +35,7 @@ import re
 import time
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Final
 from urllib.parse import urljoin
 
 import httpx
@@ -40,7 +49,60 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/link-icon", tags=["link-icon"])
 
 #: A host name the route accepts: letters, digits, dots and dashes, with a dot.
-_HOST_RE = re.compile(r"^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$")
+_HOST_RE = re.compile(
+    r"^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$"
+)
+#: The websites that have a logo: the hosts the chat names (``SITE_NAMES`` in
+#: ``frontend/src/components/agentchat/webLinks.ts``; a test keeps both lists
+#: equal). No other host is ever asked for an icon, see the module text. A
+#: sub-domain of one of them is drawn with that site's logo by the frontend
+#: (``iconSite``), so its own name never reaches this route's fetch either.
+KNOWN_SITES: Final[frozenset[str]] = frozenset(
+    {
+        "amazon.com",
+        "amazon.de",
+        "apple.com",
+        "apps.apple.com",
+        "arxiv.org",
+        "bsky.app",
+        "discord.com",
+        "discord.gg",
+        "docs.google.com",
+        "drive.google.com",
+        "facebook.com",
+        "figma.com",
+        "gist.github.com",
+        "github.com",
+        "gitlab.com",
+        "google.com",
+        "huggingface.co",
+        "instagram.com",
+        "linkedin.com",
+        "m.youtube.com",
+        "maps.google.com",
+        "medium.com",
+        "news.ycombinator.com",
+        "notion.so",
+        "npmjs.com",
+        "old.reddit.com",
+        "open.spotify.com",
+        "producthunt.com",
+        "pypi.org",
+        "reddit.com",
+        "spotify.com",
+        "stackoverflow.com",
+        "substack.com",
+        "threads.net",
+        "tiktok.com",
+        "twitter.com",
+        "vercel.com",
+        "wikipedia.org",
+        "x.com",
+        "ycombinator.com",
+        "youtu.be",
+        "youtube.com",
+    }
+)
 #: The edge of the PNG kept per site; drawn at about 16 px, sharp on a Retina screen.
 ICON_SIZE = 64
 #: How long a found icon is kept before the site is asked again.
@@ -131,7 +193,8 @@ def icon_candidates(page_url: str, html: str) -> list[str]:
 
     named = [(href, size) for href, kind, size in parser.icons if kind == "icon" and usable(href)]
     apple = [(href, size) for href, kind, size in parser.icons if kind == "apple" and usable(href)]
-    ordered = [urljoin(base, href) for href, _size in sorted(named, key=lambda item: distance(item[1]))]
+    nearest_first = sorted(named, key=lambda item: distance(item[1]))
+    ordered = [urljoin(base, href) for href, _size in nearest_first]
     ordered.append(urljoin(page_url, "/favicon.ico"))
     ordered += [urljoin(base, href) for href, _size in apple]
     out: list[str] = []
@@ -185,7 +248,7 @@ def needs_backdrop(image) -> bool:
         return False
     grey = image.convert("L")
     total = 0
-    for light, cover in zip(grey.getdata(), alpha.getdata()):
+    for light, cover in zip(grey.getdata(), alpha.getdata(), strict=True):
         if cover > 128:
             total += light
     return total / opaque < 70
@@ -198,7 +261,9 @@ def on_backdrop(image):
     edge = max(image.width, image.height)
     side = round(edge * 1.3)
     tile = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    ImageDraw.Draw(tile).rounded_rectangle((0, 0, side - 1, side - 1), radius=round(side * 0.22), fill=(244, 244, 245, 255))
+    ImageDraw.Draw(tile).rounded_rectangle(
+        (0, 0, side - 1, side - 1), radius=round(side * 0.22), fill=(244, 244, 245, 255)
+    )
     tile.alpha_composite(image, ((side - image.width) // 2, (side - image.height) // 2))
     return tile
 
@@ -261,7 +326,13 @@ def _fresh(path: Path, keep_s: int) -> bool:
 
 
 async def icon_for(host: str) -> bytes | None:
-    """The kept icon of ``host``, fetched once when it is missing or old."""
+    """The kept icon of ``host``, fetched once when it is missing or old.
+
+    None for a host that is not one of :data:`KNOWN_SITES`: it is not asked,
+    and no icon kept for it earlier is read.
+    """
+    if host not in KNOWN_SITES:
+        return None
     folder = icon_dir()
     # Named by a hash, not by the host: no text from a request ends up in a path.
     key = hashlib.sha256(host.encode("utf-8")).hexdigest()[:40]
@@ -278,12 +349,11 @@ async def icon_for(host: str) -> bytes | None:
         if _fresh(missing, KEEP_MISSING_S):
             return None
         png = await fetch_icon(host)
-        # A sub-domain without an icon of its own (docs.example.com) shows its parent's.
-        labels = host.split(".")
-        if png is None and len(labels) > 2:
-            parent = ".".join(labels[1:])
-            if normalize_host(parent) and len(labels[-2]) > 3:
-                png = await fetch_icon(parent)
+        # A named sub-domain without an icon of its own (news.ycombinator.com)
+        # shows its parent's, when the parent is a named website too.
+        parent = host.partition(".")[2]
+        if png is None and parent in KNOWN_SITES:
+            png = await fetch_icon(parent)
         folder.mkdir(parents=True, exist_ok=True)
         if png is None:
             missing.write_bytes(b"")
@@ -298,9 +368,9 @@ async def icon_for(host: str) -> bytes | None:
 
 @router.get("", summary="The logo of a website, for a link in the chat")
 async def link_icon(host: str = Query(..., max_length=260)) -> Response:
-    """The site's icon as a PNG; 404 when the host is not valid or has no icon."""
+    """The site's icon as a PNG; 404 when the host is not a named website or has no icon."""
     name = normalize_host(host)
-    if name is None:
+    if name is None or name not in KNOWN_SITES:
         raise HTTPException(status_code=404, detail="no-icon")
     png = await icon_for(name)
     if png is None:
