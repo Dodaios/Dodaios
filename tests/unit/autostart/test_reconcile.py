@@ -96,3 +96,29 @@ def test_reconcile_never_raises(monkeypatch) -> None:
     status = autostart.reconcile_autostart(make_cfg(enabled=True), make_caps())
     assert status.supported is False
     assert "error" in status.detail.lower()
+
+
+def test_linked_worktree_never_touches_the_entry(monkeypatch) -> None:
+    """A copy started from an agent worktree must not repoint the login entry."""
+    mgr = _FakeManager(supported=True, installed=True, matches=False)
+    _patch(monkeypatch, mgr)
+    monkeypatch.setattr(autostart, "running_from_linked_worktree", lambda root=None: True)
+    autostart.reconcile_autostart(make_cfg(enabled=True), make_caps())
+    autostart.reconcile_autostart(make_cfg(enabled=False), make_caps())
+    assert mgr.calls == ["status", "status"]
+
+
+def test_linked_worktree_detection(tmp_path) -> None:
+    from dodaios.autostart.worktree import running_from_linked_worktree
+
+    main_checkout = tmp_path / "main"
+    (main_checkout / ".git").mkdir(parents=True)
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / ".git").write_text("gitdir: ../main/.git/worktrees/wt\n", encoding="utf-8")
+    packaged = tmp_path / "packaged"
+    packaged.mkdir()
+
+    assert running_from_linked_worktree(main_checkout) is False
+    assert running_from_linked_worktree(worktree) is True
+    assert running_from_linked_worktree(packaged) is False

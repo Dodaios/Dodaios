@@ -21,15 +21,24 @@ default ``cfg.autostart.enabled = True`` means the first boot after this feature
 ships finds no entry and installs it, which is the "apply to the current install
 now" behaviour. The Settings toggle is the intended off-switch; a manually
 deleted entry is recreated next boot while the toggle stays on (by design).
+
+A copy of the app started from a linked Git worktree (an agent's checkout)
+never touches the entry. The entry is machine-wide, and the launch spec takes
+its working directory from the running copy: a reconcile from a worktree pointed
+the login entry at that worktree, and the next login opened the app on a
+checkout without a frontend build ("UI build missing", 2026-11-24).
 """
 
 from __future__ import annotations
 
 import logging
 
+from dodaios.core.config import PROJECT_ROOT
+
 from .command import LAUNCHER_MODULE, resolve_launch_spec
 from .factory import make_autostart_manager
 from .protocol import AutostartManager, AutostartStatus, LaunchSpec
+from .worktree import running_from_linked_worktree
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +60,13 @@ def reconcile_autostart(cfg: object, caps: object | None = None) -> AutostartSta
         enabled = bool(getattr(autostart_cfg, "enabled", True))
 
         current = manager.status(spec)
+        if running_from_linked_worktree():
+            log.info(
+                "Autostart reconcile: running from a linked worktree (%s), the login "
+                "entry belongs to the main checkout, left unchanged",
+                PROJECT_ROOT,
+            )
+            return current
         if not current.supported:
             log.debug("Autostart reconcile: unsupported host — %s", current.detail)
             return current
@@ -89,4 +105,5 @@ __all__ = [
     "resolve_launch_spec",
     "make_autostart_manager",
     "reconcile_autostart",
+    "running_from_linked_worktree",
 ]

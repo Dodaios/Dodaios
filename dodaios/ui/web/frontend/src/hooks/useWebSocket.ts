@@ -410,6 +410,13 @@ export function useWebSocket(): void {
           void queryClient.invalidateQueries({ queryKey: ["self-build"] });
         }
 
+        // A learned change was recorded or moved (on trial, kept, taken back):
+        // the Self-improvement page re-reads what is in effect. Never a toast —
+        // the nights are quiet (docs/self-improvement.md).
+        if (env.event_name === "SelfChangeChanged") {
+          void queryClient.invalidateQueries({ queryKey: ["self-improvement"] });
+        }
+
         // A node was created or revised: the open page or editor follows now,
         // and an agent's work plays back live (docs/node-live-build.md).
         // Its code (and the live store) is fetched on the first one, so the

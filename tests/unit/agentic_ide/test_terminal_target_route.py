@@ -50,14 +50,14 @@ def _record_opens(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
 async def test_ctrl_click_opens_a_relative_file_with_a_line_locator(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    target = workspace / "src" / "main.py"
+    target = workspace / "src" / "main.md"
     target.parent.mkdir()
-    target.write_text("print('ready')\n", encoding="utf-8")
+    target.write_text("ready\n", encoding="utf-8")
     opened = _record_opens(monkeypatch)
 
     result = await routes.open_terminal_target(
         _request(),
-        routes.OpenTerminalTargetRequest(workspace_id="workspace-1", target="src/main.py:42:7"),
+        routes.OpenTerminalTargetRequest(workspace_id="workspace-1", target="src/main.md:42:7"),
     )
 
     assert result["opened"] is True
@@ -171,3 +171,25 @@ async def test_remote_and_headless_callers_cannot_launch_native_paths(
             routes.OpenTerminalTargetRequest(workspace_id="workspace-1", target=str(workspace)),
         )
     assert headless.value.status_code == 404
+
+
+async def test_a_program_behind_a_terminal_link_is_revealed_not_launched(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = workspace / "setup.bat"
+    target.write_text("echo hi\n", encoding="utf-8")
+    opened = _record_opens(monkeypatch)
+    revealed: list[Path] = []
+    monkeypatch.setattr(
+        open_path,
+        "reveal_in_folder",
+        lambda path: revealed.append(path) or True,
+    )
+
+    await routes.open_terminal_target(
+        _request(),
+        routes.OpenTerminalTargetRequest(workspace_id="workspace-1", target="setup.bat"),
+    )
+
+    assert opened == []
+    assert revealed == [target.resolve()]

@@ -487,8 +487,120 @@ _REFUSED_CHAT_SUFFIXES = frozenset(
         ".rb",
         ".pl",
         ".php",
+        ".pyz",
+        ".pyzw",
+        ".pyc",
+        ".msc",
+        ".chm",
+        ".application",
+        ".appref-ms",
+        ".settingcontent-ms",
+        ".library-ms",
+        ".search-ms",
+        ".searchconnector-ms",
+        ".diagcab",
+        ".diagpkg",
+        ".jnlp",
+        ".rdp",
+        ".iso",
+        ".img",
+        ".vhd",
+        ".vhdx",
+        ".docm",
+        ".xlsm",
+        ".pptm",
+        ".dotm",
+        ".xlam",
+        ".ppam",
+        ".gadget",
+        ".msix",
+        ".appx",
+        ".appxbundle",
+        ".msixbundle",
+        ".cab",
+        ".ws",
+        ".sct",
+        ".xbap",
+        ".website",
+        ".mht",
+        ".mhtml",
+        ".slk",
+        ".iqy",
+        ".wsb",
+        ".theme",
+        ".themepack",
+        ".ade",
+        ".adp",
+        ".mde",
+        ".accde",
+        ".mda",
+        ".ins",
+        ".isp",
+        ".job",
+        ".xll",
+        ".wll",
+        ".vb",
+        ".vbscript",
+        ".ps1xml",
+        ".ps2",
+        ".ps2xml",
+        ".psc2",
+        ".cdxml",
+        ".tool",
+        ".terminal",
+        ".scpt",
+        ".scptd",
+        ".applescript",
+        ".workflow",
+        ".action",
+        ".desktop",
+        ".run",
+        ".bin",
+        ".elf",
+        ".out",
+        ".csh",
+        ".fish",
     }
 )
+
+# Suffixes that mark a plain document or media file. On macOS and Linux an
+# executable bit on one of these is a mode quirk (e.g. a USB stick), not a program.
+_DOCUMENT_SUFFIXES = frozenset((
+    ".txt .md .pdf .png .jpg .jpeg .gif .webp .bmp .svg .mp3 .wav .flac .ogg .m4a "
+    ".mp4 .mkv .mov .avi .webm .doc .docx .xls .xlsx .ppt .pptx .odt .ods .odp .rtf "
+    ".csv .json .xml .yaml .yml .html .htm .log .zip"
+).split())
+
+
+def is_program_like(path: Path) -> bool:
+    """True when opening *path* with the default handler could run code.
+
+    Covers a denylist of program, script, installer and macro-document types,
+    every suffix in ``PATHEXT`` on Windows, and on macOS/Linux a regular file
+    with an executable bit and no document-like suffix. A ``.app`` bundle
+    (a directory) counts; other folders do not.
+    """
+    suffix = path.suffix.lower()
+    try:
+        is_file = path.is_file()
+        is_dir = path.is_dir()
+    except OSError as exc:
+        log.warning("is_program_like: cannot inspect %s (%s); treating it as a program", path, exc)
+        return True  # Unreadable target: fail closed.
+    if is_dir:
+        return suffix == ".app"
+    if suffix in _REFUSED_CHAT_SUFFIXES:
+        return True
+    if os.name == "nt":
+        pathext = {e.strip().lower() for e in os.environ.get("PATHEXT", "").split(";") if e.strip()}
+        return bool(suffix) and suffix in pathext
+    if is_file and suffix not in _DOCUMENT_SUFFIXES:
+        try:
+            return os.access(path, os.X_OK)
+        except OSError as exc:
+            log.warning("is_program_like: cannot check %s (%s); treating as program", path, exc)
+            return True
+    return False
 
 
 class ChatOpenRejected(ValueError):
@@ -610,10 +722,7 @@ def _find_named_file(raw: str) -> Path | None:
 
 
 def _refuse_program(target: Path) -> None:
-    suffix = target.suffix.lower()
-    if (target.is_file() and suffix in _REFUSED_CHAT_SUFFIXES) or (
-        target.is_dir() and suffix == ".app"
-    ):
+    if is_program_like(target):
         raise ChatOpenRejected("refused-program")
 
 
@@ -663,6 +772,7 @@ def prepare_chat_open(raw: str) -> Path:
 __all__ = [
     "ChatOpenRejected",
     "chat_link_path",
+    "is_program_like",
     "open_file",
     "open_file_with",
     "open_url",

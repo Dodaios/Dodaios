@@ -6,86 +6,17 @@ the assembled registry is pinned by tests/unit/commands/test_registry_snapshot.p
 from __future__ import annotations
 
 from dodaios.commands.registry import (
-    _AGENT_DESIGN_GUIDE,
     _READINESS_RULE,
     AppCommand,
     _routine_ref_params,
     _routine_schedule_param,
     _services_param,
-    _society_profile_properties,
     _str_param,
 )
 
 
 def build() -> tuple[AppCommand, ...]:
     return (
-        AppCommand(
-            id="society-create-agent",
-            title="Create a persistent team agent",
-            description=(
-                "Create an agent in the user's existing Agents team, only when requested. "
-                "This creates a roster profile and starts no work. Responsibilities derive "
-                "capabilities through the same service as the Agents UI. When a team agent "
-                "creates a teammate, the new agent inherits that creator's model seat "
-                "(provider, model, effort, subscription account) and permission setup "
-                "(approval mode, ceiling, grant mode, grants, denies) and cannot exceed "
-                "them. Read the "
-                "returned agent and created flag: an existing name is adopted, never "
-                "duplicated. Use society-switch-agent-model only if a different provider "
-                "is requested. " + _AGENT_DESIGN_GUIDE
-            ),
-            method="POST", path="/api/society/agents", ui_section="agents",
-            params={"type": "object", "properties": {
-                "name": _str_param("Requested unique agent name.", min_length=1, max_length=40),
-                **_society_profile_properties(),
-                "services": _services_param(),
-            }, "required": ["name"]},
-            voice_aliases={
-                "de": ("erstelle einen rechercheagenten",),  # i18n-allow: input vocab
-                "en": ("create an agent for researching suppliers",),
-                "es": ("crea un agente para investigar proveedores",),  # i18n-allow: input vocab
-                "pt": ("cria um agente para pesquisar fornecedores",),  # i18n-allow: input vocab
-            },
-        ),
-        AppCommand(
-            id="society-update-agent",
-            title="Update a persistent team agent",
-            description=(
-                "Change an existing agent's responsibilities, skills, focus, budget or "
-                "paused/active state as requested by the user. Resolve its real id with "
-                "society_status first. Only send requested fields. Existing learned focus "
-                "and approval rules survive prose edits. Report the returned stored agent."
-            ),
-            method="PATCH", path="/api/society/agents/{agent_id}",
-            path_params=("agent_id",), ui_section="agents",
-            params={"type": "object", "properties": {
-                "agent_id": _str_param("Real agent id from society_status.", min_length=1),
-                **_society_profile_properties(),
-                "state": _str_param("Requested state.", enum=["active", "paused"]),
-            }, "required": ["agent_id"]},
-            voice_aliases={
-                "de": ("ändere Scouts aufgaben",),  # i18n-allow: input vocab
-                "en": ("update Scout's responsibilities",),
-                "es": ("cambia las responsabilidades de Scout",),  # i18n-allow: input vocab
-                "pt": ("muda as responsabilidades do Scout",),  # i18n-allow: input vocab
-            },
-        ),
-        AppCommand(
-            id="society-capability-catalog",
-            title="Read the team's capability catalog",
-            description=(
-                "Read the live capability ids, descriptions and connection state available "
-                "to the persistent Agents team. Use these ids when setting agent focus; "
-                "unconnected capabilities are not available hands. This reads no model catalog."
-            ),
-            method="GET", path="/api/society/capabilities", ui_section="agents",
-            voice_aliases={
-                "de": ("welche werkzeuge können meine agenten nutzen",),  # i18n-allow: input vocab
-                "en": ("which capabilities can my agents use",),
-                "es": ("qué capacidades pueden usar mis agentes",),  # i18n-allow: input vocab
-                "pt": ("que capacidades podem os meus agentes usar",),  # i18n-allow: input vocab
-            },
-        ),
         AppCommand(
             id="society-agent-catalog",
             title="Read available agent models",
@@ -127,26 +58,6 @@ def build() -> tuple[AppCommand, ...]:
                 "en": ("change Scout's model",),
                 "es": ("cambia el modelo de Scout",),  # i18n-allow: input vocab
                 "pt": ("muda o modelo do Scout",),  # i18n-allow: input vocab
-            },
-        ),
-        AppCommand(
-            id="society-archive-agent",
-            title="Archive a team agent",
-            description=(
-                "Archive (remove from the team) one agent on explicit user request; its "
-                "chat history is kept. Delete its routines first with "
-                "society-routine-operation so none keeps firing."
-            ),
-            method="DELETE", path="/api/society/agents/{agent_id}",
-            path_params=("agent_id",), ui_section="agents", dangerous=True,
-            params={"type": "object", "properties": {
-                "agent_id": _str_param("Agent id or exact name.", min_length=1),
-            }, "required": ["agent_id"]},
-            voice_aliases={
-                "de": ("lösche den agenten Scout",),  # i18n-allow: input vocab
-                "en": ("delete the agent Scout",),
-                "es": ("elimina el agente Scout",),  # i18n-allow: input vocab
-                "pt": ("apaga o agente Scout",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(

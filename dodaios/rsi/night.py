@@ -113,7 +113,9 @@ class NightReport:
     @property
     def idle(self) -> bool:
         """True when the night had nothing to work on."""
-        made = any(self.made.get(k) for k in ("questions", "messages", "forgotten"))
+        made = any(
+            self.made.get(k) for k in ("questions", "messages", "forgotten", "past_work")
+        )
         return not (made or self.settled or self.proposed or self.decided or self.measured)
 
     def lines(self) -> list[str]:
@@ -132,6 +134,8 @@ class NightReport:
             )
         if self.made.get("forgotten"):
             out.append(f"Erased {self.made['forgotten']} tasks about memories that are gone.")
+        if self.made.get("past_work"):
+            out.append(f"Stored {self.made['past_work']} tasks from your past coding work.")
         for row in self.settled:
             if row["outcome"] == "kept" and row.get("was") == "live":
                 continue  # what was live and stays live is not news
@@ -431,6 +435,25 @@ def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
     return ask
 
 
+def _past_work(bench: BenchStore, homes: dict[str, Path] | None = None) -> dict[str, Any]:
+    """Store the tasks from past coding work before their records are deleted. No model call.
+
+    The coding CLIs delete a session's record after some weeks; a task that was
+    stored stays (:mod:`dodaios.rsi.bench.past_work.intake`). Reads the records
+    and the local clones only.
+    """
+    if bench.readonly:
+        return {}
+    from dodaios.rsi.bench import past_work
+
+    try:
+        taken = past_work.take_in(bench, homes=homes, composed=past_work.logged_briefs())
+    except Exception:  # noqa: BLE001 - a record or clone that cannot be read costs no night
+        log.warning("self-improvement: tasks from past coding work not read", exc_info=True)
+        return {}
+    return {"past_work": taken.new, "past_work_retired": taken.retired}
+
+
 def install(
     data_dir: Path, registry: SelfChangeRegistry, *, config: Any = None, loop: Any = None
 ) -> NightService:
@@ -453,13 +476,14 @@ def install(
     maker = OwnRecallMaker(bench, world, home / "agent_chat.db", _model_ask(config, loop))
 
     def prepare() -> dict[str, Any]:
+        made = _past_work(bench)
         if not world.refresh():
-            return {}
+            return made
         from dodaios.rsi import adopt
 
         if world.vault is not None:
             adopt.how_tos(registry, world.vault)
-        return maker.run(MAX_MODEL_CALLS)
+        return {**maker.run(MAX_MODEL_CALLS), **made}
 
     night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)
     return NightService(night, _person_idle, chat_db=home / "agent_chat.db")

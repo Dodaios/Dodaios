@@ -126,6 +126,7 @@ export type LocaleChunk =
   | "custom_cli"
   | "memory"
   | "self_build"
+  | "self_improvement"
   | "trust"
   | "voice"
   | "node_editors";
@@ -258,6 +259,14 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/self_build/es.json"),
     zh: () => import("./locales/self_build/zh.json"),
     pt: () => import("./locales/self_build/pt.json"),
+  },
+  // Self-improvement: what the assistant measured and changed in itself, opened from its nav row.
+  self_improvement: {
+    en: () => import("./locales/self_improvement/en.json"),
+    de: () => import("./locales/self_improvement/de.json"),
+    es: () => import("./locales/self_improvement/es.json"),
+    zh: () => import("./locales/self_improvement/zh.json"),
+    pt: () => import("./locales/self_improvement/pt.json"),
   },
   // Settings → Trust and privacy: the rules page and the "what it knows" overview.
   // The nav label and the undo toast ride in the startup bundle (`trust.*` in

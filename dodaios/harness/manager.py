@@ -10,6 +10,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
+from dodaios.core import module_health
 from dodaios.core.bus import EventBus
 from dodaios.core.entry_points import entry_points
 from dodaios.core.events import HarnessCompleted, HarnessDispatched, HarnessProgress
@@ -41,8 +42,10 @@ class HarnessManager:
             try:
                 cls = ep.load()
                 self._classes[ep.name] = cls
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — harness plugin
                 self._failed[ep.name] = f"{type(exc).__name__}: {exc}"
+                log.warning("Harness '%s' load failed: %s", ep.name, exc)
+                module_health.report_failure(f"plugin:harness:{ep.name}", exc)
         self._loaded = True
 
     def available(self) -> list[str]:
