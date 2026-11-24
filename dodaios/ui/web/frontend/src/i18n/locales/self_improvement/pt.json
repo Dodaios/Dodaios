@@ -271,6 +271,15 @@
       "week_of": "a partir de {date}",
       "unrated": "sem valor"
     },
+    "track": {
+      "title": "Nos seus pedidos",
+      "none": "Não foi mostrada em nenhum dos seus pedidos desde {date}.",
+      "few": "Mostrada em {n} dos seus pedidos desde {date}. Como correram aparece a partir de {min} pedidos.",
+      "shown": "Mostrada em {n} dos seus pedidos desde {date}: {through} seguiram ({pct}); sem ela, {other_pct} de {m}.",
+      "shown_alone": "Mostrada em {n} dos seus pedidos desde {date}: {through} seguiram ({pct}); sem ela há poucos demais para comparar ({m}).",
+      "caveat": "Isto mostra o que aconteceu, não o que o causou: uma nota aparece quando um pedido trata do seu assunto, por isso esses pedidos não são como os outros, e nada é decidido com base nisto.",
+      "row": "mostrada em {n} dos seus pedidos"
+    },
     "policy": {
       "sentence": "{what}, {where}",
       "where": "para trabalho de {area} com {model} em {harness}",

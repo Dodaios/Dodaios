@@ -11,6 +11,7 @@ import { NOTE_SURFACE, type LearnedChange, type Measurement } from "@/lib/selfIm
 import { relativeTime } from "../selfBuild/shared";
 import { claimWords, isPolicy, policyProof, policySentence } from "./policy";
 import { PolicyLines } from "./PolicyLines";
+import { trackSentence } from "./noteTrack";
 import { effectWords, lineSentence, paramAbout, paramTitle, valueWords, wordFor } from "./words";
 
 export function ChangeDetail({
@@ -104,9 +105,21 @@ export function ChangeDetail({
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         <dl className="space-y-6">
           {note ? (
-            <Field label={t("self_improvement.detail.measurement")}>
-              <p className="text-base text-foreground" data-testid="si-detail-unmeasured">{t("self_improvement.detail.note_unmeasured")}</p>
-            </Field>
+            <>
+              <Field label={t("self_improvement.detail.measurement")}>
+                <p className="text-base text-foreground" data-testid="si-detail-unmeasured">{t("self_improvement.detail.note_unmeasured")}</p>
+              </Field>
+              {change.track && (
+                <Field label={t("self_improvement.track.title")}>
+                  <div className="space-y-1">
+                    <p className="text-base tabular-nums text-foreground" data-testid="si-detail-track">
+                      {trackSentence(t, change.track, locale)}
+                    </p>
+                    <Quiet>{t("self_improvement.track.caveat")}</Quiet>
+                  </div>
+                </Field>
+              )}
+            </>
           ) : policy ? (
             <>
               <Field label={t("self_improvement.detail.what")}>

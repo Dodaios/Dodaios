@@ -3,7 +3,9 @@
 Everything here is read from what the kernel recorded (``bench.db``, the
 self-change registry, the parameter store). Nothing is computed for display
 only, and nothing is changed: the page shows the same numbers the gate acted
-on.
+on. Two parts stand beside that and decide nothing: how daily use went
+(:func:`daily_use`) and each learned note's track in the person's requests
+(:mod:`dodaios.rsi.credit`). Both are what happened, not what caused it.
 
 The shape is the contract of ``GET /api/self-improvement``. Sentences are not
 built here. The page gets numbers and names and words them in the person's
@@ -16,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -200,8 +203,8 @@ def _policy(change: Change, evidence: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _note_text(change: Change) -> str:
-    """The words of a note the assistant wrote for itself, read from the memory right now.
+def _note(change: Change) -> Any:
+    """The memory behind a note the assistant wrote for itself, read right now; else ``None``.
 
     The registry holds no text of it, so a note the person forgot is gone here too.
     """
@@ -209,19 +212,59 @@ def _note_text(change: Change) -> str:
 
     found = adopt.memory_id(change)
     if not found:
-        return ""
+        return None
     try:
         from dodaios.memory.vault import runtime as vault_runtime
 
         vault = vault_runtime.active()
-        memory = vault.get(found) if vault is not None else None
+        return vault.get(found) if vault is not None else None
     except Exception:  # noqa: BLE001 — the list shows the entry without its words
         log.info("self-improvement: a note's text could not be read", exc_info=True)
-        return ""
+        return None
+
+
+def _note_text(change: Change) -> str:
+    """The words of a note the assistant wrote for itself; "" once it is gone."""
+    memory = _note(change)
     return memory.text if memory is not None else ""
 
 
-def _change(night: Night, change: Change) -> dict[str, Any]:
+def _noted_ms(memory: Any, fallback: int) -> int:
+    """When a note came into effect: when it was written into the memory.
+
+    The registry adopts a note the night after it was written; it rode in
+    prompts from the moment it was in the memory.
+    """
+    try:
+        written = int(datetime.fromisoformat(str(memory.recorded_at)).timestamp() * 1000)
+    except (TypeError, ValueError):  # an unreadable time: the registry's own date
+        return fallback
+    return min(written, fallback) if fallback else written
+
+
+def _tracks(night: Night, changes: list[Change], chat_db: Path | None) -> dict[str, Any]:
+    """Each listed note's track in the person's own requests (:mod:`dodaios.rsi.credit`).
+
+    Only for a note whose words the memory still holds: a forgotten note has none.
+    """
+    if chat_db is None:
+        return {}
+    from dodaios.rsi import credit, lead_turns
+
+    notes: list[credit.Note] = []
+    for change in changes:
+        if change.surface is not Surface.LESSON:
+            continue
+        memory = _note(change)
+        if memory is None or not str(memory.text or "").strip():
+            continue
+        since = night.registry.store.applied_ms(change.id) or change.created_ms
+        notes.append(credit.Note(change.id, memory.text, _noted_ms(memory, since)))
+    chat = Path(chat_db)
+    return credit.track(notes, chat.parent / lead_turns.DB_NAME, chat)
+
+
+def _change(night: Night, change: Change, track: dict[str, Any] | None = None) -> dict[str, Any]:
     store = params.installed()
     index = store.index if store is not None else params.INDEX
     param = index.get(change.target) if change.surface is Surface.PARAMETER else None
@@ -245,6 +288,8 @@ def _change(night: Night, change: Change) -> dict[str, Any]:
         "doc": param.doc if param is not None else "",
         "admitted": admit,
         "last_check": checks[-1] if checks else None,
+        # A note's track in the person's requests: observed, never a measurement.
+        "track": track,
     }
     if change.surface is Surface.CODING_POLICY:
         row.update(_policy(change, stored))
@@ -321,6 +366,8 @@ def build(
     nights = night.bench.nights(_NIGHTS)
     learned = registry.learned()
     hidden, trials = _policies(learned)
+    stack = [change for change in reversed(learned) if change.id not in hidden]
+    tracks = _tracks(night, stack, chat_db)
     return {
         "status": {
             "app": dodaios.__version__,
@@ -352,9 +399,7 @@ def build(
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),
-        "stack": [
-            _change(night, change) for change in reversed(learned) if change.id not in hidden
-        ],
+        "stack": [_change(night, change, tracks.get(change.id)) for change in stack],
         "candidates": [_change(night, change) for change in [*registry.candidates(), *trials]],
         "nights": nights,
         "resting": resting,

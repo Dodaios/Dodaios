@@ -90,6 +90,24 @@ export type ChangeState = "proposed" | "trial" | "live" | "reverted" | "blocked"
 /** A how-to note the assistant wrote for itself after a tool failed and a later call worked. */
 export const NOTE_SURFACE = "lesson";
 
+/**
+ * Where a note was shown in the person's own requests and how those went
+ * (`track` in dodaios/rsi/credit.py). Observed, never measured: it decides nothing.
+ * Shares and "went through" counts are null below `min_requests`.
+ */
+export interface NoteTrack {
+  /** Start of the period counted: when the note came into effect, or the oldest record. */
+  since_ms: number;
+  shown: number;
+  shown_through: number | null;
+  shown_share: number | null;
+  /** Requests of the same period it was not shown in. */
+  other: number;
+  other_through: number | null;
+  other_share: number | null;
+  min_requests: number;
+}
+
 export interface LearnedChange {
   id: string;
   surface: string;
@@ -105,6 +123,8 @@ export interface LearnedChange {
   text?: string;
   /** False when nothing can tell yet whether the change helps (a note it wrote for itself). */
   measured?: boolean;
+  /** A note's track in the person's own requests; null for anything else and for a forgotten note. */
+  track?: NoteTrack | null;
   since_ms: number;
   /** The value before the change; null means the shipped default was in effect. */
   before: unknown;

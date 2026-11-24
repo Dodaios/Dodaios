@@ -271,6 +271,15 @@
       "week_of": "desde el {date}",
       "unrated": "sin cifra"
     },
+    "track": {
+      "title": "En tus peticiones",
+      "none": "No se ha mostrado en ninguna de tus peticiones desde el {date}.",
+      "few": "Se mostró en {n} de tus peticiones desde el {date}. Cómo salieron se muestra a partir de {min} peticiones.",
+      "shown": "Se mostró en {n} de tus peticiones desde el {date}: {through} salieron adelante ({pct}); sin ella, el {other_pct} de {m}.",
+      "shown_alone": "Se mostró en {n} de tus peticiones desde el {date}: {through} salieron adelante ({pct}); sin ella hay demasiado pocas para comparar ({m}).",
+      "caveat": "Esto muestra lo que pasó, no lo que lo causó: una nota aparece cuando una petición trata de su tema, así que esas peticiones no son como las demás, y no se decide nada a partir de esto.",
+      "row": "mostrada en {n} de tus peticiones"
+    },
     "policy": {
       "sentence": "{what}, {where}",
       "where": "para trabajo de {area} con {model} en {harness}",
