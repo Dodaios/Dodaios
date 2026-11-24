@@ -129,14 +129,12 @@ class RunShellTool:
     #: Bare whitelist patterns ("git status") match this argument only.
     whitelist_command_arg: str = "command"
     description: str = (
-        f"Runs a shell command via {_SHELL_LABEL} on this machine. "
-        "Use it for ANY local outcome a command can achieve: create/delete/"
-        "rename/move/copy files and folders, list directories, read file "
-        "contents, start programs, timers, system queries — the user never "
-        "needs to mention a terminal; translate their goal into a command. "
-        f"{_SHELL_HINT} "
-        "Commands are matched against the whitelist/blacklist. "
-        "Default timeout 30s."
+        "Runs a command in Windows PowerShell 5.1 on this machine. Use it for any local "
+        "outcome a command can achieve (create, delete, move, copy, list or read files, start "
+        "programs, system queries): translate the user's goal into a command; they never need "
+        "to mention a terminal. PowerShell cmdlets, aliases (ls, dir, cat) and pipes work; "
+        "POSIX tools like head/grep/awk and cmd syntax like 'dir /b' do not. Commands are "
+        "matched against the whitelist/blacklist. Default timeout 30s."
     )
     schema: dict[str, Any] = {
         "type": "object",

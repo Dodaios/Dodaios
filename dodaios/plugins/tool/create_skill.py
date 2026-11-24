@@ -94,17 +94,6 @@ class CreateSkillTool:
         },
         "required": ["intent", "name", "trigger_phrase", "schedule"],
         "additionalProperties": False,
-        "input_examples": [
-            {
-                "intent": (
-                    "When I say 'focus time', pause the music, set Slack to do not "
-                    "disturb and tell me my next meeting."
-                ),
-                "name": "",
-                "trigger_phrase": "focus time",
-                "schedule": "",
-            },
-        ],
     }
 
     def __init__(self, *, bus: Any | None = None, config: Any | None = None, **_: Any) -> None:

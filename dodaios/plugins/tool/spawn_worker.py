@@ -368,7 +368,7 @@ class SpawnWorkerTool:
                     "A short spoken confirmation (1-2 sentences, 20 words max) in the "
                     "user's language, fresh for this request: name the topic and convey "
                     "it runs on the side and may take a moment. It MUST contain the "
-                    "exact term '{agent}' once and make clear one was just started. No "
+                    "exact term '{agent}' exactly once and make clear one was just started. No "
                     "stock phrase, never claim it is done, never expose internal names."
                 ),
                 "default": "",

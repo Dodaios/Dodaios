@@ -44,17 +44,14 @@ class RemindersTool:
     name: str = "reminders"
     risk_tier: str = "safe"
     description: str = (
-        "Set, list, finish or snooze the user's reminders, and turn a list of things "
-        "to do into separate tasks. action=create when the user asks to be reminded "
-        "of something at a time: pass text (what, without the time words) and when "
-        "(an ISO local date-time such as 2026-11-14T09:00, or the time words as said, "
-        "e.g. 'Friday at 9', 'in 20 minutes', 'tomorrow evening'); a reminder without "
-        "a clear time comes back with needs_time=true, then ask for one. "
-        "action=capture when the user lists several things in one go: pass the whole "
-        "utterance as text; each item becomes a reminder (if it names a time) or a "
-        "task. action=list shows what is coming up; done and snooze take an id from "
-        "list. The user sees every change in the app; confirm briefly, never recite "
-        "the list back unless asked."
+        "Set, list, finish or snooze the user's reminders, and turn a list of things into "
+        "separate tasks. create: the user asks to be reminded at a time: text (what, without "
+        "the time words) and when (ISO local date-time like 2026-11-14T09:00, or the words as "
+        "said: 'Friday at 9', 'in 20 minutes'); with no clear time it returns needs_time=true: "
+        "ask for one. capture: the user lists several things at once: pass the whole utterance "
+        "as text; each item becomes a reminder (if it names a time) or a task. list shows what "
+        "is coming; done and snooze take an id from list. The user sees every change in the "
+        "app: confirm briefly, do not recite the list unless asked."
     )
     schema: dict[str, Any] = {
         "type": "object",

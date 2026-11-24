@@ -83,10 +83,6 @@ class SwitchProviderTool:
         },
         "required": ["tier", "provider", "reason"],
         "additionalProperties": False,
-        "input_examples": [
-            {"tier": "brain", "provider": "gemini", "reason": "switch from Grok to Gemini"},
-            {"tier": "tts", "provider": "cartesia", "reason": "user wants Cartesia voice"},
-        ],
     }
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:  # noqa: ARG002

@@ -46,12 +46,10 @@ class ContactUpsertTool:
 
     name: str = "contact-upsert"
     description: str = (
-        "Create or update a saved contact. Use this when the user tells you a "
-        "person's details to remember — 'merk dir Christophs Nummer ist …', "
-        "'Lauras E-Mail ist …', 'speichere Toms Adresse'. Fill the structured "
-        "fields you can extract from what the user said; an existing contact "
-        "with the same name is updated in place, a new one is created. The "
-        "write happens silently (no confirmation needed). Deletion is UI-only."
+        "Create or update a saved contact when the user tells you a person's details to "
+        "remember ('merk dir Christophs Nummer ist ...', 'Lauras E-Mail ist ...'). Fill the "
+        "structured fields you can extract; a contact with the same name is updated, else "
+        "created. Silent: no confirmation. Deletion is UI-only."
     )
     risk_tier: str = "monitor"
     schema: dict[str, Any] = {

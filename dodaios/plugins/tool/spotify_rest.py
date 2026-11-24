@@ -145,14 +145,12 @@ class SpotifyRestTool:
     name: str = "spotify"
     risk_tier: str = "monitor"
     _BASE_DESCRIPTION: str = (
-        "Play and control the user's Spotify: start a song, artist, album or "
-        "playlist, pause, skip, go back, set the volume, queue something up, or "
-        "say what is currently playing. Use for 'play Radiohead', 'skip this "
-        "one', 'what song is this', 'pause the music', 'turn the music down', "
-        "'play my running playlist'. Actions: now_playing, play, pause, next, "
-        "previous, set_volume, queue, search, list_devices, list_playlists. "
-        "Requires the Spotify plugin to be connected in the Plugins view; "
-        "controlling playback needs Spotify Premium."
+        "Play and control the user's Spotify: start a song, artist, album or playlist, pause, "
+        "skip, go back, set the volume, queue, say what is playing ('play Radiohead', 'skip "
+        "this one', 'turn the music down'). Use YouTube Music unless the user names Spotify. "
+        "Actions: now_playing, play, pause, next, previous, set_volume, queue, search, "
+        "list_devices, list_playlists. Needs the Spotify plugin connected and Spotify Premium "
+        "for playback."
     )
 
     @property

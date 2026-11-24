@@ -427,20 +427,14 @@ class SocietyStatusTool:
     risk_tier: str = "safe"
     description: str = (
         "Answer 'what is <agent> doing?', 'is Scout done?', 'who is on the team?' from the "
-        "agent society's board. Read-only. By default it returns a summary: one line per "
-        "agent (id, name, seat, busy or idle, state of its last result), small enough to "
-        "read in full. Go deeper only when you need to: mode=agent (with agent) gives one "
-        "agent's responsibilities, capabilities, state and recorded activity/cost statistics "
-        "(observations, not quality scores; details=true with agent is the same); "
-        "mode=assignment (with assignment_id) gives one assignment with its task and result; "
-        "mode=events pages through the recorded events, newest first (agent optional; pass "
-        "the returned next_cursor as cursor for older ones). Pass the agent's name for a "
-        "one-sentence status. Set board=true for one short row per agent: working or idle, "
-        "and its newest note. If prior tool ids are no longer in context, use agent + "
-        "latest_assignment=true to retrieve the newest assignment you sent that agent from "
-        "the stored board, including its task and result. This means newest assignment, "
-        "not an arbitrary recent event. If 'that task' could mean an older task or several "
-        "agents, clarify the agent/task first."
+        "agent society's board. Read-only. Default: a summary, one line per agent (id, name, "
+        "seat, busy or idle, last result state). mode=agent (with agent): one agent's "
+        "responsibilities, capabilities, state and activity/cost statistics; mode=assignment "
+        "(with assignment_id): one assignment with task and result; mode=events: recorded "
+        "events, newest first (agent optional; pass next_cursor as cursor for older ones). "
+        "board=true: one short row per agent with its newest note. If prior tool ids are gone, "
+        "agent + latest_assignment=true returns the newest assignment you sent that agent; if "
+        "'that task' could mean several, clarify first."
     )
     schema: dict[str, Any] = {
         "type": "object",

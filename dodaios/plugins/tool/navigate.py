@@ -447,13 +447,10 @@ class NavigateTool:
     name: str = "navigate"
     risk_tier: str = "safe"
     description: str = (
-        "Open/switch the desktop app to a sidebar section (the UI screen the user "
-        "sees). Use when the user asks to show or open a section — 'zeig die "
-        "Socials', 'open settings', 'show the agents', 'geh zu den Aufgaben'. Pass "
-        "the section id in 'section'. To open one thing instead, pass exactly one of "
-        "agent (a named agent's chat), chat (a conversation, by its title) or "
-        "workspace (a coding workspace) and no section. Do NOT use it for anything "
-        "other than moving the UI."
+        "Open a sidebar section of the desktop app ('open settings', 'show the agents', 'zeig "
+        "die Socials', 'geh zu den Aufgaben'): pass the id in 'section'. To open one thing "
+        "instead, pass exactly one of agent (a named agent's chat), chat (a conversation by "
+        "title) or workspace (a coding workspace) and no section. Only for moving the UI."
     )
     schema: dict[str, Any] = {
         "type": "object",

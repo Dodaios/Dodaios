@@ -81,18 +81,6 @@ class ManageMcpServerTool:
         },
         "required": ["action", "name", "reason"],
         "additionalProperties": False,
-        "input_examples": [
-            {
-                "action": "add",
-                "name": "github",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "description": "GitHub integration",
-                "reason": "user wants GitHub MCP",
-            },
-            {"action": "enable", "name": "github", "reason": "user asked to turn it on"},
-            {"action": "remove", "name": "filesystem", "reason": "no longer needed"},
-        ],
     }
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:  # noqa: ARG002

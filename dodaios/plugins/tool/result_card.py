@@ -77,12 +77,11 @@ class ResultCardTool:
     name: str = "show_result_card"
     risk_tier: str = "safe"
     description: str = (
-        "Show ONE compact card in the conversation that lists what a multi-step "
-        "request across apps produced, with links: calendar events, tasks, drafts, "
-        "pages, notes. Call it once, at the end of such a request, after the work is "
-        "done. Mark a draft as state 'draft' and an outgoing part that still needs the "
-        "person's go as 'waiting'. Use the web link each app returned as 'url'. Do not "
-        "call it for a single action or an ordinary answer."
+        "Show ONE compact card listing what a multi-step request across apps produced, with "
+        "links (calendar events, tasks, drafts, pages, notes). Call it once, at the end, after "
+        "the work is done; not for a single action or an ordinary answer. Mark a draft 'draft' "
+        "and an outgoing part still needing the person's go 'waiting'. Use each app's web link "
+        "as 'url'."
     )
     schema: dict[str, Any] = {
         "type": "object",

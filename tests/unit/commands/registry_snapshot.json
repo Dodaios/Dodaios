@@ -246,7 +246,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "dbe3391185480a1cc02c66235f08e7a063d404c2c67860eef5acd374d9d958ed",
+  "description_sha256": "0feb390efa96eb87c7ce220ccdab9df7b15dedcaedda929b620a8cc1f7693ff5",
   "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
   "voice_aliases": {
    "de": "c58cc4164f4df89204269bfa63f78993612dccaa0ac3ad2cd6751e814c7a7c0d",
@@ -266,8 +266,8 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "1404b3106e7294e67279bdc0c27fd5193173ef59d61ad0b7c58d0c1f7c9b2be7",
-  "params_sha256": "4b7f15ca95d64da79e0e9ab778348e715f0a79be69c1671a7299f78c8eedc019",
+  "description_sha256": "1ec5f881e1174d57e6cf1396fc3d9246cd9c419eff3f3f7ae501ac2c6698cab6",
+  "params_sha256": "e72cab3f8b7644734d4c5daaa97f53aab3e3c2bf568b0bf1555a0a0fc829cf79",
   "voice_aliases": {
    "de": "c6fcd52710692ec45296e29d3f10ee7b39500e5b42369e87c59a08240cd9ec36",
    "en": [
@@ -288,8 +288,8 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "c79da66bebf76c09e05cfa39883c8fb1df487ef8683467fa7dbaf1b006b9eec6",
-  "params_sha256": "e04171e722369d434c7d219c1aea24e863d0e48419fd813020c9ff33312b8f23",
+  "description_sha256": "cb7fde75b99271565eb1c6fcf27eea91a2d8e8301bb85af4bbc734826beee8fc",
+  "params_sha256": "2fb42d889d0d549341a41653e4e97beccd4fef74426436f26f59fa78b97301ad",
   "voice_aliases": {
    "de": "1224fec4b75c82782c1a5fdb32093f51c29e825c531790447d7aca98eb9f0b02",
    "en": [
@@ -332,7 +332,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "bde041ce5ad6dba43f0054831f4f668c85af32deed08a527254374b6e3e0b714",
+  "description_sha256": "b5016bbb1b538f3b56caf2b1882a5be3b00e6a26e207275ae1394691fec978a4",
   "params_sha256": "eb97e4c087932474b4878b075c39982f7f592c82d14f569eb5f51fa4ee5aeb61",
   "voice_aliases": {
    "de": "7a35ed419dcb8e6b8fef51d6a1f35b78b409b0b2227039642b7ac4f7b9cc7af5",
@@ -674,7 +674,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "designs",
-  "description_sha256": "ccffdf3ab60063fa9e3f66757737ddce9cb5a00d34a259c243785c74b102281e",
+  "description_sha256": "2d2aeae8742de78ba06395586b995ef6a62b53755c1890533e3ab21972e49844",
   "params_sha256": "6e3233b7a196daabc7a38d22ae3278f15d1133188adf2cab4cc3bbd4c72905d6",
   "voice_aliases": {
    "de": "555189fb73280b637bae8da41067a40c6b3ee2bb3487975d89042402dcb6bcf3",
@@ -840,7 +840,7 @@
   "dangerous": true,
   "worker_allowed": false,
   "ui_section": "plugins",
-  "description_sha256": "935b9f445830e18cb5c1a0e8733fe76e5878691a0b4587f87d456a43f38540f4",
+  "description_sha256": "d51d27d93d7cc2fc2360321a70131037c2aad5034671ee42e3bf4b6b6b09b562",
   "params_sha256": "f165499b2a9ae8d0def1ae515b549874eb0d1e1a211c8685f93cd8dddfb8255c",
   "voice_aliases": {
    "de": "9a2c238b5d78905435f9b8c0f449b050b85a9723234402b886a3dcd44a273d20",
@@ -1183,7 +1183,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "settings",
-  "description_sha256": "3297b2407d51a901ea8c9fd876df7c70da6e7100c4a68d32872d0d8e4d6c5e76",
+  "description_sha256": "cb9c8893c4c975cad690c44acdc29788d066f4d6e35cbe8af35b0cd74b0ec25d",
   "params_sha256": "32859ec6a447b0cfebe65acbc9ebc8bd14a60579bcc969497a5b317016a6d81b",
   "voice_aliases": {
    "de": "2f7dc930296a332bf4db1491127e9afc5f0b7a63e8e54f742eaaec43784f4413",
@@ -1308,7 +1308,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "agentic-ide",
-  "description_sha256": "19f9a263cb570e6669d9a81834727f883c9263ea94b2e0edfb950b0188524cde",
+  "description_sha256": "250ba20f815331c9b59939e0669492718f5006173b83088596abf631d3abf8a7",
   "params_sha256": "4e25faace212e273a5f10e49174514647fff0b53517cc69981cf147d4a86aa03",
   "voice_aliases": {
    "de": "88ecfe310a75764ccc43e159afd64e26fd35c0c7cbe637371cbdb4c941870837",
@@ -1330,7 +1330,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "agentic-ide",
-  "description_sha256": "a63123989517b704466532f724feac07595ca93d61928be95a4ff1eca5f49a2b",
+  "description_sha256": "29e85f6cbb8f17dc53a3a00e20de66a5be26d6c150cf68d2bf59a9f5a84b8faa",
   "params_sha256": "161f83f98ef4c5c5a15a32ad6fddf61900a4d75f89bb43e56ff9270da9c9e34f",
   "voice_aliases": {
    "de": "7b9262302a96b3ff39db52e57376b1aaf431e289fa43749b21d87cf697b29d31",
@@ -1352,7 +1352,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "agentic-ide",
-  "description_sha256": "d90bd52fe6aaaa4ea386d46152ac7cfc752bf6826fe29fbd93d19c67cb4eee77",
+  "description_sha256": "ec352e3b33a65e33f63766b5df7a135a0bb6f62732c7c603cc73bc0836c592d3",
   "params_sha256": "4a21a89101beeb103027977bca3ae133aabcdf1ab0558b12b9f4f6926747c445",
   "voice_aliases": {
    "de": "86c160efb9468b96695ccfba8fe4e6421281d25a0e69dda5010d759c49d0465f",
@@ -1414,7 +1414,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "agentic-ide",
-  "description_sha256": "19e22824467c5921eecaf20287f31a089e311d11c98217ac6292c024a191e7f7",
+  "description_sha256": "45d35012c097cd62ae3a3cfcfd904daa7d78dc3678cf6f8ebce1d6b322fff1b0",
   "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
   "voice_aliases": {
    "de": "bf4ef3b34ba16ae3321661579429539ba416793a74ad77fd5cbaec7890d68e59",

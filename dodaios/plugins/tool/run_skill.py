@@ -80,12 +80,10 @@ class RunSkillTool:
     #: that ask "did anything actually happen this turn?" must not count it.
     yields_instructions_only: bool = True
     description: str = (
-        "Load an installed skill's instructions by name and follow them. "
-        "Use this tool when the user request matches one of the skills listed "
-        "in the AVAILABLE SKILLS section. The result contains the skill's "
-        "step-by-step instructions for you to execute with your other tools. "
-        "Pass the optional 'resource' argument to read one of the skill's "
-        "bundled reference files."
+        "Load an installed skill's instructions by name and follow them, when the request "
+        "matches a skill in AVAILABLE SKILLS. The result holds step-by-step instructions to "
+        "run with your other tools. 'resource' reads one of the skill's bundled reference "
+        "files instead."
     )
     schema: dict[str, Any] = {
         "type": "object",

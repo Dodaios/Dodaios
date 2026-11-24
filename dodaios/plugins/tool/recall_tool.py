@@ -26,14 +26,12 @@ class RecallTool:
     risk_tier: str = "safe"
     is_action_tool: bool = False
     description: str = (
-        "Read one thing by its id: a message or report in this conversation (ev:<n>), a "
-        "turn (turn:<id>), a thread (thread:<id>), a job (job_<id>), a trigger event "
-        "(trg:<id>), an artifact (artifact:<id>) or a team agent (agent:<id>). Returns a "
-        "summary, the key fields, the ids of closely related objects under 'related' "
-        "(follow them to go from a message to its thread, its job and the job's result) "
-        "and, when the body is long, a 'more' offset to pass back as 'more' for the next "
-        "page. Use it when a card or report in your context says it has more, or when "
-        "the person refers to something from earlier. Read-only."
+        "Read one thing by its id: a message or report in this conversation (ev:<n>), a turn "
+        "(turn:<id>), thread (thread:<id>), job (job_<id>), trigger event (trg:<id>), artifact "
+        "(artifact:<id>) or team agent (agent:<id>). Returns a summary, key fields, ids of "
+        "related objects under 'related' and, for long bodies, a 'more' offset to pass back "
+        "for the next page. Use it when a card or report says it has more, or when the person "
+        "refers to something earlier. Read-only."
     )
     schema: dict[str, Any] = {
         "type": "object",
