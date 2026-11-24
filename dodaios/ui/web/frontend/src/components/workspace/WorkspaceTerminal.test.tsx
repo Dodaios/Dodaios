@@ -7,7 +7,7 @@ const terminal = vi.hoisted(() => ({ focus: vi.fn(), dispose: vi.fn(), fit: vi.f
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80; rows = 24; options = {};
-    open() {} loadAddon() {} write() {} onData() {}
+    open() {} loadAddon() {} write() {} onData() {} attachCustomKeyEventHandler() {} getSelection() { return ""; } paste() {} selectAll() {} clear() {}
     focus = terminal.focus;
     dispose = terminal.dispose;
   },

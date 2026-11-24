@@ -5415,7 +5415,11 @@
     "select_all": "Selecionar tudo",
     "copy_failed": "Não foi possível copiar para a área de transferência.",
     "paste_unavailable": "Não foi possível ler a área de transferência.",
-    "paste_failed": "Não é possível colar aqui."
+    "paste_failed": "Não é possível colar aqui.",
+    "open_link": "Abrir link",
+    "copy_link": "Copiar endereço do link",
+    "clear_terminal": "Limpar terminal",
+    "action_failed": "Não funcionou."
   },
   "workspace_bar": {
     "open_workspaces": "Workspaces abertos",

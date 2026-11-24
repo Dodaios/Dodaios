@@ -5415,7 +5415,11 @@
     "select_all": "全选",
     "copy_failed": "无法复制到剪贴板。",
     "paste_unavailable": "无法读取剪贴板。",
-    "paste_failed": "无法粘贴到这里。"
+    "paste_failed": "无法粘贴到这里。",
+    "open_link": "打开链接",
+    "copy_link": "复制链接地址",
+    "clear_terminal": "清空终端",
+    "action_failed": "操作失败。"
   },
   "workspace_bar": {
     "open_workspaces": "打开的工作区",

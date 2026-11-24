@@ -331,6 +331,7 @@ export function installPaneSizing(p: PanePorts, s: PaneState, a: ReturnType<type
       getSelection: () => term.getSelection(),
       paste: (text) => term.paste(text),
       focus: () => term.focus(),
+      selectAll: () => term.selectAll(),
     });
     const disposeMouse = installMouseSelection(host, term, isMac);
     const disposeBrowse = installBrowseExit(host, term);

@@ -170,6 +170,7 @@ export function mountTerminal(p: PanePorts, s: PaneState) {
     getSelection: () => term.getSelection(),
     paste: (text) => term.paste(text),
     focus: () => term.focus(),
+    selectAll: () => term.selectAll(),
   });
   // The keyboard bridges below claim keystrokes, and xterm holds exactly ONE
   // custom key handler — attaching them directly would leave only the last
