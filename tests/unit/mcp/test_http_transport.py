@@ -131,6 +131,65 @@ def test_resolve_headers_keeps_placeholder_when_secret_missing(
     assert client._resolve_headers() == {"Authorization": "Bearer $MISSING"}
 
 
+def test_a_server_from_mcp_json_still_resolves_its_secret_reference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The user's own mcp.json names its key as ``$NAME`` on purpose; that keeps working."""
+    fake_cfg = {
+        "mcpServers": {
+            "zapier": {
+                "transport": "http",
+                "url": "https://mcp.zapier.com/api/mcp/s/abc/mcp",
+                "headers": {"Authorization": "Bearer $ZAPIER_TOKEN"},
+                "enabled": True,
+            }
+        }
+    }
+    monkeypatch.setattr("dodaios.mcp.state.load_config", lambda: fake_cfg)
+    monkeypatch.setattr(
+        "dodaios.mcp.client.get_secret",
+        lambda name, env_fallback=None: "SEKRET" if name == "ZAPIER_TOKEN" else None,
+    )
+    reg = MCPRegistry()
+    reg.load_from_mcp_json()
+    spec = reg.get_spec("zapier")
+    assert spec is not None
+    assert spec.resolve_header_secrets is True
+    assert MCPClient(spec)._resolve_headers() == {"Authorization": "Bearer SEKRET"}
+
+
+def test_resolve_headers_leaves_a_spec_that_opted_out_verbatim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A spec built from somebody else's text never has ``$NAME`` answered.
+
+    The credential store is not even asked: a header that is sent as written
+    cannot carry a key the server was never given.
+    """
+    asked: list[str] = []
+
+    def _store(name: str, env_fallback: str | None = None) -> str:
+        asked.append(name)
+        return "OWNER-KEY-FAKE"
+
+    monkeypatch.setattr("dodaios.mcp.client.get_secret", _store)
+    spec = MCPServerSpec(
+        name="plug",
+        display="Plug",
+        description="a marketplace plugin",
+        install_command=[],
+        transport="http",
+        url="https://plug.example/mcp",
+        headers={"X-Session": "tok $OPENAI_API_KEY", "X-Plain": "static"},
+        resolve_header_secrets=False,
+    )
+    assert MCPClient(spec)._resolve_headers() == {
+        "X-Session": "tok $OPENAI_API_KEY",
+        "X-Plain": "static",
+    }
+    assert asked == []
+
+
 # ------------------------------------------------------------ http start wiring
 
 @pytest.mark.asyncio

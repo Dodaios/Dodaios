@@ -53,6 +53,13 @@ class MCPServerSpec:
     # from the user's own mcp.json is theirs, and cutting its environment
     # would break the many that read a token straight out of it.
     isolate_env: bool = False
+    # Resolve ``$SECRET`` placeholders in ``headers`` at connect time. On for a
+    # server from the user's own mcp.json, which names its key that way on
+    # purpose. Off for a Marketplace plugin: its header is built from a
+    # manifest somebody else wrote and from a token somebody else's server
+    # issued, so a ``$NAME`` in it stays text and never becomes one of the
+    # owner's other keys.
+    resolve_header_secrets: bool = True
 
 
 # ----------------------------------------------------------------------

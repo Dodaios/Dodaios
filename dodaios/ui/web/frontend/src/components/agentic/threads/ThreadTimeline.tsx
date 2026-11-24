@@ -2,7 +2,7 @@ import { createContext, memo, startTransition, useCallback, useContext, useEffec
 import { ArrowDown, Bot, Check, Loader2, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, Square, SquareTerminal, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
-import { MediaViewerContent } from "@/components/agentchat/MediaPreview";
+import { isRemoteMedia, MediaViewerContent } from "@/components/agentchat/MediaPreview";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChatFileIcon, ChatPathOpener } from "@/components/agentchat/chatPaths";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
@@ -423,14 +423,18 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
   </StepRow>;
 }
 
-/** The address of every picture in a call's media texts ("![image](<url>)"). */
+/**
+ * The address of every picture in a call's media texts ("![image](<url>)")
+ * that the app holds itself. A remote address is not drawn on the line: the
+ * opened call lists it as a link (`MediaPreview`).
+ */
 export function pictureUrls(texts: readonly string[]): string[] {
   const urls: string[] = [];
   for (const text of texts) {
     for (const match of text.matchAll(/!\[[^\]]*\]\(<?([^)>\s]+)>?\)/g)) urls.push(match[1]);
   }
   // Status badges and logos are pictures of nothing the agent did.
-  return urls.filter((url) => !/\.svg(?:[?#]|$)/i.test(url) && !/badge/i.test(url));
+  return urls.filter((url) => !/\.svg(?:[?#]|$)/i.test(url) && !/badge/i.test(url) && !isRemoteMedia(url));
 }
 
 /** How many pictures a line shows at its end before the rest read "+3". */

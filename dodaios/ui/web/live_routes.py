@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from dodaios.core.config import BrainTierConfig
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 
 router = APIRouter(prefix="/api/live", tags=["live"])
 

@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { groupTrace, groupActivityTrace, livePetState, splitConversationTurn, WorkTrace, traceDuration } from "./WorkTrace";
+import { groupTrace, groupActivityTrace, livePetState, ReasoningTrace, splitConversationTurn, WorkTrace, traceDuration } from "./WorkTrace";
 import { traceToolIdentity } from "./traceActivity";
 import { failureReason } from "./traceEntries";
-import { EMPTY_TIMELINE, reduceEvents, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
+import { EMPTY_TIMELINE, reduceEvents, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
 
 const tool = (id: string, over: Partial<ToolBlock> = {}): ToolBlock => ({
@@ -376,6 +376,16 @@ describe("work trace", () => {
     rerender(<WorkTrace {...props} status="running" durationMs={null} blocks={[tool("a", { output: null })]} />);
     expect(screen.queryByTestId("typing-indicator")).toBeNull();
     expect(screen.getByRole("status").className).not.toContain("sr-only");
+  });
+
+  it("loads no remote picture the reasoning names", () => {
+    const remote = "https://example.test/r.png?d=c2VjcmV0";
+    const block: ReasoningBlock = { kind: "reasoning", id: "pictures", text: `See ![chart](${remote})\n\n![own](/api/media/own.png)`, live: true, durationMs: null, startedMs: 1000 };
+    render(<ReasoningTrace block={block} turnLive />);
+    const body = screen.getByTestId("reasoning-body");
+    // What the app serves is drawn; the remote address is a link, as in a chat message.
+    expect(Array.from(body.querySelectorAll("img")).map((image) => image.getAttribute("src"))).toEqual(["/api/media/own.png"]);
+    expect(within(body).getByRole("link", { name: /chart/ }).getAttribute("href")).toBe(remote);
   });
 
   it("draws no reasoning and no steps in a messenger conversation, live or finished", () => {

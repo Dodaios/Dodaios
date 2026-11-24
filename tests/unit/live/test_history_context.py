@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.live.recovery import HISTORY_CONTEXT_RULE, seed_messages
 
 

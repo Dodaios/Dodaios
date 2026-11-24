@@ -12,6 +12,7 @@ import { ApprovalActionCard, type ApprovalDecide } from "./actionCard/ApprovalAc
 import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsInBackground, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
+import { MARKDOWN_PICTURES } from "./MediaPreview";
 import { QuestionCard, QuestionSettledContext } from "./QuestionCard";
 import { TypingBubble } from "./TypingBubble";
 import { toolDiff } from "./toolDiff";
@@ -291,7 +292,7 @@ function ReasoningBody({ text, live }: { text: string; live: boolean }) {
         ? cn("prose prose-sm max-h-60 max-w-none overflow-auto pb-1 text-sm leading-6 text-foreground-secondary dark:prose-invert [overflow-wrap:anywhere] prose-p:my-1 prose-p:text-foreground-secondary prose-li:text-foreground-secondary prose-strong:text-foreground prose-pre:overflow-auto", live && clipped && "trace-scratch-live")
         : "prose prose-sm max-h-64 max-w-none overflow-auto text-xs leading-6 text-muted-foreground dark:prose-invert [overflow-wrap:anywhere] prose-p:my-1 prose-pre:overflow-auto"}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_PICTURES}>{text}</ReactMarkdown>
     </div>
   );
 }

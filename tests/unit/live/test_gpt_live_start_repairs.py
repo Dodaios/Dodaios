@@ -12,9 +12,9 @@ import pytest
 
 from dodaios.core import config_writer
 from dodaios.core.bus import EventBus
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import AudioChunk
 from dodaios.live import recovery, runtime, startup
-from dodaios.live.config import LiveConfig
 from dodaios.live.session import LiveVoiceSession
 from dodaios.live.state import LiveLedger
 from dodaios.live.tools import LiveTools
