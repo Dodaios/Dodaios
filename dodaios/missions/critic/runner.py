@@ -1407,7 +1407,11 @@ class CriticRunner:
             _slug = (
                 to_worker_slug(_primary.provider) if _primary else None
             )
-        except (NoWorkerSlugMappingError, Exception):  # noqa: BLE001
+        except (NoWorkerSlugMappingError, Exception):  # broad-except: no slug: fall back
+            logger.debug(
+                "_ensure_critic_agent_registered: failed; carrying on with the fallback",
+                exc_info=True,
+            )
             _slug = None
         if _slug == "claude-cli":
             defaults_cfg = agents_cfg.setdefault("defaults", {})
@@ -2482,7 +2486,7 @@ def _critic_family_unavailable(family: str) -> CapacityWaitReason | None:
         if _api_key_family_viable(family):
             return None
         return "provider_quota" if api_family_in_cooldown(family) else "provider_unavailable"
-    except Exception:  # noqa: BLE001 - an unreadable probe means "not now", logged
+    except Exception:  # broad-except: an unreadable probe means "not now", logged
         logger.warning("CriticRunner: capacity probe for %s failed", family, exc_info=True)
         return "provider_unavailable"
 
@@ -2495,7 +2499,7 @@ def _critic_subscription_only(primary_provider: str | None) -> bool:
         from dodaios.missions.init import install_is_pinned
 
         return install_is_pinned()
-    except Exception:  # noqa: BLE001 - logged; waiting is the safe answer
+    except Exception:  # broad-except: logged; waiting is the safe answer
         logger.warning("CriticRunner: pinning signal unreadable — pinned critic", exc_info=True)
         return True
 
@@ -2527,7 +2531,8 @@ def _claude_cli_critic_viable() -> bool:
         if install_is_pinned():
             return _claude_subscription_login_state() is True
         return _claude_cli_auth_viable()
-    except Exception:  # noqa: BLE001 — unreadable probe => not viable
+    except Exception:  # broad-except: unreadable probe => not viable
+        logger.debug("_claude_cli_critic_viable: unreadable probe => not viable", exc_info=True)
         return False
 
 
@@ -2548,7 +2553,11 @@ def _resolve_critic_provider_model() -> tuple[str | None, str | None]:
             return (None, None)
         primary = chain[0]
         return (primary.provider, primary.model)
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        logger.debug(
+            "_resolve_critic_provider_model: failed; carrying on with the fallback",
+            exc_info=True,
+        )
         return (None, None)
 
 
@@ -2584,7 +2593,11 @@ def _provider_picked_model(provider: str) -> str | None:
         pc = (load_config().brain.providers or {}).get(provider)
         picked = (getattr(pc, "model", "") or "").strip()
         return picked or None
-    except Exception:  # noqa: BLE001 — config read must never break critic resolution
+    except Exception:  # broad-except: config read must never break critic resolution
+        logger.debug(
+            "_provider_picked_model: config read must never break critic resolution",
+            exc_info=True,
+        )
         return None
 
 
@@ -2629,7 +2642,11 @@ def _resolve_api_critic_provider(
                     else _provider_picked_model(prov)
                 )
                 return prov, model
-        except Exception:  # noqa: BLE001, S112 -- skip an unreadable family probe
+        except Exception:  # broad-except: skip an unreadable family probe
+            logger.debug(
+                "_resolve_api_critic_provider: skip an unreadable family probe",
+                exc_info=True,
+            )
             continue
     return None, None
 

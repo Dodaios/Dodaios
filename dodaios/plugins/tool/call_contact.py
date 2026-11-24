@@ -59,7 +59,7 @@ def _load_place_call() -> Callable[..., str] | None:
     """
     try:
         from dodaios.telephony.outbound import place_call  # type: ignore[import]
-    except Exception as exc:  # noqa: BLE001 — extra/module absent is expected
+    except Exception as exc:  # broad-except: extra/module absent is expected
         log.debug("call-contact: place_call unavailable: %s", exc)
         return None
     return place_call
@@ -110,7 +110,7 @@ def _default_call_config() -> dict[str, str] | None:
             "from_number": str(from_number),
             "public_base_url": str(public_base_url),
         }
-    except Exception as exc:  # noqa: BLE001 — unconfigured telephony is a no-op, not a crash
+    except Exception as exc:  # broad-except: unconfigured telephony is a no-op, not a crash
         log.debug("call-contact: telephony config unavailable: %s", exc)
         return None
 
@@ -186,7 +186,7 @@ class CallContactTool:
 
         try:
             contact = store.find_by_alias(name)
-        except Exception as exc:  # noqa: BLE001 — store error must not crash the turn
+        except Exception as exc:  # broad-except: store error must not crash the turn
             log.warning("call-contact: store.find_by_alias raised %s", exc)
             return ToolResult(success=False, output="", error="contact lookup failed")
 
@@ -231,7 +231,7 @@ class CallContactTool:
         log.debug("call-contact: %s -> %s", display, phone)
         try:
             call_sid = place_call(to=str(phone), opening=opening, **config)
-        except Exception as exc:  # noqa: BLE001 — Contract 2 raises clear English; surface it
+        except Exception as exc:  # broad-except: Contract 2 raises clear English; surface it
             log.warning("call-contact: place_call failed: %s", exc)
             return ToolResult(
                 success=False,

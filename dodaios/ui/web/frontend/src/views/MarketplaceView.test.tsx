@@ -113,8 +113,11 @@ function installFetchMock(overrides?: Partial<CommunityResponse>) {
           id: "three-bullet-brief",
           title: "Three Bullet Brief",
           location: "skills/three-bullet-brief",
-          ready: true,
-          next_action: null,
+          // A downloaded skill lands switched off and waits to be switched on.
+          state: "draft",
+          ready: false,
+          problem: null,
+          next_action: "enable",
         }),
       } as Response;
     }
@@ -243,7 +246,11 @@ describe("MarketplaceView", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Install" }));
 
     expect(await screen.findByText(/Three Bullet Brief installed/)).toBeTruthy();
-    expect(screen.getByText(/It is in Skills now/)).toBeTruthy();
+    // Honest about the state: in Skills, switched off, and that is a next
+    // step rather than a fault (no warning sign).
+    expect(screen.getByText(/It is in Skills, switched off/)).toBeTruthy();
+    expect(screen.queryByText(/can be used right away/)).toBeNull();
+    expect(screen.getByRole("status").querySelector(".text-warning")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Show me" }));
     await waitFor(() => {

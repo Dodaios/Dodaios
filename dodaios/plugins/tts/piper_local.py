@@ -461,7 +461,8 @@ class PiperLocalTTS:
                         if rate <= 0:
                             raise RuntimeError("Cannot insert speech pause without sample rate.")
                         _put(bytes(int(rate * pause_ms / 1000) * 2))
-            except Exception as exc:  # noqa: BLE001 - forwarded to async owner
+            except Exception as exc:  # broad-except: forwarded to async owner
+                log.debug("_generate: forwarded to async owner", exc_info=True)
                 failure.append(exc)
             finally:
                 _put(end)
@@ -517,7 +518,7 @@ class PiperLocalTTS:
             return
         try:
             await self._engine_for(model_id)
-        except Exception as exc:  # noqa: BLE001 — warm-up must never break boot
+        except Exception as exc:  # broad-except: warm-up must never break boot
             log.debug("Local voice warm-up skipped (%s).", exc)
 
     async def aclose(self) -> None:

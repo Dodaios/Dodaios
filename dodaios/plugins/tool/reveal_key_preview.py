@@ -59,10 +59,6 @@ class RevealKeyPreviewTool:
         },
         "required": ["provider"],
         "additionalProperties": False,
-        "input_examples": [
-            {"provider": "gemini"},
-            {"provider": "grok"},
-        ],
     }
 
     async def execute(

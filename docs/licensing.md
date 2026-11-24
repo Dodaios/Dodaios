@@ -12,7 +12,7 @@ distribution, on one condition: the copyright notice and the permission notice
 are kept in all copies or substantial portions. This describes the project
 code; bundled dependencies can impose additional obligations. MIT grants
 rights in the code only, not in the name or the logo; those are covered by
-[`TRADEMARK.md`](../TRADEMARK.md).
+[`TRADEMARK.md`](legal/TRADEMARK.md).
 
 ## Earlier releases keep their license, permanently
 

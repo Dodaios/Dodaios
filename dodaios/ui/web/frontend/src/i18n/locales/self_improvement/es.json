@@ -29,6 +29,22 @@
       "recall": {
         "name": "Memoria",
         "about": "¿Aparece el recuerdo correcto para un mensaje, y ninguno cuando no hace falta?"
+      },
+      "first_move": {
+        "name": "Primer paso",
+        "about": "¿Usa el asistente primero la herramienta correcta, y dice antes en una línea de qué se encarga?",
+        "building": "Por ahora hay {n} tareas de prueba de tus propios chats con el asistente. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}.",
+        "no_tasks": "Todavía no hay tareas de tus chats para esta área. Salen de respuestas que dejaste como estaban y de respuestas que el asistente acertó después de que lo corrigieras."
+      },
+      "brief": {
+        "name": "Encargos",
+        "about": "¿El encargo que el asistente escribe para un agente de código señala los archivos que el trabajo acabó necesitando?",
+        "building": "Por ahora hay {n} tareas de prueba de tu trabajo de programación anterior. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}.",
+        "no_tasks": "Todavía no hay tareas de tu trabajo de programación anterior para esta área. Salen de peticiones que escribiste a un agente de código y del pull request que se fusionó para ellas.",
+        "cost_label": "Mensaje y encargo por tarea",
+        "effect_shorter": "mensaje y encargo {tokens} tokens más cortos",
+        "effect_longer": "mensaje y encargo {tokens} tokens más largos",
+        "range_unclear_cheaper": "Hasta donde se ha medido, es tan bueno como se entregó: la diferencia de calidad está entre {low} y {high} puntos, y eso incluye el cero. Su mensaje y su encargo son un {pct} más cortos."
       }
     },
     "area": {
@@ -78,7 +94,7 @@
       "values": "{before} → {after}",
       "since": "desde {when}",
       "held": "confirmado de nuevo en {n} tareas",
-      "kinds": "Dos tipos de cambio: valores que ajustó y demostró con tareas, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
+      "kinds": "Tres tipos de cambio: valores que ajustó y demostró con tareas, cómo dirige a los agentes de código, demostrado en la mitad de tus peticiones, y notas que se escribió a sí mismo, que están en vigor pero aún no se han medido.",
       "note_title": "Una nota que se escribió a sí mismo",
       "note_gone": "Esta nota ya no está en la memoria.",
       "not_measured": "aún sin medir"
@@ -119,7 +135,9 @@
     "author": {
       "tuner": "El ajustador, que prueba valores cercanos en tareas de práctica",
       "owner": "Tú",
-      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara"
+      "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara",
+      "rsi-selector": "El aprendiz de dirección, que prueba un cambio cada vez en la mitad de tus peticiones de código",
+      "lines": "El aprendiz de líneas, que prueba tus mensajes sin una de sus líneas fijas en tareas de práctica"
     },
     "nights": {
       "title": "Las últimas noches",
@@ -173,6 +191,7 @@
       "models": "Para crear tareas consulta un modelo como mucho {calls} veces por noche, con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "models_ramp": "Para crear tareas consulta un modelo como mucho {calls} veces por noche ({ramp} en las primeras noches, mientras haya muy pocas tareas para decidir), con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "measure_no_model": "La medición en sí no consulta ningún modelo.",
+      "measure_first_move": "Para medir el primer paso y los encargos repite tus peticiones anteriores con la suscripción del propio asistente: como mucho {calls} llamadas al modelo por noche entre los dos, nunca mientras una ventana de uso esté llena al 80 %, y nunca más del {share} % de una ventana en una noche.",
       "privacy": "Los recuerdos y mensajes que se usan para esto solo van al proveedor con el que el asistente ya responde. Los recuerdos marcados como sensibles nunca se envían."
     },
     "param": {
@@ -227,6 +246,14 @@
       "lessons_recall_limit": {
         "title": "Lecciones por mensaje",
         "about": "El máximo de lecciones que puede traer un mensaje."
+      },
+      "lead_first_line": {
+        "title": "Línea inicial antes de una herramienta",
+        "about": "Junto a cada uno de tus mensajes: escribir una línea corta que asume la tarea antes de usar una herramienta."
+      },
+      "lead_brief_line": {
+        "title": "Redacción de la línea de encargos",
+        "about": "Junto a cada uno de tus mensajes: cómo se pide al asistente que consulte los archivos antes de dar un encargo a un agente de código."
       }
     },
     "daily": {
@@ -238,6 +265,62 @@
       "col_through": "Salieron adelante",
       "week_of": "desde el {date}",
       "unrated": "sin cifra"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "para trabajo de {area} con {model} en {harness}",
+      "default_model": "el modelo predeterminado",
+      "hold": "Espera a las comprobaciones y pide correcciones",
+      "release": "Deja de esperar a las comprobaciones",
+      "no_fixes": "No pide correcciones",
+      "fewer_fixes_one": "Pide como mucho una corrección",
+      "fewer_fixes_other": "Pide como mucho {n} correcciones",
+      "shorter_wait": "Espera como mucho {minutes} minutos a las comprobaciones",
+      "brief_line": "Añade una línea a la primera instrucción",
+      "other": "Cambia cómo se dirige a los agentes de código",
+      "on_trial": "a prueba en la mitad de tus peticiones desde {when}",
+      "claim_pass": "se queda solo si salen bien claramente más peticiones",
+      "claim_cost": "se queda solo si cuesta menos y nada empeora",
+      "claim_p": "se queda solo si hacen falta menos correcciones y nada empeora",
+      "proof_pass": "Salieron bien {with} de {n} peticiones, frente a {without} de {m} sin él (al menos {low} puntos)",
+      "proof_cost": "{diff} menos por petición en coste y tiempo, en {n} peticiones frente a {m} sin él (al menos {low} menos)",
+      "proof_p": "{diff} correcciones menos por petición, en {n} peticiones frente a {m} sin él (al menos {low} menos)",
+      "measured_on": "Medido en {n} de tus peticiones con él y {m} sin él, {when}.",
+      "about": "Cómo Dodaios pasa el trabajo de código a los agentes para este tipo de trabajo, este modelo y esta herramienta de código: si su respuesta espera a las comprobaciones, cuántas correcciones pide y qué dice la primera instrucción. Se probó en la mitad de tus peticiones y se comparó con la otra mitad.",
+      "probation": "A prueba: la primera ejecución con él que debilite una comprobación lo retira por sí sola."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "pruebas",
+      "database": "base de datos",
+      "infra_ci": "infraestructura y CI",
+      "docs": "documentación",
+      "other": "otro tipo",
+      "refactoring": "refactorización",
+      "multi_repo": "varios repositorios"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Se quitó la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta.",
+        "on": "Se volvió a poner la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta."
+      },
+      "lead_brief_line": {
+        "v0": "Se volvió a poner la redacción original de la línea junto a tus mensajes que dice cómo encargar trabajo a un agente de código.",
+        "v1": "La línea junto a tus mensajes ahora pide con menos palabras consultar los archivos antes de encargar trabajo a un agente de código.",
+        "v2": "La línea junto a tus mensajes ya no pide consultar los archivos antes de encargar trabajo a un agente de código."
+      }
+    },
+    "value": {
+      "on": "activada",
+      "off": "desactivada"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "como se entregó",
+        "v1": "consulta más corta",
+        "v2": "sin consulta"
+      }
     }
   }
 }

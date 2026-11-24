@@ -115,7 +115,7 @@ async def summarize_log(
     if triage_fn is not None and len(log_text) > TRIAGE_THRESHOLD_CHARS:
         try:
             triaged = await triage_fn(log_text)
-        except Exception:  # noqa: BLE001 — triage must never block the Critic.
+        except Exception:  # broad-except: triage must never block the Critic.
             logger.warning(
                 "summarize_log: triage_fn raised; falling back to head/tail/grep",
                 exc_info=True,

@@ -214,6 +214,69 @@ async def wire_read_only(session_id: str, wire: str, args: dict[str, Any] | None
     return entry is not None and _read_only(entry, args)
 
 
+def _listed(wire: str, entry: Any) -> tuple[str, dict[str, Any]]:
+    """The description and the input schema a tool is listed with."""
+    schema = entry.input_schema
+    if not isinstance(schema, dict) or not schema:
+        schema = {"type": "object", "properties": {}}
+    if not _read_only(entry):
+        schema = inject_expect(schema)
+    description = (
+        f"[{entry.name}] {entry.description or entry.name}"
+        if wire != entry.name
+        else str(entry.description or entry.name)
+    )
+    return description, schema
+
+
+async def tool_list_digest(session_id: str) -> str:
+    """A hash of the tool list this server gives ``session_id``: names, descriptions, schemas.
+
+    A recorded lead turn keeps it, so a replay can tell whether the tools it
+    runs with are the ones the turn had (``dodaios.rsi.lead_turns``). ``""``
+    while no gateway is up.
+    """
+    if _gateway() is None:
+        return ""
+    token = CHAT_SESSION_REF.set(session_id or None)
+    try:
+        catalog = await _session_wire_catalog()
+    finally:
+        CHAT_SESSION_REF.reset(token)
+    rows = [[wire, *_listed(wire, entry)] for wire, entry in sorted(catalog.items())]
+    blob = json.dumps(rows, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+async def tool_rows(session_id: str) -> list[dict[str, Any]]:
+    """The tool list this server gives ``session_id``, as plain rows, in listing order.
+
+    What a benchmark replay of a lead turn offers its CLI instead of this server
+    (``dodaios.rsi.bench.replay_tools``): the same names, descriptions, schemas
+    and marks, and no way to run any of them. ``[]`` while no gateway is up.
+    """
+    if _gateway() is None:
+        return []
+    token = CHAT_SESSION_REF.set(session_id or None)
+    try:
+        catalog = await _session_wire_catalog()
+    finally:
+        CHAT_SESSION_REF.reset(token)
+    rows: list[dict[str, Any]] = []
+    for wire, entry in catalog.items():
+        description, schema = _listed(wire, entry)
+        rows.append(
+            {
+                "name": wire,
+                "description": description,
+                "inputSchema": schema,
+                "readOnly": _read_only(entry),
+                "meta": dict(_ALWAYS_LOAD_META) if str(entry.name) in _ALWAYS_LOADED else None,
+            }
+        )
+    return rows
+
+
 def _gateway() -> Any | None:
     from dodaios.core import runtime_refs
 
@@ -334,19 +397,11 @@ def build_server() -> Any:
     async def _list_tools() -> list[Any]:
         tools: list[Any] = []
         for wire, entry in (await _session_wire_catalog()).items():
-            schema = entry.input_schema
-            if not isinstance(schema, dict) or not schema:
-                schema = {"type": "object", "properties": {}}
-            if not _read_only(entry):
-                schema = inject_expect(schema)
+            description, schema = _listed(wire, entry)
             tools.append(
                 types.Tool(
                     name=wire,
-                    description=(
-                        f"[{entry.name}] {entry.description or entry.name}"
-                        if wire != entry.name
-                        else str(entry.description or entry.name)
-                    ),
+                    description=description,
                     inputSchema=schema,
                     annotations=types.ToolAnnotations(readOnlyHint=_read_only(entry)),
                     _meta=dict(_ALWAYS_LOAD_META) if str(entry.name) in _ALWAYS_LOADED else None,
@@ -459,5 +514,6 @@ __all__ = [
     "build_server",
     "mcp_max_output_chars",
     "offered_tools",
+    "tool_rows",
     "wire_read_only",
 ]

@@ -1,19 +1,24 @@
-import { useEffect, useState } from "react";
+import { usePanelWorkspace } from "@/store/ideChat";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { FileCode2, Loader2, RefreshCw } from "lucide-react";
 
 import { CodeBlock } from "@/components/docs/CodeBlock";
 import { MediaViewer, Notice, OpenExternallyButton } from "@/components/agentic/editor/FileViewers";
 import { viewKindOf, type ViewKind } from "@/components/agentic/editor/fileKinds";
-import { loadTextFile, openOutsideFile } from "@/components/agentic/editor/editorApi";
+import { loadTextFile, openOutsideFile, type LineEnding } from "@/components/agentic/editor/editorApi";
 import { DiffView } from "@/components/agentic/sidePanel/explorer/DiffView";
 import { DiffStat } from "@/components/agentic/threads/ThreadDiff";
 import { fill, useT } from "@/i18n";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { cn } from "@/lib/utils";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
 import { editHunks } from "./editHunks";
+import { discardDraft } from "./fileDrafts";
+import type { SavedFile } from "./FileEditor";
+
+// The editor engine is several megabytes: it loads the first time a file opens here.
+const FileEditor = lazy(() => import("./FileEditor"));
 
 /** Highlighting a very long file would stall the panel; past this it reads as plain text. */
 const HIGHLIGHT_MAX_CHARS = 200_000;
@@ -37,7 +42,8 @@ export function fileLanguage(path: string): string {
 
 type Loaded =
   | { state: "loading" }
-  | { state: "ready"; text: string }
+  /** The text as the disk holds it, with what a save needs to write it back unchanged. */
+  | { state: "ready"; text: string; path: string; version: string; encoding: string; eol: LineEnding }
   /** A picture, PDF, sound or video, shown as itself from the granted path. */
   | { state: "media"; kind: Exclude<ViewKind, "document">; path: string }
   | { state: "binary" | "too_large" | "unavailable" | "no_workspace" };
@@ -56,7 +62,7 @@ export function FileTab() {
   const t = useT();
   const file = useSideFileStore((state) => state.file);
   const nonce = useSideFileStore((state) => state.nonce);
-  const chatWorkspace = useIdeChatStore((state) => state.workspace?.id ?? null);
+  const chatWorkspace = usePanelWorkspace()?.id ?? null;
   const activeWorkspace = useIdeProjectsStore((state) => state.activeWorkspaceId);
   const workspaceId = chatWorkspace ?? activeWorkspace;
   const [view, setView] = useState<"file" | "change">("file");
@@ -86,13 +92,21 @@ export function FileTab() {
         if (cancelled) return;
         if (text.binary) setLoaded({ state: "binary" });
         else if (text.too_large || text.text === null) setLoaded({ state: "too_large" });
-        else setLoaded({ state: "ready", text: text.text });
+        else setLoaded({ state: "ready", text: text.text, path: granted.path, version: text.version, encoding: text.encoding, eol: text.eol });
       } catch {
         if (!cancelled) setLoaded({ state: "unavailable" });
       }
     })();
     return () => { cancelled = true; };
   }, [absolute, workspaceId, nonce, reload]);
+
+  // A save reached the disk: the tab's copy follows, so flipping views and back reads what was saved.
+  const saved = (done: SavedFile) => setLoaded((current) => current.state === "ready" ? { ...current, ...done } : current);
+  // Reading the disk again drops the unsaved text the editor kept for this file.
+  const readAgain = () => {
+    if (workspaceId && loaded.state === "ready") discardDraft(workspaceId, loaded.path);
+    setReload((value) => value + 1);
+  };
 
   if (!file) {
     return <div data-testid="side-file-tab" className="h-full">
@@ -130,7 +144,7 @@ export function FileTab() {
         {tabButton("change", t("ide_side_panel.file.view_change"))}
       </div>}
       <button type="button" aria-label={t("ide_side_panel.file.reload")} title={t("ide_side_panel.file.reload")}
-        onClick={() => setReload((value) => value + 1)}
+        onClick={readAgain}
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <RefreshCw aria-hidden className="h-3.5 w-3.5" />
       </button>
@@ -151,11 +165,16 @@ export function FileTab() {
           ? <div className="flex h-full items-center justify-center"><Loader2 aria-label={t("ide_side_panel.file.loading")} className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           : loaded.state === "media" && workspaceId
             ? <MediaViewer kind={loaded.kind} workspaceId={workspaceId} path={loaded.path} onOpenExternally={() => void openLocalPath(absolute)} />
-          : loaded.state === "ready"
-            // Long lines wrap inside the panel, so the whole file reads without scrolling sideways.
-            ? <div data-testid="side-file-text" className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5 [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]">
+          : loaded.state === "ready" && workspaceId
+            // The file opens as text that can be changed and saved. While the editor engine loads,
+            // the same text reads highlighted; long lines wrap inside the panel.
+            ? <Suspense fallback={<div data-testid="side-file-text" className="select-text [&_.code-block-body]:text-xs [&_.code-block-body]:leading-5 [&_pre]:text-xs [&_pre]:leading-5 [&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]">
               <CodeBlock language={language} code={loaded.text} chrome={false} markLine={file.line} />
-            </div>
+            </div>}>
+              <FileEditor key={loaded.path} workspaceId={workspaceId} path={loaded.path} text={loaded.text}
+                version={loaded.version} encoding={loaded.encoding} eol={loaded.eol} line={file.line}
+                onSaved={saved} onReload={readAgain} />
+            </Suspense>
             : <Notice message={t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
               {/* A file this panel cannot read (a program, an archive) opens on the computer. */}
               {loaded.state === "binary" && <OpenExternallyButton onClick={() => void openLocalPath(absolute)} />}

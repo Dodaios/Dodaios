@@ -704,7 +704,7 @@ class _OpenAIRealtimeSession:
                         "content": [{"type": content_type, "text": message["text"]}],
                     }
                 )
-            except Exception:  # noqa: BLE001 — degrade to an amnesiac session
+            except Exception:  # broad-except: degrade to an amnesiac session
                 log.warning(
                     "OpenAI Realtime history seeding failed part-way; the "
                     "session continues with partial in-call context",
@@ -943,7 +943,7 @@ class _OpenAIRealtimeSession:
             if response_id:
                 try:
                     await self._conn.response.cancel(response_id=response_id)
-                except Exception:  # noqa: BLE001 -- suppression remains fail-closed
+                except Exception:  # broad-except: suppression remains fail-closed
                     log.debug(
                         "OpenAI Realtime unsolicited response cancel failed",
                         exc_info=True,
@@ -1020,7 +1020,7 @@ class _OpenAIRealtimeSession:
         )
         try:
             await self._conn.session.update(session=self._session_contract)
-        except Exception:  # noqa: BLE001 -- the pump must survive a failed re-arm
+        except Exception:  # broad-except: the pump must survive a failed re-arm
             log.debug(
                 "OpenAI Realtime session contract re-arm failed",
                 exc_info=True,
@@ -1132,7 +1132,7 @@ class _OpenAIRealtimeSession:
         if task is not None and not task.done():
             try:
                 await task
-            except Exception:  # noqa: BLE001 — a failed rebuild closes the session
+            except Exception:  # broad-except: a failed rebuild closes the session
                 log.debug(
                     "OpenAI Realtime transport rebuild await failed",
                     exc_info=True,
@@ -1166,7 +1166,7 @@ class _OpenAIRealtimeSession:
             if connection_cm is not None:
                 try:
                     await connection_cm.__aexit__(type(exc), exc, exc.__traceback__)
-                except BaseException:  # noqa: BLE001 — preserve the root cause
+                except BaseException:  # broad-except: preserve the root cause
                     log.debug(
                         "OpenAI Realtime rebuild cleanup after failed handshake failed",
                         exc_info=True,
@@ -1190,7 +1190,7 @@ class _OpenAIRealtimeSession:
                 await old_cm.__aexit__(None, None, None)
             except asyncio.CancelledError:
                 raise
-            except Exception:  # noqa: BLE001 — never risk opening a second slot
+            except Exception:  # broad-except: never risk opening a second slot
                 log.warning(
                     "OpenAI Realtime could not retire the old transport before "
                     "a serial rebuild; closing the session",
@@ -1219,7 +1219,7 @@ class _OpenAIRealtimeSession:
                 break
             except asyncio.CancelledError:
                 raise
-            except Exception:  # noqa: BLE001 — bounded recovery, final failure is terminal
+            except Exception:  # broad-except: bounded recovery, final failure is terminal
                 remaining = deadline - time.monotonic()
                 if not self._disconnect_before_rebuild or remaining <= 0.0:
                     log.warning(
@@ -1246,7 +1246,7 @@ class _OpenAIRealtimeSession:
         except BaseException as exc:
             try:
                 await connection_cm.__aexit__(type(exc), exc, exc.__traceback__)
-            except BaseException:  # noqa: BLE001 — preserve cancellation/root cause
+            except BaseException:  # broad-except: preserve cancellation/root cause
                 log.debug(
                     "OpenAI Realtime rebuild candidate cleanup failed",
                     exc_info=True,
@@ -1275,7 +1275,7 @@ class _OpenAIRealtimeSession:
         if not old_retired:
             try:
                 await old_cm.__aexit__(None, None, None)
-            except Exception:  # noqa: BLE001 — the dead transport may already be gone
+            except Exception:  # broad-except: the dead transport may already be gone
                 log.debug(
                     "OpenAI Realtime old transport close failed after rebuild",
                     exc_info=True,
@@ -1348,7 +1348,7 @@ async def _open_realtime_session(
         # so close both layers explicitly and preserve the original error.
         try:
             await connection_cm.__aexit__(type(exc), exc, exc.__traceback__)
-        except BaseException:  # noqa: BLE001 - cleanup must not mask root cause
+        except BaseException:  # broad-except: cleanup must not mask root cause
             log.debug(
                 "Realtime connection cleanup after failed enter failed",
                 exc_info=True,
@@ -1360,7 +1360,7 @@ async def _open_realtime_session(
                     result = close()
                     if hasattr(result, "__await__"):
                         await result
-            except BaseException:  # noqa: BLE001 - preserve failure/cancellation
+            except BaseException:  # broad-except: preserve failure/cancellation
                 log.debug("Realtime client cleanup after failed enter failed", exc_info=True)
         raise
     payload = _session_payload(cfg, transcription_model=transcription_model)
@@ -1547,7 +1547,7 @@ def _local_declaration_budget(launch_command: str) -> int:
 
         supervisor = importlib.import_module("dodaios.realtime.local_server.supervisor")
         return max(int(supervisor.voice_brain_declaration_budget_tokens(launch_command)), 0)
-    except Exception:  # noqa: BLE001 — an unbounded set still works, just slower
+    except Exception:  # broad-except: an unbounded set still works, just slower
         log.debug(
             "local-realtime: declaration budget unreadable; leaving the "
             "native tool set unbounded",
@@ -1837,7 +1837,7 @@ class LocalRealtimeProvider:
                     "The local voice server is starting — currently "
                     f"{label}. Try the call again in about a minute."
                 )
-        except Exception:  # noqa: BLE001 - a progress hint never breaks the verdict
+        except Exception:  # broad-except: a progress hint never breaks the verdict
             log.debug("local-realtime: boot progress hint failed", exc_info=True)
         return _LOCAL_REASON_STARTING
 
@@ -1857,7 +1857,7 @@ class LocalRealtimeProvider:
                 # A bring-your-own server is not required to expose the pinned
                 # stack's private /v1/pool readiness contract.
                 return True
-        except Exception:  # noqa: BLE001 - preserve generic BYO connectivity
+        except Exception:  # broad-except: preserve generic BYO connectivity
             log.debug(
                 "local-realtime: managed readiness detection failed",
                 exc_info=True,
@@ -1874,7 +1874,7 @@ class LocalRealtimeProvider:
             """
             try:
                 pool = supervisor.probe_runtime(self._base_url, timeout=_LOCAL_POOL_PROBE_TIMEOUT_S)
-            except Exception:  # noqa: BLE001 - a probe never breaks voice startup
+            except Exception:  # broad-except: a probe never breaks voice startup
                 log.warning(
                     "local-realtime: pool capacity probe failed",
                     exc_info=True,
@@ -1910,7 +1910,7 @@ class LocalRealtimeProvider:
                     )
                 pool = supervisor.probe_runtime(self._base_url, timeout=0.35)
                 return bool(pool and pool.get("available", 0) > 0)
-            except Exception:  # noqa: BLE001 - a probe never breaks voice startup
+            except Exception:  # broad-except: a probe never breaks voice startup
                 log.warning(
                     "local-realtime: managed readiness probe failed; the "
                     "interactive call will not wait on a cold server",
@@ -1930,7 +1930,7 @@ class LocalRealtimeProvider:
                 return
             try:
                 done.result()
-            except Exception:  # noqa: BLE001 - background failure was already degraded
+            except Exception:  # broad-except: background failure was already degraded
                 log.warning(
                     "local-realtime: background managed start failed",
                     exc_info=True,
@@ -1989,7 +1989,7 @@ class LocalRealtimeProvider:
                         time.monotonic() + LocalRealtimeProvider._MODEL_CACHE_TTL_S,
                     )
                     return _MODEL
-            except Exception:  # noqa: BLE001 - generic BYO discovery remains available
+            except Exception:  # broad-except: generic BYO discovery remains available
                 log.debug("local-realtime: managed-command detection failed", exc_info=True)
         cached = LocalRealtimeProvider._model_cache.get(self._base_url)
         if cached is not None and cached[1] > time.monotonic():
@@ -2004,7 +2004,7 @@ class LocalRealtimeProvider:
                 served = [
                     str(entry.get("id") or "").strip() for entry in (resp.json().get("data") or [])
                 ]
-        except Exception as exc:  # noqa: BLE001 — the connect reports the real failure
+        except Exception as exc:  # broad-except: the connect reports the real failure
             log.info(
                 "local-realtime: /models probe failed at %s (%s); connecting with "
                 "the protocol default",
@@ -2093,7 +2093,7 @@ class LocalRealtimeProvider:
                     reason="connect-revive",
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — a bad command must not kill the call
+        except Exception as exc:  # broad-except: a bad command must not kill the call
             log.warning(
                 "local-realtime: reviving the server failed (%s: %s) — "
                 "check [brain.providers.local-realtime].launch_command",
@@ -2157,7 +2157,7 @@ class LocalRealtimeProvider:
                 return True
 
             return bool(await asyncio.to_thread(_spawn_only))
-        except Exception:  # noqa: BLE001 — prespawning is best-effort by contract
+        except Exception:  # broad-except: prespawning is best-effort by contract
             log.debug("local-realtime: prespawn_transport failed", exc_info=True)
             return False
 
@@ -2236,10 +2236,10 @@ class LocalRealtimeProvider:
                     # Fill the model-probe cache too, so the first real call
                     # pays neither the probe nor its httpx client build.
                     await provider._resolve_model()
-                except Exception:  # noqa: BLE001, S110 — probe is best-effort
-                    pass
+                except Exception:  # broad-except: probe is best-effort
+                    log.debug("warm_transport: probe is best-effort", exc_info=True)
             return warmed
-        except Exception:  # noqa: BLE001 — warming is best-effort by contract
+        except Exception:  # broad-except: warming is best-effort by contract
             log.debug("local-realtime: warm_transport failed", exc_info=True)
             return False
 
@@ -2274,7 +2274,7 @@ class LocalRealtimeProvider:
                 return await self._open_session_once(cfg)
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001 — bounded retry, last error re-raised
+            except Exception as exc:  # broad-except: bounded retry, last error re-raised
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise

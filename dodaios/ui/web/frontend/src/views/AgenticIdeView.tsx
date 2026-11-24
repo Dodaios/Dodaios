@@ -26,7 +26,7 @@ import type { PaneSplitDirection } from "@/components/agentic/WorkspaceTerminalH
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
+import { useIdeChatStore, usePanelWorkspace } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeSkillsStore } from "@/store/ideSkills";
@@ -90,7 +90,8 @@ export function AgenticIdeView({ onScreen = true }: AgenticIdeViewProps) {
   const layout = useIdeThreadsStore((state) => state.layout);
   const threads = layout === "threads";
   // The code editor lies over the grid or the thread; both stay mounted underneath.
-  const ideWorkspace = useIdeChatStore((state) => state.workspace);
+  // The editor opens files from the side panel, so it follows the panel's workspace.
+  const ideWorkspace = usePanelWorkspace();
   const stagedPane = useIdeChatStore((state) => state.stagedPane);
   const editorShown = useCodeEditorStore((state) => state.visible && state.tabs.some((tab) => tab.workspaceId === ideWorkspace?.id));
   // A maximized side panel (the Verse) covers the grid, which only turns invisible

@@ -211,8 +211,11 @@ def _resolve_worker_model(provider: str, explicit: str) -> str:
         picked = (getattr(pc, "model", "") or "").strip()
         if picked:
             return picked
-    except Exception:  # noqa: BLE001, S110 — config read must never crash the worker
-        pass
+    except Exception:  # broad-except: config read must never crash the worker
+        logger.debug(
+            "_resolve_worker_model: config read must never crash the worker",
+            exc_info=True,
+        )
     return _DEFAULT_MODEL.get(prov, "")
 
 
@@ -336,7 +339,7 @@ class ApiAgentWorker:
             if issued_here and broker_binding is not None:
                 try:
                     broker_binding.close()
-                except Exception:  # noqa: BLE001 - cleanup must not mask cancellation
+                except Exception:  # broad-except: cleanup must not mask cancellation
                     logger.exception("ApiAgentWorker: broker binding cleanup failed")
 
     async def _spawn_bound(
@@ -426,7 +429,8 @@ class ApiAgentWorker:
         # model fails in one line instead of 3 silent critic loops later.
         try:
             can_call_tools = bool(brain.can_call_tools())
-        except Exception:  # noqa: BLE001 — capability probe must never brick a mission
+        except Exception:  # broad-except: capability probe must never brick a mission
+            logger.debug("_spawn_bound: capability probe must never brick a mission", exc_info=True)
             can_call_tools = True
         if not can_call_tools:
             res = ClaudeResult(
@@ -675,7 +679,11 @@ class ApiAgentWorker:
                     fp = credential_fingerprint(
                         get_jarvis_agent_secret(self.provider)
                     )
-                except Exception:  # noqa: BLE001 — unreadable store => unbound cooldown
+                except Exception:  # broad-except: unreadable store => unbound cooldown
+                    logger.debug(
+                        "_spawn_bound: unreadable store => unbound cooldown",
+                        exc_info=True,
+                    )
                     fp = None
                 mark_api_family_cooldown(self.provider, fingerprint=fp)
                 logger.warning(

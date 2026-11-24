@@ -19,6 +19,11 @@ never be replayed; it needs a canary.
 
 Each replayed run is paired with the same run as recorded, so the comparison
 is paired (sign flips), not a canary's permutation.
+
+**Holding runs that were not held** (:func:`replay_hold`) cannot be replayed:
+the follow-up orders a hold would have sent were never sent, so what the
+agent would have made of them is not in the record. The record only bounds the
+gain from above, and a canary has to answer.
 """
 
 from __future__ import annotations
@@ -39,9 +44,10 @@ from .selector import (
     Claim,
     RunMetrics,
     metrics_of,
+    units,
 )
 
-__all__ = ["MIN_COVERAGE", "Replay", "replay_run", "replay_cell"]
+__all__ = ["MIN_COVERAGE", "Replay", "replay_cell", "replay_hold", "replay_run"]
 
 #: Share of runs the record must cover for a replay to answer.
 MIN_COVERAGE: Final[float] = 0.90
@@ -111,7 +117,11 @@ def replay_run(
         cost = sum(float(t.get("cost_usd") or 0.0) for t in turns) + LAMBDA_USD_PER_S * seconds
         scan = kept[-1]["scan"]
         return replace(
-            recorded, passed=0.0, one=0.0, p=float(cut), cost=cost,
+            recorded,
+            passed=0.0,
+            one=0.0,
+            p=float(cut),
+            cost=cost,
             churn=float(int(scan.get("added") or 0) + int(scan.get("deleted") or 0)),
         )
     if candidate.evidence_wait_s < ran.evidence_wait_s and recorded.passed:
@@ -188,6 +198,75 @@ def replay_cell(
     return out
 
 
+def replay_hold(
+    claim: Claim,
+    rows: Iterable[tuple[dict[str, Any], Sequence[dict[str, Any]]]],
+    candidate: Policy,
+) -> Replay:
+    """What the record can say about holding the runs of ``claim.cell`` that were not held.
+
+    Holding changes nothing about a run before the driver would have sent its
+    first follow-up order: the brief, the turn, the scan and the checks are the
+    same. Where the driver would have sent one, the recorder wrote
+    ``follow_up_withheld`` and the run ended ``failed``. What the order would
+    have made of the run is not in the record, because no agent turn was
+    taken. Neither is how the person acts when the lead's answer waits for the
+    verdict. So this replay never accepts a hold: those runs are not covered,
+    and the canary decides.
+
+    It can bound the gain from above. If every run a follow-up order could
+    have reached (one that failed or had an order withheld; one left
+    unverified too, when the hold would wait longer for the checks) had
+    passed, the PassRate would rise by at most that much. When even that is
+    short of :data:`DELTA_PASS`, branch A could never accept, and the answer is
+    ``reject``: a trial that cannot win is not started.
+    """
+    recorded: list[RunMetrics] = []
+    best: list[RunMetrics] = []
+    for run, steps in rows:
+        metrics = metrics_of(run)
+        if metrics is None or metrics.cell != claim.cell or metrics.mixed:
+            continue
+        try:
+            ran = Policy.from_text(str(run.get("policy_json") or "") or None)
+        except ValueError:  # an unreadable policy ran under the factory's limits
+            ran = Policy()
+        verdict = str(run.get("verdict") or "")
+        withheld = any(str(s.get("step") or "") == "follow_up_withheld" for s in steps)
+        waits_longer = candidate.evidence_wait_s > ran.evidence_wait_s
+        reachable = not metrics.passed and (
+            withheld or verdict == "failed" or (waits_longer and verdict == "unverified")
+        )
+        recorded.append(metrics)
+        best.append(replace(metrics, passed=1.0) if reachable else metrics)
+    covered = sum(1 for r, b in zip(recorded, best, strict=True) if r.passed == b.passed)
+    out = Replay("inconclusive", runs=len(recorded), covered=covered)
+    if len(recorded) < N_MIN_PAIRED:
+        out.reasons.append(f"fewer than {N_MIN_PAIRED} recorded runs to bound a hold")
+        return out
+    now, ceiling = _pass_rate(recorded), _pass_rate(best)
+    out.bounds = {"pass": {"recorded": now, "max_rise": ceiling - now}}
+    if ceiling - now < DELTA_PASS:
+        out.answer = "reject"
+        out.reasons.append(
+            f"even if every run a follow-up order could have reached had passed, the PassRate "
+            f"would rise by at most {ceiling - now:.2f}, short of {DELTA_PASS:.2f}"
+        )
+        return out
+    out.reasons.append(
+        f"the record cannot replay the follow-up orders a hold would send "
+        f"({len(recorded) - covered} of {len(recorded)} runs); the PassRate could rise by up "
+        f"to {ceiling - now:.2f}, and a canary has to show it"
+    )
+    return out
+
+
+def _pass_rate(rows: Sequence[RunMetrics]) -> float:
+    """The PassRate over requests, as the gate counts it (runs of one request averaged)."""
+    found = units(rows)
+    return sum(u["pass"] for u in found) / len(found) if found else 0.0
+
+
 def _slips(metric: str, pairs: Sequence[tuple[RunMetrics, RunMetrics]]) -> bool:
     n = len(pairs)
     cand = sum(getattr(c, metric) for c, _ in pairs) / n
@@ -200,7 +279,14 @@ def _slips(metric: str, pairs: Sequence[tuple[RunMetrics, RunMetrics]]) -> bool:
 
 
 def describe(result: Replay) -> str:
-    return json.dumps({
-        "answer": result.answer, "reasons": result.reasons, "runs": result.runs,
-        "covered": result.covered, "bounds": result.bounds,
-    }, indent=2, sort_keys=True)
+    return json.dumps(
+        {
+            "answer": result.answer,
+            "reasons": result.reasons,
+            "runs": result.runs,
+            "covered": result.covered,
+            "bounds": result.bounds,
+        },
+        indent=2,
+        sort_keys=True,
+    )

@@ -108,8 +108,8 @@ dodaios system status        # {"reachable": true} when Dodaios is up
 dodaios --json brain status
 ```
 
-Resolution order (highest first): explicit `--url` / `--key` → `JARVISCTL_BASE_URL`
-/ `JARVISCTL_CONTROL_KEY` env → saved profile (`dodaios auth login`) → the live
+Resolution order (highest first): explicit `--url` / `--key` → `DODAIOSCTL_BASE_URL`
+/ `DODAIOSCTL_CONTROL_KEY` env → saved profile (`dodaios auth login`) → the live
 session file → the local control key + default `127.0.0.1:47821`.
 
 **Environment variables: set either prefix.** Every variable the CLI and the app
@@ -249,7 +249,7 @@ installer's `com.personal-jarvis.desktop` or the downloaded app's
 `--bundle-id` when both are installed), never another app's. It does not go
 through the running app (the app's own reset route refuses scripts on purpose),
 so it works with Dodaios closed; quit and reopen Dodaios afterwards, then use the
-feature and macOS asks again. It needs `--yes` (or `JARVIS_CLI_ASSUME_YES=1`) and
+feature and macOS asks again. It needs `--yes` (or `DODAIOS_CLI_ASSUME_YES=1`) and
 `--dry-run` prints the exact `tccutil` argv. Off macOS it prints one line and
 exits 1. Permissions without a macOS privacy record (the Keychain) are refused.
 The raw `tccutil` commands are in the troubleshooting guide.
@@ -264,7 +264,7 @@ the genuinely consequential:
 - **Destructive** actions — every `DELETE`, plus `config set`, `missions dispatch`,
   `telephony outbound`, `local-models models unload` and `local-models server
   stop` — refuse unless you pass `--yes` (or set
-  `JARVIS_CLI_ASSUME_YES=1`). A prompt is not an accepted substitute.
+  `DODAIOS_CLI_ASSUME_YES=1`). A prompt is not an accepted substitute.
 - **Desktop restart is UI-only.** Control/API clients, including
   `dodaios system restart`, cannot restart the app even with `--yes --force`;
   the maintainer must click Restart in the desktop UI. This preserves live

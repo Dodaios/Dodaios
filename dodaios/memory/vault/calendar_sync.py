@@ -277,7 +277,7 @@ def _person_zone() -> tzinfo | None:
 
         name = person_zone_name()
         return ZoneInfo(name) if name else None
-    except Exception:  # noqa: BLE001 — without a zone the sentence keeps the event's own clock
+    except Exception:  # broad-except: without a zone the sentence keeps the event's own clock
         log.debug("memory calendar sync: no zone for the person's clock", exc_info=True)
         return None
 
@@ -297,7 +297,7 @@ async def sync(
             time_max=(now + timedelta(days=HORIZON_DAYS)).isoformat(),
             max_results=MAX_EVENTS,
         )
-    except Exception:  # noqa: BLE001 — a calendar fault skips this hour's sync
+    except Exception:  # broad-except: a calendar fault skips this hour's sync
         log.info("memory calendar sync: calendar unavailable", exc_info=True)
         return None
     if not isinstance(result, dict) or not result.get("ok"):

@@ -9,7 +9,9 @@ import { Loader2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { NOTE_SURFACE, type LearnedChange, type Measurement } from "@/lib/selfImprovementApi";
 import { relativeTime } from "../selfBuild/shared";
-import { effectWords, fmtValue, paramAbout, paramTitle, wordFor } from "./words";
+import { claimWords, isPolicy, policyProof, policySentence } from "./policy";
+import { PolicyLines } from "./PolicyLines";
+import { effectWords, lineSentence, paramAbout, paramTitle, valueWords, wordFor } from "./words";
 
 export function ChangeDetail({
   change,
@@ -25,8 +27,13 @@ export function ChangeDetail({
   onClose: () => void;
 }) {
   const t = useT();
-  const title = paramTitle(t, change.target, change.doc);
-  const about = paramAbout(t, change.target, change.doc);
+  // How coding agents are steered: a sentence, measured on requests, not tasks.
+  const policy = isPolicy(change) ? change : null;
+  const onTrial = policy?.policy.slot === "candidate";
+  const title = policy
+    ? policySentence(t, policy)
+    : lineSentence(t, change.target, change.after) || paramTitle(t, change.target, change.doc);
+  const about = policy ? t("self_improvement.policy.about") : paramAbout(t, change.target, change.doc);
   const before = change.before ?? change.default;
   // A note it wrote for itself has words instead of values, and no measurement yet.
   const note = change.surface === NOTE_SURFACE;
@@ -64,13 +71,19 @@ export function ChangeDetail({
               {t("self_improvement.stack.note_gone")}
             </p>
           )
+        ) : policy ? (
+          policy.policy.lines.length > 0 && (
+            <p className="mt-3">
+              <PolicyLines lines={policy.policy.lines} testId="si-detail-policy-lines" />
+            </p>
+          )
         ) : (
           <>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground-strong" data-testid="si-detail-values">
-              {fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) })}
+              {fill(t("self_improvement.stack.values"), { before: valueWords(t, before, locale, change.target), after: valueWords(t, change.after, locale, change.target) })}
             </p>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-              {fill(t("self_improvement.detail.shipped"), { value: fmtValue(change.default, locale) })}
+              {fill(t("self_improvement.detail.shipped"), { value: valueWords(t, change.default, locale, change.target) })}
             </p>
           </>
         )}
@@ -94,6 +107,29 @@ export function ChangeDetail({
             <Field label={t("self_improvement.detail.measurement")}>
               <p className="text-base text-foreground" data-testid="si-detail-unmeasured">{t("self_improvement.detail.note_unmeasured")}</p>
             </Field>
+          ) : policy ? (
+            <>
+              <Field label={t("self_improvement.detail.what")}>
+                <p className="text-base leading-relaxed text-foreground">{about}</p>
+              </Field>
+              {onTrial ? (
+                <Field label={t("self_improvement.detail.measurement")}>
+                  <p className="text-base text-foreground" data-testid="si-detail-policy-trial">
+                    {fill(t("self_improvement.policy.on_trial"), { when: relativeTime(change.since_ms, locale) })}
+                  </p>
+                  {claimWords(t, policy.policy) && <Quiet>{claimWords(t, policy.policy)}</Quiet>}
+                </Field>
+              ) : (
+                <>
+                  <Field label={t("self_improvement.detail.admitted")}>
+                    <PolicyMeasurement found={change.admitted} locale={locale} />
+                  </Field>
+                  <Field label={t("self_improvement.detail.checked")}>
+                    <Quiet>{t("self_improvement.policy.probation")}</Quiet>
+                  </Field>
+                </>
+              )}
+            </>
           ) : (
             <>
               {about && (
@@ -150,6 +186,31 @@ function MeasurementBlock({ found, kind, locale }: { found: Measurement | null; 
       </p>
       {found.reason && (
         <p className="font-mono text-xs leading-relaxed text-muted-foreground" data-testid={`si-detail-reason-${kind}`}>
+          {found.reason}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** What let a coding policy in: the two halves of its trial, and the bound the gate decided on. */
+function PolicyMeasurement({ found, locale }: { found: Measurement | null; locale: string }) {
+  const t = useT();
+  if (!found) return <Quiet>{t("self_improvement.effect.none")}</Quiet>;
+  return (
+    <div className="space-y-1">
+      <p className="text-base tabular-nums text-foreground" data-testid="si-detail-policy-proof">
+        {policyProof(t, found, locale)}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {fill(t("self_improvement.policy.measured_on"), {
+          n: found.n,
+          m: found.n_reference ?? 0,
+          when: relativeTime(found.ts_ms, locale),
+        })}
+      </p>
+      {found.reason && (
+        <p className="font-mono text-xs leading-relaxed text-muted-foreground" data-testid="si-detail-reason-admitted">
           {found.reason}
         </p>
       )}

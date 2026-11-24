@@ -22,7 +22,7 @@ The command:
    built at the last load (a build takes about 3–5 minutes, a reload without
    frontend changes about one minute);
 4. starts the Dev app from that worktree with the default app's interpreter
-   and `JARVIS_DATA_DIR=<main checkout>/data-dev`, so the Dev app keeps one data
+   and `DODAIOS_DATA_DIR=<main checkout>/data-dev`, so the Dev app keeps one data
    directory across previews, and waits until it is up.
 
 There is one Dev app: the last load wins. Wake word, global hotkeys and chat
@@ -70,3 +70,14 @@ request only when the person asked to see it before it merges.
 An agent never passes `--run-untrusted-code`. When `dev_preview.py` refuses a
 pull request, read its diff, say what it does and what you could not check,
 and leave running it to the person.
+
+## Smoke check of the loaded app
+
+After a preview is up, `python scripts/smoke_app.py` runs ten checks in the Dev
+window over its debugging port: the window loads, the lead chat takes a
+message, a thread opens, the Agentic IDE shows a pane, the dictation and voice
+status endpoints answer, and the Nodes, Settings, Plugins and Agents views
+open. Each check prints PASS, FAIL or SKIP (nothing to check, for example no
+thread yet). A FAIL saves a screenshot under `logs/smoke_app/<time>/`. The
+script only talks to the Dev app (`data-dev`); it exits 2 when none is
+running. `--only <text>` runs the checks whose name contains the text.

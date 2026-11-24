@@ -512,7 +512,7 @@ async def _with_page(socket_url: str, work: Any) -> Any:
                 await pump
             except asyncio.CancelledError:  # the reader was cancelled just above
                 pass
-            except Exception as exc:  # noqa: BLE001 — the socket closing under the reader
+            except Exception as exc:  # broad-except: the socket closing under the reader
                 log.debug("clip export: DevTools reader ended: %s", exc)
 
 
@@ -695,7 +695,7 @@ def start_export(node: Any, node_dir: Path, spec: dict[str, Any], preset: str, f
         except ExportError as exc:  # the person's own failure: the job reports it
             log.info("clip export job %s failed: %s", job.id, exc)
             job.state, job.error = "failed", str(exc)
-        except Exception as exc:  # noqa: BLE001 — a job reports its failure, never dies silently
+        except Exception as exc:  # broad-except: a job reports its failure, never dies silently
             log.exception("clip export job %s failed", job.id)
             job.state, job.error = "failed", str(exc)
 

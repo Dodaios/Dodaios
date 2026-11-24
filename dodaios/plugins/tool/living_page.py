@@ -58,7 +58,7 @@ async def post_card(session_id: str, payload: dict[str, Any]) -> bool:
             return False
         await svc.post_notice(target, payload)
         return True
-    except Exception:  # noqa: BLE001 — the card is a projection; the work itself is done
+    except Exception:  # broad-except: the card is a projection; the work itself is done
         log.warning("result card not posted", exc_info=True)
         return False
 
@@ -95,14 +95,13 @@ class LivingPageTool:
     name: str = "living_page"
     risk_tier: str = "monitor"
     description: str = (
-        "Look after a LIVING PAGE: a table page in the Nodes section that you keep "
-        "current on a schedule. For something NEW to keep current use the node tool with "
-        "'track' (a list is a node of type sheets); this tool keeps the living pages "
-        "that already exist. On a refresh run call 'update' with page_id and the "
-        "COMPLETE current rows. 'stop' ends the refresh, 'resume' starts it again, "
-        "'list' shows the pages; 'create' still makes a page of this older kind (title, "
-        "'track', columns, rows, 'every_minutes'). Read only: a refresh never sends, "
-        "books or deletes anything."
+        "Look after a LIVING PAGE: a table page in the Nodes section kept current on a "
+        "schedule. For something NEW use the node tool with 'track' (a list is a node of type "
+        "sheets); this tool keeps pages that already exist. On a refresh run call 'update' "
+        "with page_id and the COMPLETE current rows. 'stop' ends the refresh, 'resume' "
+        "restarts it, 'list' shows pages; 'create' still makes an older-kind page (title, "
+        "track, columns, rows, every_minutes). Read only: a refresh never sends, books or "
+        "deletes anything."
     )
     schema: dict[str, Any] = {
         "type": "object",

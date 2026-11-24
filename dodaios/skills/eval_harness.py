@@ -18,6 +18,7 @@ report that shows one number is how that happens again.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ from dodaios.skills.guards import (
     evaluate_guards,
 )
 from dodaios.skills.match_eval import BAND_NONE, band_at_least, evaluate_match
+
+log = logging.getLogger(__name__)
 
 #: Repo-relative location of the golden set.
 GOLDEN_PATH = (
@@ -283,10 +286,14 @@ def _is_block_tier(skill: Any) -> bool:
         return True
     try:
         return frontmatter.risk_policy.default_tier == "block"
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: A skill whose frontmatter cannot answer is not a
         # A skill whose frontmatter cannot answer is not a blocked skill. This
         # is the offline eval harness, so a report that reads "not blocked" is
         # the honest answer and the run keeps scoring the rest of the corpus.
+        log.warning(
+            "_is_block_tier: A skill whose frontmatter cannot answer is not a",
+            exc_info=True,
+        )
         return False
 
 
@@ -333,7 +340,11 @@ def _prefer_music_service(
         sibling = registry.get(f"plugin-{target}")
         top = _replace(decision.top, skill_name=sibling.name)
         return _replace(decision, top=top, candidates=(top,)), sibling
-    except Exception:  # noqa: BLE001 — a routing nicety must never break the eval
+    except Exception:  # broad-except: a routing nicety must never break the eval
+        log.debug(
+            "_prefer_music_service: a routing nicety must never break the eval",
+            exc_info=True,
+        )
         return decision, skill
 
 
@@ -387,9 +398,10 @@ def _decide(registry: Any, text: str, lang: str = "auto") -> tuple[Any, str]:
         return decision, ""
     try:
         skill = registry.get(decision.top.skill_name)
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: A name the registry will not resolve simply has no
         # A name the registry will not resolve simply has no guard ladder to
         # evaluate; the match itself is still reported to the caller.
+        log.warning("_decide: A name the registry will not resolve simply has no", exc_info=True)
         return decision, ""
     decision, skill = _prefer_music_service(registry, decision, skill, text)
     ladder = evaluate_guards(

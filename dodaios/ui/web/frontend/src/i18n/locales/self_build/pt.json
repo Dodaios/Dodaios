@@ -6,7 +6,6 @@
       "running": "Observando",
       "paused": "Pausado",
       "silent": "Aprendendo",
-      "off": "Desligado",
       "stopped": "Parado"
     },
     "pause": "Pausar construção",
@@ -19,14 +18,11 @@
     "stop_confirm_body": "Conversas, missões e rotinas em curso param de imediato, e a construção também pausa. Nada é apagado.",
     "cancel": "Cancelar",
     "notes": {
-      "paused": "A construção está em pausa. Nada é notado, construído ou concluído até retomar.",
-      "release": "Libertar",
-      "turn_on": "Abrir definições"
+      "release": "Libertar"
     },
     "digest": {
       "label": "Desde ontem",
       "built": "{count} construídos",
-      "proposed": "{count} propostos",
       "kept": "{count} mantidos",
       "archived": "{count} arquivados",
       "undone": "{count} anulados",
@@ -34,12 +30,9 @@
       "nothing": "Nada de novo."
     },
     "shelf": {
-      "waiting": "Aguardando seu OK",
-      "waiting_hint": "Nada é criado até você dizer sim.",
       "kept": "Mantido",
       "kept_hint": "Mereceu seu lugar. Ainda pode ser desfeito.",
       "past": "Arquivados",
-      "past_hint": "Ajudantes arquivados podem ser restaurados.",
       "live": "Ativos",
       "live_hint": "Em teste e identificado. Desfazer remove por completo."
     },
@@ -72,13 +65,8 @@
     },
     "trial_progress": "Dia {days} de {dayLimit} · {uses} de {useLimit} utilizações",
     "action": {
-      "accept": "Construir",
-      "reject": "Isto não",
-      "keep": "Manter",
-      "restore": "Restaurar",
       "undo": "Anular"
     },
-    "no_builder": "{name} ainda não consegue construir este tipo. Fica como sugestão.",
     "detail": {
       "close": "Fechar",
       "why": "Porquê",
@@ -118,17 +106,10 @@
     },
     "hero": {
       "silent_title": "{name} está conhecendo o seu jeito de trabalhar.",
-      "silent_body": "Quando você pede a mesma coisa várias vezes, {name} cria um pequeno ajudante que faz isso por você. Nos primeiros {days} dias ele só toma notas e pergunta antes de criar qualquer coisa. A partir de {date} pode testar coisas pequenas sozinho, sempre com desfazer.",
-      "silent_body_nodate": "Quando você pede a mesma coisa várias vezes, {name} cria um pequeno ajudante que faz isso por você. Nos primeiros {days} dias ele só toma notas e pergunta antes de criar qualquer coisa.",
       "running_title": "{name} está atento às repetições.",
       "running_body": "Quando você pede a mesma coisa em dias diferentes, {name} cria o menor ajudante que tira isso das suas mãos, verifica e deixa você testar com desfazer em um clique.",
-      "ideas_title_one": "{name} tem {count} ideia para você.",
-      "ideas_title_other": "{name} tem {count} ideias para você.",
-      "ideas_body": "Ele percebeu algo que você continua fazendo à mão. Veja abaixo e diga sim ou não. Nada é criado sem você.",
       "paused_title": "A criação está pausada.",
       "paused_body": "{name} não está percebendo nem criando nada agora. Os ajudantes que já criou continuam funcionando.",
-      "off_title": "Criar para você está desligado.",
-      "off_body": "Ligue e {name} começa a perceber o que você repete. Você decide até onde ele pode ir.",
       "stopped_title": "Todos os agentes estão parados.",
       "stopped_body": "Rotinas, missões e a criação ficam paradas até você liberá-las. Nada foi apagado.",
       "ring_day": "Dia {day} de {days}",
@@ -137,13 +118,6 @@
       "ring_live_other": "{count} ajudantes ativos",
       "ring_helper_one": "ajudante",
       "ring_helper_other": "ajudantes"
-    },
-    "reach": {
-      "title": "O que {name} pode fazer",
-      "off": "Nunca",
-      "suggest": "Pergunta antes",
-      "trial": "Testa, com desfazer",
-      "full": "Faz sozinho"
     },
     "kinds": {
       "memory": "Memórias",
@@ -172,9 +146,8 @@
       "more_times_other": "Faltam {count} vezes",
       "stage": {
         "ready": "Pronto. {name} vai olhar em breve",
-        "proposed": "Ver a sugestão",
         "direct": "{name} responde isso direto",
-        "declined": "Você disse não",
+        "declined": "Você desfez",
         "served": "Uma habilidade já faz isso",
         "nothing": "Nada que valha criar",
         "ready_paused": "Pronto. Espera você retomar"
@@ -184,30 +157,21 @@
       "title": "Como funciona",
       "notice_title": "Ele percebe",
       "notice_body": "Você pede a mesma coisa em dias diferentes. {name} conta, neste computador.",
-      "suggest_title": "Ele sugere",
-      "suggest_body": "O menor ajudante que serve: algo para lembrar, uma habilidade, uma rotina, um agente ou uma mudança de código.",
-      "try_title": "Você testa",
-      "try_body": "Ele roda em um teste identificado. Fique com ele ou desfaça com um clique."
+      "build_title": "Ele constrói",
+      "build_body": "O menor ajudante que serve: algo para lembrar, uma habilidade, uma rotina ou um agente. Ele é verificado antes de entrar em uso.",
+      "try_title": "Seu uso decide",
+      "try_body": "Ele roda em um teste identificado. O que você usa fica; o que não usa é arquivado. Desfazer remove com um clique."
     },
-    "suggested": {
-      "memory": "Memória sugerida",
-      "skill": "Habilidade sugerida",
-      "routine": "Rotina sugerida",
-      "agent": "Agente sugerido",
-      "code": "Mudança de código sugerida"
-    },
-    "based_on_one": "Com base em {count} pedido",
-    "based_on_other": "Com base em {count} pedidos",
     "details": "Detalhes",
     "stop_footer": "Precisa que tudo pare de uma vez?",
     "page": {
-      "subtitle": "Quando você pede a {name} a mesma coisa várias vezes, ele oferece criar um pequeno assistente que faz isso por você.",
+      "subtitle": "Quando você pede a {name} a mesma coisa várias vezes, ele cria um pequeno ajudante que faz isso por você. Você pode desfazer qualquer ajudante com um clique.",
       "learning_title": "Aprendendo como você trabalha · dia {day} de {days}",
-      "learning_body": "Sugestões podem aparecer a partir de {date}. Até lá {name} só toma notas.",
+      "learning_body": "Ajudantes podem aparecer a partir de {date}. Até lá {name} só toma notas.",
       "learning_body_nodate": "Nos primeiros {days} dias {name} só toma notas.",
       "empty_title": "Nada aqui ainda",
-      "empty_body": "Continue usando {name} normalmente. Quando você pedir a mesma coisa em {days} dias diferentes, uma sugestão aparece aqui.",
-      "noticed_rule": "Uma sugestão aparece quando algo é pedido em {days} dias diferentes.",
+      "empty_body": "Continue usando {name} normalmente. Quando você pedir a mesma coisa em {days} dias diferentes, um ajudante para isso aparece aqui.",
+      "noticed_rule": "Um ajudante é criado quando algo é pedido em {days} dias diferentes.",
       "how_toggle": "Como funciona?",
       "pause_hint": "Nada novo é notado ou criado. Seus assistentes continuam funcionando.",
       "stop_hint": "Para todos os agentes, missões e rotinas em execução."

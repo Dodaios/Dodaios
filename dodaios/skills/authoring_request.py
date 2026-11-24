@@ -66,6 +66,7 @@ router tool or the skill app-commands then own the turn on their own.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -80,6 +81,8 @@ from dodaios.skills.match_eval import (
     MatchCandidate,
     MatchDecision,
 )
+
+log = logging.getLogger(__name__)
 
 #: The builtin that carries the authoring instructions (``dodaios/skills/builtin/
 #: skill-creator/SKILL.md``). Resolved by name from the live registry so a user
@@ -263,7 +266,8 @@ def is_skill_authoring_request(utterance: str) -> bool:
                 and _PT_ONLY_VERB_RE.search(utterance) is not None
             )
         )
-    except Exception:  # noqa: BLE001 — detection must never break a turn
+    except Exception:  # broad-except: detection must never break a turn
+        log.warning("is_skill_authoring_request: detection must never break a turn", exc_info=True)
         return False
 
 
@@ -283,7 +287,8 @@ def is_skill_lifecycle_request(utterance: str) -> bool:
         if _INFO_QUESTION_OPENER_RE.match(utterance):
             return False
         return True
-    except Exception:  # noqa: BLE001 — detection must never break a turn
+    except Exception:  # broad-except: detection must never break a turn
+        log.warning("is_skill_lifecycle_request: detection must never break a turn", exc_info=True)
         return False
 
 
@@ -341,7 +346,11 @@ def resolve_skill_authoring_request(utterance: str, registry: Any) -> AuthoringR
             candidates=(candidate,),
         )
         return AuthoringResolution(skill=skill, decision=decision, kind="authoring")
-    except Exception:  # noqa: BLE001 — resolution must never break a turn
+    except Exception:  # broad-except: resolution must never break a turn
+        log.warning(
+            "resolve_skill_authoring_request: resolution must never break a turn",
+            exc_info=True,
+        )
         return nobody
 
 

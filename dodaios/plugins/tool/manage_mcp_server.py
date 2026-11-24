@@ -34,14 +34,10 @@ class ManageMcpServerTool:
     name: ClassVar[str] = "manage-mcp-server"
     risk_tier: ClassVar[str] = "ask"
     description: ClassVar[str] = (
-        "Manage the MCP (Model Context Protocol) servers Dodaios connects to, by "
-        "editing mcp.json. Actions: 'add' a new server (give a name and the command "
-        "to run, or a url for http/sse), 'remove' a server, 'enable' a server (start "
-        "it), or 'disable' a server (stop using it). Use this for requests like "
-        "'add a new MCP server', 'enable the GitHub MCP', or 'update the MCP config'. "
-        "A newly added server starts DISABLED so the user can review it first. Never "
-        "put a raw API key in here — reference secrets as $SECRET_NAME placeholders; "
-        "real keys are entered in the Settings tab."
+        "Manage the MCP servers Dodaios connects to (mcp.json): add (name + command, or url "
+        "for http/sse), remove, enable, disable. A new server starts DISABLED for the user to "
+        "review. Never put a raw API key in it: use $SECRET_NAME placeholders; real keys go in "
+        "Settings."
     )
     schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -85,18 +81,6 @@ class ManageMcpServerTool:
         },
         "required": ["action", "name", "reason"],
         "additionalProperties": False,
-        "input_examples": [
-            {
-                "action": "add",
-                "name": "github",
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "description": "GitHub integration",
-                "reason": "user wants GitHub MCP",
-            },
-            {"action": "enable", "name": "github", "reason": "user asked to turn it on"},
-            {"action": "remove", "name": "filesystem", "reason": "no longer needed"},
-        ],
     }
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:  # noqa: ARG002
@@ -123,7 +107,8 @@ class ManageMcpServerTool:
 
         try:
             from dodaios.mcp import state as mcp_state
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"mcp state unavailable: {exc}")
 
         try:
@@ -215,7 +200,8 @@ class ManageMcpServerTool:
         """
         try:
             names = sorted(mcp_state.load_config().get("mcpServers", {}).keys())
-        except Exception:  # noqa: BLE001 — the base error must still surface
+        except Exception:  # broad-except: the base error must still surface
+            log.warning("_unknown_name_error: the base error must still surface", exc_info=True)
             names = []
         configured = ", ".join(names) if names else "none"
         return (
@@ -328,7 +314,8 @@ class ManageMcpServerTool:
     def _is_running(cls, name: str) -> bool:
         try:
             return name in cls._active_client_names(cls._registry())
-        except Exception:  # noqa: BLE001
+        except Exception:  # broad-except: failed; carrying on with the fallback
+            log.warning("_is_running: failed; carrying on with the fallback", exc_info=True)
             return False
 
     @classmethod

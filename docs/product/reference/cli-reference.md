@@ -79,7 +79,7 @@ take priority over lower rows.
 | Priority | Source | Best use |
 |---|---|---|
 | 1 | Global `--url` or `--key` | A one-call override |
-| 2 | `JARVISCTL_BASE_URL` or `JARVISCTL_CONTROL_KEY` | Managed automation with a secret store |
+| 2 | `DODAIOSCTL_BASE_URL` or `DODAIOSCTL_CONTROL_KEY` | Managed automation with a secret store |
 | 3 | Profile saved by `dodaios auth login` | Repeated access to one target |
 | 4 | Live local-instance discovery and the local control key | Normal same-computer use |
 | 5 | `http://127.0.0.1:47821` and no key if none can be resolved | Local fallback |
@@ -119,7 +119,7 @@ explicitly so their intent stays clear.
 
 Read-only requests and reversible changes can run immediately. Dangerous
 operations fail unless you add `--yes` or explicitly set
-`JARVIS_CLI_ASSUME_YES=1`; the CLI does not open an interactive confirmation
+`DODAIOS_CLI_ASSUME_YES=1`; the CLI does not open an interactive confirmation
 prompt for them. Review `--dry-run` output first when the command supports it.
 The preview can include the request body, so do not share it when the body
 contains private information.

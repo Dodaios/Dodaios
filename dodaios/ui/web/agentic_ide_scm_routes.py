@@ -17,7 +17,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from dodaios.agentic_ide import scm
+from dodaios.agentic_ide import folder_view, scm
 from dodaios.agentic_ide.git_ops import GitError
 from dodaios.agentic_ide.session import get_registry
 
@@ -26,9 +26,13 @@ router = APIRouter(prefix="/api/agentic-ide/git/scm", tags=["agentic-ide-git"])
 
 def _folder(workspace_id: str) -> Path:
     session = get_registry().get(workspace_id)
-    if session is None:
+    if session is not None:
+        return Path(session.folder)
+    # A thread's project with no open workspace: its folder view (sync route, worker thread).
+    folder = folder_view.folder_of(workspace_id)
+    if folder is None:
         raise HTTPException(status_code=404, detail="Workspace not found.")
-    return Path(session.folder)
+    return folder
 
 
 def _fail(exc: GitError) -> HTTPException:

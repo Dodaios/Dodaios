@@ -1,7 +1,9 @@
 """Skill loader: Markdown file → Skill.
 
-Optionally needs `python-frontmatter`. If not available, it falls back to
-a built-in YAML frontmatter splitter (`---\\n...\\n---\\n`).
+The YAML frontmatter is found by ONE rule (:func:`frontmatter_span`) and read
+with PyYAML. The same rule is used by the code that edits a frontmatter in
+place (``registry._rewrite_state_in_frontmatter``), so the block that is
+edited is always the block that is read back.
 
 Broken files are NOT raised — they land as `DRAFT` with the `error`
 field set on the skill. This lets the registry show a diagnosis without
@@ -11,14 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from pathlib import Path
-
-try:  # optional dep
-    import frontmatter as _frontmatter  # type: ignore
-    _HAVE_FRONTMATTER = True
-except Exception:  # pragma: no cover
-    _frontmatter = None  # type: ignore
-    _HAVE_FRONTMATTER = False
 
 try:
     import yaml
@@ -64,32 +60,51 @@ def _scan_resources(skill_root: Path) -> dict[str, tuple[str, ...]]:
     return out
 
 
-def _split_frontmatter(text: str) -> tuple[dict, str]:
-    """Splits the YAML frontmatter from the Markdown body.
+# A frontmatter delimiter is a LINE of three or more dashes and nothing else.
+# Dashes inside the block (a quoted value, a list item, a ruler in a block
+# scalar) are text. The file must open with such a line.
+_FM_OPEN_RE = re.compile(r"\A-{3,}[ \t]*\r?\n")
+_FM_CLOSE_RE = re.compile(r"^-{3,}[ \t]*\r?$", re.MULTILINE)
 
-    Prefers python-frontmatter, otherwise falls back to a manual split.
+
+def frontmatter_span(text: str) -> tuple[int, int, int] | None:
+    """Where the YAML frontmatter of a SKILL.md lies, or ``None`` without one.
+
+    Returns ``(start, end, body_start)``: ``text[start:end]`` is the YAML
+    block between the two delimiter lines and ``text[body_start:]`` is
+    everything after the closing delimiter line.
+
+    This is the only place that decides where a frontmatter ends. The loader
+    reads the block it names and the state rewriter edits the block it names.
+    Two readers with two rules could disagree about the same file, and then a
+    line written into "the frontmatter" by one would be body text, or part of
+    a quoted value, to the other.
     """
-    if _HAVE_FRONTMATTER:
-        post = _frontmatter.loads(text)  # type: ignore[union-attr]
-        return dict(post.metadata), post.content
+    opening = _FM_OPEN_RE.match(text)
+    if opening is None:
+        return None
+    closing = _FM_CLOSE_RE.search(text, opening.end())
+    if closing is None:
+        return None
+    body_start = closing.end()
+    if text.startswith("\n", body_start):
+        body_start += 1
+    return opening.end(), closing.start(), body_start
 
+
+def _split_frontmatter(text: str) -> tuple[dict, str]:
+    """Splits the YAML frontmatter from the Markdown body."""
     if not _HAVE_YAML:
-        raise RuntimeError(
-            "Neither python-frontmatter nor PyYAML installed — "
-            "skill parsing not possible."
-        )
+        raise RuntimeError("PyYAML is not installed — skill parsing not possible.")
 
-    # Manual split: '---\n<yaml>\n---\n<body>'
-    if text.startswith("---"):
-        parts = text.split("---", 2)
-        if len(parts) >= 3:
-            fm_str = parts[1]
-            body = parts[2].lstrip("\n")
-            meta = yaml.safe_load(fm_str) or {}
-            if not isinstance(meta, dict):
-                raise ValueError("Frontmatter must be a YAML mapping")
-            return meta, body
-    return {}, text
+    span = frontmatter_span(text)
+    if span is None:
+        return {}, text
+    start, end, body_start = span
+    meta = yaml.safe_load(text[start:end]) or {}
+    if not isinstance(meta, dict):
+        raise ValueError("Frontmatter must be a YAML mapping")
+    return meta, text[body_start:].lstrip("\n")
 
 
 def parse_skill(path: Path) -> Skill:

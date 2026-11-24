@@ -25,10 +25,12 @@
 # Preflight. Before any of that, the `preflight` job proves what the cut will
 # need and changes nothing: the release bot can still push to this repository
 # (a `git push --dry-run` with its token; v4.2.0's first cut failed on exactly
-# that, after it had computed the version), the signing keys are configured,
-# main is green, and the version and notes the cut would write. Run it alone
-# with `-f dry_run=true`: the summary shows the result and no job after it
-# runs.
+# that, after it had computed the version), main is green, and the version and
+# notes the cut would write. Run it alone with `-f dry_run=true`: the summary
+# shows the result and no job after it runs. It does not look at the signing
+# keys: they belong to the `release-signing` environment, which no run on main
+# may read (scripts/ci/check_workflow_policy.py). The signing jobs check them
+# on the tag, and a publisher that stops leaves the release a draft.
 #
 # Release bot. The `cut` and `tag` jobs run in the `release-cut` environment, which only
 # main may deploy to. That environment holds the private key of the release
@@ -127,19 +129,6 @@ jobs:
             exit 1
           fi
           echo "Release bot: can push to $GITHUB_REPOSITORY." | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: The release signing keys are configured
-        env:
-          HAS_ED25519: ${{ secrets.WAVE2_OFFLINE_KEY_B64 != '' }}
-          HAS_MLDSA: ${{ secrets.WAVE4_MLDSA65_KEY_B64 != '' }}
-        run: |
-          missing=()
-          [ "$HAS_ED25519" = "true" ] || missing+=(WAVE2_OFFLINE_KEY_B64)
-          [ "$HAS_MLDSA" = "true" ] || missing+=(WAVE4_MLDSA65_KEY_B64)
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::Missing release signing secrets: ${missing[*]}. The publishers would stop after the tag is public."
-            exit 1
-          fi
-          echo "Release signing keys: configured." | tee -a "$GITHUB_STEP_SUMMARY"
       - name: main must be green
         if: inputs.resume_sha == ''
         run: python scripts/ci/release_admit.py --ci-only --sha "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY" --wait-minutes 0

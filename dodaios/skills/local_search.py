@@ -36,11 +36,14 @@ Contract expected by ``dodaios/ui/web/skills_routes.py``:
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 from dodaios.skills.relevance import build_index
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -114,7 +117,8 @@ class LocalSkillSearch:
         """Filter, then rank with the shared scorer. Never raises on empty data."""
         try:
             skills = list(self._registry.list())
-        except Exception:  # noqa: BLE001 — an empty registry is not an error
+        except Exception:  # broad-except: an empty registry is not an error
+            log.warning("query: an empty registry is not an error", exc_info=True)
             skills = []
 
         candidates = [s for s in skills if self._passes_filters(s, filters)]

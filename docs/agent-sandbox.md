@@ -32,4 +32,4 @@ operation names. Image preparation is an explicit work-starting operation.
 
 Validation: policy and schema contracts; real Docker file creation, generated
 Python tests, file export, network/root-write refusal, timeout and cancellation.
-The live Docker integration test is opt-in with JARVIS_SANDBOX_LIVE=1.
+The live Docker integration test is opt-in with DODAIOS_SANDBOX_LIVE=1.

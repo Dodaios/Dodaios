@@ -19,9 +19,12 @@ Design constraints:
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 
 from dodaios.skills.registry import SkillRegistry
+
+log = logging.getLogger(__name__)
 
 # Per-entry cap on the rendered description+when_to_use text (mirrors the
 # 1536-char listing cap in Claude Code's skill listing, AD-S2).
@@ -40,10 +43,10 @@ def _skill_mtime(skill: object) -> float:
     """Last-modified time used for budget eviction; 0.0 when unknown."""
     try:
         return skill.path.stat().st_mtime  # type: ignore[attr-defined]
-    except Exception:  # noqa: BLE001
+    except (AttributeError, OSError):  # no readable file time: fall back to the recorded mtime
         try:
             return float(getattr(skill, "mtime", 0.0))
-        except Exception:  # noqa: BLE001
+        except (TypeError, ValueError):  # an unusable recorded mtime counts as zero
             return 0.0
 
 
@@ -59,7 +62,8 @@ def _is_builtin(skill: object) -> bool:
         from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 
         return str(getattr(skill, "name", "")) in BUILTIN_SKILL_NAMES
-    except Exception:  # noqa: BLE001 — import fault must not demote a user skill
+    except Exception:  # broad-except: import fault must not demote a user skill
+        log.debug("_is_builtin: import fault must not demote a user skill", exc_info=True)
         return False
 
 
@@ -283,7 +287,11 @@ def render_realtime_skills_directive(
             return cached
     try:
         active = registry.list_active()
-    except Exception:  # noqa: BLE001 — a roster fault must never break a call
+    except Exception:  # broad-except: a roster fault must never break a call
+        log.warning(
+            "render_realtime_skills_directive: a roster fault must never break a call",
+            exc_info=True,
+        )
         return ""
     # (name, full rich blurb, description only, is_builtin) — untruncated here;
     # the width is chosen below against the budget.

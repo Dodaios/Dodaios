@@ -441,7 +441,7 @@ def deliver_to_user_folder(
 
     try:
         target_dir = resolve_deliverables_dir(override_dir)
-    except Exception as exc:  # noqa: BLE001 — never fail an approved mission
+    except Exception as exc:  # broad-except: never fail an approved mission
         logger.warning("could not resolve deliverables dir: %s", exc)
         return []
 

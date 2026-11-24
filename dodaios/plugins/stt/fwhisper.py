@@ -273,7 +273,7 @@ def cuda_runtime_libraries_present() -> bool:
 
         try:
             return ctypes.util.find_library("cublas") is not None
-        except Exception:  # noqa: BLE001 — a broken loader config is "absent"
+        except (OSError, ImportError, AttributeError):  # a broken loader config is absent
             return False
     return False
 
@@ -504,7 +504,7 @@ def prefetch_model(
     primed = False
     try:
         model = _new_whisper_model(key[0], device, compute_type, int(cpu_threads))
-    except Exception as exc:  # noqa: BLE001 — a prefetch must never break boot
+    except Exception as exc:  # broad-except: a prefetch must never break boot
         log.debug("Wake-model prefetch failed (lazy load will cover it): %s", exc)
     if model is not None:
         # Prime in the prefetch thread too (TTU iteration 11): the FIRST real
@@ -521,7 +521,7 @@ def prefetch_model(
             segments_iter, _info = model.transcribe(warm_audio, beam_size=1)
             list(segments_iter)  # materialise = run the actual decode
             primed = True
-        except Exception as exc:  # noqa: BLE001 — priming is best-effort
+        except Exception as exc:  # broad-except: priming is best-effort
             log.debug("Wake-model prefetch priming skipped: %s", exc)
     with _PREFETCH_LOCK:
         if model is not None:
@@ -747,7 +747,7 @@ class FasterWhisperProvider:
                 model_name, device, compute_type, self._cpu_threads
             )
             return
-        except Exception as exc:  # noqa: BLE001 — fall back rather than crash boot
+        except Exception as exc:  # broad-except: fall back rather than crash boot
             fb_device, fb_ct = "cpu", _cpu_safe_compute_type(compute_type)
             if (device, compute_type) == (fb_device, fb_ct):
                 # Already on the CPU-safe combo — the failure is not a
@@ -831,7 +831,7 @@ class FasterWhisperProvider:
             rng = np.random.default_rng(0)
             warm_audio = rng.standard_normal(16_000).astype(np.float32) * 0.001
             self._transcribe_sync(warm_audio, 16_000)
-        except Exception as exc:  # noqa: BLE001 — priming is best-effort
+        except Exception as exc:  # broad-except: priming is best-effort
             log.debug("Whisper warm-up inference skipped: %s", exc)
         # Signal readiness even when the priming inference failed: the model
         # object exists, so pollers can safely transcribe (lazy paths cover the

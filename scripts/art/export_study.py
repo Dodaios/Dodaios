@@ -1,7 +1,7 @@
 """Export one named collection from a .blend source into its isolated study.
 
 blender --background --factory-startup --disable-autoexec --python
-scripts/art/export_study.py -- --manifest art/studies/example/study.json --asset example
+scripts/art/export_study.py -- --manifest assets/art/studies/example/study.json --asset example
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ def main() -> None:
     parser.add_argument("--asset", required=True)
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     manifest = args.manifest.resolve()
-    studies = Path(__file__).resolve().parents[2] / "art/studies"
+    studies = Path(__file__).resolve().parents[2] / "assets/art/studies"
     if not manifest.is_relative_to(studies.resolve()):
-        raise SystemExit("review exports must stay in this project's art/studies directory")
+        raise SystemExit("review exports must stay in this project's assets/art/studies directory")
     data = read_manifest(manifest)
     asset = next((a for a in data["assets"] if a["id"] == args.asset), None)
     if asset is None:

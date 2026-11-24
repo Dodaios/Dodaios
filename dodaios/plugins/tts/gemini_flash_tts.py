@@ -706,7 +706,7 @@ class GeminiFlashTTS:
                             yield data
         except asyncio.CancelledError:
             raise
-        except Exception as exc:  # noqa: BLE001 — degrade to the next rung
+        except Exception as exc:  # broad-except: degrade to the next rung
             outcome["error"] = exc
             msg = str(exc)
             if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
@@ -877,7 +877,7 @@ def _sapi5_synthesize(text: str, language_code: str = "de-DE") -> bytes:
     # pywin32 needs a fresh CoInitialize per thread.
     try:
         pythoncom.CoInitialize()
-    except Exception as exc:  # noqa: BLE001 — an already-initialized COM apartment is fine
+    except Exception as exc:  # broad-except: an already-initialized COM apartment is fine
         log.debug("CoInitialize skipped: %s", exc)
 
     try:

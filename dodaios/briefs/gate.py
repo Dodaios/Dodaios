@@ -353,6 +353,39 @@ def review(
     return decision
 
 
+def kit_answer(
+    order: Order,
+    *,
+    profiles: Sequence[Profile] = (),
+    auto_effort: bool = True,
+    count_words: bool = True,
+) -> dict[str, Any]:
+    """What a request for the kit answers, built and nothing else. Blocking.
+
+    :func:`prepare` is this plus the note that the writer looked first; a
+    benchmark replay calls it with ``count_words`` off, so it writes nothing.
+    """
+    families = list(profiles) or [profile_for(order.recipient.cli, order.recipient.model)]
+    try:
+        gathered = kit_module.build(
+            order,
+            profiles=families,
+            auto_effort=auto_effort,
+            with_draft=False,
+            count_words=count_words,
+        )
+    except Exception:  # noqa: BLE001 - without a kit the writer briefs as before
+        log.warning("brief gate: the kit could not be gathered", exc_info=True)
+        gathered = kit_module.Kit(kind=lint.kind_of(order), profiles=families)
+    return {
+        "status": "prepared",
+        "nothing_sent": True,
+        "brief_kit": gathered.as_dict(),
+        "next": "Write the brief from these facts and make the call again without "
+                "options.prepare.",
+    }
+
+
 def prepare(
     order: Order, *, profiles: Sequence[Profile] = (), auto_effort: bool = True
 ) -> dict[str, Any]:
@@ -361,20 +394,7 @@ def prepare(
     ``order.draft.task`` holds what the person wants in the writer's words;
     nothing is checked and nothing is sent.
     """
-    families = list(profiles) or [profile_for(order.recipient.cli, order.recipient.model)]
-    try:
-        gathered = kit_module.build(
-            order, profiles=families, auto_effort=auto_effort, with_draft=False
-        )
-    except Exception:  # noqa: BLE001 - without a kit the writer briefs as before
-        log.warning("brief gate: the kit could not be gathered", exc_info=True)
-        gathered = kit_module.Kit(kind=lint.kind_of(order), profiles=families)
+    answer = kit_answer(order, profiles=profiles, auto_effort=auto_effort)
     with _LOCK:
         _PREPARED[_key(order)] = time.monotonic()
-    return {
-        "status": "prepared",
-        "nothing_sent": True,
-        "brief_kit": gathered.as_dict(),
-        "next": "Write the brief from these facts and make the call again without "
-                "options.prepare.",
-    }
+    return answer

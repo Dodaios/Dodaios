@@ -17,7 +17,7 @@ def test_blocks_videos_masters_and_archives() -> None:
     paths = {
         "assets/demo/hero.mp4": 10,
         "dodaios/ui/web/frontend/public/clip.webm": 10,
-        "art/studies/city/source/city.blend": 10,
+        "assets/art/studies/city/source/city.blend": 10,
         "marketing/brand.psd": 10,
         "release/bundle.zip": 10,
         "assets/icons/app.ico.backup": 10,
@@ -30,7 +30,7 @@ def test_blocks_working_folders_and_oversized_files() -> None:
     found = gate.problems(
         {
             "video/src/Scene.tsx": 10,
-            "art/studies/city/evidence/shot.png": 10,
+            "assets/art/studies/city/evidence/shot.png": 10,
             "docs/huge-diagram.png": 6 * MB,
         },
         [],

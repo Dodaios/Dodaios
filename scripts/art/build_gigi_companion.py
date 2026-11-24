@@ -24,7 +24,7 @@ from gigi_source_metadata import (  # noqa: E402
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-STUDY = ROOT / "art/studies/gigi-hover-companion"
+STUDY = ROOT / "assets/art/studies/gigi-hover-companion"
 TAU = 2 * math.pi
 
 

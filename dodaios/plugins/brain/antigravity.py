@@ -240,7 +240,8 @@ class AntigravityBrain:
                 getattr(status, "connected", False)
                 and getattr(status, "mode", "") == "oauth-personal"
             )
-        except Exception:  # noqa: BLE001 - a probe degrades, never raises
+        except Exception:  # broad-except: a probe degrades, never raises
+            log.debug("subscription_connected: a probe degrades, never raises", exc_info=True)
             return False
 
     def can_call_tools(self) -> bool:

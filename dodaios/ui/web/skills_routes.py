@@ -684,11 +684,10 @@ async def import_skill(body: SkillImportBody, request: Request) -> dict[str, Any
     The endpoint deliberately does not accept an arbitrary shell command. Only
     the first http(s) link is extracted from the text and loaded as SKILL.md.
     """
-    import tempfile
-
     import httpx
 
     from dodaios.core.http_guard import public_only_async
+    from dodaios.skills.remote import RemoteSkillRefused, hold_as_draft
 
     reg = _require_registry(request)
     raw_url = _extract_import_url(body.input)
@@ -716,17 +715,16 @@ async def import_skill(body: SkillImportBody, request: Request) -> dict[str, Any
             detail="This link does not look like a SKILL.md with YAML frontmatter.",
         )
 
-    with tempfile.TemporaryDirectory(prefix="jarvis-skill-import-") as tmp:
-        tmp_path = Path(tmp) / "skill" / "SKILL.md"
-        tmp_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path.write_text(content, encoding="utf-8")
-        parsed = parse_skill(tmp_path)
-
-    if parsed.frontmatter is None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"SKILL.md could not be read: {parsed.error}",
-        )
+    # AP-15: an imported skill is third-party content the user has not reviewed
+    # yet. `parse_skill` treats a missing `state:` key as VALIDATED, so writing
+    # the downloaded file verbatim would put a remote skill straight into the
+    # active pool. `hold_as_draft` stamps DRAFT and then reads the stamped text
+    # back with the loader: only a file that IS a draft afterwards is stored.
+    # Promotion stays an explicit, human act via POST /api/skills/{name}/enable.
+    try:
+        content, parsed = hold_as_draft(content)
+    except RemoteSkillRefused as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     name = parsed.name
     if name in BUILTIN_SKILL_NAMES:
@@ -744,23 +742,22 @@ async def import_skill(body: SkillImportBody, request: Request) -> dict[str, Any
             detail=f"Skill '{name}' already exists.",
         )
 
-    # AP-15: an imported skill is third-party content the user has not reviewed
-    # yet. `parse_skill` treats a missing `state:` key as VALIDATED, so writing
-    # the downloaded file verbatim would put a remote skill straight into the
-    # active pool. Stamp DRAFT on the way in — promotion stays an explicit,
-    # human act via POST /api/skills/{name}/enable.
-    from dodaios.skills.registry import _rewrite_state_in_frontmatter
-
-    content = _rewrite_state_in_frontmatter(content, SkillLifecycleState.DRAFT.value)
-
     target_dir = _safe_import_target(name)
     target_file = target_dir / "SKILL.md"
+    if target_file.exists():
+        # The registry is keyed by the name a skill gives itself; the folder
+        # is a second name. A file that is already there is never replaced.
+        raise HTTPException(
+            status_code=409,
+            detail=f"A skill folder named '{name}' already exists.",
+        )
     target_dir.mkdir(parents=True, exist_ok=True)
     tmp_file = target_file.with_suffix(".md.tmp")
     try:
         tmp_file.write_text(content, encoding="utf-8")
         tmp_file.replace(target_file)
     except OSError as exc:
+        tmp_file.unlink(missing_ok=True)
         raise HTTPException(
             status_code=500,
             detail=f"Could not write skill: {exc}",
@@ -1828,13 +1825,18 @@ async def search_catalog(
 async def install_from_catalog(
     body: SkillInstallBody, request: Request
 ) -> dict[str, Any]:
-    """Installs a skill from the catalog.
+    """Installs a skill from the catalog, as a DRAFT.
 
     Steps:
     1. Fetch the file via ``httpx`` from ``raw_url`` (or abort if None).
-    2. Save it to ``<user_skills>/<name>/SKILL.md``.
+    2. Save it to ``<user_skills>/<name>/SKILL.md`` with ``state: draft``.
     3. Re-parse the registry + hot-swap it in, so the UI sees the new
        skill immediately.
+
+    The file is third-party text (AP-15): it is stored switched off and the
+    person turns it on in Skills (``POST /api/skills/{name}/enable``). The
+    answer carries ``state`` so every caller can say where the skill stands
+    instead of reporting it as running.
     """
     reg = _require_registry(request)
 
@@ -1886,6 +1888,9 @@ async def install_from_catalog(
             "ok": True,
             "name": body.name,
             "path": str(target_path),
+            # The finder only ever stores a draft, so this is known without
+            # the registry.
+            "state": SkillLifecycleState.DRAFT.value,
             "reload_warning": internal_error("Skill registry reload", exc),
         }
 
@@ -1911,6 +1916,7 @@ async def install_from_catalog(
         "ok": True,
         "name": body.name,
         "path": str(target_path),
+        "state": installed.state.value,
         "skill": _skill_to_summary(installed),
     }
 

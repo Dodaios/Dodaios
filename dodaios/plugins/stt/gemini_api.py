@@ -48,9 +48,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # Widely-served Gemini flash model with audio understanding. NOT pinned to a
 # preview/pro id (AP-21): any audio-capable Gemini model transcribes; a user can
@@ -376,7 +379,7 @@ class GeminiSTT:
         model = self._model
         try:
             response = await _generate(model)
-        except Exception as exc:  # noqa: BLE001 — degrade honestly (AP-22)
+        except Exception as exc:  # broad-except: degrade honestly (AP-22)
             # Imported here, not at module top, to keep the plugin
             # ``dodaios.*``-free at import time (the entry-point purity contract)
             # — the same lazy seam the credential lookup uses. This runs only on
@@ -402,7 +405,8 @@ class GeminiSTT:
                     )
                     self._last_used_model = DEFAULT_MODEL
                     return transcript
-                except Exception as retry_exc:  # noqa: BLE001 — classify, never leak
+                except Exception as retry_exc:  # broad-except: classify, never leak
+                    log.warning("_post_transcription: classify, never leak", exc_info=True)
                     failure = retry_exc
 
             message = f"Gemini STT request failed: {failure}"

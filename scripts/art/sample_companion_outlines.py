@@ -8,7 +8,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-source = Path(__file__).resolve().parents[2] / "art/studies/agent-symbol-companions/source"
+source = Path(__file__).resolve().parents[2] / "assets/art/studies/agent-symbol-companions/source"
 shapes = json.loads((source / "shapes.json").read_text(encoding="utf-8"))
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(headless=True)

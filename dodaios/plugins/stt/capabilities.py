@@ -247,7 +247,8 @@ def error_text(response: Any) -> str:
     """
     try:
         text = getattr(response, "text", "") or ""
-    except Exception:  # noqa: BLE001 — a body we cannot read is simply no evidence
+    except Exception:  # broad-except: a body we cannot read is simply no evidence
+        log.warning("error_text: a body we cannot read is simply no evidence", exc_info=True)
         return ""
     return str(text)[:2000]
 

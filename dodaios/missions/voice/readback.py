@@ -24,10 +24,13 @@ Capability-Honesty (Capability Coupling spec, 2026-05-20):
 """
 from __future__ import annotations
 
+import logging
 from collections import deque
 from typing import TYPE_CHECKING, Final, Literal
 
 from dodaios.i18n import catalog as i18n_catalog
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from dodaios.missions.critic.runner import CapabilityHonestyCheck
@@ -297,7 +300,11 @@ def render_agent_brand(phrase: str) -> str:
         from dodaios.core.config import load_config
 
         brand = agent_brand(load_config())
-    except Exception:  # noqa: BLE001 — never break a voice readback on config trouble
+    except Exception:  # broad-except: never break a voice readback on config trouble
+        log.debug(
+            "render_agent_brand: never break a voice readback on config trouble",
+            exc_info=True,
+        )
         from dodaios.brain.assistant_name import agent_brand_from_name
 
         brand = agent_brand_from_name("")

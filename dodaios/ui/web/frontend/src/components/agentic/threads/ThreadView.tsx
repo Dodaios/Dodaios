@@ -6,7 +6,9 @@ import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { TimelineItem } from "@/components/agentchat/reduce";
 import { useEventStore } from "@/store/events";
 import { fill, translate, useT } from "@/i18n";
+import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { threadPanelWorkspace } from "@/store/panelWorkspace";
 import { useIdeThreadsStore, type SplitThread, type ThreadSelection } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
@@ -104,6 +106,15 @@ export function ThreadView({ onScreen, column }: {
 
   // The terminal drawer and its caption toggle open shells in this folder.
   useEffect(() => { if (!column) useThreadTerminalsStore.getState().setFolder(folder); }, [column, folder]);
+  // The side panel (Folder, Changes, Search, Git, editor) shows this thread's
+  // folder, not whatever workspace the grid has in front.
+  const openWorkspaces = useIdeChatStore((state) => state.workspaces);
+  const projectName = project?.name ?? "";
+  useEffect(() => {
+    if (column) return;
+    useIdeChatStore.getState().setThreadWorkspace(threadPanelWorkspace(folder, projectName, openWorkspaces));
+  }, [column, folder, projectName, openWorkspaces]);
+  useEffect(() => (column ? undefined : () => useIdeChatStore.getState().setThreadWorkspace(null)), [column]);
 
   // Keep the store on what the sidebar picked. A draft's first message
   // creates its session: that is this project's thread now — unless the
@@ -251,7 +262,7 @@ export function ThreadView({ onScreen, column }: {
     if (column) return;
     const rows: SubagentRow[] = agents.map((entry) => ({
       id: entry.id, parentId: entry.parentId, depth: entry.depth, title: entry.title,
-      agentType: entry.agentType, status: entry.status, waiting: entry.waiting,
+      agentType: entry.agentType, model: entry.model, status: entry.status, waiting: entry.waiting,
     }));
     useThreadSubagentsStore.getState().publish(selection.team ? null : selection.sessionId, rows);
   }, [agents, selection.sessionId, selection.team, column]);
@@ -353,6 +364,7 @@ export function ThreadView({ onScreen, column }: {
         <div ref={composerBox} className="selection-text-only pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[length:calc(100%-1.5rem)] to-transparent px-5 pb-4 pt-6">
           <div className="selection-text-only pointer-events-auto">
             <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen}
+              subagentModel={agent?.model ?? ""}
               tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />
           </div>
         </div>

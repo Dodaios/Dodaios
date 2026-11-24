@@ -1729,7 +1729,7 @@ async def download_wake_model(request: Request) -> dict[str, object]:
     Recoverable-in-app contract: a user whose Vosk model is
     absent/dead gets a working reliable wake engine without editing jarvis.toml.
     Never 500s on a fetch failure — returns a clear message and the runtime lazy
-    net (``_heavy_backend_bg``'s one-shot provision) remains the backstop.
+    net (``BackendBoot.heavy_backend``'s one-shot provision) remains the backstop.
     """
     from dodaios.speech import wake_model_fetch as wmf
 

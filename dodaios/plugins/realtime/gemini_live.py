@@ -818,7 +818,7 @@ class _GeminiLiveSession:
             await self._session.send_realtime_input(
                 text=f"{_STEERING_HEADER}\n\n{body}"
             )
-        except Exception:  # noqa: BLE001 — steering must not kill the call
+        except Exception:  # broad-except: steering must not kill the call
             log.warning(
                 "gemini-live: delivering the per-turn directive update failed; "
                 "the model keeps the previous one and the next user turn "
@@ -1008,7 +1008,7 @@ async def _seed_history(session: Any, history: tuple[dict[str, str], ...]) -> No
         await session.send_client_content(
             turns=turns or None, turn_complete=True
         )
-    except Exception:  # noqa: BLE001 — an amnesiac session beats a dead call
+    except Exception:  # broad-except: an amnesiac session beats a dead call
         log.warning(
             "gemini-live: seeding %d prior turns into the fresh session "
             "failed; the conversation continues without in-call context",
@@ -1020,8 +1020,8 @@ async def _seed_history(session: Any, history: tuple[dict[str, str], ...]) -> No
         # invalid argument.
         try:
             await session.send_client_content(turns=None, turn_complete=True)
-        except Exception:  # noqa: BLE001, S110 — transport is likely dead
-            pass
+        except Exception:  # broad-except: transport is likely dead
+            log.debug("_seed_history: transport is likely dead", exc_info=True)
 
 
 # Gemini function_declarations accept only an OpenAPI-style schema subset.
@@ -1160,7 +1160,8 @@ def _declaration_rejection(types: Any, declaration: dict[str, Any]) -> str:
         return ""
     try:
         function_declaration_cls(**declaration)
-    except Exception as exc:  # noqa: BLE001 — any rejection means "drop it"
+    except Exception as exc:  # broad-except: any rejection means "drop it"
+        log.warning("_declaration_rejection: any rejection means \"drop it\"", exc_info=True)
         first_line = str(exc).strip().splitlines()
         return first_line[0] if first_line else type(exc).__name__
     return ""
@@ -1551,7 +1552,8 @@ class VertexLiveProvider(GeminiLiveProvider):
         try:
             config = importlib.import_module("dodaios.core.config")
             return bool(config.vertex_credential_configured())
-        except Exception:  # noqa: BLE001 — an unreadable config is an unset one
+        except Exception:  # broad-except: an unreadable config is an unset one
+            log.debug("external_login_ready: an unreadable config is an unset one", exc_info=True)
             return False
 
     async def can_open_duplex_session(self) -> bool:

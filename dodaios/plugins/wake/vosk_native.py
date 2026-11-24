@@ -17,6 +17,7 @@ wrapped.
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 import queue
 import sys
@@ -24,6 +25,8 @@ import threading
 import time
 from types import ModuleType
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 
@@ -103,7 +106,11 @@ def cap_loader_threads(module: ModuleType) -> bool:
         # vosk loaded this file already; the same path yields the same module.
         handle = ctypes.CDLL(library)
         ctypes.c_int.in_dll(handle, _LOADER_THREADS_SYMBOL).value = 1
-    except Exception:  # noqa: BLE001 - an optimisation: a different build loads as before
+    except Exception:  # broad-except: an optimisation: a different build loads as before
+        log.debug(
+            "cap_loader_threads: an optimisation: a different build loads as before",
+            exc_info=True,
+        )
         return False
     return True
 
@@ -242,9 +249,9 @@ class LockedRecognizer:
             box = [self.__dict__.pop("_rec", None)]
             if box[0] is not None and is_native_recognizer(box[0]):
                 _enqueue_release(box)
-        except Exception:  # noqa: BLE001, S110 — __del__ must never raise; the
+        except Exception:  # broad-except: __del__ must never raise; the
             # worst case is the pre-fix behaviour (free on this thread).
-            pass
+            log.warning("__del__: __del__ must never raise; the", exc_info=True)
 
     def __getattr__(self, name: str) -> Any:
         """Every OTHER native method stays reachable — and locked.

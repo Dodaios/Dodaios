@@ -108,6 +108,10 @@ SCHEMA: Final = Schema(
         CREATE TRIGGER nights_no_delete BEFORE DELETE ON nights
         BEGIN SELECT RAISE(ABORT, 'the record of a night is append-only'); END;
         """,
+        # The two states per part of the domain (``run.parts``); '{}' for older points.
+        """
+        ALTER TABLE series ADD COLUMN parts TEXT NOT NULL DEFAULT '{}';
+        """,
     ),
 )
 
@@ -299,6 +303,32 @@ class BenchStore:
             for row in rows
         ]
 
+    def reusable(self, task_id: str, digest: str, arm: str, *, since_ms: int) -> Result | None:
+        """The newest counted result of a task's content under an arm, from ``since_ms`` on.
+
+        A domain that asks a model takes it instead of asking again (``run.measure``).
+        """
+        with self._db.lock:
+            row = self._db.conn.execute(
+                "SELECT * FROM results WHERE task_id = ? AND arm = ? AND task_digest = ?"
+                " AND void = '' AND ts_ms >= ? ORDER BY seq DESC LIMIT 1",
+                (task_id, arm, digest, since_ms),
+            ).fetchone()
+        if row is None:
+            return None
+        return Result(
+            task_id=row["task_id"],
+            task_digest=row["task_digest"],
+            arm=row["arm"],
+            score=row["score"],
+            cost_usd=row["cost_usd"],
+            tokens=row["tokens"],
+            wall_ms=row["wall_ms"],
+            seat=row["seat"],
+            void=row["void"],
+            detail=row["detail"],
+            ts_ms=row["ts_ms"],
+        )
 
     # ---------------------------------------------------- the kernel's own state
 
@@ -321,10 +351,14 @@ class BenchStore:
         with self._db.lock:
             self._db.conn.executemany(
                 "INSERT INTO series (ts_ms, app, domain, split, source, now_score, factory_score,"
-                " diff, low, high, n, now_tokens, factory_tokens, arm_now, arm_factory)"
+                " diff, low, high, n, now_tokens, factory_tokens, arm_now, arm_factory, parts)"
                 " VALUES (:ts_ms, :app, :domain, :split, :source, :now_score, :factory_score,"
-                " :diff, :low, :high, :n, :now_tokens, :factory_tokens, :arm_now, :arm_factory)",
-                list(rows),
+                " :diff, :low, :high, :n, :now_tokens, :factory_tokens, :arm_now, :arm_factory,"
+                " :parts)",
+                [
+                    {**row, "parts": json.dumps(row.get("parts") or {}, sort_keys=True)}
+                    for row in rows
+                ],
             )
             self._db.conn.commit()
 
@@ -342,6 +376,8 @@ class BenchStore:
         with self._db.lock:
             rows = self._db.conn.execute(sql + " ORDER BY seq DESC LIMIT ?", [*args, limit])
             found = [dict(r) for r in rows.fetchall()]
+        for row in found:
+            row["parts"] = json.loads(row.get("parts") or "{}")
         return list(reversed(found))
 
     def add_night(self, app: str, body: dict[str, Any]) -> None:

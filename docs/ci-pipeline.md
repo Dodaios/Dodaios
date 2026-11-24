@@ -101,7 +101,7 @@ request, merge queue, and again on the push of the same commit).
 | `detect` | Picks the tier and the matrices, then classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group is classified against the queue base. Only a push the merge queue already proved turns every lane off. | `scripts/ci/plan_run.py`, `scripts/ci/classify_changes.py` |
 | `static gates` | ~20 repository gates (keys, bundle, AGENTS.md, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
-| `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
+| `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`DODAIOS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
 | `tests windows 1..6` | Merge queue, main and nightly: the whole suite in six shards. Pull request: the tests the change can reach, selected once in `detect`, on one runner (two for more than 450 files); a change that reaches everything runs the six shards, one that reaches no test runs the smoke tests. Six shards on every push held a third of the 60-job pool on 2026-11-09, while 21 of 30 merged changes reached fewer than 900 of 2809 test files. The price: a Windows-only failure in a test the change does not reach shows up in the merge queue, not on the pull request. | `scripts/ci/select_tests.py`, `scripts/ci/run_tests_parallel.py` |
@@ -176,6 +176,39 @@ python scripts/ci/ratchet_tests.py prune --baseline scripts/ci/test-baseline-lin
 
 A missing list means no failures have been approved for that OS; new failures
 block immediately. Missing, empty or malformed reports also block.
+
+### Count ratchets: size, broad excepts, type ignores, source-text tests
+
+Five gates in `scripts/ci/` grandfather today's debt and block new debt:
+`file-size` (Python files in `dodaios/` max 2000 lines, TS/TSX max 1000),
+`function-size` (functions max 300 lines, complexity max 20),
+`broad-except` (`except Exception`, `BaseException`, bare `except:`),
+`type-ignore` (a bare `# type: ignore` without an error code) and
+`source-text-tests` (tests that read product source text). Each has a
+`*-baseline.json` listing every current violation with its current value. The gate
+fails when a violation is new or grew; the failure text says how to fix the code.
+In a pull request or the merge queue (`run_gates.py --base`) it judges only the files
+the change touches, because main moves while a PR waits and a whole-tree comparison
+would be stale by merge time; `--all`, `--update` and a run without a base judge the
+whole tree.
+A violation that shrank or vanished is only a printed note, so parallel pull
+requests that delete code never fight over the baselines. `ratchet-baselines.yml`
+runs every gate with `--update` daily and opens one bot pull request
+("chore(ci): tighten ratchet baselines") when anything shrank; run
+`python scripts/ci/check_<name>.py --update` yourself to lock a gain in sooner.
+`--update` refuses to raise a value unless you pass `--allow-increase` and say why
+in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
+`except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
+
+### Model-text snapshots
+
+`tests/unit/model_texts/` renders every text a model reads (the lead's system
+prompt, the per-message lines, the agent-brief texts, the lead's tool
+descriptions and schemas) and compares it with `tests/snapshots/model_texts/`.
+A text that grows by more than 10 % against `summary.json` fails until the
+summary is regenerated. A PR that changes a tool description or prompt text
+regenerates these snapshots in the same PR:
+`python -m pytest tests/unit/model_texts --update-model-texts`.
 
 ### Flaky tests
 
@@ -497,10 +530,12 @@ A release happens **only** when the maintainer asks for one.
 * **Preflight.** Every cut starts with a `preflight` job that changes
   nothing: a `git push --dry-run` with the release bot's token (a bot that
   lost write access fails here, before a version is computed; the first cut
-  of v4.2.0 failed on exactly that), the release signing secrets, main's
-  `CI gate`, and the version and notes the cut would write, shown in the run
-  summary. `gh workflow run release-cut.yml -f bump=minor -f dry_run=true`
-  runs only the preflight.
+  of v4.2.0 failed on exactly that), main's `CI gate`, and the version and
+  notes the cut would write, shown in the run summary.
+  `gh workflow run release-cut.yml -f bump=minor -f dry_run=true` runs only
+  the preflight. It does not check the signing keys, which no run on main may
+  read (see **Release environments**); the signing jobs check them on the tag,
+  and a publisher that stops leaves the release a draft.
 * **`release-gate.yml`** is the first job of `release.yml` (PyPI),
   `desktop-installers.yml` and `sign-installer.yml`. It admits a tag only
   when tag, versions and CHANGELOG agree, the commit is on main, and
@@ -682,7 +717,7 @@ Steps:
    pip then skips it unless someone pins that exact version. Never delete it:
    the number can never be reused anyway.
 5. **Leave the evidence.** Do not delete the bad release, its assets or its
-   tag, and never re-tag. Installs pinned with `JARVIS_INSTALL_TAG`, the
+   tag, and never re-tag. Installs pinned with `DODAIOS_INSTALL_TAG`, the
    signed manifests and the attestations all point at them. Add a short note
    to the release body instead.
 
@@ -697,7 +732,10 @@ from a branch, and administrators cannot bypass that policy. Neither has
 required reviewers: a release runs from `release-cut.yml` to the published
 GitHub Release without an approval pause or a **Review deployments** click.
 The signing keys and the PyPI upload are therefore reachable only from a
-workflow run on a `v*` tag.
+workflow run on a `v*` tag. The keys are secrets of the `release-signing`
+environment, never of the repository, because a repository secret reaches
+every workflow run on any branch; `scripts/ci/check_workflow_policy.py` fails
+any job outside that environment that names a `WAVE*` secret.
 
 **Release tags.** The `release tags` repository ruleset protects
 `refs/tags/v*` against creation, update and deletion. Only the release bot
@@ -740,7 +778,10 @@ CodeQL's default setup, and none is part of the required `CI gate`:
 * **dependency-review** fails a pull request that adds a dependency with a
   known high or critical advisory.
 * **osv-scanner** checks the shipped lockfiles against osv.dev on main and
-  weekly. It reports and never blocks.
+  weekly. It reports and never blocks. Every tracked hash-pinned lock is on
+  its list (`tests/unit/ci/test_security_scan_scope.py`), the browser helper's
+  two included; exceptions sit beside the lock they belong to, in an
+  `osv-scanner.toml` that gives each one its reason and an end date.
 * **OpenSSF Scorecard** publishes a weekly repository security score.
 
 ### Frontend bundle
