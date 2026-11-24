@@ -40,7 +40,7 @@ def _extract_form_field(multipart_body: bytes, field_name: str) -> str | None:
     ``Content-Disposition`` names ``field_name``, then read the bytes between
     the empty CRLF-CRLF separator and the next boundary marker.
     """
-    needle = f'name="{field_name}"'.encode("utf-8")
+    needle = f'name="{field_name}"'.encode()
     idx = multipart_body.find(needle)
     if idx == -1:
         return None

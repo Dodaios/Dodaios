@@ -1,9 +1,11 @@
 """B2 slice 2 — the /ws/audio route receive loop (fake WS, no real server).
 
 Drives ``browser_voice_ws()`` directly with a fake WebSocket + an injected
-session factory: binary frames dispatch to handle_audio_frame, JSON control
+session builder: binary frames dispatch to handle_audio_frame, JSON control
 frames to handle_control, the AP-20 RuntimeError-break is terminal, and end()
-runs in the finally. The real socket + AudioWorklet are browser-only (slice 3).
+runs in the finally. A realtime session that cannot start or fails ends the
+call with its reason; nothing continues on another engine. The real socket +
+AudioWorklet are browser-only (slice 3).
 """
 from __future__ import annotations
 
@@ -31,6 +33,16 @@ from tests.fakes.fake_realtime import (
 _VALID_TOKEN = "registered-session-token"  # noqa: S105 -- synthetic test token
 _INVALID_TOKEN = "invalid-token"  # noqa: S105 -- synthetic test token
 _BROKER_TOKEN = "desktop-broker-capability"  # noqa: S105 -- synthetic test token
+
+
+@pytest.fixture(autouse=True)
+def _session_from_state(monkeypatch):
+    """Build the call's session from ``state.test_session_factory`` (see ``_state``)."""
+
+    def build(*, state, **kwargs):
+        return state.test_session_factory(**kwargs)
+
+    monkeypatch.setattr(route_mod, "_build_browser_session", build)
 
 
 @pytest.fixture(autouse=True)
@@ -133,14 +145,10 @@ async def _wait_for_json(
 
 
 def _state(session, cfg=None):
-    # These tests exercise the classic dispatch/session behavior, not the gate
-    # itself — see test_route_closes_when_disabled and
-    # test_route_serves_the_classic_bridge_in_pipeline_mode_by_default for that.
-    default_cfg = SimpleNamespace(browser_voice=SimpleNamespace(enabled=True))
     return SimpleNamespace(
-        config=cfg if cfg is not None else default_cfg,
+        config=cfg if cfg is not None else SimpleNamespace(),
         bus=None,
-        browser_voice_session_factory=lambda **kw: session,
+        test_session_factory=lambda **kw: session,
         realtime_transport_broker_token=_BROKER_TOKEN,
     )
 
@@ -153,16 +161,6 @@ def _broker_auth_message() -> dict[str, str]:
             f'"{_BROKER_TOKEN}"}}'
         ),
     }
-
-
-def test_classic_fallback_language_uses_canonical_default_and_pin() -> None:
-    auto_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="auto"))
-    spanish_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="es"))
-    french_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="fr"))
-
-    assert route_mod._resolve_language(auto_cfg) == "en-US"
-    assert route_mod._resolve_language(spanish_cfg) == "es-ES"
-    assert route_mod._resolve_language(french_cfg) == "fr-FR"
 
 
 def test_audio_queue_drops_oldest_without_blocking() -> None:
@@ -221,7 +219,7 @@ async def test_external_route_rejects_missing_or_invalid_token_before_session_bu
         built = True
         return rec
 
-    state.browser_voice_session_factory = _factory
+    state.test_session_factory = _factory
     ws = _FakeWS([], state=state, client_host="203.0.113.8", token=token)
 
     await browser_voice_ws(ws)
@@ -509,18 +507,9 @@ async def test_route_drops_stale_frames_when_provider_is_backpressured(
     assert session.ended
 
 
-async def test_route_closes_when_disabled():
-    rec = _RecSession()
-    cfg = SimpleNamespace(browser_voice=SimpleNamespace(enabled=False))
-    ws = _FakeWS([], state=_state(rec, cfg=cfg))
-    await browser_voice_ws(ws)
-    assert ws.closed is not None and ws.closed[0] == 1008
-    assert rec.audio == []  # never reached the loop
-
-
-async def test_route_serves_the_classic_bridge_in_pipeline_mode_by_default():
-    # Issue #399: a real JarvisConfig in pipeline mode, no [browser_voice]
-    # table. The socket must reach the classic session instead of closing.
+async def test_route_serves_a_config_without_any_voice_table():
+    # Issue #399: a host without a microphone (a VPS) holds every call in the
+    # browser; no setting can switch the socket off.
     from dodaios.core.config import JarvisConfig
 
     class _ReadySession(_RecSession):
@@ -539,8 +528,8 @@ async def test_route_serves_the_classic_bridge_in_pipeline_mode_by_default():
         session.send_json = kwargs["send_json"]
         return session
 
-    state = _state(session, cfg=JarvisConfig.model_validate({"voice": {"mode": "pipeline"}}))
-    state.browser_voice_session_factory = _factory
+    state = _state(session, cfg=JarvisConfig())
+    state.test_session_factory = _factory
     ws = _FakeWS(
         [
             {"type": "websocket.receive", "text": '{"type":"audio_start","sample_rate":48000}'},
@@ -556,19 +545,16 @@ async def test_route_serves_the_classic_bridge_in_pipeline_mode_by_default():
     assert session.ended is True
 
 
-async def test_route_closes_when_speech_stack_unavailable():
-    state = SimpleNamespace(
-        config=SimpleNamespace(browser_voice=SimpleNamespace(enabled=True)),
-        bus=None,
-        browser_voice_session_factory=lambda **kw: None,  # build failed (no key)
-    )
+async def test_route_closes_with_the_reason_when_no_realtime_session_can_start():
+    state = _state(None)
     ws = _FakeWS([], state=state)
     await browser_voice_ws(ws)
-    assert ws.closed is not None and ws.closed[0] == 1011
+    assert ws.closed == (1011, "realtime access unavailable")
     # The reason reaches the person as the browser's error line, so it names
     # what to fix instead of an internal term.
-    assert "Check API Keys" in ws.closed[1]
-    assert len(ws.closed[1].encode()) <= 123
+    errors = [m["error"] for m in ws.sent_json if m.get("type") == "provider_error"]
+    assert errors == [route_mod._SELECTED_VOICE_NOT_READY_DETAIL]
+    assert "API Keys > Live calls" in errors[0]
 
 
 async def test_route_breaks_on_runtimeerror():
@@ -585,11 +571,7 @@ async def test_route_breaks_on_runtimeerror():
     assert rec.ended
 
 
-async def test_realtime_handshake_failure_crosses_to_classic_browser_pipeline(
-    monkeypatch,
-):
-    classic = _RecSession()
-
+async def test_realtime_handshake_failure_ends_the_call_with_its_reason(monkeypatch):
     class _FailedRealtime(_RecSession):
         is_realtime = True
 
@@ -597,40 +579,6 @@ async def test_realtime_handshake_failure_crosses_to_classic_browser_pipeline(
             raise RuntimeError("simulated duplex handshake failure")
 
     failed = _FailedRealtime()
-    state = _state(classic)
-    state.config.voice = SimpleNamespace(mode="realtime")
-    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: failed)
-    ws = _FakeWS(
-        [
-            {
-                "type": "websocket.receive",
-                "text": '{"type":"audio_start","sample_rate":48000}',
-            },
-            {"type": "websocket.disconnect", "code": 1000},
-        ],
-        state=state,
-    )
-
-    await browser_voice_ws(ws)
-
-    assert failed.ended
-    assert classic.controls == [{"type": "audio_start", "sample_rate": 48_000}]
-    assert classic.ended
-    assert {"type": "mode_fallback", "mode": "pipeline"} in ws.sent_json
-
-
-async def test_dead_realtime_stream_crosses_to_classic_on_next_audio_frame(monkeypatch):
-    classic = _RecSession()
-
-    class _DeadRealtime(_RecSession):
-        is_realtime = True
-        failed = True
-        failure_detail = "provider stream ended"
-
-    dead = _DeadRealtime()
-    state = _state(classic)
-    state.config.voice = SimpleNamespace(mode="realtime")
-    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: dead)
     ws = _FakeWS(
         [
             {
@@ -640,70 +588,65 @@ async def test_dead_realtime_stream_crosses_to_classic_on_next_audio_frame(monke
             {"type": "websocket.receive", "bytes": b"\x01\x00\x02\x00"},
             {"type": "websocket.disconnect", "code": 1000},
         ],
-        state=state,
+        state=_state(failed),
     )
 
     await browser_voice_ws(ws)
 
-    assert dead.ended
-    assert classic.controls == [{"type": "audio_start", "sample_rate": 48_000}]
-    assert classic.audio == [b"\x01\x00\x02\x00"]
-    assert {"type": "mode_fallback", "mode": "pipeline"} in ws.sent_json
+    assert failed.ended
+    assert failed.audio == []  # the loop ended at the failed start
+    assert ws.closed == (1011, "realtime voice failed")
+    errors = [m["error"] for m in ws.sent_json if m.get("type") == "provider_error"]
+    assert errors == [route_mod._VOICE_FAILED_DETAIL]
+    assert not any(m.get("type") == "mode_fallback" for m in ws.sent_json)
 
 
-async def test_committed_realtime_failure_closes_without_classic_replay(monkeypatch):
-    classic = _RecSession()
-
-    class _CommittedRealtime(_RecSession):
+async def test_dead_realtime_stream_ends_the_call_on_the_next_audio_frame():
+    class _DeadRealtime(_RecSession):
         is_realtime = True
+        failed = True
+        failure_detail = "provider stream ended"
 
-        def __init__(self, send_json) -> None:
-            super().__init__()
-            self._send_json = send_json
-
-        async def handle_control(self, msg: dict) -> None:
-            await self._send_json(
-                {
-                    "type": "transcript",
-                    "role": "user",
-                    "text": "Run the action",
-                    "is_final": True,
-                }
-            )
-            raise RuntimeError("provider failed after accepting the turn")
-
-    built: dict[str, _CommittedRealtime] = {}
-
-    def _build(**kwargs):
-        session = _CommittedRealtime(kwargs["send_json"])
-        built["session"] = session
-        return session
-
-    state = _state(classic)
-    state.config.voice = SimpleNamespace(mode="realtime")
-    monkeypatch.setattr(route_mod, "_build_browser_session", _build)
+    dead = _DeadRealtime()
     ws = _FakeWS(
         [
             {
                 "type": "websocket.receive",
                 "text": '{"type":"audio_start","sample_rate":48000}',
-            }
+            },
+            {"type": "websocket.receive", "bytes": b"\x01\x00\x02\x00"},
+            {"type": "websocket.disconnect", "code": 1000},
         ],
-        state=state,
+        state=_state(dead),
     )
 
     await browser_voice_ws(ws)
 
-    assert built["session"].ended is True
-    assert classic.controls == []
-    assert classic.audio == []
-    assert {"type": "mode_fallback", "mode": "pipeline"} not in ws.sent_json
-    assert any(
-        message.get("type") == "provider_error"
-        and "duplicate actions" in str(message.get("error", ""))
-        for message in ws.sent_json
+    assert dead.ended
+    assert dead.audio == []
+    assert ws.closed == (1011, "realtime voice failed")
+    errors = [m["error"] for m in ws.sent_json if m.get("type") == "provider_error"]
+    assert errors == [route_mod._VOICE_FAILED_DETAIL]
+
+
+async def test_a_failure_is_reported_once_however_many_frames_hit_it():
+    class _DeadRealtime(_RecSession):
+        is_realtime = True
+        failed = True
+        failure_detail = "provider stream ended"
+
+    dead = _DeadRealtime()
+    ws = _FakeWS(
+        [{"type": "websocket.receive", "bytes": bytes([index, 0])} for index in range(5)]
+        + [{"type": "websocket.disconnect", "code": 1000}],
+        state=_state(dead),
     )
-    assert ws.closed == (1011, "realtime failed after committed turn")
+
+    await browser_voice_ws(ws)
+
+    assert [m for m in ws.sent_json if m.get("type") == "provider_error"] == [
+        {"type": "provider_error", "error": route_mod._VOICE_FAILED_DETAIL}
+    ]
 
 
 async def test_realtime_socket_drop_flushes_pending_turn_to_session_store(
@@ -731,7 +674,6 @@ async def test_realtime_socket_drop_flushes_pending_turn_to_session_store(
             hold_after_events=True,
         )
         cfg = SimpleNamespace(
-            browser_voice=SimpleNamespace(enabled=True),
             voice=SimpleNamespace(mode="realtime", realtime_tool_mode="direct"),
             brain=SimpleNamespace(
                 reply_language="en",

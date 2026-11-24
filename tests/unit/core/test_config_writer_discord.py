@@ -7,8 +7,6 @@ tomlkit round-trip against a temp file.
 
 import tomllib
 
-import pytest
-
 from dodaios.core.config_writer import (
     add_discord_allowed_user_id,
     set_discord_enabled,

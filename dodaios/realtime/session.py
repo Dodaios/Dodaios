@@ -66,14 +66,16 @@ from dodaios.core.turn_language import (
 )
 from dodaios.i18n import catalog as i18n_catalog
 from dodaios.realtime.audio import StreamingPcm16Resampler
-from dodaios.realtime.protocol import RealtimeSessionConfig, RealtimeUnavailableError
+from dodaios.realtime.protocol import (
+    PHONE_SURFACE,
+    RealtimeSessionConfig,
+    RealtimeUnavailableError,
+)
 from dodaios.realtime.report_prompt import clip_report, report_update_prompt
 from dodaios.realtime.scrub_gate import ScrubHoldGate
 from dodaios.realtime.tools import canonical_tool_wire_name
 from dodaios.sessions.constants import (
     HANGUP_CLIENT_STOP,
-    HANGUP_DESKTOP_FALLBACK,
-    HANGUP_REALTIME_FALLBACK,
     HANGUP_VOICE_PATTERN,
     SPOKEN_KIND_PROGRESS,
     SPOKEN_KIND_REPLY,
@@ -814,11 +816,6 @@ _PENDING_TOOL_CALL_INTERIM_RESULT: dict[str, Any] = {
 # before process-scope retention. Real action work remains untouched after
 # this tiny teardown-only grace and is transferred below.
 _DELEGATE_END_SETTLE_S = 0.1
-# Session ends that HAND THE CALL OVER instead of finishing it: the same
-# conversation continues in the classic pipeline under the same session id, so
-# an order the user gave is still live and must not be abandoned with the
-# transport. Every other reason is the call being over.
-_HANDOVER_END_REASONS = frozenset({HANGUP_DESKTOP_FALLBACK, HANGUP_REALTIME_FALLBACK})
 # Strong references for delegated work whose realtime transport has already
 # gone away.  The task itself retains the session-local delivery ledger and
 # publishes the final result through AnnouncementRequested; a module-level
@@ -2058,7 +2055,7 @@ class RealtimeVoiceSession:
         surface: str = "browser",
         brain: Any = None,
         tool_bridge: Any = None,
-        allow_classic_fallback: bool = True,
+        call_brief: str = "",
     ) -> None:
         self.session_id = session_id
         self._send_binary = send_binary
@@ -2078,10 +2075,10 @@ class RealtimeVoiceSession:
         )
         self._half_duplex = bool(half_duplex)
         self._surface = str(surface or "unknown")
-        # Billing boundary advertised to browser/desktop owners. A provider
-        # backed by an interactive subscription can forbid falling through to
-        # unrelated ambient API credentials and the classic usage pipeline.
-        self.allow_classic_fallback = bool(allow_classic_fallback)
+        # What the model has to know about the phone call it is in (who is on
+        # the line, why it was placed). Joins every instruction set the session
+        # sends; empty on every other surface.
+        self._call_brief = call_brief.strip()
         self._transport_offer_sdp = ""
         self._output_active = False
         # Half-duplex mutes the microphone while the assistant speaks. If that
@@ -3156,7 +3153,7 @@ class RealtimeVoiceSession:
             if offer_sdp:
                 self._transport_offer_sdp = offer_sdp
             if self._session is None:
-                if not self._resume_history_loaded:
+                if self._wants_desk_history():
                     take_seed = getattr(self._brain, "take_voice_history_seed", None)
                     if callable(take_seed):
                         # Seed BEFORE the provider handshake, not just the text
@@ -3404,7 +3401,7 @@ class RealtimeVoiceSession:
             input_rate = int(getattr(provider, "input_sample_rate", 16_000) or 16_000)
             output_rate = int(getattr(provider, "output_sample_rate", 24_000) or 24_000)
             session_config = RealtimeSessionConfig(
-                instructions=_session_instructions(
+                instructions=self._with_call_brief(_session_instructions(
                     self._language,
                     proactivity_level=_proactivity_level(self._config),
                     identity=_identity_block(
@@ -3438,7 +3435,7 @@ class RealtimeVoiceSession:
                         getattr(provider, "prefers_compact_instructions", False)
                     ),
                     history_lost=self._suppress_history_seed,
-                ),
+                )),
                 language=self._language,
                 input_language=self._input_language,
                 language_is_pinned=self._language_is_pinned,
@@ -3611,13 +3608,7 @@ class RealtimeVoiceSession:
         fails ended the call after up to 45 s of total silence with nothing
         said at all. Refusing to spend the user's money is correct; refusing
         it SILENTLY is the defect.
-
-        Deliberately quiet when the classic pipeline may still pick this call
-        up: there the user gets a normal answer, and announcing a failure
-        would be false.
         """
-        if self.allow_classic_fallback:
-            return
         lowered = summary.lower()
         status = classify_provider_error(summary)
         if status == RATE_LIMITED:
@@ -3652,36 +3643,13 @@ class RealtimeVoiceSession:
                 exc_info=True,
             )
 
-    def _call_has_committed_turn(self) -> bool:
-        """True when classic replay of this call would duplicate work.
-
-        The desktop pipeline refuses classic fallback once a user or assistant
-        turn has already happened. A failure in that window must be spoken:
-        the call is ending, not continuing elsewhere. Per-turn flags reset at
-        every boundary, so this is sticky for the whole call.
-        """
-        return bool(
-            self._call_had_semantic_turn
-            or self._input_turn_observed
-            or str(self._last_user_text or "").strip()
-            or self._user_transcript_parts
-            or self._output_transcript
-            or self._output_samples_sent > 0
-            or self._surface_spoke_this_turn
-        )
-
     async def _announce_live_call_failure(self, status: str) -> None:
         """Say why a live call is ending, when nobody else will.
 
-        Silent when the classic pipeline can still pick the same call up
-        (no committed turn, usage-billed fallback allowed) — announcing a
-        failure there would be false. Once a turn has run, classic replay
-        is refused and a silent hangup is the live 1011 Resource-exhausted
-        defect: ERROR lines in the log, then listening, nothing said.
+        A silent hangup is the live 1011 Resource-exhausted defect: ERROR
+        lines in the log, then listening, nothing said.
         """
         if self._failure_already_spoken:
-            return
-        if self.allow_classic_fallback and not self._call_has_committed_turn():
             return
         cause = _live_call_failure_cause(status)
         spoken = _handshake_failure_message(cause, self._language)
@@ -4292,6 +4260,30 @@ class RealtimeVoiceSession:
             note = f"{note}\nFull report:\n{clip_report(material)}"
         self._remember_delegate_turn("", note)
         return True
+
+    def _wants_desk_history(self) -> bool:
+        """Whether to seed the desk conversation now.
+
+        A phone call starts from its brief, never from the desk conversation
+        (and never consumes its pending seed).
+        """
+        return not self._resume_history_loaded and self._surface != PHONE_SURFACE
+
+    def _with_call_brief(self, instructions: str) -> str:
+        """``instructions`` with the phone call's brief at the end, when there is one."""
+        if not self._call_brief:
+            return instructions
+        return instructions + "\n\n" + self._call_brief
+
+    async def speak_line(self, text: str, *, kind: str = "announcement") -> bool:
+        """Have the model say one trusted line now; ``False`` while it cannot.
+
+        The phone bridge opens a call and answers a decision with this. Busy
+        is a refusal like for any announcement, so the caller retries.
+        """
+        return await self.deliver_announcement(
+            text=text, language=self._language, spoken_kind=kind
+        )
 
     async def deliver_announcement(
         self,
@@ -5343,7 +5335,7 @@ class RealtimeVoiceSession:
             compact=getattr(self, "_compact_instructions", False),
         )
         update_kwargs: dict[str, Any] = {
-            "instructions": _session_instructions(
+            "instructions": self._with_call_brief(_session_instructions(
                 new_language,
                 proactivity_level=_proactivity_level(self._config),
                 identity=_identity_block(
@@ -5389,7 +5381,7 @@ class RealtimeVoiceSession:
                     self, "_compact_instructions", False
                 ),
                 history_lost=self._suppress_history_seed,
-            ),
+            )),
             "language": new_language,
             # For append-only transports: ONLY the turn-scoped
             # mode line, never the standing role. The role is
@@ -7042,7 +7034,7 @@ class RealtimeVoiceSession:
         )
         try:
             await self._session.update_session(
-                instructions=_session_instructions(
+                instructions=self._with_call_brief(_session_instructions(
                     self._language,
                     proactivity_level=_proactivity_level(self._config),
                     identity=_identity_block(
@@ -7066,7 +7058,7 @@ class RealtimeVoiceSession:
                     skills_directive=self._skills_directive(),
                     compact=getattr(self, "_compact_instructions", False),
                     history_lost=self._suppress_history_seed,
-                ),
+                )),
                 language=self._language,
             )
             if self._executed_tool_names:
@@ -13310,8 +13302,7 @@ class RealtimeVoiceSession:
         if self._end_call_timer is not None and not self._end_call_timer.done():
             self._end_call_timer.cancel()
         self._end_call_timer = None
-        if reason not in _HANDOVER_END_REASONS:
-            self._abandon_spoken_workspace_briefs(reason)
+        self._abandon_spoken_workspace_briefs(reason)
         if self._delegate_tasks:
             await asyncio.wait(
                 tuple(self._delegate_tasks),
@@ -13477,31 +13468,10 @@ class RealtimeVoiceSession:
         # the second event with the same session_id as a natural no-op, and
         # the redundancy keeps the wiki completeness sweep alive even when
         # one layer misses its teardown.
-        #
-        # ONE exception: a desktop engine handover is not an end at all. When
-        # no realtime provider can open a session (or the duplex stream dies
-        # before a turn is committed), the classic pipeline picks the SAME call
-        # up under the SAME session_id and publishes the one real end when it
-        # actually finishes. Announcing an end here told every subscriber that
-        # tracks session boundaries the call was over: the orb bridge armed its
-        # post-hangup latch and dropped every later LISTENING/THINKING/SPEAKING
-        # of the live call as a stray, so the JarvisBar froze mid-call until the
-        # next wake word, and the recorder closed the row with turns=0 (live
-        # 2026-07-26 — both providers out of credit, so EVERY session fell back
-        # and the bar was dead for the whole conversation). The browser keeps
-        # its fallback end: nothing else would ever close its row.
-        handover_to_classic = (
-            reason == HANGUP_DESKTOP_FALLBACK and self._surface != "browser"
-        )
-        if handover_to_classic:
-            log.info(
-                "realtime[%s] handing this call to the classic pipeline — "
-                "no session end published (the pipeline owns it).",
-                self.session_id,
-            )
+
         if (
             self._bus is not None
-            and not handover_to_classic
+            and self._surface != PHONE_SURFACE
             and (self._surface != "browser" or self._browser_session_started)
         ):
             try:

@@ -328,7 +328,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "apikeys",
-  "description_sha256": "d57a2594e0b51ff8cb1c6b0bf5ab1e4f6594593b45464735d7a48b206d3cf01f",
+  "description_sha256": "c9fd307ba30d4315ba35ddd25edc200f30f07ae523948b1b2c33db26d5063d28",
   "params_sha256": "01cd04ef2250c908a0a77df5713ef857c33a8323aa8db5e2d720bdeac35f82e8",
   "voice_aliases": {
    "de": "8bb6eeace32316f98b581e91f63d1f2b727251f38cd8137878beed7597c211ae",
@@ -349,7 +349,7 @@
   "worker_allowed": false,
   "ui_section": "apikeys",
   "description_sha256": "7356cbe37f99db360b64c5c5ced293cf5e79f32d6773173d1893d78f5ba4cb66",
-  "params_sha256": "fbfc833986c6c2606bb49fd81a74dff48952a19cc39b811a4a09d730ea753918",
+  "params_sha256": "1adcbdf79bba72d84eb55ee018194c386a32ecd82de50761ca111e15806f406b",
   "voice_aliases": {
    "de": "22c95a7d413b13031fd0044017f5b22891a96789537bf38005318ca4f5893851",
    "en": [
@@ -451,7 +451,7 @@
   "worker_allowed": true,
   "ui_section": "apikeys",
   "description_sha256": "593dc31149251cf01af44125cfd879f7f7dc5d078a57bf589f1d905b4170e28d",
-  "params_sha256": "fc72efd0dde137a36486aa040d84a412434509048f5c1cbbf81de41e45011af8",
+  "params_sha256": "7611796c5d502d656670ef1a6b2092aa20000724c8455e1f3d06bb3cfcc4c7c2",
   "voice_aliases": {
    "de": "d12fff77c55857e67e57c2a8a3d297aface6766705573648779301ca7aff856b",
    "en": [
@@ -479,26 +479,6 @@
    ],
    "es": "8a5e3dd5a20a9c90c5e8823a158aad9a62c35168b3fad09fa7523a2eca1da28c",
    "pt": "09019710f4fd1a0d2f1d22a536d0b431be2bd21ed354d5691e452709366334e7"
-  }
- },
- {
-  "id": "voice-mode-set",
-  "title": "Set voice mode (pipeline / realtime)",
-  "method": "PUT",
-  "path": "/api/settings/voice-mode",
-  "path_params": [],
-  "dangerous": false,
-  "worker_allowed": false,
-  "ui_section": "settings",
-  "description_sha256": "c6f64f390b541a225b77d7daaeb528e0f7e80027ba1aa567900c3d5f996b8bad",
-  "params_sha256": "554ec6910aba9bdaa9dd4694707d6705864c0fadd481e8f793ea9002033c51c1",
-  "voice_aliases": {
-   "de": "56640854bb28d895c05e0464b8ccf59f792ff950447c5d21162b92a4abe71472",
-   "en": [
-    "switch to realtime mode"
-   ],
-   "es": "cda356a2cab8eb5bb843d4704e496c3d9c33276f5049ccf8b66367e7f411a322",
-   "pt": "b5ddcc43ef6777aa5ddf08a7f1a6b7b1c0f35bb8e12acc3ffb454b0175525042"
   }
  },
  {

@@ -34,10 +34,9 @@ def _keys(monkeypatch, *providers: str) -> None:
     )
 
 
-def _gpt_live(primary: str, *, mode: str = "realtime") -> JarvisConfig:
+def _gpt_live(primary: str) -> JarvisConfig:
     config = JarvisConfig(brain=BrainConfig(primary=primary))
     config.brain.realtime = BrainTierConfig(provider="openai-live", model="gpt-live-1")
-    config.voice.mode = mode
     return config
 
 
@@ -73,14 +72,6 @@ def test_a_deliberate_local_primary_keeps_the_lead(monkeypatch) -> None:
     providers = _providers(_gpt_live("ollama"))
 
     assert providers[0] == "ollama"
-
-
-def test_pipeline_voice_leaves_an_openai_primary_first(monkeypatch) -> None:
-    _keys(monkeypatch, "openai", "gemini")
-
-    providers = _providers(_gpt_live("openai", mode="pipeline"))
-
-    assert providers[0] == "openai"
 
 
 def test_codex_without_a_login_is_no_alternative_to_the_voice_key(monkeypatch) -> None:

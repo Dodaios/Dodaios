@@ -67,19 +67,17 @@ def test_select_starter_plan_persists_and_rejects_unknown(server, state_path) ->
         assert client.get("/api/setup/starter-plans").json()["selected"] == "custom"
 
 
-def test_readiness_follows_the_active_mode_and_celebrates_once(
+def test_readiness_needs_the_realtime_sections_and_celebrates_once(
     server, state_path, monkeypatch
 ) -> None:
-    server.cfg.voice.mode = "pipeline"
-
     async def fake_health(request, refresh=False):
         return _all_ok(("brain", "computer-use", "tts", "stt", "realtime", "subagents"))
 
     monkeypatch.setattr(provider_routes, "section_health", fake_health)
     with TestClient(server.app) as client:
         body = client.get("/api/setup/readiness").json()
-        assert body["mode"] == "pipeline"
-        assert body["required"] == ["brain", "computer-use", "tts", "stt"]
+        assert "mode" not in body
+        assert body["required"] == ["realtime", "computer-use", "subagents"]
         assert body["ready"] is True and body["celebrated"] is False
         assert client.post("/api/setup/readiness/celebrated").json()["ok"] is True
         assert client.get("/api/setup/readiness").json()["celebrated"] is True
@@ -88,7 +86,6 @@ def test_readiness_follows_the_active_mode_and_celebrates_once(
 def test_readiness_is_false_when_a_required_section_is_not_ok(
     server, state_path, monkeypatch
 ) -> None:
-    server.cfg.voice.mode = "realtime"
 
     async def fake_health(request, refresh=False):
         snap = _all_ok(("realtime", "computer-use"))
@@ -110,7 +107,6 @@ def test_readiness_counts_a_set_up_but_unused_section_as_ready(
     ``unverified`` until its first real call. That is set up — the note must
     not wait for every tier to have been used once. A KNOWN failure or any
     other unknown still holds it back."""
-    server.cfg.voice.mode = "realtime"
     unverified = {"status": "unknown", "reason": provider_routes.UNVERIFIED_REASON, "detail": ""}
 
     async def fresh_install(request, refresh=False):

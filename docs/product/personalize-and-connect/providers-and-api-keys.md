@@ -8,7 +8,7 @@ order: 1
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-03
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [providers, api-keys, models, capabilities, fallback, connections]
@@ -41,19 +41,18 @@ choices rather than as a permanent list of every available service.
 
 | Area | What it powers | Important distinction |
 |---|---|---|
-| **Brain** | Chat and Pipeline voice answers | Choose a provider and a model. |
+| **Brain** | Chat answers | Choose a provider and a model. |
 | **Computer Use** | Planning actions from screenshots | This is a separate global choice and needs an image-capable model. |
-| **Voice output** | Speech in Pipeline mode | Choose a voice as well as a provider where offered. |
-| **Voice input** | Speech recognition in Pipeline mode and dictation | Cloud and on-device cards are available. |
+| **Realtime** | Every voice call: one live model that listens and speaks | Model and voice are selected together. |
+| **Read-aloud voice** | Answers read aloud and notices outside calls | Choose a voice where offered. |
+| **Voice input** | Dictation | Cloud and on-device cards. |
 | **Dictation** | Optional punctuation and wording cleanup after recognition | It improves text; it does not transcribe audio. |
-| **Realtime** | One live model that listens and speaks | Model and voice are selected together; Computer Use remains separate. |
 | **Agents** | Longer background work | API-key providers and supported coding-CLI subscriptions (Codex, Claude, Antigravity, Grok Build) appear separately. |
 | **Advanced** | Optional team proxy, telephony, and classic Wiki model | These do not have to be configured for normal chat. |
 
-The **Pipeline / Realtime** switch changes the voice-provider tabs, not the
-whole app. Pipeline joins Voice input, Brain, and Voice output. Realtime uses a
-single full-duplex connection. The Computer Use and Agent choices remain
-independent in both modes.
+Every call runs on the realtime provider picked under **Live calls**, such as
+GPT-Live, Gemini Live, or **xAI Grok Live** (the xAI key, billed per minute).
+Without a ready one, a call ends and says so.
 
 Card labels describe state, not a guarantee:
 
@@ -168,15 +167,15 @@ saved**; one on the shared key shows the covered note.
 The first-run guide's key step switches a starter plan on by itself: a starter
 plan is live voice plus the thinking model it needs, all on one key.
 
-| Plan | Mode | Key | What it sets |
-|---|---|---|---|
-| **OpenAI GPT-Live** (recommended) | Realtime | OpenAI | Brain, tool model, live voice |
-| Gemini Live | Realtime | Gemini | Brain, tool model, live voice |
+| Plan | Key | What it sets |
+|---|---|---|
+| **OpenAI GPT-Live** (recommended) | OpenAI | Brain, tool model, live voice |
+| Gemini Live | Gemini | Brain, tool model, live voice |
 
-The moment a plan's key is saved, the guide points each part at that key and
-pins the voice mode. Any other Brain key works too: it becomes the Brain, and
-voice runs the classic way (speech to text, answer read aloud). Parts that could
-not be applied are listed and can be fixed later here. The **Recommended** badge
+The moment a plan's key is saved, the guide points each part at that key.
+Any other Brain key becomes the Brain; calls then need a realtime provider.
+Parts that could not be applied are listed and can be fixed later here. The
+**Recommended** badge
 on the Brain cards marks the same provider as the recommended plan.
 
 ### Every saved key is checked
@@ -187,14 +186,13 @@ than on the first spoken turn.
 
 ### The "all lights green" note
 
-Once every part the active mode needs answers (Pipeline: brain, tool model,
-voice out, voice in; Realtime: live voice, tool model, agents) a one-time note
-appears. It shows once per install; **Let's go** dismisses it for good.
+Once every part the setup needs answers (live voice, tool model, agents) a
+one-time note appears. It shows once per install; **Let's go** dismisses it for
+good.
 
 Brain and Computer Use changes apply to the next request. Voice input applies
-to the next transcription. Voice output switches the running Pipeline when it
-can, otherwise the saved choice is used when speech starts again. Activating a
-Realtime provider selects Realtime mode and reconnects an active session.
+to the next transcription. Activating a realtime provider reconnects an active
+call.
 
 ## Use Local Providers
 
@@ -208,11 +206,10 @@ downloaded model, enough storage, and suitable hardware.
 - **Local server (OpenAI-compatible)** connects to a self-hosted server such as
   llama.cpp, LM Studio, vLLM, or another compatible endpoint. Enter its server
   URL. A key is optional unless that server requires one.
-- **Whisper** and **Nemotron** provide on-device Voice input. Whisper favors
-  multilingual accuracy with a download of roughly 3 GB; Nemotron is the
-  smaller, faster CPU-oriented choice at roughly 690 MB.
-- **Piper** provides on-device Voice output. Its roughly 200 MB installation
-  includes voices for the supported languages.
+- **Whisper** and **Nemotron** provide on-device Voice input.
+  Whisper favors multilingual accuracy with a download of roughly 3 GB;
+  Nemotron is the smaller, faster CPU-oriented choice at roughly 690 MB.
+- **Piper** is an on-device read-aloud voice of roughly 200 MB.
 
 The speech cards include an in-app **Install** action. Installation runs in the
 background while the card reports progress. A card becomes ready only after
@@ -293,7 +290,7 @@ Open **API Keys & Providers > Brain**, select **Test** on the active card, and
 confirm **Works**. Then send a short, non-sensitive chat message and confirm an
 answer appears.
 
-Test Voice input, Voice output, Realtime, Computer Use, and Agent
+Test Voice input, the read-aloud voice, Realtime, Computer Use, and Agent
 subscriptions separately: they use different capabilities even on one key.
 
 ## Troubleshooting
@@ -303,7 +300,8 @@ subscriptions separately: they use different capabilities even on one key.
 | **ready**, but **Test** fails | Access exists, but the account, model, network, or quota rejected the request | Read the result, check the provider account, and try another eligible family. |
 | A local card stays unready | Its engine, model files, or server is unavailable | Use **Install** for local speech, or start the configured Ollama/compatible server and refresh. |
 | A deleted card still looks ready | A shared key, environment value, or CLI login still covers it | Read the shared-access note and remove or disconnect the real source. |
-| A speech change seems ignored | The current turn began before the live switch, or Voice output needs a new Pipeline | Finish the turn, restart voice, and check the active card again. |
+| A speech change seems ignored | The current turn began before the switch | Finish the turn, start a new call, and check the active card. |
+| A call ends: no realtime voice provider is ready | No realtime provider has a usable key | Test or set one up under **Live calls**. |
 | A subscription card will not connect | The coding CLI is missing, outdated, or signed out | Install the CLI shown on the card, reconnect, then run its **Test**. |
 
 ## Next Steps

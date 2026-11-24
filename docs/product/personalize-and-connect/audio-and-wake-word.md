@@ -8,10 +8,10 @@ order: 2
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-02
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
-tags: [audio, microphone, speaker, wake-word, voice, pipeline, realtime]
+tags: [audio, microphone, speaker, wake-word, voice, realtime]
 related: [voice-conversations, speech-dictionary, permissions, troubleshooting]
 ---
 
@@ -46,16 +46,17 @@ no usable audio hardware.
    app says the change applies on the next start, restart before testing.
 5. Use **Test wake word** to check that the host can hear a useful microphone
    level. Then test the actual selected route by saying the phrase end to end.
-6. Test the speaker with **Preview voice** when your selected Voice Output card
-   offers it, or ask one short Pipeline question and listen for the reply.
+6. Test the speaker with **Preview voice** when your selected read-aloud voice
+   card offers it, or ask one short question in a call and listen for the
+   reply.
 
 A disconnected named device remains saved. While it is absent, the audio
 resolver can use an automatic fallback; reconnect it or select Automatic if
 the route remains wrong.
 
 The device pickers control audio on the computer running the native desktop
-pipeline. A Realtime session started in a browser uses that browser device's
-permission and operating-system routing instead.
+voice. A call started in a browser uses that browser device's permission and
+operating-system routing instead.
 
 ## Choose Wake, Call, or Dictation
 
@@ -84,14 +85,14 @@ records. This prevents two audio sessions from competing for one device.
    not where its name or spelling came from. English, German, Spanish,
    European Portuguese, and **Auto** are available.
 4. Keep **Detection engine** on **Auto (recommended)**.
-5. Select **Save wake word**. A running desktop pipeline normally switches
+5. Select **Save wake word**. Running desktop voice normally switches
    immediately; follow a restart notice when live switching was unavailable.
 6. Select **Test wake word**. Check the resolved engine, effective language,
    vocabulary warning, and microphone result. Then return to **Ready** and say
    the phrase once at normal volume.
 
 Wake language is its own setting. It does not change the app language, reply
-language, general Pipeline recognition language, or Dictation language. **Auto**
+language, Voice Recognition Language, or Dictation language. **Auto**
 uses those broader settings only as a sensible starting point. Pin the wake
 language when automatic selection is wrong.
 
@@ -131,9 +132,8 @@ hidden substitute phrase: wake stays unavailable and Call remains usable.
 ## Privacy and Reliability
 
 The recommended Vosk and local Whisper wake paths process their rolling audio
-locally. The spoken request after activation follows the selected voice mode:
-Pipeline uses its Voice Input, Brain, and Voice Output choices; Realtime uses
-its live connection.
+locally. The spoken request after activation goes over the live connection of
+the realtime provider selected under **API Keys & Providers > Live calls**.
 
 A custom ONNX candidate can be checked with the selected Voice Input service.
 If that service is hosted, a short candidate-audio window may leave the device.
@@ -158,7 +158,7 @@ For fewer missed or accidental wakes:
   blocks them, so use wake activation or an in-app control.
 - A headless host has no native wake listener, Call shortcut, Dictation target,
   or local speaker route. Its text features remain available.
-- A remote browser can use its own microphone for Realtime over localhost or a
+- A remote browser can use its own microphone for a call over localhost or a
   properly secured HTTPS connection. The host's Audio device pickers do not
   choose that remote microphone or speaker.
 
@@ -170,8 +170,8 @@ For fewer missed or accidental wakes:
    lane instead.
 3. The wake engine checks the phrase locally, except the optional custom-ONNX
    verification boundary described above.
-4. Pipeline or Realtime handles the spoken request after activation.
-5. Pipeline replies through the selected Voice Output; browser Realtime uses
+4. The selected realtime provider handles the spoken request after activation.
+5. Desktop calls reply through the selected output device; a browser call uses
    the browser's audio route.
 
 ## Check That It Works
@@ -199,7 +199,8 @@ For persistent voice or provider failures, continue with
 
 ## Next Steps
 
-- Read [Voice Conversations](voice-conversations) for Pipeline and Realtime.
+- Read [Voice Conversations](voice-conversations) for realtime providers and calls.
 - Set up [Dictation](dictation) for speech-to-text without an assistant reply.
-- Use [Local AI Providers](local-ai-providers) to keep later speech stages local.
+- Use [Local AI Providers](local-ai-providers) to see which speech parts can
+  stay local.
 - Review [Permissions](permissions) when capture or shortcuts are blocked.

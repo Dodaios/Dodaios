@@ -1,7 +1,6 @@
 """Parity guard for the persisted voice-session mode vocabulary."""
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -43,12 +42,3 @@ def test_schema_documents_every_known_mode() -> None:
     found = {value.strip() for value in declaration.group(1).split("|")}
     assert found == _expected()
 
-
-def test_every_locale_labels_every_known_mode() -> None:
-    for locale in ("en", "de", "es"):
-        document = json.loads(
-            (LOCALES_DIR / f"{locale}.json").read_text(encoding="utf-8")
-        )
-        labels = document["voice_mode"]
-        assert set(labels) - {"label"} == _expected(), f"{locale} locale drift"
-        assert all(labels[mode].strip() for mode in _expected())

@@ -74,7 +74,6 @@ SKIP_FOR_S: Final[dict[str, float]] = {
 }
 
 #: What the call does after the refusal; carried on the event and the notice.
-CONTINUED_PIPELINE: Final[str] = "pipeline"
 CONTINUED_REALTIME: Final[str] = "realtime"
 CONTINUED_NONE: Final[str] = ""
 
@@ -114,19 +113,6 @@ class Refusal:
     def waiting_helps(self) -> bool:
         """Whether simply trying again a little later could succeed."""
         return self.kind in {KIND_BUSY, KIND_UNREACHABLE}
-
-    @property
-    def overrides_fallback_block(self) -> bool:
-        """Whether this refusal may continue a call on the classic path even
-        for a provider that forbids ambient usage-billed fallback.
-
-        Only a definitive refusal (plan, key, credit, settings) of a
-        usage-billed provider does: the person already pays that provider by
-        usage, and nothing is gained by ending the call. A subscription that
-        refused keeps the rule it was pinned for (the call ends with the
-        reason; issue #828), and a transient failure may still answer.
-        """
-        return not self.waiting_helps and not self.subscription
 
     @property
     def skip_for_s(self) -> float:
@@ -172,23 +158,6 @@ def _from_subscription(error: BaseException) -> bool:
         if any(token in name for name in names for token in _SUBSCRIPTION_ERROR_TOKENS):
             return True
     return False
-
-
-def provider_uses_external_login(provider_id: str | None) -> bool:
-    """Whether the realtime plugin ``provider_id`` is backed by an account
-    login rather than an API key (a capability read, never a name check)."""
-    if not provider_id:
-        return False
-    try:
-        from dodaios.core.registry import load
-        from dodaios.realtime.protocol import RealtimeProvider
-
-        provider_cls = load("jarvis.realtime", provider_id, protocol=RealtimeProvider)
-    except Exception:  # noqa: BLE001 — an unloadable plugin is not a subscription
-        return False
-    if str(getattr(provider_cls, "external_credentials_kind", "") or ""):
-        return True
-    return callable(getattr(provider_cls, "external_login_ready", None))
 
 
 def _chain(error: BaseException):
@@ -320,7 +289,6 @@ def sentence(
         f"speech.provider_refused.{kind}", language, provider=provider_label(provider)
     )
     tail_key = {
-        CONTINUED_PIPELINE: "continued_pipeline",
         CONTINUED_REALTIME: "continued_realtime",
     }.get(continued_on, "ended")
     return f"{why} {i18n_catalog.t(f'speech.provider_refused.{tail_key}', language)}"
@@ -402,7 +370,6 @@ async def _post_lead_notice(
 
 __all__ = [
     "CONTINUED_NONE",
-    "CONTINUED_PIPELINE",
     "CONTINUED_REALTIME",
     "KINDS",
     "KIND_BUSY",
@@ -418,7 +385,6 @@ __all__ = [
     "fresh_refusal",
     "order_by_health",
     "provider_label",
-    "provider_uses_external_login",
     "refusal_of_kind",
     "remember",
     "sentence",

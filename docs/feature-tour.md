@@ -130,9 +130,9 @@ with no account and no key. Keys go into your system's keychain.
 
 ### Wherever you are
 
-Type, or say the wake word, or press your Call shortcut and talk. Voice runs
-in one of two ways: a pipeline of speech recognition, the model and a voice,
-each of them local or hosted, or one live model that listens and speaks.
+Type, or say the wake word, or press your Call shortcut and talk. A call runs
+on one live model that listens and speaks: GPT-Live (on an OpenAI key or your
+ChatGPT subscription), Gemini Live, Vertex AI Live or xAI Grok Live.
 Dictation types what you say into the app you are working in. Away from the
 desk, the phone app continues the same conversation: it shows what waits for
 your yes, takes voice notes and sends a push when something needs you. Your

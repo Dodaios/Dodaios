@@ -139,6 +139,16 @@ describe("the side panel's File tab", () => {
     expect(screen.getByTestId("side-file-body").getAttribute("data-view")).toBe("change");
   });
 
+  it("names the file and the folder it looked in when a bare file name is nowhere", async () => {
+    fetchMock.mockResolvedValueOnce(answer({ detail: "That file is unavailable." }, 404));
+    act(() => useSideFileStore.getState().show({ path: "installDemo.ts", folder: "C:\\Users\\me\\Personal Jarvis", diff: null }));
+    render(<FileTab />);
+    const notice = await screen.findByText(/installDemo\.ts is not in Personal Jarvis/);
+    // It says why: the answer gave no full path, so the file may be in another project.
+    expect(notice.textContent).toContain("without a full path");
+    expect(screen.queryByText(/may have been moved or deleted/)).toBeNull();
+  });
+
   it("opens at the line a reference named", async () => {
     fetchMock
       .mockResolvedValueOnce(answer({ workspace_id: "w1", path: "C:/demo/notes.cfg2", kind: "file" }))

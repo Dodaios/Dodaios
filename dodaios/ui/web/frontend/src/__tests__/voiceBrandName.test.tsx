@@ -34,18 +34,14 @@ vi.mock("@/hooks/usePluginAttention", () => ({
 // useVoiceMode fetches /api/settings/voice-mode — same reason.
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: "pipeline",
     realtimeAvailable: false,
     statusKnown: true,
     transitioning: false,
-    setMode: vi.fn(),
     isLoading: false,
-    isSaving: false,
     activeProvider: null,
     activeProviderLabel: null,
     activeModel: null,
     sessionActive: false,
-    activeSessionMode: null,
     activeSessionProvider: "",
     activeSessionModel: "",
   }),
@@ -258,7 +254,6 @@ describe("voice locale copy", () => {
 
   // The descriptions of the voice tiers on the main API Keys screen.
   const NAME_BEARING_KEYS = [
-    "voice_engine_desc",
     "cat_tts_desc",
     "cat_stt_desc",
   ] as const;

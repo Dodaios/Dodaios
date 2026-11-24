@@ -305,6 +305,8 @@ _REALTIME_SURFACE_TTS_FAMILY: dict[str, str] = {
     # working Vertex TTS all along (live 2026-08-18 18:41: three grounded
     # answers in a row were never heard; provider & mode parity, BUG-148).
     "vertex-live": "vertex-tts",
+    # Grok Live and Grok Voice TTS share the one xAI key and voice roster.
+    "grok-realtime": "grok-voice",
 }
 
 

@@ -62,7 +62,6 @@ REQUIRED_SCENARIOS = frozenset(
         "delegation",
         "detached_delegate_delivery",
         "provider_replacement",
-        "classic_delivery",
     }
 )
 
@@ -891,94 +890,6 @@ async def _provider_replacement_scenario() -> dict[str, int]:
     return {"provider_replacements": 1}
 
 
-async def _classic_delivery_scenario() -> dict[str, int]:
-    """Route one retained opening through the production Classic dispatcher."""
-    import dodaios.speech.pipeline as pipeline_mod
-    from dodaios.core.protocols import AudioChunk
-    from dodaios.speech.pipeline import SpeechPipeline
-
-    class _OneShotVad:
-        def utterances(self, stream: Any) -> Any:
-            async def _one() -> Any:
-                async for chunk in stream:
-                    yield chunk.pcm
-                    return
-
-            return _one()
-
-    # This contract intentionally assembles a minimal pipeline without running
-    # its hardware-owning constructor; ``Any`` keeps the injected test seams
-    # explicit without pretending this partial object is a fully typed instance.
-    pipe: Any = SpeechPipeline.__new__(SpeechPipeline)
-    pipe._config = SimpleNamespace(
-        voice=SimpleNamespace(mode="realtime", model_fields_set=set()),
-        brain=SimpleNamespace(reply_language="en"),
-    )
-    pipe._ptt_mode = False
-    pipe._hangup_event = asyncio.Event()
-    pipe._vad = _OneShotVad()
-    pipe._idle_timeout_s = 1.0
-    pipe._idle_hangup_enabled = True
-    pipe._session_end_reason = None
-    pipe._carry_pcm = bytearray()
-    pipe._carry_started_monotonic = None
-    pipe._last_endpoint_reason = None
-    pipe._last_announcement_spoken_monotonic = None
-    pipe._last_answer_floor_monotonic = None
-    pipe._active_voice_mode = "realtime"
-    pipe._active_realtime_provider = ""
-    pipe._active_realtime_model = ""
-    pipe._voice_engine_transitioning = False
-    pipe._muted = False
-    pipe._input_suppressed_until_ns = 0
-
-    captured: list[bytes] = []
-    delivered: list[bytes] = []
-
-    async def _realtime_unavailable(*, input_buffer: Any = None) -> None:
-        del input_buffer
-        return None
-
-    async def _passthrough(source: Any) -> Any:
-        async for chunk in source:
-            yield chunk
-
-    async def _set_state(state: Any) -> None:
-        del state
-
-    async def _publish(event: Any) -> None:
-        del event
-
-    async def _captured(pcm: bytes) -> None:
-        captured.append(pcm)
-
-    async def _classic_handle(pcm: bytes, **kwargs: Any) -> bool:
-        del kwargs
-        if pcm != b"retained-opening":
-            raise AssertionError("Classic must receive the retained realtime opening")
-        delivered.append(b"classic-reply-audio")
-        return False
-
-    pipe._active_realtime_session = _realtime_unavailable
-    pipe._session_input_stream = _passthrough
-    pipe._set_turn_state = _set_state
-    pipe._publish_event = _publish
-    pipe._publish_utterance_captured = _captured
-    pipe._handle_utterance = _classic_handle
-
-    opening = AudioChunk(
-        pcm=b"retained-opening",
-        sample_rate=16_000,
-        timestamp_ns=1,
-    )
-    buffer = pipeline_mod._SessionInputBuffer(initial=(opening,))  # noqa: SLF001
-    buffer.finish()
-    await asyncio.wait_for(pipe._active_session(input_buffer=buffer), timeout=5.0)
-    if captured != [opening.pcm] or delivered != [b"classic-reply-audio"]:
-        raise AssertionError("Classic fallback must capture and deliver exactly once")
-    return {"classic_deliveries": 1}
-
-
 async def run_contract_soak(
     *,
     warm_connects: int = MIN_WARM_CONNECTS,
@@ -1029,7 +940,6 @@ async def run_contract_soak(
         failback = [await _failback_sample(index) for index in range(failback_samples)]
         detached = await _detached_delegate_delivery_scenario()
         replacement = await _provider_replacement_scenario()
-        classic = await _classic_delivery_scenario()
     finally:
         session_log.setLevel(previous_level)
     metrics = {
@@ -1043,7 +953,6 @@ async def run_contract_soak(
         "failback_max_ms": max(failback, default=0.0),
         **detached,
         **replacement,
-        **classic,
     }
     failures: list[str] = []
     if metrics["orphan_deliveries"] or metrics["duplicate_deliveries"]:
@@ -1062,8 +971,6 @@ async def run_contract_soak(
         failures.append("contract soak did not suppress the detached duplicate")
     if metrics["provider_replacements"] != 1:
         failures.append("contract soak did not cross to one replacement provider")
-    if metrics["classic_deliveries"] != 1:
-        failures.append("contract soak did not deliver one Classic fallback turn")
     if failures:
         raise AssertionError("; ".join(failures))
     return metrics

@@ -8,7 +8,7 @@ order: 7
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-11-13
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [providers, local-ai, ollama, speech-recognition, text-to-speech, privacy, self-hosting]
@@ -20,9 +20,10 @@ you control. Make one part local first, then add the others when ready.
 
 ## Before You Start
 
-- Open **API Keys & Providers**; no settings-file editing is needed. On the
-  **Live calls** tab, set **Voice engine** to **Pipeline** for local speech,
-  because GPT-Live bypasses the three Pipeline steps.
+- Open **API Keys & Providers**; no settings-file editing is needed. Local
+  speech recognition serves Dictation and is set up under **Voice > API Keys**.
+  Voice conversations run on a realtime provider; only the experimental
+  **Local voice** cards on the **Live calls** tab keep a call on your hardware.
 - Keep the app open during installation and leave extra disk space.
 - Treat a model on another computer as self-hosted, not offline. Your text or
   audio still crosses the network to that computer.
@@ -36,7 +37,7 @@ you control. Make one part local first, then add the others when ready.
 | **Whisper (on this machine)** | Multilingual speech recognition with large-v3 | About 3 GB; best local accuracy here, but slower without a suitable GPU | None |
 | **Nemotron (on this machine)** | Streaming recognition in 40 languages | About 690 MB; designed to run several times faster than real time on a CPU | None |
 | **Parakeet (on this machine)** | One-pass recognition in 25 European languages, with punctuation | About 490 MB; reads a recording many times faster than real time on a CPU | None |
-| **Piper (on this machine)** | Spoken Pipeline replies in English, German, or Spanish | About 200 MB; faster than real time on CPU, but fewer and less natural voices than hosted services | None |
+| **Piper (on this machine)** | Read-aloud voice in English, German, or Spanish | About 200 MB; faster than real time on CPU, but fewer and less natural voices than hosted services | None |
 
 Sizes are estimates. Choose Nemotron for lower delay and Whisper for accuracy.
 Dictation uses Parakeet by itself once it is downloaded: as the stand-in
@@ -119,12 +120,13 @@ VRAM even when the model weights appear to fit.
 
 ## Install Local Speech
 
-1. Open **API Keys & Providers > Live calls**, set **Voice engine** to
-   **Pipeline**, and choose Whisper or Nemotron under **Voice Input**.
-2. Select **Install on this machine**. The app remains usable while it works.
-3. Wait until both the engine and model show ready, then select **Test** and
-   **Set active**.
-4. Repeat those steps for Piper under **Voice Output** on the same tab.
+1. Open **Voice > API Keys** and find Whisper, Nemotron, or Parakeet under
+   **Speech to text**.
+2. Select **Install**. The app remains usable while it works.
+3. When the row shows **On this computer**, select **Use**.
+4. For a local read-aloud voice, open **API Keys & Providers > Live calls >
+   Read-aloud voice**, select **Install on this machine** on Piper, wait until
+   the engine and model show ready, then select **Test** and **Set active**.
 
 The card probes the engine and model separately, so incomplete files are not
 called ready. A second click joins the same installation. After an error,
@@ -138,7 +140,10 @@ check its message and disk space, then select **Try again**.
   recognizer does not silently upload the recording merely to recover.
 - Ollama prompts stay on the selected computer or self-hosted host. Web, MCP,
   plugin, and Computer Use tools can still contact outside services.
-- Piper creates audio locally, but its reply may come from a hosted Brain.
+- Piper creates audio locally, but the text it reads may come from a hosted
+  Brain.
+- A voice conversation sends its audio to the selected realtime provider.
+  Local recognition and Piper do not take part in calls.
 - Dictation's automatic wording choice stays local with local recognition. An
   explicitly selected cloud polish or translation provider can receive text.
 - A failed local Brain moves quickly to another ready provider family. If that
@@ -162,15 +167,15 @@ of deleting runtime folders behind the running app.
 | Feature | Relationship | Boundary to remember |
 |---|---|---|
 | **Dictation** | Parakeet, Whisper or Nemotron turns speech into text locally. | Polish and translation have a separate local or cloud choice. |
-| **Voice conversations** | Pipeline combines Voice Input, the Brain, and Voice Output. | GPT-Live bypasses all three selections. |
+| **Voice conversations** | Calls run on one realtime provider. | Local recognition and Piper are not used in calls; only the experimental Local voice cards keep a call local. |
 | **API Keys & Providers** | Shows installation, readiness, server address, test, and active state. | Making one category local does not change the others. |
 | **Privacy and local data** | Local inference reduces data sent to model vendors. | History, connected sources, tools, and LAN servers keep their own storage and network rules. |
 
 ## Check That It Works
 
 1. Test and activate the local Brain, then send a short message in **Chats**.
-2. In Pipeline, dictate one sentence and check its raw Dictation history.
-3. Start a new Pipeline voice conversation and request a short Piper reply.
+2. Dictate one sentence and check its raw Dictation history.
+3. With Piper as the read-aloud voice, have one answer read aloud.
 
 Test each path separately. A working Brain does not prove that speech or
 tools are local.
@@ -183,11 +188,10 @@ tools are local.
 | Ollama test reports no model | Ollama is running with no downloaded model | Download one under **Models on this machine** on the Ollama card, then retest. |
 | Ollama card says "dictation polish: No answer within 8s" | The optional wording test uses a separate model (`qwen3.5:4b` by default), not the chat model | Run `ollama pull qwen3.5:4b`, or choose an installed dictation polish model, then test again. |
 | Whisper downloads, but readiness reports missing files | Older readiness checks also expected repository metadata | Update to a release containing [the readiness fix](https://github.com/Dodaios/Dodaios/pull/841). On older versions, use [the full-snapshot workaround](https://github.com/Dodaios/Dodaios/issues/835) in Dodaios's Python environment, then reopen the app. |
-| Pipeline voice with Ollama says "no API key", although chat works | No Ollama model is selected on an older version | Select an installed model on the Ollama card and start a new voice session. This was fixed by [local model discovery](https://github.com/Dodaios/Dodaios/pull/838). |
 | Self-hosted server is unreachable | Stopped server, wrong address, or blocked network | Restart it, copy its address, select **Save**, and retest. |
 | Chat works, but an action or image fails | The model lacks tools or vision | Choose a capable Ollama model or another suitable provider. |
 | Replies are very slow | The model is too large for available memory or compute | Choose a smaller Brain, use Nemotron for faster speech, or move the server. |
-| Local speech is active but unused | GPT-Live or an old Pipeline session is still running | Set **Live calls > Voice engine** to **Pipeline**, end the voice session, and start a new one. |
+| Local speech is active but a call does not use it | Calls always run on the selected realtime provider | Use local recognition for Dictation; for a local call, set up an experimental **Local voice** card under **Live calls**. |
 | You still see network use | Another slot, fallback, tool, or wording choice is hosted | Review all active cards and test the exact feature again. |
 
 ## Next Steps
