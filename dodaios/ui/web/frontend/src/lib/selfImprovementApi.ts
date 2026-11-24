@@ -75,6 +75,17 @@ export interface AdvantagePoint {
   n: number;
   now_tokens: number;
   factory_tokens: number;
+  /** The same two states per part of the area, e.g. memory needed or not (absent on older points). */
+  parts?: Record<string, AdvantagePart>;
+}
+
+/** One part of an area on the same sealed tasks: plain means, no range. */
+export interface AdvantagePart {
+  n: number;
+  now_score: number;
+  factory_score: number;
+  now_tokens: number;
+  factory_tokens: number;
 }
 
 export interface DomainSummary {

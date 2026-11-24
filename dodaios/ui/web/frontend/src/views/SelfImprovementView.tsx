@@ -87,6 +87,9 @@ export function isEmpty(data: SelfImprovementOverview): boolean {
   );
 }
 
+/** Parts of an area the page has words for (``run.parts`` in dodaios/rsi/bench/run.py). */
+const PARTS = ["needs_memory", "needs_none"];
+
 export function SelfImprovementView() {
   const ready = useLocaleChunk("self_improvement");
   const t = useT();
@@ -402,6 +405,20 @@ function Headline({ point, locale }: { point: AdvantagePoint; locale: string }) 
             })}
           </dd>
         </div>
+        {Object.entries(point.parts ?? {})
+          .filter(([part]) => PARTS.includes(part))
+          .map(([part, row]) => (
+            <div className="contents" key={part}>
+              <dt className="text-muted-foreground">{t(`self_improvement.area.part_${part}`)}</dt>
+              <dd className="tabular-nums text-foreground" data-testid={`si-part-${part}`}>
+                {fill(t("self_improvement.area.part_scores"), {
+                  now: fmtShare(row.now_score, locale),
+                  shipped: fmtShare(row.factory_score, locale),
+                  n: row.n,
+                })}
+              </dd>
+            </div>
+          ))}
         {!savingHeadline && (
           <div className="contents">
             <dt className="text-muted-foreground">{t("self_improvement.area.cost_label")}</dt>

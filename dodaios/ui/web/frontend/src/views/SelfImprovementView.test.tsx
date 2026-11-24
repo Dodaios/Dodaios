@@ -239,6 +239,34 @@ describe("SelfImprovementView", () => {
     expect(limits).toContain("never on a key that is billed per token");
   });
 
+  it("splits the scores into tasks that need a memory and tasks that need none", async () => {
+    const data = fullOverview();
+    const shown = data.domains[0].point!;
+    data.domains[0].point = {
+      ...shown,
+      parts: {
+        needs_memory: { n: 19, now_score: 0.95, factory_score: 0.97, now_tokens: 80, factory_tokens: 120 },
+        needs_none: { n: 17, now_score: 0.6, factory_score: 0.18, now_tokens: 10, factory_tokens: 104 },
+        something_new: { n: 3, now_score: 1, factory_score: 1, now_tokens: 1, factory_tokens: 1 },
+      },
+    };
+    installFetch(data);
+    renderView();
+    const memory = await screen.findByTestId("si-part-needs_memory");
+    expect(memory.textContent).toBe("now 95.0%, as shipped 97.0% (19 tasks)");
+    expect(screen.getByTestId("si-part-needs_none").textContent).toBe("now 60.0%, as shipped 18.0% (17 tasks)");
+    expect(screen.getByText("Memory needed")).toBeTruthy();
+    expect(screen.getByText("No memory needed")).toBeTruthy();
+    expect(screen.queryByTestId("si-part-something_new")).toBeNull();
+  });
+
+  it("shows no part rows for a point measured before parts existed", async () => {
+    installFetch(fullOverview());
+    renderView();
+    await screen.findByTestId("si-scores");
+    expect(screen.queryByTestId("si-part-needs_memory")).toBeNull();
+  });
+
   it("shows the advantage with the scores behind it, and calls an uncertain number not certain", async () => {
     installFetch(fullOverview());
     renderView();
