@@ -6,8 +6,8 @@ import inspect
 import re
 
 from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.core.live_config import LiveConfig
 from dodaios.live import native
-from dodaios.live.config import LiveConfig
 from dodaios.live.coordination import (
     NAMED_TOOLS,
     ON_SCREEN_RULE,

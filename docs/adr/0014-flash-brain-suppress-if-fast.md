@@ -55,7 +55,7 @@ suppress_if_brain_faster_than_ms = 2000   # default
 ```
 
 Validated as `int` in `0..15000` ms by
-`dodaios/brain/ack_brain/config.py::AckBrainConfig`.
+`dodaios/core/ack_brain_config.py::AckBrainConfig`.
 
 Pipeline behavior in `dodaios/speech/pipeline.py` (P3.5):
 
@@ -156,7 +156,7 @@ gate). Live-reproduced and verified in P6 voice runs on 2026-05-13.
 - `docs/superpowers/specs/2026-05-11-pre-thinking-ack-flash-brain-design.md`
   (original spec, unchanged — this ADR is an amendment, not a
   replacement)
-- `dodaios/brain/ack_brain/config.py::AckBrainConfig`
+- `dodaios/core/ack_brain_config.py::AckBrainConfig`
   (`suppress_if_brain_faster_than_ms` field)
 - `dodaios/brain/manager.py::_should_force_spawn`
   (provider-viability gate)

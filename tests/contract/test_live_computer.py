@@ -111,7 +111,7 @@ def test_voice_catalog_drops_the_second_model_vehicles(monkeypatch):
 
 
 def test_backend_instructions_hand_the_screen_to_the_thinking_model():
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     config = LiveConfig(configured=True, backend_model="thinking-model")
     computer = [{"type": "function", "name": "computer", "parameters": tool_schema()}]
@@ -126,7 +126,7 @@ def test_backend_instructions_hand_the_screen_to_the_thinking_model():
 def test_instructions_never_name_a_computer_tool_that_is_switched_off():
     """With Computer Use off the voice catalog has no computer tool; its rules
     would send the model to a tool it cannot call."""
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     config = LiveConfig(configured=True, backend_model="thinking-model")
     instructions = config.session_config(language="en", tools=[])["delegation"]["responses"][
@@ -139,7 +139,7 @@ def test_instructions_never_name_a_computer_tool_that_is_switched_off():
 
 @pytest.mark.parametrize("auth_mode", ["api_key", "chatgpt_subscription"])
 def test_new_capture_requires_fresh_appshot_evidence_in_both_live_modes(auth_mode):
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     config = LiveConfig(
         configured=True, auth_mode=auth_mode, backend_model="api-model",

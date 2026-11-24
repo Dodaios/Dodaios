@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import array
 import asyncio
+import enum
 import inspect
 import json
 import logging
@@ -2013,6 +2014,28 @@ def _external_update_prompt(text: str, *, language: str, kind: str) -> str:
         f"{text}\n"
         "</trusted_update>"
     )
+
+
+class _PumpSignal(enum.Enum):
+    """What a pump event handler tells the receive loop (``None`` = carry on)."""
+
+    SKIP = "skip"  # stop handling this event (a phase's ``continue``)
+    STOP = "stop"  # leave the receive loop (a ``break``)
+
+
+@dataclass(slots=True)
+class _PumpInputState:
+    """Per-event state shared by the phases that handle one input transcript."""
+
+    transcript: str = ""
+    transcription_failed: bool = False
+    input_observed: bool = False
+    input_item_id: str = ""
+    new_language: str = ""
+    turn_plan: Any = None
+    turn_tool_directive: Any = None
+    turn_mode_directive: Any = None
+    tools_changed: bool = False
 
 
 class RealtimeVoiceSession:
@@ -4511,6 +4534,19 @@ class RealtimeVoiceSession:
         session = self._session
         if session is None:
             return None
+        # Built once per transport, never per event: one dict lookup picks the
+        # branch. ``audio_delta`` and ``usage`` stay inline below; the audio
+        # path is the latency-critical one and pays no extra call.
+        handlers = {
+            "input_transcript": self._pump_on_input_transcript,
+            "handoff_requested": self._pump_on_handoff_requested,
+            "output_transcript_delta": self._pump_on_output_transcript_delta,
+            "interrupted": self._pump_on_interrupted,
+            "speech_started": self._pump_on_speech_started,
+            "tool_call": self._pump_on_tool_call,
+            "turn_complete": self._pump_on_turn_complete,
+            "error": self._pump_on_error,
+        }
         try:
             async for event in session.receive():
                 # Any event at all proves the transport is still producing, so
@@ -4543,980 +4579,7 @@ class RealtimeVoiceSession:
                     # for it, hand a frame of it to the gate, or run an action
                     # it asks for.
                     self._judge_stale_generation_event(event)
-                if event.type == "input_transcript":
-                    transcript = _dictionary_corrected(str(event.text or "").strip())
-                    transcription_failed = bool(event.error)
-                    input_observed = bool(transcript or transcription_failed)
-                    if event.is_final and transcript:
-                        # BUG-089: judge the accumulated candidate BEFORE any
-                        # turn side effect (deferred barge confirm, turn
-                        # start, tool bridge, delegate, request_response). A
-                        # final transcript that is fuzzily nothing but our
-                        # own recent speech is the speaker echo that slipped
-                        # the acoustic gates — dropping it here means no
-                        # response is ever generated for it.
-                        echo_probe = " ".join(
-                            (
-                                *(t for _, t in self._user_transcript_parts),
-                                transcript,
-                            )
-                        ).strip()
-                        judge_short = (
-                            time.monotonic() < self._local_barge_short_echo_until
-                        )
-                        # One strict judgment per barge capture: consume the
-                        # window so later ordinary short answers are exempt.
-                        self._local_barge_short_echo_until = 0.0
-                        if not self._grounded_confirmation(transcript) and self._echo_guard.is_echo(
-                            echo_probe, judge_short=judge_short
-                        ):
-                            log.info(
-                                "realtime[%s] dropped provider-transcribed "
-                                "self-echo before it became a turn: %r",
-                                self.session_id,
-                                echo_probe[:80],
-                            )
-                            if bool(
-                                getattr(
-                                    self._session,
-                                    "creates_responses_automatically",
-                                    False,
-                                )
-                            ):
-                                # The provider may already be answering its
-                                # own echo — silence that generation until a
-                                # genuine user turn opens.
-                                self._drop_provider_output_until_user_turn = (
-                                    True
-                                )
-                                try:
-                                    await self._session.interrupt()
-                                except Exception:  # noqa: BLE001, S110 — best effort
-                                    pass
-                            continue
-                    if (
-                        event.is_final
-                        and input_observed
-                        and self._deferred_provider_speech_start
-                    ):
-                        # A later final transcript confirms that the deferred
-                        # server-VAD edge was a real new utterance. Split the
-                        # turns here; a start edge alone is too noisy to abandon
-                        # an orchestrator action that is still producing its
-                        # answer.
-                        self._deferred_provider_speech_start = False
-                        if self._user_is_speaking():
-                            # ...unless the microphone says the user never
-                            # stopped. A server-VAD edge inside ONE continuous
-                            # utterance is a hesitation, not a new request:
-                            # splitting here is what turned a single spoken
-                            # order into three turns and three executors
-                            # (live 2026-08-13 11:19/11:20, _USER_VOICE_PEAK).
-                            # Keep the turn; the text below appends to it.
-                            log.info(
-                                "realtime[%s] provider committed a boundary "
-                                "while the user is still audibly speaking — "
-                                "continuing the same turn instead of "
-                                "splitting it",
-                                self.session_id,
-                            )
-                        else:
-                            await self._begin_user_speech_turn()
-                            await self._barge_in(interrupt_provider=False)
-                    input_item_id = str(getattr(event, "item_id", "") or "")
-                    input_already_answered = bool(
-                        input_item_id
-                        and input_item_id in self._response_requested_input_ids
-                    )
-                    if event.is_final and input_already_answered:
-                        if transcript:
-                            # A re-final of an answered item is a CORRECTION:
-                            # record the better text (item-keyed REPLACE, so
-                            # the utterance never concatenates into itself)
-                            # without re-running any turn machinery for it.
-                            self._note_user_final(input_item_id, transcript)
-                            log.info(
-                                "realtime[%s] recorded a corrected transcript "
-                                "for an already-answered item (item=%s)",
-                                self.session_id,
-                                input_item_id,
-                            )
-                            continue
-                        # A swallowed user utterance is never a debug-level
-                        # event: if the id space ever collides, this is the
-                        # only trace that turn 2 vanished (AP-30).
-                        log.info(
-                            "realtime[%s] ignored a final input item this turn "
-                            "already answered (item=%s); if the user is "
-                            "waiting, the provider reused an item id",
-                            self.session_id,
-                            input_item_id,
-                        )
-                        continue
-                    late_duplicate_without_id = bool(
-                        event.is_final
-                        and transcript
-                        and not input_item_id
-                        and self._response_requested_for_turn
-                        and (self._output_active or self._output_transcript)
-                        and _normalize_for_repeat_match(transcript)
-                        == _normalize_for_repeat_match(self._last_user_text)
-                    )
-                    if late_duplicate_without_id:
-                        # ChatGPT-Live can surface the same locally grounded
-                        # utterance again after its answer already started, but
-                        # without an input item id. Treat only an exact,
-                        # normalized repeat as the already-owned input; a
-                        # different final remains a genuine correction or a
-                        # later multipart fragment.
-                        log.info(
-                            "realtime[%s] ignored a late duplicate final "
-                            "without an item id while its response was in flight",
-                            self.session_id,
-                        )
-                        continue
-                    if input_observed:
-                        self._input_turn_observed = True
-                        self._user_speech_active = False
-                        # The user audibly opened this turn — a fallback-era
-                        # suppression of stale provider output ends here, and
-                        # so does the post-readback stale-generation guard:
-                        # whatever the provider says next was asked for.
-                        self._drop_provider_output_until_user_turn = False
-                        self._disarm_stale_generation_guard()
-                        if (
-                            self._external_update is not None
-                            and self._output_samples_sent == 0
-                        ):
-                            # Real user input landed while a trusted out-of-band
-                            # readback (late action result / announcement) was
-                            # still silent: the injection raced the user's next
-                            # utterance, so the turn belongs to the user now
-                            # (BUG-103: keeping the readback state made the turn
-                            # complete on the readback track — the user's answer
-                            # was re-published as a second spoken event and the
-                            # turn's VoiceTurnCompleted record was skipped). The
-                            # readback's action already ran; only its spoken
-                            # confirmation is lost, and the provider's now-stale
-                            # rendering stays inaudible until a response for
-                            # THIS turn exists.
-                            log.info(
-                                "realtime[%s] user speech pre-empted a silent "
-                                "out-of-band readback (%s) — the turn belongs "
-                                "to the user",
-                                self.session_id,
-                                self._external_update.spoken_kind,
-                            )
-                            self._external_update = None
-                            self._response_requested_for_turn = False
-                            if bool(
-                                getattr(
-                                    self._session,
-                                    "isolates_response_generations",
-                                    False,
-                                )
-                            ):
-                                # Only an adapter that can tell the stale
-                                # readback generation from the next response
-                                # gets the suppression; on any other adapter
-                                # the flag would never clear and deafen the
-                                # user's own answer.
-                                self._drop_provider_output_until_new_response = (
-                                    True
-                                )
-                            if self._turn_id:
-                                # The turn opened silently for the readback;
-                                # announce it now that it is a real user turn.
-                                await self._publish_turn_started()
-                        await self._ensure_turn_started()
-                    new_language = self._language
-                    if transcript and event.is_final:
-                        # FINALS ONLY (H3): a partial used to flip the call
-                        # language mid-utterance, rebuild the scrub gate and
-                        # announce — churn a growing caption re-triggered
-                        # several times per sentence, and the en/en bookings
-                        # on German turns came from exactly these flips.
-                        voiced_ms = int(getattr(event, "voiced_ms", 0) or 0)
-                        new_language = self._resolve_lang(
-                            text=transcript, voiced_ms=voiced_ms
-                        )
-                        if not self._conversation_established and (
-                            detect_language_request(transcript)
-                            or (
-                                is_substantive_turn(transcript)
-                                and (
-                                    voiced_ms == 0
-                                    or voiced_ms
-                                    >= _CONVERSATION_LANGUAGE_MIN_VOICED_MS
-                                )
-                            )
-                        ):
-                            # From here on the call language sticks; a later
-                            # thin interjection cannot flip it (the resolver's
-                            # own stickiness takes over).
-                            self._conversation_established = True
-                        if new_language != self._language:
-                            self._language_flips += 1
-                            self._language = new_language
-                            self._gate = ScrubHoldGate(new_language)
-                            if self._tool_bridge is not None:
-                                self._tool_bridge.set_language(new_language)
-                            # The surfaces label the call with this; a flip
-                            # that only the session knows about leaves every
-                            # indicator stuck on the opening language.
-                            await self._announce_language()
-                    if input_observed:
-                        self._mark_latency_named(
-                            "REALTIME_INPUT_COMMITTED",
-                            detail=(
-                                "transcription=failed"
-                                if transcription_failed
-                                else "transcription=available"
-                            ),
-                        )
-                    if transcript:
-                        if event.is_final:
-                            self._note_user_final(input_item_id, transcript)
-                        else:
-                            # Live caption only — never the persisted text.
-                            self._last_user_text_preview = " ".join(
-                                (
-                                    *(
-                                        t
-                                        for _, t in self._user_transcript_parts
-                                    ),
-                                    transcript,
-                                )
-                            ).strip()
-                    if transcript and event.is_final:
-                        if await self._handle_voice_hangup_input():
-                            if self._hangup_reason:
-                                break
-                            continue
-                    if event.is_final and input_observed:
-                        # BARGE-IN DURING AN ACTION. Everything below this
-                        # point routes the utterance as a REQUEST; a request
-                        # to abandon the running action has to be answered
-                        # before that, because none of the routing can express
-                        # "undo what you are doing". Ordered deliberately:
-                        #
-                        #   - the mic probe first, so a hesitation inside one
-                        #     sentence can never read as a stop (the provider
-                        #     commits on ITS VAD, mid-utterance, and "warte"
-                        #     is also just a word people say while thinking);
-                        #   - the two open-question probes next, so a bare
-                        #     "no" answering a clarify question or an ask-tier
-                        #     confirmation stays an ANSWER;
-                        #   - only then the words.
-                        interrupt_kind = INTERRUPT_NONE
-                        if not (
-                            self._user_is_speaking()
-                            or self._answers_open_delegate_question()
-                            or self._brain_awaits_voice_confirm()
-                        ):
-                            # THIS chunk first, then the whole turn. Finals
-                            # without an item id APPEND (``_note_user_final``),
-                            # so on a provider that never split the turn the
-                            # accumulated text reads "Write this to my wiki.
-                            # Stop." — and a stop word in the middle is not a
-                            # stop. The chunk is what the user just said.
-                            interrupt_kind = classify_interrupt(
-                                transcript
-                            ) or classify_interrupt(self._last_user_text)
-                        if interrupt_kind != INTERRUPT_NONE and (
-                            self._turn_has_pending_delegate(self._turn_id)
-                            or self._has_pending_delegate_from_earlier_turn()
-                            or self._late_delegate_results
-                        ):
-                            cancelled = await self._cancel_running_delegates(
-                                reason=interrupt_kind
-                            )
-                            if cancelled and interrupt_kind == INTERRUPT_STOP:
-                                # Nothing replaces the cancelled order, so
-                                # this turn is complete once it is confirmed.
-                                # Claiming the response here also stops the
-                                # provider — whose context still holds the
-                                # order — from answering the request the user
-                                # just withdrew.
-                                self._delegate_required_for_turn = False
-                                await self._acknowledge_interrupt()
-                            # A REDIRECT keeps falling through: the remainder
-                            # ("…I meant Rome") is a real order and is routed
-                            # by the ordinary path below, now that the order
-                            # it replaces is gone.
-                        turn_plan = self._plan_turn(self._last_user_text)
-                        # ADR-0034: the user opened a NEW turn while an
-                        # earlier order's provider function call is still
-                        # unanswered on the wire. A transport that waits for
-                        # that answer would answer nothing new — free it now;
-                        # the order keeps running and its result is parked.
-                        await self._unblock_pending_provider_calls()
-                        # ADR-0034: "how far are you?" / "what came out of
-                        # it?" spoken into a wait or after a parked result is
-                        # owned by the orchestrator BEFORE the planner can
-                        # read it as an order of its own ("what did you find"
-                        # is search-shaped): a grounded progress line, or the
-                        # parked result itself. Anything else stays native.
-                        wait_query_claimed = bool(
-                            (
-                                self._has_pending_delegate_from_earlier_turn()
-                                or self._late_delegate_results
-                            )
-                            and not self._response_requested_for_turn
-                            and not self._user_is_speaking()
-                            and not self._answers_open_delegate_question()
-                            and not self._brain_awaits_voice_confirm()
-                            and await self._answer_wait_query(self._last_user_text)
-                        )
-                        if (
-                            turn_plan.requires_orchestrator
-                            and not self._active_provider_supports_direct_tools()
-                            and not self._handoff_action_seen_for_turn
-                        ):
-                            self._handoff_action_turns += 1
-                            self._handoff_action_seen_for_turn = True
-                        # Delegate-by-default on ambiguity, tool-less
-                        # transports ONLY (capability read, AP-21): the
-                        # planner is their one action path, so a final that
-                        # tasks the assistant but matches no planner category
-                        # prefers delegation over the far end answering
-                        # unaided — the miss would otherwise only surface as
-                        # a handoff_obligation_misses count after the call.
-                        # Providers with native tools keep today's routing:
-                        # their model can still call the declared function.
-                        ambiguous_action_default = bool(
-                            not turn_plan.requires_orchestrator
-                            and not self._active_provider_supports_direct_tools()
-                            and self._delegate_enabled
-                            and self._last_user_text
-                            and _toolless_ambiguous_action(self._last_user_text)
-                        )
-                        if ambiguous_action_default:
-                            self._handoff_ambiguous_delegations += 1
-                            log.info(
-                                "realtime[%s] tool-less transport: final is "
-                                "action-shaped but ambiguous — delegating by "
-                                "default instead of a native answer",
-                                self.session_id,
-                            )
-                        reasons = ",".join(
-                            sorted(reason.value for reason in turn_plan.reasons)
-                        ) or "none"
-                        self._mark_latency_named(
-                            "REALTIME_ROUTING_DECISION",
-                            detail=(
-                                f"path={turn_plan.path.value};reasons={reasons}"
-                            ),
-                        )
-                        screen_context_turn = (
-                            TurnReason.SCREEN_CONTEXT in turn_plan.reasons
-                        )
-                        grounding_turn = bool(
-                            turn_plan.requires_public_fact_grounding
-                        )
-                        deterministic_delegate_available = callable(self._brain)
-                        if grounding_turn:
-                            # Grounding is fail-closed even when synthesis is
-                            # unavailable: the deterministic delegate emits a
-                            # localized uncertainty instead of letting the
-                            # native model invent the public fact.
-                            self._delegate_required_for_turn = True
-                        # ADR-0035 §2: in hybrid mode the live model holds the
-                        # functions, so a planner "orchestrator" verdict steers
-                        # it to call them (tools_expected) instead of forcing
-                        # the delegate. The delegate is still imposed for what
-                        # the live model structurally cannot do — operate the
-                        # screen (explicit computer use), look at it (screen
-                        # context), ground a public fact on a provider that
-                        # declares it, and answer a turn the delegate already
-                        # owns (pending confirm / open question).
-                        hybrid_turn = self._hybrid_enabled
-                        computer_use_turn = bool(
-                            hybrid_turn
-                            and self._last_user_text
-                            and is_explicit_computer_use_turn(self._last_user_text)
-                        )
-                        planner_forces_delegate = bool(
-                            turn_plan.requires_orchestrator
-                            and (
-                                not hybrid_turn or screen_context_turn
-                                or "society_status" in turn_plan.required_capabilities
-                            )
-                        )
-                        if (
-                            self._last_user_text
-                            and deterministic_delegate_available
-                            and not wait_query_claimed
-                            and (
-                                self._delegate_enabled
-                                or screen_context_turn
-                                or grounding_turn
-                                or "society_status" in turn_plan.required_capabilities
-                            )
-                        ):
-                            self._delegate_required_for_turn = (
-                                self._delegate_required_for_turn
-                                or planner_forces_delegate
-                                or computer_use_turn
-                                or ambiguous_action_default
-                                or self._brain_awaits_voice_confirm()
-                                or self._answers_open_delegate_question()
-                            )
-                        if computer_use_turn and self._delegate_required_for_turn:
-                            self._delegate_cu_dispatches += 1
-                        if wait_query_claimed:
-                            # The orchestrator answered this turn; no
-                            # dispatch, no grounding, no provider response.
-                            self._delegate_required_for_turn = False
-                        refresh_tools = getattr(
-                            self._tool_bridge, "refresh_from_source", None
-                        )
-                        tools_changed = bool(
-                            callable(refresh_tools) and refresh_tools()
-                        )
-                        turn_mode_kwargs = {
-                            "delegate_required": self._delegate_required_for_turn,
-                            "action_pending": (
-                                self._has_pending_delegate_from_earlier_turn()
-                            ),
-                            "delegate_discouraged": (
-                                not turn_plan.requires_orchestrator
-                                and not ambiguous_action_default
-                            ),
-                            "tools_expected": bool(
-                                hybrid_turn
-                                and turn_plan.requires_orchestrator
-                                and not self._delegate_required_for_turn
-                            ),
-                        }
-                        turn_tool_directive = self._tool_directive(
-                            **turn_mode_kwargs
-                        )
-                        turn_mode_directive = self._turn_mode_directive(
-                            **turn_mode_kwargs
-                        )
-                        memory_recall = await _voice_memory_recall(
-                            transcript,
-                            compact=getattr(self, "_compact_instructions", False),
-                        )
-                        update_kwargs: dict[str, Any] = {
-                            "instructions": _session_instructions(
-                                new_language,
-                                proactivity_level=_proactivity_level(self._config),
-                                identity=_identity_block(
-                                    self._config,
-                                    compact=getattr(
-                                        self, "_compact_instructions", False
-                                    ),
-                                ),
-                                input_language=self._input_language,
-                                provider=self.active_provider,
-                                model=self._active_model,
-                                language_is_pinned=True,
-                                tool_directive=turn_tool_directive,
-                                preferences=_preferences_block(
-                                    self._config,
-                                    compact=getattr(
-                                        self, "_compact_instructions", False
-                                    ),
-                                ),
-                                # Zero extra round trips: this update already
-                                # fires on every final transcript, so a
-                                # qualifying skill rides along instead of paying
-                                # the delegate boundary wait.
-                                # Captured skill, else the ranked suggestion —
-                                # mutually exclusive by construction (one is
-                                # FIRE-only, the other NARROW-only), and the
-                                # same either/or the brain path uses, so a turn
-                                # never carries two instruction sets.
-                                skill_directive=(
-                                    self._skill_directive(self._last_user_text or "")
-                                    or self._skill_candidates_directive(
-                                        self._last_user_text or ""
-                                    )
-                                ),
-                                skills_directive=self._skills_directive(),
-                                memory_recall=memory_recall,
-                                # Rebuilt per turn: panes open and close mid
-                                # call, and a roster naming a terminal that is
-                                # gone is worse than none.
-                                workspace_directive=self._workspace_directive(),
-                                society_directive=self._society_directive(),
-                                compact=getattr(
-                                    self, "_compact_instructions", False
-                                ),
-                                history_lost=self._suppress_history_seed,
-                            ),
-                            "language": new_language,
-                            # For append-only transports: ONLY the turn-scoped
-                            # mode line, never the standing role. The role is
-                            # delivered once with this connection's fixed
-                            # instructions and does not move for the rest of
-                            # the call; sending it again per turn is what left
-                            # three contradictory full role texts standing in
-                            # the thread with nothing retracted (RT-08). The
-                            # mode line names itself as replacing the previous
-                            # one, and an unchanged mode dedups to nothing.
-                            "turn_directive": turn_mode_directive,
-                            # Re-asserted every turn on the adapter's working
-                            # channel: the one-speaker rule delivered once at
-                            # open demonstrably fades on ChatGPT-Live while
-                            # the per-turn language pin holds — this is the
-                            # exact contract (BOTH halves: silence rule and
-                            # its speak-request exception, b181d92f).
-                            "standing_directive": _VOICE_CONTRACT,
-                        }
-                        if tools_changed:
-                            update_kwargs["tools"] = self._declared_tools()
-                            if not bool(
-                                getattr(
-                                    self._session,
-                                    "supports_tool_updates",
-                                    False,
-                                )
-                            ):
-                                log.warning(
-                                    "realtime[%s] direct tools changed, but %s "
-                                    "cannot update declarations until the next "
-                                    "session; removed tools are denied immediately",
-                                    self.session_id,
-                                    self.active_provider,
-                                )
-                        try:
-                            await self._session.update_session(**update_kwargs)
-                        except TypeError:
-                            # Compatibility with adapters built against the
-                            # older update-session protocols: retire the
-                            # NEWEST field first so an adapter that already
-                            # understands tools keeps receiving them.
-                            update_kwargs.pop("standing_directive", None)
-                            try:
-                                await self._session.update_session(
-                                    **update_kwargs
-                                )
-                            except TypeError:
-                                # Still too new for this adapter — retire the
-                                # next-youngest field and try again.
-                                update_kwargs.pop("turn_directive", None)
-                                try:
-                                    await self._session.update_session(
-                                        **update_kwargs
-                                    )
-                                except TypeError:  # predates tools too
-                                    update_kwargs.pop("tools", None)
-                                    await self._session.update_session(
-                                        **update_kwargs
-                                    )
-                    if self._tool_bridge is not None and event.is_final and transcript:
-                        await self._tool_bridge.handle_user_transcript(
-                            self._last_user_text
-                        )
-                    if transcript:
-                        # Publish the accumulated per-turn snapshot, never the
-                        # raw chunk: providers flag transcript fragments final
-                        # per CHUNK (Gemini per server-content message, OpenAI/
-                        # xAI per committed audio item), while every downstream
-                        # consumer (orb bubble, desktop TranscriptionView,
-                        # SessionRecorder) mirrors TranscriptionUpdate 1:1 as a
-                        # whole-utterance snapshot — a raw chunk freezes those
-                        # surfaces on a single fragment of the sentence.
-                        if event.is_final:
-                            snapshot = self._last_user_text or transcript
-                        else:
-                            snapshot = self._last_user_text_preview or transcript
-                        await self._publish_transcription(
-                            snapshot, bool(event.is_final)
-                        )
-                        await self._send_json(
-                            {
-                                "type": "transcript",
-                                "role": "user",
-                                "text": snapshot,
-                                "is_final": bool(event.is_final),
-                            }
-                        )
-                    elif event.is_final and event.error:
-                        message = safe_preview(event.error, max_chars=800)
-                        log.warning(
-                            "realtime[%s] input transcription unavailable: %s",
-                            self.session_id,
-                            message,
-                        )
-                        await self._publish_error(
-                            "RealtimeTranscriptionError",
-                            message,
-                            recoverable=True,
-                        )
-                    if event.is_final and input_observed and self._pending_tool_events:
-                        self._cancel_tool_transcript_wait()
-                        pending = self._pending_tool_events
-                        self._pending_tool_events = []
-                        for pending_event in pending:
-                            if transcript:
-                                await self._handle_tool_call(pending_event)
-                            else:
-                                await self._reject_untranscribed_tool_call(
-                                    pending_event
-                                )
-                    if (
-                        event.is_final
-                        and input_observed
-                        and self._delegate_required_for_turn
-                    ):
-                        if self._continues_executing_order(turn_plan):
-                            # A provider VAD that reads a thinking pause as
-                            # end-of-turn finalizes ONE spoken request as two
-                            # turns; a second executor for the tail briefs
-                            # the same pane twice (live 2026-08-12 16:09).
-                            # The running order keeps this turn: the user
-                            # hears the deterministic progress line now and
-                            # the trusted result via the late flush. A later
-                            # final that grows this turn into a real new
-                            # order re-plans and dispatches normally.
-                            self._delegate_required_for_turn = False
-                            log.info(
-                                "realtime[%s] refused a deterministic "
-                                "dispatch that can only continue the order "
-                                "already executing",
-                                self.session_id,
-                            )
-                            if not self._response_requested_for_turn:
-                                await self._speak_pending_action_status()
-                        else:
-                            # A FINAL input transcript normally proves the
-                            # utterance is over, and the boundary wait is
-                            # skipped. It proves nothing while the microphone
-                            # still carries the user's voice: the provider
-                            # committed a hesitation, and dispatching now
-                            # briefs an executor with a quarter of the
-                            # sentence (live 2026-08-13 11:20:05 — "Can you
-                            # please prompt Terminal T5 … That when you want
-                            # to" went to the pane as a complete order).
-                            # Withholding the finality lets
-                            # _await_stable_input_boundary hold the dispatch
-                            # until the mic goes quiet, by which time the
-                            # later finals have grown turn_state.user_text
-                            # into the whole request.
-                            self._start_deterministic_delegate(
-                                self._last_user_text,
-                                input_final=not self._user_is_speaking(),
-                                turn_plan=turn_plan,
-                            )
-                    if (
-                        event.is_final
-                        and input_observed
-                        and not self._delegate_required_for_turn
-                        and not self._response_requested_for_turn
-                        and self._has_pending_delegate_from_earlier_turn()
-                        and _is_presence_check(self._last_user_text)
-                    ):
-                        await self._speak_pending_action_status()
-                    if (
-                        event.is_final
-                        and input_observed
-                        and not self._delegate_required_for_turn
-                        and bool(
-                            getattr(
-                                self._session,
-                                "isolates_response_generations",
-                                False,
-                            )
-                        )
-                    ):
-                        # A locally grounded FINAL is the generation boundary
-                        # the post-barge-in guard was waiting for.  Automatic
-                        # transports can already have marked a response as
-                        # requested before this final arrives, so clearing only
-                        # inside the request_response branch below left the
-                        # guard latched forever (live 2026-08-10: 23.3 s to the
-                        # first audible frame and three complete replies
-                        # discarded).  Generation isolation keeps late PCM from
-                        # the interrupted response out; delegated turns retain
-                        # their separate ownership guard.
-                        self._drop_provider_output_until_new_response = False
-                    if (
-                        event.is_final
-                        and input_observed
-                        and not self._response_requested_for_turn
-                        and not self._delegate_required_for_turn
-                        and not bool(
-                            getattr(
-                                self._session,
-                                "creates_responses_automatically",
-                                False,
-                            )
-                        )
-                        and not self._turn_pause_settled()
-                    ):
-                        # The provider closed its input turn, but the
-                        # microphone says the user is still talking (or has
-                        # not been quiet for the Thinking pause yet). On a
-                        # transport whose responses Jarvis requests itself
-                        # the request simply WAITS: nothing is submitted, the
-                        # turn stays open, and a later final appends to it —
-                        # so ONE response answers the whole request instead
-                        # of a first answer talking over the user's second
-                        # half (maintainer directive 2026-08-18). The turn is
-                        # NOT marked as requested here — that is what lets the
-                        # next final of this turn re-enter this branch.
-                        self._hold_native_response_for_pause(input_item_id)
-                    elif (
-                        event.is_final
-                        and input_observed
-                        and not self._response_requested_for_turn
-                    ):
-                        if not self._delegate_required_for_turn:
-                            await self._request_native_response()
-                        self._response_requested_for_turn = True
-                        self._note_input_answered(input_item_id)
-                elif event.type == "handoff_requested" and (
-                    self._stale_generation_drop_active()
-                ):
-                    log.warning(
-                        "realtime[%s] ignoring a provider handoff from a "
-                        "discarded stale generation — no action was dispatched",
-                        self.session_id,
-                    )
-                elif event.type == "handoff_requested":
-                    # Client-managed handoffs are a provider control boundary,
-                    # never a public response boundary and never a direct tool
-                    # call. Keep execution inside the existing deterministic
-                    # Jarvis supervisor path, then render its trusted result
-                    # through the provider's appendText/appendSpeech boundary.
-                    handoff_text = _dictionary_corrected(
-                        str(getattr(event, "text", "") or "").strip()
-                    )
-                    if not self._active_provider_supports_direct_tools():
-                        self._handoff_requests += 1
-                    if handoff_text and not self._last_user_text:
-                        self._last_user_text = handoff_text
-                        self._input_turn_observed = True
-                        await self._publish_transcription(
-                            handoff_text,
-                            is_final=True,
-                        )
-                    await self._ensure_turn_started()
-                    if not self._delegate_enabled or not self._last_user_text:
-                        # A transport that cannot declare tools natively reaches
-                        # EVERY action through this one event, so this gap used
-                        # to hang up on the user mid-sentence. Losing an action
-                        # degrades a turn; it must not cost the conversation.
-                        await self._decline_provider_handoff(
-                            "no deterministic Dodaios delegate is available"
-                            if not self._delegate_enabled
-                            else "the handoff carried no recognizable user request"
-                        )
-                        continue
-                    self._delegate_required_for_turn = True
-                    self._response_requested_for_turn = True
-                    self._drop_provider_output_until_new_response = True
-                    turn_state = self._delegate_turns.setdefault(
-                        self._turn_id,
-                        _DelegateTurnState(deterministic=True),
-                    )
-                    turn_state.deterministic = True
-                    turn_state.wait_for_provider_boundary = True
-                    turn_state.input_final = True
-                    # The realtime model explicitly yielded control. The
-                    # app-server adapter interrupts any normal Codex turn that
-                    # core may already have started before this event arrived.
-                    try:
-                        await self._session.interrupt()
-                    except Exception:  # noqa: BLE001 - the adapter also interrupts on receipt
-                        log.warning(
-                            "realtime[%s] provider handoff interrupt failed",
-                            self.session_id,
-                            exc_info=True,
-                        )
-                    turn_state.input_boundary_ready.set()
-                    turn_state.provider_boundary_seen = True
-                    turn_state.provider_ready.set()
-                    log.info(
-                        "realtime[%s] supervised provider handoff%s",
-                        self.session_id,
-                        (
-                            f" ({getattr(event, 'handoff_id', '')})"
-                            if getattr(event, "handoff_id", None)
-                            else ""
-                        ),
-                    )
-                    self._start_deterministic_delegate(self._last_user_text)
-                elif (
-                    event.type == "output_transcript_delta"
-                    and event.text
-                    and getattr(event, "shadow", False)
-                ):
-                    # Locally recovered SHADOW text: vetting material only.
-                    # It lets the scrub gate judge real text when the
-                    # provider's own transcript lags its audio by seconds
-                    # (live 2026-08-05 20:42: the reply's first audio sat
-                    # 7.4 s in the opening hold), but it must never reach
-                    # the surface or the turn transcript — the provider's
-                    # real text follows and would double up.
-                    if self._must_withhold_provider_output():
-                        self._note_output_withheld("transcript")
-                        continue
-                    await self._ensure_turn_started()
-                    await self._gate.feed_transcript(
-                        event.text,
-                        response_id=str(
-                            getattr(event, "provider_turn_id", "") or ""
-                        ),
-                        enforce_output_language=(
-                            self._output_language_validation_is_active()
-                        ),
-                    )
-                    if self._gate.hard_leak_pending():
-                        _actions = ", ".join(self._gate.hard_leak_actions())
-                        if "output_language_mismatch" in (
-                            self._gate.hard_leak_actions()
-                        ):
-                            await self._handle_output_language_mismatch()
-                            self._gate.drain()
-                            continue
-                        await self._cancel_unsafe_output(
-                            reason=(
-                                "unsafe output transcript (shadow recovery; "
-                                f"detectors: {_actions or 'unknown'})"
-                            )
-                        )
-                        self._gate.drain()
-                        continue
-                    for chunk in self._gate.release_available():
-                        await self._emit_audio(chunk)
-                elif event.type == "output_transcript_delta" and event.text:
-                    delegate_state = self._delegate_turns.get(self._turn_id)
-                    if (
-                        delegate_state is not None
-                        and delegate_state.bridge_delivery_started
-                        and not delegate_state.delivery_started
-                    ):
-                        # A model-generated progress response is untrusted until
-                        # its COMPLETE transcript matches the one allowed status
-                        # line. Do not surface it as assistant text or let it
-                        # enter the normal scrub/audio stream.
-                        delegate_state.bridge_transcript_parts.append(event.text)
-                        continue
-                    if self._must_withhold_provider_output():
-                        self._note_output_withheld("transcript")
-                        self._gate.drain()
-                        continue
-                    await self._ensure_turn_started()
-                    self._mark_latency_named("REALTIME_FIRST_TRANSCRIPT")
-                    self._provider_output_probe = (
-                        f"{self._provider_output_probe}{event.text}"[-4_096:]
-                    )
-                    self._withheld_promise_parts.append(event.text)
-                    if has_unbacked_action_claim(self._provider_output_probe):
-                        # ARM ONLY — never cancel here. Whether a commitment was
-                        # left without a delivered result is a judgement about a
-                        # FINISHED response; on a streaming prefix the sentence
-                        # after "Ich schaue mal kurz" / "Let me check" simply has
-                        # not arrived yet, so every real answer that opens with
-                        # one of those phrases looked like a bare promise and was
-                        # cancelled mid-sentence. Hold the text out of the scrub
-                        # gate (which keeps this response's audio with it) and
-                        # let the response close decide.
-                        self._arm_promise_confirm()
-                        continue
-                    # The answer grew past the promise: release everything held
-                    # for it, in order, as one delta.
-                    self._cancel_promise_confirm()
-                    transcript_text = "".join(self._withheld_promise_parts)
-                    self._withheld_promise_parts.clear()
-                    display = await self._gate.feed_transcript(
-                        transcript_text,
-                        response_id=str(
-                            getattr(event, "provider_turn_id", "") or ""
-                        ),
-                        enforce_output_language=(
-                            self._output_language_validation_is_active()
-                        ),
-                    )
-                    if self._gate.hard_leak_pending():
-                        # Name the tripped detectors (safe metadata, never the
-                        # flagged content) so a false-positive abort is
-                        # diagnosable from the transcript alone (BUG-056).
-                        _actions = ", ".join(self._gate.hard_leak_actions())
-                        if "output_language_mismatch" in (
-                            self._gate.hard_leak_actions()
-                        ):
-                            await self._handle_output_language_mismatch()
-                            self._gate.drain()
-                            continue
-                        await self._cancel_unsafe_output(
-                            reason=(
-                                "unsafe output transcript"
-                                f" (detectors: {_actions or 'unknown'})"
-                            )
-                        )
-                        self._gate.drain()
-                        continue
-                    self._output_transcript.append(display)
-                    self._note_reply_delta()
-                    if (
-                        delegate_state is None
-                        and self._external_update is None
-                        and self._stale_readback_refs
-                    ):
-                        # A plain turn re-rendering a reply the surface TTS
-                        # already delivered is the provider executing its
-                        # stale rendering order, not a fresh answer (live
-                        # forensic 2026-07-21 11:32: the whole School-District
-                        # answer repeated verbatim on the fragment "ich").
-                        # One-shot per armed reply: a genuine "repeat that"
-                        # that trips this once works on the next attempt.
-                        stale_ref = self._match_stale_readback(
-                            "".join(self._output_transcript)
-                        )
-                        if stale_ref is not None:
-                            self._stale_readback_refs.remove(stale_ref)
-                            from dodaios.voice.action_phrases import (
-                                action_phrase,
-                            )
-
-                            log.warning(
-                                "realtime[%s] provider re-rendered an "
-                                "already-delivered delegate reply on a later "
-                                "turn; suppressing the stale repeat",
-                                self.session_id,
-                            )
-                            await self._cancel_unsafe_output(
-                                reason=(
-                                    "stale delegate readback re-rendered on "
-                                    "a later turn"
-                                ),
-                                fallback_text=action_phrase(
-                                    "stale_repeat_clarify", self._language
-                                ),
-                            )
-                            self._gate.drain()
-                            continue
-                    # Cumulative snapshot under ONE slot: what the provider
-                    # is audibly saying this turn, as an echo-guard reference
-                    # (BUG-089). Slot replacement keeps the growing snapshot
-                    # from evicting the other references.
-                    self._register_spoken_reference(
-                        "".join(self._output_transcript),
-                        slot=f"turn:{self._turn_id or 'session'}",
-                    )
-                    await self._send_json(
-                        {
-                            "type": "transcript",
-                            "role": "assistant",
-                            "text": display,
-                            "is_final": bool(event.is_final),
-                        }
-                    )
-                    for chunk in self._gate.release_available():
-                        await self._emit_audio(chunk)
-                elif event.type == "usage" and getattr(event, "usage", None):
-                    for key, value in dict(event.usage).items():
-                        if isinstance(value, int) and value > 0:
-                            self._turn_usage[key] = (
-                                self._turn_usage.get(key, 0) + value
-                            )
-                elif event.type == "audio_delta" and event.audio is not None:
+                if event.type == "audio_delta" and event.audio is not None:
                     delegate_state = self._delegate_turns.get(self._turn_id)
                     if (
                         delegate_state is not None
@@ -5583,798 +4646,1888 @@ class RealtimeVoiceSession:
                                 delegate_state if trusted_reply else None
                             ),
                         )
-                elif event.type == "interrupted" and getattr(
-                    event, "self_initiated", False
-                ):
-                    # Jarvis's own interrupt() echoing back as a provider
-                    # event. Every site that issues one (barge-in, the handoff
-                    # cut, the delegate boundary cut, the unsafe-output cancel)
-                    # already drained the gate and armed its own withhold, so
-                    # there is nothing left to do — while treating it as a
-                    # barge-in armed _user_speech_active against a user who
-                    # never spoke, blocking announcements, late action results
-                    # and the readback watchdog until the next real transcript.
-                    log.debug(
-                        "realtime[%s] ignored a self-initiated provider "
-                        "interruption",
-                        self.session_id,
-                    )
-                elif event.type in {"speech_started", "interrupted"} and (
-                    self._pending_delegate_needs_endpoint_protection()
-                    or self._delegate_readback_awaits_first_audio()
-                    or self._empty_turn_reask_owns_turn(self._turn_id)
-                ):
-                    # Gemini has no separate speech-start edge: its server VAD
-                    # reports noise blips and real barge-ins alike as
-                    # ``interrupted``. During the silent span of a delegated
-                    # action — thinking, or the trusted readback injected but
-                    # not yet audible — there is no output to cut, so an
-                    # unconfirmed edge must not abandon the turn: doing so
-                    # closed the turn with the trusted reply recorded but
-                    # never spoken, and the barge-in drop flag then swallowed
-                    # the injected readback (live forensic 2026-07-16 10:26).
-                    # The empty-turn re-ask owns the same kind of silence
-                    # (live 2026-08-19 16:07: Vertex closed the re-ask text
-                    # empty, the 1s settle committed, native audio 0.1s later
-                    # was withheld). Defer it; a real utterance confirms
-                    # itself through its final input transcript moments later.
-                    if not self._deferred_provider_speech_start:
-                        log.info(
-                            "realtime[%s] deferred an unconfirmed provider "
-                            "%s edge while an action result was pending",
-                            self.session_id,
-                            event.type,
-                        )
-                    # No settle task here: this window is owned by the
-                    # delegate or the re-ask watchdog, whose own budget
-                    # decides when it is over. A silence timer would abandon
-                    # exactly the turn this branch exists to protect.
-                    self._deferred_provider_speech_start = True
-                elif event.type == "interrupted" and getattr(
-                    event, "superseded", False
-                ):
-                    # NOT ambiguous: the adapter attributed this edge to an
-                    # input JARVIS itself sent, so no user spoke and there is
-                    # nothing to wait for words about. The far end abandoned
-                    # the reply it was streaming and is generating another one.
-                    # Deferring here — the branch below — is what let both
-                    # halves be spoken: the dead partial played out in full,
-                    # was recorded as a turn of its own, and the regenerated
-                    # answer followed it two seconds later, so one question got
-                    # two spoken replies with the first cut mid-sentence (live
-                    # 2026-08-23 10:05 and 10:06, "…brauchst, sag" / "Dann  # i18n-allow
-                    # wünsche ich dir…"; 3 of 9 per-turn directives that day).  # i18n-allow
-                    # The provider already made the decision; follow it.
-                    if not self._reply_is_in_flight():
-                        # The race went the other way and the edge arrived
-                        # before anything was produced. Nothing to drop, and
-                        # no deferral either: a backstop armed here would
-                        # later cut the very reply that is still coming
-                        # (BUG-152).
-                        log.info(
-                            "realtime[%s] provider superseded a generation "
-                            "that had produced nothing yet",
-                            self.session_id,
-                        )
-                        self._clear_deferred_interruption()
-                    else:
-                        log.info(
-                            "realtime[%s] dropping a reply the provider "
-                            "abandoned for its own retry; the regenerated "
-                            "answer owns this turn",
-                            self.session_id,
-                        )
-                        await self._drop_superseded_generation()
-                elif event.type == "interrupted":
-                    # The SAME ambiguity, now while a reply is actually being
-                    # spoken. Acting on the edge alone cancelled the answer and
-                    # armed the withhold that discards the rest of the response,
-                    # so one cough cost the user half a statement — worse than
-                    # none, because half a statement still gets believed. Words
-                    # are the proof of a barge-in and they arrive moments later
-                    # as the final input transcript, which already splits the
-                    # turn and cuts the reply. Until then the answer runs on,
-                    # and the settle task below commits the edge unchanged if
-                    # the provider falls silent without ever being confirmed.
-                    #
-                    # ``speech_started`` is deliberately NOT deferred here: the
-                    # transports that emit it (OpenAI) mean it literally, and
-                    # their barge-in must stay instant.
-                    if not self._reply_is_in_flight():
-                        # Gemini Live emits ``interrupted`` for our own
-                        # send_text (steering, empty-turn re-ask) even when
-                        # nothing is playing. Deferring that arms a silence
-                        # backstop that later cuts the real reply (BUG-152).
-                        log.info(
-                            "realtime[%s] ignored a provider interruption "
-                            "with no reply in flight",
-                            self.session_id,
-                        )
-                    else:
-                        if not self._deferred_provider_speech_start:
-                            self._unconfirmed_interruptions += 1
-                            log.info(
-                                "realtime[%s] deferred an unconfirmed provider "
-                                "interruption; waiting for the user's own words "
-                                "before cutting the reply",
-                                self.session_id,
+                    continue
+                if event.type == "usage" and getattr(event, "usage", None):
+                    for key, value in dict(event.usage).items():
+                        if isinstance(value, int) and value > 0:
+                            self._turn_usage[key] = (
+                                self._turn_usage.get(key, 0) + value
                             )
-                        self._deferred_provider_speech_start = True
-                        self._arm_interruption_settle()
-                elif (
-                    event.type == "speech_started"
-                    and self._turn_held_for_pause()
-                    and not self._output_active
-                    and self._gate.pending_audio_ms <= 0
-                ):
-                    # The user resumed INSIDE the Thinking pause: no response
-                    # was requested for this turn yet and nothing is playing,
-                    # so there is no reply to cut and no reason to close the
-                    # turn. Keep it open — the next final appends to it and
-                    # the held request answers the whole request. Closing here
-                    # (the barge-in path below) would split one spoken request
-                    # into two recorded turns and cost the second half its
-                    # first half in the answer.
-                    self._user_speech_active = True
-                    log.info(
-                        "realtime[%s] the user resumed inside the Thinking "
-                        "pause — keeping the turn open for the rest of the "
-                        "sentence",
-                        self.session_id,
-                    )
-                elif event.type == "speech_started":
-                    await self._begin_user_speech_turn()
-                    await self._barge_in(interrupt_provider=True)
-                elif event.type == "tool_call" and self._stale_generation_drop_active():
-                    # An action (or a hang-up) requested by a generation the
-                    # session already ruled stale: nobody asked for it. Answer
-                    # the call with an honest refusal so the model can close
-                    # its generation — an unanswered function call keeps it
-                    # open with no boundary ever coming — and never open a
-                    # turn or execute anything for it (BUG-143).
-                    log.warning(
-                        "realtime[%s] refusing tool call %r from a discarded "
-                        "stale generation — the action was not executed",
-                        self.session_id,
-                        str(getattr(event, "tool_name", "") or ""),
-                    )
-                    await self._reject_stale_generation_tool_call(event)
-                elif event.type == "tool_call":
-                    if str(getattr(event, "tool_name", "") or "") == "end_call":
-                        await self._ensure_turn_started()
-                        # Session lifecycle, not a bridge tool: works without
-                        # a tool bridge and must not be held back by the
-                        # missing-transcript guard below.
-                        await self._handle_end_call(event)
-                    elif self._hangup_control_turn and self._hangup_control_turn == self._turn_id:
-                        await self._reject_stale_generation_tool_call(event)
-                    elif not self._last_user_text:
-                        # Providers may emit a speculative tool call before the
-                        # input transcript carried by the same response. Buffer
-                        # it without opening a persisted turn: a later genuine
-                        # transcript opens the turn and releases the call, while
-                        # a self-echo transcript is dropped and the call is
-                        # rejected at the boundary. Opening here produced the
-                        # contentless 5.7-second turn in the 2026-07-19 Mac run.
-                        self._pending_tool_events.append(event)
-                        if self._tool_transcript_task is None:
-                            self._tool_transcript_task = asyncio.create_task(
-                                self._reject_pending_tools_after_timeout(),
-                                name=f"rt-tool-transcript-{self.session_id}",
-                            )
-                    else:
-                        await self._ensure_turn_started()
-                        await self._handle_tool_call(event)
-                elif event.type == "turn_complete":
-                    if self._stale_generation_drop_active():
-                        # The discarded generation reached its own boundary.
-                        # It belongs to that generation alone: the guard only
-                        # ever arms as a turn closes, so any turn open NOW was
-                        # opened by a real transcript DURING the drop and is
-                        # still waiting for its own answer — closing it here
-                        # would route the user's fresh request through the
-                        # empty-turn recovery and mute the provider's real
-                        # answer as delegate-owned. Consume the boundary.
-                        self._finish_stale_generation_drop()
-                        self._gate.drain()
-                        # Same courtesy as a real boundary: a queued late
-                        # result may deliver now that the wire is quiet.
-                        self._schedule_late_delegate_flush()
-                        continue
-                    # A provider boundary — empty or not — means this
-                    # generation ended. The silence backstop is only for the
-                    # case where no boundary ever comes (BUG-152).
-                    self._cancel_interruption_settle()
-                    if self._output_language_retry_pending:
-                        if not self._output_language_retry_requested:
-                            await self._request_output_language_retry()
-                            continue
-                        # The retry itself ended without one acceptable text
-                        # fragment.  Do not ask again or release any PCM.
-                        self._output_language_retry_pending = False
-                        self._output_language_failures += 1
-                        await self._cancel_unsafe_output(
-                            reason="output language retry produced no safe output",
-                            interrupt_provider=False,
-                            fallback_text=self._output_language_failure_phrase(),
-                        )
-                    if self._pending_tool_events:
-                        self._cancel_tool_transcript_wait()
-                        pending = self._pending_tool_events
-                        self._pending_tool_events = []
-                        for pending_event in pending:
-                            await self._reject_untranscribed_tool_call(pending_event)
-                    # The response is closed, so the transcript is final and the
-                    # armed promise judgement can be made on the WHOLE text. It
-                    # runs before the text-only fallback below so an unbacked
-                    # promise is never handed to the surface TTS, and before the
-                    # delegate lookup so its own deterministic delegate is the
-                    # state this boundary then holds for. A declined recovery
-                    # (a tool DID run, the delegate owns the reply) releases the
-                    # held text so the answer is still spoken.
-                    if not await self._recover_unbacked_action_claim():
-                        await self._release_withheld_promise_text(
-                            str(getattr(event, "provider_turn_id", "") or "")
-                        )
-                    if (
-                        self._turn_id not in self._delegate_turns
-                        and self._output_transcript
-                        and not self._scrub_cancelled_for_turn
-                        and not self._surface_spoke_this_turn
-                        and not self._output_active
-                        and self._output_samples_sent == 0
-                        and self._gate.pending_audio_ms <= 0
-                    ):
-                        # Transcript deltas prove the answer exists, but an
-                        # audio-mode turn with zero PCM is still silent to the
-                        # user. Render the already-scrubbed text locally; no
-                        # model or tool retry is necessary.
-                        text_only_answer = "".join(self._output_transcript).strip()
-                        if text_only_answer:
-                            log.warning(
-                                "realtime[%s] provider completed with text but "
-                                "no audio; using surface TTS fallback",
-                                self.session_id,
-                            )
-                            await self._send_json(
-                                self._surface_speech_message(text_only_answer)
-                            )
-                    if await self._recover_empty_provider_turn():
-                        continue
-                    delegate_state = self._delegate_turns.get(self._turn_id)
-                    # The delegate task stays alive PAST result delivery: it
-                    # lingers in the readback-verification watchdog. In that
-                    # phase a provider boundary belongs to the readback and
-                    # must publish the turn normally, so a pending task alone
-                    # no longer proves the result is outstanding.
-                    hold_for_delegate = bool(
-                        delegate_state is not None
-                        and (
-                            (
-                                self._turn_has_pending_delegate(self._turn_id)
-                                and not delegate_state.readback_verification_active
-                            )
-                            or (
-                                delegate_state.deterministic
-                                and not delegate_state.delivery_started
-                            )
-                        )
-                    )
-                    if hold_for_delegate and delegate_state is not None:
-                        bridge_completed = bool(
-                            delegate_state.bridge_delivery_started
-                            and not delegate_state.delivery_started
-                        )
-                        bridge_text = "".join(
-                            delegate_state.bridge_transcript_parts
-                        ).strip()
-                        # Accept only the line chosen for this bridge run,
-                        # another member of the closed per-language pools (the
-                        # language may have shifted between injection and
-                        # validation), or -- for a contextual ACTION ack -- a
-                        # transcript the structural validator accepts (intent
-                        # grammar, the user's own words, no result marker).
-                        # Anything else is free-form output and stays muted.
-                        agent_brand = self._agent_brand()
-                        allowed_bridge_lines = {
-                            _normalized_bridge_text(candidate)
-                            for candidate in _delegate_bridge_texts(
-                                self._language
-                            )
-                        }
-                        allowed_bridge_lines |= all_instant_ack_lines(
-                            self._language, agent_brand=agent_brand
-                        )
-                        allowed_bridge_lines |= all_progress_lines(self._language)
-                        expected_bridge = (
-                            delegate_state.bridge_expected_text
-                            or next(iter(_delegate_bridge_texts(self._language)))
-                        )
-                        allowed_bridge_lines.add(
-                            _normalized_bridge_text(expected_bridge)
-                        )
-                        contextual_ok = bool(
-                            delegate_state.bridge_contextual
-                            and bridge_text
-                            and contextual_ack_is_valid(
-                                bridge_text,
-                                utterance=delegate_state.user_text,
-                                language=self._language,
-                                extra_allowed_words=(agent_brand,),
-                            )
-                        )
-                        bridge_valid = bool(
-                            bridge_completed
-                            and (
-                                delegate_state.bridge_direct_speech
-                                or _normalized_bridge_text(bridge_text)
-                                in allowed_bridge_lines
-                                or contextual_ok
-                            )
-                        )
-                        # A result that is ready BEFORE the first sample of the
-                        # line wins outright (no double-tap); a line that starts
-                        # playing finishes -- it is one short sentence, and a
-                        # mid-word cut is worse than a one-second wait for the
-                        # answer that follows on the provider's next response.
-                        bridge_may_speak = bool(
-                            bridge_valid
-                            and not delegate_state.bridge_preempted
-                            and not delegate_state.result_ready.is_set()
-                        )
-                        if bridge_may_speak:
-                            for chunk in delegate_state.bridge_audio_chunks:
-                                await self._emit_audio(chunk)
-                        elif bridge_completed and bridge_text and not bridge_valid:
-                            log.warning(
-                                "realtime[%s] dropped non-conforming delegate "
-                                "bridge output",
-                                self.session_id,
-                            )
-                        bridge_was_audible = bool(
-                            (
-                                bridge_may_speak
-                                or delegate_state.bridge_direct_audio_emitted
-                            )
-                            and not delegate_state.bridge_preempted
-                            and self._output_samples_sent > 0
-                        )
-                        self._gate.drain()
-                        delegate_state.provider_boundary_seen = True
-                        delegate_state.input_boundary_ready.set()
-                        delegate_state.provider_ready.set()
-                        self._output_transcript.clear()
-                        delegate_state.bridge_transcript_parts.clear()
-                        delegate_state.bridge_audio_chunks.clear()
-                        self._output_active = False
-                        if bridge_was_audible:
-                            # The interim sentence is a complete local playback
-                            # segment, but the delegated action is still running.
-                            # Surfaces drain that segment and return to THINKING;
-                            # the final answer will open a new SPEAKING segment.
-                            await self._send_json({"type": "thinking"})
-                        if bridge_was_audible:
-                            # Persist the line the model actually spoke -- the
-                            # matched pool member, or the validated contextual
-                            # sentence -- not merely the one requested.
-                            spoken_bridge = next(
-                                (
-                                    candidate
-                                    for candidate in (
-                                        *_delegate_bridge_texts(self._language),
-                                        *_all_instant_ack_pool_lines(
-                                            self._language, agent_brand
-                                        ),
-                                        *_all_progress_pool_lines(self._language),
-                                    )
-                                    if _normalized_bridge_text(candidate)
-                                    == _normalized_bridge_text(bridge_text)
-                                ),
-                                bridge_text if contextual_ok else expected_bridge,
-                            )
-                            delegate_state.bridge_spoken_text = spoken_bridge
-                            await self._publish_delegate_bridge_spoken(
-                                spoken_bridge
-                            )
-                        self._output_samples_sent = 0
-                        log.debug(
-                            "realtime[%s] held provider turn_complete for "
-                            "delegate turn %s",
-                            self.session_id,
-                            self._turn_id,
-                        )
-                        await self._coalesce_ready_delegate_result(delegate_state)
-                        continue
-                    if (
-                        delegate_state is not None
-                        and delegate_state.result_complete
-                        and delegate_state.delivery_started
-                        and delegate_state.last_reply
-                        and not delegate_state.surface_fallback_spoken
-                        and not self._scrub_cancelled_for_turn
-                        and not self._output_active
-                        and self._output_samples_sent == 0
-                        and self._gate.pending_audio_ms <= 0
-                    ):
-                        # The Brain produced a grounded answer, but the duplex
-                        # provider failed a second time while rendering it. Hand
-                        # the already-computed text to the surface's independent
-                        # TTS path; never rerun the user request or its tools.
-                        # Unlike the hold branch above, this one needs no
-                        # readback_verification_active check: it fires only on
-                        # a provider turn_complete with ZERO audio for a
-                        # delivered reply, and shares the surface_fallback_spoken
-                        # flag (set with no await in between) with the readback
-                        # watchdog, so both nets can never speak the same reply.
-                        fallback_text = (
-                            "".join(self._output_transcript).strip()
-                            or self._scrubbed_trusted_reply(delegate_state)
-                            or self._gate.fallback_phrase()
-                        )
-                        if not self._output_transcript:
-                            self._output_transcript.append(fallback_text)
-                        log.warning(
-                            "realtime[%s] provider produced no audio for a "
-                            "grounded Brain result (boundary %.2fs after "
-                            "delivery, transcript=%d chars); using surface "
-                            "TTS fallback",
-                            self.session_id,
-                            (
-                                time.monotonic() - delegate_state.delivered_at
-                                if delegate_state.delivered_at
-                                else -1.0
-                            ),
-                            len("".join(self._output_transcript)),
-                        )
-                        # One reply, one voice (live forensic 2026-07-16
-                        # 11:43: THREE renderings of the same answer). The
-                        # readback watchdog must not speak it a second time,
-                        # and a very late provider rendering — arriving after
-                        # this turn closes — must stay inaudible until the
-                        # user opens the next turn.
-                        await self._send_delegate_surface_fallback(
-                            delegate_state,
-                            fallback_text,
-                        )
-                    final_chunks = self._gate.finalize(
-                        response_id=str(
-                            getattr(event, "provider_turn_id", "") or ""
-                        )
-                    )
-                    if self._gate.hard_leak_pending():
-                        # Same rendering-failure contract as the pending-buffer
-                        # trip above: a delegate readback whose transcription
-                        # never arrived is OUR already-delivered brain reply,
-                        # not a leak. Speak the trusted text instead of the
-                        # generic failure phrase (live incident 2026-07-16
-                        # 11:24 reached this path once the unscrubbed-audio
-                        # bound stopped tripping first, BUG-069).
-                        trusted_reply = ""
-                        if (
-                            delegate_state is not None
-                            and delegate_state.delivery_started
-                            and not delegate_state.surface_fallback_spoken
-                            # A cancel this turn already spoke; marking the
-                            # reply as delivered before a no-op cancel would
-                            # silently lose it (BUG-069 review).
-                            and not self._scrub_cancelled_for_turn
-                            and self._output_samples_sent == 0
-                        ):
-                            trusted_reply = self._scrubbed_trusted_reply(
-                                delegate_state
-                            )
-                        await self._cancel_unsafe_output(
-                            reason="output transcript missing at turn completion",
-                            interrupt_provider=False,
-                            fallback_text=trusted_reply or None,
-                            delegate_state=(
-                                delegate_state if trusted_reply else None
-                            ),
-                        )
-                    for chunk in final_chunks:
-                        await self._emit_audio(chunk)
-                    self._gate.drain()
-                    rendered_delegate_reply = bool(
-                        delegate_state is not None
-                        and delegate_state.delivery_started
-                        and not delegate_state.surface_fallback_spoken
-                        and not self._scrub_cancelled_for_turn
-                        and self._output_samples_sent > 0
-                    )
-                    rendered_injected_readback = bool(
-                        self._external_update is not None
-                        and self._output_samples_sent > 0
-                    )
-                    guard_reply = ""
-                    if rendered_delegate_reply or rendered_injected_readback:
-                        # The provider just rendered a text Jarvis injected (a
-                        # delegate result, a late result, an announcement) and
-                        # this boundary closes that turn. On a server-VAD
-                        # transport a SECOND generation can follow within
-                        # milliseconds — the answer to the user's trailing
-                        # speech, which re-renders the same text (BUG-143).
-                        # The guard is armed AFTER the surface boundary below,
-                        # not here: on the desktop that boundary blocks until
-                        # the speaker queue has drained, and the provider had
-                        # streamed the whole reply faster than real time — so
-                        # a stamp taken now is already seconds old when the
-                        # next event is judged, and every reply longer than
-                        # the guard window slipped through as a phantom turn
-                        # (live 2026-08-18 18:40: 7.6 s and 4.6 s readbacks,
-                        # both spoken twice; BUG-148).
-                        guard_reply = (
-                            str(delegate_state.last_reply or "")
-                            if rendered_delegate_reply and delegate_state is not None
-                            else str(
-                                getattr(self._external_update, "source_text", "")
-                                or ""
-                            )
-                        )
-                    boundary_at = time.monotonic()
-                    await self._complete_surface_turn()
-                    if guard_reply and self._may_arm_stale_generation_guard(
-                        boundary_at
-                    ):
-                        self._arm_stale_generation_guard(guard_reply)
-                    if self._end_after_turn:
-                        # end_call was acknowledged; the model has now spoken
-                        # its goodbye to the end — hang up.
-                        await self._finish_with_hangup()
-                        break
-                    if self._advised_reconnect_detail is not None:
-                        # The provider's pre-disconnect window is ticking;
-                        # this turn boundary is the safe moment to rebuild.
-                        self._request_advised_rebuild()
-                elif event.type == "error":
-                    message = safe_preview(
-                        event.error or "provider error", max_chars=800
-                    )
-                    declared_recoverable = bool(
-                        getattr(event, "recoverable", False)
-                    )
-                    status = classify_provider_error(message)
-                    # A provider may label a failed response as recoverable
-                    # even though its account says there is no money/quota or
-                    # the key is invalid — or the Live socket just closed
-                    # with 1011 Resource exhausted. Retrying that same
-                    # adapter cannot recover and caused the reconnect storm.
-                    recoverable = (
-                        declared_recoverable
-                        and not _retrying_this_provider_cannot_recover(status)
-                    )
-                    failover_ready = False
-                    if not recoverable:
-                        status, failover_ready = (
-                            self._prepare_cross_provider_fallback(
-                                self._provider,
-                                message,
-                                terminal=True,
-                            )
-                        )
-                    log.warning(
-                        "realtime[%s] %s provider error: %s",
-                        self.session_id,
-                        (
-                            "recoverable"
-                            if recoverable or failover_ready
-                            else "terminal"
-                        ),
-                        message,
-                    )
-                    await self._publish_error(
-                        "RealtimeProviderError",
-                        message,
-                        recoverable=recoverable or failover_ready,
-                    )
-                    if recoverable:
-                        await self._send_json(
-                            {"type": "provider_warning", "error": message}
-                        )
-                        if getattr(event, "reconnect_advised", False):
-                            await self._schedule_advised_reconnect(message)
-                        continue
-                    # A terminal provider failure can strike while the tail of
-                    # the current reply is still held by the scrub gate.
-                    # Release the transcript-cleared remainder (same sequence
-                    # as the turn_complete branch) so the spoken answer is not
-                    # chopped harder than the transport failure requires;
-                    # audio without a cleared transcript stays withheld
-                    # (fail-closed).
-                    final_chunks = self._gate.finalize(
-                        response_id=self._active_provider_response_id
-                    )
-                    if self._gate.hard_leak_pending():
-                        await self._cancel_unsafe_output(
-                            reason="output transcript missing at provider error",
-                            interrupt_provider=False,
-                        )
-                    for chunk in final_chunks:
-                        await self._emit_audio(chunk)
-                    self._gate.drain()
-                    if failover_ready:
-                        provider_id = str(
-                            getattr(self._provider, "name", "unknown")
-                            or "unknown"
-                        )
-                        self._provider_errors.append(
-                            f"{provider_id}: {message}"
-                        )
-                        await self._send_json(
-                            {
-                                "type": "provider_fallback",
-                                "provider": provider_id,
-                                "error": message,
-                                "status": status,
-                            }
-                        )
-                        return (
-                            f"{provider_id} became unavailable ({status}); "
-                            "switching realtime provider"
-                        )
-                    self._failure_detail = message
-                    self._failed.set()
-                    await self._announce_live_call_failure(status)
-                    await self._send_json(
-                        {"type": "provider_error", "error": message}
-                    )
+                    continue
+                handler = handlers.get(event.type)
+                if handler is None:
+                    continue
+                outcome = await handler(event)
+                if outcome is None:
+                    continue
+                if outcome is _PumpSignal.STOP:
                     break
+                return outcome
             else:
-                # The provider iterator ended without an exception and without
-                # a terminal break (hangup/error). At an idle turn boundary
-                # that is a benign transport end. MID-TURN it is a silent
-                # transport death (the Gemini SDK's receive() can simply
-                # vanish): without this branch the session never reaches the
-                # error path — no failed flag, no provider_error for the
-                # browser surface, and the transcript-cleared audio tail held
-                # by the scrub gate is dropped.
-                delegate_state = self._delegate_turns.get(self._turn_id)
-                supervised_handoff_boundary_seen = bool(
-                    delegate_state is not None
-                    and delegate_state.wait_for_provider_boundary
-                    and delegate_state.provider_boundary_seen
-                    and not self._output_active
-                )
-                if supervised_handoff_boundary_seen and delegate_state is not None:
-                    delegate_state.provider_stream_ended = True
-                    bridge = self._delegate_bridge_task
-                    if bridge is not None and not bridge.done():
-                        bridge.cancel()
-                        try:
-                            await bridge
-                        except asyncio.CancelledError:  # Expected after explicit cancellation.
-                            pass
-                        except Exception:  # noqa: BLE001
-                            log.warning(
-                                "realtime[%s] delegate bridge failed while "
-                                "provider stream ended",
-                                self.session_id,
-                                exc_info=True,
-                            )
-                    if self._delegate_bridge_task is bridge:
-                        self._delegate_bridge_task = None
-                    delegate_tasks = tuple(
-                        self._delegate_tasks_by_turn.get(self._turn_id, ())
-                    )
-                    for task in delegate_tasks:
-                        try:
-                            await task
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:  # noqa: BLE001
-                            log.warning(
-                                "realtime[%s] supervised delegate failed after "
-                                "provider stream ended",
-                                self.session_id,
-                                exc_info=True,
-                            )
-                            await self._publish_error(
-                                "RealtimeDelegateError",
-                                "Supervised delegate failed after provider stream end",
-                                recoverable=True,
-                            )
-                    if self._turn_id and delegate_state.last_reply:
-                        trusted_reply = self._scrubbed_trusted_reply(delegate_state)
-                        if trusted_reply and not self._output_transcript:
-                            self._output_transcript.append(trusted_reply)
-                    await self._complete_surface_turn()
-                elif (
-                    self._output_active
-                    or self._response_requested_for_turn
-                    or self._gate.pending_audio_ms > 0
-                ):
-                    final_chunks = self._gate.finalize(
-                        response_id=self._active_provider_response_id
-                    )
-                    if self._gate.hard_leak_pending():
-                        await self._cancel_unsafe_output(
-                            reason="output transcript missing at provider stream end",
-                            interrupt_provider=False,
-                        )
-                    for chunk in final_chunks:
-                        await self._emit_audio(chunk)
-                    self._gate.drain()
-                    message = "provider stream ended mid-turn without a boundary"
-                    log.warning("realtime[%s] %s", self.session_id, message)
-                    await self._publish_error(
-                        "RealtimeProviderStreamEnd", message, recoverable=True
-                    )
-                    if self._transport_death_is_rebuildable():
-                        return message
-                    self._failure_detail = message
-                    self._failed.set()
-                    await self._send_json(
-                        {"type": "provider_error", "error": message}
-                    )
-                elif self._transport_death_is_rebuildable():
-                    # A benign idle-boundary end still ends the CALL on the
-                    # desktop surface (a committed turn forbids the classic
-                    # replay fallback, so the pipeline hangs up with
-                    # reason=error). A rebuild-capable provider — e.g. Gemini
-                    # closing at its Live-API session limit — is reopened
-                    # instead (BUG-071).
-                    return "provider stream ended at an idle turn boundary"
+                return await self._pump_on_stream_end()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 — AP-20: never re-read a dead transport
-            from dodaios.audio.player import is_local_output_error
+            return await self._pump_on_transport_error(exc)
+        return None
 
-            if is_local_output_error(exc):
-                # Speaker death must not consume the rebuild budget or drop
-                # the in-call seed (BUG-108). The provider is still alive;
-                # finish this pump pass as a local failure, not a transport
-                # death. Returning None would hang up; returning a rebuild
-                # detail would reopen the websocket into the same dead sink.
-                await self._handle_local_output_failure(exc)
-                return None
-            message = safe_preview(exc, max_chars=800) or "Realtime receive loop ended"
-            log.warning("realtime[%s] pump ended", self.session_id, exc_info=True)
-            same_provider_rebuild = self._transport_death_is_rebuildable()
-            status, failover_ready = self._prepare_cross_provider_fallback(
-                self._provider,
-                message,
-                terminal=not same_provider_rebuild,
-            )
-            retry_is_futile = _retrying_this_provider_cannot_recover(status)
-            can_recover = failover_ready or (
-                same_provider_rebuild and not retry_is_futile
-            )
-            await self._publish_error(
-                type(exc).__name__,
-                message,
-                recoverable=can_recover,
-            )
-            if failover_ready:
-                provider_id = str(
-                    getattr(self._provider, "name", "unknown") or "unknown"
-                )
-                self._provider_errors.append(f"{provider_id}: {message}")
+    async def _pump_on_stream_end(self) -> str | None:
+        """The provider iterator ended without a break: idle end, or silent death mid-turn."""
+        # The provider iterator ended without an exception and without
+        # a terminal break (hangup/error). At an idle turn boundary
+        # that is a benign transport end. MID-TURN it is a silent
+        # transport death (the Gemini SDK's receive() can simply
+        # vanish): without this branch the session never reaches the
+        # error path — no failed flag, no provider_error for the
+        # browser surface, and the transcript-cleared audio tail held
+        # by the scrub gate is dropped.
+        delegate_state = self._delegate_turns.get(self._turn_id)
+        supervised_handoff_boundary_seen = bool(
+            delegate_state is not None
+            and delegate_state.wait_for_provider_boundary
+            and delegate_state.provider_boundary_seen
+            and not self._output_active
+        )
+        if supervised_handoff_boundary_seen and delegate_state is not None:
+            delegate_state.provider_stream_ended = True
+            bridge = self._delegate_bridge_task
+            if bridge is not None and not bridge.done():
+                bridge.cancel()
                 try:
-                    await self._send_json(
-                        {
-                            "type": "provider_fallback",
-                            "provider": provider_id,
-                            "error": message,
-                            "status": status,
-                        }
-                    )
-                except Exception:  # noqa: BLE001, S110 — status is best-effort
+                    await bridge
+                except asyncio.CancelledError:  # Expected after explicit cancellation.
                     pass
-                return (
-                    f"{provider_id} transport failed ({status}); "
-                    "switching realtime provider"
+                except Exception:  # noqa: BLE001
+                    log.warning(
+                        "realtime[%s] delegate bridge failed while "
+                        "provider stream ended",
+                        self.session_id,
+                        exc_info=True,
+                    )
+            if self._delegate_bridge_task is bridge:
+                self._delegate_bridge_task = None
+            delegate_tasks = tuple(
+                self._delegate_tasks_by_turn.get(self._turn_id, ())
+            )
+            for task in delegate_tasks:
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    raise
+                except Exception:  # noqa: BLE001
+                    log.warning(
+                        "realtime[%s] supervised delegate failed after "
+                        "provider stream ended",
+                        self.session_id,
+                        exc_info=True,
+                    )
+                    await self._publish_error(
+                        "RealtimeDelegateError",
+                        "Supervised delegate failed after provider stream end",
+                        recoverable=True,
+                    )
+            if self._turn_id and delegate_state.last_reply:
+                trusted_reply = self._scrubbed_trusted_reply(delegate_state)
+                if trusted_reply and not self._output_transcript:
+                    self._output_transcript.append(trusted_reply)
+            await self._complete_surface_turn()
+        elif (
+            self._output_active
+            or self._response_requested_for_turn
+            or self._gate.pending_audio_ms > 0
+        ):
+            final_chunks = self._gate.finalize(
+                response_id=self._active_provider_response_id
+            )
+            if self._gate.hard_leak_pending():
+                await self._cancel_unsafe_output(
+                    reason="output transcript missing at provider stream end",
+                    interrupt_provider=False,
                 )
-            if same_provider_rebuild and not retry_is_futile:
+            for chunk in final_chunks:
+                await self._emit_audio(chunk)
+            self._gate.drain()
+            message = "provider stream ended mid-turn without a boundary"
+            log.warning("realtime[%s] %s", self.session_id, message)
+            await self._publish_error(
+                "RealtimeProviderStreamEnd", message, recoverable=True
+            )
+            if self._transport_death_is_rebuildable():
                 return message
             self._failure_detail = message
             self._failed.set()
-            await self._announce_live_call_failure(status)
+            await self._send_json(
+                {"type": "provider_error", "error": message}
+            )
+        elif self._transport_death_is_rebuildable():
+            # A benign idle-boundary end still ends the CALL on the
+            # desktop surface (a committed turn forbids the classic
+            # replay fallback, so the pipeline hangs up with
+            # reason=error). A rebuild-capable provider — e.g. Gemini
+            # closing at its Live-API session limit — is reopened
+            # instead (BUG-071).
+            return "provider stream ended at an idle turn boundary"
+
+    async def _pump_on_transport_error(self, exc: Exception) -> str | None:
+        """The receive loop raised: local sink death, failover, rebuild or terminal failure."""
+        from dodaios.audio.player import is_local_output_error
+
+        if is_local_output_error(exc):
+            # Speaker death must not consume the rebuild budget or drop
+            # the in-call seed (BUG-108). The provider is still alive;
+            # finish this pump pass as a local failure, not a transport
+            # death. Returning None would hang up; returning a rebuild
+            # detail would reopen the websocket into the same dead sink.
+            await self._handle_local_output_failure(exc)
+            return None
+        message = safe_preview(exc, max_chars=800) or "Realtime receive loop ended"
+        log.warning("realtime[%s] pump ended", self.session_id, exc_info=True)
+        same_provider_rebuild = self._transport_death_is_rebuildable()
+        status, failover_ready = self._prepare_cross_provider_fallback(
+            self._provider,
+            message,
+            terminal=not same_provider_rebuild,
+        )
+        retry_is_futile = _retrying_this_provider_cannot_recover(status)
+        can_recover = failover_ready or (
+            same_provider_rebuild and not retry_is_futile
+        )
+        await self._publish_error(
+            type(exc).__name__,
+            message,
+            recoverable=can_recover,
+        )
+        if failover_ready:
+            provider_id = str(
+                getattr(self._provider, "name", "unknown") or "unknown"
+            )
+            self._provider_errors.append(f"{provider_id}: {message}")
             try:
                 await self._send_json(
-                    {"type": "provider_error", "error": message}
+                    {
+                        "type": "provider_fallback",
+                        "provider": provider_id,
+                        "error": message,
+                        "status": status,
+                    }
                 )
-            except Exception:  # noqa: BLE001, S110
+            except Exception:  # noqa: BLE001, S110 — status is best-effort
                 pass
+            return (
+                f"{provider_id} transport failed ({status}); "
+                "switching realtime provider"
+            )
+        if same_provider_rebuild and not retry_is_futile:
+            return message
+        self._failure_detail = message
+        self._failed.set()
+        await self._announce_live_call_failure(status)
+        try:
+            await self._send_json(
+                {"type": "provider_error", "error": message}
+            )
+        except Exception:  # noqa: BLE001, S110
+            pass
         return None
+
+    async def _pump_on_input_transcript(self, event: Any) -> str | _PumpSignal | None:
+        """A user transcript chunk: echo/duplicate judgement, language, routing, answer."""
+        st = _PumpInputState()
+        outcome = await self._pump_input_open(event, st)
+        if outcome is not None:
+            return None if outcome is _PumpSignal.SKIP else outcome
+        outcome = await self._pump_input_dedupe(event, st)
+        if outcome is not None:
+            return None if outcome is _PumpSignal.SKIP else outcome
+        outcome = await self._pump_input_language(event, st)
+        if outcome is not None:
+            return None if outcome is _PumpSignal.SKIP else outcome
+        if event.is_final and st.input_observed:
+            await self._pump_input_plan(event, st)
+            await self._pump_input_update_session(event, st)
+        await self._pump_input_finish(event, st)
+        return None
+
+    async def _pump_input_open(self, event: Any, st: _PumpInputState) -> str | _PumpSignal | None:
+        """Read the chunk, drop a provider-transcribed self-echo, confirm a deferred edge."""
+        transcript = _dictionary_corrected(str(event.text or "").strip())
+        transcription_failed = bool(event.error)
+        input_observed = bool(transcript or transcription_failed)
+        st.transcript = transcript
+        st.transcription_failed = transcription_failed
+        st.input_observed = input_observed
+        if event.is_final and transcript:
+            # BUG-089: judge the accumulated candidate BEFORE any
+            # turn side effect (deferred barge confirm, turn
+            # start, tool bridge, delegate, request_response). A
+            # final transcript that is fuzzily nothing but our
+            # own recent speech is the speaker echo that slipped
+            # the acoustic gates — dropping it here means no
+            # response is ever generated for it.
+            echo_probe = " ".join(
+                (
+                    *(t for _, t in self._user_transcript_parts),
+                    transcript,
+                )
+            ).strip()
+            judge_short = (
+                time.monotonic() < self._local_barge_short_echo_until
+            )
+            # One strict judgment per barge capture: consume the
+            # window so later ordinary short answers are exempt.
+            self._local_barge_short_echo_until = 0.0
+            if not self._grounded_confirmation(transcript) and self._echo_guard.is_echo(
+                echo_probe, judge_short=judge_short
+            ):
+                log.info(
+                    "realtime[%s] dropped provider-transcribed "
+                    "self-echo before it became a turn: %r",
+                    self.session_id,
+                    echo_probe[:80],
+                )
+                if bool(
+                    getattr(
+                        self._session,
+                        "creates_responses_automatically",
+                        False,
+                    )
+                ):
+                    # The provider may already be answering its
+                    # own echo — silence that generation until a
+                    # genuine user turn opens.
+                    self._drop_provider_output_until_user_turn = (
+                        True
+                    )
+                    try:
+                        await self._session.interrupt()
+                    except Exception:  # noqa: BLE001, S110 — best effort
+                        pass
+                return _PumpSignal.SKIP
+        if (
+            event.is_final
+            and input_observed
+            and self._deferred_provider_speech_start
+        ):
+            # A later final transcript confirms that the deferred
+            # server-VAD edge was a real new utterance. Split the
+            # turns here; a start edge alone is too noisy to abandon
+            # an orchestrator action that is still producing its
+            # answer.
+            self._deferred_provider_speech_start = False
+            if self._user_is_speaking():
+                # ...unless the microphone says the user never
+                # stopped. A server-VAD edge inside ONE continuous
+                # utterance is a hesitation, not a new request:
+                # splitting here is what turned a single spoken
+                # order into three turns and three executors
+                # (live 2026-08-13 11:19/11:20, _USER_VOICE_PEAK).
+                # Keep the turn; the text below appends to it.
+                log.info(
+                    "realtime[%s] provider committed a boundary "
+                    "while the user is still audibly speaking — "
+                    "continuing the same turn instead of "
+                    "splitting it",
+                    self.session_id,
+                )
+            else:
+                await self._begin_user_speech_turn()
+                await self._barge_in(interrupt_provider=False)
+        return None
+
+    async def _pump_input_dedupe(self, event: Any, st: _PumpInputState) -> str | _PumpSignal | None:
+        """Drop corrections and duplicates of answered items; open the user's turn."""
+        transcript = st.transcript
+        input_observed = st.input_observed
+        input_item_id = str(getattr(event, "item_id", "") or "")
+        st.input_item_id = input_item_id
+        input_already_answered = bool(
+            input_item_id
+            and input_item_id in self._response_requested_input_ids
+        )
+        if event.is_final and input_already_answered:
+            if transcript:
+                # A re-final of an answered item is a CORRECTION:
+                # record the better text (item-keyed REPLACE, so
+                # the utterance never concatenates into itself)
+                # without re-running any turn machinery for it.
+                self._note_user_final(input_item_id, transcript)
+                log.info(
+                    "realtime[%s] recorded a corrected transcript "
+                    "for an already-answered item (item=%s)",
+                    self.session_id,
+                    input_item_id,
+                )
+                return _PumpSignal.SKIP
+            # A swallowed user utterance is never a debug-level
+            # event: if the id space ever collides, this is the
+            # only trace that turn 2 vanished (AP-30).
+            log.info(
+                "realtime[%s] ignored a final input item this turn "
+                "already answered (item=%s); if the user is "
+                "waiting, the provider reused an item id",
+                self.session_id,
+                input_item_id,
+            )
+            return _PumpSignal.SKIP
+        late_duplicate_without_id = bool(
+            event.is_final
+            and transcript
+            and not input_item_id
+            and self._response_requested_for_turn
+            and (self._output_active or self._output_transcript)
+            and _normalize_for_repeat_match(transcript)
+            == _normalize_for_repeat_match(self._last_user_text)
+        )
+        if late_duplicate_without_id:
+            # ChatGPT-Live can surface the same locally grounded
+            # utterance again after its answer already started, but
+            # without an input item id. Treat only an exact,
+            # normalized repeat as the already-owned input; a
+            # different final remains a genuine correction or a
+            # later multipart fragment.
+            log.info(
+                "realtime[%s] ignored a late duplicate final "
+                "without an item id while its response was in flight",
+                self.session_id,
+            )
+            return _PumpSignal.SKIP
+        if input_observed:
+            self._input_turn_observed = True
+            self._user_speech_active = False
+            # The user audibly opened this turn — a fallback-era
+            # suppression of stale provider output ends here, and
+            # so does the post-readback stale-generation guard:
+            # whatever the provider says next was asked for.
+            self._drop_provider_output_until_user_turn = False
+            self._disarm_stale_generation_guard()
+            if (
+                self._external_update is not None
+                and self._output_samples_sent == 0
+            ):
+                # Real user input landed while a trusted out-of-band
+                # readback (late action result / announcement) was
+                # still silent: the injection raced the user's next
+                # utterance, so the turn belongs to the user now
+                # (BUG-103: keeping the readback state made the turn
+                # complete on the readback track — the user's answer
+                # was re-published as a second spoken event and the
+                # turn's VoiceTurnCompleted record was skipped). The
+                # readback's action already ran; only its spoken
+                # confirmation is lost, and the provider's now-stale
+                # rendering stays inaudible until a response for
+                # THIS turn exists.
+                log.info(
+                    "realtime[%s] user speech pre-empted a silent "
+                    "out-of-band readback (%s) — the turn belongs "
+                    "to the user",
+                    self.session_id,
+                    self._external_update.spoken_kind,
+                )
+                self._external_update = None
+                self._response_requested_for_turn = False
+                if bool(
+                    getattr(
+                        self._session,
+                        "isolates_response_generations",
+                        False,
+                    )
+                ):
+                    # Only an adapter that can tell the stale
+                    # readback generation from the next response
+                    # gets the suppression; on any other adapter
+                    # the flag would never clear and deafen the
+                    # user's own answer.
+                    self._drop_provider_output_until_new_response = (
+                        True
+                    )
+                if self._turn_id:
+                    # The turn opened silently for the readback;
+                    # announce it now that it is a real user turn.
+                    await self._publish_turn_started()
+            await self._ensure_turn_started()
+        return None
+
+    async def _pump_input_language(
+        self, event: Any, st: _PumpInputState
+    ) -> str | _PumpSignal | None:
+        """Resolve the call language on finals, record the text, handle a spoken hang-up."""
+        transcript = st.transcript
+        input_observed = st.input_observed
+        transcription_failed = st.transcription_failed
+        input_item_id = st.input_item_id
+        new_language = self._language
+        if transcript and event.is_final:
+            # FINALS ONLY (H3): a partial used to flip the call
+            # language mid-utterance, rebuild the scrub gate and
+            # announce — churn a growing caption re-triggered
+            # several times per sentence, and the en/en bookings
+            # on German turns came from exactly these flips.
+            voiced_ms = int(getattr(event, "voiced_ms", 0) or 0)
+            new_language = self._resolve_lang(
+                text=transcript, voiced_ms=voiced_ms
+            )
+            if not self._conversation_established and (
+                detect_language_request(transcript)
+                or (
+                    is_substantive_turn(transcript)
+                    and (
+                        voiced_ms == 0
+                        or voiced_ms
+                        >= _CONVERSATION_LANGUAGE_MIN_VOICED_MS
+                    )
+                )
+            ):
+                # From here on the call language sticks; a later
+                # thin interjection cannot flip it (the resolver's
+                # own stickiness takes over).
+                self._conversation_established = True
+            if new_language != self._language:
+                self._language_flips += 1
+                self._language = new_language
+                self._gate = ScrubHoldGate(new_language)
+                if self._tool_bridge is not None:
+                    self._tool_bridge.set_language(new_language)
+                # The surfaces label the call with this; a flip
+                # that only the session knows about leaves every
+                # indicator stuck on the opening language.
+                await self._announce_language()
+        if input_observed:
+            self._mark_latency_named(
+                "REALTIME_INPUT_COMMITTED",
+                detail=(
+                    "transcription=failed"
+                    if transcription_failed
+                    else "transcription=available"
+                ),
+            )
+        if transcript:
+            if event.is_final:
+                self._note_user_final(input_item_id, transcript)
+            else:
+                # Live caption only — never the persisted text.
+                self._last_user_text_preview = " ".join(
+                    (
+                        *(
+                            t
+                            for _, t in self._user_transcript_parts
+                        ),
+                        transcript,
+                    )
+                ).strip()
+        if transcript and event.is_final:
+            if await self._handle_voice_hangup_input():
+                if self._hangup_reason:
+                    return _PumpSignal.STOP
+                return _PumpSignal.SKIP
+        st.new_language = new_language
+        return None
+
+    async def _pump_input_plan(self, event: Any, st: _PumpInputState) -> None:
+        """Barge-in during an action, then plan the turn and its tool/mode directives."""
+        transcript = st.transcript
+        # BARGE-IN DURING AN ACTION. Everything below this
+        # point routes the utterance as a REQUEST; a request
+        # to abandon the running action has to be answered
+        # before that, because none of the routing can express
+        # "undo what you are doing". Ordered deliberately:
+        #
+        #   - the mic probe first, so a hesitation inside one
+        #     sentence can never read as a stop (the provider
+        #     commits on ITS VAD, mid-utterance, and "warte"
+        #     is also just a word people say while thinking);
+        #   - the two open-question probes next, so a bare
+        #     "no" answering a clarify question or an ask-tier
+        #     confirmation stays an ANSWER;
+        #   - only then the words.
+        interrupt_kind = INTERRUPT_NONE
+        if not (
+            self._user_is_speaking()
+            or self._answers_open_delegate_question()
+            or self._brain_awaits_voice_confirm()
+        ):
+            # THIS chunk first, then the whole turn. Finals
+            # without an item id APPEND (``_note_user_final``),
+            # so on a provider that never split the turn the
+            # accumulated text reads "Write this to my wiki.
+            # Stop." — and a stop word in the middle is not a
+            # stop. The chunk is what the user just said.
+            interrupt_kind = classify_interrupt(
+                transcript
+            ) or classify_interrupt(self._last_user_text)
+        if interrupt_kind != INTERRUPT_NONE and (
+            self._turn_has_pending_delegate(self._turn_id)
+            or self._has_pending_delegate_from_earlier_turn()
+            or self._late_delegate_results
+        ):
+            cancelled = await self._cancel_running_delegates(
+                reason=interrupt_kind
+            )
+            if cancelled and interrupt_kind == INTERRUPT_STOP:
+                # Nothing replaces the cancelled order, so
+                # this turn is complete once it is confirmed.
+                # Claiming the response here also stops the
+                # provider — whose context still holds the
+                # order — from answering the request the user
+                # just withdrew.
+                self._delegate_required_for_turn = False
+                await self._acknowledge_interrupt()
+            # A REDIRECT keeps falling through: the remainder
+            # ("…I meant Rome") is a real order and is routed
+            # by the ordinary path below, now that the order
+            # it replaces is gone.
+        turn_plan = self._plan_turn(self._last_user_text)
+        # ADR-0034: the user opened a NEW turn while an
+        # earlier order's provider function call is still
+        # unanswered on the wire. A transport that waits for
+        # that answer would answer nothing new — free it now;
+        # the order keeps running and its result is parked.
+        await self._unblock_pending_provider_calls()
+        # ADR-0034: "how far are you?" / "what came out of
+        # it?" spoken into a wait or after a parked result is
+        # owned by the orchestrator BEFORE the planner can
+        # read it as an order of its own ("what did you find"
+        # is search-shaped): a grounded progress line, or the
+        # parked result itself. Anything else stays native.
+        wait_query_claimed = bool(
+            (
+                self._has_pending_delegate_from_earlier_turn()
+                or self._late_delegate_results
+            )
+            and not self._response_requested_for_turn
+            and not self._user_is_speaking()
+            and not self._answers_open_delegate_question()
+            and not self._brain_awaits_voice_confirm()
+            and await self._answer_wait_query(self._last_user_text)
+        )
+        if (
+            turn_plan.requires_orchestrator
+            and not self._active_provider_supports_direct_tools()
+            and not self._handoff_action_seen_for_turn
+        ):
+            self._handoff_action_turns += 1
+            self._handoff_action_seen_for_turn = True
+        # Delegate-by-default on ambiguity, tool-less
+        # transports ONLY (capability read, AP-21): the
+        # planner is their one action path, so a final that
+        # tasks the assistant but matches no planner category
+        # prefers delegation over the far end answering
+        # unaided — the miss would otherwise only surface as
+        # a handoff_obligation_misses count after the call.
+        # Providers with native tools keep today's routing:
+        # their model can still call the declared function.
+        ambiguous_action_default = bool(
+            not turn_plan.requires_orchestrator
+            and not self._active_provider_supports_direct_tools()
+            and self._delegate_enabled
+            and self._last_user_text
+            and _toolless_ambiguous_action(self._last_user_text)
+        )
+        if ambiguous_action_default:
+            self._handoff_ambiguous_delegations += 1
+            log.info(
+                "realtime[%s] tool-less transport: final is "
+                "action-shaped but ambiguous — delegating by "
+                "default instead of a native answer",
+                self.session_id,
+            )
+        reasons = ",".join(
+            sorted(reason.value for reason in turn_plan.reasons)
+        ) or "none"
+        self._mark_latency_named(
+            "REALTIME_ROUTING_DECISION",
+            detail=(
+                f"path={turn_plan.path.value};reasons={reasons}"
+            ),
+        )
+        screen_context_turn = (
+            TurnReason.SCREEN_CONTEXT in turn_plan.reasons
+        )
+        grounding_turn = bool(
+            turn_plan.requires_public_fact_grounding
+        )
+        deterministic_delegate_available = callable(self._brain)
+        if grounding_turn:
+            # Grounding is fail-closed even when synthesis is
+            # unavailable: the deterministic delegate emits a
+            # localized uncertainty instead of letting the
+            # native model invent the public fact.
+            self._delegate_required_for_turn = True
+        # ADR-0035 §2: in hybrid mode the live model holds the
+        # functions, so a planner "orchestrator" verdict steers
+        # it to call them (tools_expected) instead of forcing
+        # the delegate. The delegate is still imposed for what
+        # the live model structurally cannot do — operate the
+        # screen (explicit computer use), look at it (screen
+        # context), ground a public fact on a provider that
+        # declares it, and answer a turn the delegate already
+        # owns (pending confirm / open question).
+        hybrid_turn = self._hybrid_enabled
+        computer_use_turn = bool(
+            hybrid_turn
+            and self._last_user_text
+            and is_explicit_computer_use_turn(self._last_user_text)
+        )
+        planner_forces_delegate = bool(
+            turn_plan.requires_orchestrator
+            and (
+                not hybrid_turn or screen_context_turn
+                or "society_status" in turn_plan.required_capabilities
+            )
+        )
+        if (
+            self._last_user_text
+            and deterministic_delegate_available
+            and not wait_query_claimed
+            and (
+                self._delegate_enabled
+                or screen_context_turn
+                or grounding_turn
+                or "society_status" in turn_plan.required_capabilities
+            )
+        ):
+            self._delegate_required_for_turn = (
+                self._delegate_required_for_turn
+                or planner_forces_delegate
+                or computer_use_turn
+                or ambiguous_action_default
+                or self._brain_awaits_voice_confirm()
+                or self._answers_open_delegate_question()
+            )
+        if computer_use_turn and self._delegate_required_for_turn:
+            self._delegate_cu_dispatches += 1
+        if wait_query_claimed:
+            # The orchestrator answered this turn; no
+            # dispatch, no grounding, no provider response.
+            self._delegate_required_for_turn = False
+        refresh_tools = getattr(
+            self._tool_bridge, "refresh_from_source", None
+        )
+        tools_changed = bool(
+            callable(refresh_tools) and refresh_tools()
+        )
+        turn_mode_kwargs = {
+            "delegate_required": self._delegate_required_for_turn,
+            "action_pending": (
+                self._has_pending_delegate_from_earlier_turn()
+            ),
+            "delegate_discouraged": (
+                not turn_plan.requires_orchestrator
+                and not ambiguous_action_default
+            ),
+            "tools_expected": bool(
+                hybrid_turn
+                and turn_plan.requires_orchestrator
+                and not self._delegate_required_for_turn
+            ),
+        }
+        turn_tool_directive = self._tool_directive(
+            **turn_mode_kwargs
+        )
+        turn_mode_directive = self._turn_mode_directive(
+            **turn_mode_kwargs
+        )
+        st.turn_plan = turn_plan
+        st.turn_tool_directive = turn_tool_directive
+        st.turn_mode_directive = turn_mode_directive
+        st.tools_changed = tools_changed
+
+    async def _pump_input_update_session(self, event: Any, st: _PumpInputState) -> None:
+        """Push the per-turn instructions to the provider, retiring fields old adapters lack."""
+        transcript = st.transcript
+        new_language = st.new_language
+        turn_tool_directive = st.turn_tool_directive
+        turn_mode_directive = st.turn_mode_directive
+        tools_changed = st.tools_changed
+        memory_recall = await _voice_memory_recall(
+            transcript,
+            compact=getattr(self, "_compact_instructions", False),
+        )
+        update_kwargs: dict[str, Any] = {
+            "instructions": _session_instructions(
+                new_language,
+                proactivity_level=_proactivity_level(self._config),
+                identity=_identity_block(
+                    self._config,
+                    compact=getattr(
+                        self, "_compact_instructions", False
+                    ),
+                ),
+                input_language=self._input_language,
+                provider=self.active_provider,
+                model=self._active_model,
+                language_is_pinned=True,
+                tool_directive=turn_tool_directive,
+                preferences=_preferences_block(
+                    self._config,
+                    compact=getattr(
+                        self, "_compact_instructions", False
+                    ),
+                ),
+                # Zero extra round trips: this update already
+                # fires on every final transcript, so a
+                # qualifying skill rides along instead of paying
+                # the delegate boundary wait.
+                # Captured skill, else the ranked suggestion —
+                # mutually exclusive by construction (one is
+                # FIRE-only, the other NARROW-only), and the
+                # same either/or the brain path uses, so a turn
+                # never carries two instruction sets.
+                skill_directive=(
+                    self._skill_directive(self._last_user_text or "")
+                    or self._skill_candidates_directive(
+                        self._last_user_text or ""
+                    )
+                ),
+                skills_directive=self._skills_directive(),
+                memory_recall=memory_recall,
+                # Rebuilt per turn: panes open and close mid
+                # call, and a roster naming a terminal that is
+                # gone is worse than none.
+                workspace_directive=self._workspace_directive(),
+                society_directive=self._society_directive(),
+                compact=getattr(
+                    self, "_compact_instructions", False
+                ),
+                history_lost=self._suppress_history_seed,
+            ),
+            "language": new_language,
+            # For append-only transports: ONLY the turn-scoped
+            # mode line, never the standing role. The role is
+            # delivered once with this connection's fixed
+            # instructions and does not move for the rest of
+            # the call; sending it again per turn is what left
+            # three contradictory full role texts standing in
+            # the thread with nothing retracted (RT-08). The
+            # mode line names itself as replacing the previous
+            # one, and an unchanged mode dedups to nothing.
+            "turn_directive": turn_mode_directive,
+            # Re-asserted every turn on the adapter's working
+            # channel: the one-speaker rule delivered once at
+            # open demonstrably fades on ChatGPT-Live while
+            # the per-turn language pin holds — this is the
+            # exact contract (BOTH halves: silence rule and
+            # its speak-request exception, b181d92f).
+            "standing_directive": _VOICE_CONTRACT,
+        }
+        if tools_changed:
+            update_kwargs["tools"] = self._declared_tools()
+            if not bool(
+                getattr(
+                    self._session,
+                    "supports_tool_updates",
+                    False,
+                )
+            ):
+                log.warning(
+                    "realtime[%s] direct tools changed, but %s "
+                    "cannot update declarations until the next "
+                    "session; removed tools are denied immediately",
+                    self.session_id,
+                    self.active_provider,
+                )
+        try:
+            await self._session.update_session(**update_kwargs)
+        except TypeError:
+            # Compatibility with adapters built against the
+            # older update-session protocols: retire the
+            # NEWEST field first so an adapter that already
+            # understands tools keeps receiving them.
+            update_kwargs.pop("standing_directive", None)
+            try:
+                await self._session.update_session(
+                    **update_kwargs
+                )
+            except TypeError:
+                # Still too new for this adapter — retire the
+                # next-youngest field and try again.
+                update_kwargs.pop("turn_directive", None)
+                try:
+                    await self._session.update_session(
+                        **update_kwargs
+                    )
+                except TypeError:  # predates tools too
+                    update_kwargs.pop("tools", None)
+                    await self._session.update_session(
+                        **update_kwargs
+                    )
+
+    async def _pump_input_finish(self, event: Any, st: _PumpInputState) -> None:
+        """Publish the transcript, release held tool calls, dispatch or request the answer."""
+        transcript = st.transcript
+        input_observed = st.input_observed
+        input_item_id = st.input_item_id
+        turn_plan = st.turn_plan
+        if self._tool_bridge is not None and event.is_final and transcript:
+            await self._tool_bridge.handle_user_transcript(
+                self._last_user_text
+            )
+        if transcript:
+            # Publish the accumulated per-turn snapshot, never the
+            # raw chunk: providers flag transcript fragments final
+            # per CHUNK (Gemini per server-content message, OpenAI/
+            # xAI per committed audio item), while every downstream
+            # consumer (orb bubble, desktop TranscriptionView,
+            # SessionRecorder) mirrors TranscriptionUpdate 1:1 as a
+            # whole-utterance snapshot — a raw chunk freezes those
+            # surfaces on a single fragment of the sentence.
+            if event.is_final:
+                snapshot = self._last_user_text or transcript
+            else:
+                snapshot = self._last_user_text_preview or transcript
+            await self._publish_transcription(
+                snapshot, bool(event.is_final)
+            )
+            await self._send_json(
+                {
+                    "type": "transcript",
+                    "role": "user",
+                    "text": snapshot,
+                    "is_final": bool(event.is_final),
+                }
+            )
+        elif event.is_final and event.error:
+            message = safe_preview(event.error, max_chars=800)
+            log.warning(
+                "realtime[%s] input transcription unavailable: %s",
+                self.session_id,
+                message,
+            )
+            await self._publish_error(
+                "RealtimeTranscriptionError",
+                message,
+                recoverable=True,
+            )
+        if event.is_final and input_observed and self._pending_tool_events:
+            self._cancel_tool_transcript_wait()
+            pending = self._pending_tool_events
+            self._pending_tool_events = []
+            for pending_event in pending:
+                if transcript:
+                    await self._handle_tool_call(pending_event)
+                else:
+                    await self._reject_untranscribed_tool_call(
+                        pending_event
+                    )
+        if (
+            event.is_final
+            and input_observed
+            and self._delegate_required_for_turn
+        ):
+            if self._continues_executing_order(turn_plan):
+                # A provider VAD that reads a thinking pause as
+                # end-of-turn finalizes ONE spoken request as two
+                # turns; a second executor for the tail briefs
+                # the same pane twice (live 2026-08-12 16:09).
+                # The running order keeps this turn: the user
+                # hears the deterministic progress line now and
+                # the trusted result via the late flush. A later
+                # final that grows this turn into a real new
+                # order re-plans and dispatches normally.
+                self._delegate_required_for_turn = False
+                log.info(
+                    "realtime[%s] refused a deterministic "
+                    "dispatch that can only continue the order "
+                    "already executing",
+                    self.session_id,
+                )
+                if not self._response_requested_for_turn:
+                    await self._speak_pending_action_status()
+            else:
+                # A FINAL input transcript normally proves the
+                # utterance is over, and the boundary wait is
+                # skipped. It proves nothing while the microphone
+                # still carries the user's voice: the provider
+                # committed a hesitation, and dispatching now
+                # briefs an executor with a quarter of the
+                # sentence (live 2026-08-13 11:20:05 — "Can you
+                # please prompt Terminal T5 … That when you want
+                # to" went to the pane as a complete order).
+                # Withholding the finality lets
+                # _await_stable_input_boundary hold the dispatch
+                # until the mic goes quiet, by which time the
+                # later finals have grown turn_state.user_text
+                # into the whole request.
+                self._start_deterministic_delegate(
+                    self._last_user_text,
+                    input_final=not self._user_is_speaking(),
+                    turn_plan=turn_plan,
+                )
+        if (
+            event.is_final
+            and input_observed
+            and not self._delegate_required_for_turn
+            and not self._response_requested_for_turn
+            and self._has_pending_delegate_from_earlier_turn()
+            and _is_presence_check(self._last_user_text)
+        ):
+            await self._speak_pending_action_status()
+        if (
+            event.is_final
+            and input_observed
+            and not self._delegate_required_for_turn
+            and bool(
+                getattr(
+                    self._session,
+                    "isolates_response_generations",
+                    False,
+                )
+            )
+        ):
+            # A locally grounded FINAL is the generation boundary
+            # the post-barge-in guard was waiting for.  Automatic
+            # transports can already have marked a response as
+            # requested before this final arrives, so clearing only
+            # inside the request_response branch below left the
+            # guard latched forever (live 2026-08-10: 23.3 s to the
+            # first audible frame and three complete replies
+            # discarded).  Generation isolation keeps late PCM from
+            # the interrupted response out; delegated turns retain
+            # their separate ownership guard.
+            self._drop_provider_output_until_new_response = False
+        if (
+            event.is_final
+            and input_observed
+            and not self._response_requested_for_turn
+            and not self._delegate_required_for_turn
+            and not bool(
+                getattr(
+                    self._session,
+                    "creates_responses_automatically",
+                    False,
+                )
+            )
+            and not self._turn_pause_settled()
+        ):
+            # The provider closed its input turn, but the
+            # microphone says the user is still talking (or has
+            # not been quiet for the Thinking pause yet). On a
+            # transport whose responses Jarvis requests itself
+            # the request simply WAITS: nothing is submitted, the
+            # turn stays open, and a later final appends to it —
+            # so ONE response answers the whole request instead
+            # of a first answer talking over the user's second
+            # half (maintainer directive 2026-08-18). The turn is
+            # NOT marked as requested here — that is what lets the
+            # next final of this turn re-enter this branch.
+            self._hold_native_response_for_pause(input_item_id)
+        elif (
+            event.is_final
+            and input_observed
+            and not self._response_requested_for_turn
+        ):
+            if not self._delegate_required_for_turn:
+                await self._request_native_response()
+            self._response_requested_for_turn = True
+            self._note_input_answered(input_item_id)
+
+    async def _pump_on_handoff_requested(self, event: Any) -> None:
+        """A provider handoff: refuse it from a stale generation, else run the supervisor path."""
+        if self._stale_generation_drop_active():
+            log.warning(
+                "realtime[%s] ignoring a provider handoff from a "
+                "discarded stale generation — no action was dispatched",
+                self.session_id,
+            )
+            return None
+        # Client-managed handoffs are a provider control boundary,
+        # never a public response boundary and never a direct tool
+        # call. Keep execution inside the existing deterministic
+        # Jarvis supervisor path, then render its trusted result
+        # through the provider's appendText/appendSpeech boundary.
+        handoff_text = _dictionary_corrected(
+            str(getattr(event, "text", "") or "").strip()
+        )
+        if not self._active_provider_supports_direct_tools():
+            self._handoff_requests += 1
+        if handoff_text and not self._last_user_text:
+            self._last_user_text = handoff_text
+            self._input_turn_observed = True
+            await self._publish_transcription(
+                handoff_text,
+                is_final=True,
+            )
+        await self._ensure_turn_started()
+        if not self._delegate_enabled or not self._last_user_text:
+            # A transport that cannot declare tools natively reaches
+            # EVERY action through this one event, so this gap used
+            # to hang up on the user mid-sentence. Losing an action
+            # degrades a turn; it must not cost the conversation.
+            await self._decline_provider_handoff(
+                "no deterministic Dodaios delegate is available"
+                if not self._delegate_enabled
+                else "the handoff carried no recognizable user request"
+            )
+            return None
+        self._delegate_required_for_turn = True
+        self._response_requested_for_turn = True
+        self._drop_provider_output_until_new_response = True
+        turn_state = self._delegate_turns.setdefault(
+            self._turn_id,
+            _DelegateTurnState(deterministic=True),
+        )
+        turn_state.deterministic = True
+        turn_state.wait_for_provider_boundary = True
+        turn_state.input_final = True
+        # The realtime model explicitly yielded control. The
+        # app-server adapter interrupts any normal Codex turn that
+        # core may already have started before this event arrived.
+        try:
+            await self._session.interrupt()
+        except Exception:  # noqa: BLE001 - the adapter also interrupts on receipt
+            log.warning(
+                "realtime[%s] provider handoff interrupt failed",
+                self.session_id,
+                exc_info=True,
+            )
+        turn_state.input_boundary_ready.set()
+        turn_state.provider_boundary_seen = True
+        turn_state.provider_ready.set()
+        log.info(
+            "realtime[%s] supervised provider handoff%s",
+            self.session_id,
+            (
+                f" ({getattr(event, 'handoff_id', '')})"
+                if getattr(event, "handoff_id", None)
+                else ""
+            ),
+        )
+        self._start_deterministic_delegate(self._last_user_text)
+
+    async def _pump_on_output_transcript_delta(self, event: Any) -> None:
+        """Route an assistant transcript fragment: shadow text or the live text."""
+        if not event.text:
+            return None
+        if getattr(event, "shadow", False):
+            await self._pump_shadow_transcript(event)
+            return None
+        await self._pump_live_transcript(event)
+        return None
+
+    async def _pump_shadow_transcript(self, event: Any) -> None:
+        """Shadow text is vetting material for the scrub gate only; it never reaches the surface."""
+        # Locally recovered SHADOW text: vetting material only.
+        # It lets the scrub gate judge real text when the
+        # provider's own transcript lags its audio by seconds
+        # (live 2026-08-05 20:42: the reply's first audio sat
+        # 7.4 s in the opening hold), but it must never reach
+        # the surface or the turn transcript — the provider's
+        # real text follows and would double up.
+        if self._must_withhold_provider_output():
+            self._note_output_withheld("transcript")
+            return None
+        await self._ensure_turn_started()
+        await self._gate.feed_transcript(
+            event.text,
+            response_id=str(
+                getattr(event, "provider_turn_id", "") or ""
+            ),
+            enforce_output_language=(
+                self._output_language_validation_is_active()
+            ),
+        )
+        if self._gate.hard_leak_pending():
+            _actions = ", ".join(self._gate.hard_leak_actions())
+            if "output_language_mismatch" in (
+                self._gate.hard_leak_actions()
+            ):
+                await self._handle_output_language_mismatch()
+                self._gate.drain()
+                return None
+            await self._cancel_unsafe_output(
+                reason=(
+                    "unsafe output transcript (shadow recovery; "
+                    f"detectors: {_actions or 'unknown'})"
+                )
+            )
+            self._gate.drain()
+            return None
+        for chunk in self._gate.release_available():
+            await self._emit_audio(chunk)
+
+    async def _pump_live_transcript(self, event: Any) -> None:
+        """The provider's own transcript: scrub, promise hold, stale-repeat check, publish."""
+        delegate_state = self._delegate_turns.get(self._turn_id)
+        if (
+            delegate_state is not None
+            and delegate_state.bridge_delivery_started
+            and not delegate_state.delivery_started
+        ):
+            # A model-generated progress response is untrusted until
+            # its COMPLETE transcript matches the one allowed status
+            # line. Do not surface it as assistant text or let it
+            # enter the normal scrub/audio stream.
+            delegate_state.bridge_transcript_parts.append(event.text)
+            return None
+        if self._must_withhold_provider_output():
+            self._note_output_withheld("transcript")
+            self._gate.drain()
+            return None
+        await self._ensure_turn_started()
+        self._mark_latency_named("REALTIME_FIRST_TRANSCRIPT")
+        self._provider_output_probe = (
+            f"{self._provider_output_probe}{event.text}"[-4_096:]
+        )
+        self._withheld_promise_parts.append(event.text)
+        if has_unbacked_action_claim(self._provider_output_probe):
+            # ARM ONLY — never cancel here. Whether a commitment was
+            # left without a delivered result is a judgement about a
+            # FINISHED response; on a streaming prefix the sentence
+            # after "Ich schaue mal kurz" / "Let me check" simply has
+            # not arrived yet, so every real answer that opens with
+            # one of those phrases looked like a bare promise and was
+            # cancelled mid-sentence. Hold the text out of the scrub
+            # gate (which keeps this response's audio with it) and
+            # let the response close decide.
+            self._arm_promise_confirm()
+            return None
+        # The answer grew past the promise: release everything held
+        # for it, in order, as one delta.
+        self._cancel_promise_confirm()
+        transcript_text = "".join(self._withheld_promise_parts)
+        self._withheld_promise_parts.clear()
+        display = await self._gate.feed_transcript(
+            transcript_text,
+            response_id=str(
+                getattr(event, "provider_turn_id", "") or ""
+            ),
+            enforce_output_language=(
+                self._output_language_validation_is_active()
+            ),
+        )
+        if self._gate.hard_leak_pending():
+            # Name the tripped detectors (safe metadata, never the
+            # flagged content) so a false-positive abort is
+            # diagnosable from the transcript alone (BUG-056).
+            _actions = ", ".join(self._gate.hard_leak_actions())
+            if "output_language_mismatch" in (
+                self._gate.hard_leak_actions()
+            ):
+                await self._handle_output_language_mismatch()
+                self._gate.drain()
+                return None
+            await self._cancel_unsafe_output(
+                reason=(
+                    "unsafe output transcript"
+                    f" (detectors: {_actions or 'unknown'})"
+                )
+            )
+            self._gate.drain()
+            return None
+        self._output_transcript.append(display)
+        self._note_reply_delta()
+        if (
+            delegate_state is None
+            and self._external_update is None
+            and self._stale_readback_refs
+        ):
+            # A plain turn re-rendering a reply the surface TTS
+            # already delivered is the provider executing its
+            # stale rendering order, not a fresh answer (live
+            # forensic 2026-07-21 11:32: the whole School-District
+            # answer repeated verbatim on the fragment "ich").
+            # One-shot per armed reply: a genuine "repeat that"
+            # that trips this once works on the next attempt.
+            stale_ref = self._match_stale_readback(
+                "".join(self._output_transcript)
+            )
+            if stale_ref is not None:
+                self._stale_readback_refs.remove(stale_ref)
+                from dodaios.voice.action_phrases import (
+                    action_phrase,
+                )
+
+                log.warning(
+                    "realtime[%s] provider re-rendered an "
+                    "already-delivered delegate reply on a later "
+                    "turn; suppressing the stale repeat",
+                    self.session_id,
+                )
+                await self._cancel_unsafe_output(
+                    reason=(
+                        "stale delegate readback re-rendered on "
+                        "a later turn"
+                    ),
+                    fallback_text=action_phrase(
+                        "stale_repeat_clarify", self._language
+                    ),
+                )
+                self._gate.drain()
+                return None
+        # Cumulative snapshot under ONE slot: what the provider
+        # is audibly saying this turn, as an echo-guard reference
+        # (BUG-089). Slot replacement keeps the growing snapshot
+        # from evicting the other references.
+        self._register_spoken_reference(
+            "".join(self._output_transcript),
+            slot=f"turn:{self._turn_id or 'session'}",
+        )
+        await self._send_json(
+            {
+                "type": "transcript",
+                "role": "assistant",
+                "text": display,
+                "is_final": bool(event.is_final),
+            }
+        )
+        for chunk in self._gate.release_available():
+            await self._emit_audio(chunk)
+
+    def _pump_edge_is_deferrable(self) -> bool:
+        """True while a delegated action owns the silence, so an unconfirmed VAD edge must wait."""
+        return bool(
+            self._pending_delegate_needs_endpoint_protection()
+            or self._delegate_readback_awaits_first_audio()
+            or self._empty_turn_reask_owns_turn(self._turn_id)
+        )
+
+    def _pump_defer_unconfirmed_edge(self, event: Any) -> None:
+        """Defer an unconfirmed provider edge until the user's own words confirm it."""
+        # Gemini has no separate speech-start edge: its server VAD
+        # reports noise blips and real barge-ins alike as
+        # ``interrupted``. During the silent span of a delegated
+        # action — thinking, or the trusted readback injected but
+        # not yet audible — there is no output to cut, so an
+        # unconfirmed edge must not abandon the turn: doing so
+        # closed the turn with the trusted reply recorded but
+        # never spoken, and the barge-in drop flag then swallowed
+        # the injected readback (live forensic 2026-07-16 10:26).
+        # The empty-turn re-ask owns the same kind of silence
+        # (live 2026-08-19 16:07: Vertex closed the re-ask text
+        # empty, the 1s settle committed, native audio 0.1s later
+        # was withheld). Defer it; a real utterance confirms
+        # itself through its final input transcript moments later.
+        if not self._deferred_provider_speech_start:
+            log.info(
+                "realtime[%s] deferred an unconfirmed provider "
+                "%s edge while an action result was pending",
+                self.session_id,
+                event.type,
+            )
+        # No settle task here: this window is owned by the
+        # delegate or the re-ask watchdog, whose own budget
+        # decides when it is over. A silence timer would abandon
+        # exactly the turn this branch exists to protect.
+        self._deferred_provider_speech_start = True
+
+    async def _pump_on_interrupted(self, event: Any) -> None:
+        """A provider interruption edge: own echo, deferred, superseded generation or ambiguous."""
+        if getattr(event, "self_initiated", False):
+            # Jarvis's own interrupt() echoing back as a provider
+            # event. Every site that issues one (barge-in, the handoff
+            # cut, the delegate boundary cut, the unsafe-output cancel)
+            # already drained the gate and armed its own withhold, so
+            # there is nothing left to do — while treating it as a
+            # barge-in armed _user_speech_active against a user who
+            # never spoke, blocking announcements, late action results
+            # and the readback watchdog until the next real transcript.
+            log.debug(
+                "realtime[%s] ignored a self-initiated provider "
+                "interruption",
+                self.session_id,
+            )
+        elif self._pump_edge_is_deferrable():
+            self._pump_defer_unconfirmed_edge(event)
+        elif getattr(event, "superseded", False):
+            # NOT ambiguous: the adapter attributed this edge to an
+            # input JARVIS itself sent, so no user spoke and there is
+            # nothing to wait for words about. The far end abandoned
+            # the reply it was streaming and is generating another one.
+            # Deferring here — the branch below — is what let both
+            # halves be spoken: the dead partial played out in full,
+            # was recorded as a turn of its own, and the regenerated
+            # answer followed it two seconds later, so one question got
+            # two spoken replies with the first cut mid-sentence (live
+            # 2026-08-23 10:05 and 10:06, "…brauchst, sag" / "Dann  # i18n-allow
+            # wünsche ich dir…"; 3 of 9 per-turn directives that day).  # i18n-allow
+            # The provider already made the decision; follow it.
+            if not self._reply_is_in_flight():
+                # The race went the other way and the edge arrived
+                # before anything was produced. Nothing to drop, and
+                # no deferral either: a backstop armed here would
+                # later cut the very reply that is still coming
+                # (BUG-152).
+                log.info(
+                    "realtime[%s] provider superseded a generation "
+                    "that had produced nothing yet",
+                    self.session_id,
+                )
+                self._clear_deferred_interruption()
+            else:
+                log.info(
+                    "realtime[%s] dropping a reply the provider "
+                    "abandoned for its own retry; the regenerated "
+                    "answer owns this turn",
+                    self.session_id,
+                )
+                await self._drop_superseded_generation()
+        else:
+            # The SAME ambiguity, now while a reply is actually being
+            # spoken. Acting on the edge alone cancelled the answer and
+            # armed the withhold that discards the rest of the response,
+            # so one cough cost the user half a statement — worse than
+            # none, because half a statement still gets believed. Words
+            # are the proof of a barge-in and they arrive moments later
+            # as the final input transcript, which already splits the
+            # turn and cuts the reply. Until then the answer runs on,
+            # and the settle task below commits the edge unchanged if
+            # the provider falls silent without ever being confirmed.
+            #
+            # ``speech_started`` is deliberately NOT deferred here: the
+            # transports that emit it (OpenAI) mean it literally, and
+            # their barge-in must stay instant.
+            if not self._reply_is_in_flight():
+                # Gemini Live emits ``interrupted`` for our own
+                # send_text (steering, empty-turn re-ask) even when
+                # nothing is playing. Deferring that arms a silence
+                # backstop that later cuts the real reply (BUG-152).
+                log.info(
+                    "realtime[%s] ignored a provider interruption "
+                    "with no reply in flight",
+                    self.session_id,
+                )
+            else:
+                if not self._deferred_provider_speech_start:
+                    self._unconfirmed_interruptions += 1
+                    log.info(
+                        "realtime[%s] deferred an unconfirmed provider "
+                        "interruption; waiting for the user's own words "
+                        "before cutting the reply",
+                        self.session_id,
+                    )
+                self._deferred_provider_speech_start = True
+                self._arm_interruption_settle()
+
+    async def _pump_on_speech_started(self, event: Any) -> None:
+        """A provider speech-start edge: deferred, resumed inside the pause, or a barge-in."""
+        if self._pump_edge_is_deferrable():
+            self._pump_defer_unconfirmed_edge(event)
+        elif (
+            self._turn_held_for_pause()
+            and not self._output_active
+            and self._gate.pending_audio_ms <= 0
+        ):
+            # The user resumed INSIDE the Thinking pause: no response
+            # was requested for this turn yet and nothing is playing,
+            # so there is no reply to cut and no reason to close the
+            # turn. Keep it open — the next final appends to it and
+            # the held request answers the whole request. Closing here
+            # (the barge-in path below) would split one spoken request
+            # into two recorded turns and cost the second half its
+            # first half in the answer.
+            self._user_speech_active = True
+            log.info(
+                "realtime[%s] the user resumed inside the Thinking "
+                "pause — keeping the turn open for the rest of the "
+                "sentence",
+                self.session_id,
+            )
+        else:
+            await self._begin_user_speech_turn()
+            await self._barge_in(interrupt_provider=True)
+
+    async def _pump_on_tool_call(self, event: Any) -> None:
+        """A provider function call: refuse stale ones, end_call, buffer, or run it."""
+        if self._stale_generation_drop_active():
+            # An action (or a hang-up) requested by a generation the
+            # session already ruled stale: nobody asked for it. Answer
+            # the call with an honest refusal so the model can close
+            # its generation — an unanswered function call keeps it
+            # open with no boundary ever coming — and never open a
+            # turn or execute anything for it (BUG-143).
+            log.warning(
+                "realtime[%s] refusing tool call %r from a discarded "
+                "stale generation — the action was not executed",
+                self.session_id,
+                str(getattr(event, "tool_name", "") or ""),
+            )
+            await self._reject_stale_generation_tool_call(event)
+            return None
+        if str(getattr(event, "tool_name", "") or "") == "end_call":
+            await self._ensure_turn_started()
+            # Session lifecycle, not a bridge tool: works without
+            # a tool bridge and must not be held back by the
+            # missing-transcript guard below.
+            await self._handle_end_call(event)
+        elif self._hangup_control_turn and self._hangup_control_turn == self._turn_id:
+            await self._reject_stale_generation_tool_call(event)
+        elif not self._last_user_text:
+            # Providers may emit a speculative tool call before the
+            # input transcript carried by the same response. Buffer
+            # it without opening a persisted turn: a later genuine
+            # transcript opens the turn and releases the call, while
+            # a self-echo transcript is dropped and the call is
+            # rejected at the boundary. Opening here produced the
+            # contentless 5.7-second turn in the 2026-07-19 Mac run.
+            self._pending_tool_events.append(event)
+            if self._tool_transcript_task is None:
+                self._tool_transcript_task = asyncio.create_task(
+                    self._reject_pending_tools_after_timeout(),
+                    name=f"rt-tool-transcript-{self.session_id}",
+                )
+        else:
+            await self._ensure_turn_started()
+            await self._handle_tool_call(event)
+
+    async def _pump_on_turn_complete(self, event: Any) -> str | _PumpSignal | None:
+        """A provider turn boundary: recover, hold for a delegate, finalize, publish the turn."""
+        if self._stale_generation_drop_active():
+            # The discarded generation reached its own boundary.
+            # It belongs to that generation alone: the guard only
+            # ever arms as a turn closes, so any turn open NOW was
+            # opened by a real transcript DURING the drop and is
+            # still waiting for its own answer — closing it here
+            # would route the user's fresh request through the
+            # empty-turn recovery and mute the provider's real
+            # answer as delegate-owned. Consume the boundary.
+            self._finish_stale_generation_drop()
+            self._gate.drain()
+            # Same courtesy as a real boundary: a queued late
+            # result may deliver now that the wire is quiet.
+            self._schedule_late_delegate_flush()
+            return None
+        # A provider boundary — empty or not — means this
+        # generation ended. The silence backstop is only for the
+        # case where no boundary ever comes (BUG-152).
+        self._cancel_interruption_settle()
+        if self._output_language_retry_pending:
+            if not self._output_language_retry_requested:
+                await self._request_output_language_retry()
+                return None
+            # The retry itself ended without one acceptable text
+            # fragment.  Do not ask again or release any PCM.
+            self._output_language_retry_pending = False
+            self._output_language_failures += 1
+            await self._cancel_unsafe_output(
+                reason="output language retry produced no safe output",
+                interrupt_provider=False,
+                fallback_text=self._output_language_failure_phrase(),
+            )
+        if self._pending_tool_events:
+            self._cancel_tool_transcript_wait()
+            pending = self._pending_tool_events
+            self._pending_tool_events = []
+            for pending_event in pending:
+                await self._reject_untranscribed_tool_call(pending_event)
+        # The response is closed, so the transcript is final and the
+        # armed promise judgement can be made on the WHOLE text. It
+        # runs before the text-only fallback below so an unbacked
+        # promise is never handed to the surface TTS, and before the
+        # delegate lookup so its own deterministic delegate is the
+        # state this boundary then holds for. A declined recovery
+        # (a tool DID run, the delegate owns the reply) releases the
+        # held text so the answer is still spoken.
+        if not await self._recover_unbacked_action_claim():
+            await self._release_withheld_promise_text(
+                str(getattr(event, "provider_turn_id", "") or "")
+            )
+        if (
+            self._turn_id not in self._delegate_turns
+            and self._output_transcript
+            and not self._scrub_cancelled_for_turn
+            and not self._surface_spoke_this_turn
+            and not self._output_active
+            and self._output_samples_sent == 0
+            and self._gate.pending_audio_ms <= 0
+        ):
+            # Transcript deltas prove the answer exists, but an
+            # audio-mode turn with zero PCM is still silent to the
+            # user. Render the already-scrubbed text locally; no
+            # model or tool retry is necessary.
+            text_only_answer = "".join(self._output_transcript).strip()
+            if text_only_answer:
+                log.warning(
+                    "realtime[%s] provider completed with text but "
+                    "no audio; using surface TTS fallback",
+                    self.session_id,
+                )
+                await self._send_json(
+                    self._surface_speech_message(text_only_answer)
+                )
+        if await self._recover_empty_provider_turn():
+            return None
+        delegate_state = self._delegate_turns.get(self._turn_id)
+        # The delegate task stays alive PAST result delivery: it
+        # lingers in the readback-verification watchdog. In that
+        # phase a provider boundary belongs to the readback and
+        # must publish the turn normally, so a pending task alone
+        # no longer proves the result is outstanding.
+        hold_for_delegate = bool(
+            delegate_state is not None
+            and (
+                (
+                    self._turn_has_pending_delegate(self._turn_id)
+                    and not delegate_state.readback_verification_active
+                )
+                or (
+                    delegate_state.deterministic
+                    and not delegate_state.delivery_started
+                )
+            )
+        )
+        if hold_for_delegate and delegate_state is not None:
+            await self._pump_hold_turn_for_delegate(delegate_state)
+            return None
+        if (
+            delegate_state is not None
+            and delegate_state.result_complete
+            and delegate_state.delivery_started
+            and delegate_state.last_reply
+            and not delegate_state.surface_fallback_spoken
+            and not self._scrub_cancelled_for_turn
+            and not self._output_active
+            and self._output_samples_sent == 0
+            and self._gate.pending_audio_ms <= 0
+        ):
+            # The Brain produced a grounded answer, but the duplex
+            # provider failed a second time while rendering it. Hand
+            # the already-computed text to the surface's independent
+            # TTS path; never rerun the user request or its tools.
+            # Unlike the hold branch above, this one needs no
+            # readback_verification_active check: it fires only on
+            # a provider turn_complete with ZERO audio for a
+            # delivered reply, and shares the surface_fallback_spoken
+            # flag (set with no await in between) with the readback
+            # watchdog, so both nets can never speak the same reply.
+            fallback_text = (
+                "".join(self._output_transcript).strip()
+                or self._scrubbed_trusted_reply(delegate_state)
+                or self._gate.fallback_phrase()
+            )
+            if not self._output_transcript:
+                self._output_transcript.append(fallback_text)
+            log.warning(
+                "realtime[%s] provider produced no audio for a "
+                "grounded Brain result (boundary %.2fs after "
+                "delivery, transcript=%d chars); using surface "
+                "TTS fallback",
+                self.session_id,
+                (
+                    time.monotonic() - delegate_state.delivered_at
+                    if delegate_state.delivered_at
+                    else -1.0
+                ),
+                len("".join(self._output_transcript)),
+            )
+            # One reply, one voice (live forensic 2026-07-16
+            # 11:43: THREE renderings of the same answer). The
+            # readback watchdog must not speak it a second time,
+            # and a very late provider rendering — arriving after
+            # this turn closes — must stay inaudible until the
+            # user opens the next turn.
+            await self._send_delegate_surface_fallback(
+                delegate_state,
+                fallback_text,
+            )
+        final_chunks = self._gate.finalize(
+            response_id=str(
+                getattr(event, "provider_turn_id", "") or ""
+            )
+        )
+        if self._gate.hard_leak_pending():
+            # Same rendering-failure contract as the pending-buffer
+            # trip above: a delegate readback whose transcription
+            # never arrived is OUR already-delivered brain reply,
+            # not a leak. Speak the trusted text instead of the
+            # generic failure phrase (live incident 2026-07-16
+            # 11:24 reached this path once the unscrubbed-audio
+            # bound stopped tripping first, BUG-069).
+            trusted_reply = ""
+            if (
+                delegate_state is not None
+                and delegate_state.delivery_started
+                and not delegate_state.surface_fallback_spoken
+                # A cancel this turn already spoke; marking the
+                # reply as delivered before a no-op cancel would
+                # silently lose it (BUG-069 review).
+                and not self._scrub_cancelled_for_turn
+                and self._output_samples_sent == 0
+            ):
+                trusted_reply = self._scrubbed_trusted_reply(
+                    delegate_state
+                )
+            await self._cancel_unsafe_output(
+                reason="output transcript missing at turn completion",
+                interrupt_provider=False,
+                fallback_text=trusted_reply or None,
+                delegate_state=(
+                    delegate_state if trusted_reply else None
+                ),
+            )
+        for chunk in final_chunks:
+            await self._emit_audio(chunk)
+        self._gate.drain()
+        rendered_delegate_reply = bool(
+            delegate_state is not None
+            and delegate_state.delivery_started
+            and not delegate_state.surface_fallback_spoken
+            and not self._scrub_cancelled_for_turn
+            and self._output_samples_sent > 0
+        )
+        rendered_injected_readback = bool(
+            self._external_update is not None
+            and self._output_samples_sent > 0
+        )
+        guard_reply = ""
+        if rendered_delegate_reply or rendered_injected_readback:
+            # The provider just rendered a text Jarvis injected (a
+            # delegate result, a late result, an announcement) and
+            # this boundary closes that turn. On a server-VAD
+            # transport a SECOND generation can follow within
+            # milliseconds — the answer to the user's trailing
+            # speech, which re-renders the same text (BUG-143).
+            # The guard is armed AFTER the surface boundary below,
+            # not here: on the desktop that boundary blocks until
+            # the speaker queue has drained, and the provider had
+            # streamed the whole reply faster than real time — so
+            # a stamp taken now is already seconds old when the
+            # next event is judged, and every reply longer than
+            # the guard window slipped through as a phantom turn
+            # (live 2026-08-18 18:40: 7.6 s and 4.6 s readbacks,
+            # both spoken twice; BUG-148).
+            guard_reply = (
+                str(delegate_state.last_reply or "")
+                if rendered_delegate_reply and delegate_state is not None
+                else str(
+                    getattr(self._external_update, "source_text", "")
+                    or ""
+                )
+            )
+        boundary_at = time.monotonic()
+        await self._complete_surface_turn()
+        if guard_reply and self._may_arm_stale_generation_guard(
+            boundary_at
+        ):
+            self._arm_stale_generation_guard(guard_reply)
+        if self._end_after_turn:
+            # end_call was acknowledged; the model has now spoken
+            # its goodbye to the end — hang up.
+            await self._finish_with_hangup()
+            return _PumpSignal.STOP
+        if self._advised_reconnect_detail is not None:
+            # The provider's pre-disconnect window is ticking;
+            # this turn boundary is the safe moment to rebuild.
+            self._request_advised_rebuild()
+
+    async def _pump_hold_turn_for_delegate(self, delegate_state: _DelegateTurnState) -> None:
+        """Hold the provider boundary for a delegate that owns the turn; play the bridge line."""
+        bridge_completed = bool(
+            delegate_state.bridge_delivery_started
+            and not delegate_state.delivery_started
+        )
+        bridge_text = "".join(
+            delegate_state.bridge_transcript_parts
+        ).strip()
+        # Accept only the line chosen for this bridge run,
+        # another member of the closed per-language pools (the
+        # language may have shifted between injection and
+        # validation), or -- for a contextual ACTION ack -- a
+        # transcript the structural validator accepts (intent
+        # grammar, the user's own words, no result marker).
+        # Anything else is free-form output and stays muted.
+        agent_brand = self._agent_brand()
+        allowed_bridge_lines = {
+            _normalized_bridge_text(candidate)
+            for candidate in _delegate_bridge_texts(
+                self._language
+            )
+        }
+        allowed_bridge_lines |= all_instant_ack_lines(
+            self._language, agent_brand=agent_brand
+        )
+        allowed_bridge_lines |= all_progress_lines(self._language)
+        expected_bridge = (
+            delegate_state.bridge_expected_text
+            or next(iter(_delegate_bridge_texts(self._language)))
+        )
+        allowed_bridge_lines.add(
+            _normalized_bridge_text(expected_bridge)
+        )
+        contextual_ok = bool(
+            delegate_state.bridge_contextual
+            and bridge_text
+            and contextual_ack_is_valid(
+                bridge_text,
+                utterance=delegate_state.user_text,
+                language=self._language,
+                extra_allowed_words=(agent_brand,),
+            )
+        )
+        bridge_valid = bool(
+            bridge_completed
+            and (
+                delegate_state.bridge_direct_speech
+                or _normalized_bridge_text(bridge_text)
+                in allowed_bridge_lines
+                or contextual_ok
+            )
+        )
+        # A result that is ready BEFORE the first sample of the
+        # line wins outright (no double-tap); a line that starts
+        # playing finishes -- it is one short sentence, and a
+        # mid-word cut is worse than a one-second wait for the
+        # answer that follows on the provider's next response.
+        bridge_may_speak = bool(
+            bridge_valid
+            and not delegate_state.bridge_preempted
+            and not delegate_state.result_ready.is_set()
+        )
+        if bridge_may_speak:
+            for chunk in delegate_state.bridge_audio_chunks:
+                await self._emit_audio(chunk)
+        elif bridge_completed and bridge_text and not bridge_valid:
+            log.warning(
+                "realtime[%s] dropped non-conforming delegate "
+                "bridge output",
+                self.session_id,
+            )
+        bridge_was_audible = bool(
+            (
+                bridge_may_speak
+                or delegate_state.bridge_direct_audio_emitted
+            )
+            and not delegate_state.bridge_preempted
+            and self._output_samples_sent > 0
+        )
+        self._gate.drain()
+        delegate_state.provider_boundary_seen = True
+        delegate_state.input_boundary_ready.set()
+        delegate_state.provider_ready.set()
+        self._output_transcript.clear()
+        delegate_state.bridge_transcript_parts.clear()
+        delegate_state.bridge_audio_chunks.clear()
+        self._output_active = False
+        if bridge_was_audible:
+            # The interim sentence is a complete local playback
+            # segment, but the delegated action is still running.
+            # Surfaces drain that segment and return to THINKING;
+            # the final answer will open a new SPEAKING segment.
+            await self._send_json({"type": "thinking"})
+        if bridge_was_audible:
+            # Persist the line the model actually spoke -- the
+            # matched pool member, or the validated contextual
+            # sentence -- not merely the one requested.
+            spoken_bridge = next(
+                (
+                    candidate
+                    for candidate in (
+                        *_delegate_bridge_texts(self._language),
+                        *_all_instant_ack_pool_lines(
+                            self._language, agent_brand
+                        ),
+                        *_all_progress_pool_lines(self._language),
+                    )
+                    if _normalized_bridge_text(candidate)
+                    == _normalized_bridge_text(bridge_text)
+                ),
+                bridge_text if contextual_ok else expected_bridge,
+            )
+            delegate_state.bridge_spoken_text = spoken_bridge
+            await self._publish_delegate_bridge_spoken(
+                spoken_bridge
+            )
+        self._output_samples_sent = 0
+        log.debug(
+            "realtime[%s] held provider turn_complete for "
+            "delegate turn %s",
+            self.session_id,
+            self._turn_id,
+        )
+        await self._coalesce_ready_delegate_result(delegate_state)
+
+    async def _pump_on_error(self, event: Any) -> str | _PumpSignal | None:
+        """A provider error event: recover in place, fail over, or end the call."""
+        message = safe_preview(
+            event.error or "provider error", max_chars=800
+        )
+        declared_recoverable = bool(
+            getattr(event, "recoverable", False)
+        )
+        status = classify_provider_error(message)
+        # A provider may label a failed response as recoverable
+        # even though its account says there is no money/quota or
+        # the key is invalid — or the Live socket just closed
+        # with 1011 Resource exhausted. Retrying that same
+        # adapter cannot recover and caused the reconnect storm.
+        recoverable = (
+            declared_recoverable
+            and not _retrying_this_provider_cannot_recover(status)
+        )
+        failover_ready = False
+        if not recoverable:
+            status, failover_ready = (
+                self._prepare_cross_provider_fallback(
+                    self._provider,
+                    message,
+                    terminal=True,
+                )
+            )
+        log.warning(
+            "realtime[%s] %s provider error: %s",
+            self.session_id,
+            (
+                "recoverable"
+                if recoverable or failover_ready
+                else "terminal"
+            ),
+            message,
+        )
+        await self._publish_error(
+            "RealtimeProviderError",
+            message,
+            recoverable=recoverable or failover_ready,
+        )
+        if recoverable:
+            await self._send_json(
+                {"type": "provider_warning", "error": message}
+            )
+            if getattr(event, "reconnect_advised", False):
+                await self._schedule_advised_reconnect(message)
+            return None
+        # A terminal provider failure can strike while the tail of
+        # the current reply is still held by the scrub gate.
+        # Release the transcript-cleared remainder (same sequence
+        # as the turn_complete branch) so the spoken answer is not
+        # chopped harder than the transport failure requires;
+        # audio without a cleared transcript stays withheld
+        # (fail-closed).
+        final_chunks = self._gate.finalize(
+            response_id=self._active_provider_response_id
+        )
+        if self._gate.hard_leak_pending():
+            await self._cancel_unsafe_output(
+                reason="output transcript missing at provider error",
+                interrupt_provider=False,
+            )
+        for chunk in final_chunks:
+            await self._emit_audio(chunk)
+        self._gate.drain()
+        if failover_ready:
+            provider_id = str(
+                getattr(self._provider, "name", "unknown")
+                or "unknown"
+            )
+            self._provider_errors.append(
+                f"{provider_id}: {message}"
+            )
+            await self._send_json(
+                {
+                    "type": "provider_fallback",
+                    "provider": provider_id,
+                    "error": message,
+                    "status": status,
+                }
+            )
+            return (
+                f"{provider_id} became unavailable ({status}); "
+                "switching realtime provider"
+            )
+        self._failure_detail = message
+        self._failed.set()
+        await self._announce_live_call_failure(status)
+        await self._send_json(
+            {"type": "provider_error", "error": message}
+        )
+        return _PumpSignal.STOP
 
     async def _schedule_advised_reconnect(self, detail: str) -> None:
         """React to a provider's pre-disconnect notice (GoAway).

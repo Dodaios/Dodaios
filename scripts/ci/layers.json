@@ -1,0 +1,10 @@
+{
+  "layers": [
+    ["platform", "i18n", "assets"],
+    ["core"],
+    [],
+    ["ui"]
+  ],
+  "default_layer": 2,
+  "plugin_allowed": ["core", "platform", "i18n", "plugins"]
+}

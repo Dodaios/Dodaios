@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import dodaios.speech.wake_constants as wake_constants
+import dodaios.core.wake_constants as wake_constants
 
 _REPO = Path(__file__).resolve().parents[3]
 _ASSETS = _REPO / "dodaios" / "assets" / "wakeword"

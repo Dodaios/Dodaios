@@ -11,6 +11,16 @@ preview worktree. Loading the next pull request replaces the previous one.
     python scripts/dev_preview.py main       # current origin/main
     python scripts/dev_preview.py --stop     # close the Dev app
 
+Loading a pull request runs its code on this machine: its npm scripts, its
+build and its app, with the accounts of whoever runs this. So a pull request
+is loaded only when its head commit is the tip of a branch of ``origin``
+(only someone with push access puts it there) and, where ``gh`` answers,
+when it comes from this repository and its author is an owner, member or
+collaborator. Any other pull request is refused before anything of it is
+checked out. ``--run-untrusted-code`` lifts the refusal for a person who has
+read every changed file; an agent never passes it. Such a load never shares
+the main checkout's ``node_modules``.
+
 See docs/dev-preview.md.
 """
 
@@ -20,6 +30,7 @@ import argparse
 import filecmp
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -37,6 +48,12 @@ DEV_STATE_SUFFIX = ".dev.json"
 HELPER_MODULES = ("dodaios.agent_chat.turn_host", "dodaios.terminal.pty_host")
 BOOT_TIMEOUT_S = 240
 IS_WINDOWS = os.name == "nt"
+#: GitHub's ``author_association`` values of people who may push here.
+TRUSTED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
+UNTRUSTED_FLAG = "--run-untrusted-code"
+#: The merge queue's own branches hold whatever was queued, forks included.
+QUEUE_BRANCH_PREFIX = "refs/heads/gh-readonly-queue/"
+_GITHUB_URL = re.compile(r"(?:^|[/@])github\.com[:/]+([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
 
 
 def _git(*args: str, cwd: Path) -> str:
@@ -52,11 +69,90 @@ def main_checkout(start: Path) -> Path:
     return Path(common).parent
 
 
+def pull_request_number(target: str) -> str | None:
+    """The number when ``target`` names a pull request, else ``None`` (a branch)."""
+    target = target.strip().lstrip("#")
+    return target if target.isdigit() else None
+
+
 def fetch_spec(target: str) -> str:
     """The refspec that fetches ``target`` into :data:`PREVIEW_REF`."""
-    target = target.strip().lstrip("#")
-    source = f"refs/pull/{target}/head" if target.isdigit() else f"refs/heads/{target}"
+    number = pull_request_number(target)
+    name = target.strip().lstrip("#")
+    source = f"refs/pull/{number}/head" if number else f"refs/heads/{name}"
     return f"+{source}:{PREVIEW_REF}"
+
+
+def _answer(cmd: list[str], cwd: Path, timeout: float = 120) -> str | None:
+    """The output of a lookup, or ``None`` when it gave no answer."""
+    try:
+        proc = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def on_origin_branch(repo: Path, sha: str) -> bool:
+    """Whether ``sha`` is the tip of a branch of ``origin``.
+
+    Only someone with push access puts a commit on a branch of this
+    repository, and the head of a pull request from it is the tip of its
+    branch. The head of a fork's pull request is on none. ``origin`` is asked
+    now; no answer counts as no, so the check fails closed without a network.
+    """
+    listed = _answer(["git", "ls-remote", "--heads", "origin"], repo)
+    for line in (listed or "").splitlines():
+        tip, _, ref = line.partition("\t")
+        if tip == sha and ref and not ref.startswith(QUEUE_BRANCH_PREFIX):
+            return True
+    return False
+
+
+def origin_slug(repo: Path) -> str:
+    """``owner/name`` of ``origin`` when it is on GitHub, else ``""``."""
+    url = (_answer(["git", "remote", "get-url", "origin"], repo, 30) or "").strip()
+    match = _GITHUB_URL.search(url)
+    return f"{match.group(1)}/{match.group(2)}" if match else ""
+
+
+def pull_request_facts(repo: Path, number: str) -> dict | None:
+    """What GitHub says about the pull request, or ``None`` when ``gh`` does not answer."""
+    gh, slug = shutil.which("gh"), origin_slug(repo)
+    if not gh or not slug:
+        return None
+    query = (
+        "{association: .author_association, head: .head.repo.full_name, "
+        "base: .base.repo.full_name, sha: .head.sha}"
+    )
+    out = _answer([gh, "api", f"repos/{slug}/pulls/{number}", "--jq", query], repo, 60)
+    try:
+        facts = json.loads(out or "")
+    except ValueError:
+        return None
+    return facts if isinstance(facts, dict) else None
+
+
+def refusal(sha: str, *, on_branch: bool, facts: dict | None) -> str | None:
+    """Why a pull request's code must not run here; ``None`` when it may.
+
+    ``on_branch``: its head is the tip of a branch of ``origin``. ``facts``:
+    GitHub's answer, ``None`` when there was none; then the branch check
+    alone decides.
+    """
+    if not on_branch:
+        return "its head commit is on no branch of this repository"
+    if facts is None:
+        return None
+    if not facts.get("head") or facts.get("head") != facts.get("base"):
+        return "it comes from another repository"
+    association = str(facts.get("association") or "unknown")
+    if association not in TRUSTED_ASSOCIATIONS:
+        return f"its author is {association}, not an owner, member or collaborator"
+    if facts.get("sha") != sha:
+        return "it moved while it was being loaded; run the command again"
+    return None
 
 
 def is_dev_process(cmdline: list[str]) -> bool:
@@ -120,16 +216,44 @@ def stop_dev_app() -> int:
     return len(victims)
 
 
-def prepare_worktree(repo: Path, target: str) -> tuple[Path, str]:
-    """Fetch ``target`` and put the preview worktree on it. Returns (path, sha)."""
+def prepare_worktree(
+    repo: Path, target: str, *, run_untrusted: bool = False
+) -> tuple[Path, str, bool]:
+    """Fetch ``target`` and put the preview worktree on it.
+
+    Returns (path, sha, trusted). A pull request whose code must not run
+    here (:func:`refusal`) ends the run before anything of it is checked
+    out, unless ``run_untrusted`` says a person decided otherwise; then
+    ``trusted`` is False. A branch of ``origin`` is always trusted.
+    """
     _git("fetch", "--quiet", "origin", fetch_spec(target), cwd=repo)
     sha = _git("rev-parse", PREVIEW_REF, cwd=repo)
+    trusted = True
+    number = pull_request_number(target)
+    if number:
+        why = refusal(
+            sha, on_branch=on_origin_branch(repo, sha), facts=pull_request_facts(repo, number)
+        )
+        if why and not run_untrusted:
+            raise SystemExit(
+                f"pull request #{number} is not loaded: {why}.\n"
+                "Loading it would run its code on this machine with your accounts. "
+                "Read it on GitHub instead.\n"
+                f"Only a person who has read every changed file may pass {UNTRUSTED_FLAG}; "
+                "an agent never does (docs/dev-preview.md)."
+            )
+        if why:
+            trusted = False
+            print(f"WARNING: pull request #{number}: {why}. Its code runs on this machine now.")
     wt = repo / PREVIEW_DIR
+    if not trusted:
+        # Before any of that code is in the tree: no way into the main checkout.
+        drop_shared_node_modules(wt)
     if (wt / ".git").exists():
         _git("checkout", "--quiet", "--force", "--detach", sha, cwd=wt)
     else:
         _git("worktree", "add", "--quiet", "--detach", str(wt), sha, cwd=repo)
-    return wt, sha
+    return wt, sha, trusted
 
 
 def _is_link(path: Path) -> bool:
@@ -151,21 +275,41 @@ def _unlink_dir_link(path: Path) -> None:
         os.unlink(path)
 
 
+def drop_shared_node_modules(wt: Path) -> None:
+    """Take the link into the main checkout's node_modules out of ``wt``, if it has one."""
+    link = wt / FRONTEND / "node_modules"
+    if _is_link(link):
+        _unlink_dir_link(link)
+
+
 def _npm(*args: str, cwd: Path) -> None:
     npm = shutil.which("npm") or "npm"
     subprocess.run([npm, *args], cwd=cwd, check=True)
 
 
-def ensure_node_modules(repo: Path, wt: Path) -> str:
-    """Borrow the main checkout's node_modules when the lockfiles match."""
+def ensure_node_modules(repo: Path, wt: Path, *, share: bool = True) -> str:
+    """Borrow the main checkout's node_modules when the lockfiles match.
+
+    ``share=False`` (code from outside the repository): never. A link into
+    the main checkout would let that code's install and build write into
+    the folder the person's own app is built from, so the link of an
+    earlier load is taken away and the tree gets an install of its own.
+    """
     fe = wt / FRONTEND
     main_fe = repo / FRONTEND
     link = fe / "node_modules"
-    same_lock = (main_fe / "node_modules").is_dir() and filecmp.cmp(
-        fe / "package-lock.json", main_fe / "package-lock.json", shallow=False
+    same_lock = (
+        share
+        and (main_fe / "node_modules").is_dir()
+        and filecmp.cmp(fe / "package-lock.json", main_fe / "package-lock.json", shallow=False)
     )
+    if same_lock and not _is_link(link) and link.exists():
+        # An install of an earlier load, made from another lockfile or by code
+        # from outside: not the main checkout's, so never passed off as it.
+        shutil.rmtree(link, ignore_errors=True)
+        same_lock = not link.exists()
     if same_lock:
-        if _is_link(link) or link.exists():
+        if _is_link(link):
             return "node_modules: shared with the main checkout"
         if IS_WINDOWS:
             subprocess.run(
@@ -180,18 +324,26 @@ def ensure_node_modules(repo: Path, wt: Path) -> str:
         # Never let npm install into the main checkout's node_modules.
         _unlink_dir_link(link)
     _npm("ci", "--no-audit", "--no-fund", cwd=fe)
+    if not share:
+        return "node_modules: own install (code from outside never shares the main checkout's)"
     return "node_modules: own install (the lockfile differs from main)"
 
 
-def build_frontend(wt: Path) -> str:
-    """Build the bundle unless this frontend tree was built already."""
+def build_frontend(wt: Path, *, remember: bool = True) -> str:
+    """Build the bundle unless this frontend tree was built already.
+
+    ``remember=False`` (code from outside the repository): always build, and
+    leave no record, so no later load takes over a bundle that code built.
+    """
     tree = _git("rev-parse", f"HEAD:{FRONTEND.as_posix()}", cwd=wt)
     marker = Path(_git("rev-parse", "--absolute-git-dir", cwd=wt)) / "dev-preview-frontend"
     built = marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
-    if built == tree and (wt / DIST / "index.html").exists():
+    if remember and built == tree and (wt / DIST / "index.html").exists():
         return "frontend: unchanged since the last load, build skipped"
+    marker.unlink(missing_ok=True)
     _npm("run", "build", cwd=wt / FRONTEND)
-    marker.write_text(tree, encoding="utf-8")
+    if remember:
+        marker.write_text(tree, encoding="utf-8")
     return "frontend: built"
 
 
@@ -275,6 +427,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("target", nargs="?", help="pull request number, branch name, or main")
     parser.add_argument("--stop", action="store_true", help="close the Dev app")
     parser.add_argument("--no-build", action="store_true", help="skip the frontend build")
+    parser.add_argument(
+        UNTRUSTED_FLAG,
+        action="store_true",
+        help="load a pull request from outside the repository: its code runs on this "
+        "machine with your accounts. For a person who has read every changed file; "
+        "an agent never passes it.",
+    )
     args = parser.parse_args(argv)
     if not args.stop and not args.target:
         parser.error("name a pull request or a branch, or pass --stop")
@@ -285,11 +444,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.stop:
         return 0
 
-    wt, sha = prepare_worktree(repo, args.target)
+    wt, sha, trusted = prepare_worktree(repo, args.target, run_untrusted=args.run_untrusted_code)
     print(f"preview worktree: {wt} at {sha[:10]}")
     if not args.no_build:
-        print(ensure_node_modules(repo, wt))
-        print(build_frontend(wt))
+        print(ensure_node_modules(repo, wt, share=trusted))
+        print(build_frontend(wt, remember=trusted))
     pid = launch(repo, wt, app_interpreter(repo))
     branch = _git("rev-parse", "--abbrev-ref", "HEAD", cwd=repo)
     print(f"Dodaios Dev runs {args.target} ({sha[:10]}), pid {pid}. Window: 'Dodaios Dev'.")

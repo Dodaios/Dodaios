@@ -330,6 +330,15 @@ pull-request code, and only pushes bundles that build on the planned head and
 main, labels, comments, approves parked runs and enqueues. No checkout
 persists a token.
 
+What `integrate` hands on is data to `apply`. Its files are unpacked in a
+folder of their own, apart from the plan, so none of them can stand in for
+`plan.json`; which commit of main an update must contain is worked out from
+the plan, not read from them; and the names they carry are cut and cleaned
+before they go into a comment. The `rerere` cache that every later train
+restores is saved before the step that runs pull-request code. A fork's run
+at the same head commit never counts as a pull request's verdict and is
+never approved by the train.
+
 **Token.** The `apply` job runs in the `merge-train` environment (deployable
 from main only) and mints a short-lived token of the "PersonalJarvis Merge
 Bot" GitHub App (variable `MERGE_APP_ID`, environment secret
@@ -621,8 +630,15 @@ A release happens **only** when the maintainer asks for one.
   download:
 
   ```bash
-  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios
+  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios \
+    --signer-workflow Dodaios/Dodaios/.github/workflows/desktop-installers.yml \
+    --source-ref refs/tags/v<version>
   ```
+
+  The signer workflow and the tag belong to the check. Without them the
+  command accepts an attestation from any workflow run of the repository, not
+  only from the tag build of the installers. `release-smoke.yml` checks every
+  release with the same options (`scripts/ci/release_assets.py`).
 
   Releases up to and including v2.9.0 predate this and have no attestation.
 * **`release-smoke.yml`** (read-only) checks a published release the way a
