@@ -76,6 +76,9 @@ class Compared:
     interval: Interval
     baseline_tokens: float
     candidate_tokens: float
+    #: Tasks the night's budget did not reach. The interval is valid on the ones it
+    #: did (it holds at every look), but "no clear difference" needs every task.
+    unfinished: int = 0
 
     @property
     def cost_ratio(self) -> float:

@@ -26,6 +26,7 @@ from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
+from dodaios.rsi import lines
 from dodaios.rsi.params import Index, Param
 
 __all__ = ["MIN_GAIN", "MIN_SAVING", "Proposal", "Trial", "Tuner", "neighbours"]
@@ -104,8 +105,8 @@ class Tuner:
             return None
         moves: list[tuple[Param, Any, Trial]] = []
         for param in self._index.params:
-            if domain not in param.domains:
-                continue
+            if domain not in param.domains or lines.is_switch(param.name):
+                continue  # a standing line's switch is the line learner's (learners/lines.py)
             for value in neighbours(param, current[param.name]):
                 if (param.name, value) not in skip:
                     moves.append((param, value, try_values({param.name: value})))

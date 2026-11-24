@@ -13,7 +13,9 @@ turn, written once and never changed:
 * the vendor conversation a resumed turn continued, whether the turn carried a
   running task on, and how many pictures went with the message;
 * the first move: the first tool call's name and arguments (and whether a
-  line of text came before it), or that the model answered in text only.
+  line of text came before it), or that the model answered in text only. A
+  step that only loads a tool's schema (Claude Code's ``ToolSearch``) is not
+  the move; the call after it is.
 
 Only the lead's turns are kept: the ``jarvis`` surface, not a slash command.
 A turn that produced nothing (an error before the first output) is not kept.
@@ -42,6 +44,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.rsi.bench.first_move import LOADING_TOOLS as _LOADING_TOOLS
 from dodaios.rsi.storage import Db, Schema, open_db
 
 __all__ = [
@@ -237,35 +240,57 @@ class LeadTurnStore:
         with self._db.lock:
             rows = self._db.conn.execute(sql + " ORDER BY seq DESC LIMIT ?", [*args, limit])
             found = rows.fetchall()
-        return [
-            LeadTurn(
-                session_id=row["session_id"],
-                turn_id=row["turn_id"],
-                cli=row["cli"],
-                model=row["model"],
-                effort=row["effort"],
-                system=_unpack(row["system_z"]),
-                message=_unpack(row["message_z"]),
-                tools_digest=row["tools_digest"],
-                first_kind=row["first_kind"],
-                first_tool=row["first_tool"],
-                first_args=dict(json.loads(_unpack(row["first_args_z"]))),
-                text_before_tool=bool(row["text_before_tool"]),
-                resumed=row["resumed"],
-                continuation=bool(row["continuation"]),
-                images=int(row["images"]),
-                ts_ms=int(row["ts_ms"]),
-                app=row["app"],
-                seq=int(row["seq"]),
-            )
-            for row in found
-        ]
+        return [_turn(row) for row in found]
+
+    def turn(self, seq: int) -> LeadTurn | None:
+        """One recorded turn by its ``seq``; ``None`` when it is gone (deleted, too old)."""
+        with self._db.lock:
+            row = self._db.conn.execute("SELECT * FROM turns WHERE seq = ?", (seq,)).fetchone()
+        return _turn(row) if row is not None else None
+
+    def moves(self, *, limit: int = 10_000) -> list[LeadTurn]:
+        """Every recorded turn without its system prompt and message, oldest first.
+
+        What a benchmark needs to pick turns to replay: who, when, and the first
+        move. The texts stay compressed in the file until a replay reads one.
+        """
+        with self._db.lock:
+            found = self._db.conn.execute(
+                "SELECT seq, ts_ms, app, session_id, turn_id, cli, model, effort, resumed,"
+                " continuation, images, tools_digest, first_kind, first_tool,"
+                " text_before_tool, first_args_z FROM turns ORDER BY seq DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [_turn(row, texts=False) for row in reversed(found)]
 
     def stored_bytes(self) -> int:
         with self._db.lock:
             return int(
                 self._db.conn.execute("SELECT COALESCE(SUM(bytes), 0) FROM turns").fetchone()[0]
             )
+
+
+def _turn(row: Any, *, texts: bool = True) -> LeadTurn:
+    return LeadTurn(
+        session_id=row["session_id"],
+        turn_id=row["turn_id"],
+        cli=row["cli"],
+        model=row["model"],
+        effort=row["effort"],
+        system=_unpack(row["system_z"]) if texts else "",
+        message=_unpack(row["message_z"]) if texts else "",
+        tools_digest=row["tools_digest"],
+        first_kind=row["first_kind"],
+        first_tool=row["first_tool"],
+        first_args=dict(json.loads(_unpack(row["first_args_z"]))),
+        text_before_tool=bool(row["text_before_tool"]),
+        resumed=row["resumed"],
+        continuation=bool(row["continuation"]),
+        images=int(row["images"]),
+        ts_ms=int(row["ts_ms"]),
+        app=row["app"],
+        seq=int(row["seq"]),
+    )
 
 
 # ------------------------------------------------------------------ the app's file
@@ -285,13 +310,13 @@ def _db_path() -> Path:
     return runtime_data_dir() / DB_NAME
 
 
-def store() -> LeadTurnStore:
-    """The app's own ``lead_turns.db``, opened once per process."""
-    path = str(_db_path())
+def store(path: Path | None = None) -> LeadTurnStore:
+    """The app's own ``lead_turns.db`` (or the one at ``path``), opened once per process."""
+    key = str(path or _db_path())
     with _LOCK:
-        found = _OPEN.get(path)
+        found = _OPEN.get(key)
         if found is None:
-            found = _OPEN[path] = LeadTurnStore(path)
+            found = _OPEN[key] = LeadTurnStore(key)
         return found
 
 
@@ -387,6 +412,8 @@ class TurnRecorder:
             if kind in {"text_delta", "assistant_text"} and str(payload.get("text") or "").strip():
                 self._text = True
             elif kind == "tool_call":
+                if str(payload.get("name") or "") in _LOADING_TOOLS:
+                    return  # it only loads a tool's schema; the move is the call after it
                 raw = payload.get("input")
                 self._write(
                     "tool",

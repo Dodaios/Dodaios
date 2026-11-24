@@ -43,9 +43,11 @@ __all__ = [
     "Domain",
     "Measured",
     "Result",
+    "Role",
     "Source",
     "Split",
     "Task",
+    "role_of",
     "split_of",
     "task_id",
 ]
@@ -75,6 +77,22 @@ class Split(StrEnum):
     SELECT = "select"
     GUARD = "guard"
     SEALED = "sealed"
+
+
+class Role(StrEnum):
+    """What a task can tell, by what its truth rests on (``check["role"]``)."""
+
+    #: The right answer is known: the task can show a gain or a loss.
+    GAIN = "gain"
+    #: The person accepted what the assistant did then: the task can show that a
+    #: change breaks it, never that a change is better (a better answer than one
+    #: nobody objected to is not known). It guards against regressions.
+    GUARD = "guard"
+
+
+def role_of(task: Task) -> Role:
+    """The role of a task; one that names none can show a gain."""
+    return Role.GUARD if task.check.get("role") == Role.GUARD.value else Role.GAIN
 
 
 class Source(StrEnum):

@@ -248,6 +248,35 @@ async def tool_list_digest(session_id: str) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+async def tool_rows(session_id: str) -> list[dict[str, Any]]:
+    """The tool list this server gives ``session_id``, as plain rows, in listing order.
+
+    What a benchmark replay of a lead turn offers its CLI instead of this server
+    (``dodaios.rsi.bench.replay_tools``): the same names, descriptions, schemas
+    and marks, and no way to run any of them. ``[]`` while no gateway is up.
+    """
+    if _gateway() is None:
+        return []
+    token = CHAT_SESSION_REF.set(session_id or None)
+    try:
+        catalog = await _session_wire_catalog()
+    finally:
+        CHAT_SESSION_REF.reset(token)
+    rows: list[dict[str, Any]] = []
+    for wire, entry in catalog.items():
+        description, schema = _listed(wire, entry)
+        rows.append(
+            {
+                "name": wire,
+                "description": description,
+                "inputSchema": schema,
+                "readOnly": _read_only(entry),
+                "meta": dict(_ALWAYS_LOAD_META) if str(entry.name) in _ALWAYS_LOADED else None,
+            }
+        )
+    return rows
+
+
 def _gateway() -> Any | None:
     from dodaios.core import runtime_refs
 
@@ -485,5 +514,6 @@ __all__ = [
     "build_server",
     "mcp_max_output_chars",
     "offered_tools",
+    "tool_rows",
     "wire_read_only",
 ]

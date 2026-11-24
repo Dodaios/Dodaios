@@ -22,11 +22,12 @@ Nothing is announced. The night is quiet: no notice, no sound, no voice.
 ``--sandbox`` builds a throwaway installation that decides on the seed suite
 and prints what each night did. It reads and changes nothing of a real one.
 
-**What a night may spend.** The domains measured today ask no model, so a
-night costs a few seconds of this computer and nothing else. The limits for
-nights that do ask a model are fixed here, not in a setting: only while the
-person is away (:data:`IDLE_AFTER_S`), and at most :data:`BUDGET_SHARE` of a
-plan's usage window, never on a key that bills per token.
+**What a night may spend.** Measuring the recall asks no model. The
+``first_move`` domain replays lead turns, one model call each; its limits are
+fixed in :mod:`dodaios.rsi.budget`, not in a setting, and asked before every
+call: only while the person is away (:data:`IDLE_AFTER_S`), at most
+``FIRST_MOVE_CALLS`` calls and :data:`BUDGET_SHARE` of a plan's usage window a
+night, never above 80 % of a window, never on a key that bills per token.
 """
 
 from __future__ import annotations
@@ -42,13 +43,16 @@ from pathlib import Path
 from typing import Any, Final
 
 import dodaios
-from dodaios.learners.tuner import Trial, Tuner
+from dodaios.learners.lines import LineLearner
+from dodaios.learners.tuner import Proposal, Trial, Tuner
+from dodaios.rsi import lines as standing
 from dodaios.rsi import overlay as overlays
 from dodaios.rsi import params
 from dodaios.rsi.bench import run, seedsuite
-from dodaios.rsi.bench.model import Domain, Source, Split, Task
+from dodaios.rsi.bench.model import NEEDS_MODEL, Domain, Role, Source, Split, Task
 from dodaios.rsi.bench.recall import RecallWorld
 from dodaios.rsi.bench.store import DB_NAME, BenchStore, PracticeView
+from dodaios.rsi.budget import BUDGET_SHARE
 from dodaios.rsi.gate.decide import LIVE, Decision, MeasuredGate
 from dodaios.rsi.sequential import interval_of
 from dodaios.self_change import Draft, SelfChangeRegistry, State, Surface
@@ -57,7 +61,9 @@ __all__ = [
     "BUDGET_SHARE",
     "EVERY_S",
     "IDLE_AFTER_S",
+    "LINES",
     "MAX_MODEL_CALLS",
+    "MODEL_PRACTICE",
     "RAMP_MODEL_CALLS",
     "Night",
     "NightReport",
@@ -68,8 +74,6 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
-#: Share of a plan's usage window a night may use for model calls. Fixed.
-BUDGET_SHARE: Final[float] = 0.20
 #: The person must have been away this long before a night starts.
 IDLE_AFTER_S: Final[float] = 15 * 60
 #: At most one night in this time.
@@ -82,7 +86,11 @@ MAX_MODEL_CALLS: Final[int] = 8
 RAMP_MODEL_CALLS: Final[int] = 24
 #: For how long a value the gate turned down is not proposed again.
 _SKIP_MS: Final[int] = 30 * 24 * 3600 * 1000
+#: Practice tasks a learner tries a move on per night, in a domain that asks a
+#: model: every try is a call, and the gate decides on other tasks anyway.
+MODEL_PRACTICE: Final[int] = 12
 TUNER: Final = "tuner"
+LINES: Final = "lines"
 _LOOP_KEY: Final = "loop"
 
 
@@ -102,6 +110,8 @@ class NightReport:
     proposed: list[dict[str, Any]] = field(default_factory=list)
     decided: list[dict[str, Any]] = field(default_factory=list)
     measured: list[dict[str, Any]] = field(default_factory=list)
+    #: Model calls per domain that asks a model: made, allowed, and why they stopped.
+    calls: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def public(self) -> dict[str, Any]:
         return {
@@ -113,13 +123,15 @@ class NightReport:
             "proposed": self.proposed,
             "decided": self.decided,
             "measured": self.measured,
+            "calls": self.calls,
         }
 
     @property
     def idle(self) -> bool:
         """True when the night had nothing to work on."""
         made = any(
-            self.made.get(k) for k in ("questions", "messages", "forgotten", "past_work")
+            self.made.get(k)
+            for k in ("questions", "messages", "forgotten", "past_work", "lead_turns")
         )
         return not (made or self.settled or self.proposed or self.decided or self.measured)
 
@@ -141,6 +153,12 @@ class NightReport:
             out.append(f"Erased {self.made['forgotten']} tasks about memories that are gone.")
         if self.made.get("past_work"):
             out.append(f"Stored {self.made['past_work']} tasks from your past coding work.")
+        if self.made.get("lead_turns"):
+            out.append(f"Stored {self.made['lead_turns']} first-move tasks from your lead turns.")
+        for domain, spent in self.calls.items():
+            if spent.get("calls"):
+                stop = f"; stopped: {spent['stopped']}" if spent.get("stopped") else ""
+                out.append(f"Replayed {spent['calls']} {domain} tasks on the model{stop}.")
         for row in self.settled:
             if row["outcome"] == "kept" and row.get("was") == "live":
                 continue  # what was live and stays live is not news
@@ -175,7 +193,7 @@ class Night:
         *,
         sources: Sequence[Source] = (Source.MINED, Source.MADE),
         clock: Callable[[], int] = lambda: int(time.time() * 1000),
-        learners: Sequence[str] = (TUNER,),
+        learners: Sequence[str] = (TUNER, LINES),
         prepare: Callable[[], dict[str, Any]] | None = None,
         finish: Callable[[], None] | None = None,
     ) -> None:
@@ -194,6 +212,7 @@ class Night:
         store = params.installed()
         self._index = store.index if store is not None else params.INDEX
         self._tuner = Tuner(self._index)
+        self._lines = LineLearner()
 
     # ---------------------------------------------------------------- state
 
@@ -218,11 +237,11 @@ class Night:
     def _settle(self, everything: bool) -> list[Decision]:
         return self.gate.settle_all(newest=10_000 if everything else 5)
 
-    def _recently_declined(self) -> set[tuple[str, Any]]:
+    def _recently_declined(self, author: str = TUNER) -> set[tuple[str, Any]]:
         since = self._clock() - _SKIP_MS
         skip: set[tuple[str, Any]] = set()
         for change in self.registry.store.list(since_ms=since, limit=2000):
-            if change.surface is not Surface.PARAMETER or change.author != TUNER:
+            if change.surface is not Surface.PARAMETER or change.author != author:
                 continue
             if change.state in (State.BLOCKED, State.REVERTED, State.PROPOSED):
                 try:
@@ -231,27 +250,57 @@ class Night:
                     continue
         return skip
 
+    def _waiting(self, domain: Domain) -> bool:
+        """A candidate of ``domain`` waits for its measurement."""
+        for change in self.registry.candidates():
+            param = self._index.get(change.target) if change.surface is Surface.PARAMETER else None
+            if param is not None and domain.value in param.domains:
+                return True
+        return False
+
     def _propose(self, domain: Domain) -> dict[str, Any] | None:
-        if TUNER not in self.learners or not self.gate.can_decide(domain):
+        if not self.gate.can_decide(domain):
             return None  # nothing could decide on a proposal, so none is made
+        model = domain in NEEDS_MODEL
+        if model and self._waiting(domain):
+            # Every measurement costs model calls: the one waiting is finished first.
+            return None
         tasks = [
             t for t in PracticeView(self.bench).tasks(domain) if t.source in self.sources
         ]
+        worlds = self._worlds()
+        if model:
+            if domain.value not in worlds:
+                return None  # no seat to replay on tonight
+            tasks = run.shuffled(tasks, f"practice:{domain.value}")[:MODEL_PRACTICE]
         if not tasks:
             return None
-        worlds = self._worlds()
+        store = self.bench if model and not self.bench.readonly else None
 
         def try_values(values: Mapping[str, Any]) -> Trial:
             overlay = overlays.Overlay(label="practice", params=dict(values))
-            results = [r for r in run.measure(tasks, overlay, worlds) if r.counts]
+            arm = run.arm_of(overlay, domain=domain, worlds=worlds)
+            measured = run.measure(tasks, overlay, worlds, arm=arm, store=store)
+            results = [r for r in measured if r.counts]
             if not results:
                 return Trial(0.0, 0.0, 0)
             n = len(results)
             return Trial(sum(r.score for r in results) / n, sum(r.tokens for r in results) / n, n)
 
-        found = self._tuner.propose(
-            domain.value, params.values(), try_values, skip=self._recently_declined()
-        )
+        switches = [
+            name for name in standing.LEARNABLE if domain.value in self._index.by_name(name).domains
+        ]
+        found: Proposal | None = None
+        author = ""
+        if switches and LINES in self.learners:
+            author = LINES
+            current = {name: params.get(name) for name in switches}
+            found = self._lines.propose(current, try_values, skip=self._recently_declined(LINES))
+        elif not switches and TUNER in self.learners:
+            author = TUNER
+            found = self._tuner.propose(
+                domain.value, params.values(), try_values, skip=self._recently_declined(TUNER)
+            )
         if found is None:
             return None
         param = self._index.by_name(found.name)
@@ -260,7 +309,7 @@ class Night:
                 Surface.PARAMETER,
                 param.name,
                 params.text_for(param, found.value),
-                author=TUNER,
+                author=author,
                 reason=found.reason(),
             )
         )
@@ -271,15 +320,24 @@ class Night:
             "gain": found.gain,
             "cost_ratio": round(found.cost_ratio, 4),
             "reason": found.reason(),
-            "learner": TUNER,
+            "learner": author,
         }
 
     def _advantage(self, domain: Domain, now_ms: int) -> dict[str, Any] | None:
-        """The assistant as it is against the assistant as it ships, on the sealed tasks."""
-        tasks = run.shuffled(self.gate.tasks(domain, Split.SEALED), f"advantage:{domain.value}")
+        """The assistant as it is against the assistant as it ships, on the sealed tasks.
+
+        Only tasks whose right answer is known count: a gain over what the person
+        merely accepted is not a gain anyone can tell (``Role``).
+        """
+        tasks = run.shuffled(
+            self.gate.tasks(domain, Split.SEALED, Role.GAIN), f"advantage:{domain.value}"
+        )
         if not tasks:
             return None
         worlds = self._worlds()
+        model = domain in NEEDS_MODEL
+        if model and domain.value not in worlds:
+            return None
         changes = self.registry.learned_ids()
         from dodaios.rsi import adopt
 
@@ -287,12 +345,17 @@ class Night:
         factory = overlays.Overlay(
             label="factory", factory=True, hidden_memories=adopt.memory_ids(self.registry)
         )
-        shipped_arm = run.arm_of(factory)
-        now_arm = run.arm_of(LIVE, changes=changes)
-        shipped = run.measure(tasks, factory, worlds, arm=shipped_arm)
+        shipped_arm = run.arm_of(factory, domain=domain, worlds=worlds)
+        now_arm = run.arm_of(LIVE, changes=changes, domain=domain, worlds=worlds)
+        if model and now_arm.id == shipped_arm.id:
+            # Nothing learned touches what this domain replays: both sides are the
+            # same assistant, the advantage is zero, and no call is spent on saying so.
+            return None
+        store = self.bench if model and not self.bench.readonly else None
+        shipped = run.measure(tasks, factory, worlds, arm=shipped_arm, store=store)
         now = shipped
         if now_arm.id != shipped_arm.id:  # something is learned: the two can differ
-            now = run.measure(tasks, LIVE, worlds, arm=now_arm)
+            now = run.measure(tasks, LIVE, worlds, arm=now_arm, store=store)
         paired = run.pair(shipped, now)
         if paired.n == 0:
             return None
@@ -345,6 +408,14 @@ class Night:
                 point = self._advantage(domain, now_ms)
                 if point is not None:
                     report.measured.append(point)
+            for name, world in self._worlds().items():
+                budget = getattr(world, "budget", None)
+                if budget is not None:
+                    report.calls[name] = {
+                        "calls": budget.calls,
+                        "cap": budget.cap,
+                        "stopped": budget.stopped,
+                    }
         finally:
             if self._finish is not None:
                 self._finish()
@@ -489,8 +560,11 @@ def install(
     world = LiveWorld(vault_runtime.vault_path(config), home / "rsi")
     maker = OwnRecallMaker(bench, world, home / "agent_chat.db", _model_ask(config, loop))
 
+    tonight: dict[str, Any] = {}
+
     def prepare() -> dict[str, Any]:
         made = _past_work(bench)
+        made.update(_lead(bench, home, loop, tonight))
         if not world.refresh():
             return made
         from dodaios.rsi import adopt
@@ -499,8 +573,43 @@ def install(
             adopt.how_tos(registry, world.vault)
         return {**maker.run(calls_tonight(bench)), **made}
 
-    night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)
+    def worlds() -> run.Worlds:
+        return {**world.worlds(), **tonight}
+
+    def finish() -> None:
+        tonight.clear()
+        world.close()
+
+    night = Night(registry, bench, worlds, prepare=prepare, finish=finish)
     return NightService(night, _person_idle, chat_db=home / "agent_chat.db")
+
+
+def _lead(bench: BenchStore, home: Path, loop: Any, tonight: dict[str, Any]) -> dict[str, Any]:
+    """first_move tasks from the lead's recorded turns, and tonight's replay. No model call here.
+
+    The replay world is built for this night only (its budget is this night's)
+    and only on the lead's plan (:mod:`dodaios.rsi.bench.lead_world`).
+    """
+    from dodaios.rsi import lead_turns
+    from dodaios.rsi.bench import lead_replay, lead_world
+    from dodaios.rsi.bench.own import lead as own_lead
+
+    if not (home / lead_turns.DB_NAME).is_file():
+        return {}
+    made: dict[str, Any] = {}
+    try:
+        turns = lead_turns.store(home / lead_turns.DB_NAME)
+        rows, chat = own_lead.read(turns, home / "agent_chat.db")
+        made = own_lead.take_in(bench, rows, chat, now_ms=int(time.time() * 1000))
+        built = lead_world.build(home=home, turns=turns, loop=loop, idle=_person_idle)
+    except Exception:  # noqa: BLE001 - an unreadable record costs the domain this night, no more
+        log.warning("self-improvement: the lead's turns could not be read", exc_info=True)
+        return made
+    if built.world is not None:
+        tonight[lead_replay.WORLD] = built.world
+    else:
+        made["lead_replay"] = built.reason
+    return made
 
 
 # ------------------------------------------------------------------ sandbox
