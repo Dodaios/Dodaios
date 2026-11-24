@@ -35,7 +35,7 @@ def build() -> tuple[AppCommand, ...]:
             title="Write a ritual for the user",
             description=(
                 _RITUAL_GUIDE + "Write the steps as the user said them and sort them "
-                "'ahead' or 'now'. Do not run them now. Tell the user the phrase that "
+                "'ahead' or 'now'. Do not run the steps now. Tell the user the phrase that "
                 "starts it; a refusal names what to change."
             ),
             # Not dangerous: the user ordered it, and it is switched off or
@@ -55,7 +55,7 @@ def build() -> tuple[AppCommand, ...]:
             title="Change a ritual",
             description=(
                 "Change a ritual: send only what changes. 'steps' replaces the whole list: read "
-                "it with ritual-list first and keep the ids of steps that stay."
+                "it with ritual-list first and keep each step's id that stays."
             ),
             method="PATCH", path="/api/agent-chat/lead/rituals/{ritual_id}",
             path_params=("ritual_id",), ui_section="chats",

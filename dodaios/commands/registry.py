@@ -236,7 +236,7 @@ def _ritual_properties() -> dict[str, Any]:
                     "call": {
                         "type": "object",
                         "description": (
-                            "Only for a 'now' step that is exactly one call of one of your "
+                            "Only for a 'now' step that is exactly ONE call of one of your "
                             "tools with fixed arguments: it is then made at once, without "
                             "you. Find the arguments out first. Leave out for a step that "
                             "needs judgment."
@@ -280,7 +280,7 @@ def _ritual_ref_param() -> dict[str, Any]:
 
 
 _RITUAL_GUIDE = (
-    "A ritual is steps the user wrote beforehand and starts by saying a short phrase after "
+    "A ritual is steps the user wrote beforehand and starts by SAYING a short phrase after "
     "the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not "
     "a routine or skill, whenever something should happen when the user says something; a "
     "routine runs by the clock. "

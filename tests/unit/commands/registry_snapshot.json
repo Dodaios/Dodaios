@@ -246,7 +246,7 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "0feb390efa96eb87c7ce220ccdab9df7b15dedcaedda929b620a8cc1f7693ff5",
+  "description_sha256": "a446cf563ab55b2aa2bbbfdb0e3767b849fa09099ccd9fb875a8f9c8cef17b62",
   "params_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
   "voice_aliases": {
    "de": "c58cc4164f4df89204269bfa63f78993612dccaa0ac3ad2cd6751e814c7a7c0d",
@@ -266,8 +266,8 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "1ec5f881e1174d57e6cf1396fc3d9246cd9c419eff3f3f7ae501ac2c6698cab6",
-  "params_sha256": "e72cab3f8b7644734d4c5daaa97f53aab3e3c2bf568b0bf1555a0a0fc829cf79",
+  "description_sha256": "a85aa985c6f02691aaea3970fd90e7da51e158bd89eca78faa72e36f24fad496",
+  "params_sha256": "b0fe12f987977c33d7c9f5e4bd4040d297dbe5a41a326134a3525492b24aa7ca",
   "voice_aliases": {
    "de": "c6fcd52710692ec45296e29d3f10ee7b39500e5b42369e87c59a08240cd9ec36",
    "en": [
@@ -288,8 +288,8 @@
   "dangerous": false,
   "worker_allowed": false,
   "ui_section": "chats",
-  "description_sha256": "cb7fde75b99271565eb1c6fcf27eea91a2d8e8301bb85af4bbc734826beee8fc",
-  "params_sha256": "2fb42d889d0d549341a41653e4e97beccd4fef74426436f26f59fa78b97301ad",
+  "description_sha256": "3b24febed08e93eda6bbf203ba506bb36e37a0de1accbbff2cefaa55e5052837",
+  "params_sha256": "851ba549cac11e09ef2f6d8303496dfc94701759cd3ede2004150c3fefcabab4",
   "voice_aliases": {
    "de": "1224fec4b75c82782c1a5fdb32093f51c29e825c531790447d7aca98eb9f0b02",
    "en": [

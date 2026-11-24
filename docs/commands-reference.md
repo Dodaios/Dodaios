@@ -123,7 +123,7 @@ Pause, resume, delete or run-now one agent routine on user request.
 
 ## `ritual-list` — List the user's rituals
 
-A ritual is steps the user wrote beforehand and starts by saying a short phrase after the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not a routine or skill, whenever something should happen when the user says something; a routine runs by the clock. Lists every ritual with phrases, steps, times and today's state. Read it before changing one.
+A ritual is steps the user wrote beforehand and starts by SAYING a short phrase after the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not a routine or skill, whenever something should happen when the user says something; a routine runs by the clock. Lists every ritual with phrases, steps, times and today's state. Read it before changing one.
 
 - **Endpoint:** `GET /api/agent-chat/lead/rituals`
 - **Arguments:** none
@@ -133,7 +133,7 @@ A ritual is steps the user wrote beforehand and starts by saying a short phrase 
 
 ## `ritual-create` — Write a ritual for the user
 
-A ritual is steps the user wrote beforehand and starts by saying a short phrase after the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not a routine or skill, whenever something should happen when the user says something; a routine runs by the clock. Write the steps as the user said them and sort them 'ahead' or 'now'. Do not run them now. Tell the user the phrase that starts it; a refusal names what to change.
+A ritual is steps the user wrote beforehand and starts by SAYING a short phrase after the wake word, or typing it ('Good morning': music, news, pull requests). Use it, not a routine or skill, whenever something should happen when the user says something; a routine runs by the clock. Write the steps as the user said them and sort them 'ahead' or 'now'. Do not run the steps now. Tell the user the phrase that starts it; a refusal names what to change.
 
 - **Endpoint:** `POST /api/agent-chat/lead/rituals`
 - **Arguments:** `name` (string; required); `phrases` (array; required); `steps` (array; required); `window_from` (string; optional); `window_to` (string; optional); `weekdays` (array; optional); `once_per_day` (boolean; optional); `prepare_from` (string; optional)
@@ -143,7 +143,7 @@ A ritual is steps the user wrote beforehand and starts by saying a short phrase 
 
 ## `ritual-update` — Change a ritual
 
-Change a ritual: send only what changes. 'steps' replaces the whole list: read it with ritual-list first and keep the ids of steps that stay.
+Change a ritual: send only what changes. 'steps' replaces the whole list: read it with ritual-list first and keep each step's id that stays.
 
 - **Endpoint:** `PATCH /api/agent-chat/lead/rituals/{ritual_id}`
 - **Arguments:** `ritual_id` (string; required); `name` (string; optional); `phrases` (array; optional); `steps` (array; optional); `window_from` (string; optional); `window_to` (string; optional); `weekdays` (array; optional); `once_per_day` (boolean; optional); `prepare_from` (string; optional); `enabled` (boolean; optional)
