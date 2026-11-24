@@ -572,6 +572,46 @@ see it. The entry holds the memory's id and none of its words: a note the
 person forgot leaves nothing behind. A how-to is not measured yet; the list
 says so.
 
+### A note's track in your requests
+
+A how-to note is not measured, but the record says where it went. For each
+note in effect the page shows in how many of the person's requests the lead had
+it in front of it, how many of those went through, and the same share for the
+requests of the same period it was not shown in (`dodaios/rsi/credit.py`). The
+period starts when the note was written into the memory (it rode in prompts
+from then on, before a night took it into the registry), or with the oldest
+turn on record if that is later.
+
+- **Shown.** The memory blocks of a recorded turn (`lead_turns.db`) carry no
+  memory ids: a memory is one line, `- <text>`, a recalled one with
+  ` (since <date>)` after it. The memory keeps a note's text on one line and
+  never changes its words under the same id. So a turn showed a note when one
+  line of its system prompt or message is exactly the note's line. A note that
+  reached the model reworded or cut short is not counted.
+- **Went through.** The turn ended done, no undo call followed, and the
+  person's next message within 30 minutes did not correct it, ask the same
+  again or ask to undo it (`follow_up_kind`; the first_move tasks use the same
+  rule). A request still too new to know, a turn that carried a running task
+  on, and a recorded turn the chat record holds no request for are not counted.
+- **The minimum.** A share, and the count that went through, is given only on
+  30 requests or more; below that the page says only how often the note was
+  shown. 30 is the gate's own minimum (rule 1 in "The gate's answer"), and near
+  the usual 85 % the 95 % range of a share on 30 requests is still about 13
+  points either way (22 on 10).
+
+This is what happened, not what caused it: a note comes up when a request is
+about its subject, so the requests it was shown in are not like the others. The
+page says so in one sentence, and nothing decides on it. It calls no model,
+reads `lead_turns.db` and `agent_chat.db` at most every ten minutes, off the
+event loop, and gives the page counts, never words. A note the person forgot
+has no track. Other learned changes (parameters, standing lines) act on every
+turn once they apply, so the same period has no turns without them to set
+beside; they get no track.
+
+On a copy of the maintainer's records (2026-11-24, the day recording began): 7
+lead turns on record, 6 with a known outcome; the three how-to notes were shown
+in 6, 6 and 3 of them. No share yet.
+
 ## How coding agents are steered
 
 How Dodaios steers the coding runs it hands out is a coding policy per cell
@@ -855,5 +895,7 @@ There is no other control on purpose: the person only stops or undoes
 | One night's 40 replay calls shared by first_move and brief | built |
 | `BRIEF_LINE` learnable as one of three fixed wordings, measured by the brief domain | built |
 | A brief replay asks in the default mode and has none of the CLI's own file or shell tools; only the app's own server is answered | built |
+| A learned note's track in the person's requests: shown in how many, how many went through, beside the requests without it; a share from 30 on | built; observed, decides nothing |
+| The track on the page: a phrase in the note's row, the sentence and its caveat in the note's sheet | built |
 | Whether a brief said what the person had to add afterwards (a judge) | later |
 | Always-on recording of work, the other domains, lessons, the jury | later |
