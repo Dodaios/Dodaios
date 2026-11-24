@@ -20,12 +20,22 @@ Usage::
     python scripts/ci/mypy_gate.py --update   # rewrite the baseline (may only shrink)
     python scripts/ci/mypy_gate.py --table    # print the per-package table
     python scripts/ci/mypy_gate.py --from-file out.txt   # use a saved mypy output
+    python scripts/ci/mypy_gate.py --base <sha>          # judge only touched packages
+    python scripts/ci/mypy_gate.py --all                 # judge every package
+
+With a diff base (``--base`` or ``$RATCHET_BASE``) only the packages that contain a
+file changed since the base (``git diff --name-only <base> HEAD``) are judged: main
+moves while a pull request waits in the merge queue, so a whole-repo comparison is
+stale by merge time. A change to the mypy setup itself (``pyproject.toml``, this
+script, the baseline, ``uv.lock``) judges every package. Without a base, or with
+``--all``, every package is judged.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -126,6 +136,64 @@ def count_errors(output: str) -> Counter[str]:
     return counts
 
 
+_FULL_CHECK_FILES = frozenset(
+    {
+        "pyproject.toml",
+        "uv.lock",
+        "scripts/ci/mypy_gate.py",
+        "scripts/ci/mypy-baseline.json",
+    }
+)
+
+
+def touched_packages(base: str) -> set[str] | None:
+    """Packages with a changed file since ``base``; ``None`` means judge everything."""
+    proc = subprocess.run(
+        ["git", "diff", "--name-only", "--no-renames", base, "HEAD"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        print(f"note: git diff against {base!r} failed; judging every package.")
+        return None
+    packages: set[str] = set()
+    for name in proc.stdout.split():
+        if name in _FULL_CHECK_FILES:
+            return None
+        if name.endswith((".py", ".pyi")):
+            packages.add(package_of(name))
+    return packages
+
+
+def judge(
+    counts: Counter[str],
+    baseline: dict[str, int],
+    touched: set[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Return ``(failures, notes)``; ``touched`` limits the judgement to those packages."""
+    failures: list[str] = []
+    notes: list[str] = []
+    for package in BLOCKING:
+        if touched is not None and package not in touched:
+            continue
+        if counts.get(package):
+            failures.append(
+                f"{package} is a blocking package and reports {counts[package]} mypy error(s)."
+            )
+    for package, number in sorted(counts.items()):
+        if package in BLOCKING or (touched is not None and package not in touched):
+            continue
+        allowed = baseline.get(package, 0)
+        if number > allowed:
+            failures.append(f"{package}: {number} mypy errors, baseline allows {allowed}.")
+    for package, allowed in sorted(baseline.items()):
+        if counts.get(package, 0) < allowed:
+            notes.append(f"{package}: {counts.get(package, 0)} (baseline {allowed}).")
+    return failures, notes
+
+
 def run_mypy() -> str:
     proc = subprocess.run(
         [sys.executable, "-m", "mypy", "dodaios/", "--no-error-summary", "--show-error-codes"],
@@ -151,6 +219,13 @@ def main() -> int:
     parser.add_argument("--update", action="store_true", help="rewrite the baseline")
     parser.add_argument("--table", action="store_true", help="print the per-package table")
     parser.add_argument("--from-file", help="read saved mypy output instead of running mypy")
+    parser.add_argument("--all", action="store_true", help="judge every package")
+    parser.add_argument(
+        "--base",
+        default=os.environ.get("RATCHET_BASE", ""),
+        help="diff base: judge only packages with a file changed since it "
+        "(default: $RATCHET_BASE; without one every package is judged)",
+    )
     args = parser.parse_args()
 
     output = Path(args.from_file).read_text(encoding="utf-8") if args.from_file else run_mypy()
@@ -163,22 +238,8 @@ def main() -> int:
         print(f"{sum(counts.values()):5d}  total")
         return 0
 
-    failures: list[str] = []
-    notes: list[str] = []
-    for package in BLOCKING:
-        if counts.get(package):
-            failures.append(
-                f"{package} is a blocking package and reports {counts[package]} mypy error(s)."
-            )
-    for package, number in sorted(counts.items()):
-        if package in BLOCKING:
-            continue
-        allowed = baseline.get(package, 0)
-        if number > allowed:
-            failures.append(f"{package}: {number} mypy errors, baseline allows {allowed}.")
-    for package, allowed in sorted(baseline.items()):
-        if counts.get(package, 0) < allowed:
-            notes.append(f"{package}: {counts.get(package, 0)} (baseline {allowed}).")
+    touched = None if (args.all or args.update or not args.base) else touched_packages(args.base)
+    failures, notes = judge(counts, baseline, touched)
 
     if args.update:
         fresh = {p: n for p, n in counts.items() if p not in BLOCKING}
@@ -200,8 +261,9 @@ def main() -> int:
             print(f"  {failure}")
         print("Fix the errors (see `python -m mypy dodaios/`); the baseline may only shrink.")
         return 1
+    scope = "every package" if touched is None else f"{len(touched)} touched package(s)"
     print(
-        f"mypy gate ok: {len(BLOCKING)} blocking packages clean, "
+        f"mypy gate ok ({scope} judged): {len(BLOCKING)} blocking packages clean, "
         f"{sum(counts.values())} backlog errors within the baseline."
     )
     return 0
