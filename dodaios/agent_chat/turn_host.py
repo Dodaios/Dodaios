@@ -161,10 +161,10 @@ class HostedTurn:
     #: stdin is open: the reading app closes it, or the host does once nobody
     #: has read the turn for ``UNWATCHED_STDIN_S``.
     close_stdin_on: str = ""
-    #: A Claude Code task notice came before the first ``result``: the empty
-    #: ``result`` that answers it is not the turn's answer
-    #: (``claude_result_without_model_turn``).
-    notice_pending: bool = False
+    #: Claude Code task notices that came before the first ``result``: the
+    #: empty ``result`` answering each is not the turn's answer
+    #: (``claude_result_without_model_turn``). One per notice, so counted.
+    notices_pending: int = 0
     #: The answer line was read; later lines change nothing.
     answered: bool = False
     #: Since when no app has been reading this turn's lines (monotonic).
@@ -689,12 +689,15 @@ def _is_answer(turn: HostedTurn, text: str) -> bool:
     obj = _line_object(text)
     kind = str(obj.get("type") or "")
     if kind == "system" and obj.get("subtype") == "task_notification":
-        turn.notice_pending = True
+        turn.notices_pending += 1
         return False
     if kind != turn.close_stdin_on:
         return False
-    notice, turn.notice_pending = turn.notice_pending, False
-    return not (notice and claude_result_without_model_turn(obj))
+    if turn.notices_pending and claude_result_without_model_turn(obj):
+        turn.notices_pending -= 1
+        return False
+    turn.notices_pending = 0
+    return True
 
 
 def _stdin_open(turn: HostedTurn) -> bool:
