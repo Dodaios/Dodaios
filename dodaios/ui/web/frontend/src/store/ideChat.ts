@@ -257,3 +257,26 @@ function sameRows(left: IdeWorkspaceRow[], right: IdeWorkspaceRow[]): boolean {
     );
   });
 }
+
+/**
+ * The workspace the IDE's side panel shows (Folder, Changes, Search, Git, File,
+ * its terminals, the code editor): the open thread's in the thread layout, the
+ * grid's front one otherwise. See `store/panelWorkspace` for the thread side.
+ */
+function pickPanel(layout: string, thread: IdeWorkspace | null, grid: IdeWorkspace | null): IdeWorkspace | null {
+  return layout === "threads" && thread ? thread : grid;
+}
+
+/** The workspace the side panel shows, for a component. */
+export function usePanelWorkspace(): IdeWorkspace | null {
+  const layout = useIdeThreadsStore((state) => state.layout);
+  const thread = useIdeChatStore((state) => state.threadWorkspace);
+  const grid = useIdeChatStore((state) => state.workspace);
+  return pickPanel(layout, thread, grid);
+}
+
+/** The workspace the side panel shows, read once (event handlers, actions). */
+export function panelWorkspace(): IdeWorkspace | null {
+  const chat = useIdeChatStore.getState();
+  return pickPanel(useIdeThreadsStore.getState().layout, chat.threadWorkspace, chat.workspace);
+}

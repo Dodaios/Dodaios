@@ -1,4 +1,4 @@
-import { panelWorkspace } from "@/store/panelWorkspace";
+import { panelWorkspace } from "@/store/ideChat";
 import { openOutsideFile } from "@/components/agentic/editor/editorApi";
 import { fetchTypeahead } from "@/lib/agentChatApi";
 import { openLocalPath } from "@/lib/openLocalPath";

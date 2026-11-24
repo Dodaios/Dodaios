@@ -1,4 +1,3 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FolderPlus, Loader2, Plus, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -27,7 +26,7 @@ import type { PaneSplitDirection } from "@/components/agentic/WorkspaceTerminalH
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
+import { useIdeChatStore, usePanelWorkspace } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeSkillsStore } from "@/store/ideSkills";

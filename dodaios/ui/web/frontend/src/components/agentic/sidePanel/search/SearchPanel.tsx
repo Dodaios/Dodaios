@@ -1,4 +1,4 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CaseSensitive, ChevronDown, ChevronRight, Loader2, MoreHorizontal, Regex, Replace, WholeWord } from "lucide-react";
 

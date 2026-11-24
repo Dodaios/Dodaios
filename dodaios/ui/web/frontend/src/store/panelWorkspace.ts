@@ -1,7 +1,10 @@
-import { useIdeChatStore, type IdeWorkspace, type IdeWorkspaceRow } from "@/store/ideChat";
-import { useIdeThreadsStore } from "@/store/ideThreads";
+import type { IdeWorkspace, IdeWorkspaceRow } from "@/store/ideChat";
 
 /**
+ * Folder views: how the IDE's side panel names a thread's folder (the hooks
+ * that pick the panel's workspace, `usePanelWorkspace` and `panelWorkspace`,
+ * live in `store/ideChat`).
+ *
  * Which workspace the IDE's side panel shows: Folder, Changes, Search, Git,
  * the File tab, its terminals and the code editor over the view.
  *
@@ -60,22 +63,4 @@ export function threadPanelWorkspace(folder: string, name: string, open: readonl
   const match = same.find((row) => row.active) ?? same[0];
   if (match) return { id: match.id, name: match.name, path: match.folder };
   return { id: folderViewId(folder), name, path: folder };
-}
-
-function pick(layout: string, thread: IdeWorkspace | null, grid: IdeWorkspace | null): IdeWorkspace | null {
-  return layout === "threads" && thread ? thread : grid;
-}
-
-/** The workspace the side panel shows, for a component. */
-export function usePanelWorkspace(): IdeWorkspace | null {
-  const layout = useIdeThreadsStore((state) => state.layout);
-  const thread = useIdeChatStore((state) => state.threadWorkspace);
-  const grid = useIdeChatStore((state) => state.workspace);
-  return pick(layout, thread, grid);
-}
-
-/** The workspace the side panel shows, read once (event handlers, actions). */
-export function panelWorkspace(): IdeWorkspace | null {
-  const chat = useIdeChatStore.getState();
-  return pick(useIdeThreadsStore.getState().layout, chat.threadWorkspace, chat.workspace);
 }

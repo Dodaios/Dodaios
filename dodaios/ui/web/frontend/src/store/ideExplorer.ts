@@ -1,4 +1,4 @@
-import { panelWorkspace } from "@/store/panelWorkspace";
+import { panelWorkspace } from "@/store/ideChat";
 import { useEffect } from "react";
 import { create } from "zustand";
 

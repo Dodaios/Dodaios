@@ -1,4 +1,4 @@
-import { folderOfView, isFolderView, usePanelWorkspace } from "@/store/panelWorkspace";
+import { folderOfView, isFolderView } from "@/store/panelWorkspace";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Check, Columns2, Maximize2, Minimize2, MoveHorizontal, Plus, SquareTerminal, X } from "lucide-react";
 import { useT } from "@/i18n";
@@ -7,6 +7,7 @@ import { useResizablePane } from "@/hooks/useResizablePane";
 import { PaneResizer } from "@/components/layout/PaneResizer";
 import { MAX_TERMINAL_TABS, useIdeSidePanelStore, type SidePanelTabId } from "@/store/ideSidePanel";
 import { MAX_PANES, columnCount, placeLayout, type LayoutRect } from "@/store/sidePanelLayout";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { WorkspaceTerminal } from "@/components/workspace/WorkspaceTerminal";
 import type { TerminalAppearance } from "../terminalThemes";
 import { useExplorerPathRouting } from "@/store/ideExplorer";

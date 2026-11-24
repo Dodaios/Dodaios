@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { useIdeChatStore, type IdeWorkspaceRow } from "@/store/ideChat";
+import { panelWorkspace, useIdeChatStore, type IdeWorkspaceRow } from "@/store/ideChat";
 import { useIdeThreadsStore } from "@/store/ideThreads";
-import { folderOfView, folderViewId, isFolderView, panelWorkspace, threadPanelWorkspace } from "./panelWorkspace";
+import { folderOfView, folderViewId, isFolderView, threadPanelWorkspace } from "./panelWorkspace";
 
 const harald: IdeWorkspaceRow = { id: "ide_harald", name: "Harald", folder: "C:\\Users\\me\\Harald", active: true };
 const gridFront = { id: harald.id, name: harald.name, path: harald.folder };

@@ -1,4 +1,4 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fill, useT } from "@/i18n";
 import { prepareGit } from "@/lib/gitApi";

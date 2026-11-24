@@ -1,4 +1,4 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";

@@ -1,4 +1,3 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
 import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
@@ -46,7 +45,7 @@ import { forgetFileList } from "@/components/agentic/editor/QuickOpen";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
 import { useCodeEditorStore, isUnder } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
+import { useIdeChatStore, usePanelWorkspace } from "@/store/ideChat";
 import { useIdeExplorerStore, type ExplorerView } from "@/store/ideExplorer";
 import { MAX_TERMINAL_TABS, useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { isMacClient } from "@/lib/embeddedDesktop";

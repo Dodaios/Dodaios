@@ -89,7 +89,6 @@ from dodaios.agentic_ide import (
     editor_backups,
     file_editing,
     file_search,
-    folder_view,
     git_changes,
     layout_tree,
     native_picker,
@@ -113,6 +112,7 @@ from dodaios.agentic_ide.fleet_actions import (
     terminals_closed_event,
     wait_for_prompt_ready,
 )
+from dodaios.agentic_ide.folder_view import folder_of as folder_of_view
 from dodaios.agentic_ide.folders import (
     create_folder,
     is_listing_cut,
@@ -1876,8 +1876,7 @@ async def get_workspace_changes(workspace_id: str) -> WorkspaceChangesResponse:
     the reason rather than an error: the explorer still works without it.
     """
     folder = await _workspace_folder(workspace_id)
-    # A folder view has no panes, so nobody to name as a change's author.
-    session = get_registry().get(workspace_id)
+    session = get_registry().get(workspace_id)  # None for a folder view: no panes, no authors
     changes = await asyncio.to_thread(git_changes.workspace_changes, folder)
     authors: dict[str, list[change_authors.ChangeAuthor]] = {}
     if changes.files and session is not None:
@@ -2312,12 +2311,9 @@ _WORKSPACE_FILE_CSP = (
 
 
 def _resolve_workspace_file(workspace_id: str, path: str) -> Path:
-    """Resolve one file inside an open workspace without leaking host paths.
-
-    Blocking (a folder view is checked on disk): runs in a worker thread.
-    """
+    """Resolve one file inside an open workspace (or folder view) without leaking host paths."""
     session = get_registry().get(workspace_id)
-    folder = str(session.folder) if session is not None else folder_view.folder_of(workspace_id)
+    folder = str(session.folder) if session is not None else folder_of_view(workspace_id)
     if folder is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
@@ -2409,15 +2405,12 @@ async def get_workspace_file_preview(workspace_id: str, path: str) -> WorkspaceF
 
 
 async def _workspace_folder(workspace_id: str) -> str:
-    """The open workspace's folder, or the folder a folder view id names."""
     session = get_registry().get(workspace_id)
-    if session is not None:
-        return str(session.folder)
-    if folder_view.is_view_id(workspace_id):
-        folder = await asyncio.to_thread(folder_view.folder_of, workspace_id)
-        if folder is not None:
-            return str(folder)
-    raise HTTPException(status_code=404, detail="That workspace is not open.")
+    # No open workspace: a thread's folder view (see folder_view.py), checked off the loop.
+    folder = session.folder if session else await asyncio.to_thread(folder_of_view, workspace_id)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="That workspace is not open.")
+    return str(folder)
 
 
 def _text_file_response(

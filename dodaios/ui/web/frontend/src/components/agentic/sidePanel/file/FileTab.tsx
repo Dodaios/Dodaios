@@ -1,4 +1,4 @@
-import { usePanelWorkspace } from "@/store/panelWorkspace";
+import { usePanelWorkspace } from "@/store/ideChat";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { FileCode2, Loader2, RefreshCw } from "lucide-react";
 
