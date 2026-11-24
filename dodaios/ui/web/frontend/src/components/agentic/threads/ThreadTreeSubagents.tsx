@@ -53,7 +53,7 @@ export function ThreadTreeSubagents({ rows, openId, threadTitle, onOpen }: {
       const depth = Math.min(row.depth, MAX_DEPTH);
       const running = row.status === "running";
       return <button key={row.id} type="button" aria-current={selected ? "page" : undefined}
-        onClick={() => onOpen(row.id)} title={row.agentType ? `${row.title} · ${row.agentType}` : row.title}
+        onClick={() => onOpen(row.id)} title={[row.title, row.agentType, row.model].filter(Boolean).join(" · ")}
         data-testid="thread-tree-subagent" data-status={row.status}
         style={{ paddingLeft: 32 + depth * INDENT }}
         className={cn(
