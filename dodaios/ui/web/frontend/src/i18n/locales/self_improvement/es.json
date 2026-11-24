@@ -29,6 +29,12 @@
       "recall": {
         "name": "Memoria",
         "about": "¿Aparece el recuerdo correcto para un mensaje, y ninguno cuando no hace falta?"
+      },
+      "first_move": {
+        "name": "Primer paso",
+        "about": "¿Usa el asistente primero la herramienta correcta, y dice antes en una línea de qué se encarga?",
+        "building": "Por ahora hay {n} tareas de prueba de tus propios chats con el asistente. La medición empieza cuando haya suficientes para decidir: {need} en la parte con la que decide, que ahora tiene {have}.",
+        "no_tasks": "Todavía no hay tareas de tus chats para esta área. Salen de respuestas que dejaste como estaban y de respuestas que el asistente acertó después de que lo corrigieras."
       }
     },
     "area": {
@@ -120,7 +126,8 @@
       "tuner": "El ajustador, que prueba valores cercanos en tareas de práctica",
       "owner": "Tú",
       "memory-learner": "El asistente, después de que una herramienta fallara y una llamada posterior funcionara",
-      "rsi-selector": "El aprendiz de dirección, que prueba un cambio cada vez en la mitad de tus peticiones de código"
+      "rsi-selector": "El aprendiz de dirección, que prueba un cambio cada vez en la mitad de tus peticiones de código",
+      "lines": "El aprendiz de líneas, que prueba tus mensajes sin una de sus líneas fijas en tareas de práctica"
     },
     "nights": {
       "title": "Las últimas noches",
@@ -174,6 +181,7 @@
       "models": "Para crear tareas consulta un modelo como mucho {calls} veces por noche, con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "models_ramp": "Para crear tareas consulta un modelo como mucho {calls} veces por noche ({ramp} en las primeras noches, mientras haya muy pocas tareas para decidir), con la suscripción del propio asistente o un modelo local, nunca con una clave que se factura por token.",
       "measure_no_model": "La medición en sí no consulta ningún modelo.",
+      "measure_first_move": "Para medir el primer paso repite tus peticiones anteriores con la suscripción del propio asistente: como mucho {calls} veces por noche, nunca mientras una ventana de uso esté llena al 80 %, y nunca más del {share} % de una ventana en una noche.",
       "privacy": "Los recuerdos y mensajes que se usan para esto solo van al proveedor con el que el asistente ya responde. Los recuerdos marcados como sensibles nunca se envían."
     },
     "param": {
@@ -228,6 +236,10 @@
       "lessons_recall_limit": {
         "title": "Lecciones por mensaje",
         "about": "El máximo de lecciones que puede traer un mensaje."
+      },
+      "lead_first_line": {
+        "title": "Línea inicial antes de una herramienta",
+        "about": "Junto a cada uno de tus mensajes: escribir una línea corta que asume la tarea antes de usar una herramienta."
       }
     },
     "daily": {
@@ -273,6 +285,16 @@
       "other": "otro tipo",
       "refactoring": "refactorización",
       "multi_repo": "varios repositorios"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Se quitó la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta.",
+        "on": "Se volvió a poner la línea junto a tus mensajes que pide una línea inicial corta antes de la primera herramienta."
+      }
+    },
+    "value": {
+      "on": "activada",
+      "off": "desactivada"
     }
   }
 }

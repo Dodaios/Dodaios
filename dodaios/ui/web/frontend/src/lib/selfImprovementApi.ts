@@ -247,6 +247,8 @@ export interface SelfImprovementLimits {
   max_model_calls: number;
   /** The most while too few tasks exist to decide on (absent on an older backend). */
   ramp_model_calls?: number;
+  /** The most replays of the lead's turns a night may make (absent on an older backend). */
+  first_move_calls?: number;
 }
 
 /** One week of the person's own requests (`daily_use` in dodaios/rsi/overview.py). */
