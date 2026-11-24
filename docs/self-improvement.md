@@ -324,15 +324,18 @@ would (a real replay read six files and was still reading). With it the lead
 may look into the code a little less than it would for a request typed to it
 openly; both arms lose the same.
 
-**The replay's safety.** A replay starts the CLI in its default permission
-mode whatever the person set for their own sessions (on the maintainer's
-machine that is "bypass", which would let the CLI run its own tools without
-asking), and without the CLI's own writing tools (`Edit`, `Write`,
-`MultiEdit`, `NotebookEdit`) or shell. A brief replay also goes without the
-CLI's own reading tools: they would read the person's clone as it is today,
-merged change included. Only a call of the app's own server is ever answered;
-everything else stays refused and unrun. The replay's tool server runs the
-replay's own code (`PYTHONPATH`), not an installed copy of the app.
+**The replay's safety.** Every replay goes without the CLI's own writing
+tools (`Edit`, `Write`, `MultiEdit`, `NotebookEdit`) and shell, whatever the
+person set for their own sessions (on the maintainer's machine that is
+"bypass" with `Edit` and `Write` allowed, which would let the CLI run them
+without asking). A first-move replay runs in the `dontAsk` mode: nothing it
+asks for happens. A brief replay must let exactly the calls it answers through
+the control protocol, which `dontAsk` would refuse without asking, so it runs in
+the default mode, and also goes without the CLI's own reading tools: they would
+read the person's clone as it is today, merged change included. Only a call of
+the app's own server is ever answered; everything else stays refused and
+unrun. The replay's tool server runs the replay's own code (`PYTHONPATH`), not
+an installed copy of the app.
 
 **Cost and budget.** A task's cost is the lead's message and the brief, in
 tokens: the line under test rides in every message, the brief is what the
@@ -851,6 +854,6 @@ There is no other control on purpose: the person only stops or undoes
 | The brief replay: a mined request in the pinned lead input, the kit and the folder look-ups answered from the repository at the task's commit, the hand-off scored | built |
 | One night's 40 replay calls shared by first_move and brief | built |
 | `BRIEF_LINE` learnable as one of three fixed wordings, measured by the brief domain | built |
-| A replay asks in the default permission mode and has none of the CLI's own writing or shell tools | built |
+| A brief replay asks in the default mode and has none of the CLI's own file or shell tools; only the app's own server is answered | built |
 | Whether a brief said what the person had to add afterwards (a judge) | later |
 | Always-on recording of work, the other domains, lessons, the jury | later |
