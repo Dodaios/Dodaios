@@ -1,8 +1,9 @@
-"""Background agent service — routines and chat channels outlive the window.
+"""Background agent service — routines, chat channels and learning outlive the window.
 
 The desktop app owns everything while it is open. When the user quits it and
-there is work to keep (an armed routine, a running Telegram/Discord channel),
-it starts this service: the same backend as ``launcher --headless``, without a
+there is work to keep (an armed routine, a running Telegram/Discord channel,
+the self-improvement learning the person has not stopped), it starts this
+service: the same backend as ``launcher --headless``, without a
 window, microphone, wake word or overlay. The service takes the single-instance
 lock and the admin port, so routines fire, channels answer, and the Agentic IDE
 re-attaches to its PTY host exactly as in a headless install.
@@ -48,7 +49,8 @@ IDLE_CHECK_S = 300.0
 IDLE_STRIKES = 2
 #: How long the desktop waits for the service to hand back before stopping it.
 TAKEOVER_WAIT_S = 45.0
-#: How long a handing-back service lets routine runs in flight finish.
+#: How long a handing-back service lets routine runs and a learning round in
+#: flight finish.
 HANDOVER_DRAIN_S = 30.0
 
 
@@ -98,9 +100,22 @@ class BackgroundWork:
     routines: int = 0
     running: int = 0
     channels: tuple[str, ...] = ()
+    #: The self-improvement loop runs and the person has not stopped it
+    #: (``dodaios.rsi.night``). Its rounds are periodic, so while this holds
+    #: the service stays for as long as the computer runs.
+    learning: bool = False
 
     def __bool__(self) -> bool:
-        return bool(self.routines or self.running or self.channels)
+        return bool(self.routines or self.running or self.channels or self.learning)
+
+    def payload(self) -> dict[str, Any]:
+        """The work as the Settings page reads it (``/api/settings/background``)."""
+        return {
+            "routines": self.routines,
+            "running": self.running,
+            "channels": list(self.channels),
+            "learning": self.learning,
+        }
 
     def describe(self) -> str:
         parts: list[str] = []
@@ -110,6 +125,8 @@ class BackgroundWork:
             parts.append(f"{self.running} run(s) in flight")
         if self.channels:
             parts.append("channels: " + ", ".join(self.channels))
+        if self.learning:
+            parts.append("self-improvement learning")
         return "; ".join(parts) or "nothing"
 
 
@@ -139,7 +156,25 @@ def work_from_state(state: Any) -> BackgroundWork:
             )
         except Exception:  # noqa: BLE001 — same: unreadable means none to keep
             logger.opt(exception=True).debug("background: channel state unreadable")
-    return BackgroundWork(routines=int(routines), running=int(running), channels=channels)
+    return BackgroundWork(
+        routines=int(routines),
+        running=int(running),
+        channels=channels,
+        learning=_learning(state),
+    )
+
+
+def _learning(state: Any) -> bool:
+    """The backend has a self-improvement loop and the person has not stopped it."""
+    service = getattr(state, "self_improvement", None)
+    learning = getattr(service, "learning", None)
+    if not callable(learning):
+        return False
+    try:
+        return bool(learning())
+    except Exception:  # noqa: BLE001  # broad-except: an unreadable loop state is no learning to keep
+        logger.opt(exception=True).debug("background: self-improvement state unreadable")
+        return False
 
 
 #: Channels that only serve the app's own windows — nothing outside reaches them.
@@ -401,7 +436,9 @@ def hand_off_on_quit(state: Any, cfg: Any, *, pid: int | None = None) -> bool:
             return False
         work = work_from_state(state)
         if not persistent and not work:
-            logger.info("background: no routines or channels to keep — no background service")
+            logger.info(
+                "background: no routines, channels or learning to keep — no background service"
+            )
             return False
         # A leftover request would make the new service exit at once.
         clear_handover_request()
@@ -416,6 +453,65 @@ def hand_off_on_quit(state: Any, cfg: Any, *, pid: int | None = None) -> bool:
     except Exception as exc:  # noqa: BLE001 — quitting always wins
         logger.opt(exception=exc).warning("background: hand-off skipped")
         return False
+
+
+# ---------------------------------------------------------------------------
+# Handing back (the service, when the desktop asks for the app)
+# ---------------------------------------------------------------------------
+
+
+async def drain_running_routines(state: Any, *, drain_s: float, poll_s: float) -> None:
+    """Let routine runs already in flight finish (bounded) before stopping.
+
+    Stopping cancels their token; a long agent run would otherwise be lost
+    just because the user opened the window. The desktop waits longer than
+    this budget before it stops the service itself.
+    """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + drain_s
+    running = work_from_state(state).running
+    if running:
+        logger.info(
+            "background: {} routine run(s) still in flight — up to {:.0f}s to finish",
+            running,
+            drain_s,
+        )
+    while running and loop.time() < deadline:
+        await asyncio.sleep(poll_s)
+        running = work_from_state(state).running
+    if running:
+        logger.warning("background: {} run(s) still going — they stop with the service", running)
+
+
+async def hand_back(state: Any, *, drain_s: float, poll_s: float) -> None:
+    """Let the work in flight end before the service lets go, all within ``drain_s``.
+
+    A learning round (``dodaios.rsi.night``) is halted at once: no model call
+    starts, the one in flight is cut, and the round ends by writing its report,
+    like a round the person came back to. Routine runs get the same window to
+    finish. What is still running when it closes stops with the service; a
+    round stopped that way wrote nothing half (its files are written in whole
+    transactions, and without its report it counts as not run).
+    """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + drain_s
+    learning = getattr(state, "self_improvement", None)
+    halt = getattr(learning, "halt", None)
+    if callable(halt):
+        halt()
+    await drain_running_routines(state, drain_s=drain_s, poll_s=poll_s)
+    wind_down = getattr(learning, "wind_down", None)
+    if not callable(wind_down) or not getattr(learning, "busy", False):
+        return
+    logger.info("background: a learning round is running — it ends without more model calls")
+    if await wind_down(max(0.0, deadline - loop.time()), poll_s=poll_s):
+        logger.info("background: the learning round ended and wrote its report")
+    else:
+        logger.warning("background: the learning round did not end in time — it stops unfinished")
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +577,8 @@ __all__ = [
     "BackgroundWork",
     "clear_handover_request",
     "clear_marker",
+    "drain_running_routines",
+    "hand_back",
     "hand_off_on_quit",
     "handover_requested",
     "keep_running_enabled",

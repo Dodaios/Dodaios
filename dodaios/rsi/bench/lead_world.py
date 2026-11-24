@@ -27,7 +27,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import subprocess
 import sys
 from collections.abc import Callable, Iterable
@@ -35,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from dodaios.rsi.budget import REPLAY_CALLS, Budget, Usage
 
 from . import brief_world
@@ -93,10 +93,12 @@ def _version(prefix: list[str], env: dict[str, str]) -> str:
             [*prefix, "--version"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             env=env,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,  # type: ignore[attr-defined]
+            creationflags=NO_WINDOW_CREATIONFLAGS,
         )
     except (OSError, subprocess.SubprocessError):  # a version we cannot read is named as such
         return "unknown"
@@ -121,11 +123,14 @@ def build(
     cap: int = REPLAY_CALLS,
     bench: Any = None,
     folders: Iterable[str | Path] = (),
+    halted: Callable[[], bool] | None = None,
 ) -> Built:
     """The worlds for tonight, or why there are none. Blocking; call it off the event loop.
 
     ``bench`` keeps the brief world's pinned input; ``folders`` are the
-    person's clones the night's intake of past coding work read.
+    person's clones the night's intake of past coding work read. ``halted``
+    answers true once the backend lets go of the night: the budget starts no
+    call after that, and the driver cuts the replay in flight.
     """
     newest = turns.turns(limit=1)
     if not newest:
@@ -179,11 +184,12 @@ def build(
         env=env,
         argv_prefix=prefix,
         session_id=lead.session_id,
+        halted=halted,
     )
     world = FirstMoveWorld(
         platform=platform,
         driver=driver,
-        budget=Budget(cap, usage=_usage, idle=idle),
+        budget=Budget(cap, usage=_usage, idle=idle, halted=halted),
         offered=frozenset(str(row["name"]) for row in rows),
         recorded=turns.turn,
     )
