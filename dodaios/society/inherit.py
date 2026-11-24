@@ -1,7 +1,7 @@
 """Copy a creating agent's seat and permission setup onto a new roster row.
 
 When a society agent creates a teammate — typed chat or a subscription CLI
-calling ``society-create-agent`` — the new row starts on the creator's model
+creating a roster row — the new row starts on the creator's model
 seat (provider, model, effort, subscription account) and may not exceed the
 creator's explicit approval mode, permission ceiling, grant mode, grants or denies. The Agents UI
 sends those fields itself, so an explicit choice still wins, and a blank

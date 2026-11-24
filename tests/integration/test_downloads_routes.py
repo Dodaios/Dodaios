@@ -197,3 +197,20 @@ def test_open_invokes_helper_and_reports_failure(
     assert res.status_code == 200, res.text
     assert res.json() == {"opened": False}
     assert calls and calls[0] == f.resolve()
+
+
+def test_open_reveals_a_program_instead_of_launching_it(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dodaios.platform.open_path as open_path
+
+    opened: list[Path] = []
+    revealed: list[Path] = []
+    monkeypatch.setattr(open_path, "open_file", lambda p: (opened.append(p), True)[1])
+    monkeypatch.setattr(open_path, "reveal_in_folder", lambda p: (revealed.append(p), True)[1])
+    client = _client(native=True, home=home)
+    f = _make_download(home, "installer.hta")
+    res = client.post("/api/downloads/open", json={"path": str(f)})
+    assert res.status_code == 200, res.text
+    assert opened == []
+    assert revealed == [f.resolve()]

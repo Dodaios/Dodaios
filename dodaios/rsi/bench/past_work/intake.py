@@ -11,17 +11,18 @@ because mining did not find it again.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from dodaios.rsi.bench.model import Domain, Source
-from dodaios.rsi.bench.past_work.history import MergedChange, read_history
+from dodaios.rsi.bench.past_work.history import MergedChange, _git, read_history
 from dodaios.rsi.bench.past_work.sessions import PastSession, read_sessions
 from dodaios.rsi.bench.past_work.tasks import mine
 from dodaios.rsi.bench.store import BenchStore
 
-__all__ = ["Taken", "read_changes", "take_in"]
+__all__ = ["Taken", "read_changes", "session_folders", "take_in"]
 
 _DOMAINS = (Domain.BRIEF, Domain.CODING)
 
@@ -44,6 +45,28 @@ def _pull(group: str) -> tuple[str, int]:
     """The repository and number a task's group names (``host/owner/name#12``)."""
     repo, _, number = group.rpartition("#")
     return repo, int(number) if number.isdigit() else 0
+
+
+def session_folders(sessions: Iterable[PastSession]) -> list[Path]:
+    """One folder per repository, among the folders the sessions that opened a pull request ran in.
+
+    A session's folder is often a worktree, and many worktrees share one
+    repository: its history is read once. A folder that is gone or is no
+    repository is left out.
+    """
+    seen: set[str] = set()
+    out: list[Path] = []
+    for raw in sorted({session.cwd for session in sessions if session.opened and session.cwd}):
+        folder = Path(raw)
+        if not folder.is_dir():
+            continue
+        common = _git(["rev-parse", "--path-format=absolute", "--git-common-dir"], folder).strip()
+        key = os.path.normcase(os.path.normpath(common)) if common else ""
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(folder)
+    return out
 
 
 def read_changes(
@@ -85,17 +108,21 @@ def _stands(group: str, changes: Mapping[str, Mapping[int, MergedChange]]) -> bo
 
 def take_in(
     store: BenchStore,
-    folders: Iterable[str | Path],
+    folders: Iterable[str | Path] | None = None,
     *,
     homes: dict[str, Path] | None = None,
     composed: Callable[[str], bool] | None = None,
 ) -> Taken:
     """Mine the records for the clones in ``folders`` and bring the store up to date.
 
-    ``homes`` and ``composed`` are passed on to :func:`.sessions.read_sessions` and
-    :func:`.tasks.mine`. A folder that is no repository contributes nothing.
+    Without ``folders`` the repositories are the ones the recorded sessions
+    themselves ran in (:func:`session_folders`). ``homes`` and ``composed`` are
+    passed on to :func:`.sessions.read_sessions` and :func:`.tasks.mine`. A
+    folder that is no repository contributes nothing.
     """
     sessions = list(read_sessions(homes))
+    if folders is None:
+        folders = session_folders(sessions)
     stored = [task for domain in _DOMAINS for task in store.tasks(domain, source=Source.MINED)]
     # A stored task's pull request is asked about too: its record may be long gone.
     changes = read_changes(sessions, folders, also=(_pull(task.group) for task in stored))

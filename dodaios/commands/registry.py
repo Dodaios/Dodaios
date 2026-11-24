@@ -164,48 +164,6 @@ def _provider_switch_params(
     }
 
 
-def _society_profile_properties() -> dict[str, Any]:
-    """Voice-editable profile fields; execution uses the existing roster REST route."""
-    return {
-        "title": _str_param("The agent's responsibility or role.", max_length=120),
-        "description": _str_param(
-            "Extra standing instructions in prose; the brief fields below are preferred.",
-            max_length=20_000,
-        ),
-        **_agent_brief_properties(),
-        "tier": _str_param("Team role.", enum=["specialist", "orchestrator"]),
-        "focus": {
-            "type": "array", "items": {"type": "string"},
-            "description": "Capability ids; omit to derive from responsibilities.",
-        },
-        "skills": {
-            "type": "array", "items": {"type": "string"},
-            "description": "Skill ids explicitly requested by the user.",
-        },
-        "approval_mode": _str_param(
-            "Agent approval mode. Omit to inherit the creator or use Bypass permissions.",
-            enum=["bypass", "ask", "always_ask"],
-        ),
-        "daily_budget_usd": {
-            "type": "number", "minimum": 0,
-            "description": "Daily spending limit requested by the user.",
-        },
-        "max_concurrent_runs": {
-            "type": "integer", "minimum": 1,
-            "description": "Maximum simultaneous assignments.",
-        },
-        "permission_ceiling": _str_param(
-            "Highest risk tier it may run unasked.", enum=["safe", "monitor", "ask"],
-        ),
-        "grant_mode": _str_param(
-            "all = every connected capability; allowlist = only grants.",
-            enum=["all", "allowlist"],
-        ),
-        "grants": _str_list("Capability ids for an allowlist, only when requested."),
-        "denies": _str_list("Capability ids the agent must never use."),
-    }
-
-
 def _str_list(description: str) -> dict[str, Any]:
     return {"type": "array", "items": {"type": "string"}, "description": description}
 
@@ -297,21 +255,6 @@ _RITUAL_GUIDE = (
 )
 
 
-def _agent_brief_properties() -> dict[str, Any]:
-    """The structured brief rendered into the agent's standing instructions."""
-    return {
-        "mission": _str_param("One sentence: what the agent exists for.", max_length=2_000),
-        "responsibilities": _str_list("Concrete recurring duties, each one actionable."),
-        "working_rules": _str_list("Step-by-step method: sources to read, order, priorities."),
-        "output_format": _str_param(
-            "Shape of every result: medium (artifact, chat, mail), length, sections.",
-            max_length=2_000,
-        ),
-        "boundaries": _str_list("What it must never do or only after approval."),
-        "success_criteria": _str_param("How a good result is recognised.", max_length=2_000),
-    }
-
-
 def _services_param() -> dict[str, Any]:
     return _str_list(
         "Every service or website with an account that the work must reach to post, send "
@@ -326,15 +269,6 @@ _READINESS_RULE = (
     "up but blocked until they connect or sign in. On 'unverified', call "
     "society-check-readiness with the services first."
 )
-
-_AGENT_DESIGN_GUIDE = (
-    "Design the agent before calling: turn the user's words into a complete brief — "
-    "mission, 3-6 responsibilities, working rules naming the data sources, output "
-    "format and boundaries — inferring sensible defaults instead of copying the "
-    "request verbatim. A requested schedule is a separate society-create-routine call. "
-    + _READINESS_RULE
-)
-
 
 def _routine_schedule_param(*, examples: bool = True) -> dict[str, Any]:
     if not examples:
