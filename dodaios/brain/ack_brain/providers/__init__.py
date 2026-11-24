@@ -6,7 +6,7 @@ factory wires the chosen adapter into the AckGenerator at startup.
 
 Adding a new provider:
 1. Define a new ``XxxAckProviderConfig`` Pydantic sub-model in
-   dodaios.brain.ack_brain.config.
+   dodaios.core.ack_brain_config.
 2. Implement ``XxxFlashAck`` here in its own module, conforming to
    the AbstractAckProvider Protocol from base.py.
 3. Add the entry to REGISTRY below.

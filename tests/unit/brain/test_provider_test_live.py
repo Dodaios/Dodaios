@@ -7,9 +7,9 @@ import pytest
 
 from dodaios.brain.provider_test import _default_realtime_probe
 from dodaios.core import config, registry
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import ContinuousVoiceStart
 from dodaios.live import recovery
-from dodaios.live.config import LiveConfig
 from dodaios.realtime.protocol import RealtimeSessionConfig
 
 

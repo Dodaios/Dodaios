@@ -114,9 +114,9 @@ async def test_missing_api_key_increments_provider_error_counter(
     ``ack_provider_error_total`` — verified below by also testing the
     raising-fake path which is the canonical F2 entry.
     """
-    from dodaios.brain.ack_brain.config import GeminiAckProviderConfig
     from dodaios.brain.ack_brain.providers.gemini import GeminiFlashAck
     from dodaios.core import config as cfg_module
+    from dodaios.core.ack_brain_config import GeminiAckProviderConfig
 
     # Simulate "no API key in keyring / no env var".
     monkeypatch.setattr(

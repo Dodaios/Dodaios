@@ -3,7 +3,7 @@ import { ArrowUpRight, Globe } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { HoverCard } from "@/components/ui/hover-card";
-import { displayAddress, linkIconUrl, type WebLinkInfo } from "./webLinks";
+import { displayAddress, iconSite, linkIconUrl, type WebLinkInfo } from "./webLinks";
 
 /** Sites whose logo did not load in this window: drawn with the globe from then on. */
 const failedIcons = new Set<string>();
@@ -12,12 +12,21 @@ export function resetLinkIconsForTests(): void {
   failedIcons.clear();
 }
 
-/** The website's own logo, or a globe while it has none. */
+/**
+ * The logo of the named website a host belongs to, else a globe.
+ *
+ * Only a named website is asked for a logo (`iconSite`): a link to any other
+ * host draws the globe at once and sends no request, so the host an answer
+ * wrote is never contacted because the answer was drawn.
+ */
 export function SiteIcon({ host, className }: { host: string; className?: string }) {
-  const [failed, setFailed] = useState(() => failedIcons.has(host));
-  if (failed) return <Globe aria-hidden data-testid="web-link-globe" className={cn("text-muted-foreground", className)} />;
-  return <img src={linkIconUrl(host)} alt="" aria-hidden draggable={false} data-testid="web-link-icon"
-    onError={() => { failedIcons.add(host); setFailed(true); }}
+  const site = iconSite(host);
+  const [failedSite, setFailedSite] = useState<string | null>(null);
+  if (site === null || failedSite === site || failedIcons.has(site)) {
+    return <Globe aria-hidden data-testid="web-link-globe" className={cn("text-muted-foreground", className)} />;
+  }
+  return <img src={linkIconUrl(site)} alt="" aria-hidden draggable={false} data-testid="web-link-icon"
+    onError={() => { failedIcons.add(site); setFailedSite(site); }}
     className={cn("rounded-[3px] object-contain", className)} />;
 }
 

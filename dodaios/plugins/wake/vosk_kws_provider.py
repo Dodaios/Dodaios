@@ -109,13 +109,13 @@ from typing import Any
 import numpy as np
 
 from dodaios.core.protocols import AudioChunk
-from dodaios.plugins.wake.vosk_native import build_recognizer, import_vosk, native_call
-from dodaios.speech.wake_constants import (
+from dodaios.core.wake_constants import (
     WAKE_PREFIXES,
     normalize_phrase_for_match,
     phrase_core_for_match,
     sound_fold,
 )
+from dodaios.plugins.wake.vosk_native import build_recognizer, import_vosk, native_call
 
 log = logging.getLogger("jarvis.wake.vosk")
 
