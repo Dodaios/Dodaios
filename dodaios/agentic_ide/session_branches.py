@@ -466,6 +466,38 @@ def _recorded_creation(folder: str, branch: str, called_at: float, ended_at: flo
     return recorded
 
 
+_derived: dict[tuple[Any, ...], tuple[list[CreatedBranch], list[tuple[str, float]]]] = {}
+
+
+def _delegated(
+    record: PaneBranchRecord,
+) -> tuple[list[CreatedBranch], list[tuple[str, float]]] | None:
+    """What the session's sub-agents created and wrote; each record is worked out once."""
+    files = claude_subagents.read_files(record.agent, record.session_id, home=record.home)
+    if files is None:
+        return None
+    candidates: list[CreatedBranch] = []
+    worked: list[tuple[str, float]] = []
+    for path, file_stamp, events in files:
+        key = (path, file_stamp, record.folder, record.started_at)
+        with _cache_lock:
+            known = _derived.get(key)
+        if known is None:
+            known = (
+                created_branches(
+                    events, record.folder, not_before=record.started_at, unconfirmed=True
+                ),
+                worked_folders(events, record.folder, not_before=record.started_at),
+            )
+            with _cache_lock:
+                if len(_derived) >= 800:
+                    _derived.clear()
+                _derived[key] = known
+        candidates.extend(known[0])
+        worked.extend(known[1])
+    return candidates, worked
+
+
 def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple[str, float]]]:
     """What this session's own record says it created and where it wrote."""
     if not record.session_id or not agent_transcript.can_read(record.agent):
@@ -495,17 +527,18 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
         # Not read (locked, being rotated): that is no evidence about the
         # record, so it is not kept beyond the short window either.
         events, stamp = [], None
-    # A lead that hands its Git work to sub-agents has none of it in its own
-    # record; their records belong to this thread all the same.
-    delegated = claude_subagents.read_events(record.agent, record.session_id, home=record.home)
-    if delegated is None:
-        stamp = None
-    elif delegated:
-        events = sorted([*events, *delegated], key=lambda event: event.get("ts_ms") or 0)
     candidates = created_branches(
         events, record.folder, not_before=record.started_at, unconfirmed=True
     )
     worked = worked_folders(events, record.folder, not_before=record.started_at)
+    # A lead that hands its Git work to sub-agents has none of it in its own
+    # record; their records belong to this thread all the same.
+    delegated = _delegated(record)
+    if delegated is None:
+        stamp = None
+    elif delegated[0] or delegated[1]:
+        candidates = sorted([*candidates, *delegated[0]], key=lambda made: made.created_at)
+        worked = sorted([*worked, *delegated[1]], key=lambda touched: touched[1])
     with _cache_lock:
         _cache[key] = _Evidence(now, now, stamp, substamp, candidates, worked)
         for expired in [key for key, entry in _cache.items() if now - entry.used_at > 1800]:
@@ -753,6 +786,11 @@ MAX_PANE_BRANCHES = 8
 
 
 def pane_branches(record: PaneBranchRecord) -> list[PaneBranch]:
+    """The first :data:`MAX_PANE_BRANCHES` of :func:`ranked_branches`."""
+    return ranked_branches(record)[:MAX_PANE_BRANCHES]
+
+
+def ranked_branches(record: PaneBranchRecord) -> list[PaneBranch]:
     """Every branch a pane's session has worked on.
 
     The branch it works in now comes first, then the others it created or
@@ -791,4 +829,4 @@ def pane_branches(record: PaneBranchRecord) -> list[PaneBranch]:
     if not listed:
         fallback = _checked_out(record)
         return [fallback] if fallback is not None else []
-    return listed[:MAX_PANE_BRANCHES]
+    return listed

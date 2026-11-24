@@ -790,3 +790,43 @@ def test_landing_script_counts_as_working_in_its_folder(command, tmp_path):
     folders = branches.written_by_command(command, str(tmp_path))
     assert [folder.replace("\\", "/").rsplit("/", 1)[-1] for folder in folders] == ["wt"]
     assert branches.written_by_command("python scripts/other.py", str(tmp_path)) == []
+
+
+def test_a_record_that_has_not_grown_is_not_reparsed(repository, tmp_path, monkeypatch):
+    home = tmp_path / "claude-home"
+    project = home / "projects" / "proj"
+    _write_rows(project / "session.jsonl", _claude_rows(("lead1", "echo hi", "hi")))
+    _write_rows(
+        project / "session" / "subagents" / "agent-a1.jsonl",
+        _claude_rows(("sub1", "git switch -c once", "Switched to a new branch 'once'")),
+        sidechain=True,
+    )
+    claude_subagents._parsed.clear()
+    branches._derived.clear()
+    record = branches.PaneBranchRecord(
+        "t1", "history", str(repository), "claude", "session", home=home
+    )
+    branches._evidence(record)
+    parsed = []
+    monkeypatch.setattr(
+        agent_transcript, "_claude_events", lambda *args: parsed.append(args) or None
+    )
+    for entry in branches._cache.values():
+        entry.read_at -= 60
+    assert [found.branch for found in branches._evidence(record)[0]] == ["once"]
+    assert parsed == []
+
+
+def test_the_pane_header_learns_of_branches_beyond_the_ones_it_reads(repository, monkeypatch):
+    from dodaios.agentic_ide import github_status
+
+    extra = branches.MAX_PANE_BRANCHES + 3
+    ranked = [branches.PaneBranch(f"b{index}", str(repository)) for index in range(extra)]
+    monkeypatch.setattr(github_status, "ranked_branches", lambda _record: ranked)
+    seen = []
+    monkeypatch.setattr(
+        github_status, "checkout", lambda folder, branch, created: seen.append(branch)
+    )
+    record = branches.PaneBranchRecord("t1", "history", str(repository), "claude", "session")
+    github_status.statuses([record])
+    assert len(seen) == branches.MAX_PANE_BRANCHES
