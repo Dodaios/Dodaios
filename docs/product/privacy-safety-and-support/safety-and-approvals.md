@@ -8,7 +8,7 @@ order: 4
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-07-21
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [safety, approvals, risk-tiers, permissions, computer-use, automation]
@@ -86,20 +86,17 @@ Approval previews mask common credential shapes and can be shortened. That
 protects sensitive values, but it can also hide detail you would need for a
 confident decision. Deny the call when the preview is incomplete or unclear.
 
-### Voice and Realtime
+### Voice Calls
 
 For an ask-level conversational action, Dodaios asks a short yes-or-no question
 instead of waiting silently for the desktop UI. A clear **yes** runs the
-stored action once. A clear **no** drops it. In the normal voice flow, an
-unrelated next request also abandons the action and repeated unclear replies
-eventually cancel it. In Realtime, give a clear no or close the session when
-you change your mind.
+stored action once. A clear **no** drops it. Give a clear no or close the call
+when you change your mind.
 
-The normal voice flow has no visible countdown and its pending entry has no
-separate wall-clock expiry. Answer promptly. If you return later or no longer
-remember the exact action, say no and start again. Realtime also keeps a
-pending action until you clearly answer or close the session; changing the
-subject is not a reliable denial there.
+A call has no visible countdown for a pending action. It keeps the action until
+you clearly answer or close the call; changing the subject is not a reliable
+denial. If you return later or no longer remember the exact action, say no and
+start again.
 
 ### Dodaios-Agent Missions
 

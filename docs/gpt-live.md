@@ -85,9 +85,13 @@ account the voice route refused. The record explains and never gates: every
 call still asks the server, and a new login or a changed plan makes an old
 record stop matching.
 
-Saving GPT-Live retires a classic voice profile left in `voice.profile`. Boot
-repairs a config that still has both. With both set, no realtime session was
-built and every call ended at once.
+Voice calls run only on realtime providers; the former `[voice] mode` and
+`[voice] profile` keys are retired. Boot removes them from an older config. A
+config that held the old ChatGPT-plan voice profile (`codex-subscription-voice`)
+moves to GPT-Live on the ChatGPT subscription (`openai-live-subscription`),
+with the same login and no API key, unless a GPT-Live setup was already
+saved; that setup stays as it is. Every other config keeps its realtime
+provider, or gets the first ready one.
 
 A call whose connection is lost and whose two replacement sessions failed ends
 with an error. Before, it stayed "connecting" and held the microphone until a

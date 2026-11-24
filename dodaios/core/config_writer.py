@@ -1335,104 +1335,62 @@ def set_computer_use_engine(engine: str, *, path: Path = DEFAULT_CONFIG_FILE) ->
     _patch_table(path, "computer_use", "engine", engine)
 
 
-def set_voice_mode(mode: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
-    """Persist the active voice engine to ``[voice] mode``.
+#: Retired voice profile id: the old ChatGPT-subscription voice composition
+#: ran on the removed pipeline (STT -> Codex text -> TTS).
+_RETIRED_SUBSCRIPTION_VOICE_PROFILE = "codex-subscription-voice"
+#: The realtime provider that keeps a ChatGPT plan user on the same login.
+_CHATGPT_LIVE_PROVIDER = "openai-live-subscription"
+_CHATGPT_LIVE_MODEL = "gpt-live-1-codex"
+#: The Codex brain's default model (``dodaios.plugins.brain.codex.DEFAULT_MODEL``;
+#: core may not import a plugin, a test pins the two together).
+_CODEX_DEFAULT_THINKING_MODEL = "gpt-5.5"
 
-    ``mode`` is ``"pipeline"`` (classic STT->brain->TTS, the default) or
-    ``"realtime"`` (full-duplex speech-to-speech). TOML-only by design:
-    ``voice.mode`` is NOT in the drift-guard reference snapshot, so it is never
-    reverted (same rationale as :func:`set_computer_use_engine`). Read once per
-    voice session, so the switch applies on the next session / restart.
+
+def _select_chatgpt_live(doc: TOMLDocument) -> None:
+    """Select GPT-Live on the ChatGPT subscription in ``doc`` (no write).
+
+    Used when a retired selection was paid for by the ChatGPT plan: the user
+    keeps voice on the same login, now through the realtime ChatGPT Live
+    transport. A saved Live table keeps its own choices; only the access mode,
+    the opt-in flag and a missing thinking model are filled in. The thinking
+    model falls back to the Codex brain's pinned model, then to the Codex
+    default, so the selection is complete enough to start a call.
     """
-    _patch_table(path, "voice", "mode", mode)
-
-
-def set_voice_profile(
-    profile: str,
-    *,
-    mode: str = "pipeline",
-    path: Path = DEFAULT_CONFIG_FILE,
-) -> None:
-    """Persist one session-scoped voice profile and its compatible engine.
-
-    Both keys land in the same atomic TOML rewrite. This prevents an upgrade
-    or interrupted settings write from leaving the subscription profile paired
-    with the experimental realtime engine.
-    """
-    _patch_table(
-        path,
-        "voice",
-        "profile",
-        str(profile or "").strip(),
-        extra={"mode": str(mode or "pipeline").strip().lower()},
-    )
-
-
-def set_realtime_voice_selection(
-    provider: str,
-    *,
-    profile: str,
-    mode: str,
-    path: Path = DEFAULT_CONFIG_FILE,
-) -> None:
-    """Persist one Realtime provider and its compatible voice state atomically.
-
-    This is the migration-safe writer for a Realtime provider switch that also
-    has to retire a classic voice profile. Keeping all three values in one TOML
-    replacement prevents a crash or write failure from leaving the selected
-    provider paired with a stale Pipeline-only profile.
-    """
-    path = _ensure_writable_config_path(path)
-    normalized_provider = str(provider or "").strip()
-    normalized_profile = str(profile or "").strip()
-    normalized_mode = str(mode or "").strip().lower()
-    if not normalized_provider:
-        raise ValueError("A Realtime provider id is required.")
-    if normalized_mode not in {"pipeline", "realtime"}:
-        raise ValueError("Voice mode must be 'pipeline' or 'realtime'.")
-
-    with _WRITE_LOCK:
-        raw = path.read_text(encoding="utf-8")
-        had_bom = raw.startswith(_BOM)
-        if had_bom:
-            raw = raw[len(_BOM) :]
-        doc: TOMLDocument = tomlkit.parse(raw)
-
+    live = doc.get("live")
+    if live is None:
+        live = tomlkit.table()
+        doc["live"] = live
+    live["auth_mode"] = "chatgpt_subscription"
+    live["configured"] = True
+    if not str(live.get("subscription_backend_model") or "").strip():
         brain = doc.get("brain")
-        if brain is None:
-            brain = tomlkit.table()
-            doc["brain"] = brain
-        realtime = brain.get("realtime")
-        if realtime is None:
-            realtime = tomlkit.table()
-            brain["realtime"] = realtime
-        realtime["provider"] = normalized_provider
-
-        voice = doc.get("voice")
-        if voice is None:
-            voice = tomlkit.table()
-            doc["voice"] = voice
-        voice["profile"] = normalized_profile
-        voice["mode"] = normalized_mode
-
-        out = tomlkit.dumps(doc)
-        if had_bom:
-            out = _BOM + out
-        _atomic_write(path, out)
+        providers = brain.get("providers") if brain is not None else None
+        codex = providers.get("codex") if providers is not None else None
+        model = str(codex.get("model") or "").strip() if codex is not None else ""
+        live["subscription_backend_model"] = model or _CODEX_DEFAULT_THINKING_MODEL
+    brain = doc.get("brain")
+    if brain is None:
+        brain = tomlkit.table()
+        doc["brain"] = brain
+    realtime = brain.get("realtime")
+    if realtime is None:
+        realtime = tomlkit.table()
+        brain["realtime"] = realtime
+    realtime["provider"] = _CHATGPT_LIVE_PROVIDER
+    realtime["model"] = _CHATGPT_LIVE_MODEL
 
 
 def migrate_removed_codex_realtime_provider(*, path: Path = DEFAULT_CONFIG_FILE) -> bool:
-    """Route a removed Codex Realtime selection onto the stable composition.
+    """Route a removed Codex Realtime selection onto ChatGPT Live.
 
     The ``codex-subscription-realtime`` adapter was removed 2026-08-10 (the
     experimental Codex app-server realtime surface never held a dependable
-    call). A config still pinning it would boot into Realtime mode with no
-    resolvable provider and silently lose subscription voice. Instead, the
-    pin is cleared from every explicit slot and — when it was the PRIMARY
-    selection — the install lands on the classic subscription composition
-    (``voice.profile = "codex-subscription-voice"``, Pipeline mode), which
-    keeps voice on the same ChatGPT login. Configs not naming the removed
-    provider are never touched.
+    call). A config still pinning it would boot with no resolvable provider
+    and silently lose subscription voice. Instead, the pin is cleared from
+    every explicit slot and — when it was the PRIMARY selection — the install
+    lands on GPT-Live with the ChatGPT subscription, which keeps voice on the
+    same ChatGPT login. Configs not naming the removed provider are never
+    touched.
     """
     if path == DEFAULT_CONFIG_FILE:
         from dodaios.core.config import resolve_config_path
@@ -1443,11 +1401,9 @@ def migrate_removed_codex_realtime_provider(*, path: Path = DEFAULT_CONFIG_FILE)
 
     removed = "codex-subscription-realtime"
     with _WRITE_LOCK:
-        raw = path.read_text(encoding="utf-8")
-        had_bom = raw.startswith(_BOM)
-        if had_bom:
-            raw = raw[len(_BOM) :]
-        doc: TOMLDocument = tomlkit.parse(raw)
+        if removed not in path.read_text(encoding="utf-8"):
+            return False
+        doc, bom = _read_doc(path)
         brain = doc.get("brain")
         realtime = brain.get("realtime") if brain is not None else None
         if realtime is None:
@@ -1456,21 +1412,58 @@ def migrate_removed_codex_realtime_provider(*, path: Path = DEFAULT_CONFIG_FILE)
         pinned = [slot for slot in slots if str(realtime.get(slot) or "").strip() == removed]
         if not pinned:
             return False
-
-        was_primary = "provider" in pinned
         for slot in pinned:
             realtime[slot] = ""
-        if was_primary:
-            voice = doc.get("voice")
-            if voice is None:
-                voice = tomlkit.table()
-                doc["voice"] = voice
-            voice["profile"] = "codex-subscription-voice"
-            voice["mode"] = "pipeline"
-        out = tomlkit.dumps(doc)
-        if had_bom:
-            out = _BOM + out
-        _atomic_write(path, out)
+        if "provider" in pinned:
+            _select_chatgpt_live(doc)
+        _write_doc(path, doc, bom)
+    clear_config_cache()
+    return True
+
+
+def migrate_retired_voice_pipeline(*, path: Path = DEFAULT_CONFIG_FILE) -> bool:
+    """Move a config off the retired pipeline voice mode (2026-11-24).
+
+    Voice calls run only on realtime speech-to-speech providers now. An
+    upgraded install may still carry ``[voice] mode = "pipeline"`` and, for a
+    ChatGPT plan, ``[voice] profile = "codex-subscription-voice"``. Both keys
+    are removed. The subscription profile lands on GPT-Live with the ChatGPT
+    subscription (same login, no API key), unless a Live setup is already
+    saved, which then stays as it is. Every other install keeps its realtime
+    provider selection; with none, the factory picks the first credential-
+    ready realtime provider, like a fresh install.
+
+    The drift-guard reference loses the same two keys, so it never writes
+    them back. Returns ``True`` when the TOML was rewritten.
+    """
+    if path == DEFAULT_CONFIG_FILE:
+        from dodaios.core.config import resolve_config_path
+
+        path = resolve_config_path()
+    if not path.exists():
+        return False
+    with _WRITE_LOCK:
+        # A string probe first: this runs on every boot, and a full TOML
+        # parse of a large config is too slow for a repair most installs
+        # never need.
+        text = path.read_text(encoding="utf-8")
+        if "[voice]" not in text or ("mode" not in text and "profile" not in text):
+            return False
+        doc, bom = _read_doc(path)
+        voice = doc.get("voice")
+        if voice is None or ("mode" not in voice and "profile" not in voice):
+            return False
+        profile = str(voice.get("profile") or "").strip().lower()
+        if profile == _RETIRED_SUBSCRIPTION_VOICE_PROFILE:
+            live = doc.get("live")
+            if live is None or not bool(live.get("configured")):
+                _select_chatgpt_live(doc)
+        for key in ("mode", "profile"):
+            if key in voice:
+                del voice[key]
+        _write_doc(path, doc, bom)
+    clear_config_cache()
+    _drop_config_soll_keys("voice", ("mode", "profile"))  # i18n-allow
     return True
 
 
@@ -1479,7 +1472,7 @@ def set_realtime_provider(provider: str, *, path: Path = DEFAULT_CONFIG_FILE) ->
 
     ``provider`` is a realtime-tier id (e.g. ``"openai-realtime"``). TOML-only
     by design: ``brain.realtime`` is NOT in the drift-guard's reference
-    snapshot, so it is never reverted (same rationale as :func:`set_voice_mode`).
+    snapshot, so it is never reverted.
     Takes effect on the next voice session / restart — the realtime client is
     not wired in yet (Phase 2).
     """
@@ -2576,73 +2569,12 @@ def set_live_profile(values: dict, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
         if "brain" not in doc:
             doc["brain"] = tomlkit.table()
         doc["brain"]["realtime"] = {"provider": profile.provider_id, "model": effective.model}
-        if "voice" not in doc:
-            doc["voice"] = tomlkit.table()
-        doc["voice"]["mode"] = "realtime"
-        # Saving GPT-Live selects the realtime engine. A classic voice profile
-        # left behind (an older install lands on one by migration) outranks
-        # that engine at call time: the page then reads "Saved & active" while
-        # no call can start. Retire it in the same atomic write.
-        if str(doc["voice"].get("profile") or "").strip():
-            doc["voice"]["profile"] = ""
         _write_doc(path, doc, bom)
     clear_config_cache()
     _update_config_soll_section("live", profile.model_dump())  # i18n-allow
     _update_config_soll_section(  # i18n-allow
         "brain.realtime", {"provider": profile.provider_id, "model": effective.model}
     )
-    _update_config_soll_section("voice", {"mode": "realtime"})  # i18n-allow
-
-
-def retire_voice_profile_under_live(*, path: Path = DEFAULT_CONFIG_FILE) -> bool:
-    """Repair a saved GPT-Live setup that a classic voice profile still blocks.
-
-    Before :func:`set_live_profile` retired the profile itself, saving GPT-Live
-    on an install that carried ``voice.profile = "codex-subscription-voice"``
-    left realtime mode, the Live provider and that Pipeline-only profile
-    together. The profile wins when a call starts, so no realtime session is
-    built and the call ends at once. Only that exact combination is touched:
-    realtime mode, a configured Live profile, and its own provider selected.
-    """
-    if path == DEFAULT_CONFIG_FILE:
-        from dodaios.core.config import resolve_config_path
-
-        path = resolve_config_path()
-    if not path.exists():
-        return False
-    with _WRITE_LOCK:
-        # A string probe first: this runs on every boot, and a full TOML parse
-        # of a large config is far too slow to pay for a repair almost no
-        # install needs. Only this one classic profile exists.
-        if "codex-subscription-voice" not in path.read_text(encoding="utf-8"):
-            return False
-        doc, bom = _read_doc(path)
-        voice = doc.get("voice")
-        if voice is None or not str(voice.get("profile") or "").strip():
-            return False
-        if str(voice.get("mode") or "").strip().lower() != "realtime":
-            return False
-        live = doc.get("live")
-        brain = doc.get("brain")
-        realtime = brain.get("realtime") if brain is not None else None
-        if live is None or realtime is None:
-            return False
-        # Imported only for the rare config that reaches this point: this
-        # runs on every boot and must not pull the voice stack in by default.
-        from dodaios.core.live_config import LiveConfig
-
-        try:
-            profile = LiveConfig.model_validate(
-                live.unwrap() if hasattr(live, "unwrap") else dict(live)
-            )
-        except ValueError:
-            return False  # An unreadable Live table is not a saved selection.
-        if not profile.configured or str(realtime.get("provider") or "") != profile.provider_id:
-            return False
-        voice["profile"] = ""
-        _write_doc(path, doc, bom)
-    clear_config_cache()
-    return True
 
 
 def _write_doc(path: Path, doc: TOMLDocument, had_bom: bool) -> None:
@@ -3663,6 +3595,30 @@ def _update_config_soll_section(top: str, values: dict[str, object]) -> None:  #
 
         out = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
         _atomic_write_text(soll_path, out)  # i18n-allow
+
+
+def _drop_config_soll_keys(top: str, keys: tuple[str, ...]) -> None:  # i18n-allow
+    """Remove ``keys`` from ``data[top]`` in config-soll.json, if present.  # i18n-allow
+
+    Same atomic write and absent-file no-op as
+    :func:`_update_config_soll_section`. Never raises into a boot migration:  # i18n-allow
+    an unreadable reference is logged and left alone.
+    """
+    soll_path = _config_soll_path()  # i18n-allow
+    if not soll_path.exists():  # i18n-allow
+        return
+    try:
+        with _WRITE_LOCK:
+            data = json.loads(soll_path.read_text(encoding="utf-8"))  # i18n-allow
+            section = data.get(top)
+            if not isinstance(section, dict) or not any(k in section for k in keys):
+                return
+            for key in keys:
+                section.pop(key, None)
+            out = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+            _atomic_write_text(soll_path, out)  # i18n-allow
+    except (OSError, ValueError):
+        log.warning("Could not drop retired keys from the drift-guard reference.", exc_info=True)
 
 
 def _update_config_soll_brain_primary(name: str) -> None:  # i18n-allow

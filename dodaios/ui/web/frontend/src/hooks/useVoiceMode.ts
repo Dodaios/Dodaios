@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { voiceModeEndpoint } from "@/lib/embeddedDesktop";
 import {
   REALTIME_TRANSPORT_ISSUE_EVENT,
-  requestRealtimeTransportOffer,
   type RealtimeTransportIssue,
   type RealtimeTransportIssueDetail,
 } from "@/lib/realtimeTransportIssue";
-import { putVoiceMode, type VoiceEngineModeValue } from "@/lib/voiceEngineMode";
 import { useEventStore } from "@/store/events";
 
+/**
+ * GET /api/settings/voice-mode: the realtime voice status. Calls always run on
+ * a realtime speech-to-speech provider, so the snapshot carries no engine
+ * choice; it says whether a provider is ready and what a call is doing.
+ */
 type VoiceModeResp = {
-  mode: string;
   realtime_available: boolean;
   requires_webrtc_offer: boolean;
   webrtc_start_event_required?: boolean;
@@ -37,7 +39,6 @@ type VoiceModeResp = {
   active_model: string | null;
   active_model_label?: string | null;
   session_active: boolean;
-  active_session_mode: "pipeline" | "realtime" | null;
   active_session_provider: string;
   active_session_model: string;
   active_session_model_label?: string | null;
@@ -145,8 +146,7 @@ export function useVoiceMode() {
       }
 
       // 2. Provider discovery is still pending (cold boot, login in flight).
-      const discoveryPending =
-        data?.mode === "realtime" && data.realtime_available === false;
+      const discoveryPending = data?.realtime_available === false;
       if (!discoveryPending) {
         realtimeDiscoveryStartedAt.current = null;
         realtimeDiscoveryAttempts.current = 0;
@@ -182,44 +182,9 @@ export function useVoiceMode() {
     void qc.invalidateQueries({ queryKey: ["voice-mode"] });
   }, [qc]);
 
-  const m = useMutation({
-    mutationFn: async (mode: string) =>
-      putVoiceMode(mode as VoiceEngineModeValue),
-    // Optimistic: flip the cached mode BEFORE the PUT resolves, so the
-    // Pipeline|Realtime segment's filled "live" state follows the click
-    // instantly (the persist can take seconds on a busy backend, and the UI
-    // used to only update after PUT + a full refetch — the switch felt dead).
-    // A failed PUT rolls back to the previous server truth.
-    onMutate: async (mode: string) => {
-      await qc.cancelQueries({ queryKey: ["voice-mode"] });
-      const prev = qc.getQueryData<VoiceModeResp>(["voice-mode"]);
-      if (prev) qc.setQueryData<VoiceModeResp>(["voice-mode"], { ...prev, mode });
-      // Selecting realtime restarts an OPEN call through the full provider
-      // handshake. When idle, this only changes the engine preference: arming
-      // the provider budget there would fabricate a 20-140 s "connecting"
-      // state for a call that does not exist.
-      if (mode === "realtime") {
-        requestRealtimeTransportOffer();
-        const callIsOpen =
-          prev?.session_active === true ||
-          prev?.transitioning === true ||
-          voiceState !== "idle";
-        if (callIsOpen) markRealtimeStartPending();
-        else setStartPendingUntil(0);
-      }
-      return { prev };
-    },
-    onError: (_err, _mode, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["voice-mode"], ctx.prev);
-      setStartPendingUntil(0);
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["voice-mode"] }),
-  });
-
-  // A realtime provider card changes the provider, never `[voice].mode`.
-  // Refresh because this response also carries the selected provider/model
-  // shown in the runtime status; the engine mode itself remains user-controlled.
-  // A switch also reconnects an OPEN call, so the connecting poll is armed only
+  // A realtime provider card changes the provider. Refresh because this
+  // response also carries the selected provider/model shown in the runtime
+  // status. A switch also reconnects an OPEN call, so the connecting poll is armed only
   // when runtime state proves there is one. The event is also emitted for idle
   // provider selection and subscription login/logout; those actions refresh
   // availability but must never impersonate a voice-session handshake.
@@ -255,9 +220,8 @@ export function useVoiceMode() {
       window.removeEventListener(REALTIME_TRANSPORT_ISSUE_EVENT, onTransportIssue);
   }, []);
 
-  // Configured mode and effective in-flight mode are distinct. Refresh the
-  // runtime snapshot on voice boundaries and on the accepted realtime
-  // handshake so the switch never labels an old classic call as Realtime.
+  // Refresh the runtime snapshot on voice boundaries and on the accepted
+  // realtime handshake, so the status never names a call that has ended.
   const lastRuntimeEvent = useMemo(() => {
     const depth = Math.min(events.length, RUNTIME_EVENT_SCAN_DEPTH);
     for (let index = 0; index < depth; index++) {
@@ -275,17 +239,16 @@ export function useVoiceMode() {
     qc.invalidateQueries({ queryKey: ["voice-mode"] });
   }, [lastRuntimeEvent, markRealtimeStartPending, qc]);
 
-  const mode = q.data?.mode ?? "pipeline";
   const sessionActive = q.data?.session_active ?? false;
 
-  // A voice session is audibly running (the pipeline left IDLE) while this
+  // A voice session is audibly running (the voice state left IDLE) while this
   // snapshot still reports no realtime session: that gap IS the handshake.
   // Derived from state the client already has, so the connecting indicator is
   // never blocked on a backend event landing first.
   useEffect(() => {
-    if (mode !== "realtime" || voiceState === "idle" || sessionActive) return;
+    if (voiceState === "idle" || sessionActive) return;
     markRealtimeStartPending();
-  }, [markRealtimeStartPending, mode, sessionActive, voiceState]);
+  }, [markRealtimeStartPending, sessionActive, voiceState]);
 
   const transitioning = q.data?.transitioning ?? false;
   const startPending = startPendingUntil > 0;
@@ -293,10 +256,10 @@ export function useVoiceMode() {
   // The handshake landed — drop the window instead of waiting it out.
   useEffect(() => {
     if (!startPending) return;
-    if (sessionActive && q.data?.active_session_mode === "realtime" && !transitioning) {
+    if (sessionActive && !transitioning) {
       setStartPendingUntil(0);
     }
-  }, [q.data?.active_session_mode, sessionActive, startPending, transitioning]);
+  }, [sessionActive, startPending, transitioning]);
 
   // …and if it never lands, close the window on a timer so the indicator
   // cannot outlive the budget it was given.
@@ -312,7 +275,6 @@ export function useVoiceMode() {
   }, [startPendingUntil]);
 
   return {
-    mode,
     realtimeAvailable: q.data?.realtime_available ?? false,
     requiresWebRtcOffer: q.data?.requires_webrtc_offer ?? false,
     webRtcStartEventRequired: q.data?.webrtc_start_event_required ?? true,
@@ -341,7 +303,6 @@ export function useVoiceMode() {
     activeProviderLabel: q.data?.active_provider_label ?? null,
     activeModel: q.data?.active_model_label ?? q.data?.active_model ?? null,
     sessionActive,
-    activeSessionMode: q.data?.active_session_mode ?? null,
     activeSessionProvider: q.data?.active_session_provider ?? "",
     activeSessionModel:
       q.data?.active_session_model_label ?? q.data?.active_session_model ?? "",
@@ -351,22 +312,6 @@ export function useVoiceMode() {
       !sessionActive && !(transitioning || startPending)
         ? q.data?.last_start_error ?? null
         : null,
-    setMode: m.mutate,
-    /** Why the last switch was refused, in the backend's words; null otherwise. */
-    saveError: m.error ? refusalText(m.error) : null,
     isLoading: q.isLoading,
-    isSaving: m.isPending,
   };
-}
-
-/** The backend answers a refused switch with `{"detail": "..."}`; show the sentence. */
-function refusalText(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error);
-  try {
-    const detail = (JSON.parse(raw) as { detail?: unknown }).detail;
-    if (typeof detail === "string" && detail.trim()) return detail;
-  } catch {
-    // Not JSON: the text itself is the reason.
-  }
-  return raw;
 }

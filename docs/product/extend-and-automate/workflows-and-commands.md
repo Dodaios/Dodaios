@@ -60,7 +60,7 @@ Current command families include these examples:
 | Area | Requests you can make |
 |---|---|
 | Providers | List or test providers, or switch a supported Brain, voice, speech, Realtime, Computer Use, or Dodaios-Agent provider |
-| Voice and settings | Show or change the wake phrase, choose the reply language or voice mode, set volume, list audio devices, or restart Dodaios |
+| Voice and settings | Show or change the wake phrase, choose the reply language, set volume, list audio devices, or restart Dodaios |
 | Work and history | List tasks or missions, read a mission result or recent voice turn, and cancel a task or mission |
 | Knowledge and tools | Store a self-contained fact in the Wiki or list the tools currently available to Dodaios |
 

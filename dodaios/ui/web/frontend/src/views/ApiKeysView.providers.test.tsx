@@ -1,5 +1,6 @@
 /**
- * The provider page: a Live calls tab on OpenAI GPT-Live, and an Agents tab
+ * The provider page: a Live calls tab on the realtime providers (GPT-Live and
+ * the rest), and an Agents tab
  * with one entry per company — any number on at once, each reached by its
  * subscription or its key — beside the selected company's settings.
  */
@@ -7,20 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const voiceMode = vi.hoisted(() => ({
-  mode: "realtime",
-  realtimeAvailable: true,
-  setMode: (() => undefined) as (mode: string) => void,
-}));
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: voiceMode.mode,
-    realtimeAvailable: voiceMode.realtimeAvailable,
+    realtimeAvailable: true,
     statusKnown: true,
-    setMode: voiceMode.setMode,
-    saveError: null,
     isLoading: false,
-    isSaving: false,
     sessionActive: false,
   }),
 }));
@@ -42,6 +34,8 @@ const PROVIDERS = [
   { id: "claude-cli", label: "Claude (Anthropic subscription)", tier: "brain", auth_mode: "claude_cli", secret_keys: [], secrets_set: {}, configured: true, active: false, billing: "subscription" },
   { id: "gemini", label: "Google Gemini", tier: "brain", auth_mode: "api_key", secret_keys: ["gemini_api_key"], secrets_set: { gemini_api_key: true }, configured: true, active: false, billing: "api" },
   { id: "gemini-live", label: "Gemini Live", tier: "realtime", auth_mode: "api_key", secret_keys: ["realtime_gemini_api_key"], secrets_set: {}, configured: true, active: true, billing: "api" },
+  { id: "grok-realtime", label: "xAI Grok Live", tier: "realtime", auth_mode: "api_key", secret_keys: ["grok_api_key"], secrets_set: { grok_api_key: true }, configured: true, active: false, billing: "api" },
+  { id: "openai-tts", label: "OpenAI TTS", tier: "tts", auth_mode: "api_key", secret_keys: ["openai_api_key"], secrets_set: { openai_api_key: true }, configured: true, active: true, billing: "api" },
 ].map((p) => ({ dashboard_url: null, login_cli: null, install_hint: null, credential_path_hint: null, cli_installed: null, credential_help: null, signup_url: null, alt_credential: null, ...p }));
 
 const FAMILIES = [
@@ -104,9 +98,6 @@ let prefs: { disabled: string[]; api_only: string[]; hidden_models: Record<strin
 let routeOverrides: { providers?: unknown; families?: unknown; agents?: unknown };
 
 beforeEach(() => {
-  voiceMode.mode = "realtime";
-  voiceMode.realtimeAvailable = true;
-  voiceMode.setMode = vi.fn();
   calls = [];
   prefs = { disabled: [], api_only: [], hidden_models: {} };
   routeOverrides = {};
@@ -119,6 +110,7 @@ beforeEach(() => {
     "/api/jarvis-agent/status": () => routeOverrides.agents ?? AGENTS,
     "/api/jarvis-agent/switch": { ok: true },
     "/api/brain/switch": { ok: true },
+    "/api/realtime/switch": { ok: true, restart_required: false },
     "/api/claude/status": CLAUDE_STATUS,
     "/api/codex/status": null,
     "/api/secrets/": { ok: true, key: "x", written: ["anthropic_api_key"] },
@@ -184,44 +176,38 @@ describe("ApiKeysView — Live calls", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Agents", "Live calls"]);
   });
 
-  it("offers the Pipeline as the other voice engine", async () => {
+  it("has no engine switch and no pipeline steps: calls always run on realtime", async () => {
     renderPage();
-    const engine = await screen.findByTestId("voice-engine-switch");
-    expect(within(engine).getByRole("radio", { name: "GPT-Live" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(within(engine).getByRole("radio", { name: "Pipeline" }));
-    expect(voiceMode.setMode).toHaveBeenCalledWith("pipeline");
+    const voice = await screen.findByTestId("apikeys-voice");
+    await within(voice).findByTestId("provider-row-gemini-live");
+    expect(screen.queryByTestId("voice-engine-switch")).toBeNull();
+    expect(screen.queryByTestId("voice-pipeline")).toBeNull();
+    expect(voice.textContent).not.toMatch(/pipeline/i);
+    // The brain answers typed messages; it is not picked on the voice tab.
+    expect(within(voice).queryByTestId("provider-row-gemini")).toBeNull();
   });
 
-  it("shows voice input, the brain and voice output while the Pipeline is the engine", async () => {
-    voiceMode.mode = "pipeline";
+  it("lists every realtime provider, Grok with the xAI mark, and switches calls to it", async () => {
     renderPage();
-    const pipeline = await screen.findByTestId("voice-pipeline");
-    expect(screen.queryByTestId("live-profile")).toBeNull();
-    expect(within(pipeline).getByText("Voice Input (STT)")).toBeTruthy();
-    expect(within(pipeline).getByText("Voice Output (TTS)")).toBeTruthy();
-    // The brain is picked right here (#1028): the Agents tab's default only
-    // decides agent tasks, so the old "Change in Agents" link led nowhere.
-    const brain = within(pipeline).getByTestId("voice-pipeline-brain");
-    expect(within(brain).queryByRole("button", { name: "Change in Agents" })).toBeNull();
-    const picker = within(pipeline).getByTestId("voice-pipeline-brain-picker");
-    fireEvent.click(await within(picker).findByTestId("provider-row-gemini"));
+    const realtime = await screen.findByTestId("voice-realtime");
+    const grok = await within(realtime).findByTestId("provider-row-grok-realtime");
+    expect(grok.textContent).toContain("xAI Grok Live");
+    expect(within(grok).getByTestId("provider-logo-grok-realtime").getAttribute("data-family")).toBe("xai");
+    expect(within(realtime).getByTestId("provider-row-gemini-live")).toBeTruthy();
+    fireEvent.click(grok);
     await waitFor(() => {
-      const sw = calls.find((call) => call.method === "POST" && call.url === "/api/brain/switch");
-      expect(sw?.body).toEqual({ provider: "gemini", persist: true });
+      const sw = calls.find((call) => call.method === "POST" && call.url === "/api/realtime/switch");
+      expect(sw?.body).toMatchObject({ provider: "grok-realtime", persist: true });
     });
-    // The Agents default is a different setting and is never written from here.
-    expect(calls.some((call) => call.url.startsWith("/api/jarvis-agent/switch"))).toBe(false);
+    expect(calls.some((call) => call.url.startsWith("/api/settings/voice-mode") && call.method === "PUT")).toBe(false);
   });
 
-  it("shows GPT-Live's settings without switching while no live provider is ready", async () => {
-    voiceMode.mode = "pipeline";
-    voiceMode.realtimeAvailable = false;
+  it("keeps the read-aloud voice (TTS) for answers and notices outside calls", async () => {
     renderPage();
-    const engine = await screen.findByTestId("voice-engine-switch");
-    fireEvent.click(within(engine).getByRole("radio", { name: "GPT-Live" }));
-    expect(await screen.findByTestId("live-profile")).toBeTruthy();
-    expect(voiceMode.setMode).not.toHaveBeenCalled();
-    expect(screen.getByTestId("voice-engine").textContent).toContain("Set up GPT-Live below");
+    const readAloud = await screen.findByTestId("voice-read-aloud");
+    expect(within(readAloud).getByText("Read-aloud voice")).toBeTruthy();
+    expect(await within(readAloud).findByTestId("provider-row-openai-tts")).toBeTruthy();
+    expect(within(readAloud).queryByTestId("provider-row-grok-realtime")).toBeNull();
   });
 
   it("opens on Agents the first time", async () => {

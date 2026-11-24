@@ -15,7 +15,6 @@ import pytest
 
 from dodaios.core.config import BrainConfig, HarnessConfig, JarvisConfig
 
-
 # ---------------------------------------------------------------------------
 # 6a — [sub_agents] → [jarvis_agents]
 # ---------------------------------------------------------------------------

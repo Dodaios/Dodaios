@@ -3401,10 +3401,8 @@ class DesktopApp:
                         wake_task.cancel()
                     raise
             _t_stt = time.perf_counter()
-            _call_hk, _ptt_hk = self.cfg.trigger.resolve_hotkeys()
             pipeline = SpeechPipeline(
-                call_hotkeys=_call_hk,
-                ptt_hotkeys=_ptt_hk,
+                call_hotkeys=self.cfg.trigger.resolve_hotkeys(),
                 # Dictation. Both keys ship bound to a curated combo (see
                 # TriggerConfig.hotkey_dictate); either can be cleared in the
                 # Voice → Shortcuts tab, and both live-re-arm without a restart.
@@ -3434,10 +3432,6 @@ class DesktopApp:
                     if self.cfg.trigger.hotkey_hangup.strip()
                     else ()
                 ),
-                # User-tunable voice silence window ("think buffer"). Without this
-                # the constructor default (1500) always won and the Settings
-                # slider could not change the boot value.
-                vad_silence_ms=self.cfg.speech.vad_silence_ms,
                 # No shipped wake model (design 2026-07-07): the wake plan is
                 # the only source of a detector; the legacy keyword default
                 # is empty.

@@ -18,7 +18,6 @@ import pytest
 
 from dodaios.setup.wizard import _is_noninteractive, run
 
-
 # ---------------------------------------------------------------------------
 # _is_noninteractive() unit tests
 # ---------------------------------------------------------------------------

@@ -12,94 +12,22 @@ import time
 from typing import Any, Literal
 from uuid import uuid4
 
+from dodaios.core.live_config import LiveConfig
 from dodaios.core.paths import user_data_dir
 from dodaios.core.protocols import ContinuousVoiceStart, VoiceStartError
 from dodaios.core.runtime_refs import get_supervisor_tool_gateway
 from dodaios.core.turn_language import resolve_output_language
-from dodaios.core.live_config import LiveConfig
+from dodaios.live.identity import _identity
 from dodaios.live.state import LiveLedger, TranscriptFragment
 from dodaios.live.tasks import BackgroundTask, report_prompt
 from dodaios.live.timing import StartupTimings
 from dodaios.live.tools import LiveTools, take_images
 from dodaios.realtime.audio import StreamingPcm16Resampler
+from dodaios.realtime.protocol import PHONE_SURFACE
 
 log = logging.getLogger(__name__)
 _STARTUP_CLOSE_SEND_TIMEOUT_S = 2.0
 _STARTUP_CLOSE_TIMEOUT_S = 5.0
-
-
-def _identity(config: Any) -> str:
-    """Who the assistant is (wake-word name + SOUL.md) and what it remembers.
-
-    ``""`` on an identity fault makes the session config fall back to the
-    nameless directive, so an identity fault never blocks a call.
-    """
-    try:
-        from dodaios.brain.identity import identity_block
-
-        # maintain: the live tool set holds update_soul, so the call itself
-        # keeps SOUL.md current (no separate review call for the character).
-        identity = identity_block(config, maintain=True)
-    except Exception:  # noqa: BLE001 — never block a call on the identity block
-        log.warning("live voice: identity block unavailable", exc_info=True)
-        return ""
-    return identity + _instructions(config) + _memory() + _initiative(config)
-
-
-def _initiative(config: Any) -> str:
-    """The initiative rule and the dated plans it may draw on; ``""`` on a fault.
-
-    A call is short-lived, so the dated plans are read once at its start like
-    the notebooks above (``dodaios.brain.proactivity``).
-    """
-    try:
-        from dodaios.brain import proactivity
-
-        level = proactivity.current_level(config)
-        blocks = [proactivity.directive(level), proactivity.upcoming_block(level)]
-    except Exception:  # noqa: BLE001 — never block a call on the initiative rule
-        log.warning("live voice: initiative rule unavailable", exc_info=True)
-        return ""
-    return "".join("\n\n" + block for block in blocks if block)
-
-
-#: Same cap as the realtime engines' preferences block: a pathological file
-#: must never bloat the session instructions.
-_INSTRUCTIONS_MAX_CHARS = 64_000
-
-
-def _instructions(config: Any) -> str:
-    """The user's standing instructions (``<Name>.md``); ``""`` on a fault.
-
-    The typed brain and the realtime engines already honour this file; a
-    GPT-Live call did not, so the model could neither follow it nor say what
-    was in it when asked (2026-10-02).
-    """
-    try:
-        from dodaios.brain.agent_instructions import render_for_prompt
-
-        block = render_for_prompt(config, max_chars=_INSTRUCTIONS_MAX_CHARS)
-    except Exception:  # noqa: BLE001 — never block a call on the instructions file
-        log.warning("live voice: standing instructions unavailable", exc_info=True)
-        return ""
-    return "\n\n" + block if block else ""
-
-
-def _memory() -> str:
-    """The remember directive and Jarvis' notebooks; ``""`` on a fault.
-
-    A GPT-Live call sees what earlier calls and chats saved to MEMORY.md and
-    USER.md, and saves a new "remember this" while the call runs (through
-    the remember tool) instead of only after it ends.
-    """
-    try:
-        from dodaios.memory.learning.notebook import memory_block
-
-        block = memory_block()
-    except Exception:  # noqa: BLE001 — never block a call on the notebooks
-        log.warning("live voice: memory notebooks unavailable", exc_info=True)
-        return ""
-    return "\n\n" + block if block else ""
 
 
 #: Smallest gap between two live snapshots of one streaming reasoning summary.
@@ -161,7 +89,6 @@ class LiveVoiceSession:
     """Browser route facade, with no dependency on the legacy turn planner."""
 
     is_realtime = True
-    allow_classic_fallback = False
     #: Why the provider refused the start, once it has
     #: (``dodaios.speech.provider_refusal.Refusal``); ``None`` otherwise.
     start_refusal: Any = None
@@ -177,6 +104,7 @@ class LiveVoiceSession:
         bus: Any = None,
         brain: Any = None,
         surface: str = "browser",
+        call_brief: str = "",
         **_kwargs: Any,
     ) -> None:
         self.session_id = session_id
@@ -187,6 +115,9 @@ class LiveVoiceSession:
         self._bus = bus
         self._brain = brain
         self._surface = surface
+        # What the model has to know about the phone call it is in (who is on
+        # the line, why it was placed). Joins the instructions; empty elsewhere.
+        self._call_brief = str(call_brief or "").strip()
         self._connection: Any = None
         self._opening_task: asyncio.Task | None = None
         self._pump_task: asyncio.Task | None = None
@@ -296,8 +227,24 @@ class LiveVoiceSession:
 
     @property
     def surface(self) -> str:
-        """Where the call's media lives: ``browser`` (WebView) or ``desktop``."""
+        """Where the call's media lives: ``browser`` (WebView), ``desktop`` or ``phone``."""
         return self._surface
+
+    @property
+    def _shares_desktop_voice(self) -> bool:
+        """Whether this call is the owner's one voice session on this computer.
+
+        A phone call is not: it runs beside whatever the desk is doing, so it
+        never adopts the desktop's session, never holds the one voice slot
+        (``dodaios.live.runtime``), never follows the desk microphone's mute and
+        never takes the desk conversation as its history.
+        """
+        return self._surface != PHONE_SURFACE
+
+    def _claim_voice_slot(self, step: Any, *args: Any) -> None:
+        """Claim or register the one desk voice slot; a phone call takes none."""
+        if self._shares_desktop_voice:
+            step(*(args or (self.session_id,)))
 
     @property
     def active_provider(self) -> str:
@@ -889,7 +836,7 @@ class LiveVoiceSession:
         try:
             from dodaios.live.runtime import claim
 
-            claim(self.session_id)
+            self._claim_voice_slot(claim)
             self._watch_input_mute()
             await self._send_json({"type": "input_mute", "muted": self._input_muted})
             await self._publish_phase("connecting")
@@ -959,7 +906,7 @@ class LiveVoiceSession:
             )
             from dodaios.live.runtime import register
 
-            register(self)
+            self._claim_voice_slot(register, self)
             # The started session is the Realtime tab's evidence; its status
             # dot never opens a (billed) session of its own.
             health_ledger.record_success(
@@ -1197,6 +1144,10 @@ class LiveVoiceSession:
             log.warning("Live start failure notice could not be sent", exc_info=True)
 
     def _take_initial_context(self) -> list[dict]:
+        if not self._shares_desktop_voice:
+            # A phone call starts from its brief, never from the desk
+            # conversation (and never consumes the desk's pending seed).
+            return []
         from dodaios.core.runtime_refs import get_brain_manager
 
         brain = self._brain or get_brain_manager()
@@ -1210,11 +1161,13 @@ class LiveVoiceSession:
         ]
 
     def _adopt_desktop_session(self) -> None:
+        if not self._shares_desktop_voice:
+            return
         from dodaios.core.runtime_refs import get_speech_pipeline
 
         pipeline = get_speech_pipeline()
         parent_id = getattr(pipeline, "_current_voice_session_id", None)
-        if parent_id and getattr(pipeline, "_active_voice_mode", None) == "realtime":
+        if parent_id:
             self.session_id = str(parent_id)
             self._parent_owned = True
 
@@ -1228,6 +1181,9 @@ class LiveVoiceSession:
 
     def _watch_input_mute(self) -> None:
         """Adopt the current microphone mute and follow it until the call ends."""
+        if not self._shares_desktop_voice:
+            # The desk microphone's mute is not the phone caller's.
+            return
         self._user_muted = _pipeline_input_muted()
         self._input_held = _pipeline_input_held()
         self._input_muted = self._user_muted or self._input_held

@@ -6,8 +6,6 @@ Three behaviours, all on the out-of-band announcement path:
   tagged ``spoken_kind="subagent"`` (the attributed sibling of ``completion``).
 * **Speaking indicator** — the readback drives the Supervisor ``SPEAKING`` state
   while it plays (so the mascot/orb animates), then restores the prior state.
-* **Keep listening** — the Jarvis-Agent-background readback stamps the readback
-  grace timestamp so ``_active_session`` keeps the mic open afterward.
 * **No voice out of nowhere** (2026-10-05) — the classic TTS voice speaks a
   readback only inside an open voice session; after a hang-up or while idle
   it stays silent.
@@ -247,32 +245,3 @@ async def test_preamble_does_not_animate_speaking() -> None:
 
     assert player.plays == 1  # it still speaks
     assert "SPEAKING" not in states  # but does not drive the speaking state
-
-
-# --------------------------------------------------------------------------
-# Task 4 — Jarvis-Agent-background readback re-arms the keep-listening grace
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_background_completed_arms_readback_grace() -> None:
-    """The Jarvis-Agent-background readback stamps the readback-grace timestamp —
-    otherwise _active_session idle-times-out seconds after the result."""
-    bus = EventBus()
-    tts = FakeTTS()
-    player = FakePlayer()
-    pipeline = _make_pipeline(tts, bus, player)
-    assert pipeline._last_announcement_spoken_monotonic is None  # type: ignore[attr-defined]
-
-    await bus.publish(
-        JarvisAgentBackgroundCompleted(
-            success=True,
-            utterance="recherchier mir fuenf themen",
-            summary="Fuenf Recherche-Themen liegen bereit.",  # i18n-allow
-            error="",
-            duration_s=12.3,
-        )
-    )
-
-    assert player.plays == 1
-    assert pipeline._last_announcement_spoken_monotonic is not None  # type: ignore[attr-defined]

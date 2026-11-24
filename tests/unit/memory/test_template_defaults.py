@@ -238,9 +238,3 @@ def test_no_spoken_line_addresses_the_maintainer() -> None:
     """Lines the app says on its own must fit whoever installed it."""
     for path in sorted((REPO / "dodaios" / "i18n" / "locales").glob("*.json")):
         assert "Ruben" not in path.read_text(encoding="utf-8"), path.name
-
-    from dodaios.speech.pipeline import _smalltalk_fallback_for_non_substantive
-
-    for prompt, lang in (("wie geht es dir", "de"), ("how are you", "en")):
-        answer = _smalltalk_fallback_for_non_substantive(prompt, lang)
-        assert answer and "Ruben" not in answer

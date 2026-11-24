@@ -6,7 +6,7 @@ restart" (the user report: "I set a key but pressing it does nothing"):
 * ``set_keybinds`` updates only the actions passed and flips
   ``_hotkey_reload_event`` (the live-apply signal, mirroring ``set_wake_plan``).
 * ``_hotkey_reload_loop`` waits on that event and re-arms the live
-  ``HotkeyTrigger`` with the CURRENT combos (Call/Hangup/Talk-PTT).
+  ``HotkeyTrigger`` with the CURRENT combos (Call/Hangup/dictation).
 
 The trigger is faked — ``HotkeyTrigger.rearm`` itself is covered in
 ``tests/unit/trigger/test_hotkey.py``; here we only prove the pipeline drives it
@@ -38,12 +38,22 @@ def _pipe() -> SpeechPipeline:
 def test_set_keybinds_updates_only_passed_actions_and_flips_event():
     pipe = _pipe()
     assert not pipe._hotkey_reload_event.is_set()
-    # Only PTT is changed; Call/Hangup keep their construction defaults.
-    pipe.set_keybinds(ptt=["ctrl+right_alt+j"])
-    assert pipe._ptt_hotkeys == ["ctrl+right_alt+j"]
-    assert pipe._call_hotkeys == ("ctrl+right_alt+j", "f3+f4")  # untouched
-    assert pipe._hangup_hotkeys == ("f1+f2",)  # untouched
+    call_before = pipe._call_hotkeys
+    dictate_before = pipe._dictate_hotkeys
+    # Only Hangup is changed; Call and dictation keep their construction defaults.
+    pipe.set_keybinds(hangup=["f9+f10"])
+    assert pipe._hangup_hotkeys == ["f9+f10"]
+    assert pipe._call_hotkeys == call_before  # untouched
+    assert pipe._dictate_hotkeys == dictate_before  # untouched
     assert pipe._hotkey_reload_event.is_set()
+
+
+def test_set_keybinds_has_no_push_to_talk_action():
+    """Push-to-talk is gone: the settings route must not find a ``ptt`` keyword."""
+    import inspect
+
+    params = inspect.signature(SpeechPipeline.set_keybinds).parameters
+    assert "ptt" not in params
 
 
 class _FakeTrigger:
@@ -64,11 +74,13 @@ async def _run_reload_once(pipe: SpeechPipeline, trigger: _FakeTrigger) -> None:
         pass
 
 
-async def test_reload_loop_rearms_with_current_combos_including_ptt():
+async def test_reload_loop_rearms_with_current_combos():
     pipe = _pipe()
     pipe._call_hotkeys = ["f7+f8"]
     pipe._hangup_hotkeys = ["f1+f2"]
-    pipe._ptt_hotkeys = ["ctrl+right_alt+j"]
+    pipe._dictate_hotkeys = []
+    pipe._dictate_toggle_hotkeys = []
+    pipe._paste_last_hotkeys = []
     trigger = _FakeTrigger()
     pipe._hotkey_reload_event.set()
 
@@ -79,26 +91,25 @@ async def test_reload_loop_rearms_with_current_combos_including_ptt():
     assert bindings == {
         "call": ["f7+f8"],
         "hangup": ["f1+f2"],
-        "ptt": ["ctrl+right_alt+j"],
     }
-    assert ptt == {"ptt"}
+    assert ptt == set()
     assert not pipe._hotkey_reload_event.is_set()  # cleared after handling
 
 
-async def test_reload_loop_omits_ptt_binding_when_unset():
-    """No PTT combo configured → no 'ptt' binding and no push_to_talk event."""
+async def test_reload_loop_never_arms_a_push_to_talk_binding():
+    """Voice calls have no push-to-talk: no 'ptt' binding, no 'ptt' edge event."""
     pipe = _pipe()
     pipe._call_hotkeys = ["f3+f4"]
     pipe._hangup_hotkeys = ["f1+f2"]
-    pipe._ptt_hotkeys = []
+    pipe._dictate_hotkeys = []
     trigger = _FakeTrigger()
     pipe._hotkey_reload_event.set()
 
     await _run_reload_once(pipe, trigger)
 
-    bindings, ptt = trigger.calls[0]
+    bindings, edges = trigger.calls[0]
     assert "ptt" not in bindings
-    assert ptt == set()
+    assert "ptt" not in edges
 
 
 def test_set_keybinds_updates_the_hands_free_dictation_key():
@@ -119,7 +130,6 @@ async def test_reload_loop_arms_hands_free_without_asking_for_both_edges():
     pipe = _pipe()
     pipe._call_hotkeys = ["f3+f4"]
     pipe._hangup_hotkeys = ["f1+f2"]
-    pipe._ptt_hotkeys = []
     pipe._dictate_hotkeys = ["ctrl+right_alt+j"]
     pipe._dictate_toggle_hotkeys = ["ctrl+right_alt+space"]
     trigger = _FakeTrigger()
@@ -137,7 +147,6 @@ async def test_reload_loop_omits_hands_free_binding_when_cleared():
     pipe = _pipe()
     pipe._call_hotkeys = ["f3+f4"]
     pipe._hangup_hotkeys = ["f1+f2"]
-    pipe._ptt_hotkeys = []
     pipe._dictate_toggle_hotkeys = []
     trigger = _FakeTrigger()
     pipe._hotkey_reload_event.set()

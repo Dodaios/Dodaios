@@ -12,11 +12,10 @@ from dodaios.brain.factory import _router_provider_override
 from dodaios.core.config import BrainConfig, BrainTierConfig, JarvisConfig
 
 
-def _config(*, primary: str, router: str | None, mode: str = "realtime") -> JarvisConfig:
+def _config(*, primary: str, router: str | None) -> JarvisConfig:
     config = JarvisConfig(brain=BrainConfig(primary=primary))
     config.brain.router = BrainTierConfig(provider=router) if router else None
     config.brain.realtime = BrainTierConfig(provider="openai-live", model="gpt-live-1")
-    config.voice.mode = mode
     return config
 
 
@@ -35,12 +34,6 @@ def test_router_on_the_voice_key_too_keeps_the_primary_override() -> None:
 
 def test_a_primary_off_the_voice_key_still_overrides_the_router() -> None:
     assert _router_provider_override(_config(primary="gemini", router="grok")) == "gemini"
-
-
-def test_pipeline_voice_keeps_the_ordinary_override() -> None:
-    config = _config(primary="openai", router="grok", mode="pipeline")
-
-    assert _router_provider_override(config) == "openai"
 
 
 def test_same_provider_needs_no_override() -> None:

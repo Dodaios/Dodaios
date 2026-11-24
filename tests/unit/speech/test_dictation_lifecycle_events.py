@@ -371,17 +371,6 @@ async def test_a_voice_session_that_will_not_let_go_is_refused_out_loud(
     assert "microphone" in seen.refused[0].detail.lower()
     assert seen.started == []
 
-    # Push-to-talk is the same collision through a different door.
-    pipe._state = PipelineState.IDLE
-    pipe._ptt_mode = True
-    seen.refused.clear()
-    assert pipe.start_dictation() is True
-    handover = pipe._dictation_handover_task
-    assert handover is not None
-    await asyncio.wait_for(handover, timeout=2.0)
-    await _drain_bus()
-    assert [e.reason for e in seen.refused] == ["handover_failed"]
-
 
 @pytest.mark.asyncio
 async def test_every_refusal_reason_comes_from_the_shared_vocabulary(

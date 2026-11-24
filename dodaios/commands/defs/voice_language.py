@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dodaios.commands.registry import (
     REPLY_LANGUAGES,
-    VOICE_MODES,
     AppCommand,
     _str_param,
 )
@@ -48,34 +47,6 @@ def build() -> tuple[AppCommand, ...]:
                     "fala português",  # i18n-allow: input vocab
                     "fala comigo em português",  # i18n-allow: input vocab
                 ),
-            },
-        ),
-        AppCommand(
-            id="voice-mode-set",
-            title="Set voice mode (pipeline / realtime)",
-            description=(
-                "Choose the voice engine: the classic STT-brain-TTS pipeline "
-                "or a realtime speech-to-speech model."
-            ),
-            method="PUT",
-            path="/api/settings/voice-mode",
-            params={
-                "type": "object",
-                "properties": {
-                    "mode": _str_param("Voice mode.", enum=list(VOICE_MODES)),
-                    "persist": {
-                        "type": "boolean", "default": True,
-                        "description": "Persist as boot default.",
-                    },
-                },
-                "required": ["mode"],
-            },
-            ui_section="settings",
-            voice_aliases={
-                "de": ("schalte auf den realtime-modus um",),  # i18n-allow: input vocab
-                "en": ("switch to realtime mode",),
-                "es": ("cambia al modo en tiempo real",),  # i18n-allow: input vocab
-                "pt": ("muda para o modo em tempo real",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(

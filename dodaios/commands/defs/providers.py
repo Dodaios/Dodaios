@@ -53,8 +53,8 @@ def build() -> tuple[AppCommand, ...]:
             id="stt-switch",
             title="Switch speech-recognition (STT) provider",
             description=(
-                "Switch the speech-to-text provider. Takes effect on the next "
-                "voice-pipeline start (restart required)."
+                "Switch the speech-to-text provider used for dictation. Takes "
+                "effect on the next dictation."
             ),
             method="POST",
             path="/api/stt/switch",

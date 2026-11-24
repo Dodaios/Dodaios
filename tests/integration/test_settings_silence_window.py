@@ -11,14 +11,6 @@ from dodaios.core.config import JarvisConfig
 from dodaios.ui.web.server import WebServer
 
 
-class _FakePipeline:
-    def __init__(self) -> None:
-        self.applied: list[int] = []
-
-    def set_silence_window_ms(self, ms: int) -> None:
-        self.applied.append(ms)
-
-
 @pytest.fixture
 def server() -> Iterator[WebServer]:
     cfg = JarvisConfig()
@@ -54,9 +46,9 @@ def test_get_returns_current_and_bounds(server: WebServer) -> None:
         }
 
 
-def test_put_persists_and_applies_live(server: WebServer) -> None:
-    pipe = _FakePipeline()
-    server.app.state.speech_pipeline = pipe
+def test_put_persists_and_applies_to_the_next_call(
+    server: WebServer, _no_toml_write: list[int]
+) -> None:
     with TestClient(server.app) as client:
         resp = client.put("/api/settings/silence-window", json={"ms": 2500})
         assert resp.status_code == 200
@@ -64,8 +56,8 @@ def test_put_persists_and_applies_live(server: WebServer) -> None:
         assert body["ms"] == 2500
         assert body["applied_live"] is True
         assert body["restart_required"] is False
-        assert pipe.applied == [2500]
-        # in-memory cfg reflects it
+        assert _no_toml_write == [2500]
+        # in-memory cfg reflects it: the next realtime call reads it
         assert server.app.state.config.speech.vad_silence_ms == 2500
 
 
@@ -100,10 +92,3 @@ def test_put_automatic_is_accepted(server: WebServer) -> None:
         assert body["ms"] == 0
         assert body["automatic"] is True
         assert server.app.state.config.speech.vad_silence_ms == 0
-
-
-def test_put_without_pipeline_reports_restart_required(server: WebServer) -> None:
-    with TestClient(server.app) as client:
-        body = client.put("/api/settings/silence-window", json={"ms": 1500}).json()
-        assert body["applied_live"] is False
-        assert body["restart_required"] is True

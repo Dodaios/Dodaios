@@ -30,14 +30,11 @@ def _bare_pipeline() -> tuple[SpeechPipeline, Any, Any]:
     pipeline._dictation_cfg = SimpleNamespace(bias_prompt="", local_engine=False)
     pipeline._stt = None
     pipeline._utterance_stt = old_provider
-    pipeline._probe_stt = old_provider
     pipeline._dictation_resolution_cache = old_dictation
-    pipeline._voice_stt_fallback_chain = ("openai-api",)
-    pipeline._voice_stt_fallback_instances = {"openai-api": object()}
     return pipeline, old_provider, old_dictation
 
 
-def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
+def test_pipeline_switch_replaces_the_next_dictation_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     pipeline, old_provider, _old_dictation = _bare_pipeline()
@@ -50,7 +47,6 @@ def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
 
     monkeypatch.setattr("dodaios.plugins.stt.build_stt_from_config", _build)
     monkeypatch.setattr("dodaios.plugins.stt.provider_runs_on_device", lambda _provider: False)
-    monkeypatch.setattr("dodaios.speech.pipeline._resolve_stt_fallback_chain", lambda *_: ())
     monkeypatch.setattr(
         "dodaios.speech.stt_fallback.wrap_stt_with_fallback",
         lambda provider, _cfg: provider,
@@ -64,15 +60,8 @@ def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
 
     assert pipeline._utterance_stt.name == "openrouter-stt"
     assert pipeline._utterance_stt is not old_provider
-    # The utterance lane is wrapped by the speech meter (usage + provider
-    # health, with or without a bus); the preview follows the same provider.
-    assert pipeline._probe_stt is getattr(
-        pipeline._utterance_stt, "_inner", pipeline._utterance_stt
-    )
     assert pipeline._config.stt.provider == "openrouter-stt"
     assert pipeline._dictation_resolution_cache is None
-    assert pipeline._voice_stt_fallback_chain is None
-    assert pipeline._voice_stt_fallback_instances == {}
 
     # The dictation resolves its own prompt-free recognizers lazily. Its first
     # use after the cut-over must read the new provider, not the stale cache.
@@ -85,7 +74,7 @@ def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
     pipeline._speech_trace = None
     recognizers = pipeline._dictation_resolution().recognizers
     assert [r.id for r in recognizers] == ["openrouter-stt"]
-    assert recognizers[0].provider is not pipeline._probe_stt
+    # The dictation builds its own prompt-free instance of the new provider.
     assert built == ["openrouter-stt", "openrouter-stt"]
 
 
@@ -101,7 +90,6 @@ def test_pipeline_switch_failure_preserves_every_live_reference(
 
     assert pipeline.set_stt_provider("openrouter-stt") is False
     assert pipeline._utterance_stt is old_provider
-    assert pipeline._probe_stt is old_provider
     assert pipeline._dictation_resolution_cache is old_dictation
     assert pipeline._config.stt.provider == "groq-api"
 
@@ -118,16 +106,10 @@ class _LivePipeline:
     def __init__(self, cfg: JarvisConfig) -> None:
         self.cfg = cfg
         self.calls: list[tuple[str, str | None]] = []
-        self.mode_calls: list[str] = []
 
     def set_stt_provider(self, provider: str, *, model: str | None = None) -> bool:
         self.calls.append((provider, model))
         self.cfg.stt.provider = provider
-        return True
-
-    def apply_voice_mode(self, mode: str) -> bool:
-        self.mode_calls.append(mode)
-        self.cfg.voice.mode = mode
         return True
 
 
@@ -137,12 +119,9 @@ def test_switch_route_applies_to_running_pipeline_without_restart(
     pipeline = _LivePipeline(web_server.cfg)
     web_server.app.state.speech_pipeline = pipeline
     writes: list[str] = []
-    mode_writes: list[str] = []
-    web_server.cfg.voice.mode = "realtime"
     monkeypatch.setattr(provider_routes, "_is_credential_present", lambda _spec: True)
     monkeypatch.setattr("dodaios.brain.app_control.local_readiness_error", lambda _spec: None)
     monkeypatch.setattr("dodaios.core.config_writer.set_stt_provider", writes.append)
-    monkeypatch.setattr("dodaios.core.config_writer.set_voice_mode", mode_writes.append)
 
     with TestClient(web_server.app) as client:
         response = client.post(
@@ -160,17 +139,13 @@ def test_switch_route_applies_to_running_pipeline_without_restart(
         "session_restarted": False,
     }
     assert pipeline.calls == [("openrouter-stt", None)]
-    assert pipeline.mode_calls == []
     assert web_server.cfg.stt.provider == "openrouter-stt"
-    assert web_server.cfg.voice.mode == "realtime"
     assert writes == ["openrouter-stt"]
-    assert mode_writes == []
 
 
 def test_switch_route_never_requests_restart_when_voice_is_not_running(
     web_server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    initial_mode = web_server.cfg.voice.mode
     monkeypatch.setattr(provider_routes, "_is_credential_present", lambda _spec: True)
     monkeypatch.setattr("dodaios.brain.app_control.local_readiness_error", lambda _spec: None)
 
@@ -185,4 +160,3 @@ def test_switch_route_never_requests_restart_when_voice_is_not_running(
     assert response.json()["restart_required"] is False
     assert response.json()["session_restarted"] is False
     assert web_server.cfg.stt.provider == "openrouter-stt"
-    assert web_server.cfg.voice.mode == initial_mode

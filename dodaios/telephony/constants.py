@@ -33,16 +33,15 @@ CALL_RINGING: Final[str] = "ringing"
 ``start`` event yet (the call is being set up)."""
 
 CALL_IN_PROGRESS: Final[str] = "in_progress"
-"""Audio is flowing both ways; the per-call STT -> Brain -> TTS turn loop is
-active."""
+"""Audio is flowing both ways; the call's realtime voice session is active."""
 
 CALL_COMPLETED: Final[str] = "completed"
-"""The call ended normally: the caller hung up, said a hangup phrase, or the
-``max_call_seconds`` cap fired and we closed gracefully."""
+"""The call ended normally: the caller hung up, the conversation ended it, or
+the ``max_call_seconds`` cap fired and we closed gracefully."""
 
 CALL_FAILED: Final[str] = "failed"
-"""The call ended on an unrecoverable error (bad WS secret, transcode crash,
-brain failure with no spoken recovery)."""
+"""The call ended on an unrecoverable error (no realtime voice could hold the
+call, its session failed, or the media socket broke)."""
 
 CALL_NO_AUDIO: Final[str] = "no_audio"
 """The socket connected but no usable inbound audio frames ever arrived (the

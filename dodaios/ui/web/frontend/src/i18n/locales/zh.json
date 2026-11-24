@@ -116,13 +116,8 @@
     "state_ready": "已准备好下一次通话",
     "state_call": "通话中",
     "state_connecting": "正在连接…",
-    "state_backup": "正在使用备用语音通道",
-    "state_off": "实时语音已关闭",
     "state_none": "尚未设置语音服务商",
     "none_hint": "在下方选择一个服务商并添加它的密钥。",
-    "off_hint": "你的语音仍在使用已停用的经典引擎。开启实时语音，即可通过下方的服务商对话。",
-    "off_hint_unavailable": "你的语音仍在使用已停用的经典引擎。请先在下方设置服务商，再开启实时语音。",
-    "turn_on": "开启实时语音",
     "providers_title": "服务商",
     "providers_desc": "由谁驱动实时对话。已保存密钥的服务商一键即可接管。",
     "active": "使用中",
@@ -162,7 +157,6 @@
     "subscription_billing": "语音和思考使用你的 ChatGPT 订阅，受其权限和用量限制约束。如果不可用，通话会停止，不会切换到 API 密钥。订阅语音功能仍处于实验阶段。",
     "options_failed": "无法加载模型和声音列表。请重新打开设置再试一次。",
     "active": "使用中",
-    "pipeline_fallback": "本次通话无法启动实时语音，因此改用备用语音通道。新设置将在下一次通话时生效。",
     "open_browser": "在浏览器中打开语音",
     "loading": "正在加载语音设置…",
     "description": "自然对话、你选择的思考模型，以及 Dodaios 工具。可选择 OpenAI 密钥或 ChatGPT 订阅。",
@@ -919,10 +913,8 @@
     "realtime_webrtc_unsupported": "此窗口无法打开该语音所需的音频连接（WebRTC 不可用）。",
     "realtime_start_unavailable": "无法启动语音：所选语音连接尚未就绪。请在 API Keys > Live calls 中检查其登录或密钥。",
     "realtime_browser_tts_unavailable": "此浏览器没有可用的系统语音。回答仍会以文字显示；如需语音，请连接一个 TTS 服务商。",
-    "realtime_pipeline_fallback": "经典流水线备用方案",
     "realtime_unavailable": "连接或配置一个实时语音服务商",
     "realtime_error": "无法启动语音。请在“API 密钥”中测试当前的实时语音服务商，然后重试。",
-    "browser_voice_error": "无法启动语音。请在“API 密钥”中检查语音转文字、大脑和文字转语音，然后重试。",
     "realtime_provider_fallback": "{0} 已不可用，因此通话已切换到另一个服务商——计费方式可能不同。{1}",
     "realtime_provider_fallback_short": "通话已从 {0} 切换到另一个服务商。",
     "realtime_provider_warning": "实时语音服务商报告了一个可恢复的问题，通话将继续。",
@@ -2023,12 +2015,6 @@
       "warn": "警告"
     }
   },
-  "voice_mode": {
-    "label": "模式",
-    "realtime": "实时",
-    "pipeline": "流水线",
-    "unknown": "未知"
-  },
   "transcription": {
     "archive": "语音存档",
     "intro": "每段对话都有归处。找到你想回看的那些话。",
@@ -2920,26 +2906,13 @@
     "local_mode_notice": "已隐藏 {0} 个托管服务商。",
     "local_mode_notice_active": "当前使用的服务商会保持可见，让你随时知道 {name} 在用什么运行。",
     "local_mode_show_all": "显示所有服务商",
-    "mode_pipeline": "流水线",
-    "mode_realtime": "实时",
     "mode_active_badge": "使用中",
     "mode_recommended": "推荐",
-    "voice_engine_label": "语音引擎",
-    "voice_engine_desc": "{name} 如何听和说：带工具的实时对话，或本地语音。",
     "mode_needs_credentials": "在下方连接或配置一个实时服务商后即可切换。",
-    "mode_desc_pipeline": "三个步骤：语音转文字、大脑思考、文字转语音。",
-    "mode_desc_realtime": "一个模型在同一条实时音频流中边听边答。",
-    "mode_pick_one_hint": "你只需要设置一种语音模式。",
-    "mode_keys_hint": "实时模式需要一个实时服务商，可以用订阅登录或 API 密钥。流水线模式需要各自的语音输入、语音输出和大脑凭据。工具模型和 {name} 智能体对两种模式都适用。",
-    "mode_realtime_preview": "研究预览版，尚未完成。实时模式下很多工具和功能无法使用。",
-    "mode_realtime_preview_short": "研究预览版",
     "alt_credential_title": "替代方案：{0}",
     "alt_credential_setup": "设置 {0}",
     "runtime_switching": "正在用所选引擎重启当前语音会话…",
-    "runtime_idle": "当前没有语音会话。此选择将用于下一次会话。",
     "runtime_realtime": "当前会话：实时",
-    "runtime_pipeline": "当前会话：流水线",
-    "runtime_fallback_pipeline": "当前会话已回退到流水线，此次通话没有使用实时模式。",
     "cat_brain_desc": "负责撰写对话和语音回答的模型。操作和 Computer Use 由单独的工具模型处理。",
     "cat_tts_desc": "{name} 说话使用的音色。",
     "cat_stt_desc": "{name} 如何把你的语音转成文字。",
@@ -3234,7 +3207,7 @@
   "settings_view": {
     "silence_window": {
       "title": "思考停顿",
-      "description": "{name}在静默多久后才接过话头。设为“自动”时，每种语音模式都使用各自的出厂时长，即最短的停顿。调高它，你就有更多时间停顿并说完一个想法；如果你在停顿期间继续说话，这些话会并入同一个请求。对两种语音模式都生效：Pipeline 立即生效，Realtime 在下一次通话时生效。",
+      "description": "在语音通话中，{name}在静默多久后才接过话头。设为“自动”时，语音服务商使用自己的轮次检测，即最短的停顿。调高它，你就有更多时间停顿并说完一个想法；如果你在停顿期间继续说话，这些话会并入同一个请求。从下一次通话开始生效。",
       "unit_seconds": "秒",
       "automatic_label": "自动",
       "automatic_caption": "服务商的出厂时长，即最短的停顿。",
@@ -4091,7 +4064,7 @@
     "reply_section": "回复语言",
     "reply_hint": "{name}回答你时使用的语言。专有名称、代码标识符和技术术语保持原样。",
     "stt_section": "语音识别语言",
-    "stt_hint": "以哪种语言识别你的语音并转为文字。“自动”会替你检测。更改后，请结束所有实时通话；Pipeline 模式需要重启 Dodaios。",
+    "stt_hint": "以哪种语言识别你的语音并转为文字。“自动”会替你检测。更改后，请结束正在进行的通话；下一次通话会使用新语言。",
     "options": {
       "auto": {
         "label": "自动",
@@ -6951,9 +6924,7 @@
   "ready_note": {
     "title": "一切就绪。",
     "body": "思考、工具、智能体和{0}都已设置好。说出你的唤醒词——或者直接开始输入。",
-    "go": "开始吧",
-    "mode_realtime": "实时语音",
-    "mode_pipeline": "语音输入和输出"
+    "go": "开始吧"
   },
   "society": {
     "sandbox": {

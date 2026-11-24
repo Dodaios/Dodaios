@@ -35,6 +35,8 @@ export const KNOWN_VOICE_TIERS = [
 
 export type VoiceTier = string;
 
+// Calls run only on realtime now; "pipeline" stays because recorded sessions
+// from before keep it, and reading an old record must not break.
 export const KNOWN_VOICE_MODES = ["unknown", "pipeline", "realtime"] as const;
 
 export type KnownVoiceMode = (typeof KNOWN_VOICE_MODES)[number];

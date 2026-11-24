@@ -8,17 +8,17 @@ order: 6
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-11-17
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
-tags: [speech-recognition, dictionary, voice, pipeline]
+tags: [speech-recognition, dictionary, voice, realtime]
 related: [voice-conversations, audio-and-wake-word, languages-and-voices]
 ---
 
 Use the **Dictionary** for names, brands, abbreviations, and specialist terms
 that speech recognition repeatedly spells the wrong way. It is a **Research
-Preview**, but its local corrections now reach Pipeline voice, Realtime
-transcripts, and Dictation.
+Preview**, but its local corrections now reach voice-call transcripts and
+Dictation.
 
 The Dictionary changes recognized text. It does not train a provider, improve
 microphone audio, detect the wake phrase, or change reply pronunciation.
@@ -95,9 +95,8 @@ separate them.
 
 | Path | What the Dictionary changes | Important limit |
 |---|---|---|
-| **Pipeline** | Preview and final transcripts, including fallback | Provider hints load when the provider is built; later edits still correct locally |
-| **Realtime** | Transcript, local routing, tools, and hang-up matching | The provider may have begun its own response before local correction |
-| **Dictation** | Preview, final text, and insertion into another app | Optional polish or translation happens later; saved terms are protected |
+| **Voice calls** | Transcript, local routing, tools, and hang-up matching | The realtime provider may have begun its own response before local correction |
+| **Dictation** | Preview, final text, and insertion into another app | Provider hints load when the provider is built; later edits still correct locally. Optional polish or translation happens later; saved terms are protected |
 
 Edits usually affect the next new transcript within one second. Existing
 transcripts and Dictation history are unchanged.
@@ -139,8 +138,7 @@ force provider hints. When recognition writes a different real word instead of
 yours, it needs that word under **Heard as**.
 
 Use [Audio and Wake Word](audio-and-wake-word) for capture or activation
-problems and [Voice Conversations](voice-conversations) for Pipeline and
-Realtime behavior.
+problems and [Voice Conversations](voice-conversations) for call behavior.
 
 ## How It Fits Together
 
@@ -148,8 +146,8 @@ Realtime behavior.
    happens earlier.
 2. Explicit replacements run first, then capitalization, then the match by
    sound.
-3. Pipeline sends corrected text to the assistant, Realtime uses it locally,
-   and Dictation may polish it before insertion.
+3. A voice call uses corrected text locally, and Dictation may polish it
+   before insertion.
 4. A fallback can change the provider while local rules remain.
 
 ## Check That It Works
@@ -157,8 +155,8 @@ Realtime behavior.
 1. Say one harmless phrase and note the wrong term.
 2. Add the intended form and save.
 3. Wait one second, then repeat the phrase in the same path.
-4. Confirm the Pipeline/Realtime transcript or Dictation draft shows the saved
-   form. No app restart should be needed for local correction.
+4. Confirm the call transcript or Dictation draft shows the saved form. No app
+   restart should be needed for local correction.
 
 ## Troubleshooting
 
@@ -168,7 +166,7 @@ Realtime behavior.
 | A real word appears instead of yours | An ordinary word is never changed by sound | Fill in **Heard as** with that word |
 | A short name stays wrong | Short words are matched by the same sound only | Fill in **Heard as** with the wrong spelling |
 | Another person's name turns into your word | The name is in no word list and sounds like your word | Add that name as its own entry |
-| Realtime transcript is fixed but its reply is not | The provider interpreted audio before local correction | Retry in Pipeline when corrected text must drive the answer |
+| A call transcript is fixed but its reply is not | The realtime provider interpreted audio before local correction | Say the term more clearly, or type the request in Chats when corrected text must drive the answer |
 | An unrelated phrase changes | A variant is too broad or shared across entries | Make it more specific, remove the duplicate mapping, or delete it |
 | Recognition varies every time | Audio, language, or provider behavior is unstable | Check microphone and input language before adding more rules |
 
@@ -176,5 +174,5 @@ Realtime behavior.
 
 - Read [Dictate Into Any App](dictation) for Dictation delivery, polish, and
   recovery.
-- Read [Voice Conversations](voice-conversations) for Pipeline and Realtime.
+- Read [Voice Conversations](voice-conversations) for voice calls.
 - Use [Audio and Wake Word](audio-and-wake-word) for microphone and wake issues.

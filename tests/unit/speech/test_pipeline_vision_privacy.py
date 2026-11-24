@@ -1,6 +1,6 @@
 """Wave-2 B7: Vision privacy hooks in SpeechPipeline.
 
-Tests the extracted helper methods (_vision_cfg, _match_privacy_phrase,
+Tests the extracted helper methods (_vision_cfg,
 _maybe_toggle_vision_on_state) directly on a pipeline instance via
 `__new__`, without running the full STT/TTS/wake bootstrap.
 """
@@ -8,13 +8,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
-from dodaios.speech.pipeline import (
-    SpeechPipeline,
-    _is_non_substantive_response,
-    _smalltalk_fallback_for_non_substantive,
-)
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakeProvider:
@@ -57,10 +51,6 @@ def _default_vision_cfg(pause_on_idle: bool = True) -> SimpleNamespace:
     return SimpleNamespace(
         enabled=True,
         pause_on_idle=pause_on_idle,
-        voice_pause_phrase_de="privacy",
-        voice_pause_phrase_en="privacy mode",
-        voice_resume_phrase_de="du darfst wieder sehen",
-        voice_resume_phrase_en="vision back on",
     )
 
 
@@ -107,34 +97,6 @@ def test_pipeline_vision_hook_noop_when_no_provider():
 
 
 # ----------------------------------------------------------------------
-# _match_privacy_phrase
-# ----------------------------------------------------------------------
-
-
-def test_voice_phrase_privacy_returns_pause():
-    pipe = _make_pipeline(provider=_FakeProvider(), vision_cfg=_default_vision_cfg())
-    assert pipe._match_privacy_phrase("Jarvis, privacy") == "pause"
-    assert pipe._match_privacy_phrase("privacy mode please") == "pause"
-
-
-def test_voice_phrase_vision_back_on_returns_resume():
-    pipe = _make_pipeline(provider=_FakeProvider(), vision_cfg=_default_vision_cfg())
-    assert pipe._match_privacy_phrase("du darfst wieder sehen") == "resume"
-    assert pipe._match_privacy_phrase("Jarvis, vision back on") == "resume"
-
-
-def test_voice_phrase_non_match_returns_none():
-    pipe = _make_pipeline(provider=_FakeProvider(), vision_cfg=_default_vision_cfg())
-    assert pipe._match_privacy_phrase("was ist das") is None  # i18n-allow
-    assert pipe._match_privacy_phrase("hallo") is None
-
-
-def test_voice_phrase_match_returns_none_when_no_config():
-    pipe = _make_pipeline(provider=_FakeProvider(), vision_cfg=None)
-    assert pipe._match_privacy_phrase("privacy") is None
-
-
-# ----------------------------------------------------------------------
 # Smoke-Test: __init__ nimmt kwargs
 # ----------------------------------------------------------------------
 
@@ -166,18 +128,3 @@ def test_activation_gate_fails_closed():
 
     pipe._activation_gate = _boom
     assert pipe._activation_allowed() is False
-
-
-def test_readiness_phrase_is_non_substantive():
-    assert _is_non_substantive_response("Ich bin einsatzbereit.")
-
-
-def test_wellbeing_question_gets_smalltalk_fallback():
-    assert (
-        _smalltalk_fallback_for_non_substantive("Wie geht's dir?", "de")
-        == "Mir geht's gut. Was machen wir als Naechstes?"
-    )
-
-
-def test_smalltalk_fallback_only_for_wellbeing_questions():
-    assert _smalltalk_fallback_for_non_substantive("Oeffne Chrome", "de") is None
