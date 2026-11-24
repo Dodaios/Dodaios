@@ -491,7 +491,7 @@ scripts/ci/privacy_gate/references/secret-allowlist.tsv
 
 # Local validation scripts, runtime captures, and machine-specific telemetry.
 /scripts/_*.py
-/art/studies/*/evidence/
+/assets/art/studies/*/evidence/
 /desktop-ttu-latest.json
 
 # Figure build: fetched CC0 sources and generated sheets (scripts/figures/README.md)
@@ -505,5 +505,5 @@ eval-results/
 # had them keeps local leftovers (build output, caches, third-party content
 # whose licence forbids redistribution); none of it may ever be committed.
 /unreal/
-/art/verse/
+/assets/art/verse/
 /dodaios/ui/web/frontend/public/verse/

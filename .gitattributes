@@ -36,8 +36,6 @@ dodaios/assets/browser/bootstrap.in text eol=lf
 # Git hooks run through a POSIX shell and must never be checked out as CRLF.
 .githooks/*                  text eol=lf
 
-# POSIX launcher (parity twin of run.bat) — CRLF breaks the shebang.
-run.sh                       text eol=lf
 # Every POSIX script must parse after a Windows checkout as well.
 *.sh                         text eol=lf
 

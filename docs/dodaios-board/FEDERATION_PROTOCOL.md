@@ -495,7 +495,7 @@ If you want that: major-bump to v2 with a clear opt-in.
 ## Test suite for compatibility
 
 If you build an alternative implementation, it should pass the
-reference `tools/board_pentest.py` script — all 19 vectors.
+reference `board-backend/tools/board_pentest.py` script — all 19 vectors.
 Plus the 9 plan-mandated smoke tests from the reference backend (see
 `board-backend/tests/`):
 

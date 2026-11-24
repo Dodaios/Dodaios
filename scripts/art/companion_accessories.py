@@ -19,9 +19,9 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTLINES = ROOT / "art/studies/agent-symbol-companions/source/outlines.json"
+OUTLINES = ROOT / "assets/art/studies/agent-symbol-companions/source/outlines.json"
 # Written by build_agent_companions.py: body surface depth (m) under each slot anchor.
-BODY_DEPTHS = ROOT / "art/studies/agent-symbol-companions/source/body_depths.json"
+BODY_DEPTHS = ROOT / "assets/art/studies/agent-symbol-companions/source/body_depths.json"
 OUTPUT = ROOT / "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
 
 # Draw order of the flat symbol; also the persisted slot names.

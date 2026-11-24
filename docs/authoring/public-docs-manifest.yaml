@@ -628,7 +628,7 @@ pages:
       - dodaios/ui/web/mcp_routes.py
       - dodaios/mcp/registry.py
       - dodaios/mcp/client.py
-      - mcp.json.example
+      - docs/examples/mcp.json.example
     related:
       - plugins
       - skills
