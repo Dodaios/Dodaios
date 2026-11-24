@@ -16,6 +16,7 @@ dialog.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
 
@@ -32,6 +33,8 @@ from dodaios.cu.target_guard import (
     foreground_signature,
 )
 from dodaios.overlay.virtual_cursor import get_virtual_cursor
+
+log = logging.getLogger(__name__)
 
 
 def _foreground_window_signature() -> tuple[Any, ...]:
@@ -96,8 +99,8 @@ def _click_windows(
         raise OSError(landing.detail)
     try:
         get_virtual_cursor().show_click(int(x), int(y), button=button_l, double=double)
-    except Exception:  # noqa: BLE001, S110 — overlay must never break a real click
-        pass
+    except Exception:  # broad-except: overlay must never break a real click
+        log.debug("_click_windows: overlay must never break a real click", exc_info=True)
     if (
         expected_window_signature is not None
         and not _window_signature_matches(expected_window_signature)
@@ -231,5 +234,6 @@ class ClickTool:
             )
         except ActuationUnavailable as exc:
             return ToolResult(success=False, output=None, error=str(exc))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

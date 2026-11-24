@@ -40,7 +40,7 @@ vi.mock("@/lib/chatLibraryApi", async (importOriginal) => ({
 
 import { ThreadView } from "./ThreadView";
 import { ThreadTree } from "./ThreadTree";
-import { useThreadChatStore } from "./threadModel";
+import { setDraggedThread, useThreadChatStore } from "./threadModel";
 
 class FakeSocket {
   static instances: FakeSocket[] = [];
@@ -230,6 +230,25 @@ describe("ThreadView", () => {
     await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
     expect(api.sendAgentChatMessage.mock.calls[0][1]).toBe("wait for [Fix the login redirect after the OAuth callback](thread:s2) before you merge");
+  });
+
+  it("shows the box takes a thread while one is dragged, its own thread included", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    act(() => { useThreadChatStore.setState({ sessions: [sessionRow()] }); });
+    expect(screen.queryByTestId("thread-mention-hint")).toBeNull();
+    act(() => setDraggedThread("s1"));
+    expect(screen.getByTestId("thread-mention-hint").textContent).toContain("Drop here to name this agent");
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    const dataTransfer = { types: ["application/x-jarvis-thread"], effectAllowed: "copyMove", dropEffect: "none", getData: () => "s1" };
+    fireEvent.drop(box.closest("[data-thread-mention-drop]") as HTMLElement, { dataTransfer });
+    expect(box.value).toBe("@fix the login test ");
+    act(() => setDraggedThread(null));
+    expect(screen.queryByTestId("thread-mention-hint")).toBeNull();
+    // Drafts outlive the view; the next test starts with an empty box.
+    fireEvent.change(box, { target: { value: "" } });
   });
 
   it("takes a named thread out whole with one Backspace", async () => {
@@ -613,8 +632,8 @@ describe("ThreadTree", () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     useThreadSubagentsStore.setState({ open: null });
     useThreadSubagentsStore.getState().publish("s1", [
-      { id: "a1", parentId: null, depth: 0, title: "Explore the auth code", agentType: "Explore", status: "running", waiting: false },
-      { id: "a2", parentId: "a1", depth: 1, title: "Read the tests", agentType: "", status: "done", waiting: false },
+      { id: "a1", parentId: null, depth: 0, title: "Explore the auth code", agentType: "Explore", model: "Haiku 5.5", status: "running", waiting: false },
+      { id: "a2", parentId: "a1", depth: 1, title: "Read the tests", agentType: "", model: "", status: "done", waiting: false },
     ]);
     render(<ThreadTree />);
     await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
@@ -642,7 +661,7 @@ describe("ThreadTree", () => {
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: null } });
     useThreadSubagentsStore.getState().publish("s1", [
-      { id: "a1", parentId: null, depth: 0, title: "Explore", agentType: "", status: "running", waiting: false },
+      { id: "a1", parentId: null, depth: 0, title: "Explore", agentType: "", model: "", status: "running", waiting: false },
     ]);
     render(<ThreadTree />);
     await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());

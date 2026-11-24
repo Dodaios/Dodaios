@@ -50,7 +50,8 @@ export function Row({
   data,
   rowRef,
 }: {
-  icon: ReactNode;
+  /** The glyph tile on the left; a list whose rows have no telling glyph leaves it out. */
+  icon?: ReactNode;
   title: ReactNode;
   sub?: ReactNode;
   right?: ReactNode;
@@ -85,15 +86,17 @@ export function Row({
           selected ? "bg-secondary" : onClick && "hover:bg-secondary/60",
         )}
       >
-        <span
-          aria-hidden
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary",
-            muted ? "text-muted-foreground" : "text-foreground",
-          )}
-        >
-          {icon}
-        </span>
+        {icon !== undefined && (
+          <span
+            aria-hidden
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary",
+              muted ? "text-muted-foreground" : "text-foreground",
+            )}
+          >
+            {icon}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <p className={cn("truncate text-[15px] leading-snug", muted ? "text-muted-foreground" : "text-foreground-strong")}>
             {title}

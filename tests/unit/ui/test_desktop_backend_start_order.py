@@ -166,6 +166,28 @@ def _install_fake_module(monkeypatch, name: str, **attrs: Any) -> types.ModuleTy
     return module
 
 
+_BOOT_PHASES = [
+    "install_loop",
+    "bind_bootstrap",
+    "wait_for_shell_paint",
+    "start_prefetch",
+    "build_server",
+    "init_stores",
+    "apply_frontier",
+    "publish_app_state",
+    "setup_brain",
+    "subscribe_chat_dispatch",
+    "wire_overlay_and_window",
+    "setup_workflows",
+    "setup_mcp",
+    "setup_conductor",
+    "define_service_bootstraps",
+    "start_voice_and_backend_tasks",
+    "run_loop",
+    "teardown",
+]
+
+
 def _cfg(tmp_path: Path) -> SimpleNamespace:
     return SimpleNamespace(
         memory=SimpleNamespace(data_dir=tmp_path),
@@ -320,6 +342,20 @@ def test_desktop_voice_start_does_not_wait_for_brain_ready(monkeypatch, tmp_path
     monkeypatch.setattr(app, "_start_virtual_cursor", _cursor)
     monkeypatch.setattr(app, "_run_realtime_transport_warm", _realtime_warm)
     _FakeWebServer.events = events
+
+    # Phase order of the boot (``dodaios/ui/desktop_boot.py``). Each phase is
+    # recorded as it STARTS; the order is the contract ``_run_backend`` keeps.
+    from dodaios.ui.desktop_boot import BackendBoot
+
+    phases: list[str] = []
+    for _name in _BOOT_PHASES:
+        _orig = getattr(BackendBoot, _name)
+
+        def _recording(self, *a, _orig=_orig, _name=_name, **kw):
+            phases.append(_name)
+            return _orig(self, *a, **kw)
+
+        monkeypatch.setattr(BackendBoot, _name, _recording)
     try:
         app._run_backend()
     finally:
@@ -341,3 +377,5 @@ def test_desktop_voice_start_does_not_wait_for_brain_ready(monkeypatch, tmp_path
     assert events.index("speech") < events.index("build_brain"), (
         f"wake must arm before the brain build; got {events}"
     )
+    # The orchestrator runs every phase exactly once, in boot order.
+    assert phases == _BOOT_PHASES

@@ -276,3 +276,56 @@ def test_the_command_prints_the_same_numbers_for_everybody(capsys) -> None:
     assert sealed["candidate_tokens"] < sealed["tokens"]
     with pytest.raises(Exception, match="must be"):
         bench_main(["--set", "recall.turn_limit=99"])
+
+
+def test_the_parts_show_where_a_difference_lies(tmp_path: Path) -> None:
+    from dodaios.rsi.bench.model import Domain, Result, Source, Task, task_id
+    from dodaios.rsi.bench.store import BenchStore
+
+    def task(i: int, gold: list[str]) -> Task:
+        return Task(
+            id=task_id(Domain.RECALL, Source.MADE, f"part-{i}"),
+            domain=Domain.RECALL,
+            source=Source.MADE,
+            group=f"part-group-{i}",
+            payload={"world": "w"},
+            check={"gold": gold},
+        )
+
+    tasks = [task(0, ["m1"]), task(1, ["m2"]), task(2, []), task(3, [])]
+
+    def results(arm: str, scores: list[float], tokens: int) -> list[Result]:
+        return [
+            Result(t.id, t.digest, arm, score=s, tokens=tokens)
+            for t, s in zip(tasks, scores, strict=True)
+        ]
+
+    shipped = results("a", [1.0, 1.0, 0.0, 0.0], 120)
+    now = results("b", [1.0, 0.5, 1.0, 1.0], 40)
+    now[3] = Result(tasks[3].id, tasks[3].digest, "b", score=0.0, void="could not run")
+    parts = run.parts(tasks, shipped, now)
+    assert parts == {
+        recall.NEEDS_MEMORY: {
+            "n": 2, "factory_score": 1.0, "now_score": 0.75,
+            "factory_tokens": 120.0, "now_tokens": 40.0,
+        },
+        recall.NEEDS_NONE: {
+            "n": 1, "factory_score": 0.0, "now_score": 1.0,
+            "factory_tokens": 120.0, "now_tokens": 40.0,
+        },
+    }
+    assert run.parts([], shipped, now) == {}
+
+    # A measured point keeps its parts; one from before they existed reads as none.
+    store = BenchStore(tmp_path / "bench.db")
+    try:
+        point = {
+            "ts_ms": 1, "app": "1.0", "domain": "recall", "split": "sealed", "source": "own",
+            "now_score": 0.8, "factory_score": 0.5, "diff": 0.3, "low": 0.1, "high": 0.5, "n": 3,
+            "now_tokens": 40.0, "factory_tokens": 120.0, "arm_now": "b", "arm_factory": "a",
+        }
+        store.add_series([point, {**point, "ts_ms": 2, "parts": parts}])
+        first, second = store.series()
+        assert first["parts"] == {} and second["parts"] == parts
+    finally:
+        store.close()

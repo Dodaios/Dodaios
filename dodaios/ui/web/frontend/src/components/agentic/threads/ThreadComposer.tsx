@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square } from "lucide-react";
+import { ArrowUp, AtSign, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
@@ -22,7 +22,7 @@ import { QueuedMessages } from "./QueuedMessages";
 import { MAGIC_WORD_RUNNERS, hasMagicWord } from "@/lib/magicWords";
 import { isClearCommand } from "@/lib/threadClear";
 import { composerPlaceholder } from "./composerPlaceholder";
-import { THREAD_DRAG_MIME, draggedThread, rememberSeat, rememberedSeat, threadAgents, threadTitle, useThreadChat, useThreadChatStore } from "./threadModel";
+import { THREAD_DRAG_MIME, rememberSeat, rememberedSeat, threadAgents, threadTitle, useDraggedThread, useThreadChat, useThreadChatStore } from "./threadModel";
 import {
   caretRectInMirror, insertMention, linksToMentions, mentionLabel, mentionSpans, mentionsToLinks, offsetInMirror, outsideMentions,
   type ThreadMention,
@@ -385,6 +385,7 @@ export function ThreadComposer({
   autoFocusNonce,
   strip,
   tray,
+  subagentModel = "",
   onScreen = true,
 }: {
   /** Which thread the box is typing for — the session id, or `draft:<project>`. */
@@ -397,6 +398,8 @@ export function ThreadComposer({
   strip?: ReactNode;
   /** The tray that sits on the card's top edge — the thread's sub-agents. */
   tray?: ReactNode;
+  /** The model of the sub-agent open on screen, shown in place of the main agent's pick. */
+  subagentModel?: string;
   /** False while the IDE section is hidden: its keys belong to whatever is on screen. */
   onScreen?: boolean;
 }) {
@@ -423,6 +426,8 @@ export function ThreadComposer({
   // Where a thread dragged over the box would land, drawn as a caret in the text.
   const [dropCaret, setDropCaret] = useState<{ offset: number; left: number; top: number; height: number } | null>(null);
   const [mentionDrag, setMentionDrag] = useState(false);
+  // A thread row is being dragged somewhere in the app: the card says it takes it.
+  const carrying = useDraggedThread() !== null;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const magicRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -727,10 +732,9 @@ export function ThreadComposer({
     rememberSeat(chat.getState().draft);
   };
 
-  // A thread row from the sidebar dropped into the box: its name lands where
-  // the drop caret stands, inside the sentence. Never this thread itself.
-  const carriesThread = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME)
-    && !(activeSessionId && draggedThread() === activeSessionId);
+  // A thread row from the sidebar dropped onto the card: its name lands where
+  // the drop caret stands, inside the sentence; dropped beside the text, at its end.
+  const carriesThread = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME);
   const offsetAt = (event: DragEvent<HTMLElement>): number | null => {
     const mirror = magicRef.current;
     const box = textareaRef.current;
@@ -787,7 +791,7 @@ export function ThreadComposer({
       const offset = dropCaret?.offset ?? offsetAt(event) ?? value.length;
       endMentionDrag();
       const sessionId = event.dataTransfer.getData(THREAD_DRAG_MIME);
-      if (!sessionId || sessionId === activeSessionId) return;
+      if (!sessionId) return;
       const session = useThreadChatStore.getState().sessions.find((row) => row.session_id === sessionId);
       const known = mentions.find((row) => row.sessionId === sessionId);
       const mention = known ?? {
@@ -813,10 +817,17 @@ export function ThreadComposer({
     {tray}
     <QueuedMessages sessionId={activeSessionId} entries={queue} paused={paused} running={running} steers={steers}
       onPausedChange={setPaused} onProblem={setProblem} onGiveBack={giveBackHere} />
-    <div ref={cardRef} {...files.dragHandlers}
+    <div ref={cardRef} data-thread-mention-drop=""
+      onDragEnter={(event) => (carriesThread(event) ? mentionDragHandlers.onDragEnter(event) : files.dragHandlers.onDragEnter(event))}
+      onDragOver={(event) => (carriesThread(event) ? mentionDragHandlers.onDragOver(event) : files.dragHandlers.onDragOver(event))}
+      onDragLeave={(event) => { mentionDragHandlers.onDragLeave(event); files.dragHandlers.onDragLeave(event); }}
+      onDrop={(event) => (carriesThread(event) ? mentionDragHandlers.onDrop(event) : files.dragHandlers.onDrop(event))}
       className={cn(
-        "selection-text-only relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
+        "selection-text-only relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-[border-color,box-shadow,background-color] focus-within:border-border-strong",
         files.dragging && "border-accent ring-2 ring-accent/40",
+        // While a thread is dragged anywhere, the card shows it takes it; over the card, more so.
+        carrying && "border-accent ring-2 ring-accent/25",
+        carrying && mentionDrag && "bg-accent/[0.05] ring-accent/50",
       )}>
       <ApprovalPanel timeline={timeline} />
       {/* Keyed by thread: a half-typed answer or an old error never carries over to another thread's card. */}
@@ -826,7 +837,12 @@ export function ThreadComposer({
         <ChatAttachmentStrip attachments={files.attachments} analyzing={files.analyzing}
           onRemove={files.remove} previews={files.previews} look="thumbnail" />
       </div>}
-      <div ref={frameRef} className="relative" data-thread-mention-drop="" {...mentionDragHandlers}>
+      <div ref={frameRef} className="relative">
+      {carrying && <div aria-hidden data-testid="thread-mention-hint"
+        className={cn("pointer-events-none absolute right-3 top-2 z-20 flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs shadow-sm transition-colors",
+          mentionDrag ? "border-accent bg-accent text-accent-foreground" : "border-accent/40 bg-card text-accent")}>
+        <AtSign className="h-3.5 w-3.5" />{t("ide_threads.drop_mention")}
+      </div>}
       {mirrored && <div ref={magicRef} aria-hidden data-testid="thread-composer-magic"
         className={cn("pointer-events-none absolute inset-0 overflow-y-auto whitespace-pre-wrap break-words px-4 pb-2 pt-4 text-base leading-6 text-foreground sm:px-5",
           !ink && "text-transparent")}>
@@ -837,7 +853,7 @@ export function ThreadComposer({
         style={{ left: dropCaret.left - 1, top: dropCaret.top, height: dropCaret.height }} />}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={working ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
+        placeholder={carrying ? "" : working ? t("ide_threads.queue_placeholder") : placeholder ?? composerPlaceholder(triggers, t)}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onFocus={() => { dictationOwner = threadKey; }}
@@ -853,7 +869,7 @@ export function ThreadComposer({
         {/* The pickers keep their width: a narrow column (side by side) scrolls the row instead of stacking them. */}
         <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0">
         <AgentModelPicker providers={providers} liveModels={liveModels} draft={draft}
-          lockedProvider={started && activeSessionId ? draft.provider : null}
+          lockedProvider={started && activeSessionId ? draft.provider : null} subagentModel={subagentModel}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
         <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
           onPick={(effort) => void pick({ effort })} onPickSpeed={(speed) => void pick({ speed })} />

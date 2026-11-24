@@ -256,21 +256,17 @@ def test_warm_is_not_scheduled_from_the_heavy_backend(monkeypatch):
     """Regression pin for the scheduling slot itself.
 
     The warm must be created beside the wake listener, not inside
-    ``_heavy_backend_bg`` — the latter is gated on the wake-model event and on
+    ``BackendBoot.heavy_backend`` — the latter is gated on the wake-model event and on
     ``await server.start()``, which is what made the wake word live 40-60 s
     before the transport it triggers.
     """
     import inspect
-    import ast
-    import textwrap
 
-    source = inspect.getsource(DesktopApp._run_backend)
-    parsed_source = textwrap.dedent(source)
-    heavy = next(node for node in ast.walk(ast.parse(parsed_source))
-                 if isinstance(node, ast.AsyncFunctionDef) and node.name == "_heavy_backend_bg")
-    heavy_body = ast.get_source_segment(parsed_source, heavy)
-    assert heavy_body is not None
+    from dodaios.ui.desktop_boot import BackendBoot
 
-    assert "realtime-transport-warm" in source
+    scheduling = inspect.getsource(BackendBoot.start_voice_and_backend_tasks)
+    heavy_body = inspect.getsource(BackendBoot.heavy_backend)
+
+    assert "realtime-transport-warm" in scheduling
     assert "realtime-transport-warm" not in heavy_body
     assert "_run_realtime_transport_warm" not in heavy_body

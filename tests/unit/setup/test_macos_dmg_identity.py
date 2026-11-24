@@ -22,7 +22,7 @@ from dodaios.platform.permissions import ACCEPTED_BUNDLE_IDS
 from dodaios.setup.macos_app_bundle import APP_DIR_NAME, installed_macos_app_bundle_path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PYINSTALLER_SPEC = REPO_ROOT / "dodaios.spec"
+PYINSTALLER_SPEC = REPO_ROOT / "packaging" / "dodaios.spec"
 
 
 def test_the_spec_names_the_bundle_id_the_app_accepts_as_its_own() -> None:

@@ -22,6 +22,8 @@ export interface TerminalBridge {
   /** Write text into the terminal as a paste (bracketed where supported). */
   paste(text: string): void;
   focus(): void;
+  /** Select the whole buffer. Without it the menu offers no Select all. */
+  selectAll?(): void;
 }
 
 export interface FilePasteBridge {
@@ -292,6 +294,12 @@ export function deleteSelection(snapshot: EditSnapshot): boolean {
 export function selectAll(snapshot: EditSnapshot): boolean {
   const element = snapshot.element;
   if (!element) return false;
+  if (snapshot.bridge) {
+    if (!snapshot.bridge.selectAll) return false;
+    snapshot.bridge.selectAll();
+    snapshot.bridge.focus();
+    return true;
+  }
   if (isTextInput(element)) {
     element.focus({ preventScroll: true });
     element.select();
@@ -319,6 +327,7 @@ export function capabilitiesFor(snapshot: EditSnapshot): EditCapabilities {
     canCut: snapshot.editable && hasSelection && snapshot.kind === "field",
     canCopy: hasSelection,
     canPaste: snapshot.editable,
-    canSelectAll: snapshot.kind !== "terminal",
+    canSelectAll:
+      snapshot.kind !== "terminal" || Boolean(snapshot.bridge?.selectAll),
   };
 }

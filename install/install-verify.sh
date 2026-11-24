@@ -255,46 +255,93 @@ readonly SLSA_PROVENANCE_FILENAME="personal-jarvis.intoto.jsonl"
 readonly INTOTO_LAYOUT_FILENAME="layout-content-anchor.json"
 
 # ----------------------------------------------------------------------- ui
-if [ -t 1 ]; then
-    BOLD=$(printf '\033[1m'); CYAN=$(printf '\033[36m')
-    YELLOW=$(printf '\033[33m'); GREEN=$(printf '\033[32m')
-    RED=$(printf '\033[31m'); RESET=$(printf '\033[0m')
-    # Brand palette (docs/BRAND.md): forged-gold gradient, matching install.sh.
-    GOLD_HI=$(printf '\033[38;2;255;229;82m'); GOLD=$(printf '\033[38;2;255;214;10m')
-    GOLD_DEEP=$(printf '\033[38;2;184;150;10m'); DIM=$(printf '\033[38;2;143;143;143m')
-else
-    BOLD=""; CYAN=""; YELLOW=""; GREEN=""; RED=""; RESET=""
-    GOLD_HI=""; GOLD=""; GOLD_DEEP=""; DIM=""
+# The installer look (install.sh, dodaios/setup/install_ui.py): a gold pill
+# per stage, a check per passed check, a red rail under a failure. The same
+# rules decide what the terminal can show: no colour with NO_COLOR, TERM=dumb
+# or without a terminal (FORCE_COLOR turns it back on); plain ASCII without a
+# UTF-8 locale, on TERM=linux/vt*, or with DODAIOS_INSTALL_ASCII. Presentation
+# only: no check below depends on any of it.
+# The whole run is timed from here; install.sh and installer.py carry the
+# start on and show the total on the finale card.
+JARVIS_INSTALL_STARTED_AT="${JARVIS_INSTALL_STARTED_AT:-$(date +%s)}"
+export JARVIS_INSTALL_STARTED_AT
+V_COLOR=0
+if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != 'dumb' ] && { [ -t 1 ] || [ -n "${FORCE_COLOR:-}" ]; }; then
+    V_COLOR=1
 fi
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) V_UTF8=1 ;;
+    *) V_UTF8=0 ;;
+esac
+case "${TERM:-}" in linux|dumb|vt*) V_UTF8=0 ;; esac
+case "${DODAIOS_INSTALL_ASCII:-${JARVIS_INSTALL_ASCII:-}}" in ''|0|false|no|off) ;; *) V_UTF8=0 ;; esac
+if [ "$V_COLOR" -eq 1 ]; then
+    case "${COLORTERM:-}" in
+        truecolor|24bit) V_GOLD='38;2;255;214;10'; V_GOLD_BG='48;2;255;214;10'; V_OK='38;2;34;195;94'
+                         V_WARN='38;2;245;158;11'; V_BAD='38;2;223;58;58'; V_MUTED='38;2;138;138;138' ;;
+        *) V_GOLD='38;5;220'; V_GOLD_BG='48;5;220'; V_OK='38;5;35'; V_WARN='38;5;214'; V_BAD='38;5;167'
+           V_MUTED='38;5;245' ;;
+    esac
+    BOLD=$(printf '\033[1m'); RESET=$(printf '\033[0m')
+    C_GOLD=$(printf '\033[%sm' "$V_GOLD"); C_OK=$(printf '\033[%sm' "$V_OK")
+    C_WARN=$(printf '\033[%sm' "$V_WARN"); C_BAD=$(printf '\033[%sm' "$V_BAD")
+    C_MUTED=$(printf '\033[%sm' "$V_MUTED"); P_GOLD=$(printf '\033[1;38;5;232;%sm' "$V_GOLD_BG")
+else
+    BOLD=''; RESET=''; C_GOLD=''; C_OK=''; C_WARN=''; C_BAD=''; C_MUTED=''; P_GOLD=''
+fi
+if [ "$V_UTF8" -eq 1 ]; then V_OKG='✓'; V_FAILG='×'; V_RAIL='┃'; V_DOT='·'; else V_OKG='+'; V_FAILG='x'; V_RAIL='|'; V_DOT='-'; fi
+V_IN_FAIL=0
 
-log()  { printf '%s\n' "$*"; }
-note() { printf '%s%s%s\n' "${YELLOW}" "$*" "${RESET}"; }
-ok()   { printf '%s%s%s\n' "${GREEN}"  "$*" "${RESET}"; }
-err()  { printf '%s%s%s\n' "${RED}"    "$*" "${RESET}" >&2; }
+# The messages below carry their own leading spaces from the earlier look;
+# the helpers set the indentation now.
+v_trim() { printf '%s' "$*" | sed -e 's/^[[:space:]]*//'; }
+log()  { V_IN_FAIL=0; [ -n "$*" ] && printf '        %s\n' "$(v_trim "$*")"; return 0; }
+stage() { # $1 = "4/13" (or a word), $2 = what it checks
+    V_IN_FAIL=0
+    if [ "$V_COLOR" -eq 1 ]; then
+        printf '\n  %s %s %s  %s%s%s\n' "$P_GOLD" "$1" "$RESET" "$BOLD" "$2" "$RESET"
+    else
+        printf '\n  [%s] %s\n' "$1" "$2"
+    fi
+}
+note() {
+    V_IN_FAIL=0
+    [ -n "$*" ] || return 0
+    printf '     %s!%s  %s\n' "$C_WARN$BOLD" "$RESET" "$(v_trim "$*")"
+}
+ok()   { V_IN_FAIL=0; printf '     %s%s%s  %s\n' "$C_OK" "$V_OKG" "$RESET" "$(v_trim "$*")"; }
+# The first line of a failure gets the mark, the lines after it the red rail;
+# a transition-mode WARNING is drawn as one.
+err() {
+    case "$(v_trim "$*")" in
+        WARNING:*)
+            V_IN_FAIL=0
+            printf '     %s!%s  %s\n' "$C_WARN$BOLD" "$RESET" "$(v_trim "$*")" >&2
+            return 0
+            ;;
+    esac
+    if [ "$V_IN_FAIL" -eq 0 ]; then
+        V_IN_FAIL=1
+        printf '     %s%s%s  %s%s%s\n' "$C_BAD$BOLD" "$V_FAILG" "$RESET" "$BOLD" "$(v_trim "$*")" "$RESET" >&2
+    else
+        printf '     %s%s%s  %s\n' "$C_BAD" "$V_RAIL" "$RESET" "$(v_trim "$*")" >&2
+    fi
+}
 
-# Banner art is machine-generated (figlet "ANSI Shadow"); do not hand-edit —
-# that is how the historical "Harvis" typo crept in.
-cat <<EOF
-
-${GOLD_HI}     ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗${RESET}
-${GOLD_HI}     ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝${RESET}
-${GOLD}     ██║███████║██████╔╝██║   ██║██║███████╗${RESET}
-${GOLD}██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║${RESET}
-${GOLD_DEEP}╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║${RESET}
-${GOLD_DEEP} ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝${RESET}
-
-${DIM}     P E R S O N A L  J A R V I S   ·   talk to your computer${RESET}
-
-${GOLD}  ●${RESET} ${BOLD}Verifying installer · macOS / Linux${RESET}
-${DIM}  Sigstore + offline ceremony + SLSA L3 + ML-DSA-65 (Wave 3)${RESET}
-
-EOF
+printf '\n'
+if [ "$V_COLOR" -eq 1 ]; then
+    printf '  %s DODAIOS %s  %sVerified installer %s macOS / Linux%s\n' "$P_GOLD" "$RESET" "$BOLD" "$V_DOT" "$RESET"
+else
+    printf '  DODAIOS  Verified installer %s macOS / Linux\n' "$V_DOT"
+fi
+printf '  %sEvery signature is checked before anything runs: Sigstore, an offline key,%s\n' "$C_MUTED" "$RESET"
+printf '  %sSLSA L3 build provenance and ML-DSA-65. Any failed check stops here.%s\n' "$C_MUTED" "$RESET"
 
 # ----------------------------------------------------------------------- tag resolution
 # The verifier wrapper lives inside a specific tagged release. We can recover
 # the tag from $JARVIS_INSTALL_TAG, or fall back to "latest" — but "latest"
 # is a moving target, so we prefer an explicit pin.
-note "[0/13] Resolving release tag..."
+stage '0/13' "Resolving release tag"
 TAG="${JARVIS_INSTALL_TAG:-}"
 if [ -z "$TAG" ]; then
     log "      JARVIS_INSTALL_TAG not set — resolving latest release..."
@@ -322,8 +369,7 @@ umask 077
 log "      Staging: $STAGING"
 
 # ----------------------------------------------------------------------- platform detect
-note ""
-note "[1/13] Detecting platform..."
+stage '1/13' "Detecting platform"
 
 UNAME_S=$(uname -s)
 UNAME_M=$(uname -m)
@@ -353,8 +399,7 @@ esac
 ok "      Platform: $UNAME_S/$UNAME_M → cosign=$COSIGN_ASSET, slsa-verifier=$SLSA_VERIFIER_ASSET"
 
 # ----------------------------------------------------------------------- fetch cosign
-note ""
-note "[2/13] Bootstrapping cosign $COSIGN_VERSION (SHA-256 pinned)..."
+stage '2/13' "Bootstrapping cosign $COSIGN_VERSION (SHA-256 pinned)"
 
 COSIGN_BIN="$STAGING/cosign"
 COSIGN_URL="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/${COSIGN_ASSET}"
@@ -379,8 +424,7 @@ chmod +x "$COSIGN_BIN"
 ok "      cosign SHA-256 OK ($COSIGN_SHA256)"
 
 # ----------------------------------------------------------------------- fetch artifact + signatures
-note ""
-note "[3/13] Fetching install.sh + Fulcio trio + offline-ceremony signature from release $TAG..."
+stage '3/13' "Fetching install.sh + Fulcio trio + offline-ceremony signature from release $TAG"
 
 ARTIFACT="$STAGING/install.sh"
 SIG="$STAGING/install.sh.sig"
@@ -449,8 +493,7 @@ ok "      install.sh + .sig + .pem + .bundle + .cosign.sig downloaded"
 ok "      offline-ceremony pubkey fingerprint OK ($OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)"
 
 # ----------------------------------------------------------------------- verify Fulcio (axis A)
-note ""
-note "[4/13] Verifying Fulcio keyless signature (axis A — GitHub Actions OIDC)..."
+stage '4/13' "Verifying Fulcio keyless signature (axis A — GitHub Actions OIDC)"
 
 # The identity regex pins exactly: <repo>/<workflow path>@refs/tags/<some semver-ish tag>.
 # Anchored with ^...$ to refuse near-matches.
@@ -476,8 +519,7 @@ fi
 ok "      axis A OK (identity=${EXPECTED_REPO} / ${EXPECTED_WORKFLOW_PATH}, issuer=$EXPECTED_OIDC_ISSUER)"
 
 # ----------------------------------------------------------------------- verify offline ceremony (axis B)
-note ""
-note "[5/13] Verifying offline-ceremony signature (axis B — Ed25519, air-gapped)..."
+stage '5/13' "Verifying offline-ceremony signature (axis B — Ed25519, air-gapped)"
 
 # cosign verification in --key mode does NOT consult Rekor — this is a pure
 # detached-signature check against the pinned Ed25519 public key. That is
@@ -505,8 +547,7 @@ fi
 ok "      axis B OK (Ed25519, key fingerprint=$OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)"
 
 # ----------------------------------------------------------------------- rekor proof
-note ""
-note "[6/13] Checking the Rekor inclusion proof..."
+stage '6/13' "Checking the Rekor inclusion proof"
 
 # The Sigstore bundle carries the Rekor inclusion proof + integrated time.
 # The proof must be present and its integrated time must not lie in the
@@ -559,8 +600,7 @@ fi
 ok "      Rekor inclusion proof present, integrated ${AGE}s ago"
 
 # ----------------------------------------------------------------------- identity cross-check
-note ""
-note "[7/13] Cross-checking identity assertions on both axes..."
+stage '7/13' "Cross-checking identity assertions on both axes"
 
 # Axis A: re-extract the Subject Alternative Name from the Fulcio cert and
 # assert it matches the same pinned identity regex. The cosign tool
@@ -655,8 +695,7 @@ ok "      axis A SAN matches pinned regex: $CERT_SAN"
 ok "      axis B key fingerprint stable:    $FINAL_FP"
 
 # ----------------------------------------------------------------------- bootstrap slsa-verifier
-note ""
-note "[8/13] Bootstrapping slsa-verifier $SLSA_VERIFIER_VERSION (SHA-256 pinned)..."
+stage '8/13' "Bootstrapping slsa-verifier $SLSA_VERIFIER_VERSION (SHA-256 pinned)"
 
 # Same trust pattern as cosign in [2/13]: SHA-256-pinned binary download.
 # slsa-verifier is the reference implementation that knows how to verify
@@ -684,8 +723,7 @@ chmod +x "$SLSA_VERIFIER_BIN"
 ok "      slsa-verifier SHA-256 OK ($SLSA_VERIFIER_SHA256)"
 
 # ----------------------------------------------------------------------- SLSA L3 provenance (axis C, part 1)
-note ""
-note "[9/13] Verifying SLSA L3 build provenance (axis C — independent attestation of build environment)..."
+stage '9/13' "Verifying SLSA L3 build provenance (axis C — independent attestation of build environment)"
 
 # The workflow uploads a SLSA L3 in-toto provenance attestation alongside
 # the artifacts under the well-known name $SLSA_PROVENANCE_FILENAME. It is
@@ -738,8 +776,7 @@ fi
 ok "      axis C OK (SLSA L3: source=$EXPECTED_SLSA_SOURCE_URI, tag=$TAG)"
 
 # ----------------------------------------------------------------------- content-anchor layout pin (axis C, part 2)
-note ""
-note "[10/13] Verifying content-anchor layout functionary pin (axis C — supply-chain layout match)..."
+stage '10/13' "Verifying content-anchor layout functionary pin (axis C — supply-chain layout match)"
 # WAVE-5 HONESTY NOTE (audit Finding 3): the layout document is in-toto-
 # shaped but UNSIGNED — authenticity comes from this signed verifier
 # byte-comparing its identity_regexp against EXPECTED_INTOTO_IDENTITY_REGEXP
@@ -855,12 +892,11 @@ ok "      axis C OK (in-toto layout: $LAYOUT_INSPECTION)"
 ok "      identity_regexp pin: $EXPECTED_INTOTO_IDENTITY_REGEXP"
 
 # ----------------------------------------------------------------------- classical axes complete
-note ""
-note "[11/13] All classical axes passed (axes A+B+C). Entering Wave 4 PQ transition..."
+stage '11/13' "All classical axes passed (axes A+B+C). Entering Wave 4 PQ transition"
 log ""
 
 # ----------------------------------------------------------------------- post-quantum signature fetch (axis D, part 1)
-note "[12/13] Fetching ML-DSA-65 post-quantum signature + released pubkey (axis D — FIPS 204)..."
+stage '12/13' "Fetching ML-DSA-65 post-quantum signature + released pubkey (axis D — FIPS 204)"
 
 # Released-asset filenames follow the workflow's upload convention:
 #   install.sh.mldsa.sig       — ML-DSA-65 raw signature (~3309 bytes)
@@ -965,8 +1001,7 @@ if [ -n "${PQ_INLINED_FP:-}" ]; then
 fi
 
 # ----------------------------------------------------------------------- ML-DSA-65 signature verify (axis D, part 2) + handoff
-note ""
-note "[13/13] Verifying ML-DSA-65 post-quantum signature (axis D) and handing off to install.sh..."
+stage '13/13' "Verifying ML-DSA-65 post-quantum signature (axis D) and handing off to install.sh"
 
 # TRANSITION MODE gate:
 #   - If openssl >= 3.5 is on PATH: verify the ML-DSA-65 signature
@@ -1018,8 +1053,7 @@ fi
 log ""
 
 # ----------------------------------------------------------------------- payload-commit (axis E, Wave-5 audit Finding 2)
-note ""
-note "[axis E] Verifying payload-commit pin (Wave-5 — binds cloned tree to signed commit)..."
+stage 'axis E' "Verifying payload-commit pin (Wave-5 — binds cloned tree to signed commit)"
 
 # WAVE 5 PAYLOAD-COMMIT PIN — Wave-5 audit Finding 2.
 #
@@ -1144,8 +1178,7 @@ fi
 log ""
 
 # ----------------------------------------------------------------------- requirements.txt (Wave 6 — PyPI transitive hash pin)
-note ""
-note "[wave 6] Fetching + authenticating requirements.txt (PyPI transitive hash pin)..."
+stage 'wave 6' "Fetching + authenticating requirements.txt (PyPI transitive hash pin)"
 
 # WAVE 6 — PyPI TRANSITIVE DEPENDENCY HASH PIN.
 #

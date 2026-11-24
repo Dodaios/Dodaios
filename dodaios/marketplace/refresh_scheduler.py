@@ -168,7 +168,7 @@ def _reload_before_refresh_commit(
     """
     try:
         current = store.load(plugin_id)
-    except Exception as exc:  # noqa: BLE001 - isolate one plugin's storage
+    except Exception as exc:  # broad-except: isolate one plugin's storage
         log.warning("plugin %s token reload failed after refresh: %s", plugin_id, exc)
         return None, RefreshAttempt(FAILED)
 
@@ -220,7 +220,8 @@ async def _save_with_retries(
                     attempt + 1,
                 )
             return True
-        except Exception as exc:  # noqa: BLE001 - retried below, re-raised at the end
+        except Exception as exc:  # broad-except: retried below, re-raised at the end
+            log.warning("_save_with_retries: retried below, re-raised at the end", exc_info=True)
             last = exc
             if attempt + 1 < attempts:
                 await asyncio.sleep(delay)
@@ -263,7 +264,7 @@ def _handle_lost_rotation(
             return _reload_before_refresh_commit(plugin_id, store, current.to_json())[
                 1
             ] or RefreshAttempt(FAILED)
-    except Exception as mark_exc:  # noqa: BLE001 - the store is evidently broken
+    except Exception as mark_exc:  # broad-except: the store is evidently broken
         # Nothing durable can be written at all. Say so loudly rather than
         # leave a retry loop that would keep replaying the retired token.
         log.error(
@@ -319,7 +320,7 @@ async def _refresh_plugin_token_locked(
 ) -> RefreshAttempt:
     try:
         tokens = store.load(plugin_id)
-    except Exception as exc:  # noqa: BLE001 - isolate one plugin's storage
+    except Exception as exc:  # broad-except: isolate one plugin's storage
         log.warning("plugin %s token load failed: %s", plugin_id, exc)
         return RefreshAttempt(FAILED)
 
@@ -341,7 +342,7 @@ async def _refresh_plugin_token_locked(
                 return _reload_before_refresh_commit(plugin_id, store, tokens.to_json())[
                     1
                 ] or RefreshAttempt(FAILED)
-        except Exception as exc:  # noqa: BLE001 - isolate one plugin's storage
+        except Exception as exc:  # broad-except: isolate one plugin's storage
             log.warning(
                 "plugin %s self-heal stamp failed, skipping this cycle: %s",
                 plugin_id,
@@ -376,7 +377,7 @@ async def _refresh_plugin_token_locked(
 
     try:
         handler = build_handler(plugin_id)
-    except Exception as exc:  # noqa: BLE001 - configuration must not break the loop
+    except Exception as exc:  # broad-except: configuration must not break the loop
         log.warning("plugin %s refresh handler failed to build: %s", plugin_id, exc)
         return RefreshAttempt(FAILED)
     if handler is None:
@@ -386,7 +387,7 @@ async def _refresh_plugin_token_locked(
         refreshed = await handler.refresh(tokens)
         if not refreshed.access:
             raise RuntimeError("refresh returned an empty access token")
-    except Exception as exc:  # noqa: BLE001 - provider failures are isolated
+    except Exception as exc:  # broad-except: provider failures are isolated
         reason = reauth_reason_for(str(exc))
         if reason is None:
             _current, superseded = _reload_before_refresh_commit(plugin_id, store, original_state)
@@ -409,7 +410,7 @@ async def _refresh_plugin_token_locked(
                 return _reload_before_refresh_commit(plugin_id, store, original_state)[
                     1
                 ] or RefreshAttempt(FAILED)
-        except Exception as save_exc:  # noqa: BLE001 - isolate storage failure
+        except Exception as save_exc:  # broad-except: isolate storage failure
             log.warning(
                 "plugin %s needs_reauth save failed, will retry: %s",
                 plugin_id,
@@ -460,7 +461,7 @@ async def _refresh_plugin_token_locked(
             return _reload_before_refresh_commit(plugin_id, store, original_state)[
                 1
             ] or RefreshAttempt(FAILED)
-    except Exception as exc:  # noqa: BLE001 - isolate storage failure
+    except Exception as exc:  # broad-except: isolate storage failure
         if not rotated:
             # The provider did not rotate, so the stored refresh token is
             # still the live one. Losing this write costs nothing but a
@@ -510,7 +511,7 @@ async def refresh_due_tokens(
         if attempt.outcome == REFRESHED and on_refreshed is not None:
             try:
                 on_refreshed(plugin_id)
-            except Exception as exc:  # noqa: BLE001 - callback is best-effort
+            except Exception as exc:  # broad-except: callback is best-effort
                 log.warning(
                     "refresh: on_refreshed callback failed for %s: %s",
                     plugin_id,
@@ -574,7 +575,7 @@ class RefreshScheduler:
                 self._log_cycle(outcomes)
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001 - keep the background loop alive
+            except Exception as exc:  # broad-except: keep the background loop alive
                 log.warning("refresh cycle failed: %s", exc)
             finally:
                 if cycle.done() and self._cycle_task is cycle:
@@ -635,7 +636,7 @@ class RefreshScheduler:
             except asyncio.CancelledError:
                 if not cycle.cancelled():
                     raise
-            except Exception as exc:  # noqa: BLE001 - the loop reports cycle failures
+            except Exception as exc:  # broad-except: the loop reports cycle failures
                 log.warning("marketplace refresh ended while draining: %s", exc)
 
         loop_task = self._task

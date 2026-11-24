@@ -96,7 +96,7 @@ rules; publishing, mass replacement and engine migration are not implicit.
 
 ```text
 python scripts/art_pipeline.py init reference-study
-python scripts/art_pipeline.py check art/studies/reference-study/study.json
+python scripts/art_pipeline.py check assets/art/studies/reference-study/study.json
 ```
 
 The initializer creates a pending brief/review and empty `source/`, `exports/`
@@ -116,10 +116,10 @@ Add an asset entry after choosing the reference scope:
 ```
 
 The review exporter reads paths from this manifest and requires a study inside
-`art/studies/`. Run Blender separately, without loading embedded scripts:
+`assets/art/studies/`. Run Blender separately, without loading embedded scripts:
 
 ```text
-blender --background --factory-startup --disable-autoexec --python scripts/art/export_study.py -- --manifest art/studies/reference-study/study.json --asset workshop-reference
+blender --background --factory-startup --disable-autoexec --python scripts/art/export_study.py -- --manifest assets/art/studies/reference-study/study.json --asset workshop-reference
 ```
 
 It exports only the named collection in the active scene, embeds textures and
@@ -130,7 +130,7 @@ Record runtime screenshots/video in `runtime_evidence` and a written check
 result in `technical_report`, using study-relative file paths. Then run:
 
 ```text
-python scripts/art_pipeline.py check art/studies/reference-study/study.json --stage reference
+python scripts/art_pipeline.py check assets/art/studies/reference-study/study.json --stage reference
 ```
 
 This returns an evidence fingerprint and still reports rollout as unapproved.
@@ -140,7 +140,7 @@ personal identifiers outside the public repository. Set `approval.status` to
 `approved` and `approval.evidence_sha256` to the reviewed fingerprint:
 
 ```text
-python scripts/art_pipeline.py check art/studies/reference-study/study.json --stage ready
+python scripts/art_pipeline.py check assets/art/studies/reference-study/study.json --stage ready
 ```
 
 Any changed source, export, brief or evidence invalidates that fingerprint.

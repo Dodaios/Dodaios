@@ -13,10 +13,13 @@ change what subsequent clicks land on. Toast notification visible, no approval d
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 # One wheel notch in Windows units (WHEEL_DELTA).
 _WHEEL_DELTA: int = 120
@@ -243,5 +246,6 @@ class ScrollTool:
             )
         except ActuationUnavailable as exc:
             return ToolResult(success=False, output=None, error=str(exc))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

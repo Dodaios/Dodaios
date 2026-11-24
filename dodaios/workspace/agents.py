@@ -1,30 +1,8 @@
-"""What a workspace terminal can RUN — a small, open registry.
+"""What a workspace terminal can RUN: an open registry of coding-agent CLIs plus the plain shell.
 
-Two kinds of entry live here, and the difference is the whole design:
-
-* **A coding-agent CLI** (Claude Code, Codex, whatever is registered next) — a
-  binary that has to be detected, may have to be installed, and is launched by
-  name inside a shell.
-* **A plain terminal** — this machine's own shell and nothing else. Nothing to
-  detect beyond "does this host have a shell", nothing to install, and no agent
-  wrapped around it. It is what you want when the job is `git rebase -i`, not
-  "ask an agent to do it".
-
-The registry is deliberately open (:func:`register_agent`): a new interactive
-CLI is a spec, not a code change spread across detection, launching and the UI.
-Everything downstream — the ``/agents`` endpoints, the pane split menu, the
-Agentic-IDE grid — reads this list rather than a hardcoded pair of names, so
-registering one entry is enough to make it offerable everywhere.
-
-CLI entries reuse ``CliSpec`` so the existing ``CliStatusProber`` can detect
-them, but they are deliberately NOT registered in the shared CLI catalog
-(``dodaios/clis/catalog/seed_catalog.json``) — see ``__init__`` for why.
-
-Cross-platform: the shell entry resolves through
-:func:`dodaios.terminal.shells.default_shell`, which knows pwsh/PowerShell/cmd/
-Git Bash on Windows and ``$SHELL``/``/etc/shells`` elsewhere. On a host with no
-shell at all (a stripped container) the entry reports itself as not installed
-rather than handing the PTY an argv that cannot start.
+CLI entries reuse ``CliSpec`` for detection but are NOT in the shared CLI catalog
+(``dodaios/clis/catalog/seed_catalog.json``); see ``__init__``. With no shell on
+the host the shell entry reports not installed.
 """
 
 from __future__ import annotations
@@ -46,22 +24,13 @@ from dodaios.workspace.launch_picks import LaunchPicks, RuntimePicks, flag_modes
 
 log = logging.getLogger(__name__)
 
-# A semver anywhere in the --version output. Matches both
-# "2.1.195 (Claude Code)" and "codex-cli 0.142.3".
+# A semver in the --version output ("2.1.195 (Claude Code)", "codex-cli 0.142.3").
 _SEMVER_RE = r"(\d+\.\d+\.\d+)"
 
-# The same, with the patch component optional. Not every CLI ships three parts:
-# the Python-generation Kimi answers ``kimi, version 1.3``, which the strict
-# pattern above misses entirely — and a missed version is not a cosmetic loss.
-# It reads downstream as ``version=None``, which the wizard and the resume offer
-# render as a blank field next to an installed binary, i.e. exactly what a
-# broken install looks like. Entries whose CLI numbers itself in two parts opt
-# into this instead.
+# Patch optional, for CLIs numbering in two parts (Kimi: ``kimi, version 1.3``).
 _LOOSE_SEMVER_RE = r"(\d+\.\d+(?:\.\d+)?)"
 
-# The registry key of the plain-shell entry. A name rather than a literal
-# everywhere, because several layers (the IDE session registry, the pane split
-# menu, the tests) have to agree on it.
+# Registry key of the plain-shell entry; several layers must agree on it.
 PLAIN_TERMINAL = "shell"
 
 
@@ -69,41 +38,23 @@ PLAIN_TERMINAL = "shell"
 class TrustSpec:
     """Where and how one CLI records "this folder is trusted".
 
-    Every CLI that shows a trust dialog also writes the answer somewhere, and
-    writing it ourselves BEFORE launch is the only way to skip a dialog inside a
-    PTY we cannot answer programmatically. The shape of that write is the only
-    thing that differs between CLIs, so it is data here rather than a branch in
-    :mod:`dodaios.workspace.trust`.
-
-    ``home_env`` is the CLI's own "move my whole config elsewhere" variable; when
-    it is set in the environment the file lives under THAT directory instead of
-    ``~/<subdir>``. ``both_path_forms`` exists because some CLIs key the entry on
-    the cwd string exactly as they saw it, so a Windows path stored with
-    backslashes does not match the same folder written with forward slashes —
-    seeding both costs one extra key and removes a whole class of "the dialog
-    appeared anyway".
+    We write the answer BEFORE launch because a PTY trust dialog cannot be
+    answered programmatically. ``home_env`` moves the file to ``$VAR/<filename>``;
+    ``both_path_forms`` seeds backslash and slash spellings of the cwd.
     """
 
     filename: str
     fmt: Literal["json", "toml"]
-    # Key path to the table of per-project entries inside the file.
     section: tuple[str, ...] = ("projects",)
-    # The key/value inside a project's entry that means "trusted".
     key: str = "trust_level"
     value: Any = "trusted"
-    # Keys written only when absent — never used to decide "already trusted".
     extra_defaults: tuple[tuple[str, Any], ...] = ()
     home_env: str | None = None
-    # Where the file lives relative to home. "" means home itself.
     subdir: str = ""
     both_path_forms: bool = False
-    # Take a one-time copy before the first mutation. Worth it for a file the
-    # user's own CLI configuration shares; pointless for one we created.
+    # One-time copy before the first mutation, for files the user's CLI shares.
     backup: bool = False
-    # True when the per-project value is a SCALAR (a string or bool sitting
-    # directly on the path key) rather than an object with ``key`` inside.
-    # Antigravity's ``trustedFolders.json`` is ``{ "<path>": "TRUST_FOLDER" }``;
-    # writing an object there would be a file the CLI no longer recognises.
+    # Per-project value is a bare scalar, not an object (``{ "<path>": "TRUST_FOLDER" }``).
     scalar: bool = False
 
 
@@ -111,36 +62,17 @@ class TrustSpec:
 class AccountSpec:
     """How one CLI's entire identity moves to a different directory.
 
-    The mechanism behind several subscriptions of the same CLI
-    (:mod:`dodaios.agent_accounts`): the CLI resolves credentials, settings and
-    conversation history from ONE directory, and publishes a variable that moves
-    it. Deliberately a mapping and not a single variable — OpenCode needs two
-    (its data root and its config root), and modelling that as one variable is
-    how a "switched" account keeps spending the previous login.
-
-    ``shared_env`` names the variables that are NOT dedicated overrides but
-    general-purpose ones the CLI happens to honour (``XDG_DATA_HOME``).
-    Redirecting those also redirects any other tool the agent spawns inside that
-    pane, so an entry that can only be moved through a shared variable is
-    offered as single-login until that blast radius has been measured.
+    Mechanism behind several subscriptions of one CLI (:mod:`dodaios.agent_accounts`).
+    ``shared_env`` names general-purpose variables (``XDG_DATA_HOME``) that also
+    redirect other tools in the pane, so such an entry is offered as single-login.
     """
 
-    #: ``{VAR: "{dir}"}`` — the value template gets the account directory.
     env: tuple[tuple[str, str], ...]
-    #: Where the CLI looks when no override is set, e.g. ``~/.claude``.
     native_dir: str
-    #: Subset of ``env`` whose variables are shared with other tools.
     shared_env: tuple[str, ...] = ()
-    #: Paths inside the account directory whose presence proves a login, tried
-    #: in order. EMPTY is a meaningful value: it says this build cannot read
-    #: this CLI's sign-in state, and the account is then reported as exactly
-    #: that. Switching still works — the variable genuinely redirects the CLI —
-    #: only the green/red dot is unavailable, which is a far better answer than
-    #: a confident one derived from a file layout nobody verified.
+    #: Paths in the account dir that prove a login; EMPTY = sign-in state unreadable.
     login_markers: tuple[str, ...] = ()
-    #: Arguments appended to the CLI's binary to start its own interactive
-    #: sign-in, pointed at the account directory. Empty means this CLI has no
-    #: login command to offer.
+    #: Args appended to the binary to start its sign-in; empty = no login command.
     login_argv: tuple[str, ...] = ()
 
     @property
@@ -153,18 +85,10 @@ class AccountSpec:
 class WinShim:
     """How to reach the real executable behind a Windows ``.cmd`` shim.
 
-    ConPTY cannot exec a batch file, so a pane whose CLI installed itself as
-    ``<name>.cmd`` has to be launched some other way. ``cmd /c <shim>`` works and
-    is the fallback, but it puts a second process between the pane and the agent,
-    which costs signal delivery and a clean exit. When the package layout is
-    known we skip the shim entirely and launch what it would have launched.
-
-    ``kind`` says what sits at the end of the path: a Node script that needs
-    ``node.exe`` in front of it (Codex), or a native executable that is simply
-    run (OpenCode's Bun-compiled binary).
+    ConPTY cannot exec a batch file and ``cmd /c`` adds a process between pane
+    and agent. ``kind``: a Node script run via ``node.exe`` or a native executable.
     """
 
-    #: Path components relative to the directory the shim lives in.
     relative_path: tuple[str, ...]
     kind: Literal["node", "exe"] = "node"
 
@@ -173,165 +97,73 @@ class WinShim:
 class WorkspaceAgent:
     """One thing a workspace terminal can run.
 
-    ``kind`` decides how every question about it is answered:
-
-    * ``"cli"`` — detect with ``spec``, install with ``spec.install``, launch
-      ``launch_command`` inside a shell.
-    * ``"shell"`` — no detection spec and no launch command; the terminal IS the
-      host's shell, so "installed" means "this host has one".
-
-    ``needs_trust`` says whether the folder has to be pre-marked as trusted for
-    this entry before a pane opens (``dodaios.workspace.trust``). A shell has no
-    trust dialog to skip, and neither does a CLI that never asks.
-
-    Everything below ``description`` is what a SECOND, THIRD or SIXTH coding CLI
-    turned out to need. Each field defaults to the behaviour the two original
-    entries already had, so adding them changed nothing for Claude Code and
-    Codex — and each one exists because the alternative was another
-    ``if agent == "<name>"`` branch in a layer that has no business knowing
-    product names (AP-21).
+    ``kind``: ``"cli"`` (detected via ``spec``, launched with ``launch_command``
+    inside a shell) or ``"shell"`` (installed = the host has a shell).
+    ``needs_trust``: pre-mark the folder trusted (``dodaios.workspace.trust``).
+    Fields below ``description`` replace ``if agent == "<name>"`` branches in
+    layers that must not know product names (AP-21).
     """
 
     name: str
     display_name: str
     kind: str = "cli"
-    # Detection spec — CLI entries only.
     spec: CliSpec | None = None
-    # The bare command run inside each terminal, for CLI entries. Trust is
-    # pre-seeded by ``trust.py`` beforehand, so no permission/trust flags are
-    # needed.
     launch_command: str | None = None
     needs_trust: bool = True
-    # One line the UI can show under the name in a picker.
     description: str = ""
 
-    # --- What to actually execute -------------------------------------------
-    #: The executable to look up on PATH. Split from ``launch_command`` because
-    #: a multi-token command ("uv tool run kimi") is not something
-    #: ``shutil.which`` can find, and feeding it one used to fail as "not
-    #: installed" rather than as the configuration error it is.
+    #: PATH lookup name; split from ``launch_command`` (``which`` cannot find "uv tool run kimi").
     binary: str = ""
-    #: Other PATH names this CLI answers to, tried after ``binary`` when that
-    #: one is missing. Cursor's installer also drops ``cursor-agent`` so the
-    #: generic ``agent`` does not collide with another product.
     binary_aliases: tuple[str, ...] = ()
-    #: Arguments that always precede the per-pane ones.
     launch_args: tuple[str, ...] = ()
     win_shim: WinShim | None = None
-    #: Directories to add to PATH before looking, for CLIs that install outside
-    #: the usual places (Kimi's installer drops into ``~/.local/bin``).
     extra_path_dirs: tuple[str, ...] = ()
-    #: Fixed environment for every pane of this entry — e.g. switching off an
-    #: auto-updater that would otherwise swap the binary under a live pane.
     spawn_env: tuple[tuple[str, str], ...] = ()
-    #: Resolved per spawn AND per resume, for an entry whose environment depends
-    #: on user configuration (a key, an endpoint). Returning ``None`` means "not
-    #: configured" and must stop the launch — never a half-set environment,
-    #: which is how a pane silently talks to the wrong vendor.
+    #: Environment resolved per spawn AND resume. ``None`` = not configured and
+    #: must stop the launch (a half-set one talks to the wrong vendor).
     spawn_env_factory: Callable[[], dict[str, str] | None] | None = None
-    #: Answers which GENERATION of the CLI is installed, when a vendor ships two
-    #: under one binary name. ``None`` when there is only ever one.
     generation_probe: Callable[[], str | None] | None = None
 
-    #: How this CLI takes a model / effort / permission pick on its launch argv
-    #: (:mod:`dodaios.workspace.launch_picks`). ``None`` means "offers no picks":
-    #: a pane of it opens on whatever the binary itself defaults to, and every
-    #: picker upstream shows nothing to choose rather than a control that does
-    #: nothing. Declaring it is what makes those three picks work for an entry —
-    #: no layer above knows any CLI's flag spelling (AP-21).
+    #: Model / effort / permission picks on the launch argv (``None`` = offers none).
     launch_picks: LaunchPicks | None = None
-    #: How a RUNNING pane of this CLI takes the same picks — as its own typed
-    #: commands (``/effort max``), one template per pick. ``None`` means the
-    #: process owns them from the moment it starts: the chat's composer then
-    #: locks those pills for a pane and says a new chat is where they change.
+    #: Same picks for a RUNNING pane, as typed commands (``/effort max``);
+    #: ``None`` = the process owns them and the composer locks those pills.
     runtime_picks: RuntimePicks | None = None
 
-    # --- How it behaves once it is running ----------------------------------
     trust: TrustSpec | None = None
     account: AccountSpec | None = None
-    #: Which session adapter reopens this CLI's conversations. Empty means "the
-    #: one named after this entry"; naming another entry's adapter is how a
-    #: launch profile over an existing binary (GLM over Claude Code) inherits
-    #: resume for free instead of duplicating it.
+    #: Session adapter that reopens its conversations; empty = this entry's own.
+    #: Another entry's name lets a launch profile (GLM over Claude Code) inherit resume.
     resume_adapter: str = ""
-    #: How a dropped file is written into the prompt: ``@path`` or ``"path"``.
     file_reference: Literal["at", "quoted"] = "quoted"
-    #: True when this entry reads a prompt from the pane's keystroke channel —
-    #: i.e. when Jarvis may type into it from the prompt bar, voice or the CLI.
-    #:
-    #: Every terminal agent does, which is why it defaults on. What it exists
-    #: for is an agent whose OWN interface is somewhere else: DeepSeek Harness
-    #: boots a server in the pane and puts its chat in the browser, so the
-    #: pane's stdin belongs to that server and a typed line would vanish into
-    #: it. Saying so once here is what keeps the prompt bar, the voice fan-out,
-    #: the recap and the interrupted-pane offer from each pretending otherwise
-    #: — see :func:`dodaios.agentic_ide.session.accepts_prompts`, the single
-    #: reader.
+    #: False when the agent's own interface is elsewhere (DeepSeek Harness serves
+    #: its chat in the browser). Single reader: :func:`dodaios.agentic_ide.session.accepts_prompts`.
     accepts_typed_prompts: bool = True
-    #: True when a pane must show its input line before a prompt may be typed.
-    #: Every CLI observed so far swallows a paste that arrives while it is still
-    #: booting, so this defaults on; an entry proven not to needs it off.
     needs_input_line_wait: bool = True
-    #: The prompt sigils this CLI's input line starts with. Empty means "the
-    #: shared default set", which covers every TUI observed so far.
     input_markers: tuple[str, ...] = ()
-    #: True when readiness requires the terminal cursor to be visible on the
-    #: input-marker row. Ratatui CLIs can draw the same marker while disabling
-    #: keyboard input; cursor visibility is the stable distinction.
+    #: Readiness needs the cursor visible on the marker row (Ratatui draws it while input is off).
     requires_visible_input_cursor: bool = False
-    #: True when this CLI asks its terminal for the screen colours shortly
-    #: AFTER its input line appears and reads the answer from its keyboard
-    #: input. A prompt typed into that gap corrupts the answer, which then
-    #: shows up in the composer as ``]10;rgb:…`` text, so readiness also waits
-    #: for that question to be asked and answered
+    #: The CLI asks for screen colours just AFTER its input line appears; typing
+    #: into that gap corrupts the answer (``]10;rgb:...``), so readiness waits
     #: (:func:`dodaios.agentic_ide.fleet_actions.colour_probe_settled`).
     asks_colours_after_input_line: bool = False
-    #: Maximum resumed panes of this CLI and account that may still be starting.
-    #: Zero means no provider-specific limit beyond the shared machine gate.
-    #: Use this when parallel starts contend on one vendor runtime store; the
-    #: slot is held until the pane exposes its real input line, not merely until
-    #: its process exists.
+    #: Max resumed panes of this CLI+account still starting (0 = shared gate only).
     resume_start_limit: int = 0
-    #: TUI furniture to strip before a transcript is summarised — banners,
-    #: status bars, key hints. Additive to the shared set.
+    #: TUI furniture stripped before a transcript is summarised; adds to the shared set.
     chrome_fragments: tuple[str, ...] = ()
-    #: The hint this CLI draws while — and only while — it is busy, so a pane
-    #: that stopped working can be told apart from one that never started.
-    #: Additive to the shared set in :mod:`dodaios.agentic_ide.activity`, which
-    #: already covers the near-universal "esc to interrupt" wording; an entry
-    #: names only its own peculiarity.
     busy_fragments: tuple[str, ...] = ()
-    #: True when a line submitted WHILE a turn runs reaches that running turn:
-    #: the CLI's own mid-turn steering. False means nothing is known about
-    #: typing into a busy pane of it, so a correction must stop the turn first
-    #: or wait for it to end (:meth:`dodaios.agentic_ide.session.Registry.send_prompt`).
+    #: A line submitted mid-turn reaches that turn; False = unknown, so stop first
+    #: (:meth:`dodaios.agentic_ide.session.Registry.send_prompt`).
     steers_mid_turn: bool = False
-    #: The per-project instructions file this CLI reads (CLAUDE.md, AGENTS.md).
     instruction_filename: str = ""
-
-    # --- Where the entry came from ------------------------------------------
-    #: True for an entry the USER added (:mod:`dodaios.workspace.custom_clis`)
-    #: rather than one this app ships. Read by the surfaces that may offer to
-    #: edit or remove it, and by detection, which cannot run a stranger's
-    #: ``--version`` on the event loop the wake microphone is delivered on.
+    #: User-added (:mod:`dodaios.workspace.custom_clis`); never run its ``--version``.
     custom: bool = False
-    #: Where the UI fetches this entry's mark. Empty for a built-in, whose logo
-    #: is a local asset the frontend already ships.
     logo_url: str = ""
-    #: Start this through a shell instead of as the pane's own process. Needed
-    #: by a command that is shell SOURCE rather than an argv — a pipeline, a
-    #: variable expansion, two commands chained — which cannot be exec'd.
+    #: Start through a shell, for a command that is shell SOURCE and cannot be exec'd.
     shell_launch: bool = False
 
-    # --- How a person refers to it ------------------------------------------
-    #: Spellings a transcript may carry for this product. Matching DATA, not
-    #: prose: speech recognition writes a product name by ear, and one unmatched
-    #: word costs the whole spawn group it appeared in.
     spoken_aliases: tuple[str, ...] = ()
-    #: Spellings that are ordinary words on their own ("cloud", "open") and only
-    #: mean the product with its second word behind them.
     spoken_aliases_needing_suffix: tuple[str, ...] = ()
-    #: The word those aliases need behind them.
     alias_suffix: str = "code"
 
     @property
@@ -368,17 +200,8 @@ def make_cli_agent(
 ) -> WorkspaceAgent:
     """Build a registrable entry for an interactive CLI.
 
-    The convenience path for plugging in a new coding agent: give it a name, a
-    binary and (optionally) the npm package that installs it, and detection,
-    the install command and the launch argv all follow. A CLI installed some
-    other way passes ``install=`` with whatever methods it does have — or
-    nothing at all, and is then detected and launched while honestly reporting
-    "not installed" rather than offering a command that cannot work.
-
-    ``extra`` forwards the behavioural fields of :class:`WorkspaceAgent`
-    (``trust``, ``resume_adapter``, ``spawn_env``, ``spoken_aliases``, ...) so a
-    new provider stays one call rather than a constructor plus a pile of
-    ``dataclasses.replace``.
+    Give a name and binary (and optionally the npm package); an entry installed
+    another way passes ``install=``. ``extra`` forwards :class:`WorkspaceAgent` fields.
     """
     spec = CliSpec(
         name=name,
@@ -389,8 +212,7 @@ def make_cli_agent(
         check_command=(binary, "--version"),
         version_parse_regex=version_regex,
         install=install or InstallMethods(npm_package=npm_package or None, recommended="npm"),
-        # We only care whether the binary is installed; the agent handles its
-        # own login interactively on first launch in the terminal.
+        # Only installation matters; the agent handles login on first launch.
         auth=AuthConfig(type="none"),
         risk=RiskConfig(default_tier="monitor"),
         category="agent",
@@ -408,10 +230,7 @@ def make_cli_agent(
     )
 
 
-#: Claude Code keeps per-project trust in ``~/.claude.json``. Named rather than
-#: inlined because a launch PROFILE over the same binary (the GLM entry) has to
-#: seed the very same file — a second descriptor saying the same thing is a
-#: second thing to keep in step.
+#: Claude Code keeps trust in ``~/.claude.json``; the GLM profile seeds the same file.
 CLAUDE_TRUST = TrustSpec(
     filename=".claude.json",
     fmt="json",
@@ -419,18 +238,13 @@ CLAUDE_TRUST = TrustSpec(
     key="hasTrustDialogAccepted",
     value=True,
     extra_defaults=(("hasCompletedProjectOnboarding", True),),
-    # Deliberately no ``home_env``. ``CLAUDE_CONFIG_DIR`` moves the ``.claude``
-    # DIRECTORY, while this file sits beside it in the home directory, and the
-    # per-account copies are seeded through the caller's explicit ``config_dirs``
-    # instead. Naming the variable here would silently relocate the machine's
-    # default trust file whenever an account happens to be active.
+    # No ``home_env``: ``CLAUDE_CONFIG_DIR`` moves the ``.claude`` DIRECTORY, not this file.
     home_env=None,
     subdir="",
     both_path_forms=True,
     backup=True,
 )
 
-#: Codex keeps it in ``$CODEX_HOME/config.toml`` under a per-project table.
 CODEX_TRUST = TrustSpec(
     filename="config.toml",
     fmt="toml",
@@ -441,7 +255,6 @@ CODEX_TRUST = TrustSpec(
     subdir=".codex",
 )
 
-#: Grok Build keeps folder trust in ``$GROK_HOME/trusted_folders.toml``.
 GROK_TRUST = TrustSpec(
     filename="trusted_folders.toml",
     fmt="toml",
@@ -453,9 +266,8 @@ GROK_TRUST = TrustSpec(
     backup=True,
 )
 
-#: Antigravity (``agy``) shares ``~/.gemini/trustedFolders.json`` with the
-#: Gemini CLI: a flat map of path → ``"TRUST_FOLDER"``. ``GEMINI_HOME`` moves
-#: the whole directory. Backed up because the file is not ours alone.
+#: Antigravity (``agy``) shares ``~/.gemini/trustedFolders.json`` with the Gemini
+#: CLI (path -> ``"TRUST_FOLDER"``); backed up because the file is not ours alone.
 ANTIGRAVITY_TRUST = TrustSpec(
     filename="trustedFolders.json",
     fmt="json",
@@ -470,13 +282,7 @@ ANTIGRAVITY_TRUST = TrustSpec(
 
 
 def _grok_build_install() -> InstallMethods:
-    """Official Grok Build installer for the OS that will run it.
-
-    Grok ships two scripts, not one: ``install.ps1`` on Windows and
-    ``install.sh`` everywhere else. The shared script installer fetches
-    whichever URL we declare and wraps it in the matching runner, so picking
-    the URL at registration is what makes the command actually work.
-    """
+    """Official Grok Build installer (``install.ps1`` on Windows, ``install.sh`` elsewhere)."""
     url = (
         "https://x.ai/cli/install.ps1" if sys.platform == "win32" else "https://x.ai/cli/install.sh"
     )
@@ -486,9 +292,7 @@ def _grok_build_install() -> InstallMethods:
 def _antigravity_install() -> InstallMethods:
     """Official Antigravity (``agy``) installer for the OS that will run it.
 
-    Same split as Grok Build: PowerShell on Windows, a shell script everywhere
-    else. The URLs are the ones the API-Keys card already prints
-    (``dodaios.google_cli.auth_service.antigravity_install_command``).
+    URLs match the API-Keys card.
     """
     url = (
         "https://antigravity.google/cli/install.ps1"
@@ -499,15 +303,7 @@ def _antigravity_install() -> InstallMethods:
 
 
 def _cursor_cli_install() -> InstallMethods:
-    """Official Cursor CLI installer for the OS that will run it.
-
-    Cursor ships two scripts, not one: the native Windows installer is
-    ``https://cursor.com/install?win32=true`` (PowerShell), and macOS, Linux
-    and WSL share ``https://cursor.com/install`` (curl | bash). The shared
-    script installer fetches whichever URL we declare and wraps it in the
-    matching runner, so picking the URL at registration is what makes the
-    command actually work.
-    """
+    """Official Cursor CLI installer: PowerShell URL on Windows, ``curl | bash`` elsewhere."""
     url = (
         "https://cursor.com/install?win32=true"
         if sys.platform == "win32"
@@ -516,42 +312,24 @@ def _cursor_cli_install() -> InstallMethods:
     return InstallMethods(script_url=url, recommended="script")
 
 
-#: Kimi ships under two generations that both install a binary called ``kimi``.
 KIMI_CURRENT = "kimi-code"
 KIMI_LEGACY = "kimi-cli"
 
-
-#: The npm package that IS the current generation. Its presence on the resolved
-#: binary path is the only positive, subprocess-free proof of which one runs.
 _KIMI_CURRENT_PACKAGE = "kimi-code"
 
 
 def kimi_generation() -> str | None:
-    """Which Kimi is installed: the current CLI, the wound-down one, or unknown.
+    """Which Kimi is installed: the current CLI, the legacy one, or unknown.
 
-    Moonshot AI replaced its Python ``kimi-cli`` with a TypeScript ``kimi-code``
-    and BOTH put a binary named ``kimi`` on PATH. They do not share a data
-    directory and they do not share every flag — the short forms differ, so an
-    argv built for one silently means something else to the other, and
-    ``kimi --version`` succeeds either way. Detecting the generation is
-    therefore not polish: it is the difference between resuming a conversation
-    and opening a stranger's.
+    Both generations put ``kimi`` on PATH with different data directories and
+    flags, and ``kimi --version`` succeeds for either; a wrong guess resumes the
+    wrong history.
 
-    **The BINARY decides, not the data directory**, and that order was learned
-    the hard way. Deciding on the data directory looks cheaper and is wrong for
-    the single most likely state a machine is in: someone upgrades, so the new
-    binary is on PATH — but its data root does not exist until the first run,
-    while the old generation's root is still lying there from before. A
-    directory-first probe reports the WOUND-DOWN generation on a machine that
-    can no longer run it, and every pane then reads the wrong history and offers
-    to resume conversations belonging to a CLI that is gone. Measured on the
-    maintainer's own box the moment the upgrade landed.
-
-    So: the resolved binary path first (an npm install carries the package name
-    in it, which is positive proof and costs no subprocess), then the data roots
-    as a fallback for an install laid out some other way. ``None`` means nothing
-    on this machine says either way, and the caller reads no history at all
-    rather than guessing at one.
+    The BINARY decides, not the data directory: after an upgrade the new binary
+    is on PATH but its data root does not exist until first run, while the old
+    root still does, so a directory-first probe reports the legacy generation.
+    Resolved binary path first (an npm install carries the package name), then
+    data roots as fallback. ``None`` = unknown; the caller reads no history.
     """
     import shutil
     from pathlib import Path
@@ -568,9 +346,7 @@ def kimi_generation() -> str | None:
             resolved = Path(binary).resolve()
         except OSError:
             resolved = Path(binary)
-        # The shim itself is just "kimi", so the package name shows up either in
-        # the resolved path (a POSIX symlink into the package) or in a sibling
-        # node_modules tree (the Windows .cmd shim, which stays where it is).
+        # The package name shows in the resolved path or a sibling node_modules tree.
         parts = {part.lower() for part in resolved.parts}
         if _KIMI_CURRENT_PACKAGE in parts:
             return KIMI_CURRENT
@@ -589,17 +365,10 @@ def kimi_generation() -> str | None:
 def glm_spawn_env() -> dict[str, str] | None:
     """Environment that turns a Claude Code process into a GLM one.
 
-    Returns ``None`` when no key is configured, which stops the launch. That is
-    deliberate and is the whole safety property of this function: the CLI reads
-    its endpoint ONCE at process start and never mentions which backend it got,
-    so a pane launched with a half-set environment would answer perfectly well —
-    from, and billed to, the wrong vendor, with nothing anywhere saying so.
-    Refusing to start is recoverable; a silent wrong-vendor pane is not.
-
-    ``ANTHROPIC_API_KEY`` is blanked on purpose. This host may well have one set
-    for other reasons, it outranks the token we are passing, and the result
-    would be exactly the silent fallback above. An empty value means "remove
-    this variable from the child" — see :attr:`WorkspaceAgent.spawn_env`.
+    ``None`` (no key configured) stops the launch: the CLI never says which
+    backend it got, so a half-set environment would bill the wrong vendor silently.
+    ``ANTHROPIC_API_KEY`` is blanked (empty = removed from the child) because it
+    outranks the token we pass.
     """
     from dodaios.core.config import get_secret, load_config
 
@@ -622,9 +391,7 @@ def glm_spawn_env() -> dict[str, str] | None:
         "API_TIMEOUT_MS": _setting("request_timeout_ms", "3000000"),
         "ANTHROPIC_API_KEY": "",
     }
-    # Only pin a model when the user actually chose one: vendor documentation
-    # disagrees with itself about the current ids, and a wrong id fails at
-    # request time in a way that reads like a bug in this app.
+    # Pin a model only when the user chose one: vendor docs disagree about ids.
     for field, var in (
         ("opus_model", "ANTHROPIC_DEFAULT_OPUS_MODEL"),
         ("sonnet_model", "ANTHROPIC_DEFAULT_SONNET_MODEL"),
@@ -635,23 +402,11 @@ def glm_spawn_env() -> dict[str, str] | None:
     return env
 
 
-# ---------------------------------------------------------------- launch picks
-#
-# What each CLI accepts as "run on THIS model, think THIS hard, ask THIS often"
-# when a pane opens. Every flag below was read off the installed binary's own
-# ``--help`` and its rejected-value message, which is the only source that can
-# be trusted here: a wrong word is not a warning but a pane that dies on the
-# command line. The mode NAMES stay the agent chat's ladder vocabulary
-# (dodaios/agent_chat/permissions.py) even where the binary spells one
-# differently, so one word means one stance across the whole app.
 
 _CLAUDE_PICKS = LaunchPicks(
     provider="claude-api",
     model_args=("--model", picks_value),
     effort_args=("--effort", picks_value),
-    # ``default`` is this CLI's ask-first mode. Recent builds call the same
-    # stance ``manual`` in their help text and still accept ``default``
-    # (verified on 2.1.247), so the older word is the one that runs on both.
     permission_args=flag_modes(
         "--permission-mode",
         "default",
@@ -663,26 +418,16 @@ _CLAUDE_PICKS = LaunchPicks(
     ),
 )
 
-#: GLM drives the Claude Code binary, so it takes the same permission words —
-#: but its models are Z.ai's own and this app ships no list of them, and the
-#: effort flag belongs to Anthropic's endpoint rather than Z.ai's. Offering
-#: neither is what keeps a picker from listing choices the endpoint refuses.
+#: GLM drives the Claude Code binary, so it takes the same permission words; no
+#: model list (Z.ai's own) and no effort flag (belongs to Anthropic's endpoint).
 _GLM_PICKS = LaunchPicks(provider="claude-api", permission_args=_CLAUDE_PICKS.permission_args)
 
-#: What Claude Code takes while it runs, read off the installed binary
-#: (2.1.247): ``/model <id>`` and ``/effort <level>`` are typed commands that
-#: apply at once — its changelog names them among the commands that "run
-#: immediately instead of queueing until the turn ends". The permission stance
-#: is not a command: Shift+Tab cycles it, and a cycle cannot be aimed at a
-#: mode, so it stays with the terminal.
 _CLAUDE_RUNTIME = RuntimePicks(model=f"/model {picks_value}", effort=f"/effort {picks_value}")
 
 _CODEX_PICKS = LaunchPicks(
     provider="openai-codex",
     model_args=("--model", picks_value),
-    # A ``-c`` override, not a flag of its own. The value is parsed as TOML and
-    # falls back to the literal string, so the level goes in bare — quoting it
-    # here would put the quote characters themselves into the setting.
+    # A ``-c`` override parsed as TOML: the level goes in bare.
     effort_args=("-c", f"model_reasoning_effort={picks_value}"),
     permission_args=(
         ("read-only", ("--sandbox", "read-only")),
@@ -701,7 +446,6 @@ _AGY_PICKS = LaunchPicks(
         ("plan", ("--mode", "plan")),
         ("skip-permissions", ("--dangerously-skip-permissions",)),
     ),
-    # A base Gemini id is an error without a level beside it.
     effort_required=True,
 )
 
@@ -709,9 +453,6 @@ _GROK_PICKS = LaunchPicks(
     provider="grok-build",
     model_args=("--model", picks_value),
     effort_args=("--reasoning-effort", picks_value),
-    # The binary also takes ``auto`` and ``dontAsk``; they are left out because
-    # this app has no sentence describing what they mean for Grok Build, and a
-    # picker entry nobody can explain is worse than one fewer choice.
     permission_args=flag_modes(
         "--permission-mode",
         "default",
@@ -721,12 +462,8 @@ _GROK_PICKS = LaunchPicks(
     ),
 )
 
-#: OpenCode and Kimi bring their own accounts and their own model aliases, so
-#: neither publishes a list this app could offer — the pick is whatever the
-#: person has configured, and the shape check in ``launch_picks`` is what
-#: stands in for a list. Their one permission flag is described by the shared
-#: API ladder, which has the right sentence for "everything runs without
-#: asking" already.
+#: OpenCode and Kimi bring their own models, so no list is offered; the shape
+#: check in ``launch_picks`` stands in.
 _OPENCODE_PICKS = LaunchPicks(
     model_args=("--model", picks_value),
     permission_args=(("auto", ("--auto",)),),
@@ -739,9 +476,6 @@ _KIMI_PICKS = LaunchPicks(
     ladder="api",
 )
 
-#: Cursor CLI takes ``--model`` and ``--mode plan|ask``; Agent mode is the
-#: default; --force lets its tools act without permission prompts.
-#: Effort is the model's own, not a CLI flag.
 _CURSOR_PICKS = LaunchPicks(
     provider="cursor",
     model_args=("--model", picks_value),
@@ -765,32 +499,13 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         homepage="https://claude.com/claude-code",
         trust=CLAUDE_TRUST,
         account=AccountSpec(env=(("CLAUDE_CONFIG_DIR", "{dir}"),), native_dir="~/.claude"),
-        # Verified live: an ``@path`` is resolved into the file's contents and
-        # the file-picker popup does not eat an injected reference.
         file_reference="at",
-        # The measured exception, not the rule: this CLI has a stable
-        # launch-and-prompt path, so waiting for its input line to appear would
-        # only slow down behaviour that already works.
         needs_input_line_wait=False,
-        # Measured (2.1.x): a message submitted mid-turn is recorded as a
-        # human ``queued_command`` and handed to the model at its next step,
-        # inside the running turn.
         steers_mid_turn=True,
         instruction_filename="CLAUDE.md",
-        # Its footer row ("<folder> 🌿 <branch> <model> (1M context)") carries
-        # plenty of letters, so without these the deterministic recap of a busy
-        # pane quoted the footer as its "activity". The branch glyph is the
-        # stable marker; the tip prefix covers the rotating "Tip: Use /btw …"
-        # hint rows. The key-hint half of the footer already matches the shared
-        # "shift+tab" fragment.
+        # The footer row would be quoted as a busy pane's "activity"; the branch
+        # glyph and rotating "Tip: Use /btw" prefix are the stable markers.
         chrome_fragments=("🌿", "tip: use"),
-        # Clicks stay with the pane. With its fullscreen renderer on (a user's
-        # ``CLAUDE_CODE_NO_FLICKER``) the CLI captures every click and pointer
-        # move: hovering highlights blocks, a click expands or collapses tool
-        # output and starts its own selection, and each of those re-lays the
-        # whole screen out — the pane jumped and resized under every click in
-        # the IDE (reported 2026-09-28). This keeps wheel scrolling and drops
-        # click and motion capture; it changes nothing outside that renderer.
         spawn_env=(("CLAUDE_CODE_DISABLE_MOUSE_CLICKS", "1"),),
         spoken_aliases=("claude", "cloude", "claud", "clode", "klaude", "kloude"),
         spoken_aliases_needing_suffix=(
@@ -809,12 +524,6 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         binary="codex",
         npm_package="@openai/codex",
         homepage="https://github.com/openai/codex",
-        # Codex's startup update box can exceed a narrow pane's width: its
-        # unbroken release URL widens the border after the content was wrapped
-        # (reproduced on 0.159.2 at 41 columns). Keep this extra startup UI out
-        # of embedded panes. A per-launch override leaves standalone Codex and
-        # the account's saved settings untouched; installation remains available
-        # through Jarvis's CLI controls.
         launch_args=("-c", "check_for_update_on_startup=false"),
         trust=CODEX_TRUST,
         account=AccountSpec(env=(("CODEX_HOME", "{dir}"),), native_dir="~/.codex"),
@@ -826,14 +535,8 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         input_markers=("›", "»"),
         requires_visible_input_cursor=True,
         asks_colours_after_input_line=True,
-        # Checked on 0.160: Enter while a task runs sends into the active turn
-        # (Tab would queue it instead); review and compact turns refuse a
-        # steer and keep the text in the composer, which the send reports.
+        # Enter mid-task steers (Tab queues); review/compact turns refuse the steer.
         steers_mid_turn=True,
-        # Two simultaneous resumes against Codex's shared SQLite/runtime store
-        # were measured beyond 90 s while one resume initialized substantially
-        # faster. Serialize only this shared-store boot phase. Claude and every
-        # unrelated CLI keep the normal parallel path.
         resume_start_limit=1,
         spoken_aliases=("codex", "kodex", "codecs", "codeks"),
     ),
@@ -846,22 +549,13 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         homepage="https://cursor.com/docs/cli/overview",
         description="Cursor's terminal coding agent — the same models as the editor.",
         install=_cursor_cli_install(),
-        # The documented command is ``agent``; the Windows installer also
-        # drops ``cursor-agent`` so the generic name does not collide with
-        # another product on PATH.
         binary_aliases=("cursor-agent",),
-        # No trust dialog is documented. Sign-in is ``agent login`` (or
-        # ``CURSOR_API_KEY``) inside the pane on first use.
         needs_trust=False,
         extra_path_dirs=("~/.local/bin",),
         file_reference="at",
         instruction_filename="AGENTS.md",
         input_markers=("→",),
         version_regex=_LOOSE_SEMVER_RE,
-        # DELIBERATELY no AccountSpec. Cursor stores the login itself after
-        # ``agent login``; the layout of that store has not been verified
-        # against a live install, so a seat switcher here would report
-        # switches that did not happen. Tracked in docs/os-parity.md.
         spoken_aliases=("cursor", "cursor cli", "cursor-cli", "cursor agent"),
     ),
     "opencode": make_cli_agent(
@@ -874,29 +568,17 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         install=InstallMethods(
             npm_package="opencode-ai",
             script_url="https://opencode.ai/install",
-            # npm rather than the script: it is the one method that behaves the
-            # same on all three OSes, and this app installs by running a command
-            # in a terminal the user is watching.
             recommended="npm",
         ),
-        # No trust dialog exists — the folder is simply opened. What gates
-        # execution here is its permission system, which is a config file the
-        # user owns rather than a prompt in the way.
         needs_trust=False,
         win_shim=WinShim(
             relative_path=("node_modules", "opencode-ai", "bin", "opencode.exe"),
             kind="exe",
         ),
-        # Its updater is ON by default and would swap the binary underneath a
-        # pane that is mid-conversation.
         spawn_env=(("OPENCODE_DISABLE_AUTOUPDATE", "1"),),
         file_reference="at",
         instruction_filename="AGENTS.md",
         spoken_aliases=("opencode",),
-        # "open" is the verb half of "open a terminal", so on its own it means
-        # nothing here — only "open code" is unmistakable, and even that needs
-        # the guard in the intent parser that keeps a sentence from matching its
-        # own opening verb.
         spoken_aliases_needing_suffix=("open",),
     ),
     "kimi": make_cli_agent(
@@ -907,14 +589,8 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         npm_package="@moonshot-ai/kimi-code",
         homepage="https://moonshotai.github.io/kimi-code/en/",
         description="Moonshot AI's terminal coding agent.",
-        # Measured: the wound-down generation answers "kimi, version 1.3", which
-        # the strict three-part pattern drops to None — and a blank version next
-        # to an installed binary reads as a broken install.
         version_regex=_LOOSE_SEMVER_RE,
         needs_trust=False,
-        # The npm install puts a .cmd shim on PATH that runs node against the
-        # package's own entrypoint; going straight there keeps the pane's own
-        # process the agent rather than a cmd wrapper around it.
         win_shim=WinShim(
             relative_path=(
                 "node_modules",
@@ -925,27 +601,10 @@ _AGENTS: dict[str, WorkspaceAgent] = {
             ),
             kind="node",
         ),
-        # Its update preflight can check, install and PROMPT mid-session.
         spawn_env=(("KIMI_CODE_NO_AUTO_UPDATE", "1"),),
-        # DELIBERATELY no AccountSpec — several seats of this CLI are not
-        # offered yet, and the reason is worth writing down because the data to
-        # enable it looks complete: ``KIMI_CODE_HOME`` really does move the whole
-        # data root. Three things stop it being honest today.
-        #
-        # 1. The wound-down generation does not read that variable at all. On a
-        #    machine that has it — including the one this was written on — every
-        #    "separate" seat would quietly resolve to the same login, and the
-        #    switcher would report a switch that did not happen.
-        # 2. Its configuration and its credentials live in the SAME file, so
-        #    there is no subset of setup that can be carried to a new seat
-        #    without carrying the key with it.
-        # 3. Its credential layout has not been verified against a live install,
-        #    so a sign-in indicator here would be a guess.
-        #
-        # A seat switcher that silently spends one login is worse than none.
-        # Tracked in docs/os-parity.md.
-        # Its own installer drops the binary here, which is not on the PATH a
-        # GUI-launched process inherits on macOS or Linux.
+        # No AccountSpec: the legacy generation ignores ``KIMI_CODE_HOME`` and config
+        # shares one file with credentials (docs/os-parity.md).
+        # Its installer's dir is not on the PATH a GUI-launched macOS/Linux process inherits.
         extra_path_dirs=("~/.local/bin",),
         generation_probe=kimi_generation,
         spoken_aliases=("kimi", "kimmy", "kimmi", "kimme", "kimmie"),
@@ -954,11 +613,6 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         "glm",
         "GLM Coding Plan",
         launch_picks=_GLM_PICKS,
-        # The whole design of this entry: the binary IS Claude Code. Z.ai ships
-        # no CLI of its own — its own documentation says to run Anthropic's
-        # binary against a different endpoint — so detection, the install
-        # command, trust seeding and conversation resume are all INHERITED
-        # rather than re-implemented against an executable that cannot exist.
         binary="claude",
         npm_package="@anthropic-ai/claude-code",
         homepage="https://docs.z.ai/devpack/tool/claude",
@@ -969,9 +623,7 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         needs_input_line_wait=False,
         steers_mid_turn=True,
         instruction_filename="CLAUDE.md",
-        # Resolved fresh on every spawn AND every resume — see the docstring.
         spawn_env_factory=glm_spawn_env,
-        # Same binary, same click capture — see the Claude Code entry.
         spawn_env=(("CLAUDE_CODE_DISABLE_MOUSE_CLICKS", "1"),),
         spoken_aliases=("glm", "g l m", "gee ell em", "jlm"),
     ),
@@ -991,15 +643,9 @@ _AGENTS: dict[str, WorkspaceAgent] = {
             login_argv=("login",),
         ),
         extra_path_dirs=("~/.grok/bin",),
-        # Flag, not an env var: Grok's updater is on by default and would swap
-        # the binary under a pane that is mid-conversation (same class as
-        # OpenCode and Kimi).
         launch_args=("--no-auto-update",),
         file_reference="at",
         instruction_filename="AGENTS.md",
-        # "grok build" has to be listed: "open grok build" otherwise matches
-        # the short spelling and leaves "build" as an unmatched word, which
-        # drops the whole spawn group.
         spoken_aliases=("grok", "groc", "grock", "grok build"),
     ),
     "antigravity": make_cli_agent(
@@ -1011,12 +657,7 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         description="Google's terminal coding agent — billed against the Google subscription.",
         install=_antigravity_install(),
         trust=ANTIGRAVITY_TRUST,
-        # DELIBERATELY no AccountSpec. ``GEMINI_HOME`` would move the login,
-        # but it is a SHARED variable (the Gemini CLI, workers, and this
-        # pane would all follow it), and ``agy`` has no ``login`` subcommand
-        # to point at an account directory — sign-in lives on the API-Keys
-        # page. A seat switcher that silently spends one Google login is
-        # worse than none. Tracked in docs/os-parity.md.
+        # No AccountSpec: ``GEMINI_HOME`` is shared; ``agy`` has no ``login`` subcommand.
         extra_path_dirs=("~/.local/bin",),
         file_reference="at",
         instruction_filename="GEMINI.md",
@@ -1034,36 +675,17 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         npm_package="@deepseek-ai/dsh",
         homepage="https://deepseek.com/harness",
         description="DeepSeek's agent harness — the pane runs it, the chat is in the browser.",
-        # `dsh` is a profile launcher, not a chat command: the profile decides
-        # which front door boots. `web` is the only interactive one that ships
-        # (checked 2026-08-22: the harness dropped its terminal UI, and no
-        # `@deepseek-ai/dsh-tui*` bundle is published), so the pane boots the
-        # web profile and the harness opens its own UI in the browser. The
-        # other shipped profile, `headless`, answers one task and exits, which
-        # is not a pane.
+        # ``dsh web`` is the only interactive profile; it opens its UI in the browser.
         launch_command="dsh web",
         launch_args=("web",),
-        # A server, not a TUI — nothing here reads the pane's keystrokes.
         accepts_typed_prompts=False,
-        # Both of these describe a terminal agent's input line, and this entry
-        # never draws one. Waiting for it would wait forever.
         needs_input_line_wait=False,
-        # No trust dialog to skip: the workspace is picked inside the web UI,
-        # and the harness's own permission policy is what gates execution.
         needs_trust=False,
-        # DELIBERATELY no AccountSpec and no spawn_env_factory. The harness
-        # takes its DeepSeek key in its own Settings screen and stores it
-        # itself, so there is no environment for this app to hand it — and a
-        # seat switcher over a store whose layout has not been verified against
-        # a live install would report switches that did not happen.
         win_shim=WinShim(
             relative_path=("node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"),
             kind="node",
         ),
         instruction_filename="AGENTS.md",
-        # "deep" on its own is an ordinary word and "seek" is a verb, so only
-        # the joined forms mean the product. ASR writes the name apart as often
-        # as together, and an unmatched word drops the whole spawn group.
         spoken_aliases=(
             "deepseek",
             "deep seek",
@@ -1081,46 +703,24 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         kind="shell",
         needs_trust=False,
         description="This machine's own shell — no agent, just a prompt.",
-        # A shell draws no TUI input line, so waiting for one would wait
-        # forever. It is never prompted programmatically anyway (see
-        # ``accepts_prompts``), but "ready" is asked about it, and the honest
-        # answer is that a live shell is ready the moment it exists.
         needs_input_line_wait=False,
     ),
 }
 
 
-#: The entries the USER added, rebuilt from their store whenever it changes.
-#:
-#: Kept apart from ``_AGENTS`` rather than merged into it, because the two are
-#: owned by different people: ``_AGENTS`` holds what this app ships plus
-#: whatever a plugin registered in code, and re-reading a FILE must never be
-#: able to drop one of those on the floor.
+#: User-added entries, rebuilt from their store on change. Kept apart from
+#: ``_AGENTS`` so re-reading a file cannot drop shipped or plugin entries.
 _CUSTOM_AGENTS: dict[str, WorkspaceAgent] = {}
-#: Store revision the dict above was built from; ``-1`` means "never built".
 _custom_revision: int = -1
 
 
 def builtin_names() -> tuple[str, ...]:
-    """Every registry key this app ships or a plugin registered in code.
-
-    Read by the custom-CLI store, which has to know which names are already
-    spoken for before it hands one to a new entry.
-    """
+    """Every registry key this app ships or a plugin registered in code."""
     return tuple(_AGENTS)
 
 
 def _custom_aliases(display_name: str, entry_id: str) -> tuple[str, ...]:
-    """Spellings a transcript may carry for a user-added entry.
-
-    Deliberately conservative, because these spellings are matched against
-    everything the user says. The full name counts (a whole phrase matching by
-    accident is unlikely), and a SINGLE-word name counts only from four letters
-    up — an entry someone called "Test" or "Go" would otherwise turn every
-    sentence containing that ordinary word into a request to open a terminal.
-    Anything richer is the built-ins' business: they list their misspellings by
-    hand because someone checked how speech recognition writes them.
-    """
+    """Spellings for a user-added entry; conservative (a one-word name only from four letters)."""
     out: list[str] = []
     name = " ".join(str(display_name or "").lower().split())
     words = name.split()
@@ -1135,15 +735,9 @@ def _custom_aliases(display_name: str, entry_id: str) -> tuple[str, ...]:
 
 
 def _custom_agent(entry: Any) -> WorkspaceAgent:
-    """Turn one stored :class:`~dodaios.workspace.custom_clis.CustomCli` into an
-    entry the rest of this module cannot tell apart from a built-in.
+    """Turn one stored custom CLI into an entry.
 
-    Deliberately ``spec=None``. A spec is a DETECTION plan — "run this with
-    ``--version`` and parse the answer" — and we have no promise a stranger's
-    CLI answers that flag rather than opening its TUI and holding the event
-    loop the wake microphone runs on. Detection for these entries is a PATH
-    lookup instead (see :func:`_sweep_agents`), which costs no subprocess and
-    reports no version rather than a guessed one.
+    ``spec=None``: detection is a PATH lookup, never a stranger's ``--version``.
     """
     from dodaios.workspace import custom_clis
 
@@ -1155,15 +749,9 @@ def _custom_agent(entry: Any) -> WorkspaceAgent:
         spoken_aliases=_custom_aliases(entry.display_name, entry.id),
         spec=None,
         launch_command=entry.command,
-        # Nothing is known about this CLI's trust file, so there is nothing to
-        # pre-seed. Its own dialog, if it has one, is answered by the user in
-        # the pane — which is exactly what happens today outside this app.
         needs_trust=False,
         description=entry.description,
         binary=entry.binary,
-        # Empty for a shell launch: the whole line goes to the shell verbatim,
-        # so a second, half-parsed copy of it here would only be something a
-        # future caller could pick up and get wrong.
         launch_args=() if through_shell else custom_clis.split_command(entry.command)[1:],
         file_reference=entry.file_reference,
         custom=True,
@@ -1173,12 +761,7 @@ def _custom_agent(entry: Any) -> WorkspaceAgent:
 
 
 def _sync_custom_agents() -> None:
-    """Rebuild the user's entries when their store has changed.
-
-    Called from every read below rather than once at import, because the store
-    is edited while the app runs: a CLI added in the wizard has to be openable
-    from the pane menu in the same session, without a restart.
-    """
+    """Rebuild the user's entries when their store changed (called from every read)."""
     global _custom_revision
     from dodaios.workspace import custom_clis
 
@@ -1194,9 +777,7 @@ def _sync_custom_agents() -> None:
     _CUSTOM_AGENTS.clear()
     for entry in entries:
         if entry.id in _AGENTS:
-            # A name a built-in already answers to. The store refuses to create
-            # one, so this is a hand-edited file; the shipped entry wins,
-            # because a pane running the wrong tool is the worse failure.
+            # Store refuses these, so this is a hand-edited file; the shipped entry wins.
             log.warning(
                 "workspace agents: custom entry %r shadows a built-in; ignoring it",
                 entry.id,
@@ -1207,12 +788,7 @@ def _sync_custom_agents() -> None:
 
 
 def refresh_custom_agents() -> None:
-    """Re-read the user's entries now, and forget the last detection sweep.
-
-    For the routes that just changed the store: the next question about "what
-    can this machine run" has to see the new entry, and the sweep's answer for
-    it (installed or not) has not been asked yet.
-    """
+    """Re-read the user's entries now and forget the last detection sweep."""
     global _custom_revision
     _custom_revision = -1
     _sync_custom_agents()
@@ -1220,12 +796,7 @@ def refresh_custom_agents() -> None:
 
 
 def _registry() -> dict[str, WorkspaceAgent]:
-    """Every entry, built-ins first, in the order the UI should list them.
-
-    The plain terminal stays LAST even though it is registered among the
-    built-ins: it is the "no agent at all" choice, and a menu that buries it
-    between coding CLIs reads as though it were one of them.
-    """
+    """Every entry, built-ins first, in UI order; the plain terminal stays LAST."""
     _sync_custom_agents()
     merged: dict[str, WorkspaceAgent] = {}
     shell = _AGENTS.get(PLAIN_TERMINAL)
@@ -1239,12 +810,7 @@ def _registry() -> dict[str, WorkspaceAgent]:
 
 
 def register_agent(agent: WorkspaceAgent, *, replace: bool = False) -> WorkspaceAgent:
-    """Add ``agent`` to the registry and return it.
-
-    Refuses to overwrite an existing name unless ``replace`` is set: two
-    different things answering to "codex" is the kind of collision that shows up
-    as a pane running the wrong tool, which is worse than an early error.
-    """
+    """Add ``agent`` to the registry; refuses an existing name unless ``replace``."""
     if not agent.name:
         raise ValueError("A workspace agent needs a name.")
     if agent.name in _AGENTS and not replace:
@@ -1255,26 +821,15 @@ def register_agent(agent: WorkspaceAgent, *, replace: bool = False) -> Workspace
 
 
 def _forget_command_catalog() -> None:
-    """Drop the cached command catalog, which spells this registry out.
-
-    The voice/LLM schema for "open a pane running X" lists the registered
-    coding CLIs by name, and that catalog is built once and cached. An agent
-    registered after the first build would therefore be openable from the UI,
-    resumable, promptable — and invisible to the one surface meant to drive it.
-    Never raises: the catalog is optional to this module, and a registration
-    that fails because of it would be the worse outcome.
-    """
+    """Drop the cached command catalog that lists coding CLIs; never raises."""
     try:
         from dodaios.commands.registry import get_registry
 
         get_registry.cache_clear()
     except Exception:  # noqa: BLE001, S110 - the catalog is not this module's job
         pass
-    # The spoken-request parser compiles every entry's spoken names into its
-    # patterns. Rebuilt only when it is already loaded: a first import builds
-    # them from the live registry anyway. Looked up in sys.modules rather than
-    # imported, because this runs INSIDE the registry read the parser's own
-    # rebuild performs.
+    # Rebuild the spoken-request parser only when already loaded (looked up in
+    # sys.modules: this runs INSIDE the registry read its own rebuild performs).
     intent = sys.modules.get("dodaios.agentic_ide.intent")
     refresh = getattr(intent, "refresh_agent_patterns", None)
     if refresh is not None:
@@ -1296,16 +851,8 @@ def get_agent(name: str) -> WorkspaceAgent | None:
 def behind_win_shim(spec: WorkspaceAgent, shim: str) -> tuple[str, ...] | None:
     """What the Windows ``.cmd`` shim would have launched, launched directly.
 
-    Going through the shim means going through ``cmd.exe``, which wedges a
-    second process between the caller and the agent and re-parses every
-    argument: a line break ends the command there, so a multi-line prompt on
-    argv arrives cut after its first line. When the entry declares where the
-    real thing sits inside the installed package we skip the shim entirely.
-
-    Two shapes exist and the entry says which: a Node script that needs
-    ``node.exe`` in front of it, and a native executable that is simply run.
-    ``None`` whenever the declared path is not actually there — an install
-    laid out differently than expected must fall back, never fail.
+    ``cmd.exe`` re-parses arguments (a line break cuts a multi-line prompt).
+    ``None`` when the declared path is missing: other layouts must fall back.
     """
     if spec.win_shim is None:
         return None
@@ -1326,11 +873,7 @@ def agent_names() -> tuple[str, ...]:
 
 
 def coding_agent_names() -> tuple[str, ...]:
-    """Only the entries that run a coding agent — no plain shell.
-
-    The "Make It Yours" launcher plans a grid of agents that extend Jarvis, so
-    it asks this rather than :func:`agent_names`.
-    """
+    """Only the entries that run a coding agent, no plain shell."""
     return tuple(name for name, agent in _registry().items() if agent.is_coding_agent)
 
 
@@ -1340,30 +883,15 @@ def needs_trust(name: str) -> bool:
     return bool(agent and agent.needs_trust)
 
 
-# Kept for the call sites that import this name directly. It is a snapshot of
-# the SHIPPED coding agents at import time and cannot see an entry registered
-# afterwards — neither one a plugin added nor one the user typed into the
-# wizard. Anything deciding whether a name is runnable must call
-# ``coding_agent_names()``, which asks the live registry; a membership test
-# against this tuple rejects the user's own CLI with "unknown agent".
+# Snapshot of the SHIPPED coding agents at import; misses plugin and user entries.
+# Runnability checks must call ``coding_agent_names()`` (live registry).
 AGENT_NAMES: tuple[str, ...] = tuple(
     name for name, agent in _AGENTS.items() if agent.is_coding_agent
 )
 
 
 def install_command(name: str) -> str | None:
-    """The shell command that installs the agent (for display + terminal run).
-
-    Delegates to the shared installer rather than assembling an npm line here.
-    Not every coding CLI is an npm package — some ship a winget id, a scoop
-    package or their own install script — and hardcoding one package manager
-    meant every other kind of CLI reported "no install command" while its spec
-    carried a perfectly good one.
-
-    ``None`` stays an honest answer: an entry that declares no reachable install
-    method for THIS platform is shown as not installed without being offered a
-    command that cannot work.
-    """
+    """The shell command that installs the agent; ``None`` when no method is reachable here."""
     agent = get_agent(name)
     if agent is None or agent.spec is None:
         return None
@@ -1388,11 +916,7 @@ def coding_agents() -> list[WorkspaceAgent]:
 
 
 def generation_of(name: str) -> str | None:
-    """Which generation of ``name``'s CLI this machine has, when that differs.
-
-    ``None`` for every entry whose vendor ships exactly one thing under one
-    binary name — which is all of them but Kimi.
-    """
+    """Which generation of ``name``'s CLI this machine has; ``None`` unless a vendor ships two."""
     agent = get_agent(name)
     if agent is None or agent.generation_probe is None:
         return None
@@ -1404,12 +928,7 @@ def generation_of(name: str) -> str | None:
 
 
 def spoken_aliases() -> dict[str, str]:
-    """Every spelling a transcript may carry, mapped to the entry it names.
-
-    Includes the spellings that are ordinary words on their own — the caller
-    decides what to do with those (see :func:`aliases_needing_suffix`), because
-    only the caller knows whether the product's second word followed.
-    """
+    """Every spelling a transcript may carry, mapped to its entry."""
     out: dict[str, str] = {}
     for agent in _registry().values():
         for spelling in (*agent.spoken_aliases, *agent.spoken_aliases_needing_suffix):
@@ -1418,13 +937,7 @@ def spoken_aliases() -> dict[str, str]:
 
 
 def aliases_needing_suffix() -> dict[str, tuple[str, str]]:
-    """Ambiguous spellings → ``(entry name, the word that must follow)``.
-
-    "cloud" is not a request for a Claude Code pane and "open" is not a request
-    for an OpenCode one; "cloud code" and "open code" are. Keeping the required
-    word beside the spelling means a new entry can pick its own without every
-    caller learning about it.
-    """
+    """Ambiguous spellings -> ``(entry, word that must follow)``: "cloud code", not "cloud"."""
     return {
         spelling: (agent.name, agent.alias_suffix)
         for agent in _registry().values()
@@ -1433,19 +946,10 @@ def aliases_needing_suffix() -> dict[str, tuple[str, str]]:
 
 
 def reserved_call_signs() -> frozenset[str]:
-    """Names a pane may never carry, because a product already answers to them.
+    """Names a pane may never carry because a product answers to them.
 
-    Addressing a pane called "Kimi" by saying "Kimi" is a coin flip once a CLI
-    is also called that, so the pool of call-signs excludes every registered
-    product name and every spelling of one.
-
-    Deliberately NARROW. The obvious implementation — every word of every
-    display name — reserves "Coding" and "Plan" out of "GLM Coding Plan", and
-    since call-sign matching is fuzzy by design that in turn poisons unrelated
-    names ("coding" scores high enough to reach the call-sign "Cody"). A list
-    meant to prevent one collision would then be creating others, so only the
-    identifying token counts: the registry key, the first word of the display
-    name, and the spellings people actually say.
+    NARROW: registry key, first display word and spoken spellings only; every
+    display word would reserve "Coding"/"Plan" and poison fuzzy names like "Cody".
     """
     names: set[str] = set()
     for agent in _registry().values():
@@ -1456,9 +960,7 @@ def reserved_call_signs() -> frozenset[str]:
         if first:
             names.add(first[0].lower())
         names.update(spelling.lower() for spelling in agent.spoken_aliases)
-    # Single letters and anything with a space in it are not call-sign shaped,
-    # so reserving them protects nothing and only shrinks the pool. Slugs may
-    # contain hyphens; dots, slashes and other punctuation stay excluded.
+    # Single letters and names with spaces are not call-sign shaped; hyphens ok.
     return frozenset(
         n for n in names
         if len(n) > 1 and n.replace("-", "").isalnum()
@@ -1479,41 +981,21 @@ class AgentInfo:
     description: str = ""
     #: True for an entry the user added, so a surface can offer to edit it.
     custom: bool = False
-    #: Where to fetch this entry's mark; empty means the UI's own asset or the
-    #: monogram it falls back to.
+    #: Where to fetch this entry's mark; empty = the UI's own asset or monogram.
     logo_url: str = ""
 
 
-#: How long a completed detection sweep answers for.
-#:
-#: A sweep is not a lookup — it starts ONE subprocess per registered CLI, and on
-#: Windows every one of those is an npm shim, so `claude --version` is really
-#: cmd.exe -> conhost -> node. Measured on the maintainer's machine: 1.1-1.4 s
-#: wall for five CLIs, and while it runs the shared event loop stalls for up to
-#: 1.7 s (probed with /api/health, which is answered on that same loop).
-#:
-#: That loop is where the wake microphone is delivered, three hops per 100 ms
-#: block with two seconds of buffer behind it, so an uncached sweep is heard as
-#: "the wake word takes longer in the Agentic IDE" — the view re-reads its whole
-#: state on every workspace change, and each of those reads paid for a fresh
-#: sweep. Nothing a sweep answers changes on that timescale: a CLI is installed
-#: or it is not.
+#: How long a detection sweep answers for: it spawns one subprocess per CLI and
+#: stalls the event loop that delivers the wake microphone.
 _DETECTION_TTL_S = 30.0
 
-#: Last completed sweep: (monotonic timestamp, result).
 _detection_cache: tuple[float, list[AgentInfo]] | None = None
-#: The sweep currently running, so N callers arriving together (a grid of panes
-#: all asking at once) share ONE burst of subprocesses instead of N.
+#: The sweep currently running; concurrent callers share ONE burst of subprocesses.
 _detection_task: asyncio.Task[list[AgentInfo]] | None = None
 
 
 def invalidate_agent_detection() -> None:
-    """Forget the cached sweep — the next read probes the machine again.
-
-    For callers that KNOW the answer just changed (a CLI was installed or
-    removed from inside the app). A user watching an install does not want to
-    wait out the TTL to see it appear.
-    """
+    """Forget the cached sweep; for callers that KNOW the answer just changed."""
     global _detection_cache
     _detection_cache = None
 
@@ -1523,18 +1005,8 @@ async def detect_agents(
 ) -> list[AgentInfo]:
     """Probe every registered entry and report what this machine can run.
 
-    CLI entries go through the shared prober; the plain terminal answers from
-    :func:`~dodaios.terminal.shells.default_shell`, because "is a shell
-    installed" is not a question a ``--version`` probe can ask. Its reported
-    version is the shell that would actually open ("PowerShell 7", "zsh"), which
-    is the one thing a user picking it wants to know.
-
-    Answered from a short-lived cache (``_DETECTION_TTL_S``) unless ``force`` is
-    set, because the sweep is expensive enough to be felt elsewhere in the app —
-    see the constant. An explicit ``prober`` (tests, and any caller supplying
-    its own probing strategy) always runs a real sweep and never touches the
-    cache: a caller that hands over the prober is asking for THAT prober's
-    answer.
+    The plain terminal answers from ``default_shell``. Cached for
+    ``_DETECTION_TTL_S`` unless ``force``; an explicit ``prober`` bypasses the cache.
     """
     if prober is not None:
         return await _sweep_agents(prober)
@@ -1551,8 +1023,7 @@ async def detect_agents(
         except RuntimeError:  # pragma: no cover - no loop is not reachable here
             same_loop = False
         if same_loop:
-            # Shielded: a browser that navigates away mid-sweep must not cancel
-            # the sweep the other five panes are waiting on.
+            # Shielded: a caller that goes away must not cancel the shared sweep.
             return list(await asyncio.shield(running))
 
     task = asyncio.ensure_future(_sweep_agents(CliStatusProber()))
@@ -1567,16 +1038,9 @@ async def detect_agents(
 
 
 def _augment_path() -> None:
-    """Put the places CLIs install themselves onto this process's PATH.
+    """Put the places CLIs install themselves onto PATH (idempotent, best-effort).
 
-    A GUI-launched process starts with a minimal PATH, so a correctly installed
-    CLI reads as missing on macOS and Linux — and a CLI installed WHILE the app
-    runs is invisible on every OS until something re-reads the environment. Both
-    are the same call, and it is idempotent, so every detection path makes it
-    rather than hoping an earlier one did.
-
-    Best-effort by design: PATH augmentation failing must degrade to "detection
-    sees whatever the process already had", never to no detection at all.
+    A GUI-launched process has a minimal PATH.
     """
     try:
         from dodaios.core.path_augment import ensure_cli_paths
@@ -1587,12 +1051,7 @@ def _augment_path() -> None:
 
 
 def _on_path(binary: str) -> bool:
-    """Is ``binary`` resolvable the way a pane would resolve it?
-
-    The whole detection story for a user-added entry. No subprocess: see
-    :func:`_custom_agent` for why a stranger's ``--version`` is not something
-    this sweep may run.
-    """
+    """Is ``binary`` resolvable the way a pane would? No subprocess (see :func:`_custom_agent`)."""
     import shutil
 
     if not binary:
@@ -1602,17 +1061,8 @@ def _on_path(binary: str) -> bool:
 
 
 async def _sweep_agents(prober: CliStatusProber) -> list[AgentInfo]:
-    """One real detection pass — a subprocess per SHIPPED CLI.
-
-    Three kinds of answer, and what an entry gets is decided by what it
-    declares rather than by its name:
-
-    * a detection spec — the shared prober runs it and reports a version;
-    * a user-added CLI (no spec, still a coding agent) — its first word is
-      looked up on PATH, off the event loop because that touches the disk;
-    * the plain terminal — "does this host have a shell", which is not a
-      question a ``--version`` probe can ask.
-    """
+    """One real detection pass: shared prober for spec entries, PATH lookup (off the
+    event loop) for user-added CLIs, shell check for the plain terminal."""
     registry = _registry()
     _augment_path()
     specs = [a.spec for a in registry.values() if a.spec is not None and a.name != "cursor"]
@@ -1643,21 +1093,13 @@ def _agent_info(
     shell: Any | None,
     on_path: bool,
 ) -> AgentInfo:
-    """One entry's status row, from whichever of the three answers applies.
-
-    Shared by the full sweep and the single-entry recheck, so the row a user
-    sees right after installing something cannot disagree with the row the next
-    sweep produces — the two used to be the same three branches written twice,
-    which is exactly the shape that drifts.
-    """
+    """One entry's status row; shared by sweep and recheck so they cannot disagree."""
     if agent.spec is None and agent.is_coding_agent:
         return AgentInfo(
             name=agent.name,
             display_name=agent.display_name,
             installed=on_path,
-            # Deliberately none. Asking would be the subprocess this path
-            # exists to avoid, and a made-up number beside someone's own
-            # command is worse than a blank one.
+            # None on purpose: asking would be the subprocess this path avoids.
             version=None,
             install_command=None,
             launch_command=agent.launch_command or "",
@@ -1678,10 +1120,8 @@ def _agent_info(
             description=agent.description,
         )
     installed = bool(status and status.installed)
-    # The documented binary may be missing while an alias the installer also
-    # drops is on PATH (Cursor's ``cursor-agent`` next to ``agent``). A probe
-    # that only asked the documented name would list the entry as missing
-    # while a pane of it would start.
+    # The documented binary may be missing while an installer alias is on PATH
+    # (Cursor's ``cursor-agent``); a pane of it would still start.
     if not installed and agent.binary_aliases and agent.name != "cursor":
         installed = any(_on_path(name) for name in agent.binary_aliases)
     return AgentInfo(
@@ -1697,22 +1137,9 @@ def _agent_info(
 
 
 async def recheck_agent(name: str) -> AgentInfo | None:
-    """Probe ONE entry right now, and forget the cached sweep.
+    """Probe ONE entry now and forget the cached sweep (cheap enough to poll after an install).
 
-    What "the install finished, did it work?" needs. The alternative —
-    ``detect_agents(force=True)`` — answers the same question by starting a
-    subprocess for every registered CLI, which is far too heavy for something
-    a dialog polls every few seconds while a user watches npm run.
-
-    Re-augments PATH first, because the binary that has just appeared may live
-    somewhere a GUI-launched process never had on its PATH (an npm global
-    prefix, ``~/.local/bin``). Without that the install genuinely succeeds and
-    the app keeps reporting the entry as missing, which reads as a broken
-    installer.
-
-    Returns ``None`` for a name that is not registered. Always invalidates the
-    sweep cache, even on a negative answer: whatever the user just did, the
-    cached list is no longer something to trust.
+    Re-augments PATH first: the new binary may live where a GUI process never looked.
     """
     agent = get_agent(name)
     if agent is None:
@@ -1738,8 +1165,7 @@ async def _cursor_status() -> CliStatus:
 
 
 def _build_pty_argv(command: str) -> tuple[str, ...] | None:
-    """Wrap a command in the platform's default shell so it runs inside a PTY
-    and the shell stays open afterwards (the user can re-run / keep typing)."""
+    """Wrap a command in the default shell so it runs in a PTY and the shell stays open."""
     shell = default_shell()  # pwsh>powershell>cmd / $SHELL first
     if shell is None:
         return None
@@ -1755,17 +1181,8 @@ def _build_pty_argv(command: str) -> tuple[str, ...] | None:
 def shell_run_argv(command: str) -> tuple[str, ...] | None:
     """Shell argv that runs ``command`` and EXITS with it.
 
-    The counterpart to :func:`_build_pty_argv`, which keeps the shell open
-    afterwards. Both exist because the two callers want opposite things: the
-    workspace launcher opens a terminal the user goes on typing in, while an
-    Agentic-IDE pane IS its agent — when the agent exits the pane is finished,
-    and a shell surviving it would leave a prompt that looks like a running
-    agent to every readiness check in the app.
-
-    Used for a user-added CLI whose command is shell source rather than an argv
-    (a pipeline, ``VAR=x cmd``, two commands chained), which cannot be exec'd
-    directly. ``None`` on a host with no shell, which reads the same as a
-    missing binary.
+    Unlike :func:`_build_pty_argv`: an IDE pane IS its agent, and a surviving
+    shell would look like a running agent. ``None`` without a shell.
     """
     shell = default_shell()
     if shell is None:
@@ -1774,29 +1191,19 @@ def shell_run_argv(command: str) -> tuple[str, ...] | None:
     if shell.id in ("pwsh", "powershell"):
         return (path, "-NoLogo", "-NoProfile", "-Command", command)
     if shell.id == "cmd":
-        # /c, never /k — see the docstring: the shell has to die with the agent.
+        # /c, never /k: the shell has to die with the agent.
         return (path, "/c", command)
     return (path, "-c", command)
 
 
 def plain_terminal_argv() -> tuple[str, ...] | None:
-    """Full PTY argv for a plain shell session — no agent wrapped around it.
-
-    The shell's OWN interactive argv, exactly as ``discover_shells()`` describes
-    it, rather than the ``-Command``/``/k`` wrapper CLI entries need: there is no
-    command to run first, and adding one would only cost the user a startup line
-    they did not ask for.
-    """
+    """Full PTY argv for a plain shell session: the shell's OWN interactive argv, no wrapper."""
     shell = default_shell()
     return tuple(shell.argv) if shell is not None else None
 
 
 def build_agent_argv(name: str) -> tuple[str, ...] | None:
-    """Full PTY argv that opens this entry, or None when it cannot run here.
-
-    A CLI is launched inside a shell (trust pre-seeded); the plain terminal IS
-    the shell.
-    """
+    """Full PTY argv that opens this entry, or None when it cannot run here."""
     agent = get_agent(name)
     if agent is None:
         return None
@@ -1804,8 +1211,7 @@ def build_agent_argv(name: str) -> tuple[str, ...] | None:
         return plain_terminal_argv()
     from dodaios.workspace.launch_picks import launch_argv
 
-    # Only catalog-owned permission defaults enter this shell command;
-    # request-supplied model, effort and permission strings are not accepted.
+    # Only catalog-owned permission defaults; request-supplied picks are not accepted.
     defaults = launch_argv(name)
     command = " ".join((agent.launch_command, *defaults))
     return _build_pty_argv(command)
@@ -1818,11 +1224,7 @@ def build_install_argv(name: str) -> tuple[str, ...] | None:
 
 
 def pty_available() -> bool:
-    """True when this host can run an in-app PTY (a shell + a real PTY backend).
-
-    Works on a headless Linux VPS too — a PTY is a kernel feature, not a GUI —
-    which is why the in-app terminal grid fits the cloud-first doctrine better
-    than spawning OS terminal windows."""
+    """True when this host can run an in-app PTY (a shell + a real PTY backend)."""
     if default_shell() is None:
         return False
     try:

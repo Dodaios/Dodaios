@@ -520,7 +520,7 @@ def _client_id() -> str:
 
     try:
         return str(load_config().marketplace.publish_github_client_id).strip()
-    except Exception:  # noqa: BLE001 - config trouble must not kill the view
+    except Exception:  # broad-except: config trouble must not kill the view
         log.warning("publish: could not read config for the client id")
         from dodaios.core.config import MarketplaceConfig
 
@@ -546,7 +546,7 @@ def registry_repo() -> str:
 
     try:
         value = str(load_config().marketplace.publish_registry_repo).strip()
-    except Exception:  # noqa: BLE001 - config trouble must not kill the view
+    except Exception:  # broad-except: config trouble must not kill the view
         log.warning("publish: could not read config for the registry repo")
         from dodaios.core.config import MarketplaceConfig
 
@@ -613,7 +613,7 @@ async def current_identity(
         # to_thread: the keyring backend talks to the OS credential store
         # synchronously and must not block the event loop.
         tokens = await asyncio.to_thread(store.load, PUBLISHER_TOKEN_ID)
-    except Exception:  # noqa: BLE001 - a locked keyring reads as signed out
+    except Exception:  # broad-except: a locked keyring reads as signed out
         log.warning("publish: token load failed", exc_info=True)
         return {"signed_in": False}
     if tokens is None:
@@ -819,7 +819,8 @@ async def live_status(name: str, version: str, *, force: bool = False) -> dict[s
         try:
             tokens = await asyncio.to_thread(TokenStore().load, PUBLISHER_TOKEN_ID)
             token = tokens.access if tokens is not None else None
-        except Exception:  # noqa: BLE001 - a locked keyring only costs rate limit
+        except Exception:  # broad-except: a locked keyring only costs rate limit
+            log.warning("live_status: a locked keyring only costs rate limit", exc_info=True)
             token = None
         item = await own_submissions.refresh_from_issue(name, version, registry_repo(), token)
         if item is not None:

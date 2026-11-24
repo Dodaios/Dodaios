@@ -65,6 +65,7 @@ export function AgentModelPicker({
   liveModels,
   draft,
   lockedProvider,
+  subagentModel = "",
   onPick,
 }: {
   providers: ProviderOption[];
@@ -72,6 +73,8 @@ export function AgentModelPicker({
   draft: ComposerDraft;
   /** A thread that has started keeps its coding agent; only the model can change. */
   lockedProvider: string | null;
+  /** The model of the sub-agent open on screen; it stands in for the pick, which cannot change it. */
+  subagentModel?: string;
   onPick: (provider: string, model: string) => void;
 }) {
   const t = useT();
@@ -124,6 +127,13 @@ export function AgentModelPicker({
     muted: !provider.connected || (lockedProvider !== null && provider.id !== lockedProvider),
   })), [providers, lockedProvider]);
   const pickedIcon = providers.find((provider) => provider.id === draft.provider);
+  if (subagentModel) {
+    return <span data-testid="thread-model-picker-subagent" role="status" aria-label={t("ide_threads.agent_model_aria")}
+      className="inline-flex h-8 min-w-0 max-w-[240px] items-center gap-1.5 px-2 text-sm font-medium text-foreground/80">
+      {pickedIcon && <ProviderMark provider={pickedIcon} />}
+      <span className="truncate">{subagentModel}</span>
+    </span>;
+  }
   return <ComposerBrainPicker testId="thread-model-picker" ariaLabel={t("ide_threads.agent_model_aria")}
     value={brainValue(draft.provider, draft.model)} groups={groups} sections={sections} currentSection={draft.provider}
     onChange={(value) => { const [provider, model] = splitBrainValue(value); onPick(provider, model); }}

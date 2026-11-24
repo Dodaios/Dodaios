@@ -173,7 +173,7 @@ class OpenRouterTTS:
         if old_client is not None:
             try:
                 await old_client.aclose()
-            except Exception as exc:  # noqa: BLE001 -- replacement already succeeded
+            except Exception as exc:  # broad-except: replacement already succeeded
                 log.debug("Closing the superseded OpenRouter TTS client failed: %s", exc)
 
     async def aclose(self) -> None:
@@ -315,7 +315,7 @@ class OpenRouterTTS:
                         )
         except OpenRouterTTSError:
             raise
-        except Exception as exc:  # noqa: BLE001 — transport/stream failure
+        except Exception as exc:  # broad-except: transport/stream failure
             # Wrap as a fatal error so a pre-first-chunk failure crosses families;
             # if chunks already flowed, FallbackTTS re-raises (no double audio).
             raise OpenRouterTTSError(

@@ -125,18 +125,12 @@ class DriveRestTool:
     name: str = "google_drive"
     risk_tier: str = "monitor"
     description: str = (
-        "List, search, read, create, share and delete files in the user's "
-        "connected Google Drive. Use for 'what's in my Drive', 'find the file "
-        "named X', 'read that document', 'create a file', 'share it with X', "
-        "'delete that file'. Actions: list_files (search/list — pass a plain "
-        "search_text, or a raw Drive q query for power users; empty lists the "
-        "most recently modified files), get_file (metadata by id), read_file "
-        "(extract text content by id; Google Docs/Sheets are exported to text), "
-        "create_file (name + text content, optional folder id), create_folder "
-        "(name, optional parent folder id), share_file (id + either an "
-        "emailAddress to share with one person, or public=true for a view link), "
-        "delete_file (id). Requires the Google Drive plugin to be connected in "
-        "the Plugins view. Always report the file name and its Drive URL back."
+        "List, search, read, create, share and delete files in the user's connected Google "
+        "Drive. Actions: list_files (plain search_text, or a raw Drive q; empty lists the "
+        "newest), get_file (metadata by id), read_file (text by id; Docs/Sheets are exported), "
+        "create_file (name + content, optional folder id), create_folder, share_file (id + "
+        "emailAddress, or public=true for a view link), delete_file (id). Report the file name "
+        "and its Drive URL. Needs the Google Drive plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -244,7 +238,8 @@ class DriveRestTool:
                 refreshed = bool(await _default_refresher(observed_token))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
+            log.warning("_with_auth_retry: refresher must never crash the tool", exc_info=True)
             refreshed = False
         if not refreshed:
             return {"error": _NEEDS_RECONNECT}
@@ -503,7 +498,8 @@ class DriveRestTool:
                 out = await self.delete_file(file_id=fid)
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         if isinstance(out, dict) and out.get("error"):

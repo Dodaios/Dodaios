@@ -18,6 +18,7 @@ only the results measured on the old text go stale.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -26,13 +27,28 @@ from typing import Any, Final
 
 from dodaios.memory.vault.store import MemoryVault
 
+from .first_move import Expect
 from .model import Domain, Source, Task, task_id
 
-__all__ = ["SEED_WORLD", "SeedError", "SeedWorld", "build_world", "recall_data", "recall_tasks"]
+__all__ = [
+    "FIRST_MOVE_FILE",
+    "SEED_WORLD",
+    "SeedError",
+    "SeedWorld",
+    "build_world",
+    "first_move_data",
+    "first_move_tasks",
+    "recall_data",
+    "recall_tasks",
+]
 
 #: Name of the world the seed tasks run in (``Task.payload["world"]``).
 SEED_WORLD: Final = "seed"
 _RECALL_FILE: Final = Path(__file__).with_name("seed") / "recall.json"
+#: The routing eval's golden set, as the package ships it.
+FIRST_MOVE_FILE: Final = Path(__file__).with_name("seed") / "first_move.json"
+#: A case id's language suffix: the same request in another language is the same piece of work.
+_LANG_SUFFIX: Final = re.compile(r"-(?:en|de|es|pt)$")
 _KINDS: Final = frozenset(
     {"profile", "preference", "relationship", "project", "procedural", "episode", "reference"}
 )
@@ -107,6 +123,60 @@ def recall_tasks() -> list[Task]:
                     "hard": bool(query.get("hard")),
                 },
                 check={"gold": gold, "stale": [str(s) for s in query.get("stale") or ()]},
+            )
+        )
+    return tasks
+
+
+@lru_cache(maxsize=1)
+def first_move_data() -> dict[str, Any]:
+    """The first-move seed file, checked. Raises :class:`SeedError` when it is malformed."""
+    data = json.loads(FIRST_MOVE_FILE.read_text(encoding="utf-8"))
+    cases = data.get("cases")
+    if not isinstance(cases, list) or not cases:
+        raise SeedError("the first-move seed file needs 'cases'")
+    seen: set[str] = set()
+    for case in cases:
+        key = str(case.get("key") or "")
+        if not key or key in seen:
+            raise SeedError(f"case key missing or used twice: {key!r}")
+        seen.add(key)
+        if not str(case.get("utterance") or "").strip():
+            raise SeedError(f"{key}: a case needs an utterance")
+        expect = case.get("expect")
+        if not isinstance(expect, dict) or not expect.get("tools"):
+            raise SeedError(f"{key}: a case needs the tools its first move may call, or 'none'")
+    return data
+
+
+def first_move_tasks() -> list[Task]:
+    """The seed tasks of the first_move domain.
+
+    The group of a task is its case id without the language: the same request
+    asked in English and in German is one piece of work, so a learner that
+    practised on one never meets the other in a split it is graded on.
+    """
+    tasks: list[Task] = []
+    for case in first_move_data()["cases"]:
+        key = str(case["key"])
+        expect = Expect.from_json(case["expect"])
+        tasks.append(
+            Task(
+                id=task_id(Domain.FIRST_MOVE, Source.SEED, key),
+                domain=Domain.FIRST_MOVE,
+                source=Source.SEED,
+                group=f"seed:first_move:{_LANG_SUFFIX.sub('', key)}",
+                payload={
+                    "utterance": str(case["utterance"]),
+                    "lang": str(case.get("lang") or ""),
+                    "category": str(case.get("category") or ""),
+                },
+                check={
+                    "expect": expect.to_json(),
+                    "requires": [str(r) for r in case.get("requires") or ()],
+                    "opening": expect.expects_tool,
+                    "role": "gain",
+                },
             )
         )
     return tasks

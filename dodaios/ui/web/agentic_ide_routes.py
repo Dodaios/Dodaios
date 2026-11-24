@@ -2875,7 +2875,10 @@ async def _launch_terminal_target(
 
     from dodaios.platform import open_path
 
-    opener = open_path.reveal_in_folder if reveal else open_path.open_file
+    # A program-like file (a cloned repo's setup.bat behind a "README.md" link)
+    # is shown in its folder, never launched.
+    program = not reveal and open_path.is_program_like(target)
+    opener = open_path.reveal_in_folder if (reveal or program) else open_path.open_file
     opened = await asyncio.to_thread(opener, target)
     kind = "directory" if target.is_dir() else "file"
     log.info(

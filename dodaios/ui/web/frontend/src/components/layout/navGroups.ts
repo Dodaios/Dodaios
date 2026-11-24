@@ -24,6 +24,7 @@ import {
   FeedbackIcon,
   AssistantIcon,
   MarketplaceIcon,
+  MeasureIcon,
   MicrophoneIcon,
   PetsIcon,
   ProfileIcon,
@@ -129,12 +130,20 @@ export const NAV_GROUPS: NavItem[][] = [
     // assistant and the Agentic IDE are. The id stays until its page goes.
     { id: "agents", labelKey: "nav.agents", icon: AgentsIcon, retired: true },
     // Built for you — what the self-building loop made on its own, why, and
-    // the one place to keep, undo or pause it (docs/self-build.md).
+    // the one place to undo it or pause the loop (docs/self-build.md).
     {
       id: "self-build",
       labelKey: "nav.self_build",
       icon: BuiltIcon,
       fallbackLabel: "Built for you",
+    },
+    // Self-improvement — is the assistant getting better, what it changed in
+    // itself and what proved it, with stop and undo (docs/self-improvement.md).
+    {
+      id: "self-improvement",
+      labelKey: "nav.self_improvement",
+      icon: MeasureIcon,
+      fallbackLabel: "Self-improvement",
     },
     // The compact catalog opens on Plugins; direct section navigation selects
     // its corresponding tab and keeps this shared row highlighted.

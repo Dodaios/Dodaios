@@ -1,9 +1,12 @@
 """Unit tests for the cross-platform open/reveal helpers (per-OS argv + no-op)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 import dodaios.platform.open_path as op
 from dodaios.platform.capabilities import Capabilities
@@ -407,3 +410,52 @@ def test_open_file_never_passes_a_leading_dash_as_an_option():
          patch.object(op.subprocess, "Popen") as popen:
         assert op.open_file(Path("-n.md")) is True
         assert popen.call_args.args[0] == ["xdg-open", "./-n.md"]
+
+
+# --- is_program_like ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "a.pyz", "a.msc", "a.docm", "a.iso", "a.ws", "a.mhtml",
+        "a.desktop", "a.pyc", "a.EXE", "a.fish",
+    ],
+)
+def test_is_program_like_refuses_extended_suffixes(tmp_path: Path, name: str) -> None:
+    f = tmp_path / name
+    f.write_text("x", encoding="utf-8")
+    assert op.is_program_like(f) is True
+
+
+def test_is_program_like_allows_documents_and_folders(tmp_path: Path) -> None:
+    doc = tmp_path / "notes.md"
+    doc.write_text("x", encoding="utf-8")
+    folder = tmp_path / "stuff.d"
+    folder.mkdir()
+    assert op.is_program_like(doc) is False
+    assert op.is_program_like(folder) is False
+
+
+def test_is_program_like_refuses_a_pathext_suffix_on_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if os.name != "nt":
+        pytest.skip("PATHEXT rule is Windows-only")
+    monkeypatch.setenv("PATHEXT", ".COM;.EXE;.ZZZ")
+    f = tmp_path / "x.zzz"
+    f.write_text("x", encoding="utf-8")
+    assert op.is_program_like(f) is True
+
+
+def test_is_program_like_refuses_an_executable_bit_on_posix(tmp_path: Path) -> None:
+    if os.name == "nt":
+        pytest.skip("executable bit is POSIX-only")
+    prog = tmp_path / "tool"
+    prog.write_text("x", encoding="utf-8")
+    prog.chmod(0o755)
+    doc = tmp_path / "paper.pdf"
+    doc.write_text("x", encoding="utf-8")
+    doc.chmod(0o755)
+    assert op.is_program_like(prog) is True
+    assert op.is_program_like(doc) is False

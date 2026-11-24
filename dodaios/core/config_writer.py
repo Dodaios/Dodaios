@@ -1281,12 +1281,13 @@ def set_agent_server(
     )
 
 
-#: Keys ``[self_build]`` accepts from the Settings page (docs/self-build.md).
+#: Keys ``[self_build]`` accepts from the Settings page (docs/self-build.md):
+#: its limits. ``enabled`` and the per-kind stages are ignored and never written.
 SELF_BUILD_SETTING_KEYS: frozenset[str] = frozenset(
     {
-        "enabled", "silent_days", "memory", "skill", "routine", "agent", "code",
-        "trial_days", "trial_uses", "max_builds_per_day", "max_agents_per_week",
-        "max_open_trials", "max_code_runs_per_day", "max_rejections", "code_land_repos",
+        "silent_days", "trial_days", "trial_uses", "max_builds_per_day",
+        "max_agents_per_week", "max_open_trials", "max_code_runs_per_day",
+        "max_rejections", "code_land_repos",
     }
 )
 

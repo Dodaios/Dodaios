@@ -275,7 +275,7 @@
     "top10": [
       {
         "bytes": 15089320,
-        "name": "art/studies/mars-outpost-reference/exports/communications-outpost.glb"
+        "name": "assets/art/studies/mars-outpost-reference/exports/communications-outpost.glb"
       },
       {
         "bytes": 6438173,
@@ -307,7 +307,7 @@
       },
       {
         "bytes": 1603532,
-        "name": "art/studies/agent-symbol-companions/exports/accessories.glb"
+        "name": "assets/art/studies/agent-symbol-companions/exports/accessories.glb"
       },
       {
         "bytes": 1603532,

@@ -1,20 +1,20 @@
 /**
  * The page's state in one calm line under the title: learning (with how far
- * along), paused, off or stopped, each with the one button that changes it.
- * While it is simply watching there is nothing to say, so nothing shows.
+ * along), paused or stopped, each with the one button that changes it. While
+ * it is simply watching there is nothing to say, so nothing shows. There is no
+ * "off": the loop has no switch, only the pause.
  */
 import type { ReactNode } from "react";
-import { Loader2, OctagonX, Pause, Power, Sprout } from "lucide-react";
+import { Loader2, OctagonX, Pause, Sprout } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { DAY_MS, type SelfBuildStatus } from "@/lib/selfBuildApi";
 
-export type HeroTone = "silent" | "running" | "paused" | "off" | "stopped";
+export type HeroTone = "silent" | "running" | "paused" | "stopped";
 
 export function heroTone(status: SelfBuildStatus | undefined, stopped: boolean): HeroTone | null {
   if (stopped) return "stopped";
   if (!status) return null;
-  if (!status.enabled) return "off";
   if (status.paused) return "paused";
   return status.silent ? "silent" : "running";
 }
@@ -64,13 +64,7 @@ export function StatusBanner({
     progress = days > 0 ? day / days : 0;
   } else {
     icon =
-      tone === "paused" ? (
-        <Pause className="h-4 w-4" aria-hidden />
-      ) : tone === "stopped" ? (
-        <OctagonX className="h-4 w-4" aria-hidden />
-      ) : (
-        <Power className="h-4 w-4" aria-hidden />
-      );
+      tone === "paused" ? <Pause className="h-4 w-4" aria-hidden /> : <OctagonX className="h-4 w-4" aria-hidden />;
     title = t(`self_build.hero.${tone}_title`);
     body = t(`self_build.hero.${tone}_body`);
   }

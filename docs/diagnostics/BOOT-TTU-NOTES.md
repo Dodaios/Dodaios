@@ -100,7 +100,7 @@ custom_onnx engine had hidden.
   `scripts/measure_desktop_boot.py` (desktop backend path, no GUI/mic) with
   full isolation (.boot-bench/, per-run data wipe, seeded vault, free port via
   `_bench_env`/`_free_port`), warm-up + median over N runs, JSON baseline
-  files. Anchors printed under `JARVIS_BOOT_PROFILE=1`: `BOOT_READY_MS`
+  files. Anchors printed under `DODAIOS_BOOT_PROFILE=1`: `BOOT_READY_MS`
   (window can appear), `VOICE_READY_MS` (wake loop armed, same clock), plus
   `[BOOT_PROFILE] db_*` marks (pre_webserver, webserver_ctor, server_start).
   The TTU benchmark should EXTEND this (add the VOICE_READY_MS anchor + an
@@ -126,7 +126,7 @@ custom_onnx engine had hidden.
   works; "window appears" was never the problem.
 - **Isolated TTU (voice ready, 3 cold runs): 8.0 s median**
   (runs 8.8/7.7/8.0 s; phases: pre_webserver 3.6 s = import lead,
-  webserver_ctor 1.9 s). Baseline frozen in desktop-ttu-baseline.json.
+  webserver_ctor 1.9 s). Baseline frozen in scripts/ci/desktop-ttu-baseline.json.
 - **Gap analysis:** live maintainer boot after the single-loader fix is ~50 s
   wake-ready vs 8.0 s isolated. The isolated bench has fresh data dirs and no
   integrations; the live delta (~42 s) therefore lives in DATA + INTEGRATIONS

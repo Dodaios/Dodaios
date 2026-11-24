@@ -63,3 +63,71 @@ describe("EditContextMenu", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
+
+describe("EditContextMenu area entries", () => {
+  it("shows the clicked area's own entries and runs them", async () => {
+    const { attachContextActions } = await import("@/lib/contextActions");
+    render(<EditContextMenu />);
+    const area = document.createElement("div");
+    const inner = document.createElement("span");
+    area.appendChild(inner);
+    document.body.appendChild(area);
+    const ran: string[] = [];
+    attachContextActions(area, () => [
+      { id: "clear", label: "Clear terminal", run: () => void ran.push("clear") },
+    ]);
+    const notCancelled = fireEvent.contextMenu(inner, { clientX: 5, clientY: 5 });
+    expect(notCancelled).toBe(false);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Clear terminal/ }));
+    await Promise.resolve();
+    expect(ran).toEqual(["clear"]);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("offers Open link and Copy link address on a link", () => {
+    render(<EditContextMenu />);
+    const link = document.createElement("a");
+    link.href = "https://example.com/page";
+    link.textContent = "page";
+    document.body.appendChild(link);
+    fireEvent.contextMenu(link, { clientX: 5, clientY: 5 });
+    expect(screen.getByRole("menuitem", { name: /Open link|edit_menu.open_link/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Copy link address|edit_menu.copy_link/ })).toBeTruthy();
+  });
+
+  it("enables Select all in a terminal that can select its buffer", () => {
+    render(<EditContextMenu />);
+    const term = document.createElement("div");
+    term.setAttribute("data-jarvis-terminal", "");
+    let selected = false;
+    Object.assign(term, {
+      __jarvisTerminalBridge: {
+        getSelection: () => "",
+        paste: () => {},
+        focus: () => {},
+        selectAll: () => {
+          selected = true;
+        },
+      },
+    });
+    document.body.appendChild(term);
+    fireEvent.contextMenu(term, { clientX: 5, clientY: 5 });
+    const item = screen.getByRole("menuitem", { name: /Select all|edit_menu.select_all/ });
+    expect((item as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(item);
+    expect(selected).toBe(true);
+  });
+
+  it("stays out when a component already claimed the click", () => {
+    render(<EditContextMenu />);
+    const term = document.createElement("div");
+    term.setAttribute("data-jarvis-terminal", "");
+    Object.assign(term, {
+      __jarvisTerminalBridge: { getSelection: () => "", paste: () => {}, focus: () => {} },
+    });
+    term.addEventListener("contextmenu", (e) => e.preventDefault());
+    document.body.appendChild(term);
+    fireEvent.contextMenu(term, { clientX: 5, clientY: 5 });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+});

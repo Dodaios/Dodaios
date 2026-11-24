@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 from dodaios.memory.vault import runtime as vault_runtime
 from dodaios.memory.vault.store import MemoryVault
@@ -60,6 +60,17 @@ class Scored:
     score: float
     tokens: int
     detail: str = ""
+
+
+#: The parts of the domain a result is shown in: tasks where a memory belongs in
+#: front of the model, and tasks where none does.
+NEEDS_MEMORY: Final = "needs_memory"
+NEEDS_NONE: Final = "needs_none"
+
+
+def part_of(task: Task) -> str:
+    """``NEEDS_MEMORY`` when the task names a gold memory, ``NEEDS_NONE`` otherwise."""
+    return NEEDS_MEMORY if task.check.get("gold") else NEEDS_NONE
 
 
 def score(task: Task, world: RecallWorld) -> Scored:

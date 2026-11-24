@@ -40,6 +40,8 @@ from typing import Any, ClassVar
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
+log = logging.getLogger(__name__)
+
 _LOG = logging.getLogger(__name__)
 
 #: Bound on the free-text arguments the model may pass. A spoken description is
@@ -54,19 +56,12 @@ class CreateSkillTool:
     name: ClassVar[str] = "create-skill"
     risk_tier: ClassVar[str] = "monitor"
     description: ClassVar[str] = (
-        "Create a NEW skill for this assistant from the user's description — use "
-        "this when the user asks to create, build, or set up a skill "
-        "('erstell mir einen Skill, der …', 'create a skill that …'). "  # i18n-allow: quoted phrase
-        "Work on a schedule ('every morning at 6 …', a daily briefing, a routine) "
-        "is NOT a skill: it is an agent routine, created with society-create-routine. "
-        "Pass the COMPLETE description in "
-        "'intent': what it should do, in which order, at what time or on which "
-        "phrase, which services (mail, calendar, tickets, music, …) and every "
-        "preference the user mentioned. The skill is written by the assistant "
-        "itself, lands as a DRAFT the user activates in the Skills view, and the "
-        "result tells you its name and triggers. Do NOT use this to run an "
-        "existing skill (that is run-skill) and never call it more than once per "
-        "request."
+        "Create a NEW skill from the user's description ('create a skill that …', "
+        "'erstell mir einen Skill, der …'). "  # i18n-allow: quoted phrase
+        "Work on a schedule (every morning at 6, a daily briefing) is not a skill but an "
+        "agent routine (society-create-routine). Pass the COMPLETE description in 'intent'. "
+        "It lands as a DRAFT the user activates in the Skills view; the result gives its "
+        "name and triggers. To run an existing skill use run-skill. Call once per request."
     )
     schema: ClassVar[dict[str, Any]] = {
         "type": "object",
@@ -75,63 +70,32 @@ class CreateSkillTool:
                 "type": "string",
                 "minLength": 1,
                 "description": (
-                    "The full description of what the skill should do, restated "
-                    "completely in the user's own words and language: actions in "
-                    "order, services involved, timing/recurrence, trigger phrase, "
-                    "preferences and examples the user gave."
+                    "Everything the skill should do, in the user's words and language: "
+                    "actions in order, services, timing, trigger phrase, preferences."
                 ),
             },
             "name": {
                 "type": "string",
                 "description": (
-                    "Name the user gave the skill, if any (e.g. 'Morgenroutine'); "
-                    "empty string when they did not name it."
+                    "Name the user gave it; empty if none."
                 ),
             },
             "trigger_phrase": {
                 "type": "string",
                 "description": (
-                    "The spoken phrase that should start the skill, if the user "
-                    "said one ('wenn ich Morgenroutine sage'); empty string "
-                    "otherwise."
+                    "The phrase that starts it, if the user said one; else empty."
                 ),
             },
             "schedule": {
                 "type": "string",
                 "description": (
-                    "When it should run by itself, as a 5-field cron expression "
-                    "in local time when the user named a time or recurrence "
-                    "('jeden Morgen um 6' → '0 6 * * *', 'montags um 9' → "
-                    "'0 9 * * 1'); empty string when no schedule was requested."
+                    "5-field cron in local time when the user named a time or "
+                    "recurrence ('every morning at 6' → '0 6 * * *'); else empty."
                 ),
             },
         },
         "required": ["intent", "name", "trigger_phrase", "schedule"],
         "additionalProperties": False,
-        "input_examples": [
-            {
-                "intent": (
-                    "Morgenroutine: jeden Morgen um 6 Uhr meine neuen "  # i18n-allow: example
-                    "E-Mails, meine Linear-Tickets und die wichtigen "  # i18n-allow: example
-                    "Kalendereinträge des Tages kurz vorlesen und danach "  # i18n-allow: example
-                    "ein Lied zum Aufstehen auf YouTube Music spielen — "  # i18n-allow: example
-                    "ein 80er-Klassiker wie Country Roads, jedes Mal ein "  # i18n-allow: example
-                    "anderer."  # i18n-allow: example
-                ),
-                "name": "Morgenroutine",
-                "trigger_phrase": "",
-                "schedule": "0 6 * * *",
-            },
-            {
-                "intent": (
-                    "When I say 'focus time', pause the music, set Slack to do not "
-                    "disturb and tell me my next meeting."
-                ),
-                "name": "",
-                "trigger_phrase": "focus time",
-                "schedule": "",
-            },
-        ],
     }
 
     def __init__(self, *, bus: Any | None = None, config: Any | None = None, **_: Any) -> None:
@@ -163,7 +127,8 @@ class CreateSkillTool:
             from dodaios.skills.skill_context import try_get_skill_context
 
             skill_ctx = try_get_skill_context()
-        except Exception:  # noqa: BLE001 — a broken skill subsystem is reported, not raised
+        except Exception:  # broad-except: a broken skill subsystem is reported, not raised
+            log.debug("execute: a broken skill subsystem is reported, not raised", exc_info=True)
             skill_ctx = None
         if skill_ctx is None:
             return ToolResult(
@@ -213,7 +178,7 @@ class CreateSkillTool:
                     "offer to try again in a moment"
                 ),
             )
-        except Exception as exc:  # noqa: BLE001 — surface the writer's own message
+        except Exception as exc:  # broad-except: surface the writer's own message
             _LOG.warning("create-skill failed: %s", exc, exc_info=True)
             return ToolResult(success=False, output=None, error=f"create_failed: {exc}")
 

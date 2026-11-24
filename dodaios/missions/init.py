@@ -154,7 +154,11 @@ def _worker_mcp_relevance_filter_enabled() -> bool:
 
         cfg = load_config()
         return bool(getattr(cfg.brain.routing, "worker_mcp_relevance_filter", True))
-    except Exception:  # noqa: BLE001 — missing/blip config => keep the gate ON
+    except Exception:  # broad-except: missing/blip config => keep the gate ON
+        logger.debug(
+            "_worker_mcp_relevance_filter_enabled: missing/blip config => keep the gate ON",
+            exc_info=True,
+        )
         return True
 
 
@@ -190,7 +194,7 @@ def _live_server_tools():  # noqa: ANN202
                 if name:
                     tools.append({"name": f"{sid}/{name}", "description": desc})
             out[sid] = tools
-    except Exception:  # noqa: BLE001 - gate must never break mission dispatch
+    except Exception:  # broad-except: gate must never break mission dispatch
         logger.debug("missions: live MCP tool gather failed", exc_info=True)
         return None
     return out
@@ -241,7 +245,11 @@ def _filter_servers_by_relevance(  # noqa: ANN201
             tools = tool_lookup.get(sid, []) if hasattr(tool_lookup, "get") else []
             try:
                 relevant = plugin_is_relevant(str(task_text), sid, tools)
-            except Exception:  # noqa: BLE001 — a relevance fault must NOT strip
+            except Exception:  # broad-except: a relevance fault must NOT strip
+                logger.warning(
+                    "_filter_servers_by_relevance: a relevance fault must NOT strip",
+                    exc_info=True,
+                )
                 relevant = True
             if relevant:
                 kept[sid] = entry
@@ -254,7 +262,7 @@ def _filter_servers_by_relevance(  # noqa: ANN201
                 sorted(dropped),
             )
         return kept
-    except Exception as exc:  # noqa: BLE001 — never break dispatch; full export
+    except Exception as exc:  # broad-except: never break dispatch; full export
         logger.debug("missions: MCP relevance filter failed (%s) — full export", exc)
         return servers
 
@@ -362,7 +370,7 @@ def _connected_native_worker_tools(task_text: str) -> tuple[str, ...]:
                 continue
             try:
                 tokens = store.load(plugin.id)
-            except Exception:  # noqa: BLE001 - one broken credential stays isolated
+            except Exception:  # broad-except: one broken credential stays isolated
                 logger.debug(
                     "missions: connector credential unreadable for %s", plugin.id
                 )
@@ -373,7 +381,7 @@ def _connected_native_worker_tools(task_text: str) -> tuple[str, ...]:
             if plugin_is_relevant(task_text, plugin.id, evidence):
                 selected.append(native_name)
         return tuple(dict.fromkeys(selected))
-    except Exception:  # noqa: BLE001 - capability discovery must not block missions
+    except Exception:  # broad-except: capability discovery must not block missions
         logger.debug("missions: native connector discovery failed", exc_info=True)
         return tuple(selected)
 
@@ -397,7 +405,7 @@ def _custom_api_worker_tools(task_text: str) -> tuple[str, ...]:
                 {"name": f"{tool.name}/action", "description": tool.description},
             ])
         )
-    except Exception:  # noqa: BLE001 - a unavailable surface grants no extra access
+    except Exception:  # broad-except: a unavailable surface grants no extra access
         logger.debug("missions: custom API discovery failed", exc_info=True)
         return ()
 
@@ -515,8 +523,11 @@ def _live_subagent_provider(boot_snapshot: str | None) -> str | None:
 
         try:
             refresh_persisted_env_from_user_registry()
-        except Exception:  # noqa: BLE001,S110 — best-effort env heal, never fatal
-            pass
+        except Exception:  # broad-except: best-effort env heal, never fatal
+            logger.debug(
+                "_live_subagent_provider: best-effort env heal, never fatal",
+                exc_info=True,
+            )
 
         cfg = load_config()
         sub_cfg = getattr(cfg.brain, "worker", None)
@@ -593,8 +604,8 @@ def _claude_subscription_login_state() -> bool | None:
             return not claude_auth_dead(
                 current_fingerprint=credential_fingerprint(account_marker)
             )
-    except Exception:  # noqa: BLE001,S110 — optional native auth path
-        pass
+    except Exception:  # broad-except: optional native auth path
+        logger.debug("_claude_subscription_login_state: optional native auth path", exc_info=True)
     return None
 
 
@@ -610,7 +621,7 @@ def _positive_subscription_login() -> bool:
     try:
         if _resolve_claude_binary() is not None and _claude_subscription_login_state() is True:
             return True
-    except Exception:  # noqa: BLE001 - an unreadable probe is "no positive login", logged
+    except Exception:  # broad-except: an unreadable probe is "no positive login", logged
         logger.debug("missions: claude subscription login probe failed", exc_info=True)
     from dodaios.missions.workers.codex_direct_worker import _codex_oauth_available
 
@@ -652,7 +663,11 @@ def _claude_cli_auth_viable() -> bool:
         from dodaios.core.config import get_jarvis_agent_secret
 
         key = get_jarvis_agent_secret("claude-api")
-    except Exception:  # noqa: BLE001 — unreadable secret store => not viable
+    except Exception:  # broad-except: unreadable secret store => not viable
+        logger.debug(
+            "_claude_cli_auth_viable: unreadable secret store => not viable",
+            exc_info=True,
+        )
         return False
     if not key or key.startswith("sk-ant-oat"):
         return False
@@ -1024,7 +1039,11 @@ def _resolve_api_agent_worker(
     inventory = capability_inventory or _assemble_worker_capability_inventory(task_text)
     try:
         has_key = _api_key_family_viable(provider)
-    except Exception:  # noqa: BLE001 — any resolve failure => no usable key
+    except Exception:  # broad-except: any resolve failure => no usable key
+        logger.warning(
+            "_resolve_api_agent_worker: any resolve failure => no usable key",
+            exc_info=True,
+        )
         has_key = False
     if has_key:
         logger.info(
@@ -1384,8 +1403,8 @@ async def bootstrap_missions(
 
                 if usable_native_claude_subscription() is not None:
                     anthropic_key = None
-            except Exception:  # noqa: BLE001,S110 — optional native auth path
-                pass
+            except Exception:  # broad-except: optional native auth path
+                logger.debug("_env_builder: optional native auth path", exc_info=True)
         if not live_oat and anthropic_key and anthropic_key.startswith("sk-ant-oat"):
             # 2026-07-06: no live (non-expired) OAuth login, and the stored
             # credential is itself an OAuth bearer — i.e. a STALE copy of a

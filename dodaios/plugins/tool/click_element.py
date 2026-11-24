@@ -17,6 +17,7 @@ submits, file operations). Toast notification is shown, no approval gate.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
 
@@ -28,6 +29,8 @@ from dodaios.plugins.tool.click import (
 from dodaios.plugins.tool.click import (
     _foreground_window_signature as _click_foreground_window_signature,
 )
+
+log = logging.getLogger(__name__)
 
 # Re-export ``_click_windows`` as a module global so tests can patch it via
 # ``monkeypatch.setattr("dodaios.plugins.tool.click_element._click_windows", ...)``.
@@ -166,7 +169,8 @@ class ClickElementTool:
             expected_signature = observed_signature
         try:
             obs = await source.observe()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,
@@ -280,7 +284,8 @@ class ClickElementTool:
                     return ToolResult(
                         success=False, output=None, error=landing.detail,
                     )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                log.warning("execute: failed; carrying on with the fallback", exc_info=True)
                 return ToolResult(success=False, output=None, error=str(exc))
 
         # 6. Success.

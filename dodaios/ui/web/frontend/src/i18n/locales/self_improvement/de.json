@@ -1,0 +1,326 @@
+{
+  "self_improvement": {
+    "title": "Selbstverbesserung",
+    "subtitle": "Während du weg bist, probiert der Assistent kleine Änderungen an seiner Arbeitsweise aus. Er behält eine Änderung nur, wenn eine Messung an Aufgaben aus deiner eigenen Arbeit zeigt, dass sie hilft.",
+    "loading": "Messungen werden geladen",
+    "stop": "Anhalten",
+    "resume": "Fortsetzen",
+    "error": {
+      "unavailable": "Die Selbstverbesserung läuft in dieser App nicht. Starte Dodaios neu. Bleibt diese Meldung, steht der Grund im App-Protokoll.",
+      "load": "Die Messungen konnten nicht geladen werden ({detail}). Prüfe, ob Dodaios läuft, und versuche es dann noch einmal.",
+      "retry": "Noch einmal versuchen",
+      "action": "Das hat nicht geklappt: {detail}"
+    },
+    "state": {
+      "running": "Läuft",
+      "stopped": "Angehalten",
+      "readonly": "Nur lesen",
+      "running_first": "Bisher lief noch keine Nacht. Die erste beginnt, wenn du {minutes} Minuten weg warst.",
+      "running_body": "Die letzte Nacht war {when}. Die nächste kommt nach {next}, sobald du {minutes} Minuten weg warst.",
+      "running_due": "Die letzte Nacht war {when}. Die nächste kommt, wenn du das nächste Mal {minutes} Minuten weg bist.",
+      "stopped_body": "Bis du fortsetzt, wird nichts ausprobiert, gemessen oder geändert. Was er schon gelernt hat, bleibt in Kraft.",
+      "readonly_body": "Eine neuere Version der App hat diese Aufzeichnungen geschrieben. Diese Version zeigt sie nur an und ändert nichts."
+    },
+    "empty": {
+      "title": "Noch ist nichts gemessen",
+      "body": "Um sich selbst zu messen, baut der Assistent nachts zuerst Testaufgaben aus deinem eigenen Gedächtnis und deinen Nachrichten. Sobald es genug sind, prüft er sich daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
+    },
+    "domain": {
+      "recall": {
+        "name": "Gedächtnis",
+        "about": "Kommt zu einer Nachricht die richtige Erinnerung, und keine, wenn keine nötig ist?"
+      },
+      "first_move": {
+        "name": "Erster Schritt",
+        "about": "Greift der Assistent zuerst zum richtigen Werkzeug, und sagt er vorher in einer Zeile, was er übernimmt?",
+        "building": "Bisher gibt es {n} Testaufgaben aus deinen eigenen Chats mit dem Assistenten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}.",
+        "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deinen Chats. Sie entstehen aus Antworten, die du so stehen lässt, und aus Antworten, die der Assistent richtig gemacht hat, nachdem du ihn korrigiert hast."
+      },
+      "brief": {
+        "name": "Aufträge",
+        "about": "Zeigt der Auftrag, den der Assistent für einen Coding-Agenten schreibt, auf die Dateien, die die Arbeit am Ende gebraucht hat?",
+        "building": "Bisher gibt es {n} Testaufgaben aus deiner früheren Programmierarbeit. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}.",
+        "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner früheren Programmierarbeit. Sie entstehen aus Anfragen, die du einem Coding-Agenten geschrieben hast, und dem Pull Request, der dafür gemergt wurde.",
+        "cost_label": "Nachricht und Auftrag pro Aufgabe",
+        "effect_shorter": "Nachricht und Auftrag {tokens} Tokens kürzer",
+        "effect_longer": "Nachricht und Auftrag {tokens} Tokens länger",
+        "range_unclear_cheaper": "Soweit gemessen ist er so gut wie im Auslieferungszustand: Der Qualitätsunterschied liegt zwischen {low} und {high} Punkten, und das schließt null ein. Nachricht und Auftrag sind {pct} kürzer."
+      }
+    },
+    "area": {
+      "unit": "Punkte",
+      "points": "{value} Punkte",
+      "badge_better": "belegt",
+      "badge_worse": "schlechter",
+      "badge_unclear": "noch nicht sicher",
+      "meaning": "Wie viele von 100 Testaufgaben der Assistent so, wie er jetzt ist, mehr löst als im Auslieferungszustand.",
+      "range_better": "Der wahre Unterschied liegt zwischen {low} und {high} Punkten, der Gewinn ist also sicher.",
+      "range_worse": "Der wahre Unterschied liegt zwischen {low} und {high} Punkten: So, wie er jetzt ist, schneidet er schlechter ab als im Auslieferungszustand.",
+      "range_unclear": "Der Unterschied ist noch nicht sicher: Der wahre Wert liegt zwischen {low} und {high} Punkten, und das schließt null ein.",
+      "scores_label": "Gelöst",
+      "scores": "jetzt {now}, ausgeliefert {shipped}, auf {n} Aufgaben, aus denen er nie gelernt hat",
+      "part_needs_memory": "Erinnerung nötig",
+      "part_needs_none": "Keine Erinnerung nötig",
+      "part_scores": "jetzt {now}, ausgeliefert {shipped} ({n} Aufgaben)",
+      "cost_label": "Prompt pro Nachricht",
+      "cost": "{before} → {after} Tokens",
+      "cost_same": "{after} Tokens, wie ausgeliefert",
+      "waiting": "{n} Aufgaben aus deiner Arbeit sind bereit. Die erste Messung kommt mit der nächsten Nacht.",
+      "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner Arbeit, deshalb wird hier nichts gemessen.",
+      "quality_label": "Gelöste Aufgaben",
+      "shorter": "kürzer",
+      "range_unclear_cheaper": "Soweit gemessen ist er so gut wie im Auslieferungszustand: Der Qualitätsunterschied liegt zwischen {low} und {high} Punkten, und das schließt null ein. Sein Prompt ist {pct} kürzer.",
+      "building": "Bisher gibt es {n} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}."
+    },
+    "curve": {
+      "title": "Vorsprung, Nacht für Nacht",
+      "caption": "Punkte, mit dem Bereich, in dem der wahre Wert liegt",
+      "few": "Die Kurve erscheint nach der zweiten Nacht, die diesen Bereich misst.",
+      "update": "Update auf {version}",
+      "range_value": "zwischen {low} und {high}",
+      "col_night": "Nacht",
+      "col_advantage": "Punkte",
+      "col_range": "Bereich",
+      "col_tasks": "Aufgaben",
+      "col_app": "App-Version",
+      "legend_line": "Gemessener Vorsprung",
+      "legend_band": "Bereich des wahren Werts",
+      "legend_update": "App-Update"
+    },
+    "stack": {
+      "title": "Was ich an mir geändert habe",
+      "none": "Noch nichts. Jeder Wert ist so, wie er ausgeliefert wurde.",
+      "take_back": "Zurücknehmen",
+      "values": "{before} → {after}",
+      "since": "seit {when}",
+      "held": "auf {n} Aufgaben erneut bestätigt",
+      "kinds": "Drei Arten von Änderungen: Werte, die er eingestellt und an Aufgaben belegt hat, wie er Coding-Agenten steuert, belegt an der Hälfte deiner Anfragen, und Notizen, die er sich selbst geschrieben hat; die sind in Kraft, aber noch nicht gemessen.",
+      "note_title": "Eine Notiz an sich selbst",
+      "note_gone": "Diese Notiz ist nicht mehr im Gedächtnis.",
+      "not_measured": "noch nicht gemessen"
+    },
+    "state_word": {
+      "proposed": "Wartet",
+      "trial": "Auf Probe",
+      "live": "Behalten",
+      "reverted": "Zurückgenommen",
+      "blocked": "Abgelehnt"
+    },
+    "effect": {
+      "better": "{diff} Punkte auf {n} Aufgaben (zwischen {low} und {high})",
+      "worse": "{diff} Punkte auf {n} Aufgaben (zwischen {low} und {high}), schlechter",
+      "unclear": "kein klarer Unterschied auf {n} Aufgaben (zwischen {low} und {high})",
+      "as_good": "gleich gut auf {n} Aufgaben",
+      "shorter": "Prompt {tokens} Tokens kürzer",
+      "longer": "Prompt {tokens} Tokens länger",
+      "none": "nicht gemessen"
+    },
+    "detail": {
+      "close": "Schließen",
+      "shipped": "Ausgeliefert: {value}",
+      "what": "Was er einstellt",
+      "admitted": "Warum er aufgenommen wurde",
+      "checked": "Erneut geprüft",
+      "not_checked": "Noch nicht erneut geprüft. Das macht die nächste Nacht.",
+      "admitted_on": "Gemessen auf {n} Aufgaben, die für Entscheidungen zurückgelegt sind, {when}.",
+      "checked_on": "Gemessen auf {n} Aufgaben, auf denen nie über eine Änderung entschieden wurde, {when}.",
+      "proposed_by": "Vorgeschlagen von",
+      "dates": "Daten",
+      "date_admitted": "Aufgenommen: {date}",
+      "date_since": "In Kraft seit: {date}",
+      "date_checked": "Zuletzt geprüft: {date}",
+      "measurement": "Messung",
+      "note_unmeasured": "Noch nicht gemessen: Noch lässt sich nicht sagen, ob diese Notiz hilft. Sie ist in Kraft, bis du sie zurücknimmst."
+    },
+    "author": {
+      "tuner": "Der Tuner, der benachbarte Werte an Übungsaufgaben ausprobiert",
+      "owner": "Du",
+      "memory-learner": "Der Assistent, nachdem ein Werkzeug versagt hat und ein späterer Aufruf geklappt hat",
+      "rsi-selector": "Der Steuerungslerner, der jeweils eine Änderung bei der Hälfte deiner Coding-Anfragen ausprobiert",
+      "lines": "Der Zeilen-Lerner, der deine Nachrichten an Übungsaufgaben ohne eine ihrer festen Zeilen ausprobiert"
+    },
+    "nights": {
+      "title": "Die letzten Nächte",
+      "paused": "Angehalten: Es wurde nichts getan.",
+      "updated": "Die App wurde von {from} auf {to} aktualisiert. Alles Gelernte wurde erneut geprüft.",
+      "checked": "{title} geprüft: {outcome}, {effect}.",
+      "checked_bare": "{title} geprüft: {outcome}.",
+      "holding_one": "1 Änderung in Kraft hält weiterhin.",
+      "holding_other": "{count} Änderungen in Kraft halten weiterhin.",
+      "proposed": "Vorgeschlagen: {title}, {from} → {to}.",
+      "decided": "{title} gemessen: {outcome}, {effect}.",
+      "decided_bare": "{title} gemessen: {outcome}.",
+      "measured": "Vorsprung ({area}): {points} Punkte auf {n} Aufgaben.",
+      "idle": "Nachgesehen und noch nichts zu messen gefunden.",
+      "show_one": "1 frühere Nacht zeigen",
+      "show_other": "{count} frühere Nächte zeigen",
+      "hide": "Weniger zeigen",
+      "built_one": "1 Testaufgabe aus deinem Gedächtnis und deinen Nachrichten gebaut.",
+      "built_other": "{count} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten gebaut.",
+      "erased_one": "1 Aufgabe zu einer Erinnerung gelöscht, die es nicht mehr gibt.",
+      "erased_other": "{count} Aufgaben zu Erinnerungen gelöscht, die es nicht mehr gibt.",
+      "stored_one": "1 Aufgabe aus deiner früheren Coding-Arbeit gespeichert.",
+      "stored_other": "{count} Aufgaben aus deiner früheren Coding-Arbeit gespeichert.",
+      "deferred": "Es konnte kein Modell gefragt werden, deshalb wurden keine Aufgaben gebaut."
+    },
+    "outcome": {
+      "admitted": "auf Probe aufgenommen",
+      "declined": "abgelehnt",
+      "waiting": "wartet auf mehr Aufgaben",
+      "kept": "behalten",
+      "taken_back": "zurückgenommen"
+    },
+    "candidates": {
+      "title": "Wartet auf eine Messung",
+      "row": "vorgeschlagen {when}, wartet, bis es genug neue Aufgaben für eine Entscheidung gibt"
+    },
+    "resting": {
+      "title": "Ruht nach einem Update",
+      "restale": "Noch in Kraft. Der ausgelieferte Wert, gegen den er gelernt wurde, hat sich mit einem Update geändert, deshalb wird er zuerst neu gemessen.",
+      "dormant": "Ruht ohne Wirkung, weil diese Version ihn nicht verwenden kann. Er gilt wieder, sobald eine Version es kann."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "practise_title": "Üben",
+      "practise_body": "Er probiert andere Werte an einem Teil der Aufgaben aus.",
+      "decide_title": "Entscheiden",
+      "decide_body": "Eine Änderung kommt nur hinein, wenn sie sich an Aufgaben bewährt, an denen er nie geübt hat.",
+      "check_title": "Weiter prüfen",
+      "check_body": "Spätere Nächte prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
+      "limits": "Er arbeitet nur, nachdem du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
+      "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
+      "models_ramp": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht ({ramp}-mal in den ersten Nächten, solange es zu wenige Aufgaben zum Entscheiden gibt), über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
+      "measure_no_model": "Das Messen selbst fragt kein Modell.",
+      "measure_first_move": "Den ersten Schritt und die Aufträge misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt: höchstens {calls} Modellaufrufe pro Nacht für beides zusammen, nie, solange ein Nutzungsfenster zu 80 % voll ist, und nie mehr als {share} % eines Fensters in einer Nacht.",
+      "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
+    },
+    "param": {
+      "recall_entity_boost": {
+        "title": "Gewicht von Namen in einer Erinnerung",
+        "about": "Wie weit eine Erinnerung nach oben rückt, wenn sie eine Person oder Sache aus der Nachricht nennt."
+      },
+      "recall_pinned_boost": {
+        "title": "Gewicht angehefteter Erinnerungen",
+        "about": "Wie weit eine angeheftete Erinnerung in einer Suche nach oben rückt."
+      },
+      "recall_recency_floor": {
+        "title": "Gewicht alter Erinnerungen",
+        "about": "Wie viel Gewicht eine sehr alte Erinnerung behält. Bei 1 spielt das Alter keine Rolle."
+      },
+      "recall_recency_days": {
+        "title": "Wie schnell Erinnerungen altern",
+        "about": "Über wie viele Tage die Frische einer Erinnerung nachlässt."
+      },
+      "recall_fetch_factor": {
+        "title": "Breite einer Gedächtnissuche",
+        "about": "Wie viele Kandidaten eine Suche bewertet, als Vielfaches dessen, was sie zurückgibt."
+      },
+      "recall_turn_limit": {
+        "title": "Erinnerungen pro Nachricht",
+        "about": "Die meisten Erinnerungen, die eine Nachricht hervorholen darf."
+      },
+      "recall_turn_max_chars": {
+        "title": "Platz für Erinnerungen pro Nachricht",
+        "about": "Die meisten Zeichen, die die Erinnerungen zu einer Nachricht im Prompt einnehmen dürfen."
+      },
+      "recall_relative_floor": {
+        "title": "Nähe zum besten Treffer",
+        "about": "Wie nah eine Erinnerung an den besten Treffer herankommen muss, um gezeigt zu werden."
+      },
+      "recall_min_score": {
+        "title": "Mindestübereinstimmung einer Erinnerung",
+        "about": "Wie gut eine Erinnerung passen muss, damit sie überhaupt gezeigt wird. Bei 0 wird jeder Treffer gezeigt."
+      },
+      "recall_lesson_base": {
+        "title": "Startrang einer Lektion",
+        "about": "Wo eine passende Lektion gegenüber dem besten Suchtreffer steht, bevor ihre eigene Passung zählt."
+      },
+      "recall_lesson_cap": {
+        "title": "Höchster Rang einer Lektion",
+        "about": "Wie weit eine Lektion höchstens über dem besten Suchtreffer stehen darf."
+      },
+      "lessons_recall_threshold": {
+        "title": "Nötige Passung einer Lektion",
+        "about": "Wie viele Wörter einer Lektion eine Nachricht teilen muss, damit die Lektion hervorkommt."
+      },
+      "lessons_recall_limit": {
+        "title": "Lektionen pro Nachricht",
+        "about": "Die meisten Lektionen, die eine Nachricht hervorholen darf."
+      },
+      "lead_first_line": {
+        "title": "Einleitende Zeile vor einem Werkzeug",
+        "about": "Neben jeder deiner Nachrichten: vor dem ersten Werkzeug eine kurze Zeile schreiben, die die Aufgabe übernimmt."
+      },
+      "lead_brief_line": {
+        "title": "Wortlaut der Auftragszeile",
+        "about": "Neben jeder deiner Nachrichten: wie der Assistent gebeten wird, die Dateien nachzuschlagen, bevor er einem Coding-Agenten einen Auftrag gibt."
+      }
+    },
+    "daily": {
+      "title": "Im Alltag",
+      "summary": "{pct} deiner {n} Anfragen der letzten {weeks} Wochen gingen ohne Korrektur, Wiederholung oder Abbruch durch.",
+      "caveat": "Das zeigt, was geschehen ist, nicht, was es verursacht hat: Die Anfragen einer Woche sind nicht die der nächsten. Die gemessenen Bereiche oben vergleichen Gleiches mit Gleichem.",
+      "col_week": "Woche",
+      "col_requests": "Anfragen",
+      "col_through": "Durchgegangen",
+      "week_of": "ab {date}",
+      "unrated": "keine Zahl"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "im Bereich {area}, mit {model} in {harness}",
+      "default_model": "dem Standardmodell",
+      "hold": "Wartet auf die Prüfungen und bittet um Korrekturen",
+      "release": "Wartet nicht mehr auf die Prüfungen",
+      "no_fixes": "Bittet um keine Korrekturen",
+      "fewer_fixes_one": "Bittet um höchstens eine Korrektur",
+      "fewer_fixes_other": "Bittet um höchstens {n} Korrekturen",
+      "shorter_wait": "Wartet höchstens {minutes} Minuten auf die Prüfungen",
+      "brief_line": "Ergänzt die erste Anweisung um eine Zeile",
+      "other": "Ändert, wie Coding-Agenten gesteuert werden",
+      "on_trial": "seit {when} auf Probe bei der Hälfte deiner Anfragen",
+      "claim_pass": "bleibt nur, wenn deutlich mehr Anfragen gelingen",
+      "claim_cost": "bleibt nur, wenn es weniger kostet und nichts schlechter wird",
+      "claim_p": "bleibt nur, wenn weniger Korrekturen nötig sind und nichts schlechter wird",
+      "proof_pass": "{with} von {n} Anfragen gelungen, gegenüber {without} von {m} ohne (mindestens {low} Punkte)",
+      "proof_cost": "{diff} weniger pro Anfrage an Kosten und Zeit, bei {n} Anfragen gegenüber {m} ohne (mindestens {low} weniger)",
+      "proof_p": "{diff} Korrekturen weniger pro Anfrage, bei {n} Anfragen gegenüber {m} ohne (mindestens {low} weniger)",
+      "measured_on": "Gemessen an {n} deiner Anfragen damit und {m} ohne, {when}.",
+      "about": "Wie Dodaios Coding-Arbeit an Agenten übergibt, für diese Art von Arbeit, dieses Modell und dieses Coding-Werkzeug: ob seine Antwort auf die Prüfungen wartet, um wie viele Korrekturen es bittet und was in der ersten Anweisung steht. Es wurde bei der Hälfte deiner Anfragen ausprobiert und mit der anderen Hälfte verglichen.",
+      "probation": "Auf Probe: Der erste Lauf damit, der eine Prüfung schwächt, nimmt es von selbst zurück."
+    },
+    "coding_area": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "testing": "Tests",
+      "database": "Datenbank",
+      "infra_ci": "Infrastruktur und CI",
+      "docs": "Dokumentation",
+      "other": "Sonstiges",
+      "refactoring": "Refactoring",
+      "multi_repo": "Multi-Repo"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist weggefallen.",
+        "on": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist wieder da."
+      },
+      "lead_brief_line": {
+        "v0": "Der ausgelieferte Wortlaut der Zeile neben deinen Nachrichten, die sagt, wie ein Coding-Agent beauftragt wird, ist wieder da.",
+        "v1": "Die Zeile neben deinen Nachrichten bittet jetzt mit weniger Worten darum, die Dateien nachzuschlagen, bevor ein Coding-Agent beauftragt wird.",
+        "v2": "Die Zeile neben deinen Nachrichten bittet nicht mehr darum, die Dateien nachzuschlagen, bevor ein Coding-Agent beauftragt wird."
+      }
+    },
+    "value": {
+      "on": "an",
+      "off": "aus"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "wie ausgeliefert",
+        "v1": "kürzeres Nachschlagen",
+        "v2": "ohne Nachschlagen"
+      }
+    }
+  }
+}

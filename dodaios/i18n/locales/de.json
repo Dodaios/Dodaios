@@ -547,15 +547,6 @@
     "step_progress": "Schritt {done} von {total} erledigt."
   },
   "self_build": {
-    "proposal": {
-      "memory": "Merken, was du immer wieder korrigierst: „{request}“.",
-      "skill": "Ein Skill für das, worum du immer wieder bittest: „{request}“.",
-      "routine": "Eine Routine, die das erledigt, bevor du fragst: „{request}“.",
-      "agent": "Ein spezialisierter Agent für die Arbeit hinter „{request}“."
-    },
-    "case": {
-      "counted": "{count}-mal an {days} verschiedenen Tagen gefragt."
-    },
     "code": {
       "title": "Issue #{number} in {repo} lösen: {title}",
       "case": "Issue #{number} in {repo} passt für einen Agenten, der allein arbeitet ({signal}). Ein Coding-Agent würde es über dein Abo bearbeiten, während du weg bist, in einem eigenen Worktree und Branch, und die Tests ausführen ({tests}). Das Ergebnis ist ein Pull Request, der das Issue schließt, als Entwurf, außer du lässt dieses Repository selbst mergen. {url}"

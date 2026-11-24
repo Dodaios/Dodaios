@@ -245,7 +245,7 @@ def test_multiple_panes_share_requests_and_errors_are_unknown(monkeypatch):
     monkeypatch.setattr(status, "checkout", local)
     monkeypatch.setattr(
         status,
-        "pane_branches",
+        "ranked_branches",
         lambda record: [
             SimpleNamespace(folder="worktree", branch=TARGET.branch, created_at=0, unproven=False)
         ],
@@ -280,7 +280,7 @@ def _session(monkeypatch, branches, answers, unproven=()):
     )
     monkeypatch.setattr(
         status,
-        "pane_branches",
+        "ranked_branches",
         lambda record: [
             SimpleNamespace(
                 folder="worktree", branch=branch, created_at=0, unproven=branch in unproven
@@ -586,14 +586,14 @@ def test_a_visit_takes_over_a_read_ahead_that_has_not_begun(boards):
 def test_one_pane_that_cannot_be_read_does_not_cost_the_others_their_status(monkeypatch):
     answers = {"claude/fine": _answer("claude/fine", 6, "OPEN")}
     _session(monkeypatch, list(answers), answers)
-    working = status.pane_branches
+    working = status.ranked_branches
 
     def pane_branches(record):
         if record.pane == "broken":
             raise OSError("record vanished mid-read")
         return working(record)
 
-    monkeypatch.setattr(status, "pane_branches", pane_branches)
+    monkeypatch.setattr(status, "ranked_branches", pane_branches)
     records = [
         status.PaneBranchRecord("broken", "broken", "worktree"),
         status.PaneBranchRecord("t1", "t1", "worktree"),

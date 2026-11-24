@@ -1,37 +1,8 @@
 """Ask which terminal was meant, instead of guessing or going silent.
 
-A call-sign arrives through speech recognition, and the resolver has to draw a
-line somewhere: above it a word IS a pane's name, below it the word is ordinary
-speech. Both sides of that line have now failed in production, on the same day,
-in opposite directions:
-
-* **Silent miss** (2026-07-27 16:18) — a pane called "Ellis" came back as
-  "Ilies", scoring 0.667 against a 0.72 floor. The addressed-terminal path stood
-  down without a word, no prompt ever reached the pane, and the live model —
-  which never learns any of this — told the user an agent was working on it.
-* **Silent false hit** — ordinary words of the spoken language reach the pool
-  from below: "allen" scores 0.750 against "Alex", i.e. ABOVE the same floor.
-  A sentence about the outside world ("what is Elon Musk up to?") must never
-  become an instruction typed into somebody's coding agent.
-
-No threshold fixes both, because the two failures overlap on the score axis —
-the maintainer's directive (2026-07-27) is therefore to decide by CONTEXT and,
-when context says "this is about the panes" but the name is uncertain, to ASK:
-
-    "Did you mean Ellis?"
-
-That is what this module decides. It answers one question — "is this turn
-addressing the workspace, and if so, which pane did the user probably mean?" —
-and, like ``intent``, it is a detector, not a policy: the caller decides what to
-do with the answer.
-
-The asymmetry that shapes every rule below: a needless question costs the user
-one word ("yes"), while a wrong guess types a stranger's task into an agent that
-then works for minutes on it. So the gate is deliberately hard to pass, and
-whatever it is unsure about becomes a question rather than an action.
-
-Cost: pure regex over the utterance, no IO and no LLM (AP-9 / AP-11), so it is
-safe on the voice hot path.
+No score threshold separates a garbled call-sign from ordinary speech, so the decision is by
+CONTEXT: when the turn is about the panes but the name is uncertain, ask. Detector only; pure regex,
+no IO or LLM (AP-9 / AP-11).
 """
 from __future__ import annotations
 
@@ -41,27 +12,13 @@ from dataclasses import dataclass, field
 
 from .names import CALL_SIGN_WORD_RE, canonical_positions, near_miss, resolve
 
-# How long a pending question stays answerable. Voice turns arrive within
-# seconds; two minutes covers a slow "uh... yes, Ellis" without letting a
-# forgotten question deliver work much later in the session. Same bound as the
-# delegation offer window, for the same reason.
+# How long a pending question stays answerable; same bound as the delegation offer window.
 _WINDOW_TTL_S = 120.0
 
-# A short answer is an ANSWER to the question ("yes", "Ellis", "the second
-# one"); a long sentence is the user moving on and must never deliver the old
-# task. Same bound the spawn gate uses for its confirmation.
+# A short turn is an ANSWER; a longer sentence is the user moving on.
 _ANSWER_MAX_WORDS = 6
 
 
-# --------------------------------------------------------------------------- #
-# Is this turn about the workspace at all?                                     #
-# --------------------------------------------------------------------------- #
-# The gate that separates "prompt Max" from "what is Elon Musk doing". Evidence
-# has to be POSITIVE and explicit: the default answer is no, because that is the
-# answer that cannot type a stranger's sentence into a running coding agent.
-
-#: Words that only ever mean the coding workspace. Naming a pane, or the act of
-#: handing one work, is the strongest evidence there is.
 _WORKSPACE_NOUN_RE = re.compile(
     r"\b(?:terminals?|terminales|terminais|panes?|workspaces?|"
     r"painel|pain[eé]is|"  # i18n-allow: input vocab
@@ -71,39 +28,25 @@ _WORKSPACE_NOUN_RE = re.compile(
     re.IGNORECASE,
 )
 
-#: The work coding agents actually do. A sentence carrying this vocabulary is
-#: about the user's own codebase, which is what the panes are for — as opposed
-#: to a question about the world, which never contains it.
 _CODING_WORK_RE = re.compile(
     r"\b(?:"
-    # investigation / analysis
     r"deep[\s-]?dive|root[\s-]?cause|debug\w*|analysier\w*|analyz\w*|analis\w*|"
     r"untersuch\w*|investigate\w*|diagnos\w*|"  # i18n-allow: input vocab
-    # change
     # i18n-allow: input vocab
     r"fix\w*|behebe?\w*|repariere?\w*|refactor\w*|implementier\w*|implement\w*|"
     r"commit\w*|merge\w*|rebase\w*|deploy\w*|"
-    # artifacts
     r"bugs?|fehler\w*|tests?|teste\w*|repo\w*|branch\w*|"  # i18n-allow: input vocab
     r"code\w*|datei\w*|files?|funktion\w*|functions?|"  # i18n-allow: input vocab
     r"pull[\s-]?request|pr\b|"
-    # Spanish work vocabulary, kept level with the other locales
     r"arregl\w*|revis\w*|prueba\w*|archivo\w*|rama\w*|"
-    # European Portuguese work vocabulary, same level as the other locales
     r"corrig\w*|conserta\w*|ficheiros?|c[oó]digo\w*|ramo\w*|"  # i18n-allow: input vocab
     r"refatoriz\w*|erros?"  # i18n-allow: input vocab
     r")\b",
     re.IGNORECASE,
 )
 
-#: Handing work to somebody — "sag X …", "lass X …", "tell X to …". Reused from
-#: the same vocabulary ``intent`` addresses panes with, kept here as a flat verb
-#: scan because at this point the NAME is exactly what we are unsure about, so a
-#: name-anchored template cannot be built yet.
+#: Handing work to somebody; a flat verb scan because the NAME is what is uncertain.
 _HANDOVER_VERB_RE = re.compile(
-    # Stems, not fixed forms: the maintainer's own phrasing is "… machen
-    # LASSEN", and a `lass\b` alternative silently misses every separable and
-    # infinitive form German actually hands work over in.
     r"\b(?:sag\w*|schick\w*|gib|geb\w*|frag\w*|lass\w*|l[aä]sst|"  # i18n-allow: input vocab
     r"beauftrag\w*|[uü]bergib|[uü]bergeb\w*|weiterleit\w*|"  # i18n-allow: input vocab
     r"tell|send|give|ask|hand|forward|assign|let|have|"
@@ -113,11 +56,7 @@ _HANDOVER_VERB_RE = re.compile(
 )
 
 
-#: "X SOLL das fixen" — an order aimed at a third party, carried by the modal
-#: rather than by a handover verb. This is the other half of how work is
-#: assigned in speech, and ``intent`` matches it name-anchored; here the name is
-#: precisely what is uncertain, so the modal is scanned on its own and paired
-#: with coding work to keep it honest.
+#: "X SOLL das fixen": an order to a third party carried by the modal.
 _DIRECTIVE_MODAL_RE = re.compile(
     r"\b(?:soll|sollen|sollte|sollten|m[uü]ssen|muss|"  # i18n-allow: input vocab
     r"should|must|shall|"
@@ -127,18 +66,9 @@ _DIRECTIVE_MODAL_RE = re.compile(
 )
 
 
-#: "What has X done?" / "How far is X?" — asking a NAMED worker for a status
-#: report. The shape carries no coding vocabulary at all, which is why it
-#: needed its own rule: "was hat Dana gemacht" names no repo, no test, no bug
-#: and no branch, so the coding-work pairings below never saw it.
-#:
-#: Each locale gets both word orders, and the German alternation carries the
-#: optional perfect prefix ("gemacht", "getan", "gearbeitet") — the tense
-#: spoken German actually uses to ask about work that has already happened, and
-#: the exact form the live 2026-07-27 turn was lost on.
+#: A status question to a NAMED worker, no coding vocabulary; both word orders per locale, German
+#: with the perfect prefix.
 _REPORT_QUESTION_RE = re.compile(
-    # A progress opener is a status question on its own — "wie weit ist Ellis?"
-    # carries no verb of doing at all, and nothing else is ever asked with it.
     r"\b(?:wie\s+weit|wie\s+l[aä]uft|wie\s+steht|how\s+far|"  # i18n-allow: input vocab
     r"c[oó]mo\s+va|como\s+vai|em\s+que\s+ponto)\b|"  # i18n-allow: input vocab
     r"\bwas\b[^.!?]{0,40}?"  # i18n-allow: input vocab
@@ -167,38 +97,13 @@ _REPORT_QUESTION_RE = re.compile(
 def addresses_workspace(text: str) -> bool:
     """Whether this turn is plausibly about the open coding workspace.
 
-    Four independent kinds of evidence, any one of which is enough:
-
-    1. the utterance NAMES the workspace or the act of prompting a pane
-       ("prompt Max", "beauftrage Max") — unambiguous on its own;
-    2. it hands work over AND that work is coding work ("tell Max to fix the
-       tests");
-    3. it gives a third-party order AND that order is coding work ("Ellis soll
-       einen Deep Dive machen") — the shape that carries no handover verb;
-    4. it asks a named worker for a STATUS REPORT ("was hat Ellis gemacht?").
-
-    In 2 and 3 the pairing is what does the work. A handover verb alone
-    deliberately does NOT qualify: "tell me what Elon Musk is doing" is a
-    handover verb plus a name and nothing else, and that sentence must never
-    reach a coding agent.
-
-    4 stands alone without a coding-work pairing, and it may, because of what
-    it can and cannot cause. This module only ever produces a QUESTION — "did
-    you mean Ellis?" — and only for a turn where no pane was certainly named
-    and exactly one word came close. A status question about somebody the user
-    really did mean as a person therefore costs one "no"; without the rule, a
-    call-sign that speech recognition garbled inside the single most common
-    workspace question there is went silently nowhere, which is the failure
-    this whole module exists to end.
+    It names the workspace, hands over or orders coding work, or asks a named worker for a STATUS
+    REPORT. A handover verb alone never qualifies ("tell me what Elon Musk is doing").
     """
     body = str(text or "")
     if _WORKSPACE_NOUN_RE.search(body):
         return True
-    # A status question about a FULL personal name is about that person: "sag
-    # mir was Elon Musk gerade macht" has the identical shape to "sag mir was
-    # Ellis gerade macht" and the opposite meaning, and the surname is the only
-    # thing that tells them apart. Same rule the collective address uses, so
-    # the two cannot drift into disagreeing about one sentence.
+    # A status question about a FULL personal name is about that person.
     if _REPORT_QUESTION_RE.search(body) and not is_outside_world_talk(body):
         return True
     if not _CODING_WORK_RE.search(body):
@@ -208,24 +113,12 @@ def addresses_workspace(text: str) -> bool:
     )
 
 
-# --------------------------------------------------------------------------- #
-# Is this word a call-sign at all?                                             #
-# --------------------------------------------------------------------------- #
-
-#: The unit the resolver scores — letters plus an optional digit tail, so a
-#: positional call-sign ("T1") arrives whole. Shared with ``intent`` through
-#: ``names`` so the two cannot disagree about where a name starts and ends.
+#: The unit the resolver scores: letters plus an optional digit tail (shared with ``intent``).
 _WORD_RE = CALL_SIGN_WORD_RE
 
 def _opens_sentence(prefix: str) -> bool:
-    """True when whatever follows ``prefix`` stands at the start of a sentence.
-
-    That holds when ``prefix`` is empty, when its last non-blank character is
-    sentence punctuation (``.!?:;``), or when its trailing blank run contains
-    a line break. A plain string scan on purpose: the equivalent searched
-    regex ``(?:^|[.!?:;]\\s*|\\n\\s*)$`` retried every start position and went
-    quadratic on long whitespace runs (CodeQL py/polynomial-redos).
-    """
+    """True when whatever follows ``prefix`` starts a sentence (a string scan: the regex was
+    quadratic, CodeQL py/polynomial-redos)."""
     core = prefix.rstrip()
     if "\n" in prefix[len(core) :]:
         return True
@@ -233,23 +126,9 @@ def _opens_sentence(prefix: str) -> bool:
         return not prefix
     return core[-1] in ".!?:;"
 
-#: Function words that are never a call-sign, however close they score. This is
-#: matching *input vocabulary*, not prose.
-#:
-#: Needed because similarity alone cannot tell them apart from a garbled name —
-#: measured against the shipping pool, "kannst" reaches "Casey" at 0.600,
-#: "macht" reaches "Max" at 0.571, and "allen" reaches "Alex" at 0.750, which is
-#: ABOVE the acting threshold. That last one is the maintainer's own
-#: counter-example (2026-07-27): a sentence about the outside world must never
-#: become a prompt typed into every open pane.
-#:
-#: Deliberately only the closed class (pronouns, articles, modals, question
-#: words, common auxiliaries). Content words are left out: they are what a
-#: person's name competes with legitimately, and the capitalization signal plus
-#: the workspace gate already cover them.
-#: Kept as one tuple per language rather than one merged literal: the locales
-#: overlap ("no", "me", "es", "a" are each two languages' function words), and a
-#: single set literal would both hide that and read as a mistake.
+#: Function words that are never a call-sign, however close they score (input vocabulary): "allen"
+#: scores 0.750 against "Alex", above the acting threshold. Closed class only; one tuple per
+#: language since the locales overlap.
 _STOPWORDS_DE: tuple[str, ...] = (  # i18n-allow: input vocabulary
     "alle", "allen", "aller", "alles", "als", "am", "an", "auch", "auf",
     "aus", "bei", "bin", "bis", "bist", "bitte", "da", "dann", "das",
@@ -302,28 +181,14 @@ _STOPWORDS: frozenset[str] = frozenset(
 
 
 def _capitalization_is_informative(text: str) -> bool:
-    """Whether this transcript capitalizes at all, i.e. whether case can rule.
-
-    An all-lowercase transcript is a provider quirk, not evidence that the
-    utterance contains no names.
-    """
+    """Whether this transcript capitalizes at all (an all-lowercase one is a provider quirk)."""
     body = str(text or "")
     return any(ch.isupper() for ch in body)
 
 
 def _is_proper_name_position(text: str, start: int, end: int) -> bool:
-    """Whether the word at ``[start:end)`` reads as a proper name.
-
-    Two filters, in this order, because they fail differently:
-
-    1. **a function word is never a name** — decisive in every transcript,
-       including one with no capitals at all;
-    2. **otherwise capitalization decides**, when the transcript capitalizes at
-       all. Position is deliberately NOT considered: a call-sign opening the
-       sentence is the most natural way to address a pane ("Ellis, schau dir
-       das an"), and excluding sentence-initial words would blind the check to
-       exactly that shape.
-    """
+    """Whether the word reads as a proper name: a function word never is, else capitalization
+    decides."""
     word = text[start:end]
     if word.casefold() in _STOPWORDS:
         return False
@@ -334,11 +199,7 @@ def _is_proper_name_position(text: str, start: int, end: int) -> bool:
     return word[:1].isupper()
 
 
-#: What somebody ASKS FOR about a pane, as a noun: "Alex Status?", "Dana
-#: Fortschritt", "Casey progress". German capitalizes every noun, so without
-#: this these read as surnames and the pane is disowned as a person out in the
-#: world — which is how "Alex Status?", a textbook status question, matched
-#: nothing at all.
+#: What somebody ASKS FOR about a pane, as a noun ("Alex Status?"); never a surname.
 _STATUS_NOUN_RE = re.compile(
     r"\b(?:status|fortschritt\w*|stand|update\w*|progress|"  # i18n-allow: input vocab
     r"bericht\w*|report\w*|estado|progreso|informe\w*|"  # i18n-allow: input vocab
@@ -348,17 +209,8 @@ _STATUS_NOUN_RE = re.compile(
 
 
 def _is_vocabulary_word(word: str) -> bool:
-    """Whether the word is one this module already reads as something else.
-
-    A word that names the WORK cannot also name the worker. Without this, an
-    all-lowercase transcript — where capitalization cannot rule anything out —
-    let "fixen" stand in for the pane "Finn" (0.667) and ask about a sentence
-    that names no pane at all.
-
-    Anchored so only a WHOLE word counts: the vocabulary patterns are written
-    to find their stems anywhere in a sentence, and reused unanchored they
-    would reject any call-sign that merely contains one.
-    """
+    """Whether the word is one this module already reads as work, workspace or status (a WHOLE
+    word)."""
     for pattern in (
         _WORKSPACE_NOUN_RE,
         _CODING_WORK_RE,
@@ -372,34 +224,20 @@ def _is_vocabulary_word(word: str) -> bool:
     return False
 
 
-#: A second capitalized word directly after the candidate — "Elon MUSK", "Max
-#: MUSTERMANN". Panes carry exactly one given name (see ``names.NAME_POOL``), so
-#: a surname is positive evidence that a PERSON is meant, not a terminal. This
-#: is the maintainer's own criterion (2026-07-27): "when I only say a first
-#: name" is the case that should ask.
+#: A second capitalized word after the candidate ("Elon MUSK"): panes carry one given name, so it is
+#: a PERSON.
 _SURNAME_FOLLOWS_RE = re.compile(r"^[\s,]*[A-ZÄÖÜ][^\W\d_]+")
 _SURNAME_PRECEDES_RE = re.compile(r"[A-ZÄÖÜ][^\W\d_]+[\s,]*$")
 
 
 def is_part_of_full_name(text: str, start: int, end: int) -> bool:
-    """Whether the candidate is part of a longer proper name ("Elon Musk").
-
-    Public because ``intent`` needs exactly this answer too: a call-sign is a
-    single given name, so a first name carrying a surname is a PERSON out in
-    the world and never the pane. Two copies of that rule would be two chances
-    to disagree about one sentence, which is how "what has Dana Schmidt done"
-    ends up read as a question about a terminal.
-    """
+    """Whether the candidate is part of a longer proper name ("Elon Musk"); shared with
+    ``intent``."""
     if not _capitalization_is_informative(text):
         return False
     following = _SURNAME_FOLLOWS_RE.match(text[end:])
     if following is not None:
-        # German capitalizes every noun, so the word after a call-sign is
-        # capitalized whether it is a surname or the thing being asked about.
-        # A word this module already reads as work, a workspace or a status is
-        # therefore never the surname: "Alex Status?" is a question about the
-        # pane, and reading "Status" as a family name struck the pane out of
-        # its own status question. Same reasoning for "sag Dana Bescheid".
+        # A word read as work, workspace or status is never a surname ("Alex Status?").
         if not _is_vocabulary_word(following.group(0).strip(" ,")):
             return True
     preceding = text[:start]
@@ -408,36 +246,19 @@ def is_part_of_full_name(text: str, start: int, end: int) -> bool:
         return False
     if _is_vocabulary_word(leading.group(0).strip(" ,")):
         return False
-    # A capitalized word in FRONT only makes this a surname when that word is
-    # not itself the one opening the sentence. The sentence-start test has to
-    # be aimed at THAT word, not at the candidate: aimed at the candidate it
-    # read "Ist Blake fertig?" as a person called Ist Blake, because "Ist" is
-    # capitalized for grammar and stands at the very beginning — which silently
-    # withdrew the pane from every question opening with a verb.
+    # Test the PRECEDING word for sentence start, not the candidate ("Ist Blake fertig?").
     return not _opens_sentence(preceding[: leading.start()])
 
 
-#: Two capitalized words in a row, the second not opening a sentence — a person
-#: or organisation out in the world ("Elon Musk", "Barack Obama"). Panes carry a
-#: single given name, so this shape never describes one.
+#: Two capitalized words in a row, the second not opening a sentence: a person ("Elon Musk").
 _MULTIWORD_NAME_RE = re.compile(
     r"(?<![.!?:;\n])\s[A-ZÄÖÜ][^\W\d_]+\s+[A-ZÄÖÜ][^\W\d_]+"
 )
 
 
 def is_outside_world_talk(text: str) -> bool:
-    """Whether this turn is about the world rather than the user's codebase.
-
-    Guards the COLLECTIVE address ("sag allen …"), which reaches every open
-    pane at once and is therefore the most expensive thing a misheard word can
-    trigger. The maintainer's counter-example (2026-07-27): a question about a
-    public figure that speech recognition turns into "sag allen …" must not
-    become an instruction typed into every running coding agent.
-
-    Deliberately narrow — it answers yes only for a full personal name with no
-    coding work anywhere in the sentence. "Tell everyone to stop" carries no
-    such name and stays a perfectly good collective instruction.
-    """
+    """Whether this turn is about the world rather than the codebase (guards the COLLECTIVE
+    address)."""
     body = str(text or "")
     if not _capitalization_is_informative(body):
         return False
@@ -445,10 +266,6 @@ def is_outside_world_talk(text: str) -> bool:
         _MULTIWORD_NAME_RE.search(body) and not _CODING_WORK_RE.search(body)
     )
 
-
-# --------------------------------------------------------------------------- #
-# The detector                                                                 #
-# --------------------------------------------------------------------------- #
 
 
 @dataclass(frozen=True, slots=True)
@@ -464,15 +281,8 @@ class UncertainName:
 
 @dataclass(frozen=True, slots=True)
 class ClarificationNeeded:
-    """Everything one turn addressed that could not simply be acted on.
-
-    A turn addresses a FLEET, not a pane — "Alex und Blaike, macht beide einen
-    Deep Dive" is one instruction for two agents — so this carries a list on
-    both axes. The single-name shape it started as could not represent that
-    turn at all, and the resulting behaviour was the worst of the three
-    possible ones: Alex was briefed, Blaike was dropped without a word, and the
-    user watched one agent work believing two were (live 2026-07-27 19:07).
-    """
+    """Everything one turn addressed that could not simply be acted on; ``certain`` panes are
+    briefed anyway."""
 
     uncertain: tuple[UncertainName, ...]
     """The words that need a question. Never empty."""
@@ -507,14 +317,8 @@ class ClarificationNeeded:
         return tuple(seen)
 
 
-#: What may stand between two names that are being listed together. Only
-#: enumeration punctuation and the supported languages' "and" — anything else
-#: means the two words are in different clauses and say nothing about each
-#: other. Matching *input vocabulary*, not prose.
-#: The separator runs are possessive and the second one only follows a
-#: conjunction: two adjacent optional runs let the engine try every split of a
-#: long blank gap, which is quadratic (CodeQL py/polynomial-redos). The accepted
-#: language is unchanged.
+#: What may stand between two listed names ("and", enumeration punctuation); possessive runs avoid
+#: ReDoS.
 _ENUMERATION_GAP_RE = re.compile(
     r"^[\s,;&]*+"
     # i18n-allow: input vocabulary — the supported languages' "and"
@@ -525,13 +329,7 @@ _ENUMERATION_GAP_RE = re.compile(
 
 
 def _is_listed_beside(text: str, span: tuple[int, int], others: list[tuple[int, int]]) -> bool:
-    """Whether the word at ``span`` is enumerated next to one of ``others``.
-
-    "Alex und Blaike" lists two call-signs; "Alex, look at what Blaike wrote"
-    does not, and the difference is exactly what sits between them. Used only
-    where a word would otherwise be too weak to ask about on its own, so it
-    buys reach without widening what a lone stray capital can trigger.
-    """
+    """Whether the word at ``span`` is enumerated next to one of ``others`` ("Alex und Blaike")."""
     start, end = span
     for other_start, other_end in others:
         if other_end <= start and _ENUMERATION_GAP_RE.match(text[other_end:start]):
@@ -546,39 +344,16 @@ def detect_clarification(
 ) -> ClarificationNeeded | None:
     """What this turn addressed but did not clearly name, or ``None``.
 
-    Every condition below removes one way of being wrong:
-
-    1. **the turn addresses the workspace** — otherwise a question about the
-       world could put words into a coding agent;
-    2. **the word reads as a proper name** — capitalized, not just first in
-       its sentence;
-    3. **it is not part of a longer proper name** — "Elon Musk" is a person;
-    4. **a word that stands alone in its uncertainty** may only ask when it is
-       the turn's ONLY unclear name and no pane was certainly named. Beyond
-       that single case the word has to be ENUMERATED beside another name
-       ("Alex und Blaike") — that is what separates a garbled member of a list
-       from a stray capital in a sentence that already works.
-
-    A certainly-named pane no longer ENDS the search, which is the change that
-    matters. It used to: any certain name returned ``None``, so "Alex und
-    Blaike" produced a question about nothing, Alex was briefed alone, and the
-    second agent the user had just addressed was dropped in silence. The
-    certain panes now travel with the answer instead (``certain``) — the caller
-    briefs them immediately and asks only about the rest.
+    A lone uncertain word asks only when no pane was certainly named; otherwise it must be
+    ENUMERATED beside another name. ``certain`` panes are briefed at once.
     """
     text = str(user_text or "").strip()
     if len(text) < 3 or not names:
         return None
-    # The workspace gate reads the ORIGINAL wording, because the pane noun is
-    # part of its evidence and the rewrite below consumes it: "prompte Terminal
-    # eins" becomes "prompte T1", and asked in that order the gate would have
-    # lost the word that proves the turn is about the workspace at all.
+    # Gate on the ORIGINAL wording: the rewrite below consumes the pane noun that is its evidence.
     if not addresses_workspace(text):
         return None
-    # Everything after it reads the canonical wording, so a pane named by
-    # position is as CERTAIN here as one named by its call-sign — otherwise
-    # "prompte Terminal eins und Blaike" would report the garbled second name
-    # while forgetting that the first one was clearly addressed.
+    # Canonical wording from here on: a pane named by position is as CERTAIN as a call-sign.
     working = canonical_positions(text, names)
 
     certain: list[str] = []
@@ -587,9 +362,7 @@ def detect_clarification(
     for match in _WORD_RE.finditer(working):
         word = match.group(0)
         span = (match.start(), match.end())
-        # Certain means the exact name or the same sound — deliberately the
-        # same bar ``near_miss`` uses, so no utterance can fall between the two
-        # paths and produce neither an action nor a question.
+        # Certain means the exact name or the same sound, the same bar ``near_miss`` uses.
         sure = resolve(word, names, fuzzy=False)
         if sure is not None:
             if sure not in certain:
@@ -611,10 +384,7 @@ def detect_clarification(
         return None
 
     if len(uncertain) > 1 or certain:
-        # More than one unclear word, or one standing beside a certain name:
-        # only the ones being LISTED with another name survive. A single stray
-        # near miss elsewhere in the sentence is noise, and asking about it
-        # would tax every turn that already works.
+        # Only names being LISTED with another survive; a single stray near miss is noise.
         neighbours = certain_spans + [span for span, _ in uncertain]
         kept = [
             (span, item)
@@ -631,10 +401,6 @@ def detect_clarification(
         certain=tuple(certain),
     )
 
-
-# --------------------------------------------------------------------------- #
-# The answer window                                                            #
-# --------------------------------------------------------------------------- #
 
 
 @dataclass(slots=True)
@@ -657,13 +423,7 @@ class _Pending:
 
 @dataclass(slots=True)
 class ClarificationWindow:
-    """A question waiting for its answer.
-
-    Without this the question would be theatre: "did you mean Ellis?" followed
-    by "yes" has to actually deliver the ORIGINAL task, or the user has simply
-    been made to repeat themselves — which is worse than the silent miss it
-    replaces, because it also cost them a turn.
-    """
+    """A question waiting for its answer, so "yes" delivers the ORIGINAL task."""
 
     _pending: _Pending | None = field(default=None)
 
@@ -689,21 +449,8 @@ class ClarificationWindow:
     ) -> tuple[tuple[str, ...], str] | None:
         """``(panes, original_utterance)`` for a clear answer, else ``None``.
 
-        A tuple of panes rather than one, because the question can be about a
-        fleet: "did you mean Alex and Blake?" is answered by one "yes" and both
-        agents have to be briefed by it. Answering it with one pane was how the
-        second agent of an addressed pair got lost.
-
-        Consumed exactly once either way — a question that has been answered,
-        declined or ignored must never deliver work on a later turn.
-
-        Three shapes count as an answer, in falling directness:
-
-        1. the user NAMES offered panes ("Ellis", "Alex and Blake") — decisive
-           even when several were offered;
-        2. a short affirmative — it confirms every uncertain word that has only
-           ONE candidate, because "yes" cannot choose between two;
-        3. anything else: the window closes and the turn proceeds normally.
+        Consumed exactly once; an answer is NAMING offered panes or a short affirmative (confirms
+        words with ONE candidate).
         """
         pending = self._pending
         if pending is None:
@@ -727,8 +474,7 @@ class ClarificationWindow:
             if hit is not None
         ]
         if not named:
-            # The whole answer as one token, which is how a one-word reply and
-            # a two-word call-sign both arrive.
+            # The whole answer as one token (a one-word reply or a two-word call-sign).
             single = resolve(text, offered)
             if single is not None:
                 named = [single]
@@ -736,10 +482,7 @@ class ClarificationWindow:
             self._pending = None
             return tuple(dict.fromkeys(named)), pending.utterance
 
-        # Only a SHORT turn is an answer at all; a full sentence is the user
-        # moving on, and delivering the old task then would be a surprise. The
-        # bound grows with the number of names on offer: confirming a fleet
-        # costs more words than confirming one pane.
+        # Only a SHORT turn is an answer; the bound grows with the names on offer.
         if len(text.split()) > _ANSWER_MAX_WORDS + len(pending.uncertain) - 1:
             self._pending = None
             return None
@@ -757,23 +500,13 @@ class ClarificationWindow:
 
 
 def classify_short_answer(text: str, language: str = "de") -> str:
-    """``"confirm"`` / ``"veto"`` / ``"unknown"`` for a short spoken answer.
-
-    Public because more than one question is asked of the workspace now — the
-    pane-name one here, and the coding-CLI one in the spawn path — and both
-    have to read a "yes" the same way. A second classifier would drift, and the
-    drift would show up as one question honouring an answer the other ignores.
-    """
+    """``"confirm"`` / ``"veto"`` / ``"unknown"`` for a short answer; public so questions read "yes"
+    alike."""
     return _classify(text, language)
 
 
 def _classify(text: str, language: str) -> str:
-    """Yes/no verdict for a short answer, across every supported language.
-
-    The per-turn language tag cannot be trusted (STT mislabels are a known
-    class), so the answer is classified under all supported languages and a
-    veto keeps its safety priority — exactly what ``spawn_gate`` does.
-    """
+    """Yes/no verdict across every supported language (the per-turn language tag is untrusted)."""
     try:
         from dodaios.voice.echo_confirmation import classify_response  # noqa: PLC0415
     except Exception:  # noqa: BLE001 — a classifier fault is simply "no answer"
@@ -787,9 +520,7 @@ def _classify(text: str, language: str) -> str:
     return "confirm" if "confirm" in verdicts else "unknown"
 
 
-#: ONE conversation per process (desktop app / headless session), so ONE shared
-#: window — the same reasoning as ``spawn_gate.OFFER_WINDOW``. Tests reset it
-#: via ``disarm()``.
+#: ONE shared window per process (as ``spawn_gate.OFFER_WINDOW``); tests reset it via ``disarm()``.
 WINDOW = ClarificationWindow()
 
 

@@ -1807,11 +1807,23 @@ async def community_install(plugin_id: str, request: Request) -> dict[str, Any]:
     return {"ok": True, "plugin": item}
 
 
-# States a freshly parsed skill can carry that mean "Jarvis will actually use
-# this" — the registry treats VALIDATED and ACTIVE alike (see
-# dodaios/skills/registry.py::active_skills). DRAFT means the file parsed but
-# failed validation, i.e. installed yet dead.
+# States a skill can carry that mean "Jarvis will actually use this" — the
+# registry treats VALIDATED and ACTIVE alike (see
+# dodaios/skills/registry.py::active_skills). A downloaded skill never lands
+# in one of them: it is stored as a DRAFT (AP-15) and the person switches it
+# on in Skills. A draft with a problem is one that failed validation.
 _SKILL_READY_STATES = frozenset({"active", "validated"})
+
+
+def _skill_next_action(state: str, problem: str | None) -> str:
+    """What is left to do after a skill install.
+
+    ``enable``: the file is fine and waits to be switched on. ``repair``: it
+    is stored but cannot be switched on as it is. ``none``: already in use.
+    """
+    if state in _SKILL_READY_STATES:
+        return "none"
+    return "repair" if problem else "enable"
 
 
 async def _install_community_skill(entry: Any, request: Request) -> dict[str, Any]:
@@ -1845,7 +1857,7 @@ async def _install_community_skill(entry: Any, request: Request) -> dict[str, An
         ),
     )
     summary = result.get("skill") or {}
-    state = str(summary.get("state") or "draft")
+    state = str(summary.get("state") or result.get("state") or "draft")
     return {
         "ok": True,
         "kind": "skill",
@@ -1856,11 +1868,11 @@ async def _install_community_skill(entry: Any, request: Request) -> dict[str, An
         "source_url": entry.source_url,
         "location": result.get("path") or "",
         "state": state,
-        # A skill needs no credentials and no connect step: once the file
-        # parses and validates, asking for it is enough.
+        # A skill needs no credentials and no connect step, but it is not in
+        # use by being installed: it waits as a draft until it is switched on.
         "ready": state in _SKILL_READY_STATES,
         "problem": summary.get("error") or result.get("reload_warning"),
-        "next_action": "none" if state in _SKILL_READY_STATES else "repair",
+        "next_action": _skill_next_action(state, summary.get("error")),
     }
 
 

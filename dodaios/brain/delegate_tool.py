@@ -227,33 +227,26 @@ class DelegateTool:
     risk_tier: str = "monitor"
     is_action_tool: bool = True
     description: str = (
-        "THE way to hand work to someone else. Pick the target, give the task, get a job_id "
-        "back. target: 'agent:<name>' (one of the user's named team agents; 'agent' alone "
-        "lets the lead pick the best fit), 'coding_agent' (a NEW coding agent such as Claude "
-        "Code or Codex; it opens as a chat thread in the Agentic IDE, and this is the only "
-        "way to start one: never open a workspace or terminals for it), "
-        "'pane:<terminal id, call-sign or thread code such as #3f9a2c>' (a coding agent "
-        "already open in the Agentic IDE), 'team_thread' (several coding agents on different "
-        "models plan, build and review one task; asks the person first), 'mission' (one "
-        "background worker in its own checkout, for a real work product), 'routine' (work on a "
-        "schedule: options.agent, options.title, options.schedule), 'skill:<slug>' (load an "
-        "installed skill's instructions to follow now). Always returns {job_id, target, "
-        "state}: the handle for job_status, await_jobs and verify_delegate. Never say the work "
-        "is done from this result: it only says it was handed over. wait='until_done' also "
-        "waits up to wait_timeout_s seconds on that job and reports what the job's own record "
-        "says; a wait that runs out reports it as still running. A name that is not clearly "
-        "one agent returns needs_clarification with a question to ask first. Not for answers "
-        "you can give yourself, knowledge questions, or status reads (work_board, "
-        "society_status). "
+        "THE way to hand work to someone else: pick the target, give the task, get a job_id "
+        "(the handle for job_status, await_jobs, verify_delegate). target: 'agent:<name>' "
+        "(a named team agent; bare 'agent' lets the lead pick), 'coding_agent' (a NEW "
+        "coding agent such as Claude Code or Codex, opened as a chat thread in the Agentic "
+        "IDE; the only way to start one), 'pane:<terminal id, call-sign or thread code>' "
+        "(a coding agent already open), 'team_thread' (several models plan, build and "
+        "review one task; asks the person first), 'mission' (one background worker in its "
+        "own checkout, for a real work product), 'routine' (work on a schedule), "
+        "'skill:<slug>' (load an installed skill to follow now). The result only says the "
+        "work was handed over, never that it is done. wait='until_done' also waits up to "
+        "wait_timeout_s and reports the job's own record. An unclear name returns "
+        "needs_clarification: ask first. Not for answers you can give yourself or status "
+        "reads (work_board, society_status). "
         + AGENT_BRIEF_RULE
-        + " Target-specific extras go in options "
-        "(coding_agent: cli, model, effort, count, folder or project or workspace, and mode "
-        "grid ONLY when the user asked for a terminal, a pane or the grid; "
-        "pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
+        + " options by target: coding_agent: cli, model, effort, count, folder/project/"
+        "workspace, mode grid only when a terminal, pane or grid was asked for; pane: "
+        "workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
         "mission: action; routine: agent, title, schedule, announce_on_success, services "
-        "(every service or website with an account a run must reach; a routine that comes "
-        "back 'blocked' is set up but cannot run until its readiness blockers are fixed); "
-        "agent: refs)."
+        "(every service or site a run needs an account for; 'blocked' means set up but "
+        "cannot run until its readiness blockers are fixed); agent: refs."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -268,22 +261,19 @@ class DelegateTool:
             "task": {
                 "type": "string",
                 "description": (
-                    "The brief the agent receives: the outcome and why, the facts it cannot see, "
-                    "the person's limits. The goal, not the steps."
+                    "The brief: outcome and why, facts it cannot see, the person's limits. Goal, not steps."
                 ),
             },
             "context": {
                 "type": "string",
                 "description": (
-                    "What the agent cannot see: verbatim symptoms or errors, repro, starting "
-                    "files, decisions made, approaches ruled out. Omit secrets."
+                    "What it cannot see: errors verbatim, repro, starting files, decisions, approaches ruled out. No secrets."
                 ),
             },
             "completion_criteria": {
                 "type": "string",
                 "description": (
-                    "Checkable proof of done: a test that passes, a command and its output, "
-                    "visible behaviour, a PR state."
+                    "Checkable proof of done: a passing test, a command and output, a PR state."
                 ),
             },
             "reply": REPLY_POLICY_SCHEMA,
@@ -291,8 +281,7 @@ class DelegateTool:
                 "type": "string",
                 "enum": ["none", "until_done"],
                 "description": (
-                    "none (default): return the job_id now. until_done: also wait on the job "
-                    "for up to wait_timeout_s seconds."
+                    "none (default): return the job_id now. until_done: also wait up to wait_timeout_s."
                 ),
             },
             "wait_timeout_s": {
