@@ -9517,6 +9517,7 @@
       "too_large": "此文件太大，无法在此显示。",
       "unavailable": "无法读取此文件，它可能已被移动或删除。",
       "no_workspace": "打开一个项目即可在此阅读文件。",
+      "not_found": "{file} 既不在 {folder}（此对话的文件夹）中，也不在你的主文件夹中。回答没有给出完整路径，所以它可能属于另一个项目。",
       "show_change": "显示更改",
       "change_truncated": "还有 {count} 行未显示。",
       "unsaved": "有未保存的更改",
