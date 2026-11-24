@@ -58,7 +58,7 @@ _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
 _PROVIDERS_TS = _FRONTEND / "hooks" / "useProviders.ts"
 _HISTORY_ENTRY_TSX = _FRONTEND / "views" / "voice" / "dictation" / "HistoryEntry.tsx"
 _LANGUAGE_TAB_TSX = _FRONTEND / "views" / "voice" / "LanguageTab.tsx"
-_TIER_SECTION_TSX = _FRONTEND / "components" / "providers" / "ProviderTierSection.tsx"
+_TIER_SECTION_TSX = _FRONTEND / "components" / "providers" / "tier" / "tierShared.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
 
 SUPPORTED_LOCALES = ("de", "en", "es", "pt")

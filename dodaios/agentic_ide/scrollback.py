@@ -71,7 +71,7 @@ from itertools import islice
 from .screen import MAX_COLS, MAX_ROWS
 
 #: How many scrolled-off rows a pane keeps. The same number as the viewer's own
-#: scrollback (``scrollback`` in frontend/AgenticTerminal.tsx): rows past it
+#: scrollback (``scrollback`` in frontend/terminal/connect/mountTerminal.ts): rows past it
 #: could be sent and would be dropped on arrival.
 HISTORY_LIMIT_ROWS = 10_000
 
