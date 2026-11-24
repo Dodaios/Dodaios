@@ -26,11 +26,14 @@ rather than this tool deciding on its own.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
 from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _NOT_CONNECTED = (
     "Home Assistant is not connected — connect it in the Plugins view."
@@ -239,7 +242,8 @@ class HomeAssistantRestTool:
                 )
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=self._explain(exc))
 
         if isinstance(out, dict) and out.get("error"):

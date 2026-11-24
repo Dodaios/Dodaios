@@ -421,7 +421,8 @@ def classify_failure(exc: BaseException, choice: SeatChoice) -> ReviewFailure:
     }
     try:
         refusal = classify(seat.provider, exc)
-    except Exception:  # noqa: BLE001 - classification is best effort: unknown means transient
+    except Exception:  # broad-except: classification is best effort: unknown means
+        log.debug("classify_failure: classification is best effort: unknown means", exc_info=True)
         refusal = None
     if refusal is not None:
         if refusal.code == "usage_limit":
@@ -631,9 +632,10 @@ class ModelReviewer:
                 timeout=float(config.memory.learning.timeout_s),
             )
             return True, self._parse(agg.text)
-        except Exception as exc:  # noqa: BLE001 - a failed attempt; the next seat or a retry
+        except Exception as exc:  # broad-except: a failed attempt; the next seat or a retry
             # A fixed category only: nothing derived from the call (which carries
             # the person's conversation) or a provider's error body is logged (AP-34).
+            log.warning("_ask: a failed attempt; the next seat or a retry", exc_info=True)
             failure = classify_failure(exc, choice)
             # A configuration fault on any asked seat wins over a transient one.
             previous = self.last_failure

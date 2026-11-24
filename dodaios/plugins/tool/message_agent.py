@@ -49,6 +49,6 @@ class LeadMessageAgentTool:
                 idempotency_key(ctx, self.name, args),
                 lambda: sender.execute(args, ctx),
             )
-        except Exception as exc:  # noqa: BLE001 — return an honest, inspectable tool failure
+        except Exception as exc:  # broad-except: return an honest, inspectable tool failure
             log.warning("message_agent: delivery failed", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

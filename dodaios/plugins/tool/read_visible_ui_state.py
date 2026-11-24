@@ -12,9 +12,12 @@ factory (see the ``brain.factory`` wiring with VisionEngine).
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 class ReadVisibleUIStateTool:
@@ -62,7 +65,8 @@ class ReadVisibleUIStateTool:
         source = self._vision_source or make_ui_tree_source()
         try:
             obs = await source.observe()
-        except Exception as exc:  # noqa: BLE001 — UIA can raise a variety of errors
+        except Exception as exc:  # broad-except: UIA can raise a variety of errors
+            log.warning("execute: UIA can raise a variety of errors", exc_info=True)
             return ToolResult(
                 success=False, output=None,
                 error=f"UI observation failed: {exc}",

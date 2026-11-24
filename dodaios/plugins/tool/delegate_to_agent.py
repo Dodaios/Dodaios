@@ -75,7 +75,8 @@ def _lang(args: dict[str, Any], ctx: Any) -> str:
             from dodaios.voice.action_phrases import resolve_ambient_language
 
             value = resolve_ambient_language()
-        except Exception:  # noqa: BLE001 — a spoken fallback beats a crash on the voice path
+        except Exception:  # broad-except: a spoken fallback beats a crash on the voice path
+            log.debug("_lang: a spoken fallback beats a crash on the voice path", exc_info=True)
             value = "en"
     return value if value in _ACK else "en"
 
@@ -271,7 +272,7 @@ class DelegateToAgentTool:
                         return None
                 else:
                     await runtime.ensure_started()
-        except Exception:  # noqa: BLE001 — a missing society is a spoken "not ready"
+        except Exception:  # broad-except: a missing society is a spoken "not ready"
             log.warning("delegate_to_agent: society runtime unavailable", exc_info=True)
             return None
         return runtime
@@ -515,7 +516,7 @@ class SocietyStatusTool:
                         runtime = None
                 else:
                     await runtime.ensure_started()
-        except Exception:  # noqa: BLE001 — see DelegateToAgentTool._runtime
+        except Exception:  # broad-except: see DelegateToAgentTool._runtime
             log.warning("society_status: runtime resolver failed", exc_info=True)
             runtime = None
         if runtime is None:

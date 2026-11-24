@@ -48,7 +48,7 @@ _GMAIL_BODY_CHAR_CAP = 20_000
 def _decode_b64url(data: str) -> str:
     try:
         return base64.urlsafe_b64decode(data.encode("ascii")).decode("utf-8", "replace")
-    except Exception:  # noqa: BLE001
+    except (ValueError, AttributeError):  # an undecodable body part reads as empty
         return ""
 
 
@@ -284,7 +284,8 @@ class GmailRestTool:
                 refreshed = bool(await _default_refresher(observed_token))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
+            log.warning("_with_auth_retry: refresher must never crash the tool", exc_info=True)
             refreshed = False
         if not refreshed:
             return {"error": _NEEDS_RECONNECT}
@@ -371,7 +372,7 @@ class GmailRestTool:
                 profile = await self._with_auth_retry(
                     lambda headers: self._get("/profile", {}, headers)
                 )
-            except Exception as exc:  # noqa: BLE001 - a link without the account still opens Gmail
+            except Exception as exc:  # broad-except: a link without the account still opens Gmail
                 log.debug("Gmail profile lookup failed: %s", type(exc).__name__)
                 profile = {}
             address = profile.get("emailAddress") if isinstance(profile, dict) else None
@@ -462,7 +463,8 @@ class GmailRestTool:
                 out = await self.delete_message(message_id=mid)
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         if isinstance(out, dict) and out.get("error"):

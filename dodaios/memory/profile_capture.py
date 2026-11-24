@@ -463,7 +463,7 @@ async def apply_profile_facts(
                     "profile_capture: wrote %s.%s from the user's own words (%r)",
                     fact.cluster, fact.field, fact.evidence[:60],
                 )
-        except Exception:  # noqa: BLE001 — one bad fact must not lose the others
+        except Exception:  # broad-except: one bad fact must not lose the others
             log.warning(
                 "profile_capture: could not write %s.%s", fact.cluster, fact.field, exc_info=True
             )
@@ -473,7 +473,7 @@ async def apply_profile_facts(
 
     try:
         profile.save()
-    except Exception:  # noqa: BLE001 — a failed save is reported, never silent
+    except Exception:  # broad-except: a failed save is reported, never silent
         log.error("profile_capture: USER.md save failed; facts not persisted", exc_info=True)
         return ()
 
@@ -492,7 +492,7 @@ async def apply_profile_facts(
                         evidence=fact.evidence,
                     )
                 )
-            except Exception:  # noqa: BLE001 — the write already landed; the badge is cosmetic
+            except Exception:  # broad-except: the write already landed; the badge is cosmetic
                 log.debug("profile_capture: ProfileUpdated publish failed", exc_info=True)
 
     return tuple(written)
@@ -558,7 +558,7 @@ class ProfileCaptureBridge:
         for event_type, handler in self._subscriptions:
             try:
                 self._bus.unsubscribe(event_type, handler)
-            except Exception:  # noqa: BLE001 — teardown must not raise
+            except Exception:  # broad-except: teardown must not raise
                 log.debug("ProfileCaptureBridge: unsubscribe failed", exc_info=True)
         self._subscriptions.clear()
         self._started = False
@@ -576,7 +576,7 @@ class ProfileCaptureBridge:
     async def _capture(self, text: str) -> None:
         try:
             await capture_from_utterance(self._profile, text, bus=self._bus)
-        except Exception:  # noqa: BLE001 — never let capture break a turn
+        except Exception:  # broad-except: never let capture break a turn
             log.warning("ProfileCaptureBridge: capture failed", exc_info=True)
 
 

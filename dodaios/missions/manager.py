@@ -292,7 +292,7 @@ class MissionManager:
             if self._run_canceller is not None:
                 try:
                     self._run_canceller(mid)
-                except Exception:  # noqa: BLE001 — the run dies at its next transition
+                except Exception:  # broad-except: the run dies at its next transition
                     log.exception("cancel hook failed for mission %s", mid)
             await self._store.append_and_publish(
                 EventEnvelope(

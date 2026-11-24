@@ -53,7 +53,7 @@ async def _event_routing() -> dict[str, int]:
         service = wiring.get_service()
         view = await service.view() if service is not None else {}
         return dict(view.get("delivery") or {})
-    except Exception:  # noqa: BLE001 - a measurement never fails the status read
+    except Exception:  # broad-except: a measurement never fails the status read
         log.debug("watchdog_status: event routing unavailable", exc_info=True)
         return {}
 

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import os
 import sys
 from collections.abc import Mapping
@@ -37,6 +38,8 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.safety.command_impact import DESTRUCTIVE, classify_command
 from dodaios.safety.explicit_intent import command_confirms_destruction
+
+log = logging.getLogger(__name__)
 
 if sys.platform == "win32":
     _SHELL_LABEL = "Windows PowerShell 5.1"
@@ -251,7 +254,8 @@ class RunShellTool:
                 raise
         except FileNotFoundError as exc:
             return ToolResult(success=False, output=None, error=f"Not found: {exc}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         stdout = stdout_b.decode("utf-8", errors="replace") if stdout_b else ""

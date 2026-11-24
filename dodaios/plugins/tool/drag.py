@@ -18,9 +18,12 @@ when no safe input backend is available.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 #: Default drag duration (ms) — slow enough that a map/globe/slider registers the
 #: press-move-release as a real gesture rather than an instantaneous teleport.
@@ -148,7 +151,8 @@ class DragTool:
                 success=False, output=None,
                 error=f"drag needs pyautogui on a desktop host: {exc}",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False, output=None,
                 error=f"drag ({x1},{y1})->({x2},{y2}) failed: {exc}",

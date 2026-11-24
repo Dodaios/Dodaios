@@ -379,7 +379,11 @@ def skill_description(entry: CommunitySkillEntry) -> str:
         import yaml
 
         meta = yaml.safe_load(match.group(1))
-    except Exception:  # noqa: BLE001 - a broken frontmatter costs the fallback only
+    except Exception:  # broad-except: a broken frontmatter costs the fallback only
+        logger.debug(
+            "skill_description: a broken frontmatter costs the fallback only",
+            exc_info=True,
+        )
         return ""
     derived = meta.get("description") if isinstance(meta, dict) else None
     if not isinstance(derived, str) or not _HAS_WORD_RE.search(derived):
@@ -444,7 +448,7 @@ def index_url() -> str:
     try:
         url = str(load_config().marketplace.community_index_url).strip()
         return MarketplaceConfig().community_index_url if url in _RETIRED_INDEX_URLS else url
-    except Exception:  # noqa: BLE001 - config trouble must not kill browsing
+    except Exception:  # broad-except: config trouble must not kill browsing
         logger.warning("community index: could not read config, using default")
         from dodaios.core.config import MarketplaceConfig
 
@@ -595,7 +599,7 @@ async def _revalidate(url: str, transport: httpx.AsyncBaseTransport | None) -> N
             hit = (raw_hit[0], raw_hit[1]) if raw_hit else None
             etag = raw_hit[2] if raw_hit else None
             await _fetch(url, hit, etag, force=False, transport=transport)
-    except Exception:  # noqa: BLE001 - nobody awaits this task; it must not raise
+    except Exception:  # broad-except: nobody awaits this task; it must not raise
         logger.exception("community index: background revalidation failed")
 
 

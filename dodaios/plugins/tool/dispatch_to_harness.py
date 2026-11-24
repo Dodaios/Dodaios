@@ -134,7 +134,8 @@ class DispatchToHarnessTool:
             if not harness_name:
                 return ToolResult(success=False, output=None, error="harness is missing")
             return await self._execute_single(harness_name, task)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"{type(exc).__name__}: {exc}")
 
     async def _execute_single(self, name: str, task: HarnessTask) -> ToolResult:

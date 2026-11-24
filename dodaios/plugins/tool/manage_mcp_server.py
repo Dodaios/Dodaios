@@ -123,7 +123,8 @@ class ManageMcpServerTool:
 
         try:
             from dodaios.mcp import state as mcp_state
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"mcp state unavailable: {exc}")
 
         try:
@@ -215,7 +216,8 @@ class ManageMcpServerTool:
         """
         try:
             names = sorted(mcp_state.load_config().get("mcpServers", {}).keys())
-        except Exception:  # noqa: BLE001 — the base error must still surface
+        except Exception:  # broad-except: the base error must still surface
+            log.warning("_unknown_name_error: the base error must still surface", exc_info=True)
             names = []
         configured = ", ".join(names) if names else "none"
         return (
@@ -328,7 +330,8 @@ class ManageMcpServerTool:
     def _is_running(cls, name: str) -> bool:
         try:
             return name in cls._active_client_names(cls._registry())
-        except Exception:  # noqa: BLE001
+        except Exception:  # broad-except: failed; carrying on with the fallback
+            log.warning("_is_running: failed; carrying on with the fallback", exc_info=True)
             return False
 
     @classmethod

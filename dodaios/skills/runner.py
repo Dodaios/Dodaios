@@ -61,7 +61,7 @@ try:
     from jinja2 import select_autoescape  # type: ignore
     from jinja2.sandbox import SandboxedEnvironment  # type: ignore
     _HAVE_JINJA = True
-except Exception:  # pragma: no cover
+except ImportError:  # jinja2 is optional
     SandboxedEnvironment = None  # type: ignore
     select_autoescape = None  # type: ignore
     _HAVE_JINJA = False
@@ -201,11 +201,15 @@ class SkillRunner:
                     obj = fn(name)
                     if obj is not None:
                         return obj
-                except Exception:  # noqa: BLE001
+                except Exception:  # broad-except: failed; carrying on with the fallback
+                    log.warning(
+                        "_resolve_tool: failed; carrying on with the fallback",
+                        exc_info=True,
+                    )
                     continue
         try:
             return self.tool_registry[name]  # type: ignore[index]
-        except Exception:  # noqa: BLE001
+        except (LookupError, TypeError):  # a name the registry does not hold is simply absent
             return None
 
     def _risk_evaluator(self) -> RiskTierEvaluator:
@@ -249,7 +253,8 @@ class SkillRunner:
                     if isinstance(result, tuple):
                         return bool(result[0]), str(result[1])
                     return bool(result), "enforcer"
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                    log.warning("_check_risk: failed; carrying on with the fallback", exc_info=True)
                     return False, f"enforcer error: {exc}"
             return True, "no-check-method"
 
@@ -403,7 +408,8 @@ class SkillRunner:
                     "output": result.output,
                     "error": result.error,
                 }
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # broad-except: failed; carrying on with the fallback
+                log.warning("run: failed; carrying on with the fallback", exc_info=True)
                 step = {
                     "tool": tool_name,
                     "args": tool_args,

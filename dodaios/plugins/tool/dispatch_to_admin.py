@@ -23,6 +23,7 @@ Call flow:
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
@@ -31,6 +32,8 @@ from dodaios.admin.client import AdminClient, DestructiveRequiresApproval
 from dodaios.admin.schema import DESTRUCTIVE_OPS, AdminOperation
 from dodaios.core.bus import EventBus
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _ADMIN_OP_ADAPTER: TypeAdapter[AdminOperation] = TypeAdapter(AdminOperation)
 
@@ -113,7 +116,8 @@ class DispatchToAdminTool:
                 },
                 error="destructive_requires_approval",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False, output=None,
                 error=f"{type(exc).__name__}: {exc}",

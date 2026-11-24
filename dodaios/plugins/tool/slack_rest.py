@@ -409,7 +409,7 @@ class SlackRestTool:
                 refreshed = bool(await _default_refresher(observed_token))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
             log.warning("slack token refresh raised; asking the user to reconnect")
             refreshed = False
         if not refreshed:
@@ -828,7 +828,8 @@ class SlackRestTool:
                     error=exc.message,
                 )
             return ToolResult(success=False, output=None, error=exc.message)
-        except Exception as exc:  # noqa: BLE001 — every failure reaches the model via _explain()
+        except Exception as exc:  # broad-except: every failure reaches the model via _explain()
+            log.warning("execute: every failure reaches the model via _explain()", exc_info=True)
             return ToolResult(success=False, output=None, error=self._explain(exc, action))
 
         if isinstance(out, dict) and out.get("error"):

@@ -68,7 +68,7 @@ def oauth_client_family(plugin_id: str) -> str | None:
 
         spec = load_catalog().by_id(plugin_id)
         trusted = load_seed_catalog().by_id(plugin_id)
-    except Exception:  # noqa: BLE001 - a broken catalog must not break refresh
+    except Exception:  # broad-except: a broken catalog must not break refresh
         log.warning("OAuth family resolution unavailable for %s", plugin_id)
         return None
     if spec is None or trusted is None or getattr(spec, "source", None) != "seed":
@@ -233,7 +233,7 @@ def usable_plugin_ids(store: TokenStore | None = None) -> set[str]:
             continue
         try:
             tokens = store.load(spec.id)
-        except Exception:  # noqa: BLE001 — a broken credential blob only hides this plugin
+        except Exception:  # broad-except: a broken credential blob only hides this plugin
             log.warning("could not read connection state for %s", spec.id, exc_info=True)
             continue
         if tokens is not None and not tokens.needs_reauth:

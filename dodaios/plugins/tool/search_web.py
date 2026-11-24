@@ -14,11 +14,14 @@ the DDG path unchanged.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.plugins.tool.search_backends import run_search
+
+log = logging.getLogger(__name__)
 
 
 def _load_apifare_key() -> str:
@@ -29,7 +32,8 @@ def _load_apifare_key() -> str:
     """
     try:
         from dodaios.core.config import get_secret_any
-    except Exception:  # noqa: BLE001 — import-time config blip
+    except Exception:  # broad-except: import-time config blip
+        log.debug("_load_apifare_key: import-time config blip", exc_info=True)
         return ""
     try:
         return (
@@ -41,7 +45,8 @@ def _load_apifare_key() -> str:
             )
             or ""
         ).strip()
-    except Exception:  # noqa: BLE001 — keyring / env read must not block search
+    except Exception:  # broad-except: keyring / env read must not block search
+        log.warning("_load_apifare_key: keyring / env read must not block search", exc_info=True)
         return ""
 
 
@@ -109,7 +114,11 @@ def _answer_instruction_for(ctx: ExecutionContext) -> str:
     context without the key, keeps the historical spoken behaviour."""
     try:
         delivery = (ctx.config or {}).get("delivery")
-    except Exception:  # noqa: BLE001 — a foreign ctx shape must not break search
+    except Exception:  # broad-except: a foreign ctx shape must not break search
+        log.warning(
+            "_answer_instruction_for: a foreign ctx shape must not break search",
+            exc_info=True,
+        )
         delivery = None
     return _WRITTEN_ANSWER_INSTRUCTION if delivery == "written" else _ANSWER_INSTRUCTION
 
@@ -372,7 +381,8 @@ class SearchWebTool:
 
         try:
             import httpx
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"httpx not available: {exc}")
 
         # Weather fast-path: DDG instant answers have no weather data (every
@@ -386,7 +396,8 @@ class SearchWebTool:
                 async with asyncio.timeout(_TIMEOUT_S):
                     async with httpx.AsyncClient(timeout=_WEATHER_CALL_TIMEOUT_S) as client:
                         weather = await _weather_results(query, client)
-            except Exception:  # noqa: BLE001 — weather is best-effort (incl. TimeoutError)
+            except Exception:  # broad-except: weather is best-effort (incl. TimeoutError)
+                log.debug("execute: weather is best-effort (incl. TimeoutError)", exc_info=True)
                 weather = None
             if weather:
                 return ToolResult(
@@ -413,7 +424,8 @@ class SearchWebTool:
                         )
                         for variant in variants
                     ])
-        except Exception:  # noqa: BLE001 — incl. TimeoutError: never sink the turn
+        except Exception:  # broad-except: incl. TimeoutError: never sink the turn
+            log.warning("execute: incl. TimeoutError: never sink the turn", exc_info=True)
             return ToolResult(
                 success=True,
                 output={

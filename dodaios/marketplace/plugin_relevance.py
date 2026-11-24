@@ -39,10 +39,13 @@ and a sibling worker-export path, so the keyword/relevance logic has ONE home:
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from dodaios.marketplace.usage_cards.loader import load_usage_card
+
+log = logging.getLogger(__name__)
 
 # Common MCP-server id suffixes that are not part of the spoken product name —
 # stripped before deriving the human-readable form ("notebooklm-mcp" -> the name
@@ -186,8 +189,8 @@ def derive_plugin_keywords(plugin_id: str, tools: list[Any]) -> set[str]:
         if card is not None:
             keywords |= {kw.lower() for kw in card.keywords if kw}
         keywords |= _derive_tool_nouns(plugin_id, tools)
-    except Exception:  # noqa: BLE001, S110 — gate must never blind the brain
-        pass
+    except Exception:  # broad-except: gate must never blind the brain
+        log.warning("derive_plugin_keywords: gate must never blind the brain", exc_info=True)
     return keywords
 
 
@@ -209,7 +212,8 @@ def plugin_is_relevant(text: str, plugin_id: str, tools: list[Any]) -> bool:
             return True
         nouns = _derive_tool_nouns(plugin_id, tools)
         return any(noun in user_norm for noun in nouns)
-    except Exception:  # noqa: BLE001 — gate must never blind the brain
+    except Exception:  # broad-except: gate must never blind the brain
+        log.warning("plugin_is_relevant: gate must never blind the brain", exc_info=True)
         return False
 
 

@@ -67,7 +67,7 @@ class RecallTool:
         if sources is None:
             try:
                 sources = recall_core.live_sources()
-            except Exception:  # noqa: BLE001 - the app may not be fully up
+            except Exception:  # broad-except: the app may not be fully up
                 log.warning("recall: sources unavailable", exc_info=True)
                 sources = None
         if sources is None:

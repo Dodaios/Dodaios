@@ -16,7 +16,7 @@ from .schema import Skill, SkillLifecycleState
 try:
     import git as _git  # type: ignore
     _HAVE_GIT = True
-except Exception:  # pragma: no cover
+except ImportError:  # GitPython is optional
     _git = None  # type: ignore
     _HAVE_GIT = False
 

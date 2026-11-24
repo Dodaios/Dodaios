@@ -103,7 +103,7 @@ def shared_grant_holders(plugin_id: str, tokens: Tokens, store: TokenStore) -> l
             continue
         try:
             other = store.load(spec.id)
-        except Exception:  # noqa: BLE001 - an unreadable sibling is still a holder
+        except Exception:  # broad-except: an unreadable sibling is still a holder
             log.info("plugin %s token unreadable; treating it as a shared holder", spec.id)
             holders.append(spec.id)
             continue
@@ -195,7 +195,7 @@ async def revoke_tokens(
                     "User-Agent": HTTP_USER_AGENT,
                 },
             )
-    except Exception:  # noqa: BLE001 - the local disconnect still stands
+    except Exception:  # broad-except: the local disconnect still stands
         log.info("plugin %s revocation could not be delivered", spec.id)
         return "failed"
 

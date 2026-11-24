@@ -338,7 +338,8 @@ class YouTubeMusicRestTool:
             from dodaios.core.music_service import compose_tool_description
 
             return compose_tool_description(self.name, self._BASE_DESCRIPTION)
-        except Exception:  # noqa: BLE001 — a description must not raise
+        except Exception:  # broad-except: a description must not raise
+            log.debug("description: a description must not raise", exc_info=True)
             return self._BASE_DESCRIPTION
 
     schema: dict[str, Any] = {
@@ -459,7 +460,8 @@ class YouTubeMusicRestTool:
     def _wants_player(self) -> bool:
         try:
             return str(self._playback_mode()) == "background"
-        except Exception:  # noqa: BLE001 — a config fault means the browser path
+        except Exception:  # broad-except: a config fault means the browser path
+            log.warning("_wants_player: a config fault means the browser path", exc_info=True)
             return False
 
     async def _player_state(self) -> dict[str, Any] | None:
@@ -470,7 +472,7 @@ class YouTubeMusicRestTool:
             return None
         try:
             return await asyncio.to_thread(player.state)
-        except Exception as exc:  # noqa: BLE001 — a dead player reads as "not running"
+        except Exception as exc:  # broad-except: a dead player reads as "not running"
             log.debug("background player state failed: %s", exc)
             return None
 
@@ -523,7 +525,7 @@ class YouTubeMusicRestTool:
                 last = await asyncio.to_thread(
                     _call_with_timeout, player.state, _PLAYER_READ_TIMEOUT_S
                 )
-            except Exception as exc:  # noqa: BLE001 — a blink while the page turns
+            except Exception as exc:  # broad-except: a blink while the page turns
                 log.debug("background player state during confirm: %s", exc)
                 continue
             if last.get("loading"):
@@ -548,7 +550,7 @@ class YouTubeMusicRestTool:
                 nudged = True
                 try:
                     await asyncio.to_thread(player.play)
-                except Exception as exc:  # noqa: BLE001 — the nudge is best-effort
+                except Exception as exc:  # broad-except: the nudge is best-effort
                     log.debug("background player nudge failed: %s", exc)
         if last.get("has_video") and last.get("paused"):
             # Positive evidence of a start that did not happen — a video that
@@ -558,7 +560,7 @@ class YouTubeMusicRestTool:
                 await asyncio.to_thread(
                     _call_with_timeout, player.show, _PLAYER_SHOW_TIMEOUT_S
                 )
-            except Exception as exc:  # noqa: BLE001 — showing is best-effort
+            except Exception as exc:  # broad-except: showing is best-effort
                 log.debug("background player show failed: %s", exc)
             out.update(
                 playback_confirmed=False, needs_attention="press_play", note=_PRESS_PLAY_NOTE
@@ -580,7 +582,8 @@ class YouTubeMusicRestTool:
             player = self._player_client()
             try:
                 ok, why = await asyncio.to_thread(player.available)
-            except Exception as exc:  # noqa: BLE001 — a probe fault means the browser path
+            except Exception as exc:  # broad-except: a probe fault means the browser path
+                log.debug("_start_playback: a probe fault means the browser path", exc_info=True)
                 ok, why = False, str(exc)
             if ok:
                 try:
@@ -590,7 +593,7 @@ class YouTubeMusicRestTool:
                     # is an attempt the voice must not sell as a result.
                     out["verified"] = bool(out.get("playback_confirmed"))
                     return out
-                except Exception as exc:  # noqa: BLE001 — player unusable → browser, and say so
+                except Exception as exc:  # broad-except: player unusable → browser, and say so
                     log.info("background player unusable, opening the browser: %s", exc)
                     why = f"The background player could not start ({exc})."
             out = await self._open_and_confirm(url, started)
@@ -609,7 +612,8 @@ class YouTubeMusicRestTool:
             return {"error": _VOLUME_NEEDS_PLAYER}
         try:
             ok = await asyncio.to_thread(self._player_client().set_volume, level)
-        except Exception as exc:  # noqa: BLE001 — a dead player is an honest error
+        except Exception as exc:  # broad-except: a dead player is an honest error
+            log.warning("set_volume: a dead player is an honest error", exc_info=True)
             return {"error": f"The background player did not take the volume: {exc}"}
         if not ok:
             return {"error": _VOLUME_NEEDS_PLAYER}
@@ -630,7 +634,8 @@ class YouTubeMusicRestTool:
             if not player.is_running():
                 await asyncio.to_thread(player.load, HOME_URL)
             await asyncio.to_thread(player.show)
-        except Exception as exc:  # noqa: BLE001 — player unusable → browser, and say so
+        except Exception as exc:  # broad-except: player unusable → browser, and say so
+            log.warning("show_player: player unusable \u2192 browser, and say so", exc_info=True)
             out = await self._open_browser_home()
             out["fallback_reason"] = f"The background player could not start ({exc})."
             return out
@@ -642,7 +647,8 @@ class YouTubeMusicRestTool:
             return {"ok": True, "hidden": False, "message": "The background player is not running."}
         try:
             await asyncio.to_thread(self._player_client().hide)
-        except Exception as exc:  # noqa: BLE001 — a dead player is already hidden
+        except Exception as exc:  # broad-except: a dead player is already hidden
+            log.warning("hide_player: a dead player is already hidden", exc_info=True)
             return {"ok": True, "hidden": False, "message": str(exc)}
         return {"ok": True, "hidden": True}
 
@@ -675,7 +681,8 @@ class YouTubeMusicRestTool:
                 refreshed = bool(await _default_refresher(observed))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
+            log.warning("_with_auth_retry: refresher must never crash the tool", exc_info=True)
             refreshed = False
         if not refreshed:
             return {"error": _NEEDS_RECONNECT}
@@ -712,7 +719,8 @@ class YouTubeMusicRestTool:
         """
         try:
             payload = exc.response.json()
-        except Exception:  # noqa: BLE001 — a non-JSON error body carries no link
+        except Exception:  # broad-except: a non-JSON error body carries no link
+            log.warning("_activation_url: a non-JSON error body carries no link", exc_info=True)
             return ""
         error = payload.get("error") if isinstance(payload, dict) else None
         details = error.get("details") if isinstance(error, dict) else None
@@ -741,7 +749,8 @@ class YouTubeMusicRestTool:
         ``accessNotConfigured``, ``insufficientPermissions`` …)."""
         try:
             payload = exc.response.json()
-        except Exception:  # noqa: BLE001 — a non-JSON error body is still an error
+        except Exception:  # broad-except: a non-JSON error body is still an error
+            log.warning("_reason: a non-JSON error body is still an error", exc_info=True)
             return ""
         error = payload.get("error") if isinstance(payload, dict) else None
         if not isinstance(error, dict):
@@ -850,7 +859,8 @@ class YouTubeMusicRestTool:
             player = self._player_client()
             try:
                 ok = bool(await asyncio.to_thread(getattr(player, verb)))
-            except Exception as exc:  # noqa: BLE001 — a dead player is an honest error
+            except Exception as exc:  # broad-except: a dead player is an honest error
+                log.warning("_control: a dead player is an honest error", exc_info=True)
                 return {"error": f"The background player did not accept '{verb}': {exc}"}
             if not ok:
                 return {"error": f"The background player did not accept '{verb}'."}
@@ -1275,7 +1285,8 @@ class YouTubeMusicRestTool:
                 out = await self.set_volume(volume_percent=int(level))
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001 — every failure becomes a spoken, actionable error
+        except Exception as exc:  # broad-except: every failure becomes a spoken, actionable error
+            log.warning("execute: every failure becomes a spoken, actionable error", exc_info=True)
             return ToolResult(success=False, output=None, error=self._explain(exc))
 
         if isinstance(out, dict) and out.get("error"):

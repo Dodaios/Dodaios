@@ -302,7 +302,7 @@ def launch_services_can_open(candidates: set[str]) -> str | None:
                 timeout=5,
                 creationflags=NO_WINDOW_CREATIONFLAGS,
             )
-        except Exception:  # noqa: BLE001, S112 — best-effort probe, gate stays honest
+        except Exception:  # broad-except: best-effort probe, gate stays honest
             logger.debug("open -Ra probe failed for %r", cleaned, exc_info=True)
             continue
         if proc.returncode == 0:
