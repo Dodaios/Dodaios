@@ -35,6 +35,16 @@
         "about": "Does the assistant reach for the right tool first, and say in one line what it takes on before it does?",
         "building": "{n} test tasks from your own chats with the assistant so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
         "no_tasks": "There are no tasks from your chats for this area yet. They come from answers you let stand, and from answers the assistant got right after you corrected it."
+      },
+      "brief": {
+        "name": "Briefs",
+        "about": "Does the brief the assistant writes for a coding agent point at the files the work turned out to need?",
+        "building": "{n} test tasks from your past coding work so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
+        "no_tasks": "There are no tasks from your past coding work for this area yet. They come from requests you typed into a coding agent and the pull request that was merged for them.",
+        "cost_label": "Message and brief per task",
+        "effect_shorter": "message and brief {tokens} tokens shorter",
+        "effect_longer": "message and brief {tokens} tokens longer",
+        "range_unclear_cheaper": "As far as measured it is as good as shipped: the quality difference lies between {low} and {high} points, and that includes zero. Its message and brief are {pct} shorter."
       }
     },
     "area": {
@@ -181,7 +191,7 @@
       "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "measure_no_model": "Measuring itself asks no model.",
-      "measure_first_move": "Measuring the first move replays your earlier requests on the assistant's own plan: at most {calls} times a night, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
+      "measure_first_move": "Measuring the first move and the briefs replays your earlier requests on the assistant's own plan: at most {calls} model calls a night for both together, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
       "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
     },
     "param": {
@@ -240,6 +250,10 @@
       "lead_first_line": {
         "title": "Opening line before a tool",
         "about": "Beside each of your messages: write one short line that takes the task on before using a tool."
+      },
+      "lead_brief_line": {
+        "title": "Wording of the brief line",
+        "about": "Beside each of your messages: how the assistant is asked to look up the files before it briefs a coding agent."
       }
     },
     "daily": {
@@ -290,11 +304,23 @@
       "lead_first_line": {
         "off": "Dropped the line beside your messages that asks for a short opening line before the first tool.",
         "on": "Put back the line beside your messages that asks for a short opening line before the first tool."
+      },
+      "lead_brief_line": {
+        "v0": "Put back the shipped wording of the line beside your messages that says how to brief a coding agent.",
+        "v1": "The line beside your messages now asks in fewer words to look up the files before briefing a coding agent.",
+        "v2": "The line beside your messages no longer asks to look up the files before briefing a coding agent."
       }
     },
     "value": {
       "on": "on",
       "off": "off"
+    },
+    "wording": {
+      "lead_brief_line": {
+        "v0": "as shipped",
+        "v1": "shorter look-up",
+        "v2": "no look-up"
+      }
     }
   }
 }

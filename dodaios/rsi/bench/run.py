@@ -7,7 +7,7 @@ the gate's test reads.
 
 Each domain registers the function that runs one of its tasks. A domain that
 needs no model (recall, skill choice) runs inside this process in
-milliseconds. One that asks a model (``first_move``, ``NEEDS_MODEL``) keeps
+milliseconds. One that asks a model (``first_move``, ``brief``; ``NEEDS_MODEL``) keeps
 every result it paid for: ``measure`` with a ``store`` reuses a counted result
 of the same task content under the same arm, so an arm that did not change is
 never paid for twice, and a comparison the night's budget cut short carries on
@@ -24,11 +24,11 @@ from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
 import dodaios
+from dodaios.rsi import lines, params
 from dodaios.rsi import overlay as overlays
-from dodaios.rsi import params
 from dodaios.rsi.fingerprint import Fingerprint
 
-from . import lead_replay, recall
+from . import brief_replay, lead_replay, recall
 from .model import NEEDS_MODEL, Domain, Measured, Result, Task
 
 __all__ = [
@@ -65,11 +65,14 @@ def _model_arm(
     """The arm of a domain that asks a model: what shapes its runs, and nothing else.
 
     The values of the parameters the domain reads (the overlay's, else the
-    live ones) and what answers (CLI and its version, model, effort, tools).
+    live ones), every standing line's parameter (each is applied to every
+    replayed message, whichever domain measures it), and what answers (CLI
+    and its version, model, effort, tools, the input a request is put into).
     Nothing else that is learned changes a replay, so two states that agree
     on these are the same arm, and one result serves both.
     """
     names = [p.name for p in params.INDEX.params if domain.value in p.domains]
+    names += [name for name in lines.LEARNABLE if name not in names]
     if overlay is None:
         values: dict[str, Any] = {name: params.get(name) for name in names}
     else:
@@ -120,9 +123,17 @@ def _run_first_move(task: Task, worlds: Worlds) -> Measured:
     return lead_replay.run(task, world)
 
 
+def _run_brief(task: Task, worlds: Worlds) -> Measured:
+    world = worlds.get(brief_replay.WORLD)
+    if not isinstance(world, brief_replay.BriefWorld):
+        raise LookupError(f"no replay of the lead's turns to run {task.id} with")
+    return brief_replay.run(task, world)
+
+
 _RUNNERS: dict[Domain, Callable[[Task, Worlds], recall.Scored | Measured]] = {
     Domain.RECALL: _run_recall,
     Domain.FIRST_MOVE: _run_first_move,
+    Domain.BRIEF: _run_brief,
 }
 
 

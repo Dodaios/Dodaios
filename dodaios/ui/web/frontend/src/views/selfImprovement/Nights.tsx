@@ -85,8 +85,8 @@ export function nightLines(t: T, night: Night, locale: string): string[] {
     out.push(
       fill(t("self_improvement.nights.proposed"), {
         title: paramTitle(t, row.target),
-        from: valueWords(t, row.current, locale),
-        to: valueWords(t, row.value, locale),
+        from: valueWords(t, row.current, locale, row.target),
+        to: valueWords(t, row.value, locale, row.target),
       }),
     );
   }

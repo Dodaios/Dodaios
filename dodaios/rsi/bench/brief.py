@@ -77,8 +77,9 @@ def _names(flat: str, path: str) -> bool:
 
 
 def _same_file(named: str, changed: str) -> bool:
-    """A brief may write a path from a folder further down: ``bench/model.py``."""
-    return named == changed or changed.endswith("/" + named)
+    """A brief may write a path from a folder further down (``bench/model.py``), or from
+    further up: the clone's own folder in front (``personal jarvis/dodaios/x.py``)."""
+    return named == changed or changed.endswith("/" + named) or named.endswith("/" + changed)
 
 
 def score(task: Task, brief: str) -> Scored:
