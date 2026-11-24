@@ -38,7 +38,7 @@
       "key_connected": "Ligado: {provider}.",
       "key_partial": "Algumas partes não foram ativadas ({parts}). Podes corrigi-las mais tarde na página Chaves de API.",
       "live_ready": "A voz em direto está ativa: fala e {name} responde de imediato.",
-      "live_missing": "O chat funciona. A voz em direto precisa de uma chave OpenAI ou Gemini; até lá, {name} fala da forma clássica, um pouco mais lenta.",
+      "live_missing": "O chat funciona. As chamadas de voz precisam de um fornecedor de voz em direto: uma chave OpenAI, Gemini ou xAI.",
       "key_security": "As subscrições são cobradas a um preço mensal fixo. As chaves ficam no porta-chaves do teu sistema e só são enviadas ao fornecedor que escolheste.",
       "nothing_yet": "Ainda nada ligado. Sem uma subscrição ou uma chave, o chat e a voz ficam desligados. Podes ligar uma mais tarde na página Chaves de API.",
       "later": "Saltar por agora"

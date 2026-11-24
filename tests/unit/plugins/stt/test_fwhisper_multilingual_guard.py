@@ -22,7 +22,6 @@ from dodaios.plugins.stt.fwhisper import (
     _multilingual_equivalent,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper: which models are English-only and what they map to.
 # ---------------------------------------------------------------------------

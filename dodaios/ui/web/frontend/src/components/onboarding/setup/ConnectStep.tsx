@@ -438,7 +438,7 @@ export function useKeyActivation(providers: ProviderDescriptor[]): KeyActivation
 
   const withKey = providers.filter((p) => (p.secret_keys?.length ?? 0) > 0 && slotEffective(p));
   const startableNow = startableProviders(providers);
-  const liveVoice = plans.some((p) => p.mode === "realtime" && planKeysComplete(p, startableNow));
+  const liveVoice = plans.some((p) => planKeysComplete(p, startableNow));
   const localBrain = providers.some((p) => p.tier === "brain" && p.active && (p.secret_keys?.length ?? 0) === 0);
   const hasKey = startableNow.some(slotEffective) || localBrain;
 

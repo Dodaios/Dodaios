@@ -5,9 +5,9 @@ import { AppSurfaceSwitch } from "@/components/layout/AppSurfaceSwitch";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
 
-// useVoiceMode fetches /api/settings/voice-mode; a plain pipeline install here.
+// useVoiceMode fetches /api/settings/voice-mode; an idle install here.
 vi.mock("@/hooks/useVoiceMode", () => ({
-  useVoiceMode: () => ({ mode: "pipeline", connecting: false }),
+  useVoiceMode: () => ({ connecting: false }),
 }));
 
 // The two places of the app, in the window caption: the conversation with the

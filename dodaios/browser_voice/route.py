@@ -1,11 +1,13 @@
 """FastAPI ``/ws/audio`` route for the browser-microphone voice bridge (B2 slice 2).
 
 A per-connection WebSocket that receives raw int16 PCM (binary frames) + JSON
-control frames from the browser and runs a :class:`BrowserVoiceSession`
-(STT -> Brain -> TTS, no sounddevice). Mirrors the telephony ``/media`` route's
-provider resolution (shared STT/TTS + a per-connection brain, with a test-factory
-seam) and the ``/ws`` AP-20 receive-loop discipline: a ``RuntimeError`` on an
-unclean disconnect is terminal — ``break``, never ``continue``.
+control frames from the browser and runs one realtime speech-to-speech session
+(``dodaios.realtime.factory.build_realtime_session``, no sounddevice). Voice
+conversations run only on realtime: when no session can be built, or the one
+that runs fails, the call ends with an honest error and never continues on
+another engine. The receive loop keeps the ``/ws`` AP-20 discipline: a
+``RuntimeError`` on an unclean disconnect is terminal — ``break``, never
+``continue``.
 """
 
 from __future__ import annotations
@@ -21,12 +23,7 @@ from uuid import uuid4
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from dodaios.core import config as cfg_mod
-from dodaios.core.turn_language import DEFAULT_LOCALE, resolve_output_language
-from dodaios.sessions.constants import (
-    HANGUP_ERROR,
-    HANGUP_REALTIME_FALLBACK,
-    HANGUP_WS_CLOSED,
-)
+from dodaios.sessions.constants import HANGUP_ERROR, HANGUP_WS_CLOSED
 from dodaios.ui.web.surface_security import credentials_valid
 
 log = logging.getLogger("dodaios.browser_voice.route")
@@ -37,18 +34,10 @@ _AUDIO_QUEUE_MAX_FRAMES = 32
 _TRANSPORT_SEND_TIMEOUT_S = 2.0
 _AUDIO_DRAIN_TIMEOUT_S = 2.0
 _BROKER_AUTH_TIMEOUT_S = 3.0
-_UNSAFE_FALLBACK_DETAIL = (
-    "Realtime provider failed after this turn was accepted. The session was "
-    "closed without replaying audio through the classic pipeline to avoid "
-    "duplicate actions."
-)
-_USAGE_FALLBACK_DISABLED_NOTE = (
-    "Automatic usage-billed API fallback is disabled; "
-    "Dodaios did not switch to another provider."
-)
-_USAGE_FALLBACK_DISABLED_DETAIL = (
+# The selected voice connection could not start or failed during the call.
+_VOICE_FAILED_DETAIL = (
     "The selected voice connection could not start. Check its connection and "
-    "model settings. " + _USAGE_FALLBACK_DISABLED_NOTE
+    "model settings."
 )
 # No session could be built for the selected engine at all: its sign-in or key
 # is missing, or its plugin failed to load. The close reason alone ("realtime
@@ -56,12 +45,12 @@ _USAGE_FALLBACK_DISABLED_DETAIL = (
 _SELECTED_VOICE_NOT_READY_DETAIL = (
     "The selected voice connection is not set up on this installation. Open "
     "API Keys > Live calls, check the sign-in or key, and save the voice "
-    "setup again. " + _USAGE_FALLBACK_DISABLED_NOTE
+    "setup again."
 )
 
 
-def _fallback_disabled_detail(error: BaseException | str | None) -> str:
-    """The person-facing text when the selected live provider cannot start.
+def _voice_failed_detail(error: BaseException | str | None) -> str:
+    """The person-facing text when the selected live provider cannot go on.
 
     A classified failure (plan not offered, reconnect needed, allowance
     exhausted, rejected key, no credit, unreachable network, ...) keeps its
@@ -75,41 +64,7 @@ def _fallback_disabled_detail(error: BaseException | str | None) -> str:
     except Exception:  # noqa: BLE001 - the generic text is always safe
         log.debug("browser_voice: failure classification unavailable", exc_info=True)
         reason = None
-    if not reason:
-        return _USAGE_FALLBACK_DISABLED_DETAIL
-    return f"{reason} {_USAGE_FALLBACK_DISABLED_NOTE}"
-# The close reason a browser shows the person when the classic chain cannot be
-# built. WebSocket close reasons are capped at 123 bytes.
-_SPEECH_STACK_UNAVAILABLE_REASON = (
-    "Voice could not start: a speech-to-text, brain or text-to-speech "
-    "provider is missing. Check API Keys."
-)
-
-# BCP-47 from the canonical per-turn resolver, including pinned French.
-_LANG_MAP = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT", "fr": "fr-FR"}
-
-
-def browser_voice_enabled(cfg: Any) -> bool:
-    """Whether ``/ws/audio`` serves a browser-held call under this config.
-
-    Realtime mode always serves it: the socket carries the realtime call and
-    its classic fallback. Pipeline mode serves the classic STT -> brain -> TTS
-    bridge while ``[browser_voice].enabled`` is on, which is the default — a
-    config object without the section behaves like the schema default.
-    """
-    if getattr(getattr(cfg, "voice", None), "mode", "pipeline") == "realtime":
-        return True
-    return bool(getattr(getattr(cfg, "browser_voice", None), "enabled", True))
-
-
-def _resolve_language(cfg: Any) -> str:
-    pin = str(getattr(getattr(cfg, "brain", None), "reply_language", "") or "").strip().lower()
-    # French is a spoken pin without a translated phrase catalog, so the
-    # catalog resolver would narrow it to English. The voice still follows it.
-    if pin in _LANG_MAP:
-        return _LANG_MAP[pin]
-    language = resolve_output_language(pin, "", "", default=DEFAULT_LOCALE)
-    return _LANG_MAP.get(language, _LANG_MAP[DEFAULT_LOCALE])
+    return reason or _VOICE_FAILED_DETAIL
 
 
 def _browser_voice_authorized(ws: WebSocket) -> bool:
@@ -145,51 +100,6 @@ def _socket_peer_is_loopback(ws: WebSocket) -> bool:
     return bool((mapped or address).is_loopback)
 
 
-def _json_commits_semantic_turn(message: dict[str, Any]) -> bool:
-    """Whether an outbound status proves Realtime has accepted the turn.
-
-    This mirrors the desktop Realtime adapter. A final user transcript may have
-    already triggered a tool, while any assistant transcript or completed
-    browser-speech request makes replaying captured audio unsafe.
-    """
-    kind = str(message.get("type", "") or "")
-    if kind == "transcript":
-        role = str(message.get("role", "") or "")
-        return role == "assistant" or (
-            role == "user" and bool(message.get("is_final", False))
-        )
-    return kind in {
-        "thinking",
-        "turn_complete",
-        "hangup",
-        "error_spoken",
-        "tts_browser_fallback",
-        "tool_result",
-        "action_result",
-    }
-
-
-def _automatic_usage_fallback_allowed(cfg: Any) -> bool:
-    """Read the selected provider's neutral billing-fallback capability."""
-    if getattr(getattr(cfg, "voice", None), "mode", "pipeline") != "realtime":
-        return True
-    try:
-        from dodaios.realtime.factory import (
-            realtime_implicit_usage_fallback_allowed,
-        )
-
-        return realtime_implicit_usage_fallback_allowed(cfg)
-    except Exception:  # noqa: BLE001 - configured realtime fails closed on ambiguity
-        # Fail closed, but never silently (AP-30): refusing the metered
-        # fallback ENDS calls, so the reason has to be findable in the log.
-        log.warning(
-            "Realtime billing-fallback capability could not be read; refusing "
-            "automatic usage-billed fallback for this session",
-            exc_info=True,
-        )
-        return False
-
-
 def _enqueue_audio_frame(queue: asyncio.Queue[bytes | None], data: bytes) -> bool:
     """Queue one mic frame without blocking; drop the oldest on overflow."""
     dropped = False
@@ -217,77 +127,23 @@ async def _cancel_socket_task(task: asyncio.Task[Any]) -> None:
 def _build_browser_session(
     *, state: Any, cfg: Any, bus: Any, session_id: str, send_binary: Any, send_json: Any
 ) -> Any:
-    """Build a BrowserVoiceSession with shared STT/TTS + a per-connection brain.
+    """Build the realtime session for one browser-held call, or ``None``.
 
-    Returns ``None`` when the speech stack can't be constructed (e.g. no provider
-    key) — the caller then closes the socket cleanly. A test can inject
-    ``state.browser_voice_session_factory`` to bypass the real provider build.
+    The registry-backed factory selects every credential-ready duplex family
+    in configured order; no provider name is load-bearing. ``None`` means no
+    realtime provider can hold the call: the caller ends it with an honest
+    error.
     """
-    # Default-off Realtime branch. The registry-backed factory selects every
-    # credential-ready duplex family in configured order; no provider name is
-    # load-bearing. An installation without that optional module or without a
-    # usable duplex credential falls through to the classic browser bridge.
-    try:
-        from dodaios.realtime.factory import build_realtime_session
-    except ImportError:
-        build_realtime_session = None  # type: ignore[assignment]
+    from dodaios.realtime.factory import build_realtime_session
 
-    if build_realtime_session is not None:
-        rt = build_realtime_session(
-            cfg=cfg,
-            bus=bus,
-            session_id=session_id,
-            send_binary=send_binary,
-            send_json=send_json,
-            surface="browser",
-            brain=getattr(state, "brain", None),
-        )
-        if rt is not None:
-            return rt
-
-    if not _automatic_usage_fallback_allowed(cfg):
-        return None
-
-    return _build_classic_browser_session(
-        state=state,
+    return build_realtime_session(
         cfg=cfg,
         bus=bus,
         session_id=session_id,
         send_binary=send_binary,
         send_json=send_json,
-    )
-
-
-def _build_classic_browser_session(
-    *, state: Any, cfg: Any, bus: Any, session_id: str, send_binary: Any, send_json: Any
-) -> Any:
-    """Build the key-aware STT -> brain -> TTS browser fallback lazily."""
-    factory = getattr(state, "browser_voice_session_factory", None)
-    if factory is not None:
-        return factory(session_id=session_id, send_binary=send_binary, send_json=send_json)
-    try:
-        from dodaios.brain.factory import build_default_brain
-        from dodaios.browser_voice.session import BrowserVoiceSession
-        from dodaios.plugins.stt import build_stt_from_config
-        from dodaios.plugins.tts import build_tts_from_config
-
-        stt = build_stt_from_config(cfg.stt)
-        tts = build_tts_from_config(cfg.tts)
-        brain = build_default_brain(bus=bus, tier="router")
-    except Exception as exc:  # noqa: BLE001 — missing key / unbuildable stack
-        log.warning("browser_voice: speech stack build failed: %s", exc)
-        return None
-    return BrowserVoiceSession(
-        session_id=session_id,
-        send_binary=send_binary,
-        send_json=send_json,
-        stt=stt,
-        brain=brain,
-        tts=tts,
-        language_code=_resolve_language(cfg),
-        bus=bus,
-        config=cfg,
-        owns_brain=True,
+        surface="browser",
+        brain=getattr(state, "brain", None),
     )
 
 
@@ -310,18 +166,6 @@ async def realtime_transport_ws(ws: WebSocket) -> None:
 
     app = ws.scope.get("app")
     state = app.state if app is not None else None
-    cfg = getattr(state, "config", None) or getattr(state, "cfg", None)
-    if cfg is None:
-        try:
-            cfg = cfg_mod.load_config()
-        except Exception:  # noqa: BLE001 - route still fails closed below
-            log.warning("realtime transport config could not be loaded", exc_info=True)
-            cfg = None
-    if cfg is None or getattr(getattr(cfg, "voice", None), "mode", "pipeline") != (
-        "realtime"
-    ):
-        await ws.close(code=1008, reason="realtime voice disabled")
-        return
 
     from dodaios.realtime.offer_broker import (
         get_realtime_transport_offer_broker,
@@ -485,25 +329,14 @@ async def browser_voice_ws(ws: WebSocket) -> None:
         except Exception:  # noqa: BLE001 - Config failure degrades to unavailable voice.
             cfg = None
 
-    if cfg is not None and not browser_voice_enabled(cfg):
-        await ws.close(code=1008, reason="browser voice disabled")
-        return
-
     session_id = str(uuid4())
-    semantic_turn_committed = False
 
     async def _send_binary(data: bytes) -> None:
-        nonlocal semantic_turn_committed
-        if data:
-            semantic_turn_committed = True
         await asyncio.wait_for(
             ws.send_bytes(data), timeout=_TRANSPORT_SEND_TIMEOUT_S
         )
 
     async def _send_json(msg: dict[str, Any]) -> None:
-        nonlocal semantic_turn_committed
-        if _json_commits_semantic_turn(msg):
-            semantic_turn_committed = True
         await asyncio.wait_for(
             ws.send_json(msg), timeout=_TRANSPORT_SEND_TIMEOUT_S
         )
@@ -528,158 +361,74 @@ async def browser_voice_ws(ws: WebSocket) -> None:
         send_json=output.send_json,
     )
     if session is None:
-        fallback_disabled = not _automatic_usage_fallback_allowed(cfg)
-        if fallback_disabled:
-            try:
-                await _send_json(
-                    {"type": "provider_error", "error": _SELECTED_VOICE_NOT_READY_DETAIL}
-                )
-            except Exception:  # noqa: BLE001 - the close below still ends the call
-                log.debug("browser_voice: unavailable-engine notice not sent", exc_info=True)
-        reason = (
-            "realtime access unavailable"
-            if fallback_disabled
-            else _SPEECH_STACK_UNAVAILABLE_REASON
-        )
-        await ws.close(code=1011, reason=reason)
+        log.warning("browser_voice: no realtime voice connection can hold this call")
+        try:
+            await _send_json(
+                {"type": "provider_error", "error": _SELECTED_VOICE_NOT_READY_DETAIL}
+            )
+        except Exception:  # noqa: BLE001 - the close below still ends the call
+            log.debug("browser_voice: unavailable-engine notice not sent", exc_info=True)
+        await ws.close(code=1011, reason="realtime access unavailable")
         return
 
-    audio_start_control: dict[str, Any] | None = None
     audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue(
         maxsize=_AUDIO_QUEUE_MAX_FRAMES
     )
     dropped_audio_frames = 0
     audio_sender_failed = asyncio.Event()
+    failure_reported = False
 
-    async def _switch_to_classic(
-        reason: str, error: BaseException | None = None
-    ) -> bool:
-        nonlocal session
-        if not bool(getattr(session, "is_realtime", False)):
-            return False
+    async def _end_on_failure(reason: str, error: BaseException | None = None) -> None:
+        """End the call with the reason: realtime is the only voice engine.
+
+        A provider that refused or failed is never replaced by another engine
+        mid-call. The person hears and reads why, and the call ends. Reported
+        once, however many frames or controls hit the failed session.
+        """
+        nonlocal failure_reported
+        if failure_reported:
+            return
+        failure_reported = True
         from dodaios.speech import provider_refusal
 
-        # A usage-billed provider that SAID NO (plan, key, credit, settings)
-        # is not a provider that might still answer: the call continues on
-        # the classic path even though the provider forbids ambient fallback,
-        # and the person hears and reads why (live 2026-11-10: a plan without
-        # the realtime route ended every call after 12 s with nothing shown).
-        # A subscription that refused keeps its rule (issue #828): the call
-        # ends with the reason, never on a usage-billed path it was pinned
-        # to avoid. A transient failure (busy, unreachable) keeps it too.
+        log.warning("browser_voice: realtime voice failed; ending the call: %s", reason)
         refusal = getattr(session, "start_refusal", None) or provider_refusal.describe(
             error if error is not None else reason
         )
-        refusal_continues = refusal is not None and refusal.overrides_fallback_block
-        refused_provider = str(getattr(session, "active_provider", "") or "")
-        refusal_language = str(getattr(session, "_language", "") or "")
-
-        async def _announce(continued_on: str) -> None:
-            if refusal is None:
-                return
+        if refusal is not None:
             await provider_refusal.announce(
                 bus,
                 session_id=session_id,
-                provider=refused_provider,
+                provider=str(getattr(session, "active_provider", "") or ""),
                 refusal=refusal,
-                language=refusal_language,
-                continued_on=continued_on,
+                language=str(getattr(session, "_language", "") or ""),
+                continued_on=provider_refusal.CONTINUED_NONE,
             )
-
-        if not bool(getattr(session, "allow_classic_fallback", True)) and (
-            not refusal_continues or semantic_turn_committed
-        ):
-            log.warning(
-                "browser_voice: selected realtime provider failed; automatic "
-                "usage-billed fallback is disabled: %s",
-                reason,
+        await session.end(reason=HANGUP_ERROR)
+        try:
+            await _send_json(
+                {
+                    "type": "provider_error",
+                    "error": _voice_failed_detail(error if error is not None else reason),
+                }
             )
-            await _announce(provider_refusal.CONTINUED_NONE)
-            await session.end(reason=HANGUP_ERROR)
-            try:
-                await _send_json(
-                    {
-                        "type": "provider_error",
-                        "error": _fallback_disabled_detail(
-                            error if error is not None else reason
-                        ),
-                    }
-                )
-            except Exception:  # noqa: BLE001 - surface may already be gone
-                log.debug(
-                    "browser_voice: subscription failure status could not be sent",
-                    exc_info=True,
-                )
-            await ws.close(code=1011, reason="automatic API fallback disabled")
-            return False
-        if semantic_turn_committed:
-            log.warning(
-                "browser_voice: realtime failed after a committed turn; "
-                "refusing unsafe classic replay: %s",
-                reason,
-            )
-            await _announce(provider_refusal.CONTINUED_NONE)
-            await session.end(reason=HANGUP_ERROR)
-            try:
-                await _send_json(
-                    {"type": "provider_error", "error": _UNSAFE_FALLBACK_DETAIL}
-                )
-            except Exception:  # noqa: BLE001 -- the provider may have torn down the wire
-                log.debug(
-                    "browser_voice: committed-turn failure status could not be sent",
-                    exc_info=True,
-                )
-            await ws.close(
-                code=1011,
-                reason="realtime failed after committed turn",
-            )
-            return False
-        log.warning(
-            "browser_voice: realtime session unavailable; using classic pipeline: %s",
-            reason,
-        )
-        await session.end(reason=HANGUP_REALTIME_FALLBACK)
-        fallback = _build_classic_browser_session(
-            state=state,
-            cfg=cfg,
-            bus=bus,
-            session_id=session_id,
-            send_binary=output.send_binary,
-            send_json=output.send_json,
-        )
-        if fallback is None:
-            await _announce(provider_refusal.CONTINUED_NONE)
-            await ws.close(code=1011, reason=_SPEECH_STACK_UNAVAILABLE_REASON)
-            return False
-        session = fallback
-        await _announce(provider_refusal.CONTINUED_PIPELINE)
-        await _send_json({"type": "mode_fallback", "mode": "pipeline"})
-        if audio_start_control is not None:
-            try:
-                await session.handle_control(audio_start_control)
-            except Exception as exc:  # noqa: BLE001 — fallback is terminal
-                log.warning("browser_voice: classic fallback failed: %s", exc)
-                return False
-        return True
+        except Exception:  # noqa: BLE001 - the provider may have torn down the wire
+            log.debug("browser_voice: failure status could not be sent", exc_info=True)
+        await ws.close(code=1011, reason="realtime voice failed")
 
     async def _send_audio_frame(data: bytes) -> None:
-        nonlocal session
         if bool(getattr(session, "failed", False)):
             detail = str(getattr(session, "failure_detail", "") or "stream ended")
-            if not await _switch_to_classic(detail):
-                raise RuntimeError(detail)
+            await _end_on_failure(detail)
+            raise RuntimeError(detail)
         try:
             await asyncio.wait_for(
                 session.handle_audio_frame(data),
                 timeout=_TRANSPORT_SEND_TIMEOUT_S,
             )
-        except Exception as exc:  # noqa: BLE001 - cross to classic once
-            if not await _switch_to_classic(str(exc), exc):
-                raise
-            await asyncio.wait_for(
-                session.handle_audio_frame(data),
-                timeout=_TRANSPORT_SEND_TIMEOUT_S,
-            )
+        except Exception as exc:  # noqa: BLE001 - terminal: the call ends with its reason
+            await _end_on_failure(str(exc), exc)
+            raise
 
     async def _audio_sender() -> None:
         while True:
@@ -747,19 +496,14 @@ async def browser_voice_ws(ws: WebSocket) -> None:
                                 )
                                 await ws.close(code=1008, reason="invalid WebRTC offer")
                                 break
-                        audio_start_control = dict(control)
                     try:
                         await session.handle_control(control)
-                    except Exception as exc:  # noqa: BLE001 — AP-20: terminal or fallback
-                        can_fallback = (
-                            control.get("type") == "audio_start"
-                            and bool(getattr(session, "is_realtime", False))
-                        )
-                        if not can_fallback:
+                    except Exception as exc:  # noqa: BLE001 — AP-20: terminal
+                        if control.get("type") == "audio_start":
+                            await _end_on_failure(str(exc), exc)
+                        else:
                             log.warning("browser_voice: control handling failed: %s", exc)
-                            break
-                        if not await _switch_to_classic(str(exc), exc):
-                            break
+                        break
     finally:
         output.close()
         try:

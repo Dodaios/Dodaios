@@ -10,7 +10,7 @@ import { hasEmbeddedDesktopBridge } from "./BrowserRealtimeControl";
 
 /** Authenticated, invisible WebRTC offer broker for native voice sessions. */
 export function SubscriptionRealtimeTransportBroker() {
-  const { mode, realtimeAvailable, requiresWebRtcOffer, browserAudio } = useVoiceMode();
+  const { realtimeAvailable, requiresWebRtcOffer, browserAudio } = useVoiceMode();
   const [desktopCapabilityReady, setDesktopCapabilityReady] = useState(
     () => Boolean(window.__JARVIS_REALTIME_BROKER_TOKEN?.trim()),
   );
@@ -47,7 +47,6 @@ export function SubscriptionRealtimeTransportBroker() {
 
   useEffect(() => {
     if (
-      mode !== "realtime" ||
       browserAudio ||
       !realtimeAvailable ||
       // `preparing` covers the window in which this client cannot yet know
@@ -65,7 +64,6 @@ export function SubscriptionRealtimeTransportBroker() {
     return () => broker.stop();
   }, [
     desktopCapabilityReady,
-    mode,
     preparing,
     realtimeAvailable,
     requiresWebRtcOffer,

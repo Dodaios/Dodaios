@@ -116,13 +116,8 @@
     "state_ready": "Listo para tu próxima llamada",
     "state_call": "Llamada en curso",
     "state_connecting": "Conectando…",
-    "state_backup": "En la vía de voz de respaldo",
-    "state_off": "Realtime está desactivado",
     "state_none": "Todavía no hay proveedor de voz",
     "none_hint": "Elige un proveedor abajo y añade su clave.",
-    "off_hint": "Tu voz todavía usa el antiguo motor clásico. Activa Realtime para hablar con el proveedor de abajo.",
-    "off_hint_unavailable": "Tu voz todavía usa el antiguo motor clásico. Configura un proveedor abajo y luego activa Realtime.",
-    "turn_on": "Activar Realtime",
     "providers_title": "Proveedor",
     "providers_desc": "Quién impulsa la conversación en vivo. Un proveedor con clave guardada toma el control con un clic.",
     "active": "Activo",
@@ -162,7 +157,6 @@
     "subscription_billing": "La voz y el razonamiento usan tu suscripción de ChatGPT según sus límites de acceso y uso. Si no está disponible, la conversación se detiene sin recurrir a una clave API. El acceso de voz por suscripción es experimental.",
     "options_failed": "No se pudo cargar la lista de modelos y voces. Vuelve a abrir la configuración.",
     "active": "Activo",
-    "pipeline_fallback": "Realtime no pudo iniciarse en esta llamada, así que usa la vía de voz de respaldo. Los cambios se aplican a la próxima llamada.",
     "open_browser": "Abrir voz en el navegador",
     "loading": "Cargando ajustes de voz…",
     "description": "Conversación natural, tu modelo de razonamiento y las herramientas de Dodaios. Elige una clave de OpenAI o una suscripción de ChatGPT.",
@@ -919,10 +913,8 @@
     "realtime_webrtc_unsupported": "Esta ventana no puede abrir la conexión de audio que necesita esta voz (WebRTC no está disponible).",
     "realtime_start_unavailable": "No se pudo iniciar la voz: la conexión de voz seleccionada no está lista. Revisa su inicio de sesión o su clave en API Keys > Live calls.",
     "realtime_browser_tts_unavailable": "Este navegador no tiene una voz del sistema utilizable. La respuesta sigue disponible como texto; conecta un proveedor de TTS para oírla.",
-    "realtime_pipeline_fallback": "Sistema de voz clásico como alternativa",
     "realtime_unavailable": "Conecta o configura un proveedor de tiempo real",
     "realtime_error": "No se pudo iniciar la voz. Prueba el proveedor activo en API Keys y vuelve a intentarlo.",
-    "browser_voice_error": "No se pudo iniciar la voz. Revisa voz a texto, el Brain y texto a voz en API Keys y vuelve a intentarlo.",
     "realtime_provider_fallback": "{0} dejó de estar disponible, así que la llamada pasó a otro proveedor: la facturación puede cambiar. {1}",
     "realtime_provider_fallback_short": "La llamada dejó {0} y continúa con otro proveedor.",
     "realtime_provider_warning": "El proveedor Realtime informó de un problema recuperable; la llamada continúa.",
@@ -2023,12 +2015,6 @@
       "warn": "aviso"
     }
   },
-  "voice_mode": {
-    "label": "Modo",
-    "realtime": "Tiempo real",
-    "pipeline": "Pipeline",
-    "unknown": "Desconocido"
-  },
   "transcription": {
     "archive": "Archivo de voz",
     "intro": "Un lugar para tus conversaciones. Encuentra las palabras que quieres volver a leer.",
@@ -2920,26 +2906,13 @@
     "local_mode_notice": "Hay {0} proveedores en la nube ocultos.",
     "local_mode_notice_active": "El proveedor en uso sigue visible para que siempre veas con qué funciona {name}.",
     "local_mode_show_all": "Mostrar todos los proveedores",
-    "mode_pipeline": "Pipeline",
-    "mode_realtime": "Tiempo real",
     "mode_active_badge": "Activo",
     "mode_recommended": "Recomendado",
-    "voice_engine_label": "Motor de voz",
-    "voice_engine_desc": "Cómo escucha y habla {name}: conversación en vivo con herramientas o voz local.",
     "mode_needs_credentials": "Conecta o configura un proveedor de tiempo real abajo para cambiar.",
-    "mode_desc_pipeline": "Tres pasos: voz a texto, el Brain piensa, texto a voz.",
-    "mode_desc_realtime": "Un solo modelo escucha y responde en el mismo flujo de audio en vivo.",
-    "mode_pick_one_hint": "Solo necesitas configurar un modo de voz.",
-    "mode_keys_hint": "Tiempo real necesita un proveedor activo, con una suscripción o una clave API. La pipeline necesita sus propias credenciales de Entrada de voz, Salida de voz e IA. Tool Model y {name}-Agents valen para ambos modos.",
-    "mode_realtime_preview": "Research preview: aún sin terminar. Muchas herramientas y funciones todavía no funcionan en modo realtime.",
-    "mode_realtime_preview_short": "Research preview",
     "alt_credential_title": "Alternativa: {0}",
     "alt_credential_setup": "Configurar {0}",
     "runtime_switching": "Reiniciando la sesión de voz actual con el motor seleccionado…",
-    "runtime_idle": "No hay ninguna sesión de voz activa. Esta selección se aplicará a la siguiente.",
     "runtime_realtime": "Sesión actual: Tiempo real",
-    "runtime_pipeline": "Sesión actual: Pipeline",
-    "runtime_fallback_pipeline": "La sesión actual volvió a Pipeline; Tiempo real no está atendiendo esta llamada.",
     "cat_brain_desc": "El modelo que redacta tus respuestas de chat y voz. El modelo de herramientas independiente gestiona las acciones y Computer Use.",
     "cat_tts_desc": "La voz con la que habla {name}.",
     "cat_stt_desc": "Cómo convierte {name} tu voz en texto.",
@@ -3234,7 +3207,7 @@
   "settings_view": {
     "silence_window": {
       "title": "Pausa para pensar",
-      "description": "Cuánto espera {name} en silencio antes de tomar tu turno. En Automático cada modo de voz mantiene su propio ajuste de fábrica: la pausa más corta. Súbelo para darte más tiempo para pausar y terminar una idea; si sigues hablando dentro de la pausa, lo dicho se añade a la misma petición. Se aplica a ambos modos de voz: Pipeline de inmediato, Realtime a partir de la siguiente llamada.",
+      "description": "Cuánto espera {name} en silencio antes de tomar tu turno en una llamada de voz. En Automático el proveedor de voz usa su propia detección de turnos: la pausa más corta. Súbelo para darte más tiempo para hacer pausas y terminar una idea; si sigues hablando dentro de la pausa, las palabras se añaden a la misma petición. Se aplica desde la próxima llamada.",
       "unit_seconds": "s",
       "automatic_label": "Automático",
       "automatic_caption": "Ajuste de fábrica del proveedor: la pausa más corta.",
@@ -4091,7 +4064,7 @@
     "reply_section": "Idioma de Respuesta",
     "reply_hint": "En qué idioma habla {name} al responderte. Nombres propios, identificadores de código y términos técnicos se mantienen en su forma original.",
     "stt_section": "Idioma de Reconocimiento (Voz)",
-    "stt_hint": "En qué idioma se reconoce tu voz y se convierte en texto. Automático lo detecta por ti. Tras cambiarlo, termina cualquier llamada Realtime y reinicia Dodaios para el modo Pipeline.",
+    "stt_hint": "En qué idioma se reconoce tu voz y se convierte en texto. Automático lo detecta por ti. Tras cambiarlo, termina cualquier llamada en curso; la siguiente usará el nuevo idioma.",
     "options": {
       "auto": {
         "label": "Automático",
@@ -6951,9 +6924,7 @@
   "ready_note": {
     "title": "Todo listo.",
     "body": "Pensar, herramientas, agentes y {0} están configurados. Di tu palabra de activación — o simplemente empieza a escribir.",
-    "go": "Vamos",
-    "mode_realtime": "voz en vivo",
-    "mode_pipeline": "voz de entrada y salida"
+    "go": "Vamos"
   },
   "society": {
     "sandbox": {
@@ -9546,6 +9517,7 @@
       "too_large": "Este archivo es demasiado grande para mostrarlo aquí.",
       "unavailable": "No se puede leer este archivo. Puede que se haya movido o eliminado.",
       "no_workspace": "Abre un proyecto para leer archivos aquí.",
+      "not_found": "{file} no está en {folder} (la carpeta de este hilo) ni en tu carpeta personal. La respuesta la nombra sin la ruta completa, así que puede pertenecer a otro proyecto.",
       "show_change": "Mostrar el cambio",
       "change_truncated": "No se muestran {count} líneas más.",
       "unsaved": "Cambios sin guardar",

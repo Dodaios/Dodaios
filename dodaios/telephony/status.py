@@ -26,7 +26,7 @@ from pydantic import BaseModel, field_validator
 from .constants import CALL_STATUSES, CallStatusLiteral
 
 if TYPE_CHECKING:
-    from .session import TelephonyCallSession
+    from .call import PhoneCall
 
 
 class CallRecord(BaseModel):
@@ -81,7 +81,7 @@ class TelephonyManager:
     """
 
     def __init__(self, *, recent_capacity: int = 50, pending_ttl_s: float = 120.0) -> None:
-        self._active: dict[str, TelephonyCallSession] = {}
+        self._active: dict[str, PhoneCall] = {}
         self._pending: dict[str, _PendingCall] = {}
         self._recent: deque[CallRecord] = deque(maxlen=recent_capacity)
         self._pending_ttl_s = pending_ttl_s
@@ -126,7 +126,7 @@ class TelephonyManager:
 
     # -- active sessions ---------------------------------------------------
 
-    def register_active(self, call_sid: str, session: TelephonyCallSession) -> None:
+    def register_active(self, call_sid: str, session: PhoneCall) -> None:
         self._active[call_sid] = session
 
     def unregister_active(self, call_sid: str) -> None:
@@ -136,7 +136,7 @@ class TelephonyManager:
     def active_calls(self) -> int:
         return len(self._active)
 
-    def active_session(self, call_sid: str) -> TelephonyCallSession | None:
+    def active_session(self, call_sid: str) -> PhoneCall | None:
         return self._active.get(call_sid)
 
     # -- recent-call ring buffer ------------------------------------------

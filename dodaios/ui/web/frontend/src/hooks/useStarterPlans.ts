@@ -1,11 +1,10 @@
 /**
  * Starter plans and setup readiness.
  *
- * A plan is data from the backend catalog: a voice mode plus one provider per
- * surface, all on one or two key families. Applying it means calling the
+ * A plan is data from the backend catalog: one provider per surface (the live
+ * voice and the thinking model it needs), all on one or two key families. Applying it means calling the
  * ordinary switch routes in order — nothing here knows how a switch works.
  */
-import { putVoiceMode } from "@/lib/voiceEngineMode";
 import {
   switchBrainProvider,
   switchComputerUseProvider,
@@ -26,7 +25,6 @@ export interface StarterPlan {
   id: string;
   label: string;
   summary: string;
-  mode: "pipeline" | "realtime";
   recommended: boolean;
   assignments: Record<string, string>;
   key_slots: StarterPlanKeySlot[];
@@ -41,7 +39,6 @@ export interface StarterPlansResponse {
 }
 
 export interface ReadinessResponse {
-  mode: "pipeline" | "realtime";
   required: string[];
   sections: Record<string, { status: string; reason?: string; detail?: string }>;
   ready: boolean;
@@ -71,22 +68,21 @@ export async function getReadiness(refresh = false): Promise<ReadinessResponse> 
   );
 }
 
-/** Surfaces in the order a plan is applied; the voice mode goes last. */
+/** Surfaces in the order a plan is applied; the live voice goes last. */
 const APPLY_ORDER = ["brain", "computer-use", "subagent", "tts", "stt", "realtime"] as const;
 
 export interface ApplyPlanOutcome {
   applied: string[];
   failed: { surface: string; error: string }[];
-  modeSet: boolean;
 }
 
 /**
- * Point every surface of the plan at its provider, then pin the voice mode.
+ * Point every surface of the plan at its provider.
  * One surface failing does not stop the others. The outcome records each
  * failure so callers can report a partially applied plan.
  */
 export async function applyStarterPlan(plan: StarterPlan): Promise<ApplyPlanOutcome> {
-  const out: ApplyPlanOutcome = { applied: [], failed: [], modeSet: false };
+  const out: ApplyPlanOutcome = { applied: [], failed: [] };
   for (const surface of APPLY_ORDER) {
     const provider = plan.assignments[surface];
     if (!provider) continue;
@@ -115,12 +111,6 @@ export async function applyStarterPlan(plan: StarterPlan): Promise<ApplyPlanOutc
     } catch (e) {
       out.failed.push({ surface, error: e instanceof Error ? e.message : String(e) });
     }
-  }
-  try {
-    await putVoiceMode(plan.mode);
-    out.modeSet = true;
-  } catch (e) {
-    out.failed.push({ surface: "voice-mode", error: e instanceof Error ? e.message : String(e) });
   }
   window.dispatchEvent(new CustomEvent("jarvis:provider-config-changed"));
   return out;

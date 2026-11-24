@@ -168,11 +168,11 @@ pages:
     file: docs/product/everyday-use/voice-conversations.md
     title: Voice Conversations
     diataxis: explanation
-    summary: Understand how Pipeline and Realtime handle spoken questions, actions, privacy, interruptions, and fallback.
+    summary: Understand how a realtime voice call handles spoken questions, actions, privacy, interruptions, and failures.
     authoritative_sources:
       - dodaios/speech/pipeline.py
       - dodaios/realtime/session.py
-      - dodaios/browser_voice/session.py
+      - dodaios/realtime/factory.py
       - dodaios/core/turn_language.py
     related:
       - audio-and-wake-word
@@ -368,7 +368,7 @@ pages:
     summary: Choose reply language, speech language, and speaking voice while keeping every layer of a conversation consistent.
     authoritative_sources:
       - dodaios/ui/web/frontend/src/views/settings/LanguagesGroup.tsx
-      - dodaios/ui/web/frontend/src/views/apikeys/VoiceEngine.tsx
+      - dodaios/ui/web/frontend/src/views/ApiKeysView.tsx
       - dodaios/core/turn_language.py
       - dodaios/plugins/tts/grok_voice_tts.py
       - dodaios/realtime/factory.py
@@ -433,7 +433,7 @@ pages:
       - docs/telephony.md
       - dodaios/ui/web/frontend/src/views/TelephonyView.tsx
       - dodaios/ui/web/telephony_routes.py
-      - dodaios/telephony/session.py
+      - dodaios/telephony/call.py
       - dodaios/telephony/security.py
     related:
       - providers-and-api-keys

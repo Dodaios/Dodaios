@@ -14,6 +14,18 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from dodaios.core.protocols import AudioChunk
 
+#: The surface of a phone call (``dodaios.telephony``). Twilio carries the
+#: caller's audio as plain PCM over a media socket, so only a provider that
+#: takes PCM itself can serve it; one that needs a browser's WebRTC offer
+#: cannot.
+PHONE_SURFACE = "phone"
+
+
+def serves_phone(provider: Any) -> bool:
+    """Whether ``provider`` can hold a phone call (a capability, never a name)."""
+    return not bool(getattr(provider, "requires_webrtc_offer", False))
+
+
 RealtimeEventType = Literal[
     "audio_delta",
     "output_transcript_delta",

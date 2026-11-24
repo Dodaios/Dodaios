@@ -8,7 +8,7 @@ order: 1
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-07-30
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [overview, getting-started, privacy, safety]
@@ -31,7 +31,7 @@ Agents area and Voice hub. This guide uses the neutral words **assistant**,
 
 | Goal | What Dodaios provides |
 |---|---|
-| Talk or type | Saved chats, Pipeline or Realtime voice conversations, and push-to-talk from the current conversation. |
+| Talk or type | Saved chats, realtime voice conversations, and push-to-talk from the current conversation. |
 | Dictate into another app | Local or hosted speech recognition, a personal dictionary, optional wording cleanup, and recent dictation history. |
 | Build useful knowledge | A Wiki of editable notes your assistant can search, maintain, and cite. |
 | Use tools safely | App commands, plugins, MCP connections, command-line tools, and supported computer control, all subject to capability and safety checks. |
@@ -51,8 +51,8 @@ for different jobs such as Brain reasoning, speech input, speech output,
 Realtime voice, tool use, Agents, and knowledge processing.
 
 - **Local:** Ollama can run the Brain; Whisper or Nemotron can recognize
-  speech; Piper can speak Pipeline replies. These options need no provider API
-  key, but use your computer's storage, memory, and processing time.
+  dictated speech; Piper can read answers aloud. These options need no provider
+  API key, but use your computer's storage, memory, and processing time.
 - **Self-hosted:** The Brain can connect to a trusted OpenAI-compatible server,
   and service plugins can reach servers you operate, such as Home Assistant.
   Data still crosses the network between the app host and that server.

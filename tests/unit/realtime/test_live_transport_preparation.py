@@ -101,7 +101,6 @@ async def test_only_selected_host_adapter_is_imported_in_worker(
     selection_threads = []
     primary = SimpleNamespace(**{capability: True})
     fallback = SimpleNamespace(continuous_conversation=True, eager_warm_as_fallback=False)
-    monkeypatch.setattr(factory, "_realtime_is_the_configured_voice_mode", lambda cfg: True)
     def selected(cfg):
         selection_threads.append(threading.get_ident())
         return ["primary", "fallback"]
@@ -115,18 +114,6 @@ async def test_only_selected_host_adapter_is_imported_in_worker(
     assert len(imports) == 1 and imports[0][0] == module_name
     assert imports[0][1] != owner
     assert selection_threads and selection_threads[0] != owner
-
-
-async def test_disabled_voice_does_not_prepare_host_or_transport(monkeypatch):
-    from dodaios.realtime import factory
-
-    def forbidden(*args):
-        raise AssertionError("Disabled voice was warmed")
-
-    monkeypatch.setattr(factory, "_realtime_is_the_configured_voice_mode", lambda cfg: False)
-    monkeypatch.setattr(factory, "_warm_session_imports", forbidden)
-    monkeypatch.setattr(factory, "_explicit_provider_ids", forbidden)
-    await factory.realtime_warm_selected_transports(SimpleNamespace())
 
 
 async def test_cancelled_client_construction_closes_late_result():

@@ -113,17 +113,14 @@ vi.mock("@/hooks/usePluginAttention", () => ({
   refreshPluginAttention: () => Promise.resolve(),
 }));
 
-// useVoiceMode fetches /api/settings/voice-mode; mock it so the footer card's
-// pipeline-vs-realtime split is driven by the test, not a fetch. The default
-// mirrors a fresh pipeline install (the pre-existing footer tests rely on it).
+// useVoiceMode fetches /api/settings/voice-mode; mock it so the voice status
+// is driven by the test, not a fetch. The default mirrors an idle install.
 const voiceModeMock = vi.hoisted(() => ({
   value: {
-    mode: "pipeline",
     activeProvider: null as string | null,
     activeProviderLabel: null as string | null,
     activeModel: null as string | null,
     sessionActive: false,
-    activeSessionMode: null as "pipeline" | "realtime" | null,
     activeSessionProvider: "",
     activeSessionModel: "",
   },

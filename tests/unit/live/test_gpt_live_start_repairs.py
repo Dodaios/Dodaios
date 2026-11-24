@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-import tomllib
 from array import array
 from types import SimpleNamespace
 
 import pytest
 
-from dodaios.core import config_writer
 from dodaios.core.bus import EventBus
-from dodaios.core.live_config import LiveConfig
 from dodaios.core.protocols import AudioChunk
 from dodaios.live import recovery, runtime, startup
 from dodaios.live.session import LiveVoiceSession
@@ -20,70 +17,6 @@ from dodaios.live.state import LiveLedger
 from dodaios.live.tools import LiveTools
 from tests.contract.test_gpt_live import Gateway
 from tests.contract.test_live_reconnection import Wire
-
-_CLASSIC_PROFILE = (
-    '[brain.realtime]\nprovider = ""\n'
-    '[voice]\nmode = "pipeline"\nprofile = "codex-subscription-voice"\n'
-)
-
-
-@pytest.fixture
-def quiet_baseline(monkeypatch):
-    monkeypatch.setattr(config_writer, "_update_config_soll_section", lambda *a: None)  # i18n-allow
-
-
-def test_saving_gpt_live_retires_a_leftover_classic_voice_profile(tmp_path, quiet_baseline):
-    path = tmp_path / "jarvis.toml"
-    path.write_text(_CLASSIC_PROFILE, encoding="utf-8")
-
-    profile = LiveConfig(
-        configured=True,
-        auth_mode="chatgpt_subscription",
-        subscription_backend_model="chosen-model",
-    )
-    config_writer.set_live_profile(profile.model_dump(), path=path)
-
-    saved = tomllib.loads(path.read_text(encoding="utf-8"))
-    assert saved["voice"] == {"mode": "realtime", "profile": ""}
-    assert saved["brain"]["realtime"]["provider"] == "openai-live-subscription"
-
-
-def _blocked_config(tmp_path, *, mode="realtime", provider="openai-live", configured=True):
-    path = tmp_path / "jarvis.toml"
-    live = LiveConfig(configured=configured, backend_model="chosen-model").model_dump()
-    lines = [f'[brain.realtime]\nprovider = "{provider}"\n']
-    lines.append(f'[voice]\nmode = "{mode}"\nprofile = "codex-subscription-voice"\n')
-    lines.append("[live]\n")
-    for key, value in live.items():
-        rendered = str(value).lower() if isinstance(value, bool) else f'"{value}"'
-        lines.append(f"{key} = {rendered}\n")
-    path.write_text("".join(lines), encoding="utf-8")
-    return path
-
-
-def test_boot_repairs_a_gpt_live_setup_that_a_classic_profile_blocks(tmp_path):
-    path = _blocked_config(tmp_path)
-    assert config_writer.retire_voice_profile_under_live(path=path) is True
-    saved = tomllib.loads(path.read_text(encoding="utf-8"))
-    assert saved["voice"] == {"mode": "realtime", "profile": ""}
-    assert saved["live"]["backend_model"] == "chosen-model"
-    # Repaired once; a second boot has nothing left to change.
-    assert config_writer.retire_voice_profile_under_live(path=path) is False
-
-
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"mode": "pipeline"},  # the classic profile is the selected engine
-        {"provider": "gemini-live"},  # another realtime provider owns the choice
-        {"configured": False},  # GPT-Live was never saved
-    ],
-)
-def test_boot_repair_leaves_every_other_voice_selection_alone(tmp_path, changes):
-    path = _blocked_config(tmp_path, **changes)
-    before = path.read_text(encoding="utf-8")
-    assert config_writer.retire_voice_profile_under_live(path=path) is False
-    assert path.read_text(encoding="utf-8") == before
 
 
 class _WakeBuffer:

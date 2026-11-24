@@ -2,43 +2,27 @@ import { describe, expect, it } from "vitest";
 
 import { resolveVoiceEngineDisplay, type VoiceEngineDisplayInput } from "@/lib/voiceEngineDisplay";
 
-const PIPELINE: VoiceEngineDisplayInput = {
-  mode: "pipeline",
+const IDLE: VoiceEngineDisplayInput = {
   activeProvider: "vertex-live",
   activeProviderLabel: "Vertex AI Live",
   activeModel: "gemini-live-2.5-flash-preview-native-audio-dialog",
   sessionActive: false,
-  activeSessionMode: null,
   activeSessionProvider: "",
   activeSessionModel: "",
-  brainProvider: "openrouter",
-  brainModel: "google/gemini-3.5-flash",
 };
 
 describe("resolveVoiceEngineDisplay", () => {
-  it("pipeline mode keeps the classic brain even when a realtime provider is fully configured", () => {
-    const got = resolveVoiceEngineDisplay(PIPELINE);
-    expect(got.tier).toBe("pipeline");
-    expect(got.providerLabel).toBe("OpenRouter");
-    expect(got.model).toBe("google/gemini-3.5-flash");
-  });
-
-  it("realtime mode names the realtime pick, not the dormant pipeline brain", () => {
-    // The bug on the mission deck: header and orb said "openrouter" while
-    // Vertex AI Live was the selected (and running) voice engine.
-    const got = resolveVoiceEngineDisplay({ ...PIPELINE, mode: "realtime" });
-    expect(got.tier).toBe("realtime");
+  it("names the configured realtime pick while no call runs", () => {
+    const got = resolveVoiceEngineDisplay(IDLE);
     expect(got.providerId).toBe("vertex-live");
     expect(got.providerLabel).toBe("Vertex AI Live");
     expect(got.model).toBe("gemini-live-2.5-flash-preview-native-audio-dialog");
   });
 
-  it("a running realtime session's live provider/model outrank the configured pick", () => {
+  it("a running session's live provider/model outrank the configured pick", () => {
     const got = resolveVoiceEngineDisplay({
-      ...PIPELINE,
-      mode: "realtime",
+      ...IDLE,
       sessionActive: true,
-      activeSessionMode: "realtime",
       activeSessionProvider: "openai-realtime",
       activeSessionModel: "gpt-realtime-2.1",
     });
@@ -48,8 +32,7 @@ describe("resolveVoiceEngineDisplay", () => {
 
   it("falls back to a pretty id when the backend label has not landed", () => {
     const got = resolveVoiceEngineDisplay({
-      ...PIPELINE,
-      mode: "realtime",
+      ...IDLE,
       activeProvider: "vertex-live",
       activeProviderLabel: null,
       activeModel: null,
@@ -58,10 +41,19 @@ describe("resolveVoiceEngineDisplay", () => {
     expect(got.model).toBe("");
   });
 
-  it("renders an em dash when realtime is on but no provider is resolved yet", () => {
+  it("names Grok Live by its id before the backend label lands", () => {
     const got = resolveVoiceEngineDisplay({
-      ...PIPELINE,
-      mode: "realtime",
+      ...IDLE,
+      activeProvider: "grok-realtime",
+      activeProviderLabel: null,
+      activeModel: null,
+    });
+    expect(got.providerLabel).toBe("Grok Live");
+  });
+
+  it("renders an em dash when no provider is resolved yet", () => {
+    const got = resolveVoiceEngineDisplay({
+      ...IDLE,
       activeProvider: null,
       activeProviderLabel: null,
       activeModel: null,
@@ -72,8 +64,7 @@ describe("resolveVoiceEngineDisplay", () => {
   it("names Gemini Live and the self-hosted transport the same way", () => {
     expect(
       resolveVoiceEngineDisplay({
-        ...PIPELINE,
-        mode: "realtime",
+        ...IDLE,
         activeProvider: "gemini-live",
         activeProviderLabel: "Gemini Live",
         activeModel: "gemini-3.1-flash-live-preview",
@@ -81,8 +72,7 @@ describe("resolveVoiceEngineDisplay", () => {
     ).toBe("Gemini Live");
     expect(
       resolveVoiceEngineDisplay({
-        ...PIPELINE,
-        mode: "realtime",
+        ...IDLE,
         activeProvider: "local-realtime",
         activeProviderLabel: "Self-hosted realtime (OpenAI-compatible)",
         activeModel: "auto",
@@ -92,13 +82,11 @@ describe("resolveVoiceEngineDisplay", () => {
 
   it("keeps the registry label when a live session is still on the configured pick", () => {
     const got = resolveVoiceEngineDisplay({
-      ...PIPELINE,
-      mode: "realtime",
+      ...IDLE,
       activeProvider: "local-realtime",
       activeProviderLabel: "Self-hosted realtime (OpenAI-compatible)",
       activeModel: "auto",
       sessionActive: true,
-      activeSessionMode: "realtime",
       activeSessionProvider: "local-realtime",
       activeSessionModel: "auto",
     });

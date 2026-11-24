@@ -170,7 +170,7 @@
   "speech": {
     "brain_unavailable": "Lo siento — ahora mismo no puedo acceder a ninguno de mis modelos de lenguaje. Comprueba si tus proveedores aún tienen crédito.",
     "stt_unavailable": "Perdona, no te he entendido bien ahora mismo. ¿Puedes repetirlo, por favor?",
-    "realtime_unavailable": "La conexión en tiempo real no está disponible ahora mismo. Cambiaré esta sesión al sistema de voz clásico.",
+    "realtime_unavailable": "La voz no puede iniciarse ahora mismo: ningún proveedor de voz en tiempo real está listo. Revisa el proveedor de voz en Claves API.",
     "timeout_tool_stall": "No pude obtener una respuesta a tiempo. Una herramienta que esperaba no respondió.",
     "timeout_no_answer": "No pude averiguar eso ahora mismo.",
     "provider_refused": {
@@ -180,7 +180,6 @@
       "busy": "La voz de {provider} está saturada ahora mismo y rechazó la llamada.",
       "unreachable": "No se pudo contactar con la voz de {provider}.",
       "rejected": "{provider} rechazó los ajustes de voz. Revisa la voz y el modelo en los ajustes de voz.",
-      "continued_pipeline": "Continúo esta llamada por la vía de voz clásica.",
       "continued_realtime": "Continúo esta llamada por otra conexión de voz.",
       "ended": "Esta llamada no puede continuar ahora mismo."
     },
@@ -507,8 +506,7 @@
   },
   "telephony": {
     "default_greetings": "Hola, ¿en qué puedo ayudarte?",
-    "named_greetings": "Soy {name}. ¿En qué puedo ayudarte?",
-    "fallback_phrases": "Perdona, no te he entendido. ¿Puedes repetirlo?"
+    "named_greetings": "Soy {name}. ¿En qué puedo ayudarte?"
   },
   "cu": {
     "indicator": {

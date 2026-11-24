@@ -329,7 +329,7 @@ standing_task
 Standing tasks: something the owner wants looked after over time with no end date (a campaign, an inbox, numbers they check by hand). Use it, not a routine, when the work needs judgement and memory of the last state; a fixed report on a fixed schedule is a routine, a goal with an end is a project. actions: take_on (title, goal, how, autonomy, limits, check_every_min, request_quote = the owner's exact words asking for it in their current message; without it the task is stored as a proposal), propose (same + reason; the owner accepts), accept (standing_id, request_quote = their yes), decline, list, status, update (standing_id + changes; raising autonomy or changing limits needs request_quote), pause, resume, end, run_now, note (standing_id, text), report (only inside a run of that task: standing_id, outcome, summary, notes = full working notes for the next run, actions[], next_check_min). autonomy: watch reads and tells the owner; prepare (default) also readies the next step, nothing outside Dodaios changes; act may change things inside limits (the owner's words, required). Approvals still apply.
 
 stt-switch
-Switch the speech-to-text provider. Takes effect on the next voice-pipeline start (restart required).
+Switch the speech-to-text provider used for dictation. Takes effect on the next dictation.
 
 switch-provider
 Switch the active AI provider for a tier: 'tts' (voice), 'stt' (speech recognition) or 'subagent' (the heavy background worker): 'change the voice to Cartesia', 'put the subagent on codex'. The 'brain' tier is NOT switchable this way: the main model is the user's own choice, changed only in the desktop app or CLI; for 'switch to Gemini' tell them where. The target's API key must already be saved (this does not set keys). TTS applies at once; STT and subagent need a restart.
@@ -363,9 +363,6 @@ Inspect the user's connected Vercel account: list projects and recent deployment
 
 verify_delegate
 Check delegated work against the evidence it left behind, instead of trusting the worker's own report. Takes the job_... id a hand-off returned. Coding job (coding:<pane id>): the diff in its folder plus the test run it recorded. Artifact (artifact:<file path>): the file exists, is not empty and parses. Society result (society:<event id>): every listed evidence ref exists. Returns verified / unverified / failed with the checks. Read-only.
-
-voice-mode-set
-Choose the voice engine: the classic STT-brain-TTS pipeline or a realtime speech-to-speech model.
 
 wake-word-get
 Show the current wake word and wake-engine settings.

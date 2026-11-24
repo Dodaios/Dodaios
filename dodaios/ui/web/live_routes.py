@@ -188,10 +188,6 @@ async def save_live_profile(body: LiveConfig, request: Request) -> dict:
     await asyncio.to_thread(set_live_profile, body.model_dump())
     cfg.live = body
     cfg.brain.realtime = BrainTierConfig(provider=body.provider_id, model=effective.model)
-    cfg.voice.mode = "realtime"
-    # The writer retired any classic voice profile; the running config has to
-    # agree, or the next call still resolves to that profile until a restart.
-    cfg.voice.profile = ""
     return {"profile": body.model_dump(), "applies": "next_call"}
 
 

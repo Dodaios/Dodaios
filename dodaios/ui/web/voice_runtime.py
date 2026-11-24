@@ -1,7 +1,7 @@
 """Bridge voice-setting routes to the effective desktop speech runtime.
 
-The persisted/configured engine and an already-open call are separate pieces
-of state. These helpers keep routes honest without making headless/browser-only
+The persisted provider choice and an already-open call are separate pieces of
+state. These helpers keep routes honest without making headless/browser-only
 deployments depend on the desktop speech stack.
 """
 
@@ -28,7 +28,6 @@ def voice_engine_status(request: Any) -> dict[str, Any]:
         return {
             "session_active": True,
             "session_id": session.session_id,
-            "active_session_mode": "realtime",
             "active_session_provider": session.active_provider,
             "active_session_model": session._active_model,
             "transitioning": False,
@@ -39,7 +38,6 @@ def voice_engine_status(request: Any) -> dict[str, Any]:
         return {
             "session_active": False,
             "session_id": "",
-            "active_session_mode": None,
             "active_session_provider": "",
             "active_session_model": "",
             "transitioning": False,
@@ -51,36 +49,11 @@ def voice_engine_status(request: Any) -> dict[str, Any]:
         return {
             "session_active": False,
             "session_id": "",
-            "active_session_mode": None,
             "active_session_provider": "",
             "active_session_model": "",
             "transitioning": False,
         }
     return dict(value) if isinstance(value, dict) else {}
-
-
-def apply_voice_mode(request: Any, mode: str) -> bool:
-    pipeline = _pipeline(request)
-    apply = getattr(pipeline, "apply_voice_mode", None)
-    if not callable(apply):
-        return False
-    try:
-        return bool(apply(mode))
-    except Exception:  # noqa: BLE001 -- config remains applied for next session
-        log.warning("Live voice-mode application failed", exc_info=True)
-        return False
-
-
-def apply_voice_profile(request: Any, profile: str) -> bool:
-    pipeline = _pipeline(request)
-    apply = getattr(pipeline, "apply_voice_profile", None)
-    if not callable(apply):
-        return False
-    try:
-        return bool(apply(profile))
-    except Exception:  # noqa: BLE001 -- config remains applied for next session
-        log.warning("Live voice-profile application failed", exc_info=True)
-        return False
 
 
 def reconnect_realtime(request: Any, *, reason: str) -> bool:
@@ -96,8 +69,6 @@ def reconnect_realtime(request: Any, *, reason: str) -> bool:
 
 
 __all__ = [
-    "apply_voice_mode",
-    "apply_voice_profile",
     "reconnect_realtime",
     "voice_engine_status",
 ]

@@ -75,20 +75,6 @@ async def test_ready_cue_respects_switch():
     assert off._player.plays == []  # type: ignore[attr-defined]
 
 
-async def test_wake_chime_muted_but_spoken_ack_still_plays(monkeypatch):
-    """A muted wake path plays no chime, but the spoken ACK that follows is NOT
-    an earcon and must still reach the player — only effect tones are gated."""
-    pipe = _make_pipeline(False)
-    pipe._ack_pcm = b"\x00\x00" * 100  # type: ignore[attr-defined]
-
-    async def _fast_sleep(_secs):  # noqa: ANN001, ANN202
-        return None
-
-    monkeypatch.setattr("dodaios.speech.pipeline.asyncio.sleep", _fast_sleep)
-    await pipe._play_ack(ptt=False)
-    assert pipe._player.plays == [pipe._ack_pcm]  # type: ignore[attr-defined]
-
-
 async def test_listening_cue_is_once_per_session_and_preserves_input():
     pipe = _make_pipeline(True)
     pipe._input_suppressed_until_ns = 0

@@ -77,12 +77,10 @@ _PLUGINS = {
 
 
 def _cfg(
-    mode: str = "realtime",
     provider: str = "openai-realtime",
-    profile: str = "",
 ) -> SimpleNamespace:
     return SimpleNamespace(
-        voice=SimpleNamespace(mode=mode, profile=profile),
+        voice=SimpleNamespace(),
         brain=SimpleNamespace(
             reply_language="en",
             providers={},
@@ -258,20 +256,6 @@ def test_gemini_browser_audio_uses_native_desktop_audio_on_webkitgtk(monkeypatch
     assert realtime_browser_audio(config, desktop_renderer="edgechromium") is True
     # Remote browser callers do not pass an embedded renderer.
     assert realtime_browser_audio(config) is True
-
-
-def test_pipeline_mode_never_builds_realtime_session(monkeypatch):
-    _fake_registry(monkeypatch, {"openai"})
-    assert (
-        build_realtime_session(
-            cfg=_cfg(mode="pipeline"),
-            bus=None,
-            session_id="s",
-            send_binary=None,
-            send_json=None,
-        )
-        is None
-    )
 
 
 def test_realtime_tool_mode_defaults_to_hybrid_native_tools() -> None:
@@ -478,20 +462,6 @@ async def test_prespawn_only_starts_primary_and_opted_in_fallback(
 
 
 @pytest.mark.asyncio
-async def test_prespawn_skips_a_pipeline_mode_install(monkeypatch) -> None:
-    """A stale realtime pin must not spawn a server for a disabled feature."""
-    probe = _PrespawnProbe()
-    monkeypatch.setattr(factory, "_explicit_provider_ids", lambda _cfg: ["probe"])
-    monkeypatch.setattr(
-        factory, "load", lambda _group, _pid, protocol=None: probe
-    )
-
-    await factory.realtime_prespawn_transports(_cfg(mode="pipeline"))
-
-    assert probe.calls == 0
-
-
-@pytest.mark.asyncio
 async def test_prespawn_ignores_unselected_plugins(monkeypatch) -> None:
     """An installed but unselected plugin must never spawn a process."""
     probe = _PrespawnProbe()
@@ -546,30 +516,6 @@ async def test_warm_selected_transports_ignores_unselected_plugins(
 
 
 @pytest.mark.asyncio
-async def test_warm_selected_transports_skips_a_pipeline_mode_install(
-    monkeypatch,
-) -> None:
-    """A stale realtime pin must not spawn a transport for a disabled feature.
-
-    Warming a subscription transport means spawning a process, running a live
-    account check, and HOLDING the profile lock — which is what made the user's
-    own Codex login report "busy" on an install whose voice runs the classic
-    pipeline. Gate on the same switch ``build_realtime_session`` reads.
-    """
-    warm = _WarmProbe()
-    monkeypatch.setattr(
-        factory, "_explicit_provider_ids", lambda _cfg: ["warm-me"]
-    )
-    monkeypatch.setattr(
-        factory, "load", lambda _group, _pid, protocol=None: warm
-    )
-
-    await factory.realtime_warm_selected_transports(_cfg(mode="pipeline"))
-
-    assert warm.calls == 0
-
-
-@pytest.mark.asyncio
 async def test_warm_selected_transports_still_warms_the_realtime_install(
     monkeypatch,
 ) -> None:
@@ -587,38 +533,10 @@ async def test_warm_selected_transports_still_warms_the_realtime_install(
     )
 
     await factory.realtime_warm_selected_transports(
-        _cfg(mode="realtime", provider="openai-realtime")
+        _cfg(provider="openai-realtime")
     )
 
     assert warm.calls == 1
-
-
-@pytest.mark.asyncio
-async def test_warm_selected_transports_skips_the_subscription_pipeline_profile(
-    monkeypatch,
-) -> None:
-    """An explicit classic profile must not warm an unused duplex transport."""
-    warm = _WarmProbe()
-    monkeypatch.setattr(
-        factory,
-        "_explicit_provider_ids",
-        lambda _cfg: ["warm-me"],
-    )
-    monkeypatch.setattr(
-        factory,
-        "load",
-        lambda _group, _pid, protocol=None: warm,
-    )
-
-    await factory.realtime_warm_selected_transports(
-        _cfg(
-            mode="realtime",
-            provider="openai-realtime",
-            profile="codex-subscription-voice",
-        )
-    )
-
-    assert warm.calls == 0
 
 
 @pytest.mark.asyncio
@@ -638,7 +556,7 @@ async def test_warm_selected_transports_keeps_codex_realtime_provider_realtime(
     )
 
     await factory.realtime_warm_selected_transports(
-        _cfg(mode="realtime", provider="codex-subscription-realtime")
+        _cfg(provider="codex-subscription-realtime")
     )
 
     assert warm.calls == 1

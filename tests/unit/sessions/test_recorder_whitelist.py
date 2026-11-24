@@ -1,10 +1,14 @@
 """The Run Inspector reads latency/decision/error events out of voice_events.
 Guards that the recorder whitelist carries those kinds and their payload fields."""
-from dodaios.sessions.recorder import _RAW_EVENT_KINDS, _payload_for
 from dodaios.core.events import (
-    IntentClassified, ActionProposed, ActionApproved, ActionDenied,
-    ErrorOccurred, LatencySpan,
+    ActionApproved,
+    ActionDenied,
+    ActionProposed,
+    ErrorOccurred,
+    IntentClassified,
+    LatencySpan,
 )
+from dodaios.sessions.recorder import _RAW_EVENT_KINDS, _payload_for
 
 
 def test_decision_latency_error_kinds_are_whitelisted():

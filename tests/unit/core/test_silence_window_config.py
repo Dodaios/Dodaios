@@ -18,23 +18,6 @@ def test_default_is_automatic() -> None:
     assert SpeechConfig().vad_silence_ms == 0
 
 
-def test_automatic_resolves_to_the_pipelines_own_window() -> None:
-    """A LOCAL VAD has no vendor default to inherit, so automatic = 1.5 s.
-
-    Single source of truth for that resolution: a bare ``SileroEndpointer()``
-    must fall back to the SAME window the pipeline resolves "automatic" to,
-    never the pre-"1.5s rule" 1.0 s value. Every real caller passes the
-    resolved value explicitly, but keeping the constructor default aligned
-    stops a stale 1.0 s from creeping back via a bare construction.
-    """
-    from dodaios.audio.vad import SileroEndpointer
-    from dodaios.speech.pipeline import _local_silence_window_ms
-
-    resolved = _local_silence_window_ms(SpeechConfig().vad_silence_ms)
-    assert resolved == 1500
-    assert SileroEndpointer()._silence_frames == resolved // 32
-
-
 def test_accepts_in_range_value() -> None:
     assert SpeechConfig(vad_silence_ms=2500).vad_silence_ms == 2500
 

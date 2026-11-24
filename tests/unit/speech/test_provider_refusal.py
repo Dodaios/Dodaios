@@ -70,23 +70,6 @@ def test_ordinary_failures_are_not_refusals() -> None:
     assert pr.describe("") is None
 
 
-def test_only_a_definitive_usage_billed_refusal_overrides_the_fallback_block() -> None:
-    from dodaios.plugins.realtime.openai_subscription_live import SubscriptionLiveError
-
-    assert pr.refusal_of_kind(pr.KIND_PLAN).overrides_fallback_block
-    assert pr.refusal_of_kind(pr.KIND_KEY).overrides_fallback_block
-    assert not pr.refusal_of_kind(pr.KIND_BUSY).overrides_fallback_block
-    assert not pr.refusal_of_kind(pr.KIND_UNREACHABLE).overrides_fallback_block
-    # A subscription that refused keeps the rule it was pinned for (#828).
-    refusal = pr.describe(SubscriptionLiveError("voice_not_offered", plan="free"))
-    assert refusal is not None and refusal.kind == pr.KIND_PLAN
-    assert refusal.subscription and not refusal.overrides_fallback_block
-    try:
-        raise RuntimeError("wrapper") from SubscriptionLiveError("quota_exhausted")
-    except RuntimeError as wrapped:
-        assert pr.describe(wrapped).subscription
-
-
 def test_transient_kinds_say_waiting_helps() -> None:
     assert pr.refusal_of_kind(pr.KIND_BUSY).waiting_helps
     assert pr.refusal_of_kind(pr.KIND_UNREACHABLE).waiting_helps
@@ -124,12 +107,10 @@ def test_nothing_remembered_keeps_the_order(fresh_ledger) -> None:
 
 def test_sentences_name_the_provider_and_what_happens_next() -> None:
     plan = pr.refusal_of_kind(pr.KIND_PLAN)
-    en = pr.sentence(
-        plan, provider="openai-live", language="en", continued_on=pr.CONTINUED_PIPELINE
-    )
+    en = pr.sentence(plan, provider="openai-live", language="en")
     assert "openai live" in en
     assert "plan" in en
-    assert "classic voice path" in en
+    assert "cannot continue" in en
     de = pr.sentence(plan, provider="openai-live", language="de")
     assert "Tarif" in de
     assert "kann gerade nicht weitergehen" in de  # i18n-allow: the German catalog line
@@ -183,7 +164,7 @@ def test_announce_publishes_the_event_and_posts_a_lead_notice(monkeypatch) -> No
             provider="openai-live",
             refusal=pr.refusal_of_kind(pr.KIND_PLAN),
             language="en",
-            continued_on=pr.CONTINUED_PIPELINE,
+            continued_on=pr.CONTINUED_REALTIME,
         )
     )
     from dodaios.core.events import VoiceProviderRefused
@@ -193,13 +174,13 @@ def test_announce_publishes_the_event_and_posts_a_lead_notice(monkeypatch) -> No
     assert event.session_id == "call-9"
     assert event.provider == "openai-live"
     assert event.kind == pr.KIND_PLAN
-    assert event.continued_on == "pipeline"
+    assert event.continued_on == "realtime"
     assert event.message == text
     ((session_id, payload),) = svc.notices
     assert session_id == "lead-1"
     assert payload["kind"] == "voice_provider_refused"
     assert payload["text"] == text
-    assert payload["continued_on"] == "pipeline"
+    assert payload["continued_on"] == "realtime"
 
 
 def test_announce_never_raises_without_a_society_or_bus(monkeypatch) -> None:

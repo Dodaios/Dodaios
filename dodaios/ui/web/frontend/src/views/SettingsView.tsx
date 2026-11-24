@@ -127,9 +127,9 @@ function renderSection(section: (typeof SECTIONS)[number]) {
 
 /**
  * The voice rows share one card. Each keeps its own boundary and its own
- * `settings-<id>` anchor, so search still lands on the exact row. Which
- * engine a call uses (GPT-Live or the pipeline) is chosen with its provider
- * on API Keys → Live calls, the one place that also sets the engine up.
+ * `settings-<id>` anchor, so search still lands on the exact row. The
+ * realtime provider a call uses is chosen on API Keys → Live calls, the one
+ * place that also sets it up.
  */
 function VoiceSettingsGroup() {
   const t = useT();

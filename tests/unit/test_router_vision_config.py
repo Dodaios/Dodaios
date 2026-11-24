@@ -26,14 +26,6 @@ def test_router_vision_config_defaults():
     assert cfg.capture_mode == "screenshot"
     assert cfg.max_image_kb == 500
     assert cfg.pause_on_idle is True
-    # German and English runtime phrases for privacy mode and resume.
-    assert cfg.voice_pause_phrase_de == "privacy"
-    assert cfg.voice_pause_phrase_en == "privacy mode"
-    assert cfg.voice_resume_phrase_de == "du darfst wieder sehen"
-    assert cfg.voice_resume_phrase_en == "vision back on"
-    # Sanity check for the defining intent words.
-    assert "privacy" in cfg.voice_pause_phrase_de
-    assert "vision" in cfg.voice_resume_phrase_en
 
 
 def test_public_example_loads_without_router_vision_override():

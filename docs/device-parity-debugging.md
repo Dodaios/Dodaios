@@ -61,8 +61,8 @@ user this reads as "the feature is broken on this device".
   construction — key **presence** booleans only, never values — and its
   `summary` lines are ordered for line-by-line diffing between two devices;
   `degradations` names every tier that quietly fell back or lacks a key.
-- Manual cross-check: Settings → Providers on both devices; mode (realtime
-  vs. classic pipeline), wake word set, skills activated;
+- Manual cross-check: Settings → Providers on both devices; the realtime
+  voice provider under API Keys > Live calls, wake word set, skills activated;
   `python -m dodaios --check` on both, and diff the output.
 
 If the setups differ, align them (in-app — §3 requires every credential path

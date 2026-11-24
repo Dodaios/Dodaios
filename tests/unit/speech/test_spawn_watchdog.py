@@ -185,59 +185,6 @@ async def test_multiple_spawns_each_get_a_watchdog() -> None:
 
 
 @pytest.mark.asyncio
-async def test_finish_after_response_stays_listening_while_spawn_in_flight() -> None:
-    """BUG: when a force-spawn-worker fires and single-turn-mode is on,
-    ``_finish_after_response`` used to hang up immediately after the spawn ACK
-    -- the mic context exited, the user could not follow up, and the eventual
-    background-completed readback played 'into the void'.
-
-    The fix re-uses the existing ``_spawn_watchdog_tasks`` FIFO as the
-    canonical 'spawns in flight' tracker: as long as at least one spawn
-    has not yet emitted ``JarvisAgentBackgroundCompleted``, the turn is not
-    semantically complete and the pipeline must stay LISTENING.
-    """
-    from dodaios.speech.pipeline import TurnTakingState
-
-    bus = EventBus()
-    pipe = _pipeline(bus, watchdog_delay_s=60.0)
-    # Single-turn-mode: without the fix, _finish_after_response hangs up.
-    pipe._continue_listening_after_response = False
-
-    await bus.publish(JarvisAgentAnnouncement(action="bauen", target="x"))
-    await asyncio.sleep(0.02)
-    assert len(pipe._spawn_watchdog_tasks) == 1, "spawn must be tracked"
-
-    # Simulate the post-ACK code path: response delivered, now decide whether
-    # to hang up. With a spawn in flight the answer is "no, keep listening".
-    result = await pipe._finish_after_response(barged=False)
-    assert result is True, (
-        "Pipeline must stay alive (return True) while a spawn is in flight "
-        "-- otherwise the mic closes and the background readback plays into "
-        "a dead session."
-    )
-    assert pipe._turn_state == TurnTakingState.LISTENING, (
-        "State must transition back to LISTENING, not IDLE, while waiting "
-        "for the mission readback."
-    )
-    assert pipe._session_end_reason is None, (
-        "_session_end_reason must NOT be set to HANGUP_TURN_COMPLETE -- the "
-        "turn is not complete until JarvisAgentBackgroundCompleted fires."
-    )
-
-    # After the mission completes the watchdog is popped; a follow-up turn
-    # then respects single-turn-mode again.
-    await bus.publish(JarvisAgentBackgroundCompleted(success=True, summary="ok"))
-    await asyncio.sleep(0.05)
-    assert pipe._spawn_watchdog_tasks == []
-
-    result = await pipe._finish_after_response(barged=False)
-    assert result is False, (
-        "With no more spawns in flight, single-turn-mode must hang up again."
-    )
-    assert pipe._session_end_reason is not None
-
-
-@pytest.mark.asyncio
 async def test_completion_after_watchdog_fires_is_still_clean() -> None:
     """If the watchdog has already fired and the mission then finishes,
     the completion path must not crash on the already-done task -- the
@@ -255,7 +202,7 @@ async def test_completion_after_watchdog_fires_is_still_clean() -> None:
 
 @pytest.mark.asyncio
 async def test_fired_watchdog_self_removes_from_inflight_list() -> None:
-    """Bound for the idle-timeout / finish-after-response override.
+    """A fired watchdog leaves the in-flight list.
 
     In production a *successful* background mission never publishes
     ``JarvisAgentBackgroundCompleted`` — the readback travels the MissionAnnouncer
@@ -263,9 +210,9 @@ async def test_fired_watchdog_self_removes_from_inflight_list() -> None:
     (the only code that pops ``_spawn_watchdog_tasks``) fires solely on the crash
     path. So the watchdog is never *cancelled*; it simply *fires* after the delay.
 
-    A fired watchdog MUST drop itself from ``_spawn_watchdog_tasks`` (via its own
-    self-removal, surfaced through ``_live_spawn_watchdogs``); otherwise a
-    done-but-listed task keeps the voice session open forever.
+    A fired watchdog MUST drop itself from ``_spawn_watchdog_tasks`` (its own
+    self-removal); otherwise a done-but-listed task reads as a mission still in
+    flight forever.
     """
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=0.05)
@@ -278,35 +225,9 @@ async def test_fired_watchdog_self_removes_from_inflight_list() -> None:
     # published — this is the production success path.
     await asyncio.sleep(0.25)
 
-    assert pipe._live_spawn_watchdogs() == [], (
+    assert pipe._spawn_watchdog_tasks == [], (
         "a fired watchdog must self-remove; otherwise the done task lingers and "
-        "the idle-timeout override keeps the session listening forever"
-    )
-
-
-@pytest.mark.asyncio
-async def test_finish_after_response_hangs_up_once_watchdog_has_fired() -> None:
-    """Consumer-level proof of the "not forever" bound.
-
-    Single-turn mode: while a mission is genuinely in flight (watchdog still
-    counting down) ``_finish_after_response`` keeps the turn open. Once the
-    watchdog has fired — the mission had its full grace window and the user was
-    reassured with "Bin noch dran." — a leaked done-task must NOT keep the turn
-    open. Pre-fix the done task lingered and ``_finish_after_response`` returned
-    ``True`` (keep listening) on every subsequent turn forever.
-    """
-    bus = EventBus()
-    pipe = _pipeline(bus, watchdog_delay_s=0.05)
-    pipe._continue_listening_after_response = False  # single-turn mode
-
-    await bus.publish(JarvisAgentAnnouncement(action="bauen", target="x"))
-    await asyncio.sleep(0.02)
-    assert await pipe._finish_after_response(barged=False) is True  # in flight
-
-    await asyncio.sleep(0.25)  # watchdog fires (no completion event ever arrives)
-    assert await pipe._finish_after_response(barged=False) is False, (
-        "with the watchdog fired and no live mission, single-turn mode must "
-        "hang up again instead of listening forever"
+        "reads as a mission still in flight"
     )
 
 
@@ -520,7 +441,7 @@ async def test_heartbeat_skipped_in_a_voice_session_that_did_not_start_it() -> N
     assert _heartbeats(announcements) == [], (
         "a heartbeat from another context was published into a new call"
     )
-    assert pipe._live_spawn_watchdogs() == [], "the skipped watchdog must still end"
+    assert pipe._spawn_watchdog_tasks == [], "the skipped watchdog must still end"
 
 
 @pytest.mark.asyncio

@@ -38,7 +38,7 @@
       "key_connected": "已连接：{provider}。",
       "key_partial": "部分功能未能开启（{parts}）。你可以稍后在“API 密钥”页面修复。",
       "live_ready": "实时语音已开启：开口说话，{name} 会立即回答。",
-      "live_missing": "对话已可用。实时语音需要 OpenAI 或 Gemini 密钥；在此之前，{name} 会用经典方式说话，稍微慢一点。",
+      "live_missing": "对话已可用。语音通话需要一个实时语音服务商：OpenAI、Gemini 或 xAI 密钥。",
       "key_security": "订阅按固定月费计费。密钥保存在你系统的钥匙串中，只会发送给你选择的服务商。",
       "nothing_yet": "还没有连接任何服务。没有订阅或密钥时，对话和语音都无法使用。你可以稍后在“API 密钥”页面连接。",
       "later": "暂时跳过"

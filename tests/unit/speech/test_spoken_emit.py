@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 import pytest
 
 from dodaios.core.bus import EventBus
-from dodaios.core.events import ListeningStarted, SpeechSpoken
+from dodaios.core.events import SpeechSpoken
 from dodaios.core.protocols import AudioChunk
 from dodaios.sessions.constants import SPOKEN_KINDS
 from dodaios.speech.pipeline import SpeechPipeline, _announcement_spoken_kind
@@ -293,11 +293,15 @@ async def test_on_announcement_emits_spoken_with_mapped_kind() -> None:
 
 @pytest.mark.asyncio
 async def test_end_to_end_voiced_phrase_reaches_the_session_store(tmp_path) -> None:
-    """The whole chain: the pipeline voices a timeout phrase, the passive
+    """The whole chain: the pipeline voices a notice, the passive
     SessionRecorder on the same bus persists it, and it shows up in the session
     log — the literal user requirement ('everything the TTS speaks documented
     there')."""
-    from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
+    from dodaios.core.events import (
+        VoiceSessionEnded,
+        VoiceSessionStarted,
+        VoiceTurnStarted,
+    )
     from dodaios.sessions.recorder import SessionRecorder
     from dodaios.sessions.store import SessionStore
 
@@ -316,9 +320,11 @@ async def test_end_to_end_voiced_phrase_reaches_the_session_store(tmp_path) -> N
                 language="de",
             )
         )
-        await bus.publish(ListeningStarted(source_layer="speech"))
+        await bus.publish(
+            VoiceTurnStarted(source_layer="speech", session_id="s1", turn_id="s1-t1")
+        )
         await pipeline._speak(
-            "That took too long.", language="de", kind="timeout"
+            "No voice provider is ready.", language="en", kind="unavailable"
         )
         await asyncio.sleep(0.05)  # let the fire-and-forget publish + record run
         await bus.publish(
@@ -330,9 +336,9 @@ async def test_end_to_end_voiced_phrase_reaches_the_session_store(tmp_path) -> N
         )
 
         spoken = [e for e in store.get_events("s1") if e.kind == "SpeechSpoken"]
-        assert len(spoken) == 1, "the voiced timeout phrase never reached the log"
-        assert spoken[0].payload["spoken_kind"] == "timeout"
-        assert spoken[0].payload["text"] == "That took too long."
-        assert spoken[0].turn_id is not None
+        assert len(spoken) == 1, "the voiced notice never reached the log"
+        assert spoken[0].payload["spoken_kind"] == "unavailable"
+        assert spoken[0].payload["text"] == "No voice provider is ready."
+        assert spoken[0].turn_id == "s1-t1"
     finally:
         store.close()

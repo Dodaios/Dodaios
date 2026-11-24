@@ -23,16 +23,15 @@ from uuid import uuid4
 
 from dodaios.core.cancellation import raise_if_cancelling
 from dodaios.core.redact import safe_preview
-from dodaios.sessions.constants import HANGUP_DESKTOP_FALLBACK
+from dodaios.sessions.constants import HANGUP_TURN_COMPLETE, SPOKEN_KIND_REPLY
 from dodaios.speech import pipeline as _pl
 from dodaios.speech import provider_refusal
 
 if TYPE_CHECKING:
     from dodaios.speech.pipeline import VoicePipeline, _SessionInputBuffer
 
-# Returned by a start-up phase that wants the next phase to run. ``None`` is a
-# real answer of the session ("continue on the classic path"), so a distinct
-# sentinel carries "keep going".
+# Returned by a start-up phase that wants the next phase to run; any other
+# value is the hangup reason that ends the call.
 _CONTINUE: Any = object()
 
 
@@ -43,7 +42,6 @@ class RealtimeSessionRunner:
         self.pipe = pipe
         self.input_buffer = input_buffer
         self.input_chunks: Any = None
-        self.allow_classic_fallback = True
         self.session_id = ""
         self.playback: Any = None
         self.barge_detector: Any = None
@@ -76,17 +74,16 @@ class RealtimeSessionRunner:
         self.post_output_hw_tail_until = 0.0
         self.tail_pending: deque[bytes] = deque()
         self.tail_pending_bytes = 0
-        self.semantic_turn_committed = False
         # The last provider refusal this attempt saw (plan / key / credit /
         # busy / unreachable), classified by dodaios.speech.provider_refusal.
-        # A refusal is not a provider that might still answer: the call then
-        # continues on the classic path and the person is told why.
+        # A refusal is not a provider that might still answer: the call ends
+        # and the person is told why.
         self.last_refusal: Any = None
         self.last_refused_provider = ""
         # Per-segment accumulator of the session's assistant transcript
         # deltas: registered with the PIPELINE's own text echo guard when the
-        # segment closes, so a session teardown -> classic fallback cannot
-        # answer a late speaker echo of realtime output (BUG-089).
+        # segment closes, so a late speaker echo of realtime output is never
+        # taken for the user (BUG-089).
         self.assistant_transcript_parts: list[str] = []
         # Start-up buffer and task bookkeeping (see _send_microphone).
         self.provider_ready = asyncio.Event()
@@ -123,15 +120,15 @@ class RealtimeSessionRunner:
     # Entry point and lifecycle
     # ------------------------------------------------------------------
 
-    async def run(self) -> str | None:
-        """Run the session; the return value is the hangup reason, or ``None``
-        for "continue this call on the classic pipeline"."""
+    async def run(self) -> str:
+        """Run the session; the return value is the hangup reason."""
         pipe = self.pipe
         handled, handover_reason = await self._browser_handover()
         if handled:
-            return handover_reason
+            return handover_reason or _pl.HANGUP_HOTKEY
         if not self._prepare():
-            return None
+            await self._announce_unavailable()
+            return _pl.HANGUP_ERROR
         try:
             async with pipe._session_input_source(self.input_buffer) as input_chunks:
                 self.input_chunks = input_chunks
@@ -139,7 +136,7 @@ class RealtimeSessionRunner:
         except asyncio.CancelledError:
             self.reason = "shutdown"
             raise
-        except Exception as exc:  # noqa: BLE001 - classic fallback is load-bearing
+        except Exception as exc:  # noqa: BLE001 - the call ends with its reason
             return await self._on_session_failure(exc)
         finally:
             await self._teardown()
@@ -200,8 +197,8 @@ class RealtimeSessionRunner:
         """Imports, detectors, the playback adapter and the barge-in warm-up.
 
         Returns ``False`` when the optional realtime stack is not installed
-        (the call then continues on the classic path). Everything here is
-        synchronous, so no event can interleave with it.
+        (the call then ends with a notice). Everything here is synchronous, so
+        no event can interleave with it.
         """
         pipe = self.pipe
         try:
@@ -209,13 +206,9 @@ class RealtimeSessionRunner:
                 DesktopRealtimeBargeInDetector,
                 DesktopRealtimePlayback,
             )
-            from dodaios.realtime.factory import (
-                build_realtime_session,
-                realtime_implicit_usage_fallback_allowed,
-            )
+            from dodaios.realtime.factory import build_realtime_session
 
             self._build_realtime_session = build_realtime_session
-            self.allow_classic_fallback = realtime_implicit_usage_fallback_allowed(pipe._config)
         except ImportError as exc:
             _pl.log.warning("Realtime desktop stack is unavailable: %s", exc)
             return False
@@ -223,7 +216,7 @@ class RealtimeSessionRunner:
         session_id = getattr(pipe, "_current_voice_session_id", None) or str(uuid4())
         self.session_id = session_id
         self.playback = DesktopRealtimePlayback(pipe._player)
-        # ONE barge-in policy with the classic path ([voice] barge_in; #153).
+        # ONE barge-in policy for every voice surface ([voice] barge_in; #153).
         from dodaios.speech.barge_in import profile_for as _barge_profile_for
 
         barge_profile = _barge_profile_for(pipe._config)
@@ -232,7 +225,7 @@ class RealtimeSessionRunner:
             **barge_profile.detector_kwargs(),
         )
         # Per-frame Silero inference runs OFF the voice event loop - the same
-        # BUG-062/BUG-084 class the classic barge monitor already fixed with
+        # BUG-062/BUG-084 class the old turn-based barge monitor fixed with
         # to_thread; inline it stalled playback on slow CPUs (Intel-Mac test
         # machine). ONE worker preserves frame order and the detector's
         # internal state; _run_voice_critical_thread would spawn a fresh
@@ -266,14 +259,12 @@ class RealtimeSessionRunner:
         self.barge_warm_task = asyncio.create_task(
             self._warm_barge_detector(), name=f"rt-barge-warm-{self.session_id}"
         )
-        # Default: this session ends by handing the SAME call to the classic
-        # pipeline. Every genuine hangup path below overwrites it. The marker
-        # keeps ``RealtimeVoiceSession.end`` from announcing a session end that
-        # never happened - the pipeline's own teardown owns that.
-        self.reason = HANGUP_DESKTOP_FALLBACK if self.allow_classic_fallback else _pl.HANGUP_ERROR
+        # Default: the session failed. Every genuine hangup path below
+        # overwrites it.
+        self.reason = _pl.HANGUP_ERROR
         return True
 
-    async def _run_call(self) -> str | None:
+    async def _run_call(self) -> str:
         """Start the microphone, assemble the session, handshake, then serve."""
         # A shared capture buffer already owns and meters production
         # input, so leave it unread until the provider accepts audio.
@@ -327,27 +318,14 @@ class RealtimeSessionRunner:
         build_ms = (_pl.time.monotonic() - self.build_started_at) * 1000.0
         _pl.log.info("Realtime desktop session assembled in %.0f ms.", build_ms)
         if self.session is None:
-            if self._primary_refused_before():
-                # The provider said no on the last call and nothing
-                # changed since (the factory left it out): do not
-                # spend another 12 s on the same answer. The call
-                # continues on the classic path and the person hears
-                # why.
-                self.reason = HANGUP_DESKTOP_FALLBACK
-                await self._announce_refusal(provider_refusal.CONTINUED_PIPELINE)
-                return None
-            if self.allow_classic_fallback:
-                return None
-            # A remembered refusal of a subscription ends the call
-            # with its reason instead of a usage-billed path.
-            await self._announce_refusal(provider_refusal.CONTINUED_NONE)
-            _pl.log.warning(
-                "Selected realtime access is unavailable; automatic "
-                "usage-billed classic fallback is disabled."
-            )
+            # No provider could be built. A provider that said no on the last
+            # call and was left out by the factory is named with its reason;
+            # otherwise the person hears that no realtime provider is ready.
+            self._remember_primary_refusal()
+            _pl.log.warning("No realtime voice provider is ready; the call ends.")
+            await self._announce_unavailable()
             self.reason = _pl.HANGUP_ERROR
             return _pl.HANGUP_ERROR
-        self.allow_classic_fallback = bool(getattr(self.session, "allow_classic_fallback", True))
         # Desktop plays provider PCM through the process-local
         # AudioPlayer, whose write path stamps level_tap's playback
         # window — a PHYSICAL "audio is audible right now" probe. The
@@ -388,14 +366,14 @@ class RealtimeSessionRunner:
             (_pl.time.monotonic() - self.build_started_at) * 1000.0,
         )
         # Completed startup tasks must not remain in the live-session
-        # FIRST_COMPLETED set; either would make a healthy realtime
-        # session unwind into classic voice immediately.
+        # FIRST_COMPLETED set; either would end a healthy realtime session
+        # immediately.
         self.wait_tasks.discard(self.build_task)
         self.wait_tasks.discard(self.handshake_task)
         self.provider_ready.set()
         return _CONTINUE
 
-    async def _serve_until_end(self) -> str | None:
+    async def _serve_until_end(self) -> str:
         """Pump audio until hangup, provider end, turn end or failure."""
         pipe = self.pipe
         if self.microphone_task is None:
@@ -414,7 +392,7 @@ class RealtimeSessionRunner:
         done, _pending = await asyncio.wait(self.wait_tasks, return_when=asyncio.FIRST_COMPLETED)
         return await self._decide_exit(done)
 
-    async def _decide_exit(self, done: Any) -> str | None:
+    async def _decide_exit(self, done: Any) -> str:
         """Why the wait ended, in the order that matters: hangup key, voice
         hangup, single-turn end, then a provider/early failure."""
         pipe = self.pipe
@@ -422,8 +400,7 @@ class RealtimeSessionRunner:
             self.reason = _pl.HANGUP_HOTKEY
             return _pl.HANGUP_HOTKEY
         # Voice hang-up ("auflegen" / end_call): the session ends its
-        # own pump and reports the reason — end the call for real
-        # instead of unwinding into the classic pipeline. Checked
+        # own pump and reports the reason. Checked
         # before turn_complete: in single-turn mode both fire, and
         # voice_pattern is the more specific cause.
         session_hangup = str(getattr(self.session, "hangup_reason", "") or "")
@@ -431,8 +408,8 @@ class RealtimeSessionRunner:
             self.reason = session_hangup
             return session_hangup
         if self.turn_complete.is_set():
-            self.reason = _pl.HANGUP_TURN_COMPLETE
-            return _pl.HANGUP_TURN_COMPLETE
+            self.reason = HANGUP_TURN_COMPLETE
+            return HANGUP_TURN_COMPLETE
         for task in done:
             if task.cancelled():
                 continue
@@ -443,40 +420,17 @@ class RealtimeSessionRunner:
                     type(exc).__name__,
                     exc,
                 )
-        if self.semantic_turn_committed:
-            # Once a final transcript/output exists, replaying from the
-            # capture buffer's beginning can duplicate an already-run
-            # tool or feed Jarvis's own output back into classic STT.
-            # End honestly; the next activation starts with a clean mic.
-            self.reason = _pl.HANGUP_ERROR
-            _pl.log.warning(
-                "Realtime session ended after a committed turn; refusing "
-                "unsafe audio replay through classic voice."
-            )
-            await self._announce_refusal(provider_refusal.CONTINUED_NONE)
-            return _pl.HANGUP_ERROR
-        # A startup/early provider failure has committed no semantic
-        # user turn, so classic may safely replay the retained opening.
-        if self.allow_classic_fallback or self._refusal_overrides_block():
-            # A refusal (plan / key / credit / busy) is not a provider
-            # that might still answer: continue the call on the classic
-            # path and say why, even for a provider that forbids
-            # ambient usage-billed fallback (live 2026-11-10).
-            self.reason = HANGUP_DESKTOP_FALLBACK
-            await self._announce_refusal(provider_refusal.CONTINUED_PIPELINE)
-            return None
+        # The provider ended or failed. There is no second voice path: end
+        # the call and say why (the provider's refusal when it gave one).
         self.reason = _pl.HANGUP_ERROR
-        _pl.log.warning(
-            "Realtime provider failed before a committed turn; "
-            "automatic usage-billed classic fallback is disabled."
-        )
+        _pl.log.warning("Realtime provider ended the call unexpectedly.")
+        await self._announce_unavailable()
         return _pl.HANGUP_ERROR
 
-    async def _on_session_failure(self, exc: Exception) -> str | None:
-        """Any failure of the session: continue on the classic path when that
-        is safe and allowed, otherwise end the call with the reason."""
+    async def _on_session_failure(self, exc: Exception) -> str:
+        """Any failure of the session ends the call with its reason."""
         pipe = self.pipe
-        _pl.log.warning("Realtime desktop session failed; using pipeline: %s", exc)
+        _pl.log.warning("Realtime desktop session failed: %s", exc)
         if self.last_refusal is None:
             refusal = provider_refusal.describe(exc)
             if refusal is not None:
@@ -485,23 +439,8 @@ class RealtimeSessionRunner:
                     (pipe._last_realtime_start_error or {}).get("provider", "")
                 )
                 provider_refusal.remember(self.last_refused_provider, refusal)
-        if self.semantic_turn_committed:
-            self.reason = _pl.HANGUP_ERROR
-            _pl.log.warning(
-                "Realtime failure followed a committed turn; refusing unsafe "
-                "audio replay through classic voice."
-            )
-            await self._announce_refusal(provider_refusal.CONTINUED_NONE)
-            return _pl.HANGUP_ERROR
-        if self.allow_classic_fallback or self._refusal_overrides_block():
-            self.reason = HANGUP_DESKTOP_FALLBACK
-            await self._announce_refusal(provider_refusal.CONTINUED_PIPELINE)
-            return None
         self.reason = _pl.HANGUP_ERROR
-        _pl.log.warning(
-            "Realtime startup failed; automatic usage-billed classic fallback is disabled."
-        )
-        await self._announce_refusal(provider_refusal.CONTINUED_NONE)
+        await self._announce_unavailable()
         return _pl.HANGUP_ERROR
 
     async def _teardown(self) -> None:
@@ -605,12 +544,13 @@ class RealtimeSessionRunner:
     # Refusal bookkeeping
     # ------------------------------------------------------------------
 
-    async def _announce_refusal(self, continued_on: str) -> None:
+    async def _announce_refusal(self, continued_on: str) -> str:
+        """Announce the remembered refusal; returns the sentence, ``""`` if none."""
         pipe = self.pipe
         if self.last_refusal is None:
-            return
+            return ""
         refusal, self.last_refusal = self.last_refusal, None
-        text = await provider_refusal.announce(
+        return await provider_refusal.announce(
             pipe._bus,
             session_id=self.session_id,
             provider=self.last_refused_provider,
@@ -618,34 +558,26 @@ class RealtimeSessionRunner:
             language=_pl._phrase_lang(pipe._output_language(None, "")),
             continued_on=continued_on,
         )
-        if continued_on == provider_refusal.CONTINUED_PIPELINE:
-            # Spoken (or shown) by _active_session once the classic path
-            # owns the microphone, instead of the generic "unavailable" line.
-            pipe._pending_voice_path_notice = text
 
-    def _refusal_overrides_block(self) -> bool:
-        """Whether the refusal seen may continue the call on the classic path
-        although the provider forbids ambient usage-billed fallback.
+    async def _announce_unavailable(self) -> None:
+        """Tell the person why the call ended: the refusal, or no provider.
 
-        Only a definitive refusal of a usage-billed provider does; a
-        subscription that refused keeps the rule it was pinned for
-        (issue #828) and ends the call with the reason instead.
+        Spoken through the notice voice when the call owns the speaker; a
+        capture-first session (its microphone is live) shows it instead, so
+        the notice is never recorded as the user's own speech.
         """
-        if self.last_refusal is None or not self.last_refusal.overrides_fallback_block:
-            return False
-        return not provider_refusal.provider_uses_external_login(self.last_refused_provider)
+        pipe = self.pipe
+        text = await self._announce_refusal(provider_refusal.CONTINUED_NONE)
+        await pipe._notify_voice_unavailable(text, spoken=self.input_buffer is None)
 
-    def _primary_refused_before(self) -> bool:
-        """Whether the configured primary is still under a remembered refusal
-        that lets the call continue on the classic path."""
+    def _remember_primary_refusal(self) -> None:
+        """Pick up a remembered refusal of the configured primary provider."""
         pipe = self.pipe
         realtime_cfg = getattr(getattr(pipe._config, "brain", None), "realtime", None)
         primary = str(getattr(realtime_cfg, "provider", "") or "").strip()
         refusal = provider_refusal.fresh_refusal(primary) if primary else None
-        if refusal is None:
-            return False
-        self.last_refusal, self.last_refused_provider = refusal, primary
-        return self.allow_classic_fallback or self._refusal_overrides_block()
+        if refusal is not None and self.last_refusal is None:
+            self.last_refusal, self.last_refused_provider = refusal, primary
 
     # ------------------------------------------------------------------
     # Output segments, playback and the echo tail
@@ -800,7 +732,6 @@ class RealtimeSessionRunner:
         pipe = self.pipe
         if self.terminal_output_closed:
             return
-        self.semantic_turn_committed = True
         if not self.speaking:
             self.post_output_echo_guard_until = 0.0
             self.post_output_hw_tail_until = 0.0
@@ -872,7 +803,6 @@ class RealtimeSessionRunner:
             self._close_output_segment(preserve_echo_tail=True)
             await pipe._set_turn_state(_pl.TurnTakingState.LISTENING)
         self.playback.set_sample_rate(int(message.get("output_sample_rate", 24_000) or 24_000))
-        pipe._active_voice_mode = "realtime"
         pipe._active_realtime_provider = str(message.get("provider", "") or "")
         pipe._active_realtime_model = str(message.get("model", "") or "")
         pipe._voice_engine_transitioning = False
@@ -898,14 +828,8 @@ class RealtimeSessionRunner:
         pipe = self.pipe
         role = str(message.get("role", ""))
         if role == "user" and bool(message.get("is_final", False)):
-            # A final user transcript can already have triggered a tool
-            # inside RealtimeVoiceSession. Replaying its raw audio through
-            # classic STT after a later provider failure could execute the
-            # same side effect twice.
-            self.semantic_turn_committed = True
             await pipe._set_turn_state(_pl.TurnTakingState.PROCESSING)
         elif role == "assistant":
-            self.semantic_turn_committed = True
             delta = str(message.get("text", "") or "")
             if delta:
                 self.assistant_transcript_parts.append(delta)
@@ -916,7 +840,6 @@ class RealtimeSessionRunner:
         # before returning the taskbar/orb to THINKING. The next audio
         # delta starts a fresh SPEAKING segment through _send_binary.
         pipe = self.pipe
-        self.semantic_turn_committed = True
         await self.playback.finish_turn()
         self._close_output_segment(
             preserve_echo_tail=self.speaking,
@@ -967,7 +890,6 @@ class RealtimeSessionRunner:
     async def _on_hangup(self, message: dict[str, Any]) -> None:
         pipe = self.pipe
         pipe._settle_agent_reply(completed=False)
-        self.semantic_turn_committed = True
         self._close_output_segment(preserve_echo_tail=False)
         await self._cancel_output_playback()
 
@@ -979,7 +901,6 @@ class RealtimeSessionRunner:
 
     async def _on_turn_complete(self, message: dict[str, Any]) -> None:
         pipe = self.pipe
-        self.semantic_turn_committed = True
         playback_completed = await self.playback.finish_turn()
         interrupted_during_drain = not self.speaking
         pipe._settle_agent_reply(
@@ -1000,7 +921,6 @@ class RealtimeSessionRunner:
         pipe = self.pipe
         if self.terminal_output_closed:
             return
-        self.semantic_turn_committed = True
         text = str(message.get("text", "") or "").strip()
         language = _pl._phrase_lang(
             str(message.get("language", "") or "") or pipe._output_language(None, text)
@@ -1088,7 +1008,7 @@ class RealtimeSessionRunner:
         self.barge_detector.start_output()
         # Pre-synthesis registration mirrors _speak (BUG-084): the
         # canned phrase is about to be audible on this machine's
-        # speakers, and its echo must never become a classic turn
+        # speakers, and its echo must never become a user turn
         # (BUG-089).
         pipe._register_assistant_speech(cleaned)
         await pipe._set_turn_state(_pl.TurnTakingState.JARVIS_SPEAKING)
@@ -1161,7 +1081,7 @@ class RealtimeSessionRunner:
                 pipe._emit_spoken(
                     cleaned,
                     language,
-                    str(message.get("spoken_kind", "") or _pl.SPOKEN_KIND_REPLY),
+                    str(message.get("spoken_kind", "") or SPOKEN_KIND_REPLY),
                     detail=(str(message.get("detail", "") or "") or None),
                     tts=surface_tts,
                 )

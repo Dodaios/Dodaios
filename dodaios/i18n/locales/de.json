@@ -170,7 +170,7 @@
   "speech": {
     "brain_unavailable": "Entschuldige — ich erreiche gerade keines meiner Sprachmodelle. Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist.",
     "stt_unavailable": "Entschuldige, ich habe dich akustisch gerade nicht verstanden. Sag es bitte noch einmal.",
-    "realtime_unavailable": "Die Realtime-Verbindung ist gerade nicht verfügbar. Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung.",
+    "realtime_unavailable": "Die Sprachverbindung kann gerade nicht starten: Kein Realtime-Sprachanbieter ist bereit. Prüfe den Sprachanbieter in den API-Keys in der Seitenleiste.",
     "timeout_tool_stall": "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich gewartet habe, hat nicht reagiert.",
     "timeout_no_answer": "Das konnte ich gerade nicht herausfinden.",
     "provider_refused": {
@@ -180,7 +180,6 @@
       "busy": "{provider}-Sprache ist gerade ausgelastet und hat den Anruf abgelehnt.",
       "unreachable": "{provider}-Sprache war nicht erreichbar.",
       "rejected": "{provider} hat die Spracheinstellungen abgelehnt. Prüfe Stimme und Modell in den Spracheinstellungen.",
-      "continued_pipeline": "Ich führe diesen Anruf über den klassischen Sprachweg weiter.",
       "continued_realtime": "Ich führe diesen Anruf über eine andere Sprachverbindung weiter.",
       "ended": "Dieser Anruf kann gerade nicht weitergehen."
     },
@@ -507,8 +506,7 @@
   },
   "telephony": {
     "default_greetings": "Guten Tag, wie kann ich helfen?",
-    "named_greetings": "Hier ist {name}. Wie kann ich helfen?",
-    "fallback_phrases": "Entschuldigung, das habe ich nicht verstanden. Bitte wiederhole es."
+    "named_greetings": "Hier ist {name}. Wie kann ich helfen?"
   },
   "cu": {
     "indicator": {
