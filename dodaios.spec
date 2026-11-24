@@ -277,6 +277,10 @@ hiddenimports += collect_submodules("dodaios.channels")
 # document a chat made in the installer builds ("No module named
 # 'dodaios.nodes.kinds.whiteboard'", issue #1879).
 hiddenimports += collect_submodules("dodaios")
+# daemonkit keeps the agent server running (dodaios/ui/always_on.py). Its
+# supervisor is reached through ``--daemonkit-supervise`` and imported only
+# there, so the analysis would not find it on its own.
+hiddenimports += collect_submodules("daemonkit")
 
 # Uvicorn standard installs version-specific backends through dynamic imports.
 for pkg in (

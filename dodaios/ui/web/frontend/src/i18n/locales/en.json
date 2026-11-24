@@ -3496,6 +3496,10 @@
       "instant_start_declined_toast": "Permission was declined — {name} still starts via the shortcut (may be delayed)."
     },
     "background_agents": {
+      "always_on_title": "Always reachable",
+      "always_on_description": "Starts the agent server when you log in, and again if it stops unexpectedly, so Telegram, Slack and your routines answer even when this window was never opened. This computer becomes the server; windows attach to it.",
+      "always_on_login": "Registered with the operating system: starts when you log in.",
+      "always_on_boot": "Registered with the operating system: starts when the computer starts, even before anyone logs in.",
       "server_title": "Independent agent server",
       "server_backend_update": "Restart the desktop app once to load agent server support.",
       "server_description": "Run Dodaios, Hermes and OpenClaw on a server that stays running when every client closes. Applies to the next desktop launch.",

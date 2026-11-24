@@ -105,8 +105,10 @@ class LaunchdAgentManager:
             return dataclasses.replace(status, detail="; ".join(notes))
         return status
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus:
-        self._launchctl("bootout", self.target(spec))
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus:
+        """Remove the agent; with ``stop=False`` a loaded one runs until logout."""
+        if stop:
+            self._launchctl("bootout", self.target(spec))
         path = self.plist_path(spec)
         if path.exists():
             path.unlink()

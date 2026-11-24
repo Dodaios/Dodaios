@@ -58,3 +58,49 @@ it("offers a real restart instead of silently saving to a backend without server
   expect(restart).toHaveBeenCalledOnce();
   expect(fetcher.mock.calls.every((args) => args.length < 2)).toBe(true);
 });
+
+it("registers the agent server with the operating system and says when it starts", async () => {
+  let config = {
+    supported: true, keep_agents_running: true, persistent_server: false, server_url: "",
+    running_as_server: false, autostart_enabled: false, running_as_service: false,
+    background_only_at_login: false, work: { routines: 0, running: 0, channels: ["telegram"] },
+    always_on: {
+      supported: true, installed: false, active: null, mechanism: "systemd-user",
+      starts_at: null as string | null, detail: "",
+    },
+  };
+  const puts: unknown[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, options?: RequestInit) => {
+    if (options?.method === "PUT") {
+      const body = JSON.parse(String(options.body));
+      puts.push(body);
+      config = {
+        ...config, persistent_server: true,
+        always_on: { ...config.always_on, installed: body.always_on, starts_at: "login" },
+      };
+    }
+    return { ok: true, json: async () => config };
+  }));
+  render(<AppSettingsGroup />);
+  const toggle = await screen.findByRole("switch", { name: "Always reachable" });
+  await waitFor(() => expect(toggle.getAttribute("disabled")).toBeNull());
+  fireEvent.click(toggle);
+  await screen.findByText("Registered with the operating system: starts when you log in.");
+  expect(puts).toEqual([{ always_on: true }]);
+});
+
+it("explains why the operating system cannot keep the server running", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({
+    supported: true, keep_agents_running: true, persistent_server: false, server_url: "",
+    running_as_server: false, autostart_enabled: false, running_as_service: false,
+    background_only_at_login: false, work: { routines: 0, running: 0, channels: [] },
+    always_on: {
+      supported: false, installed: false, active: null, mechanism: "systemd-user",
+      starts_at: null, detail: "systemctl not found: this Linux does not run systemd",
+    },
+  }) })));
+  render(<AppSettingsGroup />);
+  const toggle = await screen.findByRole("switch", { name: "Always reachable" });
+  expect(toggle.getAttribute("disabled")).not.toBeNull();
+  expect(screen.getByText("systemctl not found: this Linux does not run systemd")).toBeTruthy();
+});

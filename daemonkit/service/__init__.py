@@ -85,7 +85,7 @@ class ServiceManager(Protocol):
         self, spec: ServiceSpec, *, start_at: str = LOGIN, start_now: bool = True
     ) -> ServiceStatus: ...
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus: ...
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus: ...
 
     def status(self, spec: ServiceSpec) -> ServiceStatus: ...
 
@@ -119,7 +119,7 @@ class NullServiceManager:
     ) -> ServiceStatus:
         return self._status()
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus:
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus:
         return self._status()
 
     def status(self, spec: ServiceSpec) -> ServiceStatus:

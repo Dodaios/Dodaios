@@ -87,8 +87,13 @@ def local_server(*, port: int, spawn: Callable[..., bool] | None = None) -> str:
                     "The integrated desktop is still running. Close it before starting "
                     "the independent server. No existing work has been stopped."
                 )
+            # Started through the OS service it stays supervised: a crash
+            # brings it back (dodaios/ui/always_on.py).
+            from dodaios.ui import always_on
+
+            supervised = spawn is None and always_on.start_installed_service(port=port)
             start = spawn or bg.spawn_service
-            if not start(after_pid=None, persistent=True, port=port):
+            if not supervised and not start(after_pid=None, persistent=True, port=port):
                 raise RuntimeError("The independent agent server could not be started.")
         url = server_endpoint(f"http://127.0.0.1:{port}")
         wait_for_server(url)

@@ -190,8 +190,8 @@ class _RecordingManager:
         self.calls.append(f"install:{start_at}:{start_now}")
         return ServiceStatus(self.mechanism, True, True)
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus:
-        self.calls.append("uninstall")
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus:
+        self.calls.append(f"uninstall:{stop}")
         return ServiceStatus(self.mechanism, True, False)
 
     def status(self, spec: ServiceSpec) -> ServiceStatus:

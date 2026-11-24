@@ -155,10 +155,11 @@ class SystemdUserManager:
             return dataclasses.replace(status, detail="; ".join(notes))
         return status
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus:
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus:
+        """Remove the unit; with ``stop=False`` a running one keeps running."""
         path = self.unit_path(spec)
         if path.exists():
-            self._systemctl("disable", "--now", self.unit_name(spec))
+            self._systemctl("disable", *(["--now"] if stop else []), self.unit_name(spec))
             path.unlink()
             self._systemctl("daemon-reload")
         # Linger is left as it is: other services of this user may rely on it.

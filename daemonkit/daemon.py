@@ -367,8 +367,11 @@ class Daemon:
             self.service_spec(), start_at=start_at, start_now=start_now
         )
 
-    def uninstall_service(self, *, manager: ServiceManager | None = None) -> ServiceStatus:
-        return (manager or self.service_manager()).uninstall(self.service_spec())
+    def uninstall_service(
+        self, *, stop: bool = True, manager: ServiceManager | None = None
+    ) -> ServiceStatus:
+        """Remove the OS registration (systemd and launchd also stop it unless ``stop=False``)."""
+        return (manager or self.service_manager()).uninstall(self.service_spec(), stop=stop)
 
     def service_status(self, *, manager: ServiceManager | None = None) -> ServiceStatus:
         return (manager or self.service_manager()).status(self.service_spec())

@@ -3496,6 +3496,10 @@
       "instant_start_declined_toast": "A permissão foi recusada — o {name} continua a arrancar pelo atalho (pode demorar)."
     },
     "background_agents": {
+      "always_on_title": "Sempre disponível",
+      "always_on_description": "Inicia o servidor de agentes quando inicia sessão e volta a iniciá-lo se parar inesperadamente, para que o Telegram, o Slack e as suas rotinas respondam mesmo que esta janela nunca tenha sido aberta. Este computador passa a ser o servidor; as janelas ligam-se a ele.",
+      "always_on_login": "Registado no sistema operativo: inicia quando inicia sessão.",
+      "always_on_boot": "Registado no sistema operativo: inicia quando o computador arranca, mesmo antes de alguém iniciar sessão.",
       "server_title": "Servidor de agentes independente",
       "server_backend_update": "Reinicia a aplicação de ambiente de trabalho uma vez para carregar o suporte ao servidor de agentes.",
       "server_description": "Executa o Dodaios, o Hermes e o OpenClaw num servidor que continua ativo quando todos os clientes fecham. Aplica-se no próximo arranque da aplicação.",

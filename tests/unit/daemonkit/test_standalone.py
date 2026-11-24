@@ -62,3 +62,16 @@ def test_the_package_has_its_own_project_file() -> None:
     text = (PACKAGE / "pyproject.toml").read_text(encoding="utf-8")
     assert 'name = "daemonkit"' in text
     assert "dependencies = []" in text
+
+
+def test_dodaios_ships_daemonkit_with_its_own_packages() -> None:
+    """The agent server's supervisor runs ``daemonkit.supervise``; a wheel without it breaks it."""
+    import importlib.util
+
+    root = PACKAGE.parent
+    spec = importlib.util.spec_from_file_location("project_setup_script", root / "setup.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert {"daemonkit", "daemonkit.service"} <= set(module.packages(str(root)))
+    assert 'collect_submodules("daemonkit")' in (root / "dodaios.spec").read_text(encoding="utf-8")

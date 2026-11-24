@@ -55,6 +55,13 @@ if len(sys.argv) >= 2 and sys.argv[1] in {"--background-service", "--persistent-
 
     raise SystemExit(_launcher_main(sys.argv[1:]))
 
+# daemonkit's supervisor of a frozen build, same reason: no ``-m`` to start
+# ``daemonkit.supervise`` with (see dodaios/ui/always_on.py).
+if len(sys.argv) >= 2 and sys.argv[1] == "--daemonkit-supervise":
+    from daemonkit.supervise import main as _supervise_main
+
+    raise SystemExit(_supervise_main(sys.argv[2:]))
+
 # The thread turn host of a frozen build, same reason: no ``-m`` to start
 # ``dodaios.agent_chat.turn_host`` with (see turn_host.FROZEN_FLAG).
 if len(sys.argv) >= 2 and sys.argv[1] == "--turn-host":

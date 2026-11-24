@@ -223,7 +223,8 @@ class WindowsTaskManager:
             return dataclasses.replace(status, detail="; ".join(notes))
         return status
 
-    def uninstall(self, spec: ServiceSpec) -> ServiceStatus:
+    def uninstall(self, spec: ServiceSpec, *, stop: bool = True) -> ServiceStatus:
+        """Remove the task and the Run value. Never ends a running process."""
         if self._task_exists(spec):
             self._schtasks("/Delete", "/TN", task_name(spec), "/F")
         self._registry.delete(spec.name)

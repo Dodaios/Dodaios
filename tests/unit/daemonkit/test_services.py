@@ -117,6 +117,15 @@ def test_systemd_uninstall_removes_the_unit(tmp_path: Path) -> None:
     assert not status.installed
 
 
+def test_systemd_uninstall_can_leave_the_running_unit_alone(tmp_path: Path) -> None:
+    tools = FakeTools()
+    manager = _systemd(tmp_path, tools)
+    manager.install(SPEC)
+    manager.uninstall(SPEC, stop=False)
+    assert ("systemctl", "--user", "disable", "srv.service") in tools.calls
+    assert ("systemctl", "--user", "disable", "--now", "srv.service") not in tools.calls
+
+
 def test_systemd_unavailable_without_a_user_manager(tmp_path: Path) -> None:
     tools = FakeTools(
         {("systemctl", "--user", "show-environment"): (1, "Failed to connect to bus")}
@@ -176,7 +185,9 @@ def test_launchd_uninstall_deletes_the_plist(tmp_path: Path) -> None:
     manager = _launchd(tmp_path, tools)
     manager.install(SPEC, start_now=False)
     assert not any(call[1] == "bootstrap" for call in tools.calls)
-    assert not manager.uninstall(SPEC).installed
+    tools.calls.clear()
+    assert not manager.uninstall(SPEC, stop=False).installed
+    assert not any(call[1] == "bootout" for call in tools.calls)
     assert not list(tmp_path.glob("*.plist"))
 
 

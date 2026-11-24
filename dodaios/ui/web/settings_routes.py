@@ -2416,6 +2416,11 @@ class BackgroundBody(BaseModel):
     background_only_at_login: bool | None = Field(default=None)
     persistent_server: bool | None = None
     server_url: str | None = Field(default=None, max_length=2048)
+    #: Register the agent server with the OS so it runs without the window
+    #: and comes back after a crash (dodaios/ui/always_on.py).
+    always_on: bool | None = None
+    #: ``login`` everywhere; ``boot`` also starts it without a login (Linux).
+    always_on_start: Literal["login", "boot"] = "login"
 
     @model_validator(mode="after")
     def check_server(self) -> BackgroundBody:
@@ -2431,6 +2436,7 @@ def _background_payload(request: Request) -> dict[str, object]:
 
     from dodaios.core.background_service import SERVICE_FLAG, keep_running_enabled, work_from_state
     from dodaios.core.instance import current_instance
+    from dodaios.ui import always_on
 
     cfg = _config(request)
     autostart_cfg = getattr(cfg, "autostart", None)
@@ -2456,6 +2462,7 @@ def _background_payload(request: Request) -> dict[str, object]:
             "running": work.running,
             "channels": list(work.channels),
         },
+        "always_on": always_on.status(cfg),
     }
 
 
@@ -2469,6 +2476,8 @@ async def put_background(body: BackgroundBody, request: Request) -> dict[str, ob
     from dodaios.core import config_writer
 
     cfg = _config(request)
+    if body.always_on is not None:
+        await _apply_always_on(cfg, enabled=body.always_on, start_at=body.always_on_start)
     if body.persistent_server is not None or body.server_url is not None:
         section = getattr(cfg, "background", None)
         persistent = (
@@ -2516,6 +2525,43 @@ async def put_background(body: BackgroundBody, request: Request) -> dict[str, ob
             except Exception as exc:  # noqa: BLE001 — persisted; the boot reconcile retries
                 log.warning("autostart refresh after a login-mode change failed: %s", exc)
     return _background_payload(request)
+
+
+async def _apply_always_on(cfg: object, *, enabled: bool, start_at: str) -> None:
+    """Install or remove the OS service that keeps the agent server running.
+
+    Turning it on also makes this computer's desktop a client of that server
+    (``persistent_server``), so a later window attaches instead of starting a
+    second owner. Turning it off leaves the running server and the client mode
+    alone: only the start at login and the restart after a crash go away.
+    """
+    from dodaios.core import config_writer
+    from dodaios.ui import always_on
+
+    section = getattr(cfg, "background", None)
+    if not enabled:
+        await asyncio.to_thread(always_on.uninstall, cfg)
+        return
+    if str(getattr(section, "server_url", "") or "").strip():
+        raise HTTPException(
+            status_code=409,
+            detail="This app uses an agent server on another computer. Clear its address "
+            "before keeping a server running on this one.",
+        )
+    if not always_on.supported():
+        raise HTTPException(
+            status_code=409, detail="Only the default app can keep the agent server running."
+        )
+    await asyncio.to_thread(config_writer.set_agent_server, persistent=True, server_url="")
+    if section is not None:
+        section.persistent_server = True
+        section.server_url = ""
+    result = await asyncio.to_thread(always_on.install, cfg, start_at=start_at)
+    if not result["installed"]:
+        raise HTTPException(
+            status_code=409,
+            detail=result["detail"] or "The operating system did not accept the service.",
+        )
 
 
 _OVERLAY_STYLES = OVERLAY_STYLES

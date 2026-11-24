@@ -3496,6 +3496,10 @@
       "instant_start_declined_toast": "Se denegó el permiso: {name} sigue iniciándose mediante el acceso directo (puede retrasarse)."
     },
     "background_agents": {
+      "always_on_title": "Siempre disponible",
+      "always_on_description": "Inicia el servidor de agentes al iniciar sesión y de nuevo si se detiene de forma inesperada, para que Telegram, Slack y tus rutinas respondan aunque nunca hayas abierto esta ventana. Este equipo pasa a ser el servidor; las ventanas se conectan a él.",
+      "always_on_login": "Registrado en el sistema operativo: se inicia al iniciar sesión.",
+      "always_on_boot": "Registrado en el sistema operativo: se inicia al encender el equipo, incluso antes de que alguien inicie sesión.",
       "server_title": "Servidor de agentes independiente",
       "server_backend_update": "Reinicia la aplicación de escritorio una vez para cargar la compatibilidad con el servidor de agentes.",
       "server_description": "Ejecuta Dodaios, Hermes y OpenClaw en un servidor que sigue activo al cerrar todos los clientes. Se aplica al próximo inicio de la aplicación de escritorio.",

@@ -18,12 +18,27 @@ export interface BackgroundAgentsConfig {
   supported: boolean;
   /** The work a quit would hand to the background service right now. */
   work: { routines: number; running: number; channels: string[] };
+  /**
+   * The agent server registered with the OS: it starts at login and again
+   * after a crash (dodaios/ui/always_on.py). Absent on an older backend.
+   */
+  always_on?: AlwaysOnStatus;
+}
+
+export interface AlwaysOnStatus {
+  supported: boolean;
+  installed: boolean;
+  active: boolean | null;
+  mechanism: string;
+  starts_at: "login" | "boot" | null;
+  /** Why it could not be registered, or how (for example a fallback). */
+  detail: string;
 }
 
 export type BackgroundAgentsPatch = Partial<
   Pick<BackgroundAgentsConfig,
     "keep_agents_running" | "background_only_at_login" | "persistent_server" | "server_url">
->;
+> & { always_on?: boolean; always_on_start?: "login" | "boot" };
 
 /** Loads the background-agents settings and exposes save(). Mirrors useAutostart. */
 export function useBackgroundAgents() {

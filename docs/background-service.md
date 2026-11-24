@@ -59,6 +59,47 @@ single-instance lock (`data/jarvis.lock`):
 
 Log: `<data dir>/jarvis_background.log`, next to `jarvis_desktop.log`.
 
+## Always reachable
+
+The hand-off above only happens when the app was open and is closed. After a
+reboot, or when the app was never opened, nothing answers Telegram or Slack
+unless something starts the agent server. **Settings → App settings → Always
+reachable** does that (`PUT /api/settings/background` with `always_on`):
+
+- It registers the independent agent server (docs/agent-server.md) with the
+  operating system through [daemonkit](../daemonkit/README.md): a systemd
+  user unit `dodaios-agent-server.service` on Linux, the launchd agent
+  `com.dodaios.agent-server` on macOS, the logon task "Dodaios Agent Server"
+  on Windows. Where Windows refuses that task without elevation, the per-user
+  `Run` registry value is used instead.
+- The OS starts daemonkit's supervisor at login. The supervisor runs
+  `--persistent-server` and starts it again after a crash, after 1 s, then
+  2 s, 4 s and so on up to 60 s. An explicit stop (the tray, or
+  `POST /api/agent-server/stop`) exits 0, and the server stays stopped until
+  the next login or the next desktop launch.
+- Turning it on also turns on the independent server for this computer, so a
+  desktop window attaches to the server instead of owning the agents. A
+  window launch starts the server through the OS service, so it stays
+  supervised.
+- Every background or persistent server takes daemonkit's lock
+  (`<data dir>/background/dodaios-agent-server.lock`) once it serves. A
+  supervisor waits while another server runs and takes over when that one
+  ends.
+- With `always_on_start: "boot"` on Linux, `loginctl enable-linger` keeps it
+  running without a login. A desktop keyring is usually locked until someone
+  logs in, so keys stored only there are not readable before then. Windows
+  and macOS start it at login. A locked screen still counts as logged in.
+- Turning it off removes the registration. A running server keeps running
+  until it is stopped.
+
+Log of the supervisor and the server's console output:
+`background/dodaios-agent-server.log` in the user data folder. The server's
+own log stays `jarvis_background.log`.
+
+The server sees the environment the OS gives a login service, not a shell's.
+Provider keys saved in the app (the credential store) work; a key that exists
+only as a variable in a shell profile does not.
+
 ## Limits
 
 - Spoken routines (`speak` actions) fail in the service: there is no voice
@@ -73,7 +114,8 @@ Log: `<data dir>/jarvis_background.log`, next to `jarvis_desktop.log`.
 
 ## Verifying
 
-- Unit: `tests/unit/core/test_background_service.py`.
+- Unit: `tests/unit/core/test_background_service.py`,
+  `tests/unit/core/test_always_on.py`, `tests/unit/daemonkit/`.
 - Live round trip on an isolated dev instance (`JARVIS_DATA_DIR` and
   `LOCALAPPDATA` pointed at a temp folder, `--port` set): start the service
   with `--after-pid` of a short-lived process, confirm it boots only after

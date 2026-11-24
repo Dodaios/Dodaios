@@ -35,9 +35,12 @@ server ownership, completed agent startup and a startup failure. Both routes
 are available through the dynamic `dodaios api agent-server` command group.
 
 For login startup, the existing background-only option includes the persistent
-server flag when a local independent server is selected. On a headless host,
-use the operating system's process supervisor for restart after process or host
-failure. This is a user process on Windows, not a SYSTEM service.
+server flag when a local independent server is selected. **Always reachable**
+(docs/background-service.md) goes further: it registers the server with the
+operating system's own service manager through daemonkit, which starts it at
+login and again after a crash. On a headless host, use the system unit in
+docs/headless-vps-deployment.md. This is a user process on Windows, not a
+SYSTEM service.
 
 ## Ownership and recovery
 

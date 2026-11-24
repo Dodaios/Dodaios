@@ -320,6 +320,31 @@ function BackgroundAgentsRows() {
           </>
         )}
       </SettingsRow>}
+      {config?.always_on && (
+        <SettingsRow
+          title={t("settings_view.background_agents.always_on_title")}
+          description={t("settings_view.background_agents.always_on_description")}
+          control={
+            <Switch
+              checked={config.always_on.installed}
+              disabled={loading || saving || !config.always_on.supported || Boolean(config.server_url)}
+              aria-label={t("settings_view.background_agents.always_on_title")}
+              onCheckedChange={(next) => void apply({ always_on: next })}
+            />
+          }
+        >
+          {config.always_on.installed && (
+            <p className="text-sm text-foreground">
+              {t(config.always_on.starts_at === "boot"
+                ? "settings_view.background_agents.always_on_boot"
+                : "settings_view.background_agents.always_on_login")}
+            </p>
+          )}
+          {config.always_on.detail && (
+            <p className="text-sm text-muted-foreground">{config.always_on.detail}</p>
+          )}
+        </SettingsRow>
+      )}
       <SettingsRow
         title={t("settings_view.background_agents.login_title")}
         description={t("settings_view.background_agents.login_description")}

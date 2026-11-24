@@ -3496,6 +3496,10 @@
       "instant_start_declined_toast": "权限被拒绝，{name}仍会通过快捷方式启动（可能会延迟）。"
     },
     "background_agents": {
+      "always_on_title": "始终在线",
+      "always_on_description": "登录时启动代理服务器，并在其意外停止时再次启动。这样即使从未打开此窗口，Telegram、Slack 和你的例行任务也会回复。此电脑将成为服务器，窗口会连接到它。",
+      "always_on_login": "已在操作系统中注册：登录时启动。",
+      "always_on_boot": "已在操作系统中注册：开机时启动，即使还没有人登录。",
       "server_title": "独立代理服务器",
       "server_backend_update": "重启一次桌面应用，以加载代理服务器支持。",
       "server_description": "让 Dodaios、Hermes 和 OpenClaw 在服务器上持续运行，即使所有客户端均已关闭。下次启动桌面应用时生效。",

@@ -195,3 +195,48 @@ def test_enabling_server_mode_hands_off_even_without_scheduled_work(monkeypatch)
     cfg = SimpleNamespace(background=BackgroundConfig(persistent_server=True))
     assert bg.hand_off_on_quit(SimpleNamespace(), cfg, pid=42)
     assert started == [{"after_pid": 42, "persistent": True}]
+
+
+def test_a_local_client_starts_the_server_through_the_os_service(tmp_path, monkeypatch):
+    """Started through the service it stays supervised (dodaios/ui/always_on.py)."""
+    from dodaios.ui import always_on, desktop_app, server_client
+
+    marker = {}
+    monkeypatch.setattr(bg, "marker_path", lambda: tmp_path / "service.json")
+    monkeypatch.setattr(bg, "read_marker", lambda: marker)
+    monkeypatch.setattr(bg, "service_pid", lambda: 42 if marker else None)
+    monkeypatch.setattr(desktop_app, "_read_meta", lambda: {})
+    monkeypatch.setattr(server_client, "wait_for_server", lambda url: None)
+    monkeypatch.setattr(bg, "spawn_service", lambda **kw: pytest.fail("must not spawn"))
+    ports = []
+
+    def through_service(*, port=None):
+        ports.append(port)
+        marker.update(persistent=True, port=port)
+        return True
+
+    monkeypatch.setattr(always_on, "start_installed_service", through_service)
+    assert server_client.local_server(port=47998) == "http://127.0.0.1:47998"
+    assert ports == [47998]
+
+
+def test_a_local_client_spawns_the_server_without_a_service(tmp_path, monkeypatch):
+    from dodaios.ui import always_on, desktop_app, server_client
+
+    marker = {}
+    spawned = []
+    monkeypatch.setattr(bg, "marker_path", lambda: tmp_path / "service.json")
+    monkeypatch.setattr(bg, "read_marker", lambda: marker)
+    monkeypatch.setattr(bg, "service_pid", lambda: 42 if marker else None)
+    monkeypatch.setattr(desktop_app, "_read_meta", lambda: {})
+    monkeypatch.setattr(server_client, "wait_for_server", lambda url: None)
+    monkeypatch.setattr(always_on, "start_installed_service", lambda **kw: False)
+
+    def spawn(**kwargs):
+        spawned.append(kwargs)
+        marker.update(persistent=True, port=47997)
+        return True
+
+    monkeypatch.setattr(bg, "spawn_service", spawn)
+    assert server_client.local_server(port=47997) == "http://127.0.0.1:47997"
+    assert spawned == [{"after_pid": None, "persistent": True, "port": 47997}]

@@ -444,7 +444,7 @@ async def _run_headless(args) -> int:
     if getattr(args, "background_service", False):
         _service_lock = _prepare_background_service(args)
         if _service_lock is None:
-            return 0
+            return _service_refused_exit_code(args)
 
     # The single-instance lock (and its heavy ``desktop_app`` import — pywebview +
     # win32, ~420 ms) is acquired in the deferred section below, OFF the
@@ -1011,8 +1011,10 @@ async def _run_headless(args) -> int:
                     "headless sidecar cleanup failed on shutdown: %s", exc
                 )
             if _service_lock is not None:
+                from dodaios.ui import always_on
                 from dodaios.core.background_service import clear_marker
 
+                always_on.release()
                 clear_marker()
             try:
                 _headless_lock.release()
@@ -1119,11 +1121,30 @@ def _prepare_background_service(args):
     return lock
 
 
+def _service_refused_exit_code(args) -> int:
+    """Exit code of a background boot that did not start (the app runs already).
+
+    A persistent server is usually started by daemonkit's supervisor (see
+    dodaios/ui/always_on.py). ``EXIT_ALREADY_RUNNING`` tells it to pause and
+    stand by; a plain 0 would read as "stopped on purpose" and it would give
+    up until the next login.
+    """
+    if getattr(args, "persistent_server", False):
+        from daemonkit import EXIT_ALREADY_RUNNING
+
+        return EXIT_ALREADY_RUNNING
+    return 0
+
+
 def _write_service_sidecar(port: int, *, persistent: bool = False) -> None:
     """The service's marker plus the instance sidecar a desktop launch reads."""
     from loguru import logger
 
+    from dodaios.ui import always_on
     from dodaios.core import background_service as bg
+
+    # Seen by daemonkit's supervisor: it stands by while this server runs.
+    always_on.claim_for_this_process(port)
 
     try:
         bg.write_marker(port, persistent=persistent)

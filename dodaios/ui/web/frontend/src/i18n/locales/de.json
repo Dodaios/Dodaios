@@ -3496,6 +3496,10 @@
       "instant_start_declined_toast": "Berechtigung abgelehnt — {name} startet weiterhin über die Verknüpfung (evtl. verzögert)."
     },
     "background_agents": {
+      "always_on_title": "Immer erreichbar",
+      "always_on_description": "Startet den Agent-Server bei der Anmeldung und erneut, wenn er unerwartet stoppt. So antworten Telegram, Slack und deine Routinen auch dann, wenn dieses Fenster nie geöffnet wurde. Dieser Computer wird zum Server; Fenster verbinden sich mit ihm.",
+      "always_on_login": "Beim Betriebssystem angemeldet: startet bei deiner Anmeldung.",
+      "always_on_boot": "Beim Betriebssystem angemeldet: startet beim Hochfahren, auch bevor sich jemand anmeldet.",
       "server_title": "Unabhängiger Agentenserver",
       "server_backend_update": "Starte die Desktop-App einmal neu, um die Unterstützung für den Agentenserver zu laden.",
       "server_description": "Dodaios, Hermes und OpenClaw laufen auf einem Server weiter, auch wenn alle Clients geschlossen sind. Gilt ab dem nächsten Desktop-Start.",
