@@ -83,6 +83,9 @@ KNOWN: frozenset[str] = frozenset(
         "shortcuts",
         # Built for you: what the self-building loop made, with keep and undo.
         "self-build",
+        # Self-improvement: what the assistant measured and changed in itself,
+        # with stop and undo.
+        "self-improvement",
         # Trust & privacy: what runs without asking, what is known and where
         # it goes. A Settings-hub page.
         "trust",
@@ -276,6 +279,10 @@ _ALIASES: dict[str, str] = {
     "what you built": "self-build",
     "für dich gebaut": "self-build",  # i18n-allow: input vocab
     "construido para ti": "self-build",  # i18n-allow: input vocab
+    "self improvement": "self-improvement",
+    "self-improving": "self-improvement",
+    "selbstverbesserung": "self-improvement",  # i18n-allow: input vocab
+    "automejora": "self-improvement",  # i18n-allow: input vocab
     "market": "marketplace",
     "market place": "marketplace",
     "store": "marketplace",

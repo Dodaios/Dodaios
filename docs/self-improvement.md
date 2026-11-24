@@ -442,25 +442,31 @@ is never regenerated.
 
 ## What the app shows
 
-`GET /api/self-improvement` (planned shape):
+The Self-improvement page (Workspace, after "Built for you";
+`dodaios/ui/web/frontend/src/views/SelfImprovementView.tsx`) reads
+`GET /api/self-improvement` (`dodaios/rsi/overview.py`; the shape is pinned in
+`tests/unit/ui/web/test_self_improvement_routes.py`). Top to bottom:
 
-```json
-{
-  "status": {"state": "idle", "paused": false, "last_night_ms": 0,
-             "budget": {"used": 0.0, "cap": 0.2}},
-  "advantage": {"domains": [
-    {"domain": "recall", "measured": true, "why_not": "",
-     "now": 0.81, "factory": 0.74, "diff": 0.07, "low": 0.02, "high": 0.12, "n": 140,
-     "cost_now": 0.0, "cost_factory": 0.0}]},
-  "series": [{"ts_ms": 0, "domain": "recall", "diff": 0.07, "low": 0.02, "high": 0.12,
-              "n": 140, "app": "5.7.0"}],
-  "stack": [{"id": "", "surface": "parameter", "target": "", "title": "", "state": "live",
-             "since_ms": 0,
-             "effect": {"domain": "recall", "diff": 0.03, "low": 0.01, "high": 0.05, "n": 90}}],
-  "night": {"ts_ms": 0, "practised": [{"domain": "recall", "tasks": 60}],
-            "tried": 4, "kept": 1, "rejected": [{"title": "", "reason": ""}]}
-}
-```
+- the state in words (running or stopped, the last night, when the next one
+  may come) and one button: Stop, or Resume while stopped;
+- per measured area the learned advantage in points, with the two scores and
+  the prompt cost behind it. A difference whose range includes zero is called
+  "not certain yet", whatever its sign;
+- the advantage night by night with its range, a mark where the app version
+  changed, and a table of the same numbers;
+- what is in effect, each change with the measurement that let it in and the
+  one that checked it again, and a one-click "Take back"; a change opens into a
+  sheet with the stored reasons as they are;
+- the last nights (three shown, the rest folded), then what waits to be
+  measured and what rests after an update, when there is any.
+
+Until the person's own tasks exist it measures nothing, and the page says so
+in two sentences instead of drawing anything. The page words everything from
+its own strings (`locales/self_improvement/`); the only backend text it shows
+as it is are the stored reasons, in the sheet. It repaints on
+`SelfChangeChanged` and polls every five minutes for a night's new point.
+There is no other control on purpose: the person only stops or undoes
+(`POST /api/self-improvement/pause`, `POST /api/self-improvement/changes/{id}/undo`).
 
 ## What exists today
 
@@ -478,5 +484,5 @@ is never regenerated.
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
 | The tuner, the night cycle, automatic rollback, the sandbox | built |
 | Recall tasks from the person's own memory and messages, made at night | built |
-| The page that shows it | next |
+| The page that shows it | built |
 | Always-on recording of work, the other domains, lessons, the jury | later |
