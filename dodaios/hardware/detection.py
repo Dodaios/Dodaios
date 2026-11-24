@@ -98,7 +98,7 @@ def _run(cmd: list[str], timeout: int = 10) -> str:
 def _detect_cpu() -> tuple[str, int, int]:
     name = platform.processor() or "unknown"
     try:
-        import psutil  # type: ignore[import-untyped]
+        import psutil
 
         return name, psutil.cpu_count(logical=False) or 0, psutil.cpu_count(logical=True) or 0
     except ImportError:
@@ -107,7 +107,7 @@ def _detect_cpu() -> tuple[str, int, int]:
 
 def _detect_ram() -> tuple[int, int]:
     try:
-        import psutil  # type: ignore[import-untyped]
+        import psutil
 
         vm = psutil.virtual_memory()
         return vm.total // (1024 * 1024), vm.available // (1024 * 1024)
@@ -120,7 +120,7 @@ def _detect_nvidia_gpus() -> list[GPUInfo]:
     gpus: list[GPUInfo] = []
 
     try:
-        import pynvml  # type: ignore[import-untyped]
+        import pynvml
 
         pynvml.nvmlInit()
         count = pynvml.nvmlDeviceGetCount()
@@ -169,7 +169,7 @@ def _detect_cuda_version() -> str | None:
 
 def _detect_torch_cuda() -> bool:
     try:
-        import torch  # type: ignore[import-untyped]
+        import torch
 
         return bool(torch.cuda.is_available())
     except ImportError:
@@ -763,7 +763,7 @@ def free_accelerator_gb() -> tuple[float, str]:
     matching the total probe's one-GPU-runs-inference rule.
     """
     try:
-        import pynvml  # type: ignore[import-untyped]
+        import pynvml
 
         pynvml.nvmlInit()
         try:

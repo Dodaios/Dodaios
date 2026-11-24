@@ -425,7 +425,7 @@ class JarvisAgentRegistry:
             # The worker shipped a draft; the mission may still loop through
             # more iterations, but THIS worker subprocess is done.
             worker_tid = _tid(payload.worker_id) or payload.worker_id
-            node = self._nodes.get(worker_tid)
+            node = self._nodes.get(worker_tid)  # type: ignore[assignment]
             if node is None:
                 return
             node.status = "completed"
@@ -436,7 +436,7 @@ class JarvisAgentRegistry:
 
         if isinstance(payload, WorkerKilled):
             worker_tid = _tid(payload.worker_id) or payload.worker_id
-            node = self._nodes.get(worker_tid)
+            node = self._nodes.get(worker_tid)  # type: ignore[assignment]
             if node is None:
                 return
             node.status = (
@@ -450,7 +450,7 @@ class JarvisAgentRegistry:
             return
 
         if isinstance(payload, CriticVerdictReady):
-            node = self._nodes.get(tid)
+            node = self._nodes.get(tid)  # type: ignore[assignment]
             if node is None:
                 return
             node.review_iterations = max(
@@ -459,7 +459,7 @@ class JarvisAgentRegistry:
             return
 
         if isinstance(payload, MissionApproved):
-            node = self._nodes.get(tid)
+            node = self._nodes.get(tid)  # type: ignore[assignment]
             if node is None:
                 return
             node.status = "completed"
@@ -474,7 +474,7 @@ class JarvisAgentRegistry:
             return
 
         if isinstance(payload, (MissionFailed, MissionCancelled, MissionTimedOut)):
-            node = self._nodes.get(tid)
+            node = self._nodes.get(tid)  # type: ignore[assignment]
             if node is None:
                 return
             node.completed_ns = ts_ns

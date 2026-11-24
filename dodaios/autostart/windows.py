@@ -456,8 +456,8 @@ def _tag_shortcut_aumid(link: Path) -> bool:
     diverging from the Start-Menu one. Never raises, never blocks autostart.
     """
     try:
-        import pywintypes  # type: ignore[import-not-found]
-        from win32com.propsys import propsys, pscon  # type: ignore[import-not-found]
+        import pywintypes
+        from win32com.propsys import propsys, pscon
 
         from dodaios.ui.icon_utils import APP_USER_MODEL_ID
 
@@ -502,8 +502,8 @@ def _win32com() -> tuple[object, object] | None:
     always bundles it (``dodaios.spec`` hidden imports).
     """
     try:
-        import pythoncom  # type: ignore[import-not-found]
-        import win32com.client  # type: ignore[import-not-found]
+        import pythoncom
+        import win32com.client
     except Exception:  # noqa: BLE001 — absent or broken pywin32 → PowerShell fallback
         return None
     return pythoncom, win32com.client

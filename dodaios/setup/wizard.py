@@ -918,7 +918,7 @@ def step_mic_check() -> None:
     _println(" Step 3 / 8 — Microphone check")
     _println("=" * 60)
     try:
-        import sounddevice as sd  # type: ignore[import-untyped]
+        import sounddevice as sd
 
         devices = sd.query_devices()
     except ImportError:

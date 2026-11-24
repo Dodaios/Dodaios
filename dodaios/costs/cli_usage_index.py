@@ -569,7 +569,7 @@ def _account_roots(platform: str) -> list[Path]:
         if platform in agent_accounts.platforms():
             roots.extend(
                 Path(account.config_dir)
-                for account in agent_accounts.list_accounts(platform)  # type: ignore[arg-type]
+                for account in agent_accounts.list_accounts(platform)
                 if not account.builtin
             )
     except Exception as exc:  # noqa: BLE001 — a broken store must not stop the scan

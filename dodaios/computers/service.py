@@ -1079,7 +1079,7 @@ class ComputerService:
             username=username,
             auth="password" if password else "key",
             password=password,
-            provider=provider_id,  # type: ignore[arg-type]
+            provider=provider_id,
             provider_ref=server_id,
             region=match.get("region"),
             plan=match.get("plan"),

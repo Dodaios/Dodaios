@@ -53,7 +53,7 @@ def _client(account_sid: str, auth_token: str):  # noqa: ANN202 - twilio Client 
     if not account_sid or not auth_token:
         raise TelephonyProvisionError("Twilio account SID and auth token are required.")
     try:
-        from twilio.rest import Client  # type: ignore[import-untyped]
+        from twilio.rest import Client
     except ImportError as exc:
         raise TelephonyProvisionError(
             "The 'twilio' package is not installed. Install the telephony "

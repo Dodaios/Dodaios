@@ -257,7 +257,7 @@ def _import_user_profile(writer: _Writer, data_dir: Path) -> None:
     identity = meta.get("identity") if isinstance(meta.get("identity"), dict) else {}
     # What the old template filled in is not something the person said.
     assumed = assumed_fields(meta, body)
-    identity = {k: v for k, v in identity.items() if k not in assumed}
+    identity = {k: v for k, v in identity.items() if k not in assumed}  # type: ignore[union-attr]
     lines = []
     if identity.get("name"):
         lines.append(f"The user's name is {identity['name']}.")
@@ -302,7 +302,7 @@ def retire_template_defaults(vault: MemoryVault, *, data_dir: Path) -> int:
         field_name = sentences.get(memory.text)
         if field_name is None or memory.source.get("from") != "user-profile":
             continue
-        if identity.get(field_name) == LEGACY_DEFAULTS[field_name] and field_name not in assumed:
+        if identity.get(field_name) == LEGACY_DEFAULTS[field_name] and field_name not in assumed:  # type: ignore[union-attr]
             continue
         if vault.invalidate(memory.id, reason="a template default the person never stated"):
             closed += 1

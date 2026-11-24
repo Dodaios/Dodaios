@@ -201,9 +201,9 @@ class TelegramApprovalBridge:
     def _text(self, payload: dict[str, Any], lang: str = "en", session_id: str = "") -> str:
         """The request in plain words, whole, in ``lang``."""
         preview = payload.get("preview") if isinstance(payload.get("preview"), dict) else {}
-        klass = str(preview.get("class") or "")
+        klass = str(preview.get("class") or "")  # type: ignore[union-attr]
         fields = {
-            str(f.get("key")): f for f in preview.get("fields", []) if isinstance(f, dict)
+            str(f.get("key")): f for f in preview.get("fields", []) if isinstance(f, dict)  # type: ignore[union-attr]
         }
         tool = str(payload.get("name") or payload.get("tool") or "").strip() or "a tool"
         agent = self._agent_label(payload, session_id, lang)
@@ -225,16 +225,16 @@ class TelegramApprovalBridge:
             if folder:
                 lines.append(phrase("telegram_folder", lang, folder=folder))
         elif klass in ("file_write", "file_delete"):
-            diff = preview.get("diff") if isinstance(preview.get("diff"), dict) else {}
+            diff = preview.get("diff") if isinstance(preview.get("diff"), dict) else {}  # type: ignore[union-attr]
             key = (
                 "telegram_wants_delete" if klass == "file_delete"
-                else "telegram_wants_create" if diff.get("creates")
+                else "telegram_wants_create" if diff.get("creates")  # type: ignore[union-attr]
                 else "telegram_wants_edit"
             )
             lines.append(phrase(key, lang, agent=agent))
             if why:
                 lines.append(phrase("telegram_why", lang, why=why))
-            path = str(fields.get("path", {}).get("value") or diff.get("path") or "").strip()
+            path = str(fields.get("path", {}).get("value") or diff.get("path") or "").strip()  # type: ignore[union-attr]
             if path:
                 lines.append(phrase("telegram_file", lang, path=path))
             if diff:
@@ -249,7 +249,7 @@ class TelegramApprovalBridge:
                         lines.append(more)
         else:
             source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-            if source.get("kind") == "plan":
+            if source.get("kind") == "plan":  # type: ignore[union-attr]
                 lines.append(phrase("telegram_wants_plan", lang, agent=agent))
             else:
                 lines.append(phrase("telegram_wants_tool", lang, agent=agent, tool=tool))
@@ -264,7 +264,7 @@ class TelegramApprovalBridge:
             said = said.strip()
             if said and said != tool and said != why:
                 lines += ["", said]
-        if preview.get("irreversible"):
+        if preview.get("irreversible"):  # type: ignore[union-attr]
             lines += ["", phrase("telegram_irreversible", lang)]
         text = "\n".join(lines).strip()
         if len(text) > _MAX_MESSAGE:

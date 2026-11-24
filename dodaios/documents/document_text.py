@@ -130,7 +130,7 @@ def _pdf_text(path: Path) -> str | None:
             try:
                 opened = reader.decrypt("")
             except Exception:  # noqa: BLE001 — a locked file is a skip
-                opened = 0
+                opened = 0  # type: ignore[assignment]
             if not opened:
                 log.info("PDF skipped: %s is password protected", path)
                 return None

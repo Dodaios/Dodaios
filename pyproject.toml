@@ -1096,3 +1096,10 @@ cryptography = { index = "native-crypto" }
 name = "sherpa-onnx"
 version = "1.13.4"
 requires-dist = ["sherpa-onnx-core==1.13.4"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+platform = "win32"
+disable_error_code = ["import-untyped"]

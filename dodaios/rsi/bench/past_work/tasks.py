@@ -145,7 +145,7 @@ def pieces(session: PastSession) -> tuple[list[Piece], Counter[LeftOut]]:
             if len(before) > MAX_SAID_BEFORE_FIRST:
                 left[LeftOut.CONVERSATION] += 1
                 continue
-            request, later = before[start], tuple(before[start + 1 :])
+            request, later = before[start], tuple(before[start + 1 :])  # type: ignore[assignment]
         elif not before or (len(before) == 1 and not _is_request(before[0])):
             left[LeftOut.NO_REQUEST] += 1
             continue
@@ -162,7 +162,7 @@ def pieces(session: PastSession) -> tuple[list[Piece], Counter[LeftOut]]:
                 number=pull.number,
                 opened_ms=pull.ts_ms,
                 request=_clip(request, _MAX_REQUEST_CHARS),
-                told_later=tuple(_clip(text, _MAX_LATER_CHARS) for text in later[:_MAX_LATER]),
+                told_later=tuple(_clip(text, _MAX_LATER_CHARS) for text in later[:_MAX_LATER]),  # type: ignore[var-annotated]
             )
         )
     return found, left

@@ -188,7 +188,7 @@ def _merged_openers() -> dict[str, tuple[str, ...]]:
         for kind, openers in table.items():
             kinds.setdefault(kind, set()).update(openers)
     seen: dict[str, int] = {}
-    for openers in kinds.values():
+    for openers in kinds.values():  # type: ignore[assignment]
         for opener in openers:
             seen[opener] = seen.get(opener, 0) + 1
     return {

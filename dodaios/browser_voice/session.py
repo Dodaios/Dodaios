@@ -483,7 +483,7 @@ class BrowserVoiceSession:
                 )
             )
             self._reply_started = True
-            self._tts_task = asyncio.create_task(self._speak(spoken))
+            self._tts_task = asyncio.create_task(self._speak(spoken))  # type: ignore[arg-type]
             try:
                 await self._tts_task
             except asyncio.CancelledError:

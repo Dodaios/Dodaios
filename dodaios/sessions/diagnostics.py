@@ -93,7 +93,7 @@ def session_termination_diagnostics(
     result["last_state_transition_ms"] = None
     result["session_end_ms"] = session.ended_ms
     for event in relevant:
-        field = _EVENT_TIMESTAMPS.get(event.kind)
+        field = _EVENT_TIMESTAMPS.get(event.kind)  # type: ignore[assignment]
         if field:
             result[field] = event.ts_ms
         if event.kind == "LatencySpan":

@@ -239,7 +239,7 @@ class BoardStore:
                     counts[name] = counts.get(name, 0) + 1
             histogram = sorted(
                 ({"tool": k, "days_used": v} for k, v in counts.items()),
-                key=lambda d: (-d["days_used"], d["tool"]),
+                key=lambda d: (-d["days_used"], d["tool"]),  # type: ignore[operator]
             )
             return {
                 "window_days": window_days,

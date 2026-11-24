@@ -78,7 +78,7 @@ def build_latency(events: list[VoiceEventRow]) -> list[LatencyEntry]:
         if e.kind != "LatencySpan":
             continue
         phase = str(e.payload.get("phase", ""))
-        dur = float(e.payload.get("duration_ms", 0.0) or 0.0)
+        dur = float(e.payload.get("duration_ms", 0.0) or 0.0)  # type: ignore[arg-type]
         if not phase:
             continue
         out.append(LatencyEntry(phase=phase, duration_ms=dur,
@@ -140,7 +140,7 @@ def build_decision_path(events: list[VoiceEventRow]) -> list[DecisionStep]:
                 kind=DECISION_RISK,
                 label=f"approved: {p.get('tool_name', '?')}",
                 detail=f"by={by}",
-                rationale=_approval_rationale(by),
+                rationale=_approval_rationale(by),  # type: ignore[arg-type]
                 rationale_source=RATIONALE_RULE,
             ))
         elif e.kind == "ActionDenied":
@@ -317,7 +317,7 @@ def build_errors(events: list[VoiceEventRow]) -> list[ErrorEntry]:
                 source="ErrorOccurred",
                 layer=str(p.get("layer", "")) or None,
                 message=str(p.get("error_type", "")) + ": " + str(p.get("message", "")),
-                recoverable=p.get("recoverable"),
+                recoverable=p.get("recoverable"),  # type: ignore[arg-type]
             ))
         elif e.kind == "ActionDenied":
             out.append(ErrorEntry(
@@ -731,7 +731,7 @@ def _specific_summary(e: VoiceEventRow) -> str:
         return _join([
             f"{p.get('provider', '')}/{p.get('model', '')}".strip("/"),
             f"{p.get('tokens_in', 0)}+{p.get('tokens_out', 0)} tok",
-            f"${float(p.get('cost_usd', 0) or 0):.4f}",
+            f"${float(p.get('cost_usd', 0) or 0):.4f}",  # type: ignore[arg-type]
             f"finish={p.get('finish_reason', '')}" if p.get("finish_reason") else "",
         ])
     if k == "BrainTTFT":
@@ -785,7 +785,7 @@ def _specific_summary(e: VoiceEventRow) -> str:
         return f"critic loop iteration {p.get('iteration', '?')}"
     if k == "JarvisAgentTaskCompleted":
         ok = "success" if p.get("success") else "FAILED"
-        return _join([ok, _fmt_ms(float(p.get("duration_s", 0) or 0) * 1000),
+        return _join([ok, _fmt_ms(float(p.get("duration_s", 0) or 0) * 1000),  # type: ignore[arg-type]
                       str(p.get("summary", ""))[:100], str(p.get("error", "") or "")[:80]])
     if k == "JarvisAgentAnnouncement":
         return _join([str(p.get("action", "")), str(p.get("target", ""))])
@@ -800,7 +800,7 @@ def _specific_summary(e: VoiceEventRow) -> str:
         return _join([str(p.get("source", "")), str(p.get("window_title", ""))[:60],
                       f"{p.get('node_count', 0)} UI nodes"])
     if k == "VisionInjected":
-        return _join([f"{int(p.get('bytes_size', 0) or 0) // 1024} KB screenshot",
+        return _join([f"{int(p.get('bytes_size', 0) or 0) // 1024} KB screenshot",  # type: ignore[call-overload]
                       f"age {_fmt_ms(p.get('capture_age_ms'))}"])
     if k == "ActionPlanned":
         return _join([str(p.get("action_kind", "")), str(p.get("target_hint", ""))[:80]])
@@ -824,7 +824,7 @@ def _specific_summary(e: VoiceEventRow) -> str:
         return _join([f"hangup: {p.get('hangup_reason', '')}",
                       f"{p.get('turn_count', 0)} turns"])
     if k == "VoiceTurnStarted":
-        return f"turn {int(p.get('turn_index', 0) or 0) + 1} opened"
+        return f"turn {int(p.get('turn_index', 0) or 0) + 1} opened"  # type: ignore[call-overload]
     if k == "VoiceTurnCompleted":
         return _join([str(p.get("tier", "")), _fmt_ms(p.get("latency_total_ms")),
                       str(p.get("voice", ""))])
@@ -918,8 +918,8 @@ def build_environment(
         p = e.payload
         if e.kind == "RealtimeSessionReady":
             env.surface = str(p.get("surface", "") or env.surface)
-            env.input_sample_rate = int(p.get("input_sample_rate", 0) or 0) or None
-            env.output_sample_rate = int(p.get("output_sample_rate", 0) or 0) or None
+            env.input_sample_rate = int(p.get("input_sample_rate", 0) or 0) or None  # type: ignore[call-overload]
+            env.output_sample_rate = int(p.get("output_sample_rate", 0) or 0) or None  # type: ignore[call-overload]
         voice = str(p.get("voice", "") or "")
         if voice and voice not in env.voices:
             env.voices.append(voice)

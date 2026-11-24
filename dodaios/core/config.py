@@ -1847,8 +1847,8 @@ class SafetyConfig(BaseModel):
     #: never looser than the agent that created it.
     agent_approval_mode: Literal["bypass", "ask", "always_ask"] = "bypass"
     default_tier: RiskTier = "safe"
-    always_confirm_tiers: list[RiskTier] = Field(default_factory=lambda: ["ask"])
-    always_block_tiers: list[RiskTier] = Field(default_factory=lambda: ["block"])
+    always_confirm_tiers: list[RiskTier] = Field(default_factory=lambda: ["ask"])  # type: ignore[arg-type]
+    always_block_tiers: list[RiskTier] = Field(default_factory=lambda: ["block"])  # type: ignore[arg-type]
     whitelist: SafetyWhitelistConfig = Field(default_factory=SafetyWhitelistConfig)
     blacklist: SafetyBlacklistConfig = Field(default_factory=SafetyBlacklistConfig)
     # How long an armed approval gate waits for a decision before the default
@@ -5537,7 +5537,7 @@ def _install_file_cred_backend(reason: str, *, retain_platform_backend: bool = T
         _store = _FileCredStore()
 
         class _FileKeyringBackend(keyring.backend.KeyringBackend):
-            priority = 0.1  # type: ignore[assignment]  # below any real OS backend
+            priority = 0.1  # below any real OS backend
             _jarvis_file_backend = True
 
             def get_password(self, service: str, username: str) -> str | None:
@@ -5636,12 +5636,12 @@ def _try_restore_platform_keyring_backend() -> bool:
     previous_backend = None
     candidate = None
     try:
-        import keyring as keyring_mod
+        import keyring as keyring_mod  # type: ignore[assignment]
         from keyring.core import init_backend
 
-        previous_backend = keyring_mod.get_keyring()
+        previous_backend = keyring_mod.get_keyring()  # type: ignore[attr-defined]
         init_backend()
-        candidate = keyring_mod.get_keyring()
+        candidate = keyring_mod.get_keyring()  # type: ignore[attr-defined]
         if not _is_platform_keyring_backend(candidate):
             raise RuntimeError("platform backend discovery found no usable backend")
 
@@ -6197,16 +6197,16 @@ def plan_secret_save(slot: str, value: str, scope: str | None = None) -> SecretS
 
     # The family primary itself.
     old_value = get_secret(primary)
-    mirrors: list[str] = []
+    mirrors: list[str] = []  # type: ignore[no-redef]
     distinct: list[str] = []
     for scoped in secret_family_scoped_slots(family):
         held = get_secret(scoped)
         if not held or held == value:
             if held:
-                mirrors.append(scoped)
+                mirrors.append(scoped)  # type: ignore[attr-defined]
             continue
         if old_value and held == old_value:
-            mirrors.append(scoped)
+            mirrors.append(scoped)  # type: ignore[attr-defined]
         else:
             distinct.append(scoped)
     if distinct and scope is None:
@@ -6494,10 +6494,10 @@ def _delete_secret_in(service: str, key: str) -> tuple[bool, bool]:
             from keyring.errors import PasswordDeleteError
 
             try:
-                retained_backend.delete_password(service, key)
+                retained_backend.delete_password(service, key)  # type: ignore[union-attr]
             except PasswordDeleteError:
                 pass
-            if retained_backend.get_password(service, key) is not None:
+            if retained_backend.get_password(service, key) is not None:  # type: ignore[union-attr]
                 return False, False
         except Exception:  # noqa: BLE001
             return False, False

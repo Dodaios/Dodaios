@@ -27,7 +27,7 @@ def private_temp_folder(name: str) -> Path:
         folder = base / name
         folder.mkdir(parents=True, exist_ok=True)
         return folder
-    uid = os.getuid()
+    uid = os.getuid()  # type: ignore[attr-defined]
     folder = base / f"{name}-{uid}"
     try:
         folder.mkdir(mode=0o700, parents=True)

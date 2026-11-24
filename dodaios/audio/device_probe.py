@@ -23,7 +23,7 @@ SNAPSHOT_MARKER = "JARVIS_AUDIO_DEVICE_SNAPSHOT="
 def _device_index(value: object) -> int:
     """Normalize a sounddevice default index to an integer sentinel."""
     try:
-        index = int(value)  # type: ignore[arg-type]
+        index = int(value)  # type: ignore[call-overload]
     except (TypeError, ValueError, OverflowError):
         return -1
     return index if index >= 0 else -1

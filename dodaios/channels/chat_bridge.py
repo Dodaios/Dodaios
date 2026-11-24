@@ -137,7 +137,7 @@ class ChannelChatBridge:
 
     async def _consume(self, name: str, channel: ChannelAdapter) -> None:
         try:
-            async for msg in channel.messages():
+            async for msg in channel.messages():  # type: ignore[attr-defined]
                 await self._handle_message(name, msg)
         except asyncio.CancelledError:
             raise

@@ -149,7 +149,7 @@ def exclude_macos_app_windows() -> bool:
     if sys.platform != "darwin":
         return False
     try:
-        from AppKit import NSApp  # type: ignore[import-not-found]  # noqa: PLC0415
+        from AppKit import NSApp  # noqa: PLC0415
     except Exception:  # noqa: BLE001
         return False
     try:

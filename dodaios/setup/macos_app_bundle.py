@@ -1100,7 +1100,7 @@ def _running_managed_bundle(
     if sys.platform != "darwin":
         return None
     try:
-        from Foundation import NSBundle  # type: ignore[import-not-found]
+        from Foundation import NSBundle
 
         import dodaios.ui.web.launcher as launcher
 

@@ -125,6 +125,11 @@ _PROFILE_HEADINGS = {
 }
 
 
+# The class below defines a method called ``list``, which would shadow the builtin
+# inside its annotations; ``_List`` is the builtin for those.
+_List = list
+
+
 def utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -418,10 +423,10 @@ class MemoryVault:
         scope: str | None = None,
         include_closed: bool = False,
         limit: int | None = None,
-    ) -> list[Memory]:
+    ) -> _List[Memory]:
         """Memories, newest first. Current ones only unless asked otherwise."""
-        where: list[str] = []
-        args: list[Any] = []
+        where: _List[str] = []
+        args: _List[Any] = []
         if not include_closed:
             where.append(_CURRENT)
             args.append(self.now())
@@ -439,7 +444,7 @@ class MemoryVault:
             sql += f" LIMIT {int(limit)}"
         return [self._row_to_memory(r) for r in self._db.execute(sql, args)]
 
-    def history(self, memory_id: str) -> list[Memory]:
+    def history(self, memory_id: str) -> _List[Memory]:
         """Every version of a memory, oldest first."""
         ids = self._chain_ids(memory_id)
         found = {m.id: m for m in (self.get(i) for i in ids) if m is not None}
@@ -455,7 +460,7 @@ class MemoryVault:
 
         return sorted(found.values(), key=lambda m: (_depth(m.id), m.recorded_at, m.id))
 
-    def about(self, entity: str, *, include_closed: bool = True) -> list[Memory]:
+    def about(self, entity: str, *, include_closed: bool = True) -> _List[Memory]:
         """Every memory that names an entity, oldest first ("where did I live before?")."""
         rows = self._db.execute(
             f"SELECT {_prefixed()} FROM memory m "  # noqa: S608
@@ -470,7 +475,7 @@ class MemoryVault:
         now = self.now()
         return [m for m in memories if m.is_current(now)]
 
-    def entities(self) -> list[dict[str, Any]]:
+    def entities(self) -> _List[dict[str, Any]]:
         rows = self._db.execute(
             "SELECT e.id, e.name, e.created_at, COUNT(me.memory_id) AS uses FROM entity e "
             "LEFT JOIN memory_entity me ON me.entity_id = e.id GROUP BY e.id ORDER BY e.name"
@@ -485,7 +490,7 @@ class MemoryVault:
         kinds: Sequence[str] | None = None,
         scope: str | None = None,
         include_closed: bool = False,
-    ) -> list[SearchHit]:
+    ) -> _List[SearchHit]:
         """Keyword search with entity and recency boosts. Best hit first.
 
         Each word matches as a prefix, any word may match (OR), and BM25
@@ -497,7 +502,7 @@ class MemoryVault:
             return []
         match = " OR ".join(f'"{t}"*' for t in dict.fromkeys(tokens))
         where = ["memory_fts MATCH ?"]
-        args: list[Any] = [match]
+        args: _List[Any] = [match]
         if not include_closed:
             where.append(_CURRENT)
             args.append(self.now())
@@ -525,7 +530,7 @@ class MemoryVault:
         floor = float(params.get("recall.recency_floor"))
         fade_days = float(params.get("recall.recency_days"))
         now = self.now()
-        hits: list[SearchHit] = []
+        hits: _List[SearchHit] = []
         for row in rows:
             memory = self._row_to_memory(row)
             score = -float(row["rank"])  # bm25 is lower-is-better
@@ -541,7 +546,7 @@ class MemoryVault:
 
     def profile_selection(
         self, *, max_chars: int = 2400, scope: str | None = None
-    ) -> list[tuple[str, list[Memory]]]:
+    ) -> _List[tuple[str, _List[Memory]]]:
         """Which memories the always-on block holds, as ``(section, memories)``.
 
         Pinned memories first, then the stable kinds in a fixed order. Episodes
@@ -553,10 +558,10 @@ class MemoryVault:
             for m in self.list(scope=scope)
             if m.sensitivity == "normal" and (m.pinned or m.kind in _PROFILE_ORDER)
         ]
-        groups: dict[str, list[Memory]] = {}
+        groups: dict[str, _List[Memory]] = {}
         for m in current:
             groups.setdefault("pinned" if m.pinned else m.kind, []).append(m)
-        sections: list[tuple[str, list[Memory]]] = []
+        sections: _List[tuple[str, _List[Memory]]] = []
         budget = max_chars
         for key in ("pinned", *_PROFILE_ORDER):
             items = sorted(
@@ -569,7 +574,7 @@ class MemoryVault:
             heading = f"{_PROFILE_HEADINGS[key]}:"
             if len(heading) + 1 > budget:
                 break
-            chosen: list[Memory] = []
+            chosen: _List[Memory] = []
             used = len(heading) + 1
             for m in items:
                 line = f"- {m.text}"
@@ -584,7 +589,7 @@ class MemoryVault:
 
     def profile_block(self, *, max_chars: int = 2400, scope: str | None = None) -> str:
         """The always-on summary for the system prompt (see :meth:`profile_selection`)."""
-        lines: list[str] = []
+        lines: _List[str] = []
         for key, memories in self.profile_selection(max_chars=max_chars, scope=scope):
             lines.append(f"{_PROFILE_HEADINGS[key]}:")
             lines.extend(f"- {m.text}" for m in memories)
@@ -624,7 +629,7 @@ class MemoryVault:
             return ""
         return str(detail.get("reason") or "") if isinstance(detail, dict) else ""
 
-    def audit_log(self, *, limit: int | None = None) -> list[dict[str, Any]]:
+    def audit_log(self, *, limit: int | None = None) -> _List[dict[str, Any]]:
         sql = "SELECT seq, at, action, memory_id, detail FROM audit ORDER BY seq"
         if limit:
             sql += f" DESC LIMIT {int(limit)}"
@@ -633,7 +638,7 @@ class MemoryVault:
             r["detail"] = json.loads(r["detail"] or "{}")
         return rows
 
-    def tombstones(self) -> list[dict[str, Any]]:
+    def tombstones(self) -> _List[dict[str, Any]]:
         return [
             dict(r)
             for r in self._db.execute(
@@ -642,7 +647,7 @@ class MemoryVault:
             )
         ]
 
-    def upcoming(self, *, days: int = 14) -> list[Memory]:
+    def upcoming(self, *, days: int = 14) -> _List[Memory]:
         """Current memories that fall due within ``days`` (overdue ones first)."""
         now = self.now()
         horizon = (datetime.fromisoformat(now) + timedelta(days=days)).isoformat(timespec="seconds")
@@ -831,7 +836,7 @@ class MemoryVault:
         # Rows that pointed at a forgotten version keep pointing at nothing.
         self._db.execute("UPDATE memory SET supersedes_id=NULL WHERE supersedes_id=?", (memory_id,))
 
-    def _chain_ids(self, memory_id: str) -> list[str]:
+    def _chain_ids(self, memory_id: str) -> _List[str]:
         if not self.has(memory_id):
             return []
         seen = {memory_id}

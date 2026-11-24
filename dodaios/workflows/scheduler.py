@@ -22,10 +22,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 try:
-    from croniter import croniter  # type: ignore
+    from croniter import croniter
     _HAVE_CRONITER = True
 except Exception:  # pragma: no cover
-    croniter = None  # type: ignore
+    croniter = None
     _HAVE_CRONITER = False
 
 from dodaios.core.bus import EventBus
@@ -298,7 +298,7 @@ def _compute_next_cron_ns(cron_expr: str, base_ns: int) -> int | None:
         return None
     try:
         base_dt = datetime.fromtimestamp(base_ns / 1e9).astimezone()
-        it = croniter(cron_expr, base_dt)  # type: ignore[operator]
+        it = croniter(cron_expr, base_dt)
         nxt = it.get_next(datetime)
         return int(nxt.timestamp() * 1e9)
     except Exception:  # noqa: BLE001

@@ -284,7 +284,7 @@ def _load_winrt_manager() -> Any | None:
     """Return the WinRT session-manager class, or None when the desktop extras
     are absent. Guarded lazy import (HN-7)."""
     try:
-        from winrt.windows.media.control import (  # type: ignore[import-not-found]
+        from winrt.windows.media.control import (
             GlobalSystemMediaTransportControlsSessionManager,
         )
     except Exception:  # noqa: BLE001 — ImportError, or a broken WinRT runtime
@@ -455,7 +455,7 @@ def _send_media_key(vk: int) -> bool:
     try:
         import ctypes
 
-        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        user32 = ctypes.windll.user32
         user32.keybd_event(vk, 0, 0, 0)
         user32.keybd_event(vk, 0, _KEYEVENTF_KEYUP, 0)
         return True
@@ -654,7 +654,7 @@ class MacMediaSession:
 
 def _to_float(raw: str | None) -> float | None:
     try:
-        return float(raw) if raw not in (None, "") else None
+        return float(raw) if raw not in (None, "") else None  # type: ignore[arg-type]
     except (TypeError, ValueError):  # a CLI printed "null"/garbage: no number, not an error
         return None
 

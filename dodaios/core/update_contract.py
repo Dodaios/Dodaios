@@ -26,6 +26,7 @@ import logging
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from dodaios.core.branding import (
     CONFIG_FILE_NAME,
@@ -203,7 +204,7 @@ def parse_update_contract(text: str) -> UpdateContract:
         )
         return DEFAULT_CONTRACT
 
-    stated: dict[str, object] = {}
+    stated: dict[str, Any] = {}
     for name, is_valid in _FIELD_CHECKS:
         if name not in payload:
             continue

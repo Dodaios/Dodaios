@@ -243,7 +243,7 @@ except ImportError:  # pragma: no cover -- keyring is present in every dev env
     _KeyringBackendBase = object  # type: ignore[assignment, misc]
 
 
-class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-type, misc]
+class DarwinBundleKeyringBackend(_KeyringBackendBase):
     """Wrap an inner keyring backend, collapsing all secrets into one item.
 
     Implements the three methods ``dodaios/core/config.py`` calls through
@@ -260,7 +260,7 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
     # the wrapper is only ever installed explicitly via ``set_keyring``,
     # never through priority-based discovery (its ctor needs ``inner``, so
     # discovery instantiation fails harmlessly).
-    priority = 6.0  # type: ignore[assignment]
+    priority = 6.0
 
     # Lets ``config._is_platform_keyring_backend`` recognize this wrapper as
     # a platform backend by delegating the check to the wrapped instance,

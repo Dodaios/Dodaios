@@ -68,7 +68,7 @@ class RunLoader:
                 if e.kind == "LatencySpan":
                     st = analyzer.classify_latency(
                         str(e.payload.get("phase", "")),
-                        float(e.payload.get("duration_ms", 0.0) or 0.0),
+                        float(e.payload.get("duration_ms", 0.0) or 0.0),  # type: ignore[arg-type]
                     )
                     if analyzer._SLO_RANK.get(st, 0) > analyzer._SLO_RANK.get(worst, 0):
                         worst = st

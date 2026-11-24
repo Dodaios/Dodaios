@@ -6,7 +6,7 @@ from .calendar import calendar_zone
 
 
 def validate_cron(expression: str, timezone: str) -> None:
-    from croniter import croniter  # type: ignore[import-untyped]
+    from croniter import croniter
 
     calendar_zone(timezone)
     if len(expression.split()) != 5 or not croniter.is_valid(expression):
@@ -14,7 +14,7 @@ def validate_cron(expression: str, timezone: str) -> None:
 
 
 def next_cron_ns(expression: str, timezone: str, now_ns: int) -> int:
-    from croniter import croniter  # type: ignore[import-untyped]
+    from croniter import croniter
 
     zone = calendar_zone(timezone)
     local = datetime.fromtimestamp(now_ns / 1e9, UTC).astimezone(zone)

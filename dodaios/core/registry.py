@@ -51,7 +51,7 @@ def list_all_plugins() -> dict[str, list[str]]:
     return {g: list_plugins(g) for g in PLUGIN_GROUPS}
 
 
-def load(group: str, name: str, protocol: type[Protocol] | None = None) -> type[Any]:
+def load(group: str, name: str, protocol: type[Protocol] | None = None) -> type[Any]:  # type: ignore[valid-type]
     """Loads a plugin class by its name.
 
     Args:

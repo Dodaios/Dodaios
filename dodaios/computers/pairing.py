@@ -146,7 +146,7 @@ class ServerPairing:
 
     def identity(self) -> ServerIdentity:
         return ServerIdentity(
-            protocol=PROTOCOL, name=platform.node()[:120] or "Dodaios", platform=platform.system()
+            protocol=PROTOCOL, name=platform.node()[:120] or "Dodaios", platform=platform.system()  # type: ignore[arg-type]
         )
 
     def issue_code(self) -> dict[str, Any]:
@@ -343,7 +343,7 @@ class ServerPairing:
             online = True
         except (PairingError, ValidationError):
             # A failed health check is represented explicitly in the saved status.
-            reply = ServerIdentity(protocol=PROTOCOL, name=server.name, platform=server.platform)
+            reply = ServerIdentity(protocol=PROTOCOL, name=server.name, platform=server.platform)  # type: ignore[arg-type]
         with _LOCK:
             state = self._read()
             current = next((s for s in state.servers if s.id == server_id), None)

@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 try:  # stdlib on <=3.12, backport ("audioop-lts") on >=3.13
-    import audioop  # type: ignore[import-not-found]
+    import audioop
 except ModuleNotFoundError:  # pragma: no cover - exercised only on 3.13+
-    import audioop_lts as audioop  # type: ignore[import-not-found, no-redef]
+    import audioop_lts as audioop  # type: ignore[no-redef]
 
 # Twilio Media Streams wire format.
 TWILIO_SAMPLE_RATE: int = 8_000

@@ -92,7 +92,7 @@ def validate_twilio_signature(
     if not auth_token or not signature or not url:
         return False
     try:
-        from twilio.request_validator import (  # type: ignore[import-untyped]
+        from twilio.request_validator import (
             RequestValidator,
         )
     except ImportError:

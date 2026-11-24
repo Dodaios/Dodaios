@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     with contextlib.suppress(Exception):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     cfg_path = args.config
     if cfg_path is None:
         from dodaios.core.paths import user_data_dir

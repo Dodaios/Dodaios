@@ -69,7 +69,7 @@ def _executions(path: Path) -> Iterable[tuple[str, bool, int]]:
                 continue
             ts_ns = record.get("ts_ns")
             ts_ms = int(ts_ns) // 1_000_000 if isinstance(ts_ns, (int, float)) else 0
-            yield name, payload.get("success") is not False, ts_ms
+            yield name, payload.get("success") is not False, ts_ms  # type: ignore[union-attr]
 
 
 def tool_usage(

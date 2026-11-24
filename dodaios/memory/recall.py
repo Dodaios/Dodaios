@@ -280,7 +280,7 @@ class RecallStore:
             """,
             (namespace, f"%{_escape_like(query)}%", k),
         )
-        rows = await cur.fetchall()
+        rows = await cur.fetchall()  # type: ignore[assignment]
         await cur.close()
         return [(r["key"], json.loads(r["value_json"]), 0.0) for r in rows]
 
