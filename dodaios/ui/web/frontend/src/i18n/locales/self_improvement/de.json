@@ -78,7 +78,7 @@
       "values": "{before} → {after}",
       "since": "seit {when}",
       "held": "auf {n} Aufgaben erneut bestätigt",
-      "kinds": "Zwei Arten von Änderungen: Werte, die er eingestellt und an Aufgaben belegt hat, und Notizen, die er sich selbst geschrieben hat; die sind in Kraft, aber noch nicht gemessen.",
+      "kinds": "Drei Arten von Änderungen: Werte, die er eingestellt und an Aufgaben belegt hat, wie er Coding-Agenten steuert, belegt an der Hälfte deiner Anfragen, und Notizen, die er sich selbst geschrieben hat; die sind in Kraft, aber noch nicht gemessen.",
       "note_title": "Eine Notiz an sich selbst",
       "note_gone": "Diese Notiz ist nicht mehr im Gedächtnis.",
       "not_measured": "noch nicht gemessen"
@@ -119,7 +119,8 @@
     "author": {
       "tuner": "Der Tuner, der benachbarte Werte an Übungsaufgaben ausprobiert",
       "owner": "Du",
-      "memory-learner": "Der Assistent, nachdem ein Werkzeug versagt hat und ein späterer Aufruf geklappt hat"
+      "memory-learner": "Der Assistent, nachdem ein Werkzeug versagt hat und ein späterer Aufruf geklappt hat",
+      "rsi-selector": "Der Steuerungslerner, der jeweils eine Änderung bei der Hälfte deiner Coding-Anfragen ausprobiert"
     },
     "nights": {
       "title": "Die letzten Nächte",
@@ -238,6 +239,40 @@
       "col_through": "Durchgegangen",
       "week_of": "ab {date}",
       "unrated": "keine Zahl"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "im Bereich {area}, mit {model} in {harness}",
+      "default_model": "dem Standardmodell",
+      "hold": "Wartet auf die Prüfungen und bittet um Korrekturen",
+      "release": "Wartet nicht mehr auf die Prüfungen",
+      "no_fixes": "Bittet um keine Korrekturen",
+      "fewer_fixes_one": "Bittet um höchstens eine Korrektur",
+      "fewer_fixes_other": "Bittet um höchstens {n} Korrekturen",
+      "shorter_wait": "Wartet höchstens {minutes} Minuten auf die Prüfungen",
+      "brief_line": "Ergänzt die erste Anweisung um eine Zeile",
+      "other": "Ändert, wie Coding-Agenten gesteuert werden",
+      "on_trial": "seit {when} auf Probe bei der Hälfte deiner Anfragen",
+      "claim_pass": "bleibt nur, wenn deutlich mehr Anfragen gelingen",
+      "claim_cost": "bleibt nur, wenn es weniger kostet und nichts schlechter wird",
+      "claim_p": "bleibt nur, wenn weniger Korrekturen nötig sind und nichts schlechter wird",
+      "proof_pass": "{with} von {n} Anfragen gelungen, gegenüber {without} von {m} ohne (mindestens {low} Punkte)",
+      "proof_cost": "{diff} weniger pro Anfrage an Kosten und Zeit, bei {n} Anfragen gegenüber {m} ohne (mindestens {low} weniger)",
+      "proof_p": "{diff} Korrekturen weniger pro Anfrage, bei {n} Anfragen gegenüber {m} ohne (mindestens {low} weniger)",
+      "measured_on": "Gemessen an {n} deiner Anfragen damit und {m} ohne, {when}.",
+      "about": "Wie Dodaios Coding-Arbeit an Agenten übergibt, für diese Art von Arbeit, dieses Modell und dieses Coding-Werkzeug: ob seine Antwort auf die Prüfungen wartet, um wie viele Korrekturen es bittet und was in der ersten Anweisung steht. Es wurde bei der Hälfte deiner Anfragen ausprobiert und mit der anderen Hälfte verglichen.",
+      "probation": "Auf Probe: Der erste Lauf damit, der eine Prüfung schwächt, nimmt es von selbst zurück."
+    },
+    "coding_area": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "testing": "Tests",
+      "database": "Datenbank",
+      "infra_ci": "Infrastruktur und CI",
+      "docs": "Dokumentation",
+      "other": "Sonstiges",
+      "refactoring": "Refactoring",
+      "multi_repo": "Multi-Repo"
     }
   }
 }

@@ -78,7 +78,7 @@
       "values": "{before} → {after}",
       "since": "desde {when}",
       "held": "confirmado de novo em {n} tarefas",
-      "kinds": "Dois tipos de alteração: valores que afinou e provou em tarefas, e notas que escreveu para si próprio, que estão em vigor mas ainda não foram medidas.",
+      "kinds": "Três tipos de alteração: valores que afinou e provou em tarefas, a forma como orienta os agentes de código, provada em metade dos seus pedidos, e notas que escreveu para si próprio, que estão em vigor mas ainda não foram medidas.",
       "note_title": "Uma nota que escreveu para si próprio",
       "note_gone": "Esta nota já não está na memória.",
       "not_measured": "ainda não medido"
@@ -119,7 +119,8 @@
     "author": {
       "tuner": "O afinador, que experimenta valores próximos em tarefas de treino",
       "owner": "O utilizador",
-      "memory-learner": "O assistente, depois de uma ferramenta falhar e uma chamada posterior resultar"
+      "memory-learner": "O assistente, depois de uma ferramenta falhar e uma chamada posterior resultar",
+      "rsi-selector": "O aprendiz de orientação, que experimenta uma alteração de cada vez em metade dos seus pedidos de código"
     },
     "nights": {
       "title": "As últimas noites",
@@ -238,6 +239,40 @@
       "col_through": "Seguiram",
       "week_of": "a partir de {date}",
       "unrated": "sem valor"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "para trabalho de {area} com {model} em {harness}",
+      "default_model": "o modelo predefinido",
+      "hold": "Espera pelas verificações e pede correções",
+      "release": "Deixa de esperar pelas verificações",
+      "no_fixes": "Não pede correções",
+      "fewer_fixes_one": "Pede no máximo uma correção",
+      "fewer_fixes_other": "Pede no máximo {n} correções",
+      "shorter_wait": "Espera no máximo {minutes} minutos pelas verificações",
+      "brief_line": "Acrescenta uma linha à primeira instrução",
+      "other": "Muda a forma como os agentes de código são orientados",
+      "on_trial": "à experiência em metade dos seus pedidos desde {when}",
+      "claim_pass": "fica só se claramente mais pedidos resultarem",
+      "claim_cost": "fica só se custar menos e nada piorar",
+      "claim_p": "fica só se forem precisas menos correções e nada piorar",
+      "proof_pass": "Resultaram {with} de {n} pedidos, contra {without} de {m} sem ela (pelo menos {low} pontos)",
+      "proof_cost": "{diff} a menos por pedido em custo e tempo, em {n} pedidos contra {m} sem ela (pelo menos {low} a menos)",
+      "proof_p": "{diff} correções a menos por pedido, em {n} pedidos contra {m} sem ela (pelo menos {low} a menos)",
+      "measured_on": "Medido em {n} dos seus pedidos com ela e {m} sem ela, {when}.",
+      "about": "Como o Dodaios entrega trabalho de código aos agentes para este tipo de trabalho, este modelo e esta ferramenta de código: se a resposta espera pelas verificações, quantas correções pede e o que diz a primeira instrução. Foi experimentada em metade dos seus pedidos e comparada com a outra metade.",
+      "probation": "À experiência: a primeira execução com ela que enfraqueça uma verificação retira-a por si só."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "testes",
+      "database": "base de dados",
+      "infra_ci": "infraestrutura e CI",
+      "docs": "documentação",
+      "other": "outro tipo",
+      "refactoring": "refatoração",
+      "multi_repo": "vários repositórios"
     }
   }
 }

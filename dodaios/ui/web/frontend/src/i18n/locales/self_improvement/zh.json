@@ -78,7 +78,7 @@
       "values": "{before} → {after}",
       "since": "自{when}起",
       "held": "在 {n} 个任务上再次确认",
-      "kinds": "改动分两类：它调整并在任务上验证过的值，以及它为自己写下的笔记；笔记已经生效，但尚未测量。",
+      "kinds": "改动分三类：它调整并在任务上验证过的值；它引导编码代理的方式，已在你一半的请求上验证；以及它为自己写下的笔记，笔记已经生效，但尚未测量。",
       "note_title": "它为自己写下的笔记",
       "note_gone": "这条笔记已不在记忆中。",
       "not_measured": "尚未测量"
@@ -119,7 +119,8 @@
     "author": {
       "tuner": "调节器，它在练习任务上尝试相邻的值",
       "owner": "你",
-      "memory-learner": "助手，在某个工具失败而之后的调用成功之后"
+      "memory-learner": "助手，在某个工具失败而之后的调用成功之后",
+      "rsi-selector": "引导学习器，它每次只在你一半的编码请求上尝试一项改动"
     },
     "nights": {
       "title": "最近几夜",
@@ -238,6 +239,40 @@
       "col_through": "顺利完成",
       "week_of": "自 {date} 起",
       "unrated": "无数值"
+    },
+    "policy": {
+      "sentence": "{where}：{what}",
+      "where": "在 {harness} 中使用 {model} 处理{area}工作时",
+      "default_model": "默认模型",
+      "hold": "等待检查完成并要求修复",
+      "release": "不再等待检查",
+      "no_fixes": "不要求修复",
+      "fewer_fixes_one": "最多要求一次修复",
+      "fewer_fixes_other": "最多要求 {n} 次修复",
+      "shorter_wait": "最多等待检查 {minutes} 分钟",
+      "brief_line": "在第一份指令中加一行",
+      "other": "改变引导编码代理的方式",
+      "on_trial": "自{when}起在你一半的请求上试用",
+      "claim_pass": "只有明显更多的请求成功才会保留",
+      "claim_cost": "只有成本更低且没有任何变差才会保留",
+      "claim_p": "只有需要的修复更少且没有任何变差才会保留",
+      "proof_pass": "{n} 个请求中成功 {with}，不使用时 {m} 个中成功 {without}（至少 {low} 分）",
+      "proof_cost": "每个请求的成本和时间少 {diff}，基于 {n} 个请求，对比不使用时的 {m} 个（至少少 {low}）",
+      "proof_p": "每个请求少 {diff} 次修复，基于 {n} 个请求，对比不使用时的 {m} 个（至少少 {low}）",
+      "measured_on": "{when}在你的 {n} 个使用它的请求和 {m} 个不使用它的请求上测得。",
+      "about": "Dodaios 针对这类工作、这个模型和这个编码工具，如何把编码工作交给代理：它的回答是否等待检查完成、要求多少次修复、第一份指令里写什么。它在你一半的请求上试用过，并与另一半做了比较。",
+      "probation": "试用期：在它之下第一次削弱检查的运行会自动把它撤回。"
+    },
+    "coding_area": {
+      "backend": "后端",
+      "frontend": "前端",
+      "testing": "测试",
+      "database": "数据库",
+      "infra_ci": "基础设施和 CI",
+      "docs": "文档",
+      "other": "其他",
+      "refactoring": "重构",
+      "multi_repo": "多仓库"
     }
   }
 }
