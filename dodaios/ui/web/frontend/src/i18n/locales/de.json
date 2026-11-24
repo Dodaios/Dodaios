@@ -5415,7 +5415,11 @@
     "select_all": "Alles auswählen",
     "copy_failed": "Kopieren in die Zwischenablage nicht möglich.",
     "paste_unavailable": "Zwischenablage konnte nicht gelesen werden.",
-    "paste_failed": "Hier kann nicht eingefügt werden."
+    "paste_failed": "Hier kann nicht eingefügt werden.",
+    "open_link": "Link öffnen",
+    "copy_link": "Linkadresse kopieren",
+    "clear_terminal": "Terminal leeren",
+    "action_failed": "Das hat nicht geklappt."
   },
   "workspace_bar": {
     "open_workspaces": "Offene Arbeitsbereiche",

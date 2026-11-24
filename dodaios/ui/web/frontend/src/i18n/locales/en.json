@@ -5415,7 +5415,11 @@
     "select_all": "Select all",
     "copy_failed": "Could not copy to the clipboard.",
     "paste_unavailable": "Could not read the clipboard.",
-    "paste_failed": "Cannot paste here."
+    "paste_failed": "Cannot paste here.",
+    "open_link": "Open link",
+    "copy_link": "Copy link address",
+    "clear_terminal": "Clear terminal",
+    "action_failed": "That did not work."
   },
   "workspace_bar": {
     "open_workspaces": "Open workspaces",

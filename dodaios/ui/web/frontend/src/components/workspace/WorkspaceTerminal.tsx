@@ -13,8 +13,15 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { Terminal as TerminalIcon, AlertCircle } from "lucide-react";
+import { Terminal as TerminalIcon, AlertCircle, Eraser } from "lucide-react";
 import { installNewlineBridge } from "../agentic/terminalNewline";
+import { createKeyEventChain } from "../agentic/terminalKeyChain";
+import { installCopyBridge } from "../agentic/terminalCopy";
+import { installPasteBridge } from "../agentic/terminalPaste";
+import { attachTerminalBridge } from "@/lib/editActions";
+import { attachContextActions } from "@/lib/contextActions";
+import { robustCopy, robustPaste } from "@/lib/clipboard";
+import { useEventStore } from "@/store/events";
 import { usePaneFileDrag } from "../agentic/paneFileDrag";
 import { announceSkillRefused, pasteSkillText, type SkillDragPayload } from "../agentic/skillDrag";
 import { SkillDropCard } from "../agentic/sidePanel/skills/SkillDropCard";
@@ -144,11 +151,61 @@ export function WorkspaceTerminal({
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon(activateTerminalLink));
     term.open(container);
+    // xterm holds ONE custom key handler; the bridges below share it through
+    // the chain (see ../agentic/terminalKeyChain).
+    const keys = createKeyEventChain(term);
+    const isMac = /mac|iphone|ipad/i.test(navigator.userAgent);
+    // Ctrl+C with a selection copies, Ctrl+V pastes: the same bindings the
+    // Agentic IDE panes have. Without the paste bridge xterm turns Ctrl+V into
+    // ^V and swallows it (see ../agentic/terminalPaste).
+    const disposeCopyBridge = installCopyBridge(
+      {
+        attachCustomKeyEventHandler: keys.add,
+        getSelection: () => term.getSelection(),
+        focus: () => term.focus(),
+      },
+      {
+        copy: robustCopy,
+        isMac,
+        onUnavailable: () => useEventStore.getState().pushToast("error", translate("edit_menu.copy_failed")),
+      },
+    );
+    const disposePasteBridge = installPasteBridge(
+      { attachCustomKeyEventHandler: keys.add, paste: (text) => term.paste(text) },
+      container,
+      {
+        readClipboard: robustPaste,
+        isMac,
+        onUnavailable: () => useEventStore.getState().pushToast("error", translate("edit_menu.paste_unavailable")),
+      },
+    );
     // Shift+Enter breaks the line instead of sending a half-written
     // instruction — the same binding the Agentic IDE panes have, because it is
     // the same kind of agent prompt on the other end (see
     // ../agentic/terminalNewline).
-    const disposeNewlineBridge = installNewlineBridge(term);
+    const disposeNewlineBridge = installNewlineBridge({
+      attachCustomKeyEventHandler: keys.add,
+      input: (data) => term.input(data),
+    });
+    // The app-wide right-click menu: Copy / Paste / Select all through xterm,
+    // since the canvas holds no DOM text, plus Clear for this terminal.
+    attachTerminalBridge(container, {
+      getSelection: () => term.getSelection(),
+      paste: (text) => term.paste(text),
+      focus: () => term.focus(),
+      selectAll: () => term.selectAll(),
+    });
+    const disposeContextActions = attachContextActions(container, () => [
+      {
+        id: "clear-terminal",
+        label: translate("edit_menu.clear_terminal"),
+        icon: Eraser,
+        run: () => {
+          term.clear();
+          term.focus();
+        },
+      },
+    ]);
     // Before the socket, deliberately: the gap this fills is the one at the
     // very start, and a banner that waited for `ready` would arrive after it.
     if (bannerRef.current) {
@@ -284,6 +341,9 @@ export function WorkspaceTerminal({
       ro.disconnect();
       disposeFontSync();
       disposeNewlineBridge();
+      disposePasteBridge();
+      disposeCopyBridge();
+      disposeContextActions();
       try {
         ws?.close();
       } catch {

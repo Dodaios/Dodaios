@@ -5415,7 +5415,11 @@
     "select_all": "Seleccionar todo",
     "copy_failed": "No se pudo copiar al portapapeles.",
     "paste_unavailable": "No se pudo leer el portapapeles.",
-    "paste_failed": "Aquí no se puede pegar."
+    "paste_failed": "Aquí no se puede pegar.",
+    "open_link": "Abrir enlace",
+    "copy_link": "Copiar dirección del enlace",
+    "clear_terminal": "Limpiar terminal",
+    "action_failed": "No ha funcionado."
   },
   "workspace_bar": {
     "open_workspaces": "Espacios de trabajo abiertos",
