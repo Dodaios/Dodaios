@@ -79,10 +79,61 @@ def _node_texts() -> str:
     return f"[WORK_METHOD]\n{node.WORK_METHOD}\n\n[BUILD_IN_STEPS]\n{node.BUILD_IN_STEPS}"
 
 
-def _lead_catalog() -> list[dict]:
-    from tests.eval.lead_routing import build_lead_catalog
+_CATALOG: list[dict] | None = None
 
-    return build_lead_catalog().offered()
+
+def _repo_tool_entry_points(real):  # noqa: ANN001, ANN202
+    """``entry_points`` that answers the tool group from ``pyproject.toml``.
+
+    The installed package metadata is only as new as the last ``pip install``, so a
+    machine with a stale install lacks tools that CI has. The repository's own
+    declaration is the same everywhere.
+    """
+    import tomllib
+    from importlib import metadata
+
+    raw = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = raw["project"]["entry-points"]["jarvis.tool"]
+
+    def entry_points(*, group: str):  # noqa: ANN202
+        if group != "jarvis.tool":
+            return real(group=group)
+        return tuple(
+            metadata.EntryPoint(name=name, value=value, group=group)
+            for name, value in sorted(declared.items())
+        )
+
+    return entry_points
+
+
+def _lead_catalog() -> list[dict]:
+    """The lead's tool schemas, the same on every machine and operating system.
+
+    Two things vary by machine and are pinned here: the tool list (read from
+    ``pyproject.toml``, not from the installed metadata) and the shell the
+    ``run_shell`` text names (always the Windows one, the product's main target).
+    """
+    global _CATALOG
+    if _CATALOG is None:
+        from unittest.mock import patch
+
+        from dodaios.core import entry_points as eps
+        from dodaios.plugins.tool import run_shell
+        from tests.eval.lead_routing import build_lead_catalog
+
+        with (
+            patch.object(eps, "entry_points", _repo_tool_entry_points(eps.entry_points)),
+            patch.object(run_shell, "_SHELL_LABEL", "Windows PowerShell 5.1"),
+            patch.object(
+                run_shell,
+                "_SHELL_HINT",
+                "PowerShell cmdlets, aliases (ls, dir, cat) and pipes work. "
+                "POSIX tools like head/grep/awk and cmd-only syntax like 'dir /b' "
+                "do NOT work unless explicitly installed.",
+            ),
+        ):
+            _CATALOG = build_lead_catalog().offered()
+    return _CATALOG
 
 
 def _tool_descriptions() -> str:

@@ -73,6 +73,9 @@ Switch the ACTIVE main brain (LLM) provider, e.g. from openai to claude-api. Rev
 call-contact
 Place a real outbound phone call to a saved contact and speak to them live. Use this when the user says 'ruf Christoph an' / 'call Laura'. Resolve the person by name; an optional message becomes what you say first when they pick up. Only works for contacts that have a phone number saved and when telephony is configured.
 
+clip
+Edit a video CLIP (a node of type motion; the app's Clips): a main track of video pieces and cards, text/overlay/audio tracks and captions, the same timeline the person edits by hand. 'create' (title, format, files to import); 'import' files; 'read' the timeline with ids; 'edit' with actions (add_clip, split, trim, delete, move, set, keyframe, transition, add_text, add_music, captions, remove_silences, ...); 'transcribe' what is said; 'captions' makes subtitles from speech; 'silences' finds pauses; 'look' shows frames; 'export' writes the MP4; 'revert'. Call 'guide' once before your first edit: it has every action and how to make a clip people finish watching.
+
 computer-use-switch
 Switch the dedicated Computer-Use planner provider (screen control), decoupled from the main brain. Executes the app's own validated endpoint (POST /api/computer-use/switch); report the result the tool returns, never your assumption.
 
@@ -204,6 +207,9 @@ List Dodaios-Agent missions and their status, newest first, one page at a time. 
 
 navigate
 Open/switch the desktop app to a sidebar section (the UI screen the user sees). Use when the user asks to show or open a section — 'zeig die Socials', 'open settings', 'show the agents', 'geh zu den Aufgaben'. Pass the section id in 'section'. To open one thing instead, pass exactly one of agent (a named agent's chat), chat (a conversation, by its title) or workspace (a coding workspace) and no section. Do NOT use it for anything other than moving the UI.
+
+node
+Make and look after a NODE: something the person keeps, shown in the Nodes section and as a card in the chat. Types: docs (a document), slides (a deck), sheets (rows and columns), data (analyses of the person's data; Analytics), whiteboard (a canvas: use the whiteboard tool), motion (a video: clip tool; Clips). Call 'guide' with the type before your first create of it; the spec follows that grammar. Change one with 'update' and 'changes' (edits by path), not a full resend. To keep one current from the person's apps, give 'track' (on create, or with 'keep_current'); 'stop' ends that. 'look' shows it as pictures: look after a create, fix what is weak. 'get' reads one, 'list' shows all, 'revert' undoes the last change. The renderer does the design: send content, never HTML. A long answer to a question stays a report (write_report). A node is real work: its guide says how.
 
 product_help
 Read Dodaios's built-in user guide: what a feature does, how to set it up, where a setting is, and how to fix a problem. Pass a few English keywords as query (for example 'connect claude subscription' or 'wake word not working'), or a slug from an earlier result to read that whole guide.
@@ -384,6 +390,9 @@ Run one action a watchdog finding offers. 'id' is the finding id from the notice
 
 watchdog_status
 What the watchdog found: work that looks stuck or is going in circles (silent turns, jobs with no progress, repeated identical tool calls, tasks claimed and never reported, routines that did not run, failing provider seats), what it repaired on its own in the last 24 hours, and when the app was down. Read-only and bounded. Use it when asked 'what is stuck?' or 'what did you repair today?'.
+
+whiteboard
+Draw on a WHITEBOARD: an infinite canvas the person also draws on (a node of type whiteboard; several boards are several nodes). 'create' makes one (title, optional 'mermaid' flowchart, 'diagram' or 'actions'); 'edit' changes one with 'actions' ({"do": add | connect | update | delete | move | layout | diagram | mermaid | frame | align | style | ...}); 'read' lists what is on it with ids; 'list' shows the boards; 'duplicate' and 'revert' as named. Call 'guide' once before your first edit: it has every action and its fields. Do not place things by hand unless asked: the board lays them out on a grid and never overlaps what is there. A create or edit result ends with 'Check:' lines; fix what they name before you answer.
 
 work_board
 One board of everything running for the user and who needs them: coding agents in the Agentic IDE with each workspace's git state, the missions that have not ended, running routines and the agent team's working members. needs_you comes first and names what is waiting for the user (an agent showing a question or stopped, a mission waiting for capacity). Summary-first: busy agents only, idle ones are counted. Use it for 'what is running', 'what happened', 'who needs me' instead of calling several list tools; set detail=true for every agent row. For one agent, workspace or mission use workspace-orchestrate (status, observe), society_status (mode=agent) or missions-list.
