@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clip, displayAddress, humanize, looksLikeAddress, siteName, webLinkInfo } from "./webLinks";
+import { clip, displayAddress, humanize, iconSite, linkIconUrl, looksLikeAddress, siteName, webLinkInfo } from "./webLinks";
 
 const bare = (url: string) => webLinkInfo(url, url);
 
@@ -77,6 +77,24 @@ describe("helpers", () => {
     expect(siteName("reddit.com")).toBe("Reddit");
     expect(siteName("en.wikipedia.org")).toBe("Wikipedia");
     expect(siteName("heise.de")).toBe("heise.de");
+  });
+
+  it("asks for a logo only for a named website", () => {
+    // The host itself, or the named site right above it: that site's logo.
+    expect(iconSite("github.com")).toBe("github.com");
+    expect(iconSite("news.ycombinator.com")).toBe("news.ycombinator.com");
+    expect(iconSite("en.wikipedia.org")).toBe("wikipedia.org");
+    expect(iconSite("someone.substack.com")).toBe("substack.com");
+    // Every other host has none: nothing an answer writes into a name is sent anywhere.
+    for (const host of ["heise.de", "docs.python.org", "c2vjcmv0.collect.example.net", "github.com.example.net", "a.b.wikipedia.org", "com", ""]) {
+      expect(iconSite(host), host).toBeNull();
+    }
+    // A name every object carries is no website.
+    for (const host of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      expect(iconSite(host), host).toBeNull();
+      expect(siteName(host)).toBe(host);
+    }
+    expect(linkIconUrl("wikipedia.org")).toBe("/api/link-icon?host=wikipedia.org");
   });
 
   it("turns slugs into words and leaves ids alone", () => {

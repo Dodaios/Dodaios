@@ -269,8 +269,29 @@ describe("line indicators", () => {
   const media = (id: string, url: string): TurnBlock => ({ kind: "text", id: `media-${id}`, text: `![image](<${url}>)` });
 
   it("reads picture addresses and leaves badges and logos out", () => {
-    expect(pictureUrls(["![image](</api/media/a.png>)", "![image](https://x.test/b.jpg)"])).toEqual(["/api/media/a.png", "https://x.test/b.jpg"]);
+    expect(pictureUrls(["![image](</api/media/a.png>)", "![image](/api/media/b.jpg)"])).toEqual(["/api/media/a.png", "/api/media/b.jpg"]);
     expect(pictureUrls(["![image](<https://github.com/o/r/actions/workflows/ci.yml/badge.svg>)", "![logo](/brand/logo.svg)"])).toEqual([]);
+  });
+
+  it("draws only pictures the app holds on a line, never a remote address", () => {
+    expect(pictureUrls(["![image](</api/media/a.png>)", "![image](https://x.test/b.jpg)", "![image](<//x.test/c.png>)"])).toEqual(["/api/media/a.png"]);
+    const remote = "https://x.test/2.png?d=c2VjcmV0";
+    show(turn([
+      tool("c1", "shot 1"), media("m1", "/api/media/1.png"),
+      tool("c2", "shot 2"), media("m2", remote),
+      tool("c3", "shot 3"), media("m3", "https://x.test/3.png"),
+      { kind: "text", id: "n1", text: "Looks right." },
+    ], "running"));
+    // The newest picture the app holds stands under the line; the remote ones are not drawn at all.
+    expect(screen.getByTestId("thread-line-picture").querySelector("img")?.getAttribute("src")).toBe("/api/media/1.png");
+    expect(screen.queryByTestId("thread-line-pictures")).toBeNull();
+    expect(Array.from(document.querySelectorAll("img")).map((image) => image.getAttribute("src"))).toEqual(["/api/media/1.png"]);
+    // Opened, the call that brought a remote address back lists it as a link.
+    fireEvent.click(screen.getByRole("button", { name: /steps so far/ }));
+    expect(screen.getByTestId("thread-steps").querySelector(`a[href="${remote}"]`)).toBeNull();
+    for (const step of Array.from(screen.getByTestId("thread-steps").querySelectorAll<HTMLElement>("button[aria-expanded='false']"))) fireEvent.click(step);
+    expect(document.querySelector(`a[href="${remote}"]`)).not.toBeNull();
+    expect(document.querySelector('img[src^="https://"]')).toBeNull();
   });
 
   it("shows the newest picture large under the line and the others small at its end", () => {

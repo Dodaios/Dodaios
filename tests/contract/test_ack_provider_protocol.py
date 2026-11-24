@@ -26,13 +26,6 @@ from typing import Any
 
 import pytest
 
-from dodaios.brain.ack_brain.config import (
-    SUPPORTED_PROVIDERS,
-    GeminiAckProviderConfig,
-    GrokAckProviderConfig,
-    OllamaAckProviderConfig,
-    OpenAIAckProviderConfig,
-)
 from dodaios.brain.ack_brain.providers import (
     REGISTRY,
     AbstractAckProvider,
@@ -40,6 +33,13 @@ from dodaios.brain.ack_brain.providers import (
     GrokFlashAck,
     OllamaFlashAck,
     OpenAIMiniAck,
+)
+from dodaios.core.ack_brain_config import (
+    SUPPORTED_PROVIDERS,
+    GeminiAckProviderConfig,
+    GrokAckProviderConfig,
+    OllamaAckProviderConfig,
+    OpenAIAckProviderConfig,
 )
 
 # ---------------------------------------------------------------------------
