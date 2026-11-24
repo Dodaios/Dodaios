@@ -239,7 +239,9 @@ def test_the_replay_takes_the_first_move_and_stops_the_cli(tmp_path: Path) -> No
     assert json.loads(stdin[1])["message"]["content"] == "Let Scout compare note apps"
     time.sleep(1.0)
     assert not (out / "ran-on.txt").exists()
-    assert not list((tmp_path / "scratch").iterdir())  # the run's folder is removed
+    # The run's own folder is removed; every replay works in the same empty folder.
+    assert [p.name for p in (tmp_path / "scratch").iterdir()] == ["cwd"]
+    assert not list((tmp_path / "scratch" / "cwd").iterdir())
 
 
 def test_the_replay_offers_the_lead_tools_through_a_server_that_runs_none(tmp_path: Path) -> None:

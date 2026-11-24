@@ -315,7 +315,7 @@ CLI what a turn gave it, with the change under test applied:
 
 The CLI starts with the lead's own flags (only the app's tool server; the
 vendor's web, sub-agent and shell tools removed), the lead's model and effort,
-an empty scratch folder and no session kept on disk. The app's tool server is
+one empty working folder for every replay and no session kept on disk. The app's tool server is
 replaced by `replay_tools.py`, which lists exactly the tools the lead's chat is
 offered and answers every call with "not run". Every permission prompt is
 denied. The stream is read with the live chat's own parser; at the first tool

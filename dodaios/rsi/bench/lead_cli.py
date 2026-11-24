@@ -9,8 +9,9 @@ changes and the safeguards a replay needs:
   app's tool server, the vendor's web, sub-agent and shell tools removed;
 * the app's tool server replaced by :mod:`replay_tools`, which lists the same
   tools and runs none of them;
-* every permission prompt answered "deny" on the control protocol, an empty
-  scratch folder as the working folder, no session written to disk.
+* every permission prompt answered "deny" on the control protocol, one empty
+  folder as the working folder of every replay, no session written to disk (the
+  CLI still names one empty project folder after that working folder, once).
 
 The stream is read with the parser the live chat uses
 (``runner_cli.translate_claude_line``), and the first move is taken the way the
@@ -151,13 +152,16 @@ class ClaudeReplay:
         return [*argv, "--session-id", str(uuid.uuid4())]
 
     def __call__(self, lead: LeadInput, platform: Platform) -> Move:
-        self.scratch.mkdir(parents=True, exist_ok=True)
+        # One fixed, empty working folder: the CLI keys what it keeps per project by
+        # it, so a new folder per replay would leave a trail of them in its config.
+        home = self.scratch / "cwd"
+        home.mkdir(parents=True, exist_ok=True)
         work = Path(tempfile.mkdtemp(prefix="replay-", dir=self.scratch))
         try:
             system_file = work / "system.md"
             system_file.write_text(lead.system, encoding="utf-8")
             argv = self._argv(platform, work, system_file)
-            return self._run(argv, work, lead.message)
+            return self._run(argv, home, lead.message)
         except Exception as exc:  # noqa: BLE001 - a failed replay is a void result, not a crash
             log.info("replay: the CLI could not run", exc_info=True)
             return Move(error=f"{type(exc).__name__}: {exc}"[:300])
