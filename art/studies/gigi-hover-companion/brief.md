@@ -6,7 +6,7 @@ Implement the user-supplied companion brief in full: editable Blender master,
 optimized GLB, optional in-world assistant, real task/audio presentation,
 collision-aware following and navigation, and a consistent family of active
 Gigi marks and platform icons. The specific runtime model requires user review
-before broad brand replacement. This study is not approval of the Mars world,
+before broad brand replacement. This study is not approval of the world,
 worker design or any replacement of stored agent identities.
 
 ## Reference interpretation
@@ -37,10 +37,7 @@ underside emitter are authored consistently from the same closed geometry.
 ## Ownership and integration
 
 Gigi work owns `scripts/art/build_gigi_companion.py`, this study and
-`components/society/companion/`. The Mars task owns the new world and
-`MarsScene.tsx`/`MarsWorldStage.tsx`; local wiring is submitted as a separate
-integration patch against its checkpoint, not written into its working tree.
-World scale, colliders, ground, navigation/vehicle anchors and player pose are
+`components/society/companion/`. World scale, colliders, ground, navigation/vehicle anchors and player pose are
 injected. The existing assistant/chat/audio stack owns logical execution.
 
 RUB-82 tracks Gigi branding alongside independent signage. RUB-81 owns normal

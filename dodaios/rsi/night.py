@@ -272,9 +272,15 @@ class Night:
             return None
         worlds = self._worlds()
         changes = self.registry.learned_ids()
-        shipped_arm = run.arm_of(overlays.FACTORY)
+        from dodaios.rsi import adopt
+
+        # As it ships: no learned value, and none of the notes the assistant wrote itself.
+        factory = overlays.Overlay(
+            label="factory", factory=True, hidden_memories=adopt.memory_ids(self.registry)
+        )
+        shipped_arm = run.arm_of(factory)
         now_arm = run.arm_of(LIVE, changes=changes)
-        shipped = run.measure(tasks, overlays.FACTORY, worlds, arm=shipped_arm)
+        shipped = run.measure(tasks, factory, worlds, arm=shipped_arm)
         now = shipped
         if now_arm.id != shipped_arm.id:  # something is learned: the two can differ
             now = run.measure(tasks, LIVE, worlds, arm=now_arm)
@@ -365,6 +371,8 @@ class NightService:
         if not self.night.due() or not self._idle():
             return None
         self.last = self.night.run()
+        # One line in the log per night: names and numbers only, never a memory's words.
+        log.info("self-improvement night: %s", " | ".join(self.last.lines()))
         return self.last
 
     async def _watch(self) -> None:
@@ -447,6 +455,10 @@ def install(
     def prepare() -> dict[str, Any]:
         if not world.refresh():
             return {}
+        from dodaios.rsi import adopt
+
+        if world.vault is not None:
+            adopt.how_tos(registry, world.vault)
         return maker.run(MAX_MODEL_CALLS)
 
     night = Night(registry, bench, world.worlds, prepare=prepare, finish=world.close)

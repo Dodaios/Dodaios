@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from dodaios.brain.ack_brain.config import GrokAckProviderConfig
+from dodaios.core.ack_brain_config import GrokAckProviderConfig
 from dodaios.core import config as cfg
 
 log = logging.getLogger(__name__)

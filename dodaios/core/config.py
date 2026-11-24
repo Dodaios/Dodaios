@@ -26,36 +26,22 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import Any, Literal, get_args, get_origin
 
 import yaml
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
-from dodaios.live.config import LiveConfig
-
-# wake_constants is pure stdlib (no jarvis imports) — safe to import from this
-# foundational config module without a cycle. Single source of truth for the
-# wake-engine enum + the default phrase.
-from dodaios.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
-
-# The pet vocabulary module has no imports at all (see its docstring), so it is
-# as safe here as wake_constants.
-from dodaios.ui.pets.states import DEFAULT_PET_ID
-
+from .ack_brain_config import AckBrainConfig
 from .branding import KEYRING_SERVICE_NAME, LEGACY_KEYRING_SERVICE_NAMES
 from .env_prefix import accepted_names
 from .identity_boot import resolve_config_file
 from .instance import current_instance, data_dir_source, resolve_data_dir
+from .live_config import LiveConfig
+from .pet_defaults import DEFAULT_PET_ID
 from .protocols import RiskTier
 
-# AckBrainConfig lives under dodaios.brain.ack_brain.config. We cannot
-# import it at module top because dodaios.brain.__init__ eagerly loads
-# brain.manager + brain.router, both of which import JarvisConfig from
-# this module — a circular import. The deferred import + model_rebuild
-# at the bottom of this file resolves the forward reference once
-# JarvisConfig is already in this module's namespace.
-if TYPE_CHECKING:
-    from dodaios.brain.ack_brain.config import AckBrainConfig
+# Pure stdlib: the wake-engine enum + the default phrase (single source of truth).
+from .wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 
 # ----------------------------------------------------------------------
 # Paths
@@ -4623,8 +4609,8 @@ class RsiConfig(BaseModel):
     #: neighbours changed (``dodaios.orchestrator.verification.workdir``). Off
     #: by default: the worktree starts from the remote default branch, so the
     #: person's uncommitted and unpushed work is not in it, and no dependencies
-    #: are installed there. A run in the shared checkout is recorded as
-    #: unattributed.
+    #: are installed there. A run in the shared checkout is judged from a
+    #: snapshot at its start and one at its end (``verification.gates``).
     worktree_per_run: bool = False
     #: Repositories whose threads keep running in the project folder, by the
     #: id the run report shows (``github.com/owner/name``).
@@ -4742,7 +4728,7 @@ class JarvisConfig(BaseModel):
     # acknowledgment LLM). Opt-in via [ack_brain].enabled = true.
     # Forward-reference + late import at the bottom of this module avoids
     # the brain<->core.config circular import.
-    ack_brain: AckBrainConfig = Field(  # noqa: F821 (resolved by model_rebuild below)
+    ack_brain: AckBrainConfig = Field(
         default_factory=lambda: AckBrainConfig()
     )
     # Speech pipeline sub-configs (completeness classifier, …).
@@ -6662,36 +6648,3 @@ def mark_setup_complete() -> None:
     from dodaios.setup.state import write_setup_complete_marker
 
     write_setup_complete_marker(f"Setup completed on Python {sys.version.split()[0]}\n")
-
-
-# ----------------------------------------------------------------------
-# Deferred imports / forward-reference resolution
-# ----------------------------------------------------------------------
-#
-# AckBrainConfig (Pre-Thinking-Ack Flash-Brain) cannot be imported at the
-# top of this file because dodaios.brain.__init__ eagerly imports
-# brain.manager + brain.router, both of which top-level-import JarvisConfig
-# from this very module. Resolving that circular requires us to declare
-# the field with a forward reference and pull the real class in only after
-# JarvisConfig is fully defined, then rebuild the model so Pydantic
-# resolves the string annotation against this module's namespace.
-try:
-    from dodaios.brain.ack_brain.config import AckBrainConfig  # noqa: E402
-except ModuleNotFoundError:
-
-    class AckBrainConfig(BaseModel):  # type: ignore[no-redef]
-        """Fallback when the optional ack_brain package is not installed."""
-
-        model_config = ConfigDict(extra="allow")
-
-        enabled: bool = False
-        provider: str = "follow_brain"
-        timeout_ms: int = 1500
-        on_failure: str = "silent"
-        circuit_breaker_threshold: int = 3
-        circuit_breaker_cooldown_s: int = 60
-        suppress_if_brain_faster_than_ms: int = 2000
-        ack_continuation_grace_ms: int = 1200
-
-
-JarvisConfig.model_rebuild()

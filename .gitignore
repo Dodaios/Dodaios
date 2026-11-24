@@ -459,9 +459,8 @@ scripts/ci/privacy_gate/references/secret-allowlist.tsv
 # Temporary marketing-video workspace (Remotion project + rendered frames)
 .tmp-music-video/
 
-# Private Mars implementation inputs, runtime captures, and local test evidence.
+# Private implementation inputs, runtime captures, and local test evidence.
 .tmp/rub69/
-docs/plans/mars-world/
 
 # Hypothesis's example database. Every file in it stamps the absolute path of
 # the machine that ran the tests into its header, so it is a personal-data leak
@@ -492,7 +491,6 @@ docs/plans/mars-world/
 # Local validation scripts, runtime captures, and machine-specific telemetry.
 /scripts/_*.py
 /art/studies/*/evidence/
-/art/studies/agent-symbol-companions/mars-integration.patch
 /desktop-ttu-latest.json
 
 # Figure build: fetched CC0 sources and generated sheets (scripts/figures/README.md)

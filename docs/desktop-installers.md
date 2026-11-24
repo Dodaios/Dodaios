@@ -262,10 +262,15 @@ PyInstaller bootloaders, and can be added the same way.
 manually via `workflow_dispatch`):
 
 1. `windows`, `macos` (arm64 + x64) and `linux` each install Python 3.12 and
-   Node 22, `pip install -e ".[desktop,dev]"` (macOS adds `desktop-macos`), run
-   their OS build script and upload the artifact. The macOS jobs also read the
-   finished `.app` with `scripts/ci/check_frozen_macos_app.py` before the
-   headless smoke test.
+   Node 22, then the project's `desktop` and `dev` extras (macOS adds
+   `desktop-macos`) from `uv.lock` with every hash enforced
+   (`python scripts/ci/install_locked.py --extra desktop --extra dev`), run
+   their OS build script and upload the artifact. The frozen app therefore
+   carries the dependency set the lock names and CI tests, not whatever a
+   fresh `pip install -e ".[desktop,dev]"` would resolve on release day; a
+   file that does not match its hash in the lock stops the build. The macOS
+   jobs also read the finished `.app` with
+   `scripts/ci/check_frozen_macos_app.py` before the headless smoke test.
 2. `checksums` downloads all of them, refuses to continue if any promised
    asset is missing, and writes `installers-SHA256SUMS.txt` (plain `sha256sum`
    format, flat file names), re-verified with `sha256sum -c`.
@@ -350,6 +355,15 @@ still holds - but the honest answer is "no restart needed from you".
 
 Managed installs keep today's behaviour untouched: the frozen branch is entered
 only when `is_frozen()` is true, and the frozen branch never runs git.
+
+A managed update is checked against the same release key. Every release
+carries `payload-commit.txt`, the commit it was built from, and
+`payload-commit.txt.cosign.sig`, the release key's signature over that file
+(`sign-installer.yml`). `apply` fetches the release tag and stages its commit
+only when that commit is the one the signed file names
+(`dodaios/core/release_commit.py`). A release without the pair, a signature of
+another key and a tag that points at another commit are refused before
+anything is staged, so a tag someone moved is never installed.
 
 A managed update is applied by the restart helper of the version that is being
 replaced: it resets the checkout to the new revision, runs that revision's

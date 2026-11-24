@@ -15,15 +15,15 @@ SPEC = {
     "paths": {"/api/ping": {"get": {"tags": ["diag"], "operationId": "ping", "summary": "Ping"}}},
 }
 
-MARS_SPEC = {
+EXTRA_SPEC = {
     "openapi": "3.1.0",
-    "info": {"version": "mars"},
+    "info": {"version": "extra"},
     "paths": {
-        "/api/society/mars/definition": {
+        "/api/society/extra/definition": {
             "get": {
-                "tags": ["mars"],
+                "tags": ["extra"],
                 "operationId": "definition",
-                "summary": "Read Mars definition",
+                "summary": "Read extra definition",
             }
         }
     },
@@ -147,10 +147,10 @@ def test_dynamic_schema_honors_root_url_and_key_before_callback(monkeypatch, tmp
 
     def handler(request):
         requests.append((request.url.port, request.url.path, request.headers.get("Authorization")))
-        return httpx.Response(200, json=MARS_SPEC if request.url.port == 47869 else SPEC)
+        return httpx.Response(200, json=EXTRA_SPEC if request.url.port == 47869 else SPEC)
 
     _mock_transport(monkeypatch, handler)
-    argv = [*options, "api", "mars", "--help"]
+    argv = [*options, "api", "extra", "--help"]
     root = entry.build_root_command(argv)
     assert entry.STATE == before  # Building the tree did not invoke the root callback.
     assert requests == [(47869, "/api/openapi.json", "Bearer fixture-selected-key")]
@@ -199,14 +199,14 @@ def test_cache_only_graft_uses_selected_origin_for_help_and_completion(monkeypat
     monkeypatch.setenv("JARVISCTL_CACHE_HOME", str(tmp_path))
     monkeypatch.setenv("JARVISCTL_BASE_URL", "http://127.0.0.1:47821")
     openapi_cache._write_cache(SPEC, base_url="http://127.0.0.1:47821")
-    openapi_cache._write_cache(MARS_SPEC, base_url="http://127.0.0.1:47869")
+    openapi_cache._write_cache(EXTRA_SPEC, base_url="http://127.0.0.1:47869")
     network = _no_network(monkeypatch)
     selected = entry.build_root_command(["--url", "http://127.0.0.1:47869", "--help"])
-    assert "mars" in selected.commands["api"].commands
+    assert "extra" in selected.commands["api"].commands
     assert "diag" not in selected.commands["api"].commands
     monkeypatch.setenv("_JARVISCTL_COMPLETE", "complete_bash")
-    completed = entry.build_root_command(["--url=http://127.0.0.1:47869", "api", "mars"])
-    assert "mars" in completed.commands["api"].commands
+    completed = entry.build_root_command(["--url=http://127.0.0.1:47869", "api", "extra"])
+    assert "extra" in completed.commands["api"].commands
     foreign = entry.build_root_command(["--url", "http://127.0.0.1:47999", "--help"])
     assert "api" not in foreign.commands
     assert not network
@@ -248,9 +248,9 @@ def test_dynamic_build_diagnostics_do_not_log_credentials(monkeypatch, tmp_path,
 
 def test_dynamic_click_usage_error_uses_cli_exit_semantics(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVISCTL_CACHE_HOME", str(tmp_path))
-    _mock_transport(monkeypatch, lambda _request: httpx.Response(200, json=MARS_SPEC))
-    root = entry.build_root_command(["api", "mars", "missing-command"])
-    result = CliRunner().invoke(root, ["api", "mars", "missing-command"])
+    _mock_transport(monkeypatch, lambda _request: httpx.Response(200, json=EXTRA_SPEC))
+    root = entry.build_root_command(["api", "extra", "missing-command"])
+    result = CliRunner().invoke(root, ["api", "extra", "missing-command"])
     assert result.exit_code == 2
     assert "No such command" in result.output
     assert "Traceback" not in result.output
@@ -258,8 +258,8 @@ def test_dynamic_click_usage_error_uses_cli_exit_semantics(monkeypatch, tmp_path
 
 def test_dynamic_help_returns_success_in_nonstandalone_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVISCTL_CACHE_HOME", str(tmp_path))
-    _mock_transport(monkeypatch, lambda _request: httpx.Response(200, json=MARS_SPEC))
-    root = entry.build_root_command(["api", "mars", "--help"])
-    result = CliRunner().invoke(root, ["api", "mars", "--help"], standalone_mode=False)
+    _mock_transport(monkeypatch, lambda _request: httpx.Response(200, json=EXTRA_SPEC))
+    root = entry.build_root_command(["api", "extra", "--help"])
+    result = CliRunner().invoke(root, ["api", "extra", "--help"], standalone_mode=False)
     assert result.exit_code == 0
     assert "definition" in result.output

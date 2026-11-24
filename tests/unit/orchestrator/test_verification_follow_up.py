@@ -193,7 +193,9 @@ def test_a_clean_output_with_passing_checks_ends_the_run_verified(rig: Rig):
     assert "pull request #4 is merged" in run["verdict_reason"]
     assert rig.sender.sent == []
     assert rig.verdicts == [("job_1", rig.sid)]
-    assert [s[1] for s in rig.steps()][-4:] == ["turn_finished", "gates", "evidence", "verdict"]
+    assert [s[1] for s in rig.steps()][-5:] == [
+        "turn_finished", "gates", "self_checks", "evidence", "verdict",
+    ]
 
 
 def test_a_weakened_check_gets_a_follow_up_and_the_fix_is_verified(rig: Rig):
@@ -218,12 +220,14 @@ def test_a_weakened_check_gets_a_follow_up_and_the_fix_is_verified(rig: Rig):
         (0, "turn_started", ""),
         (0, "turn_finished", "done"),
         (0, "gates", "violations"),
+        (0, "self_checks", "not_passed"),
         (0, "evidence", "merged/passing"),
         (0, "follow_up_intent", "T2"),
         (0, "follow_up_sent", "T2"),
         (1, "turn_started", ""),
         (1, "turn_finished", "done"),
         (1, "gates", "clean"),
+        (1, "self_checks", "not_passed"),
         (1, "evidence", "merged/passing"),
         (1, "verdict", "verified"),
     ]
@@ -310,14 +314,14 @@ def test_a_live_check_shows_signs_of_life(rig: Rig):
 # ------------------------------------------------- when the thread is not the agent's
 
 
-def test_the_person_writing_while_the_output_is_checked_supersedes_the_run(rig: Rig):
+def test_the_person_correcting_while_the_output_is_checked_supersedes_the_run(rig: Rig):
     rig.github.answer = RUNNING_CHECKS
     rig.order()
     rig.turn("t1", rig.commit)
-    rig.emit("user_message", {"text": "stop, I take over"})
+    rig.emit("user_message", {"text": "No, stop, I take over"})
     rig.recorder.process_pending()
     run = rig.store.get("job_1")
-    assert (run["state"], run["verdict"]) == (ENDED, "superseded")
+    assert (run["state"], run["verdict"], run["taken_over"]) == (ENDED, "superseded", 1)
     assert rig.verdicts == [("job_1", rig.sid)]
 
 

@@ -1,7 +1,7 @@
 """The pets' vocabulary — ONE definition, imported everywhere.
 
 A pet state is what a pet *does* where the app draws it (its animation row:
-the assistant's mark, an agent wearing the pet, the Verse companion). It
+the assistant's mark, an agent wearing the pet). It
 crosses Python, the sprite manifest on disk, the REST payload, TypeScript and
 the i18n labels — the five-layer enum this repo has been bitten by four times
 (AP-4 / BUG-008). Same remedy as ``dodaios.ui.dodaiosbar.modes``: the tuples live
@@ -70,9 +70,6 @@ STATE_FALLBACKS: dict[str, str] = {
 #: The pet id older installs saved for "no figure on the desktop". It is no
 #: longer offered; the app draws the default pet when it finds it.
 NO_PET_ID: str = "none"
-
-#: The pet a fresh install shows.
-DEFAULT_PET_ID: str = "gigi"
 
 #: Manifest format tag written into every ``pet.json``.
 PET_FORMAT: str = "jarvis-pet/1"

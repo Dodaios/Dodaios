@@ -1,7 +1,8 @@
 """``verification.db``: one row per delegated coding run, and every step taken on it.
 
 ``runs`` holds what a run was bound to when it started (repository, commit,
-domain, requested model, the CLI it runs on) and how it stands now. ``steps``
+a snapshot of a shared checkout, domain, requested model, the CLI it runs on)
+and how it stands now. ``steps``
 is the run's history, one row per thing that happened to it; a step is written
 once and never changed (the table refuses ``UPDATE`` and ``DELETE``), so the
 record a later score is computed from cannot be rewritten after the fact.
@@ -97,7 +98,12 @@ CREATE TABLE IF NOT EXISTS runs (
     arm               TEXT NOT NULL DEFAULT '',
     policy_json       TEXT NOT NULL DEFAULT '',
     leaked            INTEGER NOT NULL DEFAULT 0,
-    leak_due_ms       INTEGER
+    leak_due_ms       INTEGER,
+    start_tree        TEXT NOT NULL DEFAULT '',
+    taken_over        INTEGER NOT NULL DEFAULT 0,
+    asked_again       INTEGER NOT NULL DEFAULT 0,
+    pr_closed         INTEGER NOT NULL DEFAULT 0,
+    reverted          INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id, started_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state, started_ms DESC);
@@ -153,6 +159,11 @@ _ADDED_COLUMNS: Final[tuple[tuple[str, str], ...]] = (
     ("policy_json", "TEXT NOT NULL DEFAULT ''"),
     ("leaked", "INTEGER NOT NULL DEFAULT 0"),
     ("leak_due_ms", "INTEGER"),
+    ("start_tree", "TEXT NOT NULL DEFAULT ''"),
+    ("taken_over", "INTEGER NOT NULL DEFAULT 0"),
+    ("asked_again", "INTEGER NOT NULL DEFAULT 0"),
+    ("pr_closed", "INTEGER NOT NULL DEFAULT 0"),
+    ("reverted", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 #: The run columns a caller may set after the run started.
@@ -164,7 +175,8 @@ _MUTABLE: Final[frozenset[str]] = frozenset(
         "person_intervened", "ended_ms", "gate_status", "churn_lines", "tree_id",
         "head_sha", "landing", "ci_status", "evidence_due_ms", "verdict", "verdict_reason",
         "iteration", "follow_ups", "signatures_json", "heartbeat_ms", "policy_id", "arm",
-        "policy_json", "leaked", "leak_due_ms",
+        "policy_json", "leaked", "leak_due_ms", "start_tree", "taken_over", "asked_again",
+        "pr_closed", "reverted",
     }
 )
 #: Every column a new run may carry.
@@ -172,7 +184,7 @@ _INSERTABLE: Final[tuple[str, ...]] = (
     "run_id", "root_span_id", "owner_session", "owner_turn", "session_id", "repo_id",
     "workdir", "isolated", "base_sha", "brief_text", "domains_json", "primary_domain",
     "domain_source", "provider", "model_requested", "effort", "state", "boot_id", "started_ms",
-    "policy_id", "arm", "policy_json",
+    "policy_id", "arm", "policy_json", "start_tree",
 )
 _BRIEF_MAX: Final[int] = 20_000
 
@@ -248,7 +260,10 @@ class VerificationStore:
             raise ValueError(f"unknown run state: {fields['state']!r}")
         if not fields:
             return self.get(run_id) is not None
-        for flag in ("mixed_model", "person_intervened", "leaked"):
+        for flag in (
+            "mixed_model", "person_intervened", "leaked", "taken_over", "asked_again",
+            "pr_closed", "reverted",
+        ):
             if flag in fields:
                 fields[flag] = int(bool(fields[flag]))
         assignments = ", ".join(f"{name} = ?" for name in fields)
@@ -308,7 +323,11 @@ class VerificationStore:
         return int(row[0]) if row is not None else 0
 
     def leak_due(self) -> list[dict[str, Any]]:
-        """Verified runs whose merged work is to be looked at again, soonest first."""
+        """Judged runs that are to be looked at again after their verdict, soonest first.
+
+        ``leak_due_ms`` is when the watch after the verdict reads the run again
+        (it began as the watch for leaks, hence the name).
+        """
         with self._lock:
             rows = self._conn.execute(
                 "SELECT * FROM runs WHERE leak_due_ms IS NOT NULL ORDER BY leak_due_ms"
@@ -329,6 +348,24 @@ class VerificationStore:
             rows = self._conn.execute(
                 "SELECT * FROM runs WHERE started_ms >= ? ORDER BY started_ms DESC LIMIT ?",
                 (int(since_ms), int(limit)),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def neighbours(
+        self, run_id: str, workdir: str, since_ms: int, until_ms: int
+    ) -> list[dict[str, Any]]:
+        """Other runs in the checkout ``workdir`` that were open between the two times.
+
+        A run is open from its start to its end (or until now, without one).
+        """
+        if not workdir:
+            return []
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM runs WHERE workdir = ? AND run_id != ? AND isolated = 0 "
+                "AND started_ms <= ? AND (ended_ms IS NULL OR ended_ms >= ?) "
+                "ORDER BY started_ms",
+                (workdir, run_id, int(until_ms), int(since_ms)),
             ).fetchall()
         return [dict(row) for row in rows]
 

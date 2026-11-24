@@ -29,6 +29,35 @@ There is one Dev app: the last load wins. Wake word, global hotkeys and chat
 channels stay with the default app, so voice changes are tried there after
 the merge.
 
+## Pull requests from outside the repository
+
+Loading a pull request runs its code on this machine with the accounts of
+whoever runs the command: its npm scripts, its build and its app. The Dev app
+has its own data folder, but the code has the whole machine.
+
+So `dev_preview.py <number>` loads a pull request only when
+
+1. its head commit is the tip of a branch of `origin` (only someone with push
+   access puts a commit there; the head of a fork's pull request is on none).
+   `origin` is asked at that moment, and no answer counts as no; and
+2. where `gh` answers: it comes from this repository and its author is an
+   owner, member or collaborator.
+
+Any other pull request is refused before anything of it is checked out. Read
+it on GitHub instead (`gh pr diff <number>`).
+
+`--run-untrusted-code` lifts the refusal. It is for a person who has read
+every changed file. Such a load never shares the main checkout's
+`node_modules` (it gets an install of its own), always builds, and leaves no
+build behind for a later load to reuse.
+
+The same holds for any other way of running such a pull request. Look at it
+in a linked worktree (`git worktree add`), never by switching the main
+checkout to it, and do not commit, push or start a coding agent in that
+worktree: the commit and push hooks run that tree's `scripts/ci/` files, and
+the coding CLIs run the hooks its `.claude/`, `.codex/` and `.opencode/`
+folders name.
+
 ## The agent's part
 
 When a pull request changes something the person can see, load it into the
@@ -37,6 +66,7 @@ for the person's verdict, and do not add `no-auto-merge` for a preview. If
 the Dev app is busy with another agent's preview, check the change another
 way (a dev server and a visible browser) instead of waiting. Hold a pull
 request only when the person asked to see it before it merges.
+<<<<<<< HEAD
 
 ## Smoke check of the loaded app
 
@@ -48,3 +78,10 @@ open. Each check prints PASS, FAIL or SKIP (nothing to check, for example no
 thread yet). A FAIL saves a screenshot under `logs/smoke_app/<time>/`. The
 script only talks to the Dev app (`data-dev`); it exits 2 when none is
 running. `--only <text>` runs the checks whose name contains the text.
+||||||| b47704e80c
+=======
+
+An agent never passes `--run-untrusted-code`. When `dev_preview.py` refuses a
+pull request, read its diff, say what it does and what you could not check,
+and leave running it to the person.
+>>>>>>> origin/main

@@ -45,6 +45,12 @@ def _final(run: dict[str, Any], said: str) -> dict[str, Any]:
             "status": "completed", "detail": "verified", "report": said,
             "evidence": f"Checked by the app, independent of the agent's report: {reason}",
         }
+    if verdict == driver.SELF_CHECKED:
+        return {
+            "status": "completed", "detail": "self_checked", "report": said,
+            "evidence": "Not verified by the app; only the agent's own checks passed, read "
+                        f"from its turn: {reason}",
+        }
     if verdict == driver.FAILED:
         return {
             "status": "failed", "detail": "failed",

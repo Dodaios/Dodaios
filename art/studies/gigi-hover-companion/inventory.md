@@ -24,7 +24,3 @@ marks are white. The native icon generator deliberately derives from the same
 old mascot geometry. Replacing only a PNG or GLB would be reverted by the next
 asset build. The app mark already uses Vite fingerprinting correctly.
 
-The new Mars runtime currently has a capsule player and unfinished Outpost
-reference. Actual final-worker, rover and station docking acceptance cannot be
-claimed from that foundation. Gigi work continues independently while those
-world contracts are completed by their owner.

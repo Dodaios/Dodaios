@@ -6,8 +6,8 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
+from dodaios.core.wake_constants import resolve_vosk_model_path
 from dodaios.speech import wake_model_fetch as wmf
-from dodaios.speech.wake_constants import resolve_vosk_model_path
 
 
 def _fake_model_zip() -> bytes:

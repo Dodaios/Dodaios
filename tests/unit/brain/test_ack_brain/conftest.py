@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from dodaios.brain.ack_brain.config import (
+from dodaios.core.ack_brain_config import (
     AckBrainConfig,
     GeminiAckProviderConfig,
     OllamaAckProviderConfig,

@@ -1,0 +1,24 @@
+{
+  "app": "5.7.0",
+  "changes": 3,
+  "learned": {
+    "recall.min_score": 8.0
+  },
+  "nights": 3,
+  "series": 3,
+  "stack": [
+    {
+      "id": "e33516a8e0a54ba3",
+      "state": "live",
+      "target": "recall.min_score"
+    }
+  ],
+  "tasks": {
+    "recall": {
+      "guard": 43,
+      "practice": 89,
+      "sealed": 45,
+      "select": 63
+    }
+  }
+}

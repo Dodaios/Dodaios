@@ -53,6 +53,13 @@ def plugin_to_mcp_server_spec(
             transport="sse" if transport == "sse" else "http",
             url=str(url),
             headers=headers,
+            # The header above is the template with this plugin's own token
+            # filled in, and that is all it may ever carry. Without this the
+            # client would also answer any other ``$NAME`` in it, whether it
+            # came from the template or from the token value the plugin's own
+            # sign-in server returned, with a key from the owner's credential
+            # store or environment and send it to the plugin's server.
+            resolve_header_secrets=False,
         )
         return server_spec, {}
 

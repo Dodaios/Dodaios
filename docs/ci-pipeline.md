@@ -311,6 +311,15 @@ pull-request code, and only pushes bundles that build on the planned head and
 main, labels, comments, approves parked runs and enqueues. No checkout
 persists a token.
 
+What `integrate` hands on is data to `apply`. Its files are unpacked in a
+folder of their own, apart from the plan, so none of them can stand in for
+`plan.json`; which commit of main an update must contain is worked out from
+the plan, not read from them; and the names they carry are cut and cleaned
+before they go into a comment. The `rerere` cache that every later train
+restores is saved before the step that runs pull-request code. A fork's run
+at the same head commit never counts as a pull request's verdict and is
+never approved by the train.
+
 **Token.** The `apply` job runs in the `merge-train` environment (deployable
 from main only) and mints a short-lived token of the "PersonalJarvis Merge
 Bot" GitHub App (variable `MERGE_APP_ID`, environment secret
@@ -602,8 +611,15 @@ A release happens **only** when the maintainer asks for one.
   download:
 
   ```bash
-  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios
+  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios \
+    --signer-workflow Dodaios/Dodaios/.github/workflows/desktop-installers.yml \
+    --source-ref refs/tags/v<version>
   ```
+
+  The signer workflow and the tag belong to the check. Without them the
+  command accepts an attestation from any workflow run of the repository, not
+  only from the tag build of the installers. `release-smoke.yml` checks every
+  release with the same options (`scripts/ci/release_assets.py`).
 
   Releases up to and including v2.9.0 predate this and have no attestation.
 * **`release-smoke.yml`** (read-only) checks a published release the way a
@@ -641,6 +657,10 @@ decides the order of steps:
   trusts only when the release's `installers-update-manifest.json` is signed by
   the pinned release key and names that release's version
   (`dodaios/core/installer_update.py`, `dodaios/core/update_manifest.py`).
+* A managed update fetches that release's tag and installs its commit only
+  when the release's `payload-commit.txt`, signed by the same pinned key, names
+  exactly that commit (`dodaios/core/release_commit.py`). A release published
+  without that file and its `.cosign.sig` updates no managed install.
 
 Steps:
 
@@ -757,3 +777,17 @@ hour arrived; 26 were waiting. The runner minutes the queue sweep frees pay
 for the two extra groups.
 
 Dependabot covers npm through security updates only.
+
+## 6. Repo health numbers
+
+`python scripts/health_report.py` prints a short markdown report of size and
+coupling numbers for the tracked files: Python lines and modules in
+`dodaios/`, code files over 3000 lines, functions over 200 lines, the largest
+cycle in the package import graph, broad `except` and `type: ignore` counts,
+comment share, legacy-name leftovers, files over 1 MB, and tests that read
+source text. It takes about 20 seconds.
+
+`python scripts/health_report.py --json PATH` also writes the numbers as JSON.
+`scripts/ci/health-baseline.json` is the first recorded run; regenerate it
+into a scratch file and compare to see which way a number moves. Nothing gates
+on these numbers.

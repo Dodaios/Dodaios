@@ -36,6 +36,10 @@ cd dodaios/ui/web/frontend && npm ci && npm run build                         # 
 - **The person's own Dodaios app always runs `main`.** Never run a branch in it. Try a
   pull request in the Dodaios Dev app with `python scripts/dev_preview.py <PR number>`
   (docs/dev-preview.md, docs/dev-instance.md).
+- **A pull request from outside the repository is read, never run.** Its code would
+  run with the person's accounts. `dev_preview.py` refuses one; never pass
+  `--run-untrusted-code`, and never commit, push or start a coding agent in a checkout
+  of it (docs/dev-preview.md).
 - **A probe against the running app spends real money.** Turns sent to it bill the
   person's own keys. Send one turn on a subscription or against `tests/fakes/`, never
   a loop against a paid provider.

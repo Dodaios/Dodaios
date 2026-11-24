@@ -871,30 +871,10 @@ class WebServer:
         app.include_router(society_router)
         app.include_router(agent_runtime_router)
         app.include_router(runtime_gateway_router)
-        from .mars_routes import router as mars_router
-
-        app.include_router(mars_router)
         app.include_router(society_browser_router)
         app.include_router(browser_profile_router)
         app.include_router(society_figure_router)
         app.include_router(drop_router)
-        # The level system (dodaios/progression): a bus listener
-        # that pays XP for real achievements. Constructing it opens nothing;
-        # start() subscribes it and the ledger opens on the first award.
-        from dodaios.progression import ProgressionService
-
-        from .progression_routes import router as progression_router
-
-        progression_data_dir = Path(
-            getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data"
-        )
-        self._progression = ProgressionService(
-            progression_data_dir / "progression.db",
-            bus=self.bus,
-            pet_id=lambda: str(getattr(getattr(self.cfg, "ui", None), "pet_id", "") or ""),
-        )
-        app.state.progression = self._progression
-        app.include_router(progression_router)
         # Default: no recorder wired up — _init_session_stack() in start()
         # sets this once it succeeds.
         app.state.session_store = None
@@ -3239,14 +3219,6 @@ class WebServer:
             except Exception as exc:  # noqa: BLE001
                 logger.opt(exception=exc).warning("AchievementEvaluator.attach() failed")
 
-        # Level system on the bus: pays XP for finished turns, tasks and quests.
-        progression = getattr(self, "_progression", None)
-        if progression is not None:
-            try:
-                progression.attach()
-            except Exception as exc:  # noqa: BLE001 - levels are optional, the app is not
-                logger.opt(exception=exc).warning("ProgressionService.attach() failed")
-
         # Bio scheduler — subscribes to achievement unlocks only. It starts no
         # task and generates nothing here; the brain is resolved per
         # generation, when a board event actually asks for one.
@@ -3376,12 +3348,6 @@ class WebServer:
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
-        # Existing Mars work recovers with zero clients. The deferred helper
-        # performs its existence probe and runtime composition after boot yields.
-        from .mars_routes import schedule_mars_resume
-
-        data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
-        schedule_mars_resume(self.app.state, data_dir)
 
     async def _init_screenshot_retention(self) -> None:
         """Auto-delete captured screenshot blobs older than the configured
@@ -4295,18 +4261,6 @@ class WebServer:
         # Fence lazy creation even when no Society owner exists yet. The shared
         # brain factory and HTTP surface can still be called while shutdown awaits.
         self.app.state.society_stopping = True
-        from .mars_routes import stop_mars_station
-
-        # Fence station creation before any other shutdown await can interleave
-        # with a pending boot recovery or first HTTP request.
-        mars_shutdown_failure: str | None = None
-        try:
-            await stop_mars_station(self.app.state)
-        except Exception as exc:  # noqa: BLE001 -- independent resources must still shut down
-            # The helper retains its stop latch and pending owner references.
-            # Keep only the type: cleanup failures can contain private payloads.
-            mars_shutdown_failure = type(exc).__name__
-            logger.warning("Mars station cleanup incomplete ({})", mars_shutdown_failure)
         registry_bootstraps_stopped = await self._stop_registry_bootstraps()
         # A short-lived server can stop before these delayed boot helpers run.
         # Own and drain them here instead of leaving asyncio.run()/pytest to
@@ -4448,12 +4402,6 @@ class WebServer:
                 await self._bio_scheduler.stop()
             except Exception as exc:  # noqa: BLE001
                 logger.opt(exception=exc).debug("BioScheduler.stop(): {}", exc)
-        progression = getattr(self, "_progression", None)
-        if progression is not None:
-            try:
-                progression.close()
-            except Exception as exc:  # noqa: BLE001
-                logger.opt(exception=exc).debug("ProgressionService.close(): {}", exc)
         if self._board_evaluator is not None:
             try:
                 self._board_evaluator.close()
@@ -4681,10 +4629,6 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 - shutdown continues best-effort
             logger.opt(exception=exc).warning("Codex subscription app-server cleanup failed")
 
-        if mars_shutdown_failure is not None:
-            # Report incomplete Mars cleanup only after unrelated browser, chat,
-            # plugin, watcher, terminal and server resources have been released.
-            raise RuntimeError(f"mars_station_shutdown_incomplete ({mars_shutdown_failure})")
         if society_shutdown_failure is not None:
             raise RuntimeError(f"society_runtime_shutdown_incomplete ({society_shutdown_failure})")
         if not registry_bootstraps_stopped:

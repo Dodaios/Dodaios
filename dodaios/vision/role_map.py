@@ -10,7 +10,7 @@ would have to learn three role languages.
 ``normalize_role(native_role, platform)`` collapses all three onto the single
 **canonical UIA vocabulary** the rest of the pipeline already uses — the union
 of ``pruning.DEFAULT_INTERESTING_ROLES`` and
-``screenshot_only_loop._CLICKABLE_UIA_ROLES``. After normalization the
+``_CLICKABLE_UIA_ROLES``. After normalization the
 ``AXTreeSource`` / ``AtspiTreeSource`` write a ``UIANode.role`` that is byte-for-
 byte identical to what the Windows source would have produced, so downstream
 pruning, serialization, and the model prompt stay platform-agnostic (AD-10).
@@ -27,10 +27,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from dodaios.harness.screenshot_only_loop import _CLICKABLE_UIA_ROLES
 from dodaios.vision.pruning import DEFAULT_INTERESTING_ROLES
 
 RoleMapPlatform = Literal["darwin", "linux"]
+
+# UIA control roles a click_element can usefully target.
+_CLICKABLE_UIA_ROLES = frozenset({
+    "Button", "MenuItem", "ListItem", "TabItem", "CheckBox", "RadioButton",
+    "Hyperlink", "Edit", "ComboBox", "TreeItem", "SplitButton", "Text",
+})
 
 # The canonical role vocabulary the model + pruning understand. Frozen union of
 # the two authoritative sets already in the codebase, so a normalized role is by

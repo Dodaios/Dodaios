@@ -16,7 +16,7 @@ from dodaios.agentic_ide.task_kind import KIND_IMPLEMENT, KIND_INVESTIGATE, KIND
 from dodaios.brain.manager import BrainManager
 from dodaios.core import brief_wishes
 from dodaios.core.config import load_config
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 
 WISH = "I approve every PR myself; open it and stop"
 

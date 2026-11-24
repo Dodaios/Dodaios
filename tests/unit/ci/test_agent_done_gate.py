@@ -298,10 +298,28 @@ def test_unpushed_local_commits_must_be_pushed(world: FakeWorld) -> None:
 def test_a_parked_ci_run_must_be_approved(world: FakeWorld) -> None:
     world.branch("claude/x")
     world.pr("claude/x")
-    world.parked = [{"id": 99, "conclusion": "action_required"}]
+    world.parked = [
+        {"id": 99, "conclusion": "action_required", "head_repository": {"full_name": REPO}}
+    ]
     verdict = run_gate(world, ["claude/x"])
     assert verdict.verdict == "FIX"
     assert "actions/runs/99/approve" in verdict.next
+
+
+def test_the_parked_run_of_a_fork_at_the_same_commit_is_not_the_agents_to_approve(
+    world: FakeWorld,
+) -> None:
+    """GitHub lists a fork's pull request run under the same head commit."""
+    world.branch("claude/x")
+    world.pr("claude/x")
+    world.parked = [
+        {"id": 98, "conclusion": "action_required", "head_repository": {"full_name": "x/widget"}},
+        {"id": 97, "conclusion": "action_required", "head_repository": None},
+        {"id": 96, "conclusion": "action_required"},
+    ]
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "WAIT"
+    assert "approve" not in verdict.next
 
 
 def test_red_ci_on_main_for_the_merge_commit_is_the_agents_to_fix(world: FakeWorld) -> None:

@@ -15,8 +15,9 @@ import pytest
 
 from dodaios.core import config_writer
 from dodaios.core.config import JarvisConfig, TriggerConfig, UIConfig, normalize_pet_id
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
 from dodaios.ui.pets.manifest import BUILTIN_ID_RE, USER_ID_RE
-from dodaios.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID
+from dodaios.ui.pets.states import NO_PET_ID
 
 
 def test_default_pet() -> None:

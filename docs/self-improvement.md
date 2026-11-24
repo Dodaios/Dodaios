@@ -260,6 +260,23 @@ shown at all). Their defaults are the constants the code had; the last one is
 new and ships switched off (0), so nothing changes until a night proves a
 value for it.
 
+## Notes the assistant wrote for itself
+
+The memory learner keeps two kinds of rule for the assistant. A lesson is the
+person's correction in the person's words: an instruction. It applies at once,
+nothing measures whether to obey it, and it is the same on both sides of every
+comparison. A how-to is different: the assistant watched a tool fail and a
+later call work, and wrote itself a note that rides in later prompts. That is
+the assistant changing its own behaviour.
+
+Each night every current how-to note gets an entry of the surface `lesson` in
+the registry (`dodaios/rsi/adopt.py`). So it shows in the list of what the
+assistant changed in itself, the person can take it back with one click (the
+note is ended in the memory), and a run of the assistant as it ships does not
+see it. The entry holds the memory's id and none of its words: a note the
+person forgot leaves nothing behind. A how-to is not measured yet; the list
+says so.
+
 ## The gate's answer
 
 The gate compares two states on the same tasks and answers with **evidence**
@@ -400,7 +417,18 @@ The app is updated often, and nothing learned may be lost by an update.
 - A task keeps its id when its content is corrected; results belong to the
   content hash they were measured on, so only those go stale.
 - The fingerprint holds the app version. After an update the assistant as it
-  ships is measured again, and the curve marks the update.
+  ships is measured again, and the curve marks the update. The first night
+  after an update checks everything that was learned, not only the newest.
+
+This is tested against frozen states. `tests/fixtures/rsi/upgrade/v1/` is what
+an installation had learned under the version that introduced the kernel: its
+three files as SQL text and a manifest. `tests/unit/rsi/test_upgrade.py` opens
+every such folder with today's code and requires that what was learned still
+applies, that every change and its evidence are readable, that no task moved
+to another split, and that a night carries on from there and can still take a
+change back to the exact earlier value. A release that changes a kernel schema
+adds a new folder (`python -m tests.unit.rsi.upgrade_fixture v2`); an old one
+is never regenerated.
 
 ## What the app shows
 
