@@ -123,7 +123,9 @@ The memories and messages go to the provider the person's assistant already
 answers on, on its subscription or a local model, and to no one else. Memories
 marked sensitive are never sent. A key that bills per token is never used:
 without a subscription or a local model no tasks are made and the nights stay
-quiet. A night makes at most eight such calls, however much there is to do.
+quiet. A night makes at most eight such calls, however much there is to do; while
+there are fewer than 30 of the person's own tasks in the select split (too few for
+the gate to decide), at most 24, so the first decision comes in one or two nights.
 
 Forgetting reaches the tasks: when a memory is forgotten or replaced, every
 task that names it is retired and its text erased.
@@ -131,6 +133,19 @@ task that names it is retired and its text erased.
 On the maintainer's installation one run of three calls gave 24 question
 tasks from 12 memories and 6 message tasks from 8 messages, 5 of which need no
 memory; the two askings disagreed on the other 2, which were left out.
+
+Five whole nights on a copy of the maintainer's memory and messages
+(2026-11-24, 27 model calls, eight per night before the ramp-up above existed):
+the nights built 197 tasks, 107 of them real messages that need no memory.
+Nothing could be decided in the first two nights (15 and 28 select tasks). In
+night 3 the tuner proposed `recall.min_score` 0 -> 4 and the gate let it in
+(as good on 44 tasks and 33 % cheaper); night 4 checked it again on 26 new
+guard tasks, kept it, and let in 4 -> 8 the same way. Night 5 turned down
+`recall.entity_boost` 1.5 -> 1.9 (no gain, 14 % dearer). The learned advantage
+on 36 sealed tasks went from 0 to +11.1 points (0.583 as shipped, 0.694 now),
+and the memories a message brings into the prompt from 112 to 43 tokens on
+average: the shipped settings bring up a weak match for many messages that need
+none.
 
 ### Splits
 
@@ -364,8 +379,12 @@ While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
    back. After an app update everything learned is checked again.
 2. The learners propose. Each gets practice tasks and nothing else.
 3. The gate measures every candidate on tasks no learner saw.
-4. It measures the learned advantage on the sealed tasks.
-5. It writes down what it did (`nights` and `series` in `bench.db`).
+4. It measures the learned advantage on the sealed tasks, also split into the
+   parts of the area (`run.parts`; for recall: tasks where a memory is needed
+   and tasks where none is), so the page can show where a difference lies. The
+   parts are plain means; every decision rests on the whole.
+5. It writes down what it did (`nights` and `series` in `bench.db`; schema step
+   3 added the `parts` column, older points read as having none).
 
 Before all of this a night copies the memory and builds new tasks from the
 person's own memory and messages (see above), and erases tasks about memories
@@ -374,11 +393,12 @@ that are gone.
 Nothing is announced: no notice, no sound, no voice. The app looks every ten
 minutes whether a night is due: the person must have been away for 15 minutes,
 and there is at most one night in 20 hours. Measuring the recall asks no
-model; building tasks does, at most eight small calls a night. The limits are
+model; building tasks does, at most eight small calls a night (24 while too few tasks
+exist to decide on). The limits are
 fixed in the code, not in a setting: only while the person is away, on the
 assistant's subscription or a local model, never a key that bills per token.
 (The share of a plan's usage window a night may use, 20 %, is fixed for the
-domains that will run whole turns; eight small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
+domains that will run whole turns; 24 small calls stay far below it.) The person's stop (`Night.pause`) is kept in `bench.db` and
 survives a restart; while it is set nothing is proposed, measured or changed.
 
 ### The tuner

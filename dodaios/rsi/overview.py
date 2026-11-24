@@ -23,7 +23,15 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
-from dodaios.rsi.night import BUDGET_SHARE, EVERY_S, IDLE_AFTER_S, MAX_MODEL_CALLS, Night
+from dodaios.rsi.night import (
+    BUDGET_SHARE,
+    EVERY_S,
+    IDLE_AFTER_S,
+    MAX_MODEL_CALLS,
+    RAMP_MODEL_CALLS,
+    Night,
+    calls_tonight,
+)
 from dodaios.self_change import Surface
 from dodaios.self_change.store import Change
 
@@ -46,7 +54,7 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
     This is what happened, not a measurement of cause: the requests of one week
     are not the requests of the next. It stands beside the benchmark, which
     compares like with like, and never decides anything. ``None`` when there is
-    no chat record or it cannot be read.
+    no chat record, it cannot be read, or it holds no request in these weeks.
     """
     if chat_db is None or not Path(chat_db).is_file():
         return None
@@ -71,11 +79,14 @@ def daily_use(chat_db: Path | None, *, now: float | None = None) -> dict[str, An
             for window in report.get("windows") or []
         ]
         lifetime = report.get("lifetime") or {}
-        found = {
-            "weeks": weeks[-_WEEKS:],
-            "turns": int(report.get("turns") or 0),
-            "score": lifetime.get("score"),
-        }
+        turns = int(report.get("turns") or 0)
+        # No request in these weeks (or a record that holds none): nothing to show.
+        if turns:
+            found = {
+                "weeks": weeks[-_WEEKS:],
+                "turns": turns,
+                "score": lifetime.get("score"),
+            }
     except Exception:  # noqa: BLE001 — the page shows the benchmark without this part
         log.info("self-improvement: the score of daily use could not be read", exc_info=True)
     _daily_cache[key] = (stamp, found)
@@ -202,6 +213,10 @@ def build(
             "every_s": EVERY_S,
             "budget_share": BUDGET_SHARE,
             "max_model_calls": MAX_MODEL_CALLS,
+            #: While too few tasks exist to decide on, a night may build with this many.
+            "ramp_model_calls": RAMP_MODEL_CALLS,
+            #: What the next night may use.
+            "model_calls_tonight": calls_tonight(night.bench),
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),
