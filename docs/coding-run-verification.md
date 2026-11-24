@@ -12,7 +12,9 @@ and it gets a verdict. Whether the person notices any of this depends on the
 coding policy the run is bound to (`hold`, see "Held runs and judged runs"
 below). The factory policy does not hold, so out of the box nothing changes
 for the person: the lead's job ends with the thread's turn, and no order is
-sent to the agent.
+sent to the agent. Whether holding pays off is learned per cell: once a cell
+has enough runs, holding goes on trial for half of the person's requests
+there, and it stays only if more runs pass (`docs/rsi-policy-selector.md`).
 
 ```toml
 [rsi]
@@ -209,7 +211,12 @@ github.com, and only for a run with a checkout of its own that made a commit.
 A run is not over when its thread's turn ends. It stays open while what the
 turn left is checked, and the driver decides what follows. The coding policy
 the run is bound to says whether the run is *held* (`hold`,
-`dodaios/rsi/policy.py`). The question is asked per run.
+`dodaios/rsi/policy.py`). The question is asked per run. Nobody sets it by
+hand: the trainer (`dodaios/rsi/trainer.py`) puts holding on trial in a cell
+whose active policy does not hold, and the selector's gate decides on the
+measured runs whether the cell keeps it. The `follow_up_withheld` steps below
+are what lets the record bound how much a hold could gain; what the withheld
+order would have achieved only a trial shows.
 
 - **A run that holds** does what the old `verify = "enforce"` did. The job the
   lead waits for reports only the outcome, and a finding brings a follow-up

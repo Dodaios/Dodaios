@@ -56,11 +56,16 @@ how long checks are waited for (never above the code's own limits), and
 optionally a domain block of at most 600 characters for the first brief
 (`dodaios/rsi/policy.py`). The factory policy does not hold. Its runs are
 judged, but the lead is not held back and no order goes to the agent. A policy
-stored before `hold` existed reads as one that does not hold, and keeps its id. Policies are self-changes of
-the surface `coding_policy` (Trust → Self-changes): one target per cell for
+stored before `hold` existed reads as one that does not hold, and keeps its
+id. Policies are self-changes of the surface `coding_policy` (Trust → Self-changes): one target per cell for
 the active policy, one for a candidate on trial, each with versions, a diff and
-a byte-exact rollback. A policy with text for the agents waits for the owner;
-one beyond the limits is blocked.
+a byte-exact rollback. Nothing the trainer proposes waits for the owner: every
+candidate goes on trial by itself and the gate decides. Text for the agents
+other than the miner's fixed lines (below) is the one exception, and the
+trainer never writes such text. A policy beyond the limits is blocked. The
+person keeps stop and undo: a policy the trainer put in place is listed on the
+Self-improvement page with the measurement that let it in, and Take back
+restores the exact previous policy.
 
 Every run is bound before its order goes out (or, failing that, at its first
 turn): the active policy, or, while a candidate is on trial, the candidate for
@@ -69,23 +74,55 @@ The policy is frozen into the run's record.
 
 After each verdict the trainer (`dodaios/rsi/trainer.py`) looks at that cell:
 
-1. Without a candidate, with an active policy that holds, and with 60 runs
+1. Without a candidate, with an active policy that does not hold (the factory
+   policy), and with 60 runs under it, holding is the candidate: the same
+   policy with `hold` set and the factory's follow-up limits (2 orders, 45
+   minutes for checks). Whether Dodaios should wait for the checks and order
+   fixes is learned like any other control. Its claim is fixed before its own
+   data exist: branch A, the PassRate. Holding costs follow-up orders and a
+   wait, so it has to make more runs pass, by at least 0.10, within 125 % of
+   the cost.
+
+   The record cannot replay a hold (`replay_hold` in
+   `dodaios/rsi/replay.py`). A run that was not held is the same as a held
+   one up to the first follow-up order: the brief, the turn, the scan and the
+   checks. Where the driver would have sent that order, the recorder wrote
+   `follow_up_withheld` and the run ended `failed`; what the agent would have
+   made of the order was never recorded, and neither is how the person acts
+   while the lead waits for the verdict. So the replay never accepts a hold.
+   It only bounds the gain from above: if every run a follow-up order could
+   have reached had passed (a run that failed or had an order withheld, and
+   one left `unverified` when the hold would wait longer for checks), the
+   PassRate would rise by at most that much. When even that is short of
+   0.10, the hold is not tried. Otherwise it goes on trial and the canary
+   decides.
+2. Without a candidate, with an active policy that holds, and with 60 runs
    under it, each candidate of a small fixed grid (fewer follow-up orders, a
-   shorter wait; it keeps the active policy's `hold`) is replayed on the record (`dodaios/rsi/replay.py`): up to where it would have stopped,
-   a run is exactly what was recorded. The first candidate the replay does not
-   reject goes on trial, and its claim (branch B, cost) is fixed before its
-   own data exist. A replay that covers less than 90 % of the runs says nothing.
-2. With a candidate on trial, the gate above decides on the runs since the
+   shorter wait; it keeps the active policy's `hold`) is replayed on the
+   record: up to where it would have stopped, a run is exactly what was
+   recorded. The first candidate the replay does not reject goes on trial,
+   and its claim (branch B, cost) is fixed before its own data exist. A
+   replay that covers less than 90 % of the runs says nothing. When none
+   survives, the miner may propose one line for the first brief (below).
+3. With a candidate on trial, the gate above decides on the runs since the
    claim. Accepted: the candidate becomes the active policy, on probation.
    Rejected, or without an answer after 28 days: the trial ends.
-3. The first run under a new active policy whose final output weakened a
+4. The first run under a new active policy whose final output weakened a
    check, or whose merged work turned red later, rolls it back to the exact
-   previous policy.
+   previous policy. A hold that was rolled back leaves the cell unheld again.
 
-In a cell whose active policy does not hold (the factory policy), the trainer
-proposes nothing and says why. A run that is not held gets no follow-up order,
-and nobody waits for its checks, so a candidate that only changes those would
-measure nothing.
+A candidate whose trial ended (accepted, rejected, expired or withdrawn) is not
+tried again in that cell for 28 days: the trial has just answered. The grid
+then moves on to its next candidate.
+
+Each trial keeps its numbers in the registry, beside the change (append-only
+evidence): at its start the claim, the policy it is compared with and the
+replay's answer; at its end, on the candidate and on the new active policy,
+the gate's answer with the claimed metric's difference and lower bound, the
+requests per arm and each arm's plain means. The Self-improvement page reads
+them (`GET /api/self-improvement`, rows of `surface` `coding_policy`: `policy`
+names the cell's area, model and harness and what changed; `admitted` is the
+measurement that let it in).
 
 ## Text for agents (Phase 5)
 
@@ -98,12 +135,17 @@ exactly one fixed sentence to add to the domain block, citing those runs. The
 sentences are written in the code, not by a model, and none asks an agent to
 check less.
 
-Such a proposal waits for the owner in Trust → Self-changes, with the cited
-runs in its reason. Only after approval does it go on trial: its claim
-(branch B, fewer follow-up orders) is fixed then, half of the person's
-requests in that cell carry the block in their first brief, and the gate
-decides as for any candidate. The thread shows the lead's words in its bubble;
-the block is only in what the agent reads.
+Such a line goes on trial by itself, like any candidate. Its claim (branch B,
+fewer follow-up orders) is fixed when it is proposed, with the cited runs in
+its reason, half of the person's requests in that cell carry the block in
+their first brief, and the gate decides as for any candidate. Nobody is asked.
+This holds because the sentences are fixed in the code and reviewed like it:
+a policy whose block is made of them only is an ordinary self-change
+(`core_reasons` in `dodaios/self_change/surfaces.py`). A block with any other
+text is still the owner's call. Follow-up orders are only sent in a cell that
+holds, so the miner only runs there, where fewer follow-up orders can be
+measured. The thread shows the lead's words in its bubble; the block is only
+in what the agent reads.
 
 ## New models and CLI versions
 
@@ -127,9 +169,15 @@ can accept it. Most decisions will take weeks in a quiet cell.
 in 30 tasks is p = 1/8), calibration under equal arms, blocking, and each part
 of the rule. `tests/unit/rsi/test_policy.py`: limits, storage, the canary
 split, the registry (trial, owner approval for text, blocking, rollback) and
-binding in a recorded run. `tests/unit/rsi/test_replay_and_trainer.py`: replay
-cuts and coverage, and the whole loop with a real registry, including a mined
-line that waits for the owner. `tests/unit/rsi/test_mining.py`: the patterns.
-`tests/contract/test_workspace_chat_threads.py`: an approved block in a real
-first brief. `tests/unit/rsi/test_drift.py`: which cell follows which,
+binding in a recorded run, and a mined line that goes on trial without the
+owner. `tests/unit/rsi/test_replay_and_trainer.py`: replay cuts and coverage,
+the bound on a hold, and the whole loop with a real registry: a cell that does
+not hold gets a hold candidate, the trial splits the requests, the gate
+accepts a hold that passes more and rejects one that does not or costs too
+much, a weakened check rolls it back, and a mined line goes on trial and is
+measured. `tests/unit/ui/web/test_self_improvement_routes.py`: the page lists
+a policy change with its measurement, and Take back.
+`tests/unit/rsi/test_mining.py`: the patterns.
+`tests/contract/test_workspace_chat_threads.py`: a block in a real first
+brief. `tests/unit/rsi/test_drift.py`: which cell follows which,
 inheritance and the notes.
