@@ -15,15 +15,15 @@
       "running": "Running",
       "stopped": "Stopped",
       "readonly": "Read only",
-      "running_first": "No night has run yet. The first one starts when you have been away for {minutes} minutes.",
-      "running_body": "The last night was {when}. The next one comes after {next}, once you have been away for {minutes} minutes.",
-      "running_due": "The last night was {when}. The next one comes the next time you are away for {minutes} minutes.",
+      "running_first": "No round has run yet. The first one starts when you have been away for {minutes} minutes.",
+      "running_body": "The last round was {when}. The next one comes after {next}, once you have been away for {minutes} minutes.",
+      "running_due": "The last round was {when}. The next one comes the next time you are away for {minutes} minutes.",
       "stopped_body": "Nothing is tried, measured or changed until you resume. What it already learned stays in effect.",
       "readonly_body": "A newer version of the app wrote these records. This version only shows them and changes nothing."
     },
     "empty": {
       "title": "Nothing is measured yet",
-      "body": "To measure itself, the assistant first builds test tasks from your own memory and messages, at night. When there are enough, it checks itself on them, and this page shows whether it got better, what it changed and what proved each change."
+      "body": "To measure itself, the assistant first builds test tasks from your own memory and messages while you are away. When there are enough, it checks itself on them, and this page shows whether it got better, what it changed and what proved each change."
     },
     "domain": {
       "recall": {
@@ -65,7 +65,7 @@
       "cost_label": "Prompt per message",
       "cost": "{before} → {after} tokens",
       "cost_same": "{after} tokens, as shipped",
-      "waiting": "{n} tasks from your work are ready. The first measurement comes with the next night.",
+      "waiting": "{n} tasks from your work are ready. The first measurement comes with the next round.",
       "no_tasks": "There are no tasks from your work for this area yet, so nothing is measured here.",
       "quality_label": "Tasks solved",
       "shorter": "shorter",
@@ -73,12 +73,12 @@
       "building": "{n} test tasks from your own memory and messages so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now."
     },
     "curve": {
-      "title": "Advantage, night by night",
+      "title": "Advantage, round by round",
       "caption": "Points, with the range the true value lies in",
-      "few": "The curve appears after the second night that measures this area.",
+      "few": "The curve appears after the second round that measures this area.",
       "update": "Update to {version}",
       "range_value": "between {low} and {high}",
-      "col_night": "Night",
+      "col_night": "Round",
       "col_advantage": "Points",
       "col_range": "Range",
       "col_tasks": "Tasks",
@@ -121,7 +121,7 @@
       "what": "What it sets",
       "admitted": "Why it was let in",
       "checked": "Checked again",
-      "not_checked": "Not checked again yet. The next night does that.",
+      "not_checked": "Not checked again yet. The next round does that.",
       "admitted_on": "Measured on {n} tasks set aside for deciding, {when}.",
       "checked_on": "Measured on {n} tasks that no change was decided on, {when}.",
       "proposed_by": "Proposed by",
@@ -140,7 +140,7 @@
       "lines": "The line learner, which tries your messages without one of their standing lines on practice tasks"
     },
     "nights": {
-      "title": "The last nights",
+      "title": "The last rounds",
       "paused": "Stopped: nothing was done.",
       "updated": "The app was updated from {from} to {to}. Everything learned was checked again.",
       "checked": "Checked {title}: {outcome}, {effect}.",
@@ -152,8 +152,8 @@
       "decided_bare": "Measured {title}: {outcome}.",
       "measured": "Advantage in {area}: {points} points on {n} tasks.",
       "idle": "Looked, and found nothing to measure yet.",
-      "show_one": "Show 1 earlier night",
-      "show_other": "Show {count} earlier nights",
+      "show_one": "Show 1 earlier round",
+      "show_other": "Show {count} earlier rounds",
       "hide": "Show fewer",
       "built_one": "Built 1 test task from your own memory and messages.",
       "built_other": "Built {count} test tasks from your own memory and messages.",
@@ -161,7 +161,9 @@
       "erased_other": "Erased {count} tasks about memories that are gone.",
       "stored_one": "Stored 1 task from your past coding work.",
       "stored_other": "Stored {count} tasks from your past coding work.",
-      "deferred": "No model could be asked, so no tasks were built."
+      "deferred": "No model could be asked, so no tasks were built.",
+      "spent": "Model calls: {calls}, about {share} % of a usage window.",
+      "spent_unread": "Model calls: {calls}, within the fixed limits (the plan's usage could not be read)."
     },
     "outcome": {
       "admitted": "let in on trial",
@@ -186,13 +188,16 @@
       "decide_title": "Decide",
       "decide_body": "A change goes in only when it proves itself on tasks it never practised on.",
       "check_title": "Keep checking",
-      "check_body": "Later nights check each change again on other tasks and take back what no longer helps.",
-      "limits": "It works only after you have been away for {minutes} minutes, and at most one night in {hours} hours.",
-      "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
-      "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
+      "check_body": "Later rounds check each change again on other tasks and take back what no longer helps.",
+      "limits": "A learning round runs when you have been away from the computer for {minutes} minutes, at most once in {hours} hours, at any time of day. It also runs while the app's window is closed, as long as \"Keep agents running after closing\" is on in Settings.",
+      "models": "Building test tasks asks a model only while the measurements still lack tasks: until there are enough to decide on, or nothing new is left to build them from.",
       "measure_no_model": "Measuring itself asks no model.",
-      "measure_first_move": "Measuring the first move and the briefs replays your earlier requests on the assistant's own plan: at most {calls} model calls a night for both together, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
-      "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
+      "measure_first_move": "Measuring the first move and the briefs replays your earlier requests on the assistant's own plan, until the round's comparisons are done.",
+      "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent.",
+      "budget": "Every call runs on the assistant's own subscription or a local model, never on a key that is billed per token. No call starts while a usage window of your plan is {full} % full, and one round uses at most {share} % of a window.",
+      "fallback": "When the plan's usage cannot be read, for example with a local model, fixed limits apply instead: {calls} calls a round to build tasks ({ramp} in the first rounds) and {replays} replays. No round ever makes more than {ceiling} calls of one kind.",
+      "last_round": "Model calls in the last round: {calls}, about {share} % of a usage window.",
+      "last_round_unread": "Model calls in the last round: {calls}. The plan's usage could not be read, so the fixed limits applied."
     },
     "param": {
       "recall_entity_boost": {
