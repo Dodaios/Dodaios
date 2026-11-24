@@ -1,8 +1,9 @@
 /**
- * "Built for you": builds sit on the shelf of what they ask of the person, a
- * proposal is built or turned down in one click, a trial is kept or undone in
- * one click, the pause and the society stop reach their routes, a build opens
- * into its case file, and the "built by" badge links back to its build.
+ * "Built for you": nothing on the page asks the person for an OK. Builds sit on
+ * their shelf, a trial is undone in one click (never kept on a click: its use
+ * decides), an old proposal shows as archived with nothing to click, the pause
+ * and the society stop reach their routes, a build opens into its case file,
+ * and the "built by" badge links back to its build.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,7 +24,7 @@ function build(overrides: Partial<Build>): Build {
   return {
     id: "b",
     kind: "skill",
-    state: "proposed",
+    state: "building",
     signature: "s",
     title: "A build",
     case: "",
@@ -43,8 +44,15 @@ function build(overrides: Partial<Build>): Build {
 }
 
 const BUILDS: Build[] = [
-  build({ id: "p1", title: "Rename invoice PDFs", evidence: ["t1", "t2", "t3"] }),
-  build({ id: "p2", kind: "agent", title: "A release-notes writer" }),
+  build({ id: "b1", title: "Rename invoice PDFs", evidence: ["t1", "t2", "t3"] }),
+  // A proposal an older version left behind, archived when the app started.
+  build({
+    id: "a1",
+    kind: "agent",
+    state: "archived",
+    title: "A release-notes writer",
+    note: "archived: no longer asked. The loop builds what it can undo and measure on its own",
+  }),
   build({
     id: "t1",
     kind: "routine",
@@ -68,11 +76,10 @@ const BUILDS: Build[] = [
 ];
 
 const STATUS: SelfBuildStatus = {
-  enabled: true,
   paused: false,
   silent: false,
-  autonomy: { memory: "trial", skill: "suggest", routine: "suggest", agent: "suggest", code: "suggest" },
-  builders: ["skill", "routine", "memory"],
+  autonomy: { memory: "full", skill: "full", routine: "full", agent: "full", code: "watch" },
+  builders: ["agent", "memory", "routine", "skill"],
 };
 
 interface Call {
@@ -83,8 +90,8 @@ interface Call {
 
 const NOTICED: Noticed = {
   needs: [
-    { id: 1, label: "Did I get any important emails?", times: 4, days: 2, first_ms: NOW - 2 * 86_400_000, last_ms: NOW - 3_600_000, stage: "counting", build_id: "" },
-    { id: 2, label: "Summarise the open pull requests", times: 3, days: 3, first_ms: NOW - 3 * 86_400_000, last_ms: NOW - 7_200_000, stage: "proposed", build_id: "p1" },
+    { id: 1, label: "Did I get any important emails?", times: 4, days: 2, first_ms: NOW - 2 * 86_400_000, last_ms: NOW - 3_600_000, stage: "counting" },
+    { id: 2, label: "Summarise the open pull requests", times: 3, days: 3, first_ms: NOW - 3 * 86_400_000, last_ms: NOW - 7_200_000, stage: "ready" },
   ],
   once: 5,
   more: 0,
@@ -99,13 +106,12 @@ function installFetch(status: SelfBuildStatus = STATUS, kill = false, builds: Bu
     "GET /api/self-build/digest?hours=24": () => ({
       since_ms: NOW - 86_400_000,
       until_ms: NOW,
-      counts: { proposed: 2, trial: 1 },
+      counts: { building: 1, trial: 1 },
       live: 2,
       items: [],
     }),
     "GET /api/self-build/settings": () => ({
       settings: { trial_days: 14, trial_uses: 10 },
-      levels: ["off", "suggest", "trial", "full"],
       bounds: {},
     }),
     "GET /api/self-build/provenance": () => ({
@@ -122,9 +128,6 @@ function installFetch(status: SelfBuildStatus = STATUS, kill = false, builds: Bu
     }),
     "GET /api/society/status": () => ({ kill_switch: kill }),
     "GET /api/self-build/noticed": () => noticed,
-    "POST /api/self-build/p1/accept": () => ({ build: { ...BUILDS[0], state: "building" } }),
-    "POST /api/self-build/p2/undo": () => ({ build: { ...BUILDS[1], state: "rejected" } }),
-    "POST /api/self-build/t1/keep": () => ({ build: { ...BUILDS[2], state: "kept" } }),
     "POST /api/self-build/t1/undo": () => ({ build: { ...BUILDS[2], state: "undone" } }),
     "POST /api/self-build/pause": (body) => ({ ...status, paused: (body as { paused: boolean }).paused }),
     "POST /api/society/kill-switch": () => ({ engaged: true }),
@@ -158,38 +161,29 @@ describe("SelfBuildView", () => {
     vi.restoreAllMocks();
   });
 
-  it("puts every build on the shelf of what it asks of the person", async () => {
+  it("puts every build on its shelf and asks the person nothing", async () => {
     installFetch();
     renderWith(<SelfBuildView />);
-    const waiting = await screen.findByTestId("shelf-waiting");
-    expect(within(waiting).getAllByTestId("build-row").map((r) => r.dataset.buildId)).toEqual(["p1", "p2"]);
-    // Trials and kept helpers read as one "Active" list.
-    const live = screen.getByTestId("shelf-live");
-    expect(within(live).getByText("A standup digest")).toBeTruthy();
-    expect(within(live).getByText("Mail humanizer")).toBeTruthy();
+    // Nothing waits for an OK: no such shelf, no accept and no keep anywhere.
+    const live = await screen.findByTestId("shelf-live");
+    expect(screen.queryByTestId("shelf-waiting")).toBeNull();
+    expect(screen.queryByText(/waiting for your ok/i)).toBeNull();
+    // Builds, trials and kept helpers read as one "Active" list.
+    expect(within(live).getAllByTestId("build-row").map((r) => r.dataset.buildId)).toEqual(["t1", "b1", "k1"]);
     // The past shelf is folded until asked for.
     const past = screen.getByTestId("shelf-past");
     expect(within(past).queryByTestId("build-row")).toBeNull();
-    fireEvent.click(within(past).getByRole("button", { name: /show 1/i }));
+    fireEvent.click(within(past).getByRole("button", { name: /show 2/i }));
     expect(within(past).getByText("Fix the flaky test")).toBeTruthy();
+    expect(within(past).getByText("A release-notes writer")).toBeTruthy();
+    for (const gone of ["build-accept", "build-keep", "build-restore"]) {
+      expect(screen.queryByTestId(gone)).toBeNull();
+    }
     // Simply watching is nothing to report: no banner.
     expect(screen.queryByTestId("self-build-banner")).toBeNull();
   });
 
-  it("builds a proposal or turns it down in one click; a kind without a builder cannot be built", async () => {
-    const calls = installFetch();
-    renderWith(<SelfBuildView />);
-    const first = (await screen.findAllByTestId("build-row"))[0];
-    fireEvent.click(within(first).getByTestId("build-accept"));
-    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-build/p1/accept")).toBe(true));
-
-    const agentRow = screen.getAllByTestId("build-row").find((r) => r.dataset.buildId === "p2")!;
-    expect((within(agentRow).getByTestId("build-accept") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(agentRow).getByTestId("build-undo"));
-    await waitFor(() => expect(calls.some((c) => c.url === "/api/self-build/p2/undo")).toBe(true));
-  });
-
-  it("opens a build into its case file and keeps or undoes a trial", async () => {
+  it("opens a build into its case file and undoes a trial in one click", async () => {
     const calls = installFetch();
     renderWith(<SelfBuildView />);
     const row = (await screen.findAllByTestId("build-row")).find((r) => r.dataset.buildId === "t1")!;
@@ -201,8 +195,20 @@ describe("SelfBuildView", () => {
     expect(within(detail).getByTestId("build-rail").dataset.reached).toBe("3");
     await waitFor(() => expect(within(detail).getAllByText(/Trial|On trial/).length).toBeGreaterThan(0));
     await waitFor(() => expect(within(detail).getByTestId("build-history").children.length).toBe(3));
-    fireEvent.click(within(detail).getByTestId("build-keep"));
-    await waitFor(() => expect(calls.some((c) => c.url === "/api/self-build/t1/keep")).toBe(true));
+    expect(within(detail).queryByTestId("build-keep")).toBeNull();
+    fireEvent.click(within(detail).getByTestId("build-undo"));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-build/t1/undo")).toBe(true));
+    expect(calls.some((c) => /\/(accept|keep)$/.test(c.url))).toBe(false);
+  });
+
+  it("shows an old proposal as archived, with nothing to click", async () => {
+    installFetch();
+    useSelfBuildFocus.getState().request("a1");
+    renderWith(<SelfBuildView />);
+    const detail = await screen.findByTestId("build-detail");
+    expect(detail.dataset.buildId).toBe("a1");
+    expect(within(detail).getByText(/no longer asked/)).toBeTruthy();
+    expect(within(detail).queryByTestId("build-actions")).toBeNull();
   });
 
   it("pauses the loop, and stops every agent only after a confirm", async () => {
@@ -228,11 +234,11 @@ describe("SelfBuildView", () => {
     expect(await screen.findByTestId("note-paused")).toBeTruthy();
     expect(await screen.findByTestId("note-stopped")).toBeTruthy();
     expect(screen.getByTestId("self-build-banner").dataset.tone).toBe("stopped");
+    expect(screen.queryByTestId("note-off")).toBeNull();
     fireEvent.click(screen.getByTestId("self-build-menu"));
     expect(screen.queryByTestId("society-stop-all")).toBeNull();
-    // Accepting would start a build, so it waits while building is paused.
-    const first = (await screen.findAllByTestId("build-row"))[0];
-    expect((within(first).getByTestId("build-accept") as HTMLButtonElement).disabled).toBe(true);
+    // Resuming is always there: the pause is the one switch the loop has.
+    expect(screen.getByTestId("self-build-pause").textContent).toMatch(/Resume building/);
   });
 
   it("teaches the idea and shows what it is counting during the quiet start", async () => {
@@ -241,10 +247,13 @@ describe("SelfBuildView", () => {
     const banner = await screen.findByTestId("self-build-banner");
     expect(banner.dataset.tone).toBe("silent");
     await waitFor(() => expect(banner.textContent).toMatch(/Learning how you work · day 3 of 7/));
-    // The three steps sit behind one quiet toggle.
+    // The three steps sit behind one quiet toggle, and none of them asks.
     const how = screen.getByTestId("self-build-how");
     fireEvent.click(within(how).getByRole("button", { name: /how does this work/i }));
     expect(how.textContent).toMatch(/It notices/);
+    expect(how.textContent).toMatch(/It builds/);
+    expect(how.textContent).toMatch(/Your use decides/);
+    expect(how.textContent).not.toMatch(/suggest/i);
     const needs = await screen.findAllByTestId("noticed-need");
     expect(needs[0].textContent).toMatch(/Did I get any important emails\?/);
     expect(needs[0].textContent).toMatch(/Asked 4 times · on 2 days/);
@@ -252,12 +261,12 @@ describe("SelfBuildView", () => {
     expect(screen.getByTestId("self-build-noticed").textContent).toMatch(/5 requests noted once/);
   });
 
-  it("links a need that became a suggestion to it", async () => {
+  it("shows a ready need without anything to approve", async () => {
     installFetch();
     renderWith(<SelfBuildView />);
     const needs = await screen.findAllByTestId("noticed-need");
-    fireEvent.click(within(needs[1]).getByRole("button", { name: /see the suggestion/i }));
-    expect((await screen.findByTestId("build-detail")).dataset.buildId).toBe("p1");
+    expect(needs[1].textContent).toMatch(/Ready/);
+    expect(within(needs[1]).queryByRole("button")).toBeNull();
   });
 
   it("says nothing repeated yet when the miner has nothing", async () => {
@@ -323,7 +332,7 @@ describe("BuildDetail for code", () => {
       artefact: { type: "code", id: "", repo: "octo/app", branch: "dodaios/issue-3-add-a-greeting", stage: "pushed", thread: "sess-42" },
     });
     renderWith(
-      <BuildDetail build={coding} limits={undefined} canBuild busy={false} onAction={() => {}} onClose={() => {}} />,
+      <BuildDetail build={coding} limits={undefined} busy={false} onUndo={() => {}} onClose={() => {}} />,
     );
     const open = await screen.findByTestId("build-open-thread");
     expect(open.textContent).toContain("Open the coding thread");
@@ -336,7 +345,7 @@ describe("BuildDetail for code", () => {
   it("offers no thread link for a code build without a coding thread", async () => {
     installFetch();
     renderWith(
-      <BuildDetail build={BUILDS[4]} limits={undefined} canBuild busy={false} onAction={() => {}} onClose={() => {}} />,
+      <BuildDetail build={BUILDS[4]} limits={undefined} busy={false} onUndo={() => {}} onClose={() => {}} />,
     );
     await screen.findByTestId("build-detail");
     expect(screen.queryByTestId("build-open-thread")).toBeNull();

@@ -4,11 +4,13 @@
  *
  * Built like the settings and library pages of a desktop chat app: a title
  * with one sentence under it, one status pill that holds every page option,
- * a slim line for the state (learning, paused, off, stopped), then plain
- * lists in the order a person asks about them: what waits for my OK, what is
- * running for me, what has it noticed, and what is archived. A build opens as
- * a sheet on the right with its full case file (`BuildDetail`). An empty page
- * says in two sentences what will appear here and when.
+ * a slim line for the state (learning, paused, stopped), then plain lists in
+ * the order a person asks about them: what is running for me, what has it
+ * noticed, and what is archived. Nothing asks for an OK: a build goes live on
+ * trial when it can be undone, and its use decides whether it stays. The
+ * person pauses the loop and undoes builds. A build opens as a sheet on the
+ * right with its full case file (`BuildDetail`). An empty page says in two
+ * sentences what will appear here and when.
  *
  * It never interrupts: no toast, no sound, no voice. Live through
  * `SelfBuildChanged` (hooks/useWebSocket.ts). docs/self-build.md.
@@ -22,14 +24,13 @@ import { useEventStore } from "@/store/events";
 import { useSettingsJump } from "@/store/settingsJump";
 import { useSelfBuildFocus } from "@/store/selfBuildFocus";
 import {
-  useBuildAction,
   useSelfBuildList,
   useSelfBuildNoticed,
   useSelfBuildPause,
   useSelfBuildSettings,
   useSetSocietyKillSwitch,
   useSocietyKillSwitch,
-  type BuildAction,
+  useUndoBuild,
 } from "@/hooks/useSelfBuild";
 import { SelfBuildApiError, shelfOf, trialProgress, type Build, type SelfBuildStatus } from "@/lib/selfBuildApi";
 import { BuildActions } from "./selfBuild/BuildActions";
@@ -53,7 +54,7 @@ export function SelfBuildView() {
   const setKill = useSetSocietyKillSwitch();
   const pause = useSelfBuildPause();
   const setActive = useEventStore((s) => s.setActiveSection);
-  const act = useBuildAction();
+  const undo = useUndoBuild();
   const [selectedId, setSelectedId] = useState<string | null>(() => useSelfBuildFocus.getState().take());
   const [error, setError] = useState<string | null>(null);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -70,38 +71,32 @@ export function SelfBuildView() {
   const limits = settings.data?.settings;
   const stopped = kill.data === true;
   const tone = heroTone(status, stopped);
-  // Accepting starts a build, so it waits while building is paused.
-  const canBuild = (build: Build) => Boolean(status?.builders.includes(build.kind)) && !status?.paused;
-  const blockedTitle = (build: Build) =>
-    status?.paused ? t("self_build.notes.paused") : !status?.builders.includes(build.kind) ? t("self_build.no_builder") : undefined;
 
   const groups = useMemo(() => {
-    const by = { waiting: [] as Build[], live: [] as Build[], kept: [] as Build[], past: [] as Build[] };
+    const by = { live: [] as Build[], kept: [] as Build[], past: [] as Build[] };
     for (const build of builds) {
       const shelf = shelfOf(build);
-      if (shelf === "waiting") by.waiting.push(build);
-      else if (shelf === "trial" || shelf === "working") by.live.push(build);
+      if (shelf === "trial" || shelf === "working") by.live.push(build);
       else if (shelf === "kept") by.kept.push(build);
       else by.past.push(build);
     }
-    // Trials first (they can be kept or undone), then what is still being built.
+    // Trials first (their use is being measured), then what is still being built.
     by.live.sort((a, b) => Number(b.state === "trial") - Number(a.state === "trial"));
     return by;
   }, [builds]);
 
-  const onAction = (build: Build, action: BuildAction) => {
+  const onUndo = (build: Build) => {
     setError(null);
-    act.mutate(
-      { id: build.id, action },
-      { onError: (err) => setError(fill(t("self_build.error.action"), { detail: err.message })) },
-    );
+    undo.mutate(build.id, {
+      onError: (err) => setError(fill(t("self_build.error.action"), { detail: err.message })),
+    });
   };
   const openSettings = () => {
     useSettingsJump.getState().request("self-build");
     setActive("settings");
   };
   const select = (build: Build) => setSelectedId(build.id === selectedId ? null : build.id);
-  const busyId = act.isPending ? act.variables?.id ?? null : null;
+  const busyId = undo.isPending ? undo.variables ?? null : null;
 
   if (!ready) return <Centered><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden /></Centered>;
 
@@ -112,11 +107,9 @@ export function SelfBuildView() {
   const bannerAction: BannerAction | undefined =
     tone === "paused"
       ? { label: t("self_build.resume"), onClick: () => pause.mutate(false), busy: pause.isPending, testId: "self-build-resume" }
-      : tone === "off"
-        ? { label: t("self_build.notes.turn_on"), onClick: openSettings, testId: "self-build-turn-on" }
-        : tone === "stopped"
-          ? { label: t("self_build.notes.release"), onClick: () => setKill.mutate(false), busy: setKill.isPending, testId: "self-build-release" }
-          : undefined;
+      : tone === "stopped"
+        ? { label: t("self_build.notes.release"), onClick: () => setKill.mutate(false), busy: setKill.isPending, testId: "self-build-release" }
+        : undefined;
 
   return (
     <div data-testid="self-build-view" className="flex h-full min-h-0 flex-col overflow-y-auto">
@@ -130,7 +123,6 @@ export function SelfBuildView() {
           </div>
           <StatusMenu
             tone={tone}
-            enabled={Boolean(status?.enabled)}
             paused={Boolean(status?.paused)}
             pauseBusy={pause.isPending}
             onPause={(next) => pause.mutate(next)}
@@ -155,33 +147,6 @@ export function SelfBuildView() {
 
             {nothingYet && <EmptyState days={noticed.data?.threshold.days ?? 3} once={noticed.data?.once ?? 0} />}
 
-            {groups.waiting.length > 0 && (
-              <Section id="waiting" title={t("self_build.shelf.waiting")} count={groups.waiting.length}>
-                <Group>
-                  {groups.waiting.map((build) => (
-                    <Row
-                      key={build.id}
-                      data={{ "build-id": build.id, state: build.state }}
-                      selected={build.id === selectedId}
-                      onClick={() => select(build)}
-                      icon={<KindIcon kind={build.kind} />}
-                      title={build.title}
-                      sub={whyOf(build) || t(`self_build.suggested.${build.kind}`)}
-                      right={
-                        <BuildActions
-                          build={build}
-                          canBuild={canBuild(build)}
-                          blockedTitle={blockedTitle(build)}
-                          busy={busyId === build.id}
-                          onAction={onAction}
-                        />
-                      }
-                    />
-                  ))}
-                </Group>
-              </Section>
-            )}
-
             {groups.live.length + groups.kept.length > 0 && (
               <Section id="live" title={t("self_build.shelf.live")} count={groups.live.length + groups.kept.length}>
                 <Group>
@@ -192,7 +157,7 @@ export function SelfBuildView() {
                       selected={build.id === selectedId}
                       onSelect={() => select(build)}
                       busy={busyId === build.id}
-                      onAction={onAction}
+                      onUndo={onUndo}
                       limits={limits}
                       locale={locale}
                     />
@@ -205,7 +170,6 @@ export function SelfBuildView() {
               data={noticed.data}
               locale={locale}
               paused={Boolean(status?.paused) || stopped}
-              onOpenBuild={(id) => setSelectedId(id)}
             />
 
             {groups.past.length > 0 && (
@@ -214,7 +178,7 @@ export function SelfBuildView() {
                 selectedId={selectedId}
                 onSelect={select}
                 busyId={busyId}
-                onAction={onAction}
+                onUndo={onUndo}
                 limits={limits}
                 locale={locale}
               />
@@ -242,10 +206,8 @@ export function SelfBuildView() {
             key={selected.id}
             build={selected}
             limits={limits}
-            canBuild={canBuild(selected)}
-            blockedTitle={blockedTitle(selected)}
-            busy={act.isPending && act.variables?.id === selected.id}
-            onAction={onAction}
+            busy={undo.isPending && undo.variables === selected.id}
+            onUndo={onUndo}
             onClose={() => setSelectedId(null)}
           />
         </DetailSheet>
@@ -259,9 +221,8 @@ function StateNotes({ status, stopped }: { status: SelfBuildStatus | undefined; 
   return (
     <>
       {stopped && <span data-testid="note-stopped" hidden />}
-      {status && !status.enabled && <span data-testid="note-off" hidden />}
-      {status?.enabled && status.paused && <span data-testid="note-paused" hidden />}
-      {status?.enabled && !status.paused && status.silent && <span data-testid="note-silent" hidden />}
+      {status?.paused && <span data-testid="note-paused" hidden />}
+      {status && !status.paused && status.silent && <span data-testid="note-silent" hidden />}
     </>
   );
 }
@@ -287,18 +248,12 @@ function EmptyState({ days, once }: { days: number; once: number }) {
   );
 }
 
-/** The first sentence of the case: the plain "why" under a suggestion. */
-function whyOf(build: Build): string {
-  const line = (build.case || "").split("\n").map((l) => l.trim()).find(Boolean) ?? "";
-  return line.length > 160 ? `${line.slice(0, 159).trimEnd()}…` : line;
-}
-
 function BuildRow({
   build,
   selected,
   onSelect,
   busy,
-  onAction,
+  onUndo,
   limits,
   locale,
 }: {
@@ -306,7 +261,7 @@ function BuildRow({
   selected: boolean;
   onSelect: () => void;
   busy: boolean;
-  onAction: (build: Build, action: BuildAction) => void;
+  onUndo: (build: Build) => void;
   limits: Limits;
   locale: string;
 }) {
@@ -342,7 +297,7 @@ function BuildRow({
         sub={sub}
         right={
           build.state === "trial" || build.state === "kept" || build.state === "archived" ? (
-            <BuildActions build={build} canBuild={false} busy={busy} onAction={onAction} />
+            <BuildActions build={build} busy={busy} onUndo={onUndo} />
           ) : undefined
         }
       />
@@ -354,7 +309,7 @@ function PastSection({
   selectedId,
   onSelect,
   busyId,
-  onAction,
+  onUndo,
   limits,
   locale,
 }: {
@@ -362,7 +317,7 @@ function PastSection({
   selectedId: string | null;
   onSelect: (build: Build) => void;
   busyId: string | null;
-  onAction: (build: Build, action: BuildAction) => void;
+  onUndo: (build: Build) => void;
   limits: Limits;
   locale: string;
 }) {
@@ -395,7 +350,7 @@ function PastSection({
               selected={build.id === selectedId}
               onSelect={() => onSelect(build)}
               busy={busyId === build.id}
-              onAction={onAction}
+              onUndo={onUndo}
               limits={limits}
               locale={locale}
             />

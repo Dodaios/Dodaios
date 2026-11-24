@@ -3679,25 +3679,8 @@
     },
     "self_build": {
       "title": "Selbstbau",
-      "description": "Wie weit {name} gehen darf, wenn es von sich aus Dinge für dich baut.",
+      "description": "Die Grenzen, an die sich {name} hält, wenn es dir Helfer baut. Es fragt nie vorher: Es baut nur, was sich rückgängig machen lässt, und behält, was du nutzt. Pausieren oder rückgängig machen kannst du unter „Für dich gebaut“.",
       "open_view": "„Für dich gebaut“ öffnen",
-      "enabled_title": "Von sich aus bauen",
-      "enabled_description": "Bemerken, was du immer wieder tust, und bauen, was es dir abnimmt. Aus: Nichts wird bemerkt oder gebaut.",
-      "autonomy_title": "Wie weit, je Art",
-      "autonomy_description": "Aus: nie. Vorschlagen: Eine Karte fragt zuerst. Probe: gebaut, geprüft und live, mit Rückgängig per Klick. Voll: wie Probe, und eine genutzte Probe wird von selbst behalten.",
-      "levels": {
-        "off": "Aus",
-        "suggest": "Vorschlagen",
-        "trial": "Probe",
-        "full": "Voll"
-      },
-      "kinds": {
-        "memory": "Erinnerungen",
-        "skill": "Skills",
-        "routine": "Routinen",
-        "agent": "Agenten",
-        "code": "Code-Änderungen"
-      },
       "limits_title": "Grenzen",
       "limits_description": "Feste Obergrenzen, die die Schleife nie überschreitet, egal was sie entscheidet.",
       "limits": {
@@ -3707,7 +3690,7 @@
         "max_code_runs_per_day": "Code-Läufe pro Tag",
         "trial_days": "Probedauer in Tagen",
         "trial_uses": "Probedauer in Nutzungen",
-        "max_rejections": "Nach so vielen Absagen nicht mehr anbieten",
+        "max_rejections": "Nach so vielen Rücknahmen nicht mehr bauen",
         "silent_days": "Ruhige erste Tage"
       },
       "save_error": "Speichern fehlgeschlagen: {detail}",

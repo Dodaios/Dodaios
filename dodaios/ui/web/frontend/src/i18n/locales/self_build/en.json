@@ -6,7 +6,6 @@
       "running": "Watching",
       "paused": "Paused",
       "silent": "Learning",
-      "off": "Off",
       "stopped": "Stopped"
     },
     "pause": "Pause building",
@@ -19,14 +18,11 @@
     "stop_confirm_body": "Running chats, missions and routines stop at once, and building pauses too. Nothing is deleted.",
     "cancel": "Cancel",
     "notes": {
-      "paused": "Building is paused. Nothing is noticed, built or settled until you resume.",
-      "release": "Release",
-      "turn_on": "Open settings"
+      "release": "Release"
     },
     "digest": {
       "label": "Since yesterday",
       "built": "{count} built",
-      "proposed": "{count} proposed",
       "kept": "{count} kept",
       "archived": "{count} archived",
       "undone": "{count} undone",
@@ -34,12 +30,9 @@
       "nothing": "Nothing new."
     },
     "shelf": {
-      "waiting": "Waiting for your OK",
-      "waiting_hint": "Nothing is built until you say yes.",
       "kept": "Kept",
       "kept_hint": "Earned its place. Still undoable.",
       "past": "Archived",
-      "past_hint": "Archived helpers can be restored.",
       "live": "Active",
       "live_hint": "On trial and labelled. Undo removes it completely."
     },
@@ -72,13 +65,8 @@
     },
     "trial_progress": "Day {days} of {dayLimit} · {uses} of {useLimit} uses",
     "action": {
-      "accept": "Build it",
-      "reject": "Not this",
-      "keep": "Keep",
-      "restore": "Restore",
       "undo": "Undo"
     },
-    "no_builder": "{name} cannot build this kind yet. It stays a suggestion.",
     "detail": {
       "close": "Close",
       "why": "Why",
@@ -118,17 +106,10 @@
     },
     "hero": {
       "silent_title": "{name} is getting to know how you work.",
-      "silent_body": "When you ask for the same thing again and again, {name} builds a small helper that does it for you. For the first {days} days it only takes notes and asks before it builds anything. From {date} it may try small things on its own, always with undo.",
-      "silent_body_nodate": "When you ask for the same thing again and again, {name} builds a small helper that does it for you. For the first {days} days it only takes notes and asks before it builds anything.",
       "running_title": "{name} is watching for repeats.",
       "running_body": "When you ask for the same thing on different days, {name} builds the smallest helper that takes it off you, checks it, and lets you try it with one-click undo.",
-      "ideas_title_one": "{name} has {count} idea for you.",
-      "ideas_title_other": "{name} has {count} ideas for you.",
-      "ideas_body": "It noticed something you keep doing by hand. Have a look below and say yes or no. Nothing is built without you.",
       "paused_title": "Building is paused.",
       "paused_body": "{name} is not noticing or building anything right now. The helpers it already built keep working.",
-      "off_title": "Building for you is off.",
-      "off_body": "Turn it on and {name} starts noticing what you repeat. You decide how far it may go.",
       "stopped_title": "All agents are stopped.",
       "stopped_body": "Routines, missions and building stay halted until you release them. Nothing was deleted.",
       "ring_day": "Day {day} of {days}",
@@ -137,13 +118,6 @@
       "ring_live_other": "{count} helpers running",
       "ring_helper_one": "helper",
       "ring_helper_other": "helpers"
-    },
-    "reach": {
-      "title": "What {name} may do",
-      "off": "Never",
-      "suggest": "Asks you first",
-      "trial": "Tries it, with undo",
-      "full": "Does it on its own"
     },
     "kinds": {
       "memory": "Memories",
@@ -172,9 +146,8 @@
       "more_times_other": "{count} more times to go",
       "stage": {
         "ready": "Ready. {name} looks at it soon",
-        "proposed": "See the suggestion",
         "direct": "{name} answers this directly",
-        "declined": "You said no",
+        "declined": "You undid it",
         "served": "A skill already does this",
         "nothing": "Nothing worth building",
         "ready_paused": "Ready. Waits until you resume"
@@ -184,30 +157,21 @@
       "title": "How it works",
       "notice_title": "It notices",
       "notice_body": "You ask for the same thing on different days. {name} counts it, on this computer.",
-      "suggest_title": "It suggests",
-      "suggest_body": "The smallest helper that fits: something to remember, a skill, a routine, an agent or a code change.",
-      "try_title": "You try it",
-      "try_body": "It runs on a labelled trial. Keep it, or undo it with one click."
+      "build_title": "It builds",
+      "build_body": "The smallest helper that fits: something to remember, a skill, a routine or an agent. It is checked before it goes live.",
+      "try_title": "Your use decides",
+      "try_body": "It runs on a labelled trial. What you use stays, what you don't is archived. Undo takes it away with one click."
     },
-    "suggested": {
-      "memory": "Suggested memory",
-      "skill": "Suggested skill",
-      "routine": "Suggested routine",
-      "agent": "Suggested agent",
-      "code": "Suggested code change"
-    },
-    "based_on_one": "Based on {count} request",
-    "based_on_other": "Based on {count} requests",
     "details": "Details",
     "stop_footer": "Need everything to stop at once?",
     "page": {
-      "subtitle": "When you ask {name} for the same thing again and again, it offers to set up a small helper that does it for you.",
+      "subtitle": "When you ask {name} for the same thing again and again, it builds a small helper that does it for you. You can undo any helper with one click.",
       "learning_title": "Learning how you work · day {day} of {days}",
-      "learning_body": "Suggestions can appear from {date}. Until then {name} only takes notes.",
+      "learning_body": "Helpers can appear from {date}. Until then {name} only takes notes.",
       "learning_body_nodate": "For the first {days} days {name} only takes notes.",
       "empty_title": "Nothing here yet",
-      "empty_body": "Keep using {name} as usual. Once you ask for the same thing on {days} different days, a suggestion shows up here.",
-      "noticed_rule": "A suggestion appears once something is asked on {days} different days.",
+      "empty_body": "Keep using {name} as usual. Once you ask for the same thing on {days} different days, a helper for it shows up here.",
+      "noticed_rule": "A helper is built once something is asked on {days} different days.",
       "how_toggle": "How does this work?",
       "pause_hint": "Nothing new is noticed or built. Your helpers keep working.",
       "stop_hint": "Stops every running agent, mission and routine."
