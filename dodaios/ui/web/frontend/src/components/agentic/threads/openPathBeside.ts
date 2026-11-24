@@ -1,7 +1,7 @@
+import { panelWorkspace } from "@/store/ideChat";
 import { openOutsideFile } from "@/components/agentic/editor/editorApi";
 import { fetchTypeahead } from "@/lib/agentChatApi";
 import { openLocalPath } from "@/lib/openLocalPath";
-import { useIdeChatStore } from "@/store/ideChat";
 import { revealInExplorer } from "@/store/ideExplorer";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
@@ -57,7 +57,7 @@ async function findInProject(path: string, folder: string): Promise<ProjectPathM
  */
 export async function openPathBeside(path: string, folder: string, line?: number): Promise<void> {
   const absolute = absoluteFilePath(path, folder);
-  const workspaceId = useIdeChatStore.getState().workspace?.id ?? useIdeProjectsStore.getState().activeWorkspaceId;
+  const workspaceId = panelWorkspace()?.id ?? useIdeProjectsStore.getState().activeWorkspaceId;
   const show = (shown = path) => useSideFileStore.getState().show({ path: shown, folder, diff: null, ...(line ? { line } : {}) });
   if (!workspaceId) { show(); return; }
   const lookUp = async (candidate: string) => {
