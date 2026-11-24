@@ -28,6 +28,7 @@ from tests.eval.lead_routing.validate import (
     catalog_problems,
     reference_payload,
     reference_recording,
+    seed_payload,
 )
 
 REFERENCE = FIXTURE_DIR / "recorded" / "reference.json"
@@ -210,6 +211,21 @@ def test_reference_recording_is_in_sync_with_the_cases(cases: list[Case]) -> Non
         "tests/fixtures/lead_routing/recorded/reference.json is stale: run "
         "`python scripts/lead_routing_eval.py --write-reference`"
     )
+
+
+def test_the_benchmark_ships_the_golden_set_as_it_is_written(cases: list[Case]) -> None:
+    """One source of truth: the packaged seed tasks are the YAML cases, generated, never edited.
+
+    The installed app has no ``tests/``, so the ``first_move`` domain reads its seed
+    tasks from a file in the package. When this fails, run
+    ``python scripts/lead_routing_eval.py --write-seed``.
+    """
+    from dodaios.rsi.bench import seedsuite
+
+    packaged = json.loads(seedsuite.FIRST_MOVE_FILE.read_text(encoding="utf-8"))
+    assert packaged == seed_payload(cases)
+    tasks = seedsuite.first_move_tasks()
+    assert [t.payload["utterance"] for t in tasks] == [c.utterance for c in cases]
 
 
 def test_replaying_the_reference_scores_every_runnable_case(

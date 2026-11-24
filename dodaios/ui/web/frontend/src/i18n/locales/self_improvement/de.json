@@ -29,6 +29,12 @@
       "recall": {
         "name": "Gedächtnis",
         "about": "Kommt zu einer Nachricht die richtige Erinnerung, und keine, wenn keine nötig ist?"
+      },
+      "first_move": {
+        "name": "Erster Schritt",
+        "about": "Greift der Assistent zuerst zum richtigen Werkzeug, und sagt er vorher in einer Zeile, was er übernimmt?",
+        "building": "Bisher gibt es {n} Testaufgaben aus deinen eigenen Chats mit dem Assistenten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}.",
+        "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deinen Chats. Sie entstehen aus Antworten, die du so stehen lässt, und aus Antworten, die der Assistent richtig gemacht hat, nachdem du ihn korrigiert hast."
       }
     },
     "area": {
@@ -120,7 +126,8 @@
       "tuner": "Der Tuner, der benachbarte Werte an Übungsaufgaben ausprobiert",
       "owner": "Du",
       "memory-learner": "Der Assistent, nachdem ein Werkzeug versagt hat und ein späterer Aufruf geklappt hat",
-      "rsi-selector": "Der Steuerungslerner, der jeweils eine Änderung bei der Hälfte deiner Coding-Anfragen ausprobiert"
+      "rsi-selector": "Der Steuerungslerner, der jeweils eine Änderung bei der Hälfte deiner Coding-Anfragen ausprobiert",
+      "lines": "Der Zeilen-Lerner, der deine Nachrichten an Übungsaufgaben ohne eine ihrer festen Zeilen ausprobiert"
     },
     "nights": {
       "title": "Die letzten Nächte",
@@ -174,6 +181,7 @@
       "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
       "models_ramp": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht ({ramp}-mal in den ersten Nächten, solange es zu wenige Aufgaben zum Entscheiden gibt), über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
       "measure_no_model": "Das Messen selbst fragt kein Modell.",
+      "measure_first_move": "Den ersten Schritt misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt: höchstens {calls}-mal pro Nacht, nie, solange ein Nutzungsfenster zu 80 % voll ist, und nie mehr als {share} % eines Fensters in einer Nacht.",
       "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
     },
     "param": {
@@ -228,6 +236,10 @@
       "lessons_recall_limit": {
         "title": "Lektionen pro Nachricht",
         "about": "Die meisten Lektionen, die eine Nachricht hervorholen darf."
+      },
+      "lead_first_line": {
+        "title": "Einleitende Zeile vor einem Werkzeug",
+        "about": "Neben jeder deiner Nachrichten: vor dem ersten Werkzeug eine kurze Zeile schreiben, die die Aufgabe übernimmt."
       }
     },
     "daily": {
@@ -273,6 +285,16 @@
       "other": "Sonstiges",
       "refactoring": "Refactoring",
       "multi_repo": "Multi-Repo"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist weggefallen.",
+        "on": "Die Zeile neben deinen Nachrichten, die vor dem ersten Werkzeug eine kurze einleitende Zeile verlangt, ist wieder da."
+      }
+    },
+    "value": {
+      "on": "an",
+      "off": "aus"
     }
   }
 }

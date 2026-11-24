@@ -46,6 +46,7 @@ import {
   SAVING_HEADLINE_SHARE,
   areaAbout,
   areaName,
+  areaText,
   certainty,
   effectWords,
   fmtPercent,
@@ -53,6 +54,7 @@ import {
   fmtShare,
   fmtTokens,
   fmtValue,
+  lineSentence,
   paramTitle,
   promptSaving,
   wordFor,
@@ -341,9 +343,9 @@ function Area({ domain, points, locale }: { domain: DomainSummary; points: Advan
       ) : (
         <p className="rounded-md border border-border bg-card px-5 py-4 text-sm text-muted-foreground" data-testid="si-area-waiting">
           {domain.tasks_total === 0
-            ? t("self_improvement.area.no_tasks")
+            ? areaText(t, domain.domain, "no_tasks")
             : (domain.tasks.select ?? 0) < DECIDE_MIN_TASKS
-              ? fill(t("self_improvement.area.building"), {
+              ? fill(areaText(t, domain.domain, "building"), {
                   n: domain.tasks_total,
                   need: DECIDE_MIN_TASKS,
                   have: domain.tasks.select ?? 0,
@@ -510,8 +512,13 @@ function ChangeRow({
   const note = isNote(change);
   // How coding agents are steered: a sentence instead of a value, proved on requests.
   const policy = isPolicy(change) ? change : null;
+  // A line beside the lead's messages that was switched reads as one sentence, not a value.
+  const sentence = note ? "" : lineSentence(t, change.target, change.after);
   const before = change.before ?? change.default;
-  const values = note || policy ? "" : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
+  const values =
+    note || policy || sentence
+      ? ""
+      : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
   const when = relativeTime(change.since_ms, locale);
   // Two lines: where the change stands, then what proved it. The proof is the
   // line a person reads for, so it never shares its width with anything else.
@@ -544,6 +551,10 @@ function ChangeRow({
         ) : policy ? (
           <span className="whitespace-normal" data-testid="si-policy-sentence">
             {policySentence(t, policy)}
+          </span>
+        ) : sentence ? (
+          <span className="whitespace-normal" data-testid="si-line-sentence">
+            {sentence}
           </span>
         ) : (
           <>
@@ -626,6 +637,7 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
   const minutes = Math.round(limits.idle_after_s / 60);
   const hours = Math.round(limits.every_s / 3600);
   const modelFree = domains.every((d) => MODEL_FREE_DOMAINS.has(d.domain));
+  const replays = domains.some((d) => d.domain === "first_move");
   return (
     <section data-testid="si-foot" aria-labelledby="si-foot-title" className="mt-12 border-t border-border px-1 pt-6">
       <h2 id="si-foot-title" className="text-sm font-medium text-foreground">{t("self_improvement.how.title")}</h2>
@@ -650,6 +662,12 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
               })
             : fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
           {modelFree ? ` ${t("self_improvement.how.measure_no_model")}` : ""}
+          {replays
+            ? ` ${fill(t("self_improvement.how.measure_first_move"), {
+                calls: limits.first_move_calls ?? 40,
+                share: Math.round(limits.budget_share * 100),
+              })}`
+            : ""}
         </p>
         <p data-testid="si-privacy">{t("self_improvement.how.privacy")}</p>
       </div>

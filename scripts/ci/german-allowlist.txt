@@ -482,6 +482,8 @@ tests/unit/sessions/test_chat_titles.py
 
 # --- Lead routing golden set: simulated bilingual user requests are the data under test ---
 tests/fixtures/lead_routing/*
+# ... and the copy the benchmark ships of it (generated from those files, pinned by a test)
+dodaios/rsi/bench/seed/first_move.json
 
 # --- Brief quality golden set: dictated German requests are the data under test ---
 tests/fixtures/brief_quality/*

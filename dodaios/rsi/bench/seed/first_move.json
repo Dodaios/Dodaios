@@ -1,0 +1,3139 @@
+{
+ "about": "Generated from tests/fixtures/lead_routing/*.yaml by scripts/lead_routing_eval.py --write-seed. Edit the YAML, never this file.",
+ "cases": [
+  {
+   "key": "delegate-scout-research-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Let Scout research the three best note-taking apps and write me a short comparison.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Scout"
+    }
+   }
+  },
+  {
+   "key": "delegate-scout-research-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Lass Scout die drei besten Notiz-Apps recherchieren und mir einen kurzen Vergleich schreiben.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Scout"
+    }
+   }
+  },
+  {
+   "key": "delegate-mailbox-invoice-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Mailbox, answer the invoice mail from Müller and say we pay on Friday.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Mailbox"
+    }
+   }
+  },
+  {
+   "key": "delegate-mailbox-invoice-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Mailbox, beantworte bitte die Rechnungsmail von Müller und schreib, dass wir am Freitag zahlen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Mailbox"
+    }
+   }
+  },
+  {
+   "key": "delegate-archivist-summary-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Archivist, summarize last week's meeting notes into one page.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Archivist"
+    }
+   }
+  },
+  {
+   "key": "delegate-archivist-summary-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Archivist, fass bitte die Notizen der letzten Woche auf einer Seite zusammen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Archivist"
+    }
+   }
+  },
+  {
+   "key": "delegate-scout-es",
+   "category": "delegate_agent",
+   "lang": "es",
+   "utterance": "Pídele a Scout que investigue los precios de los vuelos a Lisboa para marzo.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Scout"
+    }
+   }
+  },
+  {
+   "key": "delegate-scout-pt",
+   "category": "delegate_agent",
+   "lang": "pt",
+   "utterance": "Pede ao Scout para pesquisar os melhores hotéis em Lisboa para março.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Scout"
+    }
+   }
+  },
+  {
+   "key": "delegate-team-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Give that to the team: collect all open questions from the last three customer calls.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent"
+    }
+   }
+  },
+  {
+   "key": "delegate-team-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Gib das an das Team: sammelt alle offenen Fragen aus den letzten drei Kundengesprächen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent"
+    }
+   }
+  },
+  {
+   "key": "delegate-tell-to-test-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Tell Mailbox to test the new out-of-office template and report what went wrong.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Mailbox"
+    }
+   }
+  },
+  {
+   "key": "delegate-background-worker-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Spawn a background worker that builds a small Flask app with a login page.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "mission"
+    }
+   }
+  },
+  {
+   "key": "delegate-background-worker-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Starte einen Hintergrund-Agenten, der eine kleine Flask-App mit Login-Seite baut.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "mission"
+    }
+   }
+  },
+  {
+   "key": "ask-scout-sources-en",
+   "category": "ask_agent",
+   "lang": "en",
+   "utterance": "Ask Scout which sources he used for the market report.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout",
+     "kind": "query"
+    }
+   }
+  },
+  {
+   "key": "ask-scout-sources-de",
+   "category": "ask_agent",
+   "lang": "de",
+   "utterance": "Frag Scout, welche Quellen er für den Marktbericht benutzt hat.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout",
+     "kind": "query"
+    }
+   }
+  },
+  {
+   "key": "ask-archivist-where-en",
+   "category": "ask_agent",
+   "lang": "en",
+   "utterance": "Ask the Archivist where the 2024 tax documents are stored.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Archivist"
+    }
+   }
+  },
+  {
+   "key": "ask-archivist-where-de",
+   "category": "ask_agent",
+   "lang": "de",
+   "utterance": "Frag den Archivist, wo die Steuerunterlagen von 2024 abgelegt sind.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Archivist"
+    }
+   }
+  },
+  {
+   "key": "ask-scout-es",
+   "category": "ask_agent",
+   "lang": "es",
+   "utterance": "Pregúntale a Scout qué fuentes usó para el informe de mercado.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout"
+    }
+   }
+  },
+  {
+   "key": "ask-scout-pt",
+   "category": "ask_agent",
+   "lang": "pt",
+   "utterance": "Pergunta ao Scout que fontes ele usou no relatório de mercado.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout"
+    }
+   }
+  },
+  {
+   "key": "say-mailbox-holiday-en",
+   "category": "ask_agent",
+   "lang": "en",
+   "utterance": "Let Mailbox know that I am on holiday next week, no reply needed.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Mailbox"
+    }
+   }
+  },
+  {
+   "key": "say-mailbox-holiday-de",
+   "category": "ask_agent",
+   "lang": "de",
+   "utterance": "Sag Mailbox Bescheid, dass ich nächste Woche im Urlaub bin. Eine Antwort brauche ich nicht.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Mailbox"
+    }
+   }
+  },
+  {
+   "key": "ask-scout-opinion-en",
+   "category": "ask_agent",
+   "lang": "en",
+   "utterance": "What does Scout think about moving the launch to January? Ask him.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout"
+    }
+   }
+  },
+  {
+   "key": "pane-fix-bug-t2-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Fix the failing login test in T2.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T2"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-fix-bug-t2-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Behebe den fehlschlagenden Login-Test in T2.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T2"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-lint-t3-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Lass T3 die Linter-Fehler im Frontend beheben.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T3"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-refactor-t1-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Tell T1 to refactor the payment module and keep the tests green.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T1"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-named-codex-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Ask the Codex terminal to add pagination to the orders endpoint.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-observe-t2-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "What did T2 change so far?",
+   "expect": {
+    "tools": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "action": [
+      "observe",
+      "context",
+      "status",
+      "inspect"
+     ],
+     "*": "T2"
+    },
+    "effect": "read"
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-observe-t4-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Zeig mir, woran T4 gerade arbeitet.",
+   "expect": {
+    "tools": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "action": [
+      "observe",
+      "context",
+      "status",
+      "inspect"
+     ],
+     "*": "T4"
+    },
+    "effect": "read"
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-interrupt-t4-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Stop T4, it is going in the wrong direction.",
+   "expect": {
+    "tools": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "action": [
+      "interrupt",
+      "close"
+     ],
+     "*": "T4"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-create-codex-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Open two more Codex terminals and have them write unit tests for the billing code.",
+   "expect": {
+    "tools": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "action": "create"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-create-claude-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Öffne ein neues Claude-Code-Terminal und lass es die README aktualisieren.",
+   "expect": {
+    "tools": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "action": "create"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "coding-agent-new-with-model-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Start a new Claude Code agent on Fable 5.2 with max effort in the website project and let it fix the failing tests.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "target": "coding_agent"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "coding-agent-new-project-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Lass im Projekt Web Chip einen neuen Fable-5.2-Agent auf Stufe max einen Chip entwerfen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "workspace-orchestrate"
+    ],
+    "args": {
+     "target": "coding_agent"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-git-state-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Which branch is the dodaios workspace on and are there open pull requests?",
+   "expect": {
+    "tools": [
+     "workspace-git"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "workspace-git"
+   ]
+  },
+  {
+   "key": "pane-git-state-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Auf welchem Branch steht der Workspace gerade und gibt es offene Pull Requests?",
+   "expect": {
+    "tools": [
+     "workspace-git"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "workspace-git"
+   ]
+  },
+  {
+   "key": "pane-fix-bug-t2-pt",
+   "category": "coding_pane",
+   "lang": "pt",
+   "utterance": "Corrige o teste de login que está a falhar no T2.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T2"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "pane-fix-bug-t5-es",
+   "category": "coding_pane",
+   "lang": "es",
+   "utterance": "Pídele a T5 que arregle el error de paginación.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T5"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "team-three-models-plan-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "Let three models plan the migration to Postgres and compare their plans.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-three-models-plan-de",
+   "category": "team_thread",
+   "lang": "de",
+   "utterance": "Lass drei Modelle die Migration auf Postgres planen und ihre Pläne vergleichen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-plan-build-review-de",
+   "category": "team_thread",
+   "lang": "de",
+   "utterance": "Claude soll planen, Codex bauen und Gemini prüfen: die neue Suchfunktion.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-plan-build-review-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "Start a team thread: Claude plans, Codex builds, Gemini reviews the new search feature.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-debate-es",
+   "category": "team_thread",
+   "lang": "es",
+   "utterance": "Que tres modelos debatan si deberíamos migrar a microservicios.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-second-opinion-pt",
+   "category": "team_thread",
+   "lang": "pt",
+   "utterance": "Quero que três modelos dêem a sua opinião sobre a arquitetura da nova API.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-status-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "How is the team thread on the Postgres migration doing?",
+   "expect": {
+    "tools": [
+     "team_thread"
+    ],
+    "args": {
+     "action": "status"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "team-status-de",
+   "category": "team_thread",
+   "lang": "de",
+   "utterance": "Wie weit ist der Team-Thread zur neuen Suchfunktion?",
+   "expect": {
+    "tools": [
+     "team_thread"
+    ],
+    "args": {
+     "action": "status"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "team-list-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "Which team threads do I have, and which of them are still working?",
+   "expect": {
+    "tools": [
+     "team_thread"
+    ],
+    "args": {
+     "action": "list"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "team-answer-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "Tell the team thread that we go with plan B and they should continue.",
+   "expect": {
+    "tools": [
+     "team_thread"
+    ],
+    "args": {
+     "action": "answer"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "team-seats-de",
+   "category": "team_thread",
+   "lang": "de",
+   "utterance": "Welche Modelle kann ich für einen Team-Thread einsetzen?",
+   "expect": {
+    "tools": [
+     "team_thread"
+    ],
+    "args": {
+     "action": "seats"
+    }
+   }
+  },
+  {
+   "key": "artifact-dashboard-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Build me an artifact: a dashboard of our quarterly sales by region.",
+   "expect": {
+    "tools": [
+     "create_artifact"
+    ]
+   }
+  },
+  {
+   "key": "artifact-dashboard-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Mach mir ein Artefakt draus: ein Dashboard mit unseren Quartalsumsätzen nach Region.",
+   "expect": {
+    "tools": [
+     "create_artifact"
+    ]
+   }
+  },
+  {
+   "key": "artifact-timeline-es",
+   "category": "mission_artifact",
+   "lang": "es",
+   "utterance": "Hazme un artefacto con una línea de tiempo de nuestro proyecto.",
+   "expect": {
+    "tools": [
+     "create_artifact"
+    ]
+   }
+  },
+  {
+   "key": "artifact-living-parcels-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Keep a page that tracks my parcels and refreshes every hour.",
+   "expect": {
+    "tools": [
+     "node"
+    ],
+    "also_accept": [
+     "living_page"
+    ]
+   }
+  },
+  {
+   "key": "artifact-living-applications-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Führe eine Seite, die meine Bewerbungen verfolgt und aktuell hält.",
+   "expect": {
+    "tools": [
+     "node"
+    ],
+    "also_accept": [
+     "living_page"
+    ]
+   }
+  },
+  {
+   "key": "artifact-whiteboard-flow-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Draw our signup flow as a diagram on a whiteboard.",
+   "expect": {
+    "tools": [
+     "whiteboard"
+    ],
+    "also_accept": [
+     "node"
+    ]
+   }
+  },
+  {
+   "key": "artifact-whiteboard-flow-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Zeichne unseren Bestellablauf als Diagramm auf ein Whiteboard.",
+   "expect": {
+    "tools": [
+     "whiteboard"
+    ],
+    "also_accept": [
+     "node"
+    ]
+   }
+  },
+  {
+   "key": "mission-list-active-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Which missions are still running?",
+   "expect": {
+    "tools": [
+     "missions-list"
+    ],
+    "also_accept": [
+     "work_board"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mission-list-active-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Welche Missionen laufen noch?",
+   "expect": {
+    "tools": [
+     "missions-list"
+    ],
+    "also_accept": [
+     "work_board"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mission-result-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "What came out of mission 17?",
+   "expect": {
+    "tools": [
+     "mission-result"
+    ],
+    "args": {
+     "mission_id": "17"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mission-amend-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Add to mission 17: also include the competitor prices from last year.",
+   "expect": {
+    "tools": [
+     "mission-amend"
+    ],
+    "args": {
+     "mission_id": "17"
+    }
+   }
+  },
+  {
+   "key": "mission-cancel-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Brich Mission 42 ab.",
+   "expect": {
+    "tools": [
+     "mission-cancel"
+    ],
+    "args": {
+     "mission_id": "42"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "artifacts-last-output-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "Show me what the agent produced for the last mission.",
+   "expect": {
+    "tools": [
+     "artifacts"
+    ],
+    "args": {
+     "action": "list"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "artifacts-files-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Welche Dateien hat der Agent bei der letzten Recherche geschrieben?",
+   "expect": {
+    "tools": [
+     "artifacts"
+    ],
+    "args": {
+     "action": [
+      "list",
+      "files"
+     ]
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "artifacts-living-page-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "What is on my parcels page right now?",
+   "expect": {
+    "tools": [
+     "artifacts"
+    ],
+    "args": {
+     "action": "living"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-scout-doing-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "What is Scout doing right now?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "args": {
+     "agent": "Scout"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-scout-doing-de",
+   "category": "status",
+   "lang": "de",
+   "utterance": "Was macht Scout gerade?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "args": {
+     "agent": "Scout"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-scout-done-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "Is Scout done with the report?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "args": {
+     "agent": "Scout"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-scout-done-es",
+   "category": "status",
+   "lang": "es",
+   "utterance": "¿Ya terminó Scout el informe?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "args": {
+     "agent": "Scout"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-who-on-team-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "Who is on my team?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-who-on-team-de",
+   "category": "status",
+   "lang": "de",
+   "utterance": "Wer ist alles in meinem Team?",
+   "expect": {
+    "tools": [
+     "society_status"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "status-board-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "What is everything that is running right now, and does anything need me?",
+   "expect": {
+    "tools": [
+     "work_board"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "work_board"
+   ]
+  },
+  {
+   "key": "status-board-de",
+   "category": "status",
+   "lang": "de",
+   "utterance": "Was läuft gerade alles und braucht etwas von mir?",
+   "expect": {
+    "tools": [
+     "work_board"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "work_board"
+   ]
+  },
+  {
+   "key": "status-board-pt",
+   "category": "status",
+   "lang": "pt",
+   "utterance": "O que está a correr neste momento e há algo que precise de mim?",
+   "expect": {
+    "tools": [
+     "work_board"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "work_board"
+   ]
+  },
+  {
+   "key": "status-job-finished-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "Did the job I started earlier finish?",
+   "expect": {
+    "tools": [
+     "job_status"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "job_status"
+   ]
+  },
+  {
+   "key": "status-job-finished-de",
+   "category": "status",
+   "lang": "de",
+   "utterance": "Ist der Auftrag von vorhin schon fertig?",
+   "expect": {
+    "tools": [
+     "job_status"
+    ],
+    "effect": "read"
+   },
+   "requires": [
+    "job_status"
+   ]
+  },
+  {
+   "key": "status-wait-jobs-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "Wait until both research jobs are finished, then tell me the result.",
+   "expect": {
+    "tools": [
+     "await_jobs"
+    ]
+   },
+   "requires": [
+    "await_jobs"
+   ]
+  },
+  {
+   "key": "status-tasks-en",
+   "category": "status",
+   "lang": "en",
+   "utterance": "Which scheduled tasks are running?",
+   "expect": {
+    "tools": [
+     "tasks-list"
+    ],
+    "also_accept": [
+     "society-list-routines",
+     "work_board"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-search-birthday-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "What do you remember about my sister's birthday?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-search-birthday-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Was weißt du noch über den Geburtstag meiner Schwester?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-search-history-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "Where did I live before Hamburg? Check how that changed over time.",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "args": {
+     "history": true
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-search-talk-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Worüber haben wir gestern beim Budget gesprochen?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-search-es",
+   "category": "memory",
+   "lang": "es",
+   "utterance": "¿Qué te dije sobre mi viaje a Sevilla?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "memory-forget-city-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "Forget that I live in Hamburg.",
+   "expect": {
+    "tools": [
+     "memory-forget"
+    ],
+    "args": {
+     "about": "Hamburg"
+    }
+   }
+  },
+  {
+   "key": "memory-forget-city-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Vergiss, dass ich in Hamburg wohne.",
+   "expect": {
+    "tools": [
+     "memory-forget"
+    ],
+    "args": {
+     "about": "Hamburg"
+    }
+   }
+  },
+  {
+   "key": "memory-profile-preference-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "From now on keep your answers short, I hate long explanations.",
+   "expect": {
+    "tools": [
+     "update_profile"
+    ]
+   }
+  },
+  {
+   "key": "memory-profile-name-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Nenn mich ab jetzt Rufus, nicht Ruben.",
+   "expect": {
+    "tools": [
+     "update_profile"
+    ]
+   }
+  },
+  {
+   "key": "memory-contact-upsert-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "Save Anna Weber's phone number: 0151 2345678.",
+   "expect": {
+    "tools": [
+     "contact-upsert"
+    ],
+    "args": {
+     "name": "Anna"
+    }
+   }
+  },
+  {
+   "key": "memory-contact-lookup-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Wie ist die Telefonnummer von Anna Weber?",
+   "expect": {
+    "tools": [
+     "contact-lookup"
+    ],
+    "args": {
+     "name": "Anna"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "doctrine-memory-before-asking-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "Book me a flight to Lisbon with the airline I usually fly with.",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "also_accept": [
+     "gmail"
+    ]
+   }
+  },
+  {
+   "key": "settings-dark-mode-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "Switch the app to dark mode.",
+   "expect": {
+    "tools": [
+     "set_config_value"
+    ],
+    "args": {
+     "path": "theme"
+    }
+   }
+  },
+  {
+   "key": "settings-speech-speed-de",
+   "category": "settings",
+   "lang": "de",
+   "utterance": "Sprich bitte etwas langsamer.",
+   "expect": {
+    "tools": [
+     "set_config_value"
+    ],
+    "args": {
+     "path": "tts"
+    }
+   }
+  },
+  {
+   "key": "settings-list-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "Which settings can you change for me?",
+   "expect": {
+    "tools": [
+     "list_mutable_settings"
+    ],
+    "also_accept": [
+     "describe-app-settings"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "settings-current-value-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "What is my current text-to-speech speed?",
+   "expect": {
+    "tools": [
+     "get_config_value"
+    ],
+    "also_accept": [
+     "describe-app-settings"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "settings-volume-de",
+   "category": "settings",
+   "lang": "de",
+   "utterance": "Stell die Lautstärke deiner Stimme auf 30 Prozent.",
+   "expect": {
+    "tools": [
+     "tts-volume-set"
+    ]
+   }
+  },
+  {
+   "key": "settings-wake-word-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "Change the wake word to Hey Atlas.",
+   "expect": {
+    "tools": [
+     "wake-word-set"
+    ],
+    "args": {
+     "phrase": "Atlas"
+    }
+   }
+  },
+  {
+   "key": "settings-reply-language-es",
+   "category": "settings",
+   "lang": "es",
+   "utterance": "A partir de ahora respóndeme siempre en español.",
+   "expect": {
+    "tools": [
+     "reply-language-set"
+    ],
+    "args": {
+     "language": "es"
+    }
+   }
+  },
+  {
+   "key": "settings-reply-language-de",
+   "category": "settings",
+   "lang": "de",
+   "utterance": "Antworte mir ab jetzt immer auf Deutsch.",
+   "expect": {
+    "tools": [
+     "reply-language-set"
+    ],
+    "args": {
+     "language": "de"
+    }
+   }
+  },
+  {
+   "key": "settings-agent-briefs-de",
+   "category": "settings",
+   "lang": "de",
+   "utterance": "Ab jetzt will ich jeden PR selbst freigeben, bevor ein Agent merged.",
+   "expect": {
+    "tools": [
+     "agent-briefs-set"
+    ]
+   }
+  },
+  {
+   "key": "settings-agent-briefs-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "From now on, write every prompt you give my coding agents in English and always ask for tests.",
+   "expect": {
+    "tools": [
+     "agent-briefs-set"
+    ]
+   }
+  },
+  {
+   "key": "settings-find-action-pt",
+   "category": "settings",
+   "lang": "pt",
+   "utterance": "Desativa as notificações do ecrã inicial.",
+   "expect": {
+    "tools": [
+     "find-app-action",
+     "set_config_value"
+    ]
+   }
+  },
+  {
+   "key": "settings-providers-list-en",
+   "category": "settings",
+   "lang": "en",
+   "utterance": "Which model providers do I have connected?",
+   "expect": {
+    "tools": [
+     "providers-list"
+    ],
+    "also_accept": [
+     "describe-app-settings"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mail-check-en",
+   "category": "mail_calendar",
+   "lang": "en",
+   "utterance": "Check my mail, is there anything from the accountant?",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "list_messages"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mail-check-de",
+   "category": "mail_calendar",
+   "lang": "de",
+   "utterance": "Schau mal, ob heute etwas vom Steuerberater in meinen E-Mails ist.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "list_messages"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "mail-check-es",
+   "category": "mail_calendar",
+   "lang": "es",
+   "utterance": "Revisa mi correo, ¿hay algo nuevo de mi jefe?",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "list_messages"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "calendar-today-en",
+   "category": "mail_calendar",
+   "lang": "en",
+   "utterance": "What is on my calendar tomorrow?",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "list_events"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "calendar-today-de",
+   "category": "mail_calendar",
+   "lang": "de",
+   "utterance": "Was steht morgen in meinem Kalender?",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "list_events"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "calendar-create-en",
+   "category": "mail_calendar",
+   "lang": "en",
+   "utterance": "Schedule a meeting with Anna on Thursday at 3 pm, one hour.",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "create_event"
+    }
+   }
+  },
+  {
+   "key": "calendar-create-pt",
+   "category": "mail_calendar",
+   "lang": "pt",
+   "utterance": "Marca uma reunião com a Anna na quinta-feira às 15h.",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "create_event"
+    }
+   }
+  },
+  {
+   "key": "drive-find-en",
+   "category": "mail_calendar",
+   "lang": "en",
+   "utterance": "Find the file named budget 2026 in my Drive.",
+   "expect": {
+    "tools": [
+     "google_drive"
+    ],
+    "args": {
+     "action": "list_files"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "slack-search-en",
+   "category": "mail_calendar",
+   "lang": "en",
+   "utterance": "Search Slack for the release date Anna mentioned.",
+   "expect": {
+    "tools": [
+     "slack"
+    ],
+    "args": {
+     "action": "search_messages"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "routine-morning-briefing-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Every morning at 8 send me a briefing with my calendar and the top news.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "society-create-routine"
+    ],
+    "args": {
+     "target": "routine"
+    }
+   }
+  },
+  {
+   "key": "routine-morning-briefing-de",
+   "category": "routines",
+   "lang": "de",
+   "utterance": "Schick mir jeden Morgen um 8 Uhr eine Zusammenfassung mit meinem Kalender und den wichtigsten Nachrichten.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "society-create-routine"
+    ],
+    "args": {
+     "target": "routine"
+    }
+   }
+  },
+  {
+   "key": "routine-weekly-report-es",
+   "category": "routines",
+   "lang": "es",
+   "utterance": "Cada viernes a las 17:00 prepara un informe semanal de las ventas.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "society-create-routine"
+    ],
+    "args": {
+     "target": "routine"
+    }
+   }
+  },
+  {
+   "key": "routine-list-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "List my routines.",
+   "expect": {
+    "tools": [
+     "society-list-routines"
+    ],
+    "also_accept": [
+     "tasks-list"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "reminder-create-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Remind me tomorrow at 9 to call the dentist.",
+   "expect": {
+    "tools": [
+     "reminders"
+    ],
+    "args": {
+     "action": "create"
+    }
+   }
+  },
+  {
+   "key": "reminder-create-de",
+   "category": "routines",
+   "lang": "de",
+   "utterance": "Erinner mich morgen um 9 Uhr daran, den Zahnarzt anzurufen.",
+   "expect": {
+    "tools": [
+     "reminders"
+    ],
+    "args": {
+     "action": "create"
+    }
+   }
+  },
+  {
+   "key": "reminder-list-pt",
+   "category": "routines",
+   "lang": "pt",
+   "utterance": "Que lembretes tenho para esta semana?",
+   "expect": {
+    "tools": [
+     "reminders"
+    ],
+    "args": {
+     "action": "list"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "standing-take-on-campaign-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Please look after my Meta ads campaign from now on and tell me when something is off.",
+   "expect": {
+    "tools": [
+     "standing_task"
+    ],
+    "args": {
+     "action": "take_on"
+    }
+   }
+  },
+  {
+   "key": "standing-take-on-campaign-de",
+   "category": "routines",
+   "lang": "de",
+   "utterance": "Kümmere dich ab jetzt bitte um meine Meta-Kampagne und sag mir, wenn etwas aus dem Ruder läuft.",
+   "expect": {
+    "tools": [
+     "standing_task"
+    ],
+    "args": {
+     "action": "take_on"
+    }
+   }
+  },
+  {
+   "key": "standing-take-on-with-pace-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Can you keep an eye on my support inbox every day and prepare replies for the urgent ones?",
+   "expect": {
+    "tools": [
+     "standing_task"
+    ],
+    "args": {
+     "action": "take_on"
+    }
+   }
+  },
+  {
+   "key": "standing-list-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "What are you looking after for me at the moment?",
+   "expect": {
+    "tools": [
+     "standing_task"
+    ],
+    "also_accept": [
+     "work_board"
+    ],
+    "args": {
+     "action": "list"
+    },
+    "effect": "read"
+   }
+  },
+  {
+   "key": "skill-create-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Create a skill that turns a pasted meeting transcript into action items.",
+   "expect": {
+    "tools": [
+     "create-skill"
+    ]
+   }
+  },
+  {
+   "key": "skill-run-de",
+   "category": "routines",
+   "lang": "de",
+   "utterance": "Führe den Skill für das Daily Standup aus.",
+   "expect": {
+    "tools": [
+     "run-skill"
+    ]
+   }
+  },
+  {
+   "key": "skill-list-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Which skills do I have?",
+   "expect": {
+    "tools": [
+     "skills-list"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-spent-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "How much did I spend on tokens this week?",
+   "expect": {
+    "tools": [
+     "costs_summary"
+    ],
+    "also_accept": [
+     "navigate"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-spent-de",
+   "category": "costs_ui",
+   "lang": "de",
+   "utterance": "Wie viel haben mich die Modelle diese Woche gekostet?",
+   "expect": {
+    "tools": [
+     "costs_summary"
+    ],
+    "also_accept": [
+     "navigate"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-today-agents-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "What did my agents use today?",
+   "expect": {
+    "tools": [
+     "costs_summary"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-today-agents-de",
+   "category": "costs_ui",
+   "lang": "de",
+   "utterance": "Was haben die Agenten heute verbraucht?",
+   "expect": {
+    "tools": [
+     "costs_summary"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-seat-headroom-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "Does my Claude subscription still have room before I start a big job?",
+   "expect": {
+    "tools": [
+     "costs_summary"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "costs-open-de",
+   "category": "costs_ui",
+   "lang": "de",
+   "utterance": "Zeig mir die Kostenübersicht.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "costs"
+    }
+   }
+  },
+  {
+   "key": "nav-settings-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "Open the settings.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "settings"
+    }
+   }
+  },
+  {
+   "key": "nav-agents-de",
+   "category": "costs_ui",
+   "lang": "de",
+   "utterance": "Zeig mir die Agenten.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "agents"
+    }
+   }
+  },
+  {
+   "key": "nav-memory-es",
+   "category": "costs_ui",
+   "lang": "es",
+   "utterance": "Abre el panel de memoria.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "memory"
+    }
+   }
+  },
+  {
+   "key": "nav-marketplace-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "Take me to the marketplace.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "marketplace"
+    }
+   }
+  },
+  {
+   "key": "nav-chats-pt",
+   "category": "costs_ui",
+   "lang": "pt",
+   "utterance": "Mostra-me as conversas.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "chats"
+    }
+   }
+  },
+  {
+   "key": "marketplace-browse-en",
+   "category": "costs_ui",
+   "lang": "en",
+   "utterance": "What is in the marketplace right now?",
+   "expect": {
+    "tools": [
+     "marketplace-browse"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-news-en",
+   "category": "web_browser",
+   "lang": "en",
+   "utterance": "What are the latest headlines about the EU AI act today?",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-news-de",
+   "category": "web_browser",
+   "lang": "de",
+   "utterance": "Was sind heute die neuesten Nachrichten zum EU-KI-Gesetz?",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-weather-en",
+   "category": "web_browser",
+   "lang": "en",
+   "utterance": "What is the weather in Berlin this weekend?",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-price-de",
+   "category": "web_browser",
+   "lang": "de",
+   "utterance": "Wie steht der Bitcoin-Kurs gerade?",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-look-it-up-es",
+   "category": "web_browser",
+   "lang": "es",
+   "utterance": "Búscalo en internet: horarios del tren de Madrid a Valencia para mañana.",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "web-look-it-up-pt",
+   "category": "web_browser",
+   "lang": "pt",
+   "utterance": "Pesquisa na internet o resultado do jogo de ontem do Benfica.",
+   "expect": {
+    "tools": [
+     "search_web"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "browser-read-pricing-en",
+   "category": "web_browser",
+   "lang": "en",
+   "utterance": "Open the pricing page of acme-example.com in the browser and tell me the cheapest plan.",
+   "expect": {
+    "tools": [
+     "society_browser"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "browser-read-pricing-de",
+   "category": "web_browser",
+   "lang": "de",
+   "utterance": "Geh im Browser auf die Preisseite von acme-example.com und sag mir den günstigsten Tarif.",
+   "expect": {
+    "tools": [
+     "society_browser"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "cu-notepad-en",
+   "category": "computer_use",
+   "lang": "en",
+   "utterance": "Open Notepad and type: buy milk.",
+   "expect": {
+    "tools": [
+     "computer_use"
+    ]
+   }
+  },
+  {
+   "key": "cu-notepad-de",
+   "category": "computer_use",
+   "lang": "de",
+   "utterance": "Öffne Notepad und schreib hinein: Milch kaufen.",
+   "expect": {
+    "tools": [
+     "computer_use"
+    ]
+   }
+  },
+  {
+   "key": "cu-click-button-en",
+   "category": "computer_use",
+   "lang": "en",
+   "utterance": "Click the blue Save button on my screen.",
+   "expect": {
+    "tools": [
+     "computer_use"
+    ]
+   }
+  },
+  {
+   "key": "cu-chrome-gmail-de",
+   "category": "computer_use",
+   "lang": "de",
+   "utterance": "Öffne Chrome und geh auf die Seite von meinem Bankkonto.",
+   "expect": {
+    "tools": [
+     "computer_use"
+    ]
+   }
+  },
+  {
+   "key": "cu-screenshot-en",
+   "category": "computer_use",
+   "lang": "en",
+   "utterance": "Take a screenshot and tell me what is on my screen.",
+   "expect": {
+    "tools": [
+     "screenshot"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "cu-music-en",
+   "category": "computer_use",
+   "lang": "en",
+   "utterance": "Play some Radiohead.",
+   "expect": {
+    "tools": [
+     "youtube_music",
+     "spotify"
+    ],
+    "args": {
+     "action": "play"
+    }
+   }
+  },
+  {
+   "key": "cu-music-pause-de",
+   "category": "computer_use",
+   "lang": "de",
+   "utterance": "Pausier die Musik.",
+   "expect": {
+    "tools": [
+     "youtube_music",
+     "spotify"
+    ],
+    "args": {
+     "action": "pause"
+    }
+   }
+  },
+  {
+   "key": "cu-shell-status-en",
+   "category": "computer_use",
+   "lang": "en",
+   "utterance": "Run git status in my projects folder and tell me what is changed.",
+   "expect": {
+    "tools": [
+     "run_shell",
+     "RunCommand"
+    ]
+   }
+  },
+  {
+   "key": "answer-capital-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "What is the capital of Australia?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-tcp-udp-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Explain the difference between TCP and UDP in three sentences.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-battery-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Was ist der Unterschied zwischen einem Akku und einer Batterie?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-translate-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "How do you say good morning in Spanish?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-haiku-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Write me a haiku about autumn.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-math-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Was ist 17 mal 23?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-mutex-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "What is a mutex and when would I need one?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-python-reverse-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "How do I reverse a list in Python?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-idempotent-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Was bedeutet idempotent in der Informatik?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-hello-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Hallo, wie geht's dir?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-thanks-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Thanks, that is all for now.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-joke-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Tell me a joke about programmers.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-sky-es",
+   "category": "answer_directly",
+   "lang": "es",
+   "utterance": "¿Por qué el cielo es azul?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-capital-pt",
+   "category": "answer_directly",
+   "lang": "pt",
+   "utterance": "Qual é a capital do Brasil?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-translate-de-en",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Übersetz mir bitte: Ich hätte gern einen Tisch für zwei Personen.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-advice-no-delegate-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Should I use Postgres or MySQL for a small side project? Just give me your opinion.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-quick-fact-no-search-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Wie viele Bundesländer hat Deutschland?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "doctrine-small-thing-yourself-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "In one sentence, what is an API key used for?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "doctrine-knows-its-ecosystem-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Gibt es in der App einen eigenen Bereich für meine Server?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "navigate"
+    ]
+   }
+  },
+  {
+   "key": "approval-send-mail-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Send an email to Anna saying I will be 15 minutes late.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "send_message"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-send-mail-de",
+   "category": "approval",
+   "lang": "de",
+   "utterance": "Schick Anna eine E-Mail, dass ich 15 Minuten später komme.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "send_message"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-delete-mail-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Delete the last mail from the bank permanently.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-slack-post-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Post in #team that the release is moved to Friday.",
+   "expect": {
+    "tools": [
+     "slack"
+    ],
+    "args": {
+     "action": "post_message"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-call-de",
+   "category": "approval",
+   "lang": "de",
+   "utterance": "Ruf Christoph an und sag ihm, dass das Paket da ist.",
+   "expect": {
+    "tools": [
+     "call-contact"
+    ],
+    "args": {
+     "name": "Christoph"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-restart-app-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Restart the app.",
+   "expect": {
+    "tools": [
+     "app-restart"
+    ],
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-delete-skill-de",
+   "category": "approval",
+   "lang": "de",
+   "utterance": "Lösche den Skill für das Daily Standup.",
+   "expect": {
+    "tools": [
+     "skill-delete"
+    ],
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-install-marketplace-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Install the PDF toolkit from the marketplace.",
+   "expect": {
+    "tools": [
+     "marketplace-install"
+    ],
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-lights-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Turn off all the lights in the living room.",
+   "expect": {
+    "tools": [
+     "home_assistant"
+    ],
+    "args": {
+     "action": "call_service"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "approval-config-change-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Change the default model to the cheapest one in the settings.",
+   "expect": {
+    "tools": [
+     "set_config_value",
+     "find-app-action"
+    ]
+   }
+  },
+  {
+   "key": "approval-mcp-add-es",
+   "category": "approval",
+   "lang": "es",
+   "utterance": "Añade un servidor MCP nuevo para mi base de datos local.",
+   "expect": {
+    "tools": [
+     "manage-mcp-server"
+    ],
+    "approval": true
+   }
+  },
+  {
+   "key": "ambiguous-misheard-scout-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Ask Skout what he found about the competitor prices.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Sk"
+    }
+   }
+  },
+  {
+   "key": "ambiguous-misheard-scout-de",
+   "category": "ambiguous",
+   "lang": "de",
+   "utterance": "Lass Skaut die Preise der Konkurrenz vergleichen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Sk"
+    }
+   }
+  },
+  {
+   "key": "ambiguous-misheard-mailbox-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Mail box, please answer the invoice mail from yesterday.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:mail"
+    }
+   }
+  },
+  {
+   "key": "ambiguous-unnamed-agent-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Have someone research the best espresso machines under 400 euros.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent"
+    }
+   }
+  },
+  {
+   "key": "ambiguous-no-antecedent-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Do that again, but faster.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "ambiguous-mixed-language-de",
+   "category": "ambiguous",
+   "lang": "de",
+   "utterance": "Frag Scout mal, ob the report ready ist.",
+   "expect": {
+    "tools": [
+     "message_agent"
+    ],
+    "args": {
+     "target": "Scout"
+    }
+   }
+  },
+  {
+   "key": "ambiguous-pane-vs-agent-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Have T2 fix the typo in the README.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T2"
+    }
+   },
+   "requires": [
+    "workspace-orchestrate"
+   ]
+  },
+  {
+   "key": "ambiguous-just-a-question-about-agents-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "What can the Archivist actually do?",
+   "expect": {
+    "tools": [
+     "society_status",
+     "society-agent-catalog"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "assume-meeting-time-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Put a meeting with Anna on my calendar tomorrow afternoon.",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "create_event"
+    }
+   }
+  },
+  {
+   "key": "assume-meeting-time-de",
+   "category": "ambiguous",
+   "lang": "de",
+   "utterance": "Trag mir morgen Nachmittag einen Termin mit Anna in den Kalender ein.",
+   "expect": {
+    "tools": [
+     "google_calendar"
+    ],
+    "args": {
+     "action": "create_event"
+    }
+   }
+  },
+  {
+   "key": "assume-reminder-time-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Remind me to call the dentist.",
+   "expect": {
+    "tools": [
+     "reminders"
+    ],
+    "args": {
+     "action": "create"
+    }
+   }
+  },
+  {
+   "key": "assume-reminder-time-es",
+   "category": "ambiguous",
+   "lang": "es",
+   "utterance": "Recuérdame llamar al dentista mañana.",
+   "expect": {
+    "tools": [
+     "reminders"
+    ],
+    "args": {
+     "action": "create"
+    }
+   }
+  },
+  {
+   "key": "assume-draft-not-send-de",
+   "category": "ambiguous",
+   "lang": "de",
+   "utterance": "Schreib Anna eine Antwort auf ihre Rechnungsmail.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "effect": "action"
+   },
+   "requires": [
+    "gmail"
+   ]
+  },
+  {
+   "key": "assume-search-memory-first-en",
+   "category": "memory",
+   "lang": "en",
+   "utterance": "Which airline do I usually fly with?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "assume-search-memory-first-de",
+   "category": "memory",
+   "lang": "de",
+   "utterance": "Wo habe ich mein letztes Hotel in Wien gebucht?",
+   "expect": {
+    "tools": [
+     "memory-search"
+    ],
+    "effect": "read"
+   }
+  },
+  {
+   "key": "assume-open-section-pt",
+   "category": "ambiguous",
+   "lang": "pt",
+   "utterance": "Abre as configurações.",
+   "expect": {
+    "tools": [
+     "navigate"
+    ],
+    "args": {
+     "section": "settings"
+    }
+   }
+  },
+  {
+   "key": "ask-send-mail-no-recipient-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Send the contract to him.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "ask-send-mail-no-recipient-de",
+   "category": "ambiguous",
+   "lang": "de",
+   "utterance": "Schick ihm den Vertrag.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "ask-delete-which-en",
+   "category": "ambiguous",
+   "lang": "en",
+   "utterance": "Delete the old file.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "ask-send-mail-approval-en",
+   "category": "approval",
+   "lang": "en",
+   "utterance": "Send Anna the invoice mail right now.",
+   "expect": {
+    "tools": [
+     "gmail"
+    ],
+    "args": {
+     "action": "send_message"
+    },
+    "approval": true
+   }
+  },
+  {
+   "key": "ask-call-no-name-es",
+   "category": "ambiguous",
+   "lang": "es",
+   "utterance": "Llama a mi contacto y dile que llego tarde.",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "delegate-front-agent-paraphrase-en",
+   "category": "delegate_agent",
+   "lang": "en",
+   "utterance": "Could you get Scout to dig into competitor pricing and send me the highlights?",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Scout"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-agent-paraphrase-de",
+   "category": "delegate_agent",
+   "lang": "de",
+   "utterance": "Kannst du Archivist bitten, die Verträge von 2024 nach Kündigungsfristen zu durchsuchen?",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Archivist"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-agent-es",
+   "category": "delegate_agent",
+   "lang": "es",
+   "utterance": "Mailbox, responde al correo del proveedor y confirma la entrega del lunes.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Mailbox"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-agent-pt",
+   "category": "delegate_agent",
+   "lang": "pt",
+   "utterance": "Pede ao Archivist para resumir as atas das últimas duas reuniões.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "agent:Archivist"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-pane-id-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Send T2 this task: rebase the branch onto main and re-run the test suite.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T2"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-pane-id-de",
+   "category": "coding_pane",
+   "lang": "de",
+   "utterance": "Gib T3 den Auftrag, die Migration zu schreiben und die Tests dazu zu ergänzen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T3"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-pane-es",
+   "category": "coding_pane",
+   "lang": "es",
+   "utterance": "Dile a T4 que añada validación al formulario de registro.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T4"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-pane-callsign-en",
+   "category": "coding_pane",
+   "lang": "en",
+   "utterance": "Tell T1 to update the changelog for the release and open a pull request.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "pane:T1"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-team-en",
+   "category": "team_thread",
+   "lang": "en",
+   "utterance": "Get Claude and Codex to plan the new billing module together and have Gemini review it.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "delegate-front-team-de",
+   "category": "team_thread",
+   "lang": "de",
+   "utterance": "Lass zwei Modelle gemeinsam einen Plan für den Datenexport schreiben und gegenseitig prüfen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "delegate-front-team-pt",
+   "category": "team_thread",
+   "lang": "pt",
+   "utterance": "Quero que três modelos planeiem juntos a nova página de definições e revejam o plano.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "team_thread"
+    },
+    "effect": "action"
+   }
+  },
+  {
+   "key": "delegate-front-mission-en",
+   "category": "mission_artifact",
+   "lang": "en",
+   "utterance": "In the background, build a script that renames my holiday photos by date, as a worker.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "mission"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-mission-de",
+   "category": "mission_artifact",
+   "lang": "de",
+   "utterance": "Lass im Hintergrund einen Worker ein Skript schreiben, das meine Rechnungen nach Datum sortiert.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "args": {
+     "target": "mission"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-routine-en",
+   "category": "routines",
+   "lang": "en",
+   "utterance": "Have Scout check the competitor blogs every Monday at 9 and tell me what changed.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "society-create-routine"
+    ],
+    "args": {
+     "target": "routine"
+    }
+   }
+  },
+  {
+   "key": "delegate-front-routine-de",
+   "category": "routines",
+   "lang": "de",
+   "utterance": "Mailbox soll jeden Freitag um 16 Uhr die offenen Rechnungen zusammenfassen.",
+   "expect": {
+    "tools": [
+     "delegate"
+    ],
+    "also_accept": [
+     "society-create-routine"
+    ],
+    "args": {
+     "target": "routine"
+    }
+   }
+  },
+  {
+   "key": "answer-no-spawn-storage-companies-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Which companies have that much storage space?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-storage-companies-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Welche Unternehmen haben so viel Speicherplatz?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-feature-question-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "Can an agent do research for me in the background?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "product_help"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-feature-question-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Kann ein Agent im Hintergrund für mich recherchieren?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "product_help"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-explain-worker-en",
+   "category": "answer_directly",
+   "lang": "en",
+   "utterance": "What is the difference between a mission and a team thread?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "product_help"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-how-it-works-es",
+   "category": "answer_directly",
+   "lang": "es",
+   "utterance": "¿Cómo funciona un agente en segundo plano?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "product_help"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-opinion-de",
+   "category": "answer_directly",
+   "lang": "de",
+   "utterance": "Was hältst du von Rust im Vergleich zu Go für ein kleines Kommandozeilenwerkzeug?",
+   "expect": {
+    "tools": [
+     "none"
+    ]
+   }
+  },
+  {
+   "key": "answer-no-spawn-news-pt",
+   "category": "answer_directly",
+   "lang": "pt",
+   "utterance": "Quem ganhou o campeonato de Fórmula 1 no ano passado?",
+   "expect": {
+    "tools": [
+     "none"
+    ],
+    "also_accept": [
+     "search_web"
+    ]
+   }
+  }
+ ]
+}

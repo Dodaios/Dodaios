@@ -303,6 +303,32 @@ class BenchStore:
             for row in rows
         ]
 
+    def reusable(self, task_id: str, digest: str, arm: str, *, since_ms: int) -> Result | None:
+        """The newest counted result of a task's content under an arm, from ``since_ms`` on.
+
+        A domain that asks a model takes it instead of asking again (``run.measure``).
+        """
+        with self._db.lock:
+            row = self._db.conn.execute(
+                "SELECT * FROM results WHERE task_id = ? AND arm = ? AND task_digest = ?"
+                " AND void = '' AND ts_ms >= ? ORDER BY seq DESC LIMIT 1",
+                (task_id, arm, digest, since_ms),
+            ).fetchone()
+        if row is None:
+            return None
+        return Result(
+            task_id=row["task_id"],
+            task_digest=row["task_digest"],
+            arm=row["arm"],
+            score=row["score"],
+            cost_usd=row["cost_usd"],
+            tokens=row["tokens"],
+            wall_ms=row["wall_ms"],
+            seat=row["seat"],
+            void=row["void"],
+            detail=row["detail"],
+            ts_ms=row["ts_ms"],
+        )
 
     # ---------------------------------------------------- the kernel's own state
 

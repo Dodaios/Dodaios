@@ -11,7 +11,7 @@ import { NOTE_SURFACE, type LearnedChange, type Measurement } from "@/lib/selfIm
 import { relativeTime } from "../selfBuild/shared";
 import { claimWords, isPolicy, policyProof, policySentence } from "./policy";
 import { PolicyLines } from "./PolicyLines";
-import { effectWords, fmtValue, paramAbout, paramTitle, wordFor } from "./words";
+import { effectWords, lineSentence, paramAbout, paramTitle, valueWords, wordFor } from "./words";
 
 export function ChangeDetail({
   change,
@@ -30,7 +30,9 @@ export function ChangeDetail({
   // How coding agents are steered: a sentence, measured on requests, not tasks.
   const policy = isPolicy(change) ? change : null;
   const onTrial = policy?.policy.slot === "candidate";
-  const title = policy ? policySentence(t, policy) : paramTitle(t, change.target, change.doc);
+  const title = policy
+    ? policySentence(t, policy)
+    : lineSentence(t, change.target, change.after) || paramTitle(t, change.target, change.doc);
   const about = policy ? t("self_improvement.policy.about") : paramAbout(t, change.target, change.doc);
   const before = change.before ?? change.default;
   // A note it wrote for itself has words instead of values, and no measurement yet.
@@ -78,10 +80,10 @@ export function ChangeDetail({
         ) : (
           <>
             <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground-strong" data-testid="si-detail-values">
-              {fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) })}
+              {fill(t("self_improvement.stack.values"), { before: valueWords(t, before, locale), after: valueWords(t, change.after, locale) })}
             </p>
             <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-              {fill(t("self_improvement.detail.shipped"), { value: fmtValue(change.default, locale) })}
+              {fill(t("self_improvement.detail.shipped"), { value: valueWords(t, change.default, locale) })}
             </p>
           </>
         )}

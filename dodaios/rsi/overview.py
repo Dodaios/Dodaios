@@ -23,6 +23,7 @@ import dodaios
 from dodaios.rsi import params
 from dodaios.rsi.bench import run
 from dodaios.rsi.bench.model import Source, Split
+from dodaios.rsi.budget import FIRST_MOVE_CALLS
 from dodaios.rsi.night import (
     BUDGET_SHARE,
     EVERY_S,
@@ -323,6 +324,7 @@ def build(
             "ramp_model_calls": RAMP_MODEL_CALLS,
             #: What the next night may use.
             "model_calls_tonight": calls_tonight(night.bench),
+            "first_move_calls": FIRST_MOVE_CALLS,
         },
         "domains": _domains(night),
         "series": night.bench.series(split=Split.SEALED.value, limit=_SERIES),
