@@ -252,7 +252,7 @@ class ClaudeReplay:
             translate_claude_line,
         )
 
-        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0  # type: ignore[attr-defined]
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         proc = subprocess.Popen(  # noqa: S603 - the CLI's own argv, built above
             argv,
             cwd=work,

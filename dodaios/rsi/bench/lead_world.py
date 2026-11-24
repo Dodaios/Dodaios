@@ -96,7 +96,7 @@ def _version(prefix: list[str], env: dict[str, str]) -> str:
             timeout=30,
             env=env,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,  # type: ignore[attr-defined]
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
     except (OSError, subprocess.SubprocessError):  # a version we cannot read is named as such
         return "unknown"

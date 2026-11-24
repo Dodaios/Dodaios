@@ -219,6 +219,9 @@ def main() -> int:
     parser.add_argument("--update", action="store_true", help="rewrite the baseline")
     parser.add_argument("--table", action="store_true", help="print the per-package table")
     parser.add_argument("--from-file", help="read saved mypy output instead of running mypy")
+    parser.add_argument(
+        "--allow-increase", action="store_true", help="with --update: permit growth (say why)"
+    )
     parser.add_argument("--all", action="store_true", help="judge every package")
     parser.add_argument(
         "--base",
@@ -244,8 +247,9 @@ def main() -> int:
     if args.update:
         fresh = {p: n for p, n in counts.items() if p not in BLOCKING}
         grown = [p for p, n in fresh.items() if n > baseline.get(p, 0)] if baseline else []
-        if grown:
+        if grown and not args.allow_increase:
             print("Refusing to raise the baseline for: " + ", ".join(sorted(grown)))
+            print("Fix the code, or pass --update --allow-increase and say why in the commit.")
             return 1
         BASELINE.write_text(
             json.dumps(dict(sorted(fresh.items())), indent=2) + "\n", encoding="utf-8"
