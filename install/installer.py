@@ -1,8 +1,10 @@
-"""Personal Jarvis Stage-2 installer.
+"""Dodaios Stage-2 installer.
 
-The Stage-1 shell bootstraps a venv with ``rich`` + ``packaging`` and then
-``exec``s this script with the venv's Python. From here we own the full
-install lifecycle in Python, where it is portable and testable.
+The Stage-1 shell bootstraps a venv (an up-to-date pip and ``packaging``) and
+then ``exec``s this script with the venv's Python. From here we own the full
+install lifecycle in Python, where it is portable and testable. It needs
+nothing beyond the standard library and this checkout until phase 4 has run;
+the terminal presentation lives in ``dodaios/setup/install_ui.py``.
 
 The installer is fully NON-INTERACTIVE: it downloads and prepares everything,
 explains each step in one line, and launches the app as its LAST action. All
@@ -38,6 +40,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import platform
@@ -48,6 +51,8 @@ import stat
 import subprocess
 import sys
 import sysconfig
+import time
+from collections.abc import Sequence
 from pathlib import Path
 
 _SOURCE_ROOT = Path(__file__).resolve().parent.parent
@@ -64,38 +69,20 @@ from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     OFFICIAL_REPO_SLUG,
     PRODUCT_NAME,
 )
+from dodaios.setup.install_ui import (  # noqa: E402 - bootstrap source path above
+    InstallUI,
+    format_duration,
+)
 
 # AGENTS.md: new CLI modules must use UTF-8 stdout or stick to ASCII. Without
-# this, the Rich panels render fine but inline bullets break on cp1252 cmd.exe.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+# this, the glyphs break on a cp1252 pipe.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
-try:
-    from rich.console import Console
-    from rich.markup import escape as rich_escape
-    from rich.theme import Theme
-except ImportError:  # pragma: no cover - Stage 1 installs rich; failure here is a bug
-    print("ERROR: rich is not installed. The Stage-1 bootstrap should have done this.")
-    print("Run 'pip install rich packaging' inside the .venv and re-invoke installer.py.")
-    sys.exit(1)
-
-
-# Brand palette (docs/BRAND.md): Signal Yellow on matte black, deep gold for
-# the finale rules — matches the Stage-1 shell banner gradient so the two
-# stages read as one continuous install experience.
-THEME = Theme(
-    {
-        "brand": "#FFD60A",
-        "brand.bold": "bold #FFD60A",
-        "brand.deep": "#B8960A",
-        "ok": "#7ac88c",
-        "ok.bold": "bold #7ac88c",
-        "muted": "#8F8F8F",
-        "bad": "#e07a6e",
-    }
-)
-console = Console(theme=THEME, highlight=False)
+#: When this install began. The shell stage hands over its own start so the
+#: finale counts the whole run; run on its own, this script starts the clock.
+_STARTED_AT = time.time()
 
 
 # ---------------------------------------------------------------- discovery
@@ -115,64 +102,85 @@ def venv_python() -> Path:
 
 
 # ---------------------------------------------------------------- presentation
-# Connected-journey look (maintainer request 2026-07-16, visuals only): every
-# line hangs off one continuous dim │ gutter, phases are gold ◆ diamonds, and
-# the flow closes with a └ outro — the clack-style wizard grammar, recolored
-# to the brand gold. Twins: the phase/ok/note/err helpers in install.sh and
-# install.ps1; keep the three surfaces in visual lockstep.
-GUTTER = "[muted]│[/]"
+# One look across both stages (dodaios/setup/install_ui.py): gold phase pills,
+# a check per finished step with its time on the right, a red rail under a
+# failure, a framed card at the end. The Stage-1 twins are the helpers of the
+# same names in install.sh and install.ps1; keep the three in visual lockstep.
+_UI: InstallUI | None = None
+
+
+def ui() -> InstallUI:
+    """The terminal presentation, decided on first use (after the env is final)."""
+    global _UI
+    if _UI is None:
+        _UI = InstallUI()
+    return _UI
 
 
 def phase(num: str, title: str) -> None:
-    """A numbered phase diamond (gold ``◆ N/6``), continuing the Stage-1 journey.
+    """A numbered phase pill (``4/6``), continuing the Stage-1 journey.
 
     One six-phase journey spans BOTH installer stages: the Stage-1 shell owns
-    phases 1-3 (prerequisites, fetch, venv), this script owns 4-6 — keep the
-    numbering in sync with install.sh / install.ps1.
+    phases 1-3 (prerequisites, download, Python environment), this script owns
+    4-6 — keep the numbering in sync with install.sh / install.ps1.
     """
-    console.print(GUTTER)
-    console.print(f"[brand]◆[/]  [brand]{num}[/]  [brand.bold]{title}[/]")
+    step, _, total = num.partition("/")
+    ui().phase(int(step), title, int(total or 6))
 
 
-def ok(text: str) -> None:
-    console.print(f"{GUTTER}  [ok]✓[/] [muted]{text}[/]")
+def ok(text: str, seconds: float | None = None, detail: str = "") -> None:
+    ui().ok(text, seconds, detail)
 
 
 def note(text: str) -> None:
-    console.print(f"{GUTTER}    [muted]{text}[/]")
+    ui().note(text)
 
 
-def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> int:
-    """Run an interactive/streaming subprocess (wizard, launch)."""
-    result = subprocess.run(cmd, cwd=cwd)
-    if check and result.returncode != 0:
-        console.print(f"[bad]│    command failed with exit code {result.returncode}[/]")
-    return result.returncode
+def skip(text: str) -> None:
+    ui().skip(text)
+
+
+def warn(text: str) -> None:
+    ui().warn(text)
+
+
+def fail(
+    title: str,
+    lines: Sequence[str] = (),
+    hints: Sequence[str] = (),
+    help_url: str = "",
+) -> None:
+    ui().fail(title, lines, hints, help_url)
+
+
+#: The captured tail of the last command ``run_quiet`` saw fail, for the
+#: failure block its caller prints once retries are spent.
+_LAST_FAILURE_TAIL: list[str] = []
 
 
 def run_quiet(cmd: list[str], *, label: str, cwd: Path | None = None) -> int:
     """Run a noisy, non-interactive command (pip) behind a clean spinner.
 
-    On a real terminal the raw output is hidden behind a gold spinner so the
-    transcript stays calm. On a headless/piped run (no TTY — a VPS, CI) we let
-    the output stream through so operators keep a readable log. Either way, a
-    failure prints a captured tail so the error is never swallowed.
+    On a real terminal the raw output is hidden behind a gold spinner with the
+    elapsed time, so the transcript stays calm. On a headless/piped run (no
+    TTY — a VPS, CI) the output streams through so operators keep a readable
+    log. A failure keeps the captured tail for the caller's failure block, so
+    the error is never swallowed.
     """
-    if console.is_terminal:
-        with console.status(f"[brand]{label}…[/]", spinner="dots", spinner_style="brand"):
+    _LAST_FAILURE_TAIL.clear()
+    if ui().caps.motion:
+        with ui().spinner(label):
             result = subprocess.run(
                 cmd, cwd=cwd, capture_output=True, text=True,
                 encoding="utf-8", errors="replace",
             )
         if result.returncode != 0:
-            console.print(f"[bad]│  ✗ {label} failed[/]")
-            tail = (result.stdout or "") + (result.stderr or "")
-            for line in tail.strip().splitlines()[-20:]:
-                console.print(f"[muted]│      {line}[/]")
+            tail = ((result.stdout or "") + (result.stderr or "")).strip().splitlines()
+            _LAST_FAILURE_TAIL.extend(tail[-20:])
         return result.returncode
     # Non-interactive: stream for the log.
-    note(f"{label}…")
-    return subprocess.run(cmd, cwd=cwd).returncode
+    with ui().spinner(label):
+        return subprocess.run(cmd, cwd=cwd).returncode
 
 
 def run_captured(
@@ -183,59 +191,44 @@ def run_captured(
     timeout: float | None = None,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a captured command behind the standard gold spinner.
+    """Run a captured command behind the standard spinner.
 
     Like ``run_quiet``, but for callers that PARSE the captured stdout (probe
     verdicts, JSON reports): output stays captured on every host and the full
     ``CompletedProcess`` is returned. The spinner renders only on a real
     terminal so a long step never looks hung; a non-tty run still prints one
-    honest "label…" note so logs show what the wait was. Raises ``OSError`` /
+    honest "label…" line so logs show what the wait was. Raises ``OSError`` /
     ``TimeoutExpired`` exactly like ``subprocess.run`` — callers keep their
     own handling.
     """
-    def _run() -> subprocess.CompletedProcess[str]:
+    with ui().spinner(label):
         return subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True,
             encoding="utf-8", errors="replace", timeout=timeout, env=env,
         )
 
-    if console.is_terminal:
-        with console.status(f"[brand]{label}…[/]", spinner="dots", spinner_style="brand"):
-            return _run()
-    note(f"{label}…")
-    return _run()
-
 
 def run_noted(cmd: list[str], *, label: str, cwd: Path | None = None) -> int:
-    """Stream a milestone-printing command as live gutter notes under a spinner.
+    """Stream a milestone-printing command as quiet notes above a live spinner.
 
     For subprocesses whose output is a short series of human-readable
-    milestone lines (the voice-model prefetch): each line renders as a dim
-    │-gutter note the moment it appears, so a multi-minute download shows
-    real, honest progress instead of a frozen label or raw column-0 spam
-    (Intel-Mac field report 2026-07-16). stderr joins stdout so stray
-    library noise can never break the layout. Non-tty hosts get the same
-    lines without the spinner.
+    milestone lines (the voice-model prefetch): each line renders as a note
+    the moment it appears, so a multi-minute download shows real, honest
+    progress instead of a frozen label or raw column-0 spam (Intel-Mac field
+    report 2026-07-16). stderr joins stdout so stray library noise can never
+    break the layout. Non-tty hosts get the same lines without the spinner.
     """
     proc = subprocess.Popen(  # noqa: S603 — fixed argv built by the caller, no shell
         cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, encoding="utf-8", errors="replace", bufsize=1,
     )
-
-    def _pump() -> None:
+    with ui().spinner(label):
         assert proc.stdout is not None
         for raw in proc.stdout:
             line = raw.rstrip()
             if line:
-                note(rich_escape(line))
-
-    if console.is_terminal:
-        with console.status(f"[brand]{label}…[/]", spinner="dots", spinner_style="brand"):
-            _pump()
-    else:
-        note(f"{label}…")
-        _pump()
-    return proc.wait()
+                note(line)
+        return proc.wait()
 
 
 def is_headless_linux() -> bool:
@@ -246,33 +239,46 @@ def is_headless_linux() -> bool:
 
 
 # ---------------------------------------------------------------- steps
+def handed_over_from_shell() -> bool:
+    """True when the Stage-1 shell started this run (it hands over its start time)."""
+    return bool(os.environ.get("JARVIS_INSTALL_STARTED_AT", "").strip())
+
+
+def install_started_at() -> float:
+    """When this install began: the shell stage's start, else this script's."""
+    try:
+        started = float(os.environ.get("JARVIS_INSTALL_STARTED_AT", "").strip())
+    except ValueError:
+        return _STARTED_AT
+    return started if 0 < started <= time.time() else _STARTED_AT
+
+
 def step_preflight() -> None:
     """Sanity re-assert (Stage 1 already gate-keeps) + a quiet environment line."""
-    # A gutter line, not a blank one: Stage 1 ends mid-journey and this stage
-    # continues the same connected └/│ rail without a visual break.
-    console.print(GUTTER)
-    note(
-        f"{platform.system()} {platform.release()} ({platform.machine()})"
-        f" · Python {sys.version.split()[0]}"
-        f" · {repo_root()}"
-    )
+    if not handed_over_from_shell():
+        # Run on its own (CI, a developer, the in-app updater): the shell's
+        # context line never printed, so say where this runs.
+        ui().context(
+            f"{platform.system()} {platform.release()} ({platform.machine()})"
+            f" · Python {sys.version.split()[0]} · {repo_root()}"
+        )
     if is_headless_linux():
-        note("headless Linux detected — installing the server profile")
+        skip("Headless Linux detected — installing the server profile")
 
     if sys.version_info < (3, 11):  # noqa: UP036 - Stage 2 rechecks Stage 1
-        console.print("[bad]│    Python 3.11+ required.[/]")
+        fail("Python 3.11+ is required.", [f"This is Python {sys.version.split()[0]}."])
         sys.exit(1)
 
     if not (repo_root() / "pyproject.toml").exists():
-        console.print(
-            "[bad]│    pyproject.toml not found — installer.py was invoked "
-            "outside the repo.[/]"
+        fail(
+            "pyproject.toml not found — installer.py was started outside the checkout.",
+            hints=["Run the install command again instead of this file on its own."],
         )
         sys.exit(1)
 
 
-def write_managed_marker(*, with_desktop: bool) -> None:
-    """Mark this checkout as an installer-managed copy.
+def write_managed_marker(*, with_desktop: bool) -> bool:
+    """Mark this checkout as an installer-managed copy; True once a marker is on disk.
 
     The in-app "Update Now" button (dodaios/ui/web/update_routes.py) only appears,
     and only ever runs ``git reset --hard``, when this marker is present AND the
@@ -299,11 +305,10 @@ def write_managed_marker(*, with_desktop: bool) -> None:
             (repo_root() / name).write_text(text, encoding="utf-8")
             written += 1
         except OSError as exc:
-            note(f"could not write update marker {name} ({exc})")
-    if written:
-        ok("registered as a managed install (in-app updates enabled)")
-    else:
-        note("in-app updates stay disabled")
+            warn(f"Could not write the update marker {name} ({exc})")
+    if not written:
+        note("In-app updates stay off for this install.")
+    return bool(written)
 
 
 def _make_tree_owner_writable(root: Path) -> None:
@@ -351,7 +356,7 @@ def repair_distribution_metadata(
     try:
         candidates = sorted(root.glob("*.dist-info"))
     except OSError as exc:
-        note(f"could not inspect package metadata ({exc})")
+        warn(f"Could not inspect the package metadata ({exc})")
         return False
 
     broken: list[Path] = []
@@ -373,11 +378,11 @@ def repair_distribution_metadata(
                 _make_tree_owner_writable(candidate)
                 shutil.rmtree(candidate)
         except OSError as exc:
-            note(f"could not repair package metadata at {candidate.name} ({exc})")
+            warn(f"Could not repair the package metadata at {candidate.name} ({exc})")
             return False
 
     if broken:
-        ok(f"repaired {len(broken)} interrupted package metadata record(s)")
+        ok(f"Repaired {len(broken)} interrupted package metadata record(s)")
     return True
 
 
@@ -514,12 +519,14 @@ def dependency_check_passes(cmd: list[str], *, label: str) -> bool:
     stopped whole updates (#1018). Those conflicts become a warning. Anything
     else, or a report this cannot read, stops the install as before.
     """
+    started = time.monotonic()
     try:
-        result = run_captured(cmd, label=label, cwd=repo_root(), timeout=600)
+        result = run_captured(cmd, label=_sentence(label), cwd=repo_root(), timeout=600)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        console.print(f"[bad]│  ✗ {label} could not run ({rich_escape(str(exc))})[/]")
+        fail(f"{_sentence(label)} could not run", [str(exc)])
         return False
     if result.returncode == 0:
+        ok(_sentence(label), time.monotonic() - started)
         return True
     output = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
     subjects = _pip_check_subjects(output)
@@ -530,14 +537,12 @@ def dependency_check_passes(cmd: list[str], *, label: str) -> bool:
     )
     lines = output.splitlines()[-40:]
     if blocking is None or blocking:
-        console.print(f"[bad]│  ✗ {label} found broken requirements[/]")
-        for line in lines:
-            console.print(f"[muted]│      {rich_escape(line)}[/]")
+        fail(f"{_sentence(label)} found broken requirements", lines)
         return False
-    note("warning: packages installed outside Dodaios' environment have broken")
-    note("requirements; Dodaios does not use them, so the install continues:")
+    warn("A warning only: packages installed outside Dodaios' environment have broken")
+    note("requirements. Dodaios does not use them, so the install goes on:")
     for line in lines:
-        note(f"  {rich_escape(line)}")
+        note(f"  {line}")
     return True
 
 
@@ -554,27 +559,35 @@ INSTALL_HELP_URL = (
 )
 
 
+def _sentence(text: str) -> str:
+    """``text`` as it starts a line on screen: with a capital letter."""
+    return text[:1].upper() + text[1:]
+
+
 def _retry_pip_install(cmd: list[str], *, label: str) -> int:
     """Run a failed ``pip install`` once more. ``pip install`` is idempotent."""
-    import time  # noqa: PLC0415 — only the failure path needs it
-
     note(
-        "retrying once: a dropped connection or a file briefly locked by "
-        "antivirus often clears up"
+        "A dropped connection or a file briefly locked by antivirus often "
+        "clears up, so: retrying once."
     )
     time.sleep(PIP_RETRY_PAUSE_S)
     return run_quiet(cmd, label=f"{label} (retry)", cwd=repo_root())
 
 
-def print_pip_failure_help() -> None:
-    """Say what usually stops this step and where the fixes are written down."""
-    note("check your connection and free disk space, then run the installer again.")
+def pip_failure_hints() -> list[str]:
+    """What usually stops a dependency step, as steps to try."""
+    hints = ["Check your connection and free disk space, then run the installer again."]
     if sys.platform == "win32":
-        note(
-            "if your antivirus quarantined or blocked a file, restore it and allow "
+        hints.append(
+            "If your antivirus quarantined or blocked a file, restore it and allow "
             "the Dodaios folder, then run the installer again."
         )
-    note(f"more help: {INSTALL_HELP_URL}")
+    return hints
+
+
+def print_pip_failure_help() -> None:
+    """Say what usually stops this step and where the fixes are written down."""
+    ui().hints(pip_failure_hints(), INSTALL_HELP_URL)
 
 
 def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: bool) -> None:
@@ -603,7 +616,7 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
     if with_desktop:
         runtime_step = ("runtime dependencies (hash-pinned lockfile)", lockfile)
     else:
-        runtime_step = ("runtime dependencies (cloud-first base, hash-pinned lockfile)", lockfile)
+        runtime_step = ("runtime dependencies (cloud-first base, hash-pinned)", lockfile)
 
     plans: list[tuple[str, list[str]]] = []
     # The checkout used to be installed under the distribution's earlier name.
@@ -617,7 +630,7 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
             pip + ["uninstall", "-y", *legacy],
         ))
     plans += [
-        ("editable install (entry-points)", pip + ["install", "-e", ".", "--no-deps"]),
+        ("editable install (entry points)", pip + ["install", "-e", ".", "--no-deps"]),
         runtime_step,
     ]
     if with_desktop:
@@ -625,38 +638,44 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
         # + channels + local voice in one shot. Platform markers skip whatever
         # this OS cannot use. --headless keeps the torch-free base floor.
         # ``with_voice_local`` is a deprecated no-op: [full] already carries it.
-        plans.append(("full profile extras (desktop, telephony, channels, local voice)",
+        plans.append(("full profile (desktop, telephony, channels, local voice)",
                       pip + ["install", *pip_options(), "-e", ".[full]"]))
     plans.append(("dependency consistency check", pip + ["check"]))
 
-    note("this can take a minute — grabbing dependencies")
-
     if not repair_distribution_metadata(dry_run=dry_run):
-        console.print("[bad]│  ✗ package metadata repair failed — installation stopped.[/]")
+        fail(
+            "Package metadata repair failed",
+            hints=["Close Dodaios and anything using its folder, then run the installer again."],
+            help_url=INSTALL_HELP_URL,
+        )
+        ui().stopped("The install stopped here. Nothing was launched.")
         sys.exit(2)
 
     if dry_run:
         for label, cmd in plans:
-            # rich would swallow literal command text like ``.[full]`` as
-            # markup — escape so the dry-run shows the REAL command.
-            console.print(f"[muted]│    (dry-run) {label}: {rich_escape(' '.join(cmd))}[/]")
+            note(f"(dry-run) {label}: {' '.join(cmd)}")
         return
 
     for label, cmd in plans:
         if cmd[len(pip):] == ["check"]:
             rc = 0 if dependency_check_passes(cmd, label=label) else 1
+            if rc == 0:
+                continue
         else:
-            rc = run_quiet(cmd, label=label, cwd=repo_root())
+            started = time.monotonic()
+            rc = run_quiet(cmd, label=_sentence(label), cwd=repo_root())
             if rc != 0 and cmd[len(pip)] == "install":
-                rc = _retry_pip_install(cmd, label=label)
-        if rc != 0:
-            print_pip_failure_help()
-            # The advertised desktop install is the [full] profile. Continuing
-            # after that profile fails would advertise a ready app without the
-            # microphone, macOS bridge, or local-voice dependencies it needs.
-            console.print(f"[bad]│  ✗ {label} failed — installation stopped.[/]")
-            sys.exit(2)
-        ok(label)
+                rc = _retry_pip_install(cmd, label=_sentence(label))
+            if rc == 0:
+                ok(_sentence(label), time.monotonic() - started)
+                continue
+            fail(_sentence(label), list(_LAST_FAILURE_TAIL))
+        # The advertised desktop install is the [full] profile. Continuing
+        # after that profile fails would advertise a ready app without the
+        # microphone, macOS bridge, or local-voice dependencies it needs.
+        print_pip_failure_help()
+        ui().stopped(f"{_sentence(label)} failed, so the install stopped here.")
+        sys.exit(2)
 
 
 def is_update_run() -> bool:
@@ -670,8 +689,8 @@ def is_update_run() -> bool:
 
 def step_models(*, full_profile: bool, dry_run: bool) -> None:
     phase("5/6", "Voice models")
-    note("downloading everything the voice pipeline needs, so the first")
-    note("launch is ready immediately - nothing is fetched at startup")
+    note("Everything the voice pipeline needs is fetched now, so the first launch")
+    note("is ready at once and nothing downloads at startup.")
     cmd = [str(venv_python()), "-m", "dodaios", "--prefetch"]
     if full_profile:
         # Onboarding has not selected a language yet. Cache every supported
@@ -679,7 +698,7 @@ def step_models(*, full_profile: bool, dry_run: bool) -> None:
         # first launch; the internal headless/base path stays intentionally small.
         cmd.append("--prefetch-all-wake-languages")
     if dry_run:
-        console.print(f"[muted]│    (dry-run) {' '.join(cmd)}[/]")
+        note(f"(dry-run) {' '.join(cmd)}")
         return
     # The download step's exit code alone is not proof: a skipped or cache-served
     # model can still leave "done" looking complete. So don't stop at rc — VERIFY
@@ -688,68 +707,80 @@ def step_models(*, full_profile: bool, dry_run: bool) -> None:
     # run_noted, not run_quiet: with the HF progress bars silenced inside the
     # prefetch itself, its output is a handful of milestone lines ("downloading
     # wake model … ~40 MB", "speech model 'base': ready") — streaming them as
-    # gutter notes under the spinner is the honest progress indicator a
-    # multi-minute download needs; a static label just reads as a hang.
+    # notes above the spinner is the honest progress indicator a multi-minute
+    # download needs; a static label just reads as a hang.
+    started = time.monotonic()
     run_noted(
         cmd,
-        label="downloading voice models (the long step - a few hundred MB)",
+        label="Downloading voice models (the long step, a few hundred MB)",
         cwd=repo_root(),
     )
-    verify_models(full_profile=full_profile)
+    verify_models(full_profile=full_profile, started=started)
 
 
-def verify_models(*, full_profile: bool = False) -> None:
+def verify_models(*, full_profile: bool = False, started: float | None = None) -> None:
     """Print a per-model truth: what is on disk, what is pending, what is missing.
 
     Runs the read-only report inside the venv's Python — the interpreter that
-    will actually run Jarvis — so it sees the real installed packages and model
+    will actually run Dodaios — so it sees the real installed packages and model
     caches. Exit 0 = every REQUIRED model present; non-zero = a required model is
     missing. A probe failure degrades to an honest note, never a failed install.
     """
+    # One JSON object per model, so each one draws as its own step line with
+    # its explanation in a quiet second line.
     probe = (
-        "from dodaios.setup.model_report import "
-        "voice_model_report, report_complete, format_report\n"
+        "import dataclasses, json\n"
+        "from dodaios.setup.model_report import voice_model_report, report_complete\n"
         f"items = voice_model_report(full_profile={full_profile!r})\n"
-        "print('\\n'.join(format_report(items)))\n"
+        "for item in items: print(json.dumps(dataclasses.asdict(item)))\n"
         "import sys; sys.exit(0 if report_complete(items) else 3)\n"
     )
+    unverified = "Could not verify the voice models; they are checked again on first launch."
     try:
         result = run_captured(
             [str(venv_python()), "-c", probe], cwd=repo_root(),
-            label="checking the voice models", timeout=180,
+            label="Checking the voice models", timeout=180,
         )
     except (OSError, subprocess.TimeoutExpired):
-        note("could not verify the voice models - they will be checked on first launch")
+        warn(unverified)
         return
     produced = False
     for raw in (result.stdout or "").splitlines():
-        line = raw.rstrip()
-        if not line:
+        try:
+            item = json.loads(raw)
+        except ValueError:
+            continue
+        if not isinstance(item, dict):
             continue
         produced = True
-        # markup=False: the report text contains literal '[full]' / quotes that
-        # must NOT be parsed as rich markup.
-        style = "ok" if line.startswith("✓") else ("bad" if line.startswith("✗") else "muted")
-        # The whole line (gutter included) takes the state color — clack
-        # colors its side bar by state the same way.
-        console.print(f"│     {line}", style=style, markup=False)
+        label, detail = str(item.get("label", "")), str(item.get("detail", ""))
+        if item.get("present"):
+            ok(label, detail=detail)
+            continue
+        if item.get("required"):
+            fail(label)
+        else:
+            skip(label)
+        if detail:
+            note(detail)
     if not produced:
-        note("could not verify the voice models - they will be checked on first launch")
+        warn(unverified)
         for tail in (result.stderr or "").strip().splitlines()[-5:]:
-            console.print(f"[muted]│      {tail}[/]")
+            note(tail)
         return
+    took = time.monotonic() - started if started is not None else None
     if result.returncode == 0:
         profile = "full voice profile" if full_profile else "default voice path"
-        ok(f"everything the {profile} needs is present")
+        ok(f"Everything the {profile} needs is present", took)
     else:
-        console.print("[bad]│    Some required voice models are missing - re-run "
-                      "the installer or check your connection.[/]")
+        warn("Some required voice models are missing: run the installer again or")
+        note("check your connection. The app also fetches them on first use.")
 
 
 def step_worker_cli(*, dry_run: bool) -> None:
     """Finish & launch sub-step: the coding-agent worker CLI (needs Node.js)."""
     if dry_run:
-        console.print("[muted]│    (dry-run) npm i -g @anthropic-ai/claude-code[/]")
+        note("(dry-run) npm i -g @anthropic-ai/claude-code")
         return
     probe = (
         "from dodaios.setup.dependencies import check_claude_cli, check_npm, install_claude_cli\n"
@@ -764,7 +795,7 @@ def step_worker_cli(*, dry_run: bool) -> None:
     try:
         result = run_captured(
             [str(venv_python()), "-c", probe], cwd=repo_root(),
-            label="setting up the Dodaios-Agent worker CLI (npm download)", timeout=600,
+            label="Setting up the Dodaios-Agent worker CLI (npm download)", timeout=600,
         )
         stdout = (result.stdout or "").strip()
         verdict = stdout.splitlines()[-1] if stdout else "failed"
@@ -775,9 +806,9 @@ def step_worker_cli(*, dry_run: bool) -> None:
     elif verdict == "installed":
         ok("Dodaios-Agent worker CLI installed (npm)")
     elif verdict == "no-npm":
-        note("Node.js/npm not found - the Dodaios-Agent worker CLI can be added later in-app")
+        skip("Node.js/npm not found — the Dodaios-Agent worker CLI can be added in the app")
     else:
-        note("Dodaios-Agent worker CLI install failed - it can be added later in-app")
+        skip("Dodaios-Agent worker CLI did not install — it can be added in the app")
 
 
 def _write_desktop_integration_log(result: object) -> Path | None:
@@ -828,7 +859,7 @@ def _note_stalled_spotlight() -> None:
         return
     if (result.stdout or "").strip().splitlines()[-1:] != ["False"]:
         return
-    note("Spotlight on this Mac is not indexing new apps, so search will not find")
+    warn("Spotlight on this Mac is not indexing new apps, so search will not find")
     note(f"{MACOS_APP_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
     note("To repair the macOS search index, run:  sudo mdutil -E /")
 
@@ -845,14 +876,14 @@ def step_macos_bundle_name(*, dry_run: bool) -> None:
     if sys.platform != "darwin":
         return
     if dry_run:
-        console.print("[muted]│    (dry-run) rename the macOS app to its current name[/]")
+        note("(dry-run) rename the macOS app to its current name")
         return
     try:
         from dodaios.setup.macos_app_bundle import rename_legacy_macos_app_bundles
 
         renamed = rename_legacy_macos_app_bundles()
     except Exception as exc:  # noqa: BLE001 - the desktop step repairs it again
-        note(f"could not rename the macOS app: {rich_escape(str(exc))}")
+        warn(f"Could not rename the macOS app: {exc}")
         return
     for bundle in renamed:
         ok(f"macOS app renamed to {bundle.name} (its permissions stay)")
@@ -863,10 +894,10 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
     if not enabled:
         return True
     if dry_run:
-        console.print("[muted]│    (dry-run) repair desktop-shell registration[/]")
+        note("(dry-run) repair desktop-shell registration")
         return True
     result = None
-    report = {}
+    report: dict[str, object] = {}
     argv = [
         str(venv_python()),
         "-m",
@@ -882,16 +913,14 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
         argv.append("--create-signing-identity")
         # Once per install; a user who removes the tile keeps it removed.
         argv.append("--pin-to-dock")
-        console.print(
-            "[muted]│    macOS may ask for your login password once: it trusts the "
-            f"local signing certificate that keeps {PRODUCT_NAME}'s permissions "
-            "across updates[/]"
-        )
+        note("macOS may ask for your login password once: it trusts the local signing")
+        note(f"certificate that keeps {PRODUCT_NAME}'s permissions across updates.")
+    started = time.monotonic()
     try:
         result = run_captured(
             argv,
             cwd=repo_root(),
-            label="registering the desktop app (a macOS first run can take a few minutes)",
+            label="Registering the desktop app (a first run on macOS can take minutes)",
             # py2app build + icon conversion + signing + LaunchServices import
             # probe can legitimately exceed two minutes on Intel macOS.
             timeout=600,
@@ -909,25 +938,25 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
         and report.get("ok")
         and report.get("attempted")
     ):
-        ok("desktop app registered with the operating system")
+        ok("Desktop app registered with the operating system", time.monotonic() - started)
         if sys.platform == "darwin":
             _note_stalled_spotlight()
         return True
-    console.print(
-        "[bad]│  ✗ desktop app registration failed — installation stopped. "
-        "The app must have a stable launcher identity.[/]"
-    )
+    evidence: list[str] = []
     warnings = report.get("warnings") if isinstance(report, dict) else None
-    for warning in warnings or []:
-        note(f"warning: {rich_escape(str(warning))}")
-    stderr_tail = (getattr(result, "stderr", "") or "").strip().splitlines()[-15:]
-    if stderr_tail:
-        note("stderr tail:")
-        for line in stderr_tail:
-            note(rich_escape(line))
+    if isinstance(warnings, list):
+        evidence.extend(f"warning: {warning}" for warning in warnings)
+    evidence.extend((getattr(result, "stderr", "") or "").strip().splitlines()[-15:])
     if log_path is not None:
-        note(f"full log: {log_path}")
-    note("tip: re-running the installer with '--headless' installs without a desktop app")
+        evidence.append(f"full log: {log_path}")
+    fail(
+        "Desktop app registration failed (the app needs a stable launcher identity)",
+        evidence,
+        hints=[
+            "Run the installer again; it repairs the registration.",
+            "To install without a desktop app, run it with '--headless'.",
+        ],
+    )
     return False
 
 
@@ -969,37 +998,31 @@ def _build_ui_bundle(index: Path) -> bool:
     """
     npm = shutil.which("npm")
     if npm is None:
-        note("no prebuilt UI found and Node.js/npm is not installed to build one")
-        note(
-            "release installs always ship the UI; a checkout of main needs "
-            "`npm run build` in dodaios/ui/web/frontend"
+        fail(
+            "No prebuilt UI found, and Node.js/npm is not installed to build one",
+            ["Release installs always ship the UI; a checkout of main needs",
+             "`npm run build` in dodaios/ui/web/frontend."],
         )
         return False
     frontend = index.parent.parent / "frontend"
     if not (frontend / "package-lock.json").is_file():
-        note(
-            "no prebuilt UI found and dodaios/ui/web/frontend/package-lock.json "
-            "is missing"
-        )
+        fail("No prebuilt UI found, and dodaios/ui/web/frontend/package-lock.json is missing")
         return False
     env = _ui_build_env()
     for args, label in (
-        (["ci"], "installing the UI build tools (npm ci)"),
-        (["run", "build"], "building the UI (npm run build)"),
+        (["ci"], "Installing the UI build tools (npm ci)"),
+        (["run", "build"], "Building the UI (npm run build)"),
     ):
         cmd_name = f"npm {' '.join(args)}"
+        started = time.monotonic()
         try:
             result = run_captured(
                 [npm, *args], cwd=frontend, label=label, timeout=1800, env=env
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
-            note(f"UI build command '{cmd_name}' failed: {rich_escape(str(exc))}")
+            fail(f"UI build command '{cmd_name}' failed", [str(exc)])
             return False
         if result.returncode != 0:
-            note(
-                f"UI build command '{cmd_name}' failed with exit code "
-                f"{result.returncode}"
-            )
             combined = "\n".join(
                 part.strip()
                 for part in (
@@ -1009,15 +1032,16 @@ def _build_ui_bundle(index: Path) -> bool:
                 if part and part.strip()
             )
             output_tail = _ui_build_diagnostics(combined)
-            if output_tail:
-                note("npm output (key lines, then the tail):")
-                for line in output_tail:
-                    note(rich_escape(line))
+            fail(
+                f"UI build command '{cmd_name}' failed with exit code {result.returncode}",
+                ["npm output (key lines, then the tail):", *output_tail] if output_tail else [],
+            )
             return False
+        ok(label, time.monotonic() - started)
     if not index.is_file():
-        note(
-            "UI build finished (npm run build exited 0) but build output is "
-            "incomplete: dodaios/ui/web/dist/index.html was not produced"
+        fail(
+            "The UI build finished (npm run build exited 0) but its output is incomplete",
+            ["build output is incomplete: dodaios/ui/web/dist/index.html was not produced"],
         )
         return False
     return True
@@ -1034,31 +1058,31 @@ def step_ui_bundle_check() -> bool:
     index = dist / "index.html"
     if not index.is_file() and not _build_ui_bundle(index):
         return False
-    import re
-
     try:
         html = index.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        console.print("[bad]│    UI build index is unreadable.[/]")
+        fail("The UI build's index is unreadable", [str(index)])
         return False
     refs = [
         ref.split("?", 1)[0]
         for ref in re.findall(r'(?:src|href)="/?(assets/[^"]+)"', html)
     ]
     if not any(ref.endswith(".js") for ref in refs):
-        console.print("[bad]│    UI build has no JavaScript entry bundle.[/]")
+        fail("The UI build has no JavaScript entry bundle", [str(index)])
         return False
     missing = [
         ref for ref in refs
         if not (dist / ref.replace("/", os.sep)).is_file()
     ]
     if missing:
-        console.print(f"[bad]│    UI build is incomplete ({missing[0]} missing) - "
-                      "please report this; the app may look broken.[/]")
+        fail(
+            f"The UI build is incomplete ({missing[0]} missing)",
+            hints=["Please report this: the app may look broken until it is fixed."],
+            help_url=f"https://github.com/{OFFICIAL_REPO_SLUG}/issues",
+        )
         return False
-    else:
-        ok("UI build present and intact")
-        return True
+    ok("UI build present and intact")
+    return True
 
 
 def _resolved_admin_port() -> int:
@@ -1126,7 +1150,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
         msg = f"the headless server on http://localhost:{_resolved_admin_port()}"
     elif sys.platform == "win32":
         cmd = [str(repo_root() / "run.bat")]
-        msg = "the Desktop App"
+        msg = "the desktop app"
     elif sys.platform == "darwin":
         try:
             _rescan_venv_site_packages()
@@ -1140,29 +1164,23 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
             # by app name instead of failing the whole run. Ported from the Mac
             # line (BUG-066 there; the local register merged it as BUG-078).
             cmd = ["/usr/bin/open", "-a", MACOS_APP_NAME]
-            msg = "the Desktop App"
+            msg = "the desktop app"
         else:
             bundle = macos_app_bundle_path()
             if not macos_app_bundle_is_launchable(bundle):
-                console.print(
-                    "[bad]│    Could not launch: the installed macOS app bundle is missing "
-                    "or invalid.[/]"
-                )
+                fail("Could not launch: the installed macOS app bundle is missing or invalid",
+                     hints=["Run the installer again; it rebuilds the app bundle."])
                 sys.exit(4)
             cmd = macos_launch_services_command(bundle)
-            msg = "the Desktop App"
+            msg = "the desktop app"
     else:
         cmd = [str(venv_python()), "-m", "dodaios.ui.web.launcher"]
-        msg = "the Desktop App"
+        msg = "the desktop app"
 
-    # └ closes the connected journey the Stage-1 shell opened with ┌.
-    console.print(
-        f"[muted]└[/]  [brand]Launching {msg}[/] [muted]— the app takes over from here…[/]"
-    )
     hint = _relaunch_command(headless=headless)
     if dry_run:
-        console.print(f"[muted]     (dry-run) {' '.join(cmd)}[/]")
-        console.print(f"[muted]     If it doesn't open, run:[/] [brand]{hint}[/]")
+        note(f"(dry-run) {' '.join(cmd)}")
+        ui().launch(msg, hint)
         return
 
     # We deliberately do not wait for the App — the installer returns control
@@ -1170,15 +1188,14 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
     try:
         subprocess.Popen(cmd, cwd=repo_root(), close_fds=True, env=app_launch_env())
     except OSError as exc:
-        console.print(f"[bad]│    Could not launch: {exc}[/]")
-        console.print(f"[muted]     Open it by hand:[/] [brand]{hint}[/]")
+        fail(f"Could not launch {msg}", [str(exc)], hints=[f"Open it by hand: {hint}"])
         sys.exit(4)
 
     # A spawned Popen (and LaunchServices) reports success even when nothing ever
     # surfaces on screen. Never claim it opened without leaving the manual
     # command behind — this is the line the user needs when the window never
     # appears (macOS first-launch permission prompt, background launch, …).
-    console.print(f"[muted]     If it doesn't open, run:[/] [brand]{hint}[/]")
+    ui().launch(msg, hint)
 
 
 def app_launch_env(base: dict[str, str] | None = None) -> dict[str, str]:
@@ -1191,6 +1208,8 @@ def app_launch_env(base: dict[str, str] | None = None) -> dict[str, str]:
     """
     env = dict(os.environ if base is None else base)
     env.pop("GIT_LFS_SKIP_SMUDGE", None)
+    # The shell stage's start time is for this installer's finale only.
+    env.pop("JARVIS_INSTALL_STARTED_AT", None)
     return env
 
 
@@ -1212,95 +1231,87 @@ def step_cli_links(*, dry_run: bool) -> None:
             repo_root(), dry_run=dry_run, retired_roots=retired_install_roots(repo_root())
         )
     except Exception as exc:  # noqa: BLE001 - terminal commands are optional
-        note(f"Could not set up the terminal commands: {rich_escape(str(exc))}")
+        warn(f"Could not set up the terminal commands: {exc}")
         return
-    target = rich_escape(str(report.bin_dir))
+    target = str(report.bin_dir)
     if dry_run:
         note(f"(dry-run) terminal commands {', '.join(report.linked)} -> {target}")
         return
+    if report.linked:
+        ok(f"Terminal commands ready: {', '.join(report.linked)}")
     for command in report.missing:
-        note(f"CLI entry point missing: {rich_escape(command)}")
+        warn(f"CLI entry point missing: {command}")
     for command in report.kept:
         note(
-            f"Keeping existing {rich_escape(str(report.bin_dir / command))}; "
-            f"use {rich_escape(str(repo_root() / '.venv' / 'bin' / command))}"
+            f"Keeping existing {report.bin_dir / command}; "
+            f"use {repo_root() / '.venv' / 'bin' / command}"
         )
     for error in report.errors:
-        note(f"Could not create CLI link: {rich_escape(error)}")
+        warn(f"Could not create CLI link: {error}")
     for command, other in report.shadowed_by.items():
-        note(f"Another {rich_escape(command)} comes first on your PATH: {rich_escape(other)}")
-    if report.linked:
-        note(f"Terminal commands ready: {', '.join(report.linked)}")
+        note(f"Another {command} comes first on your PATH: {other}")
     for retired in report.path_retired:
-        note(f"Took the earlier folder {rich_escape(retired)} off your PATH.")
+        note(f"Took the earlier folder {retired} off your PATH.")
     if report.path_updated:
-        note(f"Added {target} to your PATH ({rich_escape(report.path_updated)}).")
+        note(f"Added {target} to your PATH ({report.path_updated}).")
     if report.needs_new_terminal:
         note("Open a new terminal window to use them.")
 
 
-def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
-    """The finale: a clack-style note box HANGING off the journey gutter.
-
-    ``◇  Title ──╮`` header, deep-gold borders, ``├──╯`` foot — the left rail
-    runs THROUGH the box and on to step_launch's ``└`` outro, so the journey
-    never visually breaks (maintainer request 2026-07-16; supersedes both the
-    flat two-rule finale of 2026-07-09 and the free-standing Panel draft).
-    """
-    rows: list[tuple[str, str, str]] = [("Installed to", str(repo_root()), "muted")]
-    if sys.platform == "win32":
+def summary_rows(*, update: bool, headless: bool) -> list[tuple[str, str]]:
+    """What the finale card says: how to open, update and find the install."""
+    gold = (255, 214, 10)
+    command = ui().paint(CLI_COMMAND_NAME, gold)
+    arrow = "→"
+    server = headless or is_headless_linux()
+    rows: list[tuple[str, str]] = []
+    if server:
+        rows.append(("Open", f"http://localhost:{_resolved_admin_port()} in your browser"))
+        rows.append(("Start", ".venv/bin/python -m dodaios.ui.web.launcher --headless"))
+        rows.append(("", "(in the install folder)"))
+    elif sys.platform == "win32":
         # The entry the OS lists, not the display name: this is what a search finds.
-        rows.append(("Start again", f'Windows search -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
+        rows.append(("Open", f'Windows search {arrow} "{LAUNCHER_ENTRY_NAME}"'))
     elif sys.platform == "darwin":
-        rows.append(
-            ("Start again", f'Launchpad or Spotlight → "{MACOS_APP_NAME}"', "brand")
-        )
-        rows.append(("Permissions", "macOS asks on first launch - approve each prompt", "muted"))
-    elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
-        rows.append(("Start again", f'app menu -> "{LINUX_APP_NAME}"', "brand"))
+        rows.append(("Open", f'Launchpad or Spotlight {arrow} "{MACOS_APP_NAME}"'))
     else:
-        rows.append(("Start again", ".venv/bin/python -m dodaios.ui.web.launcher", "brand"))
-        rows.append(("", "(in the install folder)", "muted"))
-    if not (headless or is_headless_linux()):
-        rows.append(("", f"or type {CLI_COMMAND_NAME} in a new terminal", "muted"))
-    rows.append(("Update", f"type {CLI_COMMAND_NAME} update in a terminal", "muted"))
-    rows.append(("", "(or re-run the same install one-liner)", "muted"))
+        rows.append(("Open", f'App menu {arrow} "{LINUX_APP_NAME}"'))
+    if not server:
+        rows.append(("", f"or type {command} in a new terminal"))
+    update_command = ui().paint(f"{CLI_COMMAND_NAME} update", gold)
+    rows.append(("Update", f"{update_command}, or run the install command again"))
+    rows.append(("Folder", str(repo_root())))
+    if sys.platform == "darwin" and not server:
+        rows.append(("Permissions", "macOS asks on first use; approve each prompt"))
     if update:
-        rows.append(("Next", "your setup and settings are kept - no re-onboarding", "muted"))
-    elif headless or is_headless_linux():
-        rows.append(
-            ("Next", f"open http://localhost:{_resolved_admin_port()} in your browser -", "muted")
-        )
-        rows.append(("", "the one-time setup guide (language, wake word,", "muted"))
-        rows.append(("", "API keys) runs there, once", "muted"))
+        rows.append(("Next", "Your setup and settings are kept: no re-onboarding."))
+    elif server:
+        rows.append(("Next", "The one-time setup guide (language, wake word,"))
+        rows.append(("", "API keys) runs in the browser, once."))
     else:
-        rows.append(("Next", "the app opens with a one-time setup guide", "muted"))
-        rows.append(("", "(language, wake word, API keys) - it never shows again", "muted"))
+        rows.append(("Next", "The app opens with a one-time setup guide"))
+        rows.append(("", "(language, wake word, API keys). It never shows again."))
     # Most installs never find their way back to the repo page; one quiet line
     # in the finale is the only place a new user learns how to support it.
-    rows.append(("Like it?", "a GitHub star helps others find it:", "muted"))
-    rows.append(("", f"github.com/{OFFICIAL_REPO_SLUG}", "brand"))
+    rows.append(("", ""))
+    rows.append(("Like it?", "A GitHub star helps others find it:"))
+    rows.append(("", ui().paint(f"github.com/{OFFICIAL_REPO_SLUG}", gold)))
+    return rows
 
-    title = f"{PRODUCT_NAME} is {'updated' if update else 'ready'}"
-    key_w = 13
-    # Widths are computed on the PLAIN text (markup added only when printing),
-    # so the right border always lines up.
-    plain = [f"{key:<{key_w}} {value}" for key, value, _ in rows]
-    inner_w = max(max(len(p) for p in plain), len(title) + 3)
-    # Header total width must equal the body's: 6 fixed header chars
-    # (diamond, gaps, corner) vs inner_w + 7 body columns.
-    top_dashes = "─" * max(inner_w + 1 - len(title), 2)
-    console.print(GUTTER)
-    console.print(f"[ok]◇[/]  [ok.bold]{title}[/]  [brand.deep]{top_dashes}╮[/]")
-    console.print(f"[brand.deep]│[/]{' ' * (inner_w + 5)}[brand.deep]│[/]")
-    for (key, value, vstyle), p in zip(rows, plain, strict=True):
-        pad = " " * (inner_w - len(p))
-        console.print(
-            f"[brand.deep]│[/]  [muted]{key:<{key_w}}[/] "
-            f"[{vstyle}]{rich_escape(value)}[/]{pad}   [brand.deep]│[/]"
-        )
-    console.print(f"[brand.deep]│[/]{' ' * (inner_w + 5)}[brand.deep]│[/]")
-    console.print(f"[brand.deep]├{'─' * (inner_w + 5)}╯[/]")
+
+def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
+    """The finale: a framed card with the result, the total time and what's next.
+
+    Printed before the launch, so when the app window appears the terminal
+    story is already told.
+    """
+    took = format_duration(time.time() - install_started_at())
+    verb = "updated" if update else "installed"
+    ui().card(
+        f"{PRODUCT_NAME} is {'updated' if update else 'ready'}",
+        summary_rows(update=update, headless=headless),
+        f"{verb} in {took}" if took else "",
+    )
 
 
 # ---------------------------------------------------------------- entry
@@ -1346,8 +1357,9 @@ def main(argv: list[str] | None = None) -> int:
     update = is_update_run()
 
     step_preflight()
+    managed = False
     if not args.dry_run:
-        write_managed_marker(with_desktop=with_desktop)
+        managed = bool(write_managed_marker(with_desktop=with_desktop))
     if not os.environ.get("JARVIS_INSTALL_NO_PIP"):
         step_pip_install(
             with_desktop=with_desktop,
@@ -1357,39 +1369,39 @@ def main(argv: list[str] | None = None) -> int:
 
     step_models(full_profile=with_desktop, dry_run=args.dry_run)
 
+    phase("6/6", "Finish & launch")
+    if managed:
+        ok("Managed install: in-app updates enabled")
     browser_cmd = [str(venv_python()), "-m", "dodaios.society.browser.install"]
     if sys.platform.startswith("linux"):
         browser_cmd.append("--system-deps")
     if not with_desktop or args.headless:
-        note("Agent browser skipped (headless profile). Core installation is unaffected.")
+        skip("Agent browser skipped (headless profile); the core install is unaffected.")
         note("Optional browser setup (system libraries may require administrator access):")
-        console.print(shlex.join(browser_cmd), markup=False, highlight=False, soft_wrap=True)
+        note(shlex.join(browser_cmd))
     elif args.dry_run:
-        note("managed browser: install and verify on first full installation")
+        note("(dry-run) managed browser: install and verify on first full installation")
     else:
-        browser_cmd = [str(venv_python()), "-m", "dodaios.society.browser.install"]
-        if sys.platform.startswith("linux"):
-            browser_cmd.append("--system-deps")
-        if args.dry_run:
-            note("managed browser: install and verify on first full installation")
+        started = time.monotonic()
+        rc = run_noted(browser_cmd, label="Preparing the agent browser", cwd=repo_root())
+        if rc == 0:
+            ok("Agent browser ready", time.monotonic() - started)
         else:
-            run_noted(browser_cmd, label="preparing the agent browser", cwd=repo_root())
-
-    phase("6/6", "Finish & launch")
+            warn(f"The agent browser setup did not finish (exit code {rc}).")
+            note("The core install is unaffected; the browser can be set up again later.")
     step_cli_links(dry_run=args.dry_run)
     step_worker_cli(dry_run=args.dry_run)
     step_macos_bundle_name(dry_run=args.dry_run)
     if not step_desktop_integration(enabled=with_desktop, dry_run=args.dry_run):
+        ui().stopped("The install stopped before launch. Run the same command again.")
         sys.exit(4)
     # --dry-run must not compile. step_ui_bundle_check builds a missing bundle
     # with npm, and main does not track dist. On the macOS suite that compile
     # ran inside a dry-run test until the file budget killed it.
     if args.dry_run:
-        console.print(
-            "[muted]│    (dry-run) check the UI build, and create it with npm "
-            "when the checkout has none[/]"
-        )
+        note("(dry-run) check the UI build, and create it with npm when the checkout has none")
     elif not step_ui_bundle_check():
+        ui().stopped("The install stopped before launch: the app's UI is not ready.")
         sys.exit(5)
 
     # Summary FIRST, launch LAST: when the app window appears, the terminal

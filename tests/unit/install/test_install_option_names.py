@@ -37,6 +37,7 @@ SH_OPTIONS = (
     "PYTHON",
     "PYTHON_SEARCH_DIRS",
     "NO_PYTHON_BOOTSTRAP",
+    "INSTALL_ASCII",
 )
 PS_OPTIONS = (
     "INSTALL_REPO",
@@ -45,10 +46,12 @@ PS_OPTIONS = (
     "INSTALL_PREREQS",
     "OFFICIAL_REPO_SLUG",
     "PYTHON",
+    "INSTALL_ASCII",
 )
 # Read by the scripts but never adopted from a second name: the signed commit
-# the verifying installer hands over.
-NOT_AN_OPTION = {"PAYLOAD_COMMIT"}
+# the verifying installer hands over, and the start time of the run that the
+# verifying installer (or the shell stage itself) hands to installer.py.
+NOT_AN_OPTION = {"PAYLOAD_COMMIT", "INSTALL_STARTED_AT"}
 
 SH_DRIVER = """#!/usr/bin/env bash
 set -euo pipefail

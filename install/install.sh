@@ -31,7 +31,7 @@ set -euo pipefail
 adopt_install_option_names() {
     local option new_name old_name new_value old_value
     for option in INSTALL_REPO INSTALL_REF INSTALL_DIR INSTALL_PREREQS INSTALL_YES \
-        OFFICIAL_REPO_SLUG PYTHON PYTHON_SEARCH_DIRS NO_PYTHON_BOOTSTRAP; do
+        OFFICIAL_REPO_SLUG PYTHON PYTHON_SEARCH_DIRS NO_PYTHON_BOOTSTRAP INSTALL_ASCII; do
         new_name="DODAIOS_$option"
         old_name="JARVIS_$option"
         new_value="${!new_name:-}"
@@ -85,143 +85,384 @@ fi
 IDENTITY_ENGINE_PATH="dodaios/core/identity_migration.py"
 PREREQUISITE_MODE="${JARVIS_INSTALL_PREREQS:-ask}"
 
-# Brand palette (docs/BRAND.md): Signal Yellow on matte black, with the
-# forged-gold wordmark gradient #FFE552 → #FFD60A → #B8960A. True 24-bit
-# escapes ONLY when the terminal advertises them via COLORTERM: a terminal
-# without truecolor support (notably macOS Terminal.app) parses the ";2;" of
-# an unknown 24-bit sequence as SGR 2 (faint) — which once rendered the
-# HIGHLIGHTED welcome choice dimmer than the plain one. Everything else gets
-# the closest xterm-256 colors, which every modern terminal renders; a dumb
-# terminal / pipe gets no escapes at all.
-if [ -t 1 ]; then
-    case "${COLORTERM:-}" in
-        truecolor|24bit)
-            GOLD_HI=$(printf '\033[38;2;255;229;82m')
-            GOLD=$(printf '\033[38;2;255;214;10m')
-            GOLD_DEEP=$(printf '\033[38;2;184;150;10m')
-            GREEN=$(printf '\033[38;2;122;200;140m')
-            DIM=$(printf '\033[38;2;143;143;143m')
-            RED=$(printf '\033[38;2;224;122;110m')
-            ;;
-        *)
-            # This branch is what macOS Terminal.app hits (no COLORTERM) —
-            # and its default profile is a WHITE background, where the pale
-            # 227/220 golds wash out to near-invisible (field photo
-            # 2026-07-18). Step the whole gradient one notch deeper: still
-            # reads as forged gold on dark themes, stays legible on white.
-            GOLD_HI=$(printf '\033[38;5;220m')
-            GOLD=$(printf '\033[38;5;178m')
-            GOLD_DEEP=$(printf '\033[38;5;136m')
-            GREEN=$(printf '\033[38;5;114m')
-            DIM=$(printf '\033[38;5;245m')
-            RED=$(printf '\033[38;5;174m')
-            ;;
-    esac
-    BOLD=$(printf '\033[1m')
-    REV=$(printf '\033[7m')
-    RST=$(printf '\033[0m')
-else
-    GOLD_HI=""; GOLD=""; GOLD_DEEP=""; GREEN=""; DIM=""; RED=""; BOLD=""; REV=""; RST=""
-fi
-
-# One six-phase journey spans BOTH installer stages: this shell owns phases
-# 1-3, installer.py continues with 4-6 — keep the numbering in sync there.
-# Connected-journey look (maintainer request 2026-07-16, visuals only): every
-# line hangs off one continuous dim │ gutter, phases are gold ◆ diamonds,
-# ┌ opens the journey and installer.py's outro └ closes it — the visual
-# grammar of the widely-loved clack-style wizards, recolored to the brand
-# gold. The glyphs live ONLY in these helpers (and their installer.py /
-# install.ps1 twins) so the three surfaces stay in visual lockstep.
-GUT="${DIM}│${RST}"
-phase() {
-    printf '%s\n' "$GUT"
-    printf '%s◆%s  %s%s%s  %s%s%s\n' "$GOLD" "$RST" "$GOLD" "$1" "$RST" "$BOLD" "$2" "$RST"
+# --- installer-ui begin (extracted by tests/unit/install/test_install_ui_shell.py)
+# How the installer looks: one design across both stages and every platform.
+# installer.py continues it (dodaios/setup/install_ui.py) and install.ps1 is
+# its Windows twin; all three decide what the terminal can show by the same
+# rules, written out in that Python module:
+#   colour  off with NO_COLOR, TERM=dumb or when stdout is not a terminal
+#           (FORCE_COLOR turns it back on); truecolor with COLORTERM or a
+#           known modern terminal, 256 colours when TERM says so, else 16.
+#   glyphs  ASCII with JARVIS_INSTALL_ASCII, TERM=linux/dumb/vt*, or a locale
+#           that is not UTF-8; the full set otherwise.
+#   motion  spinners only on a terminal, never in CI.
+#   width   COLUMNS, else the terminal's, else 80.
+# Nothing here waits for effect: a spinner redraws only while real work runs.
+ui_truthy() {
+    case "${1:-}" in ''|0|false|FALSE|False|no|NO|off|OFF) return 1 ;; *) return 0 ;; esac
 }
-ok()   { printf '%s  %s✓%s %s%s%s\n' "$GUT" "$GREEN" "$RST" "$DIM" "$1" "$RST"; }
-note() { printf '%s    %s%s%s\n' "$GUT" "$DIM" "$1" "$RST"; }
-err()  { printf '%s  %s✗ %s%s\n' "$GUT" "$RED" "$1" "$RST"; }
+UI_TTY=0
+[ -t 1 ] && UI_TTY=1
+UI_TERM="${TERM:-}"
+if [ -n "${NO_COLOR:-}" ] || [ "$UI_TERM" = 'dumb' ]; then
+    UI_COLOR=none
+elif [ "$UI_TTY" -eq 1 ] || ui_truthy "${FORCE_COLOR:-}"; then
+    case "${COLORTERM:-}:${TERM_PROGRAM:-}:$UI_TERM" in
+        truecolor:*|24bit:*|*:iTerm.app:*|*:WezTerm:*|*:vscode:*|*:ghostty:*|*direct*) UI_COLOR=truecolor ;;
+        *256*|*::) UI_COLOR=256 ;;
+        *) UI_COLOR=16 ;;
+    esac
+    # Windows Terminal (it forwards WT_SESSION into WSL) and every Windows
+    # console behind WSL draw 24-bit colour without saying so in COLORTERM.
+    if [ "$UI_COLOR" = '256' ] && [ -n "${WT_SESSION:-}${WSL_DISTRO_NAME:-}" ]; then UI_COLOR=truecolor; fi
+else
+    UI_COLOR=none
+fi
+UI_LOCALE="${LC_ALL:-${LC_CTYPE:-${LANG:-}}}"
+case "$UI_LOCALE" in
+    *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) UI_GLYPHS=full ;;
+    '')
+        # No locale at all (a bare container): trust a terminal that names itself.
+        if [ -n "${TERM_PROGRAM:-}${COLORTERM:-}" ]; then UI_GLYPHS=full; else UI_GLYPHS=ascii; fi
+        ;;
+    *) UI_GLYPHS=ascii ;;
+esac
+case "$UI_TERM" in linux|dumb|ansi|cons25|vt*) UI_GLYPHS=ascii ;; esac
+if ui_truthy "${JARVIS_INSTALL_ASCII:-}"; then UI_GLYPHS=ascii; fi
+UI_MOTION=0
+if [ "$UI_TTY" -eq 1 ] && [ "$UI_TERM" != 'dumb' ] && ! ui_truthy "${CI:-}"; then UI_MOTION=1; fi
+UI_COLS="${COLUMNS:-}"
+case "$UI_COLS" in
+    ''|*[!0-9]*)
+        UI_COLS=$( { stty size </dev/tty; } 2>/dev/null | awk '{ print $2 }' ) || UI_COLS=''
+        case "$UI_COLS" in ''|*[!0-9]*|0) UI_COLS=80 ;; esac
+        ;;
+esac
+[ "$UI_COLS" -lt 20 ] && UI_COLS=20
+UI_LAYOUT=$UI_COLS
+[ "$UI_LAYOUT" -gt 88 ] && UI_LAYOUT=88
 
-# Run a slow, otherwise-silent command behind a one-line dots spinner so a
-# long download never looks hung (maintainer report 2026-07-15). TTY only:
-# a piped/CI run prints the label once and streams the command instead.
-# Output is captured to a temp log whose tail is printed on failure, so
-# errors are never swallowed. Do NOT wrap anything that may prompt (sudo) —
-# the background redirect would eat the prompt.
+if [ "$UI_GLYPHS" = 'full' ]; then
+    G_OK='✓'; G_FAIL='×'; G_SKIP='·'; G_RAIL='┃'; G_POINT='▸'; G_ELL='…'; G_BAR='━'
+    UI_SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+else
+    G_OK='+'; G_FAIL='x'; G_SKIP='-'; G_RAIL='|'; G_POINT='>'; G_ELL='...'; G_BAR='#'
+    UI_SPIN_FRAMES=('|' '/' '-' '\')
+fi
+G_WARN='!'
+UI_ESC=$(printf '\033')
+
+# Brand palette (docs/BRAND.md): signal gold, deep gold, the status colours.
+# Plain text keeps the terminal's own foreground, so light themes read it too.
+ui_sgr() { # $1 = truecolor parameters, $2 = 256-colour ones, $3 = 16-colour ones
+    case "$UI_COLOR" in
+        truecolor) printf '\033[%sm' "$1" ;;
+        256) printf '\033[%sm' "$2" ;;
+        16) printf '\033[%sm' "$3" ;;
+    esac
+}
+C_GOLD=$(ui_sgr '38;2;255;214;10' '38;5;220' '33')
+C_OK=$(ui_sgr '38;2;34;195;94' '38;5;35' '32')
+C_WARN=$(ui_sgr '38;2;245;158;11' '38;5;214' '33')
+C_BAD=$(ui_sgr '38;2;223;58;58' '38;5;167' '31')
+C_MUTED=$(ui_sgr '38;2;138;138;138' '38;5;245' '90')
+C_BOLD=$(ui_sgr '1' '1' '1')
+C_RST=$(ui_sgr '0' '0' '0')
+P_GOLD=$(ui_sgr '1;38;2;10;10;10;48;2;255;214;10' '1;38;5;232;48;5;220' '1;30;43')
+P_BAD=$(ui_sgr '1;38;2;10;10;10;48;2;223;58;58' '1;38;5;232;48;5;167' '1;30;41')
+# Typography the messages use, spelled out where only ASCII shows.
+ui_text() {
+    if [ "$UI_GLYPHS" = 'full' ]; then printf '%s' "$1"; return 0; fi
+    printf '%s' "$1" | sed -e 's/—/-/g' -e 's/–/-/g' -e 's/…/.../g' -e 's/→/->/g' -e 's/·/-/g'
+}
+ui_dur() { # whole seconds -> "", "12s", "1m 05s"
+    case "${1:-}" in ''|*[!0-9]*) return 0 ;; esac
+    [ "$1" -lt 1 ] && return 0
+    if [ "$1" -lt 60 ]; then printf '%ss' "$1"; return 0; fi
+    printf '%sm %02ds' $(($1 / 60)) $(($1 % 60))
+}
+# $1 = the line, $2 = its visible width, $3 = text for the right edge.
+ui_right() {
+    if [ -z "${3:-}" ]; then printf '%s\n' "$1"; return 0; fi
+    _ui_gap=$((UI_LAYOUT - 2 - $2 - ${#3}))
+    [ "$_ui_gap" -lt 2 ] && _ui_gap=2
+    printf '%s%*s%s%s%s\n' "$1" "$_ui_gap" '' "$C_MUTED" "$3" "$C_RST"
+}
+UI_IN_FAIL=0
+UI_LAST_SECONDS=0
+phase() { # $1 = "2/6", $2 = title
+    UI_IN_FAIL=0
+    printf '\n'
+    if [ "$UI_COLOR" = 'none' ]; then
+        printf '  [%s] %s\n' "$1" "$(ui_text "$2")"
+    else
+        printf '  %s %s %s  %s%s%s\n' "$P_GOLD" "$1" "$C_RST" "$C_BOLD" "$(ui_text "$2")" "$C_RST"
+    fi
+}
+ok() { # $1 = text, $2 = whole seconds it took (optional), $3 = a quiet detail (a path)
+    UI_IN_FAIL=0
+    _ui_body=$(ui_text "$1")
+    if [ -n "${3:-}" ]; then
+        printf '     %s%s%s  %s  %s%s%s\n' "$C_OK" "$G_OK" "$C_RST" "$_ui_body" "$C_MUTED" "$3" "$C_RST"
+        return 0
+    fi
+    ui_right "     $C_OK$G_OK$C_RST  $_ui_body" $((8 + ${#_ui_body})) "$(ui_dur "${2:-}")"
+}
+skip() { # something optional that is not there; the install goes on
+    UI_IN_FAIL=0
+    printf '     %s%s  %s%s\n' "$C_MUTED" "$G_SKIP" "$(ui_text "$1")" "$C_RST"
+}
+warn() {
+    UI_IN_FAIL=0
+    printf '     %s%s%s  %s\n' "$C_WARN$C_BOLD" "$G_WARN" "$C_RST" "$(ui_text "$1")"
+}
+# After err, the notes that follow hang on its red rail until the next step.
+note() {
+    if [ "$UI_IN_FAIL" -eq 1 ]; then
+        printf '     %s%s%s  %s\n' "$C_BAD" "$G_RAIL" "$C_RST" "$(ui_text "$1")"
+    else
+        printf '        %s%s%s\n' "$C_MUTED" "$(ui_text "$1")" "$C_RST"
+    fi
+}
+err() {
+    UI_IN_FAIL=1
+    printf '     %s%s%s  %s%s%s\n' "$C_BAD$C_BOLD" "$G_FAIL" "$C_RST" "$C_BOLD" "$(ui_text "$1")" "$C_RST"
+}
+stopped() { # the closing line of a run that stopped
+    printf '\n'
+    if [ "$UI_COLOR" = 'none' ]; then
+        printf '  [STOPPED] %s\n' "$(ui_text "$1")"
+    else
+        printf '  %s STOPPED %s  %s\n' "$P_BAD" "$C_RST" "$(ui_text "$1")"
+    fi
+}
+# The live line of a running step: $1 frame index, $2 label, $3 seconds so far.
+ui_live() {
+    _live_frame=${UI_SPIN_FRAMES[$(($1 % ${#UI_SPIN_FRAMES[@]}))]}
+    _live_time=$(ui_dur "$3")
+    [ -n "$_live_time" ] || _live_time='0s'
+    _ui_gap=$((UI_LAYOUT - 10 - ${#2} - ${#_live_time}))
+    if [ "$_ui_gap" -lt 2 ]; then
+        # Never wrap the live line: a wrapped line cannot be redrawn in place.
+        printf '\r\033[K     %s%s%s  %s%s%s' "$C_GOLD" "$_live_frame" "$C_RST" "$C_MUTED" "$_live_time" "$C_RST"
+    else
+        printf '\r\033[K     %s%s%s  %s%*s%s%s%s' "$C_GOLD" "$_live_frame" "$C_RST" "$2" "$_ui_gap" '' "$C_MUTED" "$_live_time" "$C_RST"
+    fi
+}
+# Run a slow, otherwise-silent command behind a spinner and its elapsed time,
+# so a long download never looks hung (maintainer report 2026-07-15). TTY
+# only: a piped/CI run prints the label once and streams the command instead.
+# Output is captured to a temp log whose tail is printed on failure, so errors
+# are never swallowed. Sets UI_LAST_SECONDS. Do NOT wrap anything that may
+# prompt (sudo): the background redirect would eat the prompt.
 run_spin() {
-    _spin_label="$1"; shift
-    if [ ! -t 1 ]; then
-        note "${_spin_label}…"
-        "$@" </dev/null
-        return $?
+    _spin_label=$(ui_text "$1"); shift
+    _spin_t0=$SECONDS
+    if [ "$UI_MOTION" -ne 1 ]; then
+        printf '     %s%s  %s%s%s\n' "$C_MUTED" "$G_SKIP" "$_spin_label" "$G_ELL" "$C_RST"
+        _spin_rc=0
+        "$@" </dev/null || _spin_rc=$?
+        UI_LAST_SECONDS=$((SECONDS - _spin_t0))
+        [ "$_spin_rc" -eq 0 ] || err "$_spin_label failed (exit code $_spin_rc)"
+        return $_spin_rc
     fi
     _spin_log=$(mktemp)
     "$@" </dev/null >"$_spin_log" 2>&1 &
     _spin_pid=$!
     _spin_i=0
+    printf '\033[?25l'
     while kill -0 "$_spin_pid" 2>/dev/null; do
-        _spin_i=$(( (_spin_i + 1) % 4 ))
-        printf '\r%s    %s%s%-3.*s%s ' "$GUT" "$DIM" "$_spin_label" "$_spin_i" '...' "$RST"
-        sleep 0.4 2>/dev/null || sleep 1
+        ui_live "$_spin_i" "$_spin_label" $((SECONDS - _spin_t0))
+        _spin_i=$((_spin_i + 1))
+        sleep 0.12 2>/dev/null || sleep 1
     done
     _spin_rc=0
     wait "$_spin_pid" || _spin_rc=$?
-    printf '\r\033[K'
+    UI_LAST_SECONDS=$((SECONDS - _spin_t0))
+    printf '\r\033[K\033[?25h'
     if [ "$_spin_rc" -ne 0 ]; then
-        err "$_spin_label failed"
+        err "$_spin_label failed (exit code $_spin_rc)"
         # sed, not a `read` loop: the prompt-free guard test permits `read`
         # only inside the welcome gate and the prerequisite-bootstrap flow.
-        tail -n 20 "$_spin_log" | sed -e "s/^/${DIM}      /" -e "s/\$/${RST}/"
+        tail -n 20 "$_spin_log" | sed -e "s/^/     $C_BAD$G_RAIL$C_RST  /"
     fi
     rm -f "$_spin_log"
     return $_spin_rc
 }
 
-# The mascot is the real Dodaios logo (the gold-eyed ghost), machine-generated
-# as xterm-256 half-block pixel art from the brand PNG (two vertical pixels
-# per cell via U+2580 fg/bg pairs). Regenerate from a new logo file rather
-# than hand-editing the escapes. Color-gated: without color escapes the half
-# blocks would render as shapeless mush, so a plain/piped run skips straight
-# to the wordmark.
-if [ -n "$GOLD" ]; then
+# The hero: the hooded figure beside the pixel wordmark, the README banner
+# drawn with half blocks (two pixels per text cell). '#' is gold on a
+# vertical gradient and 's' the wordmark's drop shadow. Drawn with 256 or
+# more colours, Unicode and room for it; otherwise a plain title stands in.
+UI_MASCOT=(
+'..........###.........'
+'........######........'
+'......########.##.....'
+'....##.#######.#####..'
+'...##.....####.####...'
+'..##......#####.##....'
+'.##.####...####.......'
+'.#.#######..####......'
+'..##########.###......'
+'.#.######..##.###.....'
+'#..#..###..##..##.....'
+'#..#..###..###.###....'
+'#..##.########.##.....'
+'.#...#######.##.......'
+'..###...#####.##......'
+'...#####...####.##....'
+'...########...#..####.'
+'...###########..######'
+'...############..#####'
+'...#############..###.'
+'...######.########....'
+'...#####.#########....'
+'...#####.########.....'
+'....###...######......'
+)
+UI_WORDMARK=(
+'#####....####...#####.....##....####...####....#####'
+'######..######..######...####...####..######..######'
+'##ss##..##ss##..##ss##..######..s##s..##ss##..##ssss'
+'##..##..##..##..##..##..##ss##...##...##..##..#####.'
+'##..##..##..##..##..##..######...##...##..##..s#####'
+'##..##..##..##..##..##..######...##...##..##...sss##'
+'######..######..######..##ss##..####..######..######'
+'#####s..s####s..#####s..##..##..####..s####s..#####s'
+'sssss....ssss...sssss...ss..ss..ssss...ssss...sssss.'
+'....................................................'
+)
+# The gold of pixel row $1 in an image $2 rows tall, into _UI_GOLD (an SGR
+# colour without its 38/48 prefix): #FFF07A at the top, #FFD60A in the
+# middle, #B8860B at the bottom, as in the banner.
+ui_gold() {
+    _gold_t=$(($1 * 1000 / ($2 - 1)))
+    if [ "$UI_COLOR" = 'truecolor' ]; then
+        if [ "$_gold_t" -le 500 ]; then
+            _UI_GOLD="2;255;$((240 - 26 * _gold_t / 500));$((122 - 112 * _gold_t / 500))"
+        else
+            _gold_t=$((_gold_t - 500))
+            _UI_GOLD="2;$((255 - 71 * _gold_t / 500));$((214 - 80 * _gold_t / 500));$((10 + _gold_t / 500))"
+        fi
+    elif [ "$_gold_t" -lt 200 ]; then _UI_GOLD='5;228'
+    elif [ "$_gold_t" -lt 400 ]; then _UI_GOLD='5;227'
+    elif [ "$_gold_t" -lt 620 ]; then _UI_GOLD='5;220'
+    elif [ "$_gold_t" -lt 820 ]; then _UI_GOLD='5;178'
+    else _UI_GOLD='5;136'; fi
+}
+# One text row of an image into _UI_ART: $1/$2 its upper/lower pixel rows,
+# $3 the upper row's index and $4 the image's height in pixel rows.
+ui_art_row() {
+    if [ "$UI_COLOR" = 'truecolor' ]; then _art_shadow='2;107;78;0'; else _art_shadow='5;94'; fi
+    ui_gold "$3" "$4"; _art_gold_a=$_UI_GOLD
+    ui_gold $(($3 + 1)) "$4"; _art_gold_b=$_UI_GOLD
+    _UI_ART=''
+    _art_last=''
+    _art_x=0
+    while [ "$_art_x" -lt "${#1}" ]; do
+        case "${1:$_art_x:1}" in '#') _art_t=$_art_gold_a ;; s) _art_t=$_art_shadow ;; *) _art_t='' ;; esac
+        case "${2:$_art_x:1}" in '#') _art_u=$_art_gold_b ;; s) _art_u=$_art_shadow ;; *) _art_u='' ;; esac
+        if [ -z "$_art_t" ] && [ -z "$_art_u" ]; then
+            _art_sgr='0'; _art_ch=' '
+        elif [ -z "$_art_u" ]; then
+            _art_sgr="0;38;$_art_t"; _art_ch='▀'
+        elif [ -z "$_art_t" ]; then
+            _art_sgr="0;38;$_art_u"; _art_ch='▄'
+        else
+            _art_sgr="0;38;$_art_t;48;$_art_u"; _art_ch='▀'
+        fi
+        if [ "$_art_sgr" != "$_art_last" ]; then
+            _UI_ART="$_UI_ART$UI_ESC[${_art_sgr}m"
+            _art_last=$_art_sgr
+        fi
+        _UI_ART="$_UI_ART$_art_ch"
+        _art_x=$((_art_x + 1))
+    done
+    _UI_ART="$_UI_ART$UI_ESC[0m"
+}
+ui_hero() { # $1 = the line under the wordmark
+    _hero_sub=$(ui_text "$1")
+    _hero_meta=$(ui_text 'Open source · MIT · github.com/Dodaios/Dodaios')
     printf '\n'
-    printf '%b\n' '                \033[0m           \033[0m\033[38;5;100m▄\033[0m\033[38;5;58m▄▄\033[0m\033[38;5;235m▄▄▄▄▄▄\033[0m\033[38;5;58m▄▄\033[0m\033[38;5;100m▄\033[0m           \033[0m'
-    printf '%b\n' '                \033[0m       \033[0m\033[38;5;94m▄\033[0m\033[38;5;234m▄\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;234m▄\033[0m\033[38;5;94m▄\033[0m       \033[0m'
-    printf '%b\n' '                \033[0m     \033[0m\033[38;5;100m▄\033[0m\033[38;5;94m\033[48;5;233m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;94m\033[48;5;233m▀\033[0m\033[38;5;100m▄\033[0m     \033[0m'
-    printf '%b\n' '                \033[0m     \033[0m\033[38;5;58m\033[48;5;233m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m     \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;100m▀\033[0m\033[38;5;234m\033[48;5;236m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀\033[0m\033[38;5;234m\033[48;5;236m▀\033[0m\033[38;5;234m\033[48;5;100m▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m  \033[0m\033[38;5;178m▀\033[0m \033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;142m▀\033[0m\033[38;5;220m\033[48;5;220m▀\033[0m\033[38;5;226m\033[48;5;226m▀\033[0m\033[38;5;142m\033[48;5;220m▀\033[0m\033[38;5;236m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀\033[0m\033[38;5;236m\033[48;5;58m▀\033[0m\033[38;5;142m\033[48;5;220m▀\033[0m\033[38;5;226m\033[48;5;220m▀\033[0m\033[38;5;220m\033[48;5;227m▀\033[0m\033[38;5;58m\033[48;5;142m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀\033[0m\033[38;5;178m\033[48;5;142m▀\033[0m\033[38;5;220m\033[48;5;214m▀\033[0m\033[38;5;238m\033[48;5;234m▀\033[0m\033[38;5;178m\033[48;5;136m▀\033[0m\033[38;5;100m\033[48;5;94m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀\033[0m\033[38;5;94m\033[48;5;58m▀\033[0m\033[38;5;220m\033[48;5;220m▀\033[0m\033[38;5;100m\033[48;5;58m▀\033[0m\033[38;5;101m\033[48;5;234m▀\033[0m\033[38;5;178m\033[48;5;178m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;226m▀\033[0m   \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;233m\033[48;5;235m▀\033[0m\033[38;5;235m\033[48;5;58m▀▀\033[0m\033[38;5;234m\033[48;5;235m▀\033[0m\033[38;5;234m\033[48;5;234m▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;214m\033[48;5;58m▀\033[0m\033[38;5;172m\033[48;5;94m▀\033[0m\033[38;5;136m\033[48;5;236m▀\033[0m\033[38;5;236m\033[48;5;234m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀\033[0m\033[38;5;236m\033[48;5;234m▀\033[0m\033[38;5;178m\033[48;5;236m▀\033[0m\033[38;5;178m\033[48;5;94m▀\033[0m\033[38;5;172m\033[48;5;58m▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;234m\033[48;5;234m▀\033[0m\033[38;5;235m\033[48;5;58m▀▀▀\033[0m\033[38;5;234m\033[48;5;234m▀\033[0m\033[38;5;58m\033[48;5;235m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m  \033[0m\033[38;5;178m▀\033[0m \033[0m\033[38;5;58m\033[48;5;94m▀\033[0m\033[38;5;234m\033[48;5;235m▀▀▀▀\033[0m\033[38;5;233m\033[48;5;235m▀\033[0m\033[38;5;234m\033[48;5;236m▀▀\033[0m\033[38;5;234m\033[48;5;58m▀▀\033[0m\033[38;5;234m\033[48;5;236m▀▀\033[0m\033[38;5;234m\033[48;5;100m▀▀\033[0m\033[38;5;234m\033[48;5;236m▀▀▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;236m▀▀\033[0m\033[38;5;234m\033[48;5;235m▀\033[0m\033[38;5;235m\033[48;5;235m▀\033[0m\033[38;5;234m\033[48;5;235m▀▀▀\033[0m\033[38;5;58m\033[48;5;94m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m  \033[0m\033[38;5;220m▄\033[0m\033[38;5;226m\033[48;5;226m▀\033[0m\033[38;5;142m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;236m\033[48;5;100m▀\033[0m\033[38;5;184m\033[48;5;58m▀▀\033[0m\033[38;5;236m\033[48;5;100m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;142m\033[48;5;58m▀\033[0m\033[38;5;226m\033[48;5;226m▀\033[0m\033[38;5;220m▄\033[0m  \033[0m'
-    printf '%b\n' '                \033[0m \033[0m\033[38;5;220m\033[48;5;220m▀\033[0m\033[38;5;184m▀\033[0m \033[0m\033[38;5;235m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;178m\033[48;5;94m▀▀\033[0m\033[38;5;58m\033[48;5;234m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;235m\033[48;5;58m▀\033[0m \033[0m\033[38;5;184m▀\033[0m\033[38;5;220m\033[48;5;220m▀\033[0m \033[0m'
-    printf '%b\n' '                \033[0m \033[0m\033[38;5;220m▀\033[0m  \033[0m\033[38;5;58m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀\033[0m\033[38;5;233m\033[48;5;234m▀▀▀\033[0m\033[38;5;234m\033[48;5;234m▀▀\033[0m\033[38;5;233m\033[48;5;234m▀▀▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m  \033[0m\033[38;5;220m▀\033[0m \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;235m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\033[0m\033[38;5;94m\033[48;5;58m▀\033[0m \033[0m\033[38;5;184m▄\033[0m  \033[0m'
-    printf '%b\n' '                \033[0m    \033[0m\033[38;5;58m\033[48;5;94m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀\033[0m\033[38;5;234m\033[48;5;58m▀▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;100m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀▀▀▀▀\033[0m\033[38;5;234m\033[48;5;100m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀\033[0m\033[38;5;58m\033[48;5;58m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m     \033[0m\033[38;5;100m▀\033[0m\033[38;5;234m\033[48;5;94m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;58m▀\033[0m  \033[0m\033[38;5;58m▀\033[0m\033[38;5;234m\033[48;5;235m▀\033[0m\033[38;5;234m\033[48;5;234m▀\033[0m\033[38;5;234m\033[48;5;235m▀\033[0m\033[38;5;235m▀\033[0m  \033[0m\033[38;5;58m▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;234m\033[48;5;234m▀▀\033[0m\033[38;5;234m\033[48;5;100m▀\033[0m\033[38;5;100m▀\033[0m \033[0m\033[38;5;94m▀\033[0m\033[38;5;234m\033[48;5;58m▀\033[0m\033[38;5;235m\033[48;5;235m▀\033[0m    \033[0m'
-    printf '%b\n' '                \033[0m       \033[0m\033[38;5;58m▀▀\033[0m      \033[0m\033[38;5;58m▀\033[0m\033[38;5;100m▀\033[0m     \033[0m\033[38;5;58m▀▀\033[0m     \033[0m\033[38;5;100m▀\033[0m    \033[0m'
+    if [ "$UI_COLOR" = 'none' ] || [ "$UI_COLOR" = '16' ] || [ "$UI_GLYPHS" != 'full' ] \
+        || [ "$UI_COLS" -lt 58 ]; then
+        if [ "$UI_COLOR" = 'none' ]; then
+            printf '  DODAIOS  %s\n  %s\n' "$_hero_sub" "$_hero_meta"
+        else
+            printf '  %s DODAIOS %s  %s%s%s\n  %s%s%s\n' "$P_GOLD" "$C_RST" "$C_BOLD" "$_hero_sub" \
+                "$C_RST" "$C_MUTED" "$_hero_meta" "$C_RST"
+        fi
+        return 0
+    fi
+    if [ "$UI_COLS" -lt 80 ]; then
+        # No room beside the figure: the wordmark alone, the words below it.
+        _hero_y=0
+        while [ "$_hero_y" -lt 10 ]; do
+            ui_art_row "${UI_WORDMARK[$_hero_y]}" "${UI_WORDMARK[$((_hero_y + 1))]}" "$_hero_y" 8
+            printf '  %s\n' "$_UI_ART"
+            _hero_y=$((_hero_y + 2))
+        done
+        printf '  %s%s%s\n  %s%s%s\n' "$C_BOLD" "$_hero_sub" "$C_RST" "$C_MUTED" "$_hero_meta" "$C_RST"
+        return 0
+    fi
+    _hero_y=0
+    while [ "$_hero_y" -lt 12 ]; do
+        ui_art_row "${UI_MASCOT[$((_hero_y * 2))]}" "${UI_MASCOT[$((_hero_y * 2 + 1))]}" $((_hero_y * 2)) 24
+        _hero_left=$_UI_ART
+        case "$_hero_y" in
+            1|2|3|4|5)
+                _hero_w=$(((_hero_y - 1) * 2))
+                ui_art_row "${UI_WORDMARK[$_hero_w]}" "${UI_WORDMARK[$((_hero_w + 1))]}" "$_hero_w" 8
+                _hero_right=$_UI_ART
+                ;;
+            7) _hero_right="$C_BOLD$_hero_sub$C_RST" ;;
+            8) _hero_right="$C_MUTED$_hero_meta$C_RST" ;;
+            *) _hero_right='' ;;
+        esac
+        printf '  %s   %s\n' "$_hero_left" "$_hero_right"
+        _hero_y=$((_hero_y + 1))
+    done
+}
+# --- installer-ui end
+
+# One six-phase journey spans BOTH installer stages: this shell owns phases
+# 1-3, installer.py continues with 4-6 — keep the numbering in sync there.
+# The whole run is timed from here; installer.py reads the start and shows
+# the total on its finale card.
+JARVIS_INSTALL_STARTED_AT="${JARVIS_INSTALL_STARTED_AT:-$(date +%s)}"
+export JARVIS_INSTALL_STARTED_AT
+
+# A run that stops early ends on one clear line, and a spinner interrupted by
+# Ctrl+C gives the cursor back. `exec` into installer.py replaces this shell,
+# so a finished hand-off never reaches it.
+ui_on_exit() {
+    _exit_rc=$?
+    [ "$UI_MOTION" -eq 1 ] && printf '\033[?25h'
+    if [ "$_exit_rc" -ne 0 ]; then
+        stopped 'The install stopped here. Nothing was launched; run the same command again once fixed.'
+    fi
+}
+trap ui_on_exit EXIT
+
+# The machine this runs on, for the line under the wordmark.
+ui_platform() {
+    case "$(uname -s 2>/dev/null || printf unknown)" in
+        Darwin) printf 'macOS %s (%s)' "$(sw_vers -productVersion 2>/dev/null || printf '?')" "$(uname -m 2>/dev/null)" ;;
+        Linux)
+            _os_name=''
+            if [ -r /etc/os-release ]; then
+                _os_name=$(sed -n 's/^PRETTY_NAME="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' /etc/os-release | head -n 1)
+            fi
+            printf '%s (%s)' "${_os_name:-Linux}" "$(uname -m 2>/dev/null)"
+            ;;
+        *) uname -sm 2>/dev/null || printf 'this computer' ;;
+    esac
+}
+if [ -e "$INSTALL_DIR/.git" ]; then
+    ui_hero "Updating Dodaios on $(ui_platform)"
 else
-    printf '\n'
+    ui_hero "Installing on $(ui_platform)"
 fi
-
-# Wordmark glyphs are machine-generated (figlet "ANSI Shadow", DODAIOS); do
-# not hand-edit — that is how the historical "Harvis" typo crept in. The 6 rows
-# are colored as ONE continuous vertical gradient (hi → brand → deep) so the
-# word reads as a single forged-gold wordmark.
-cat <<EOF
-
-${GOLD_HI}       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗${RST}
-${GOLD_HI}       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝${RST}
-${GOLD}       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗${RST}
-${GOLD}       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║${RST}
-${GOLD_DEEP}       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║${RST}
-${GOLD_DEEP}       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝${RST}
-
-${DIM}     talk to your computer · installs the full profile · launches when done${RST}
-
-${DIM}┌${RST}  ${GOLD}Dodaios installer${RST}
-EOF
 
 # -------------------------------------------------------------- welcome gate
 # One clear question before anything touches the machine. Arrow keys (or
@@ -236,21 +477,24 @@ ask_welcome() {
     # the have_tty probe used later in this script.
     { { : </dev/tty; } 2>/dev/null && { : >/dev/tty; } 2>/dev/null; } || return 0
     _sel=0  # 0 = yes, 1 = no
-    # The highlighted choice renders as a solid color pill (reverse video:
-    # gold Yes / red No) with a ▸ marker; the other choice is dimmed. Reverse
-    # video still inverts on terminals that drop color, and the ▸ marker
-    # survives even with no escapes at all — the selection is never ambiguous.
-    # Both renderings are the same visible width so the \r redraw leaves no
-    # residue.
-    printf '%s\n%s    %s←/→ to choose · Enter to confirm (or press y / n)%s\n' \
-        "$GUT" "$GUT" "$DIM" "$RST" > /dev/tty
+    # The highlighted choice is a solid pill (gold Yes / red No; reverse video
+    # where colour is off) with a ▸ marker, the other one is muted. The marker
+    # survives even with no escapes at all, so the selection is never
+    # ambiguous, and both renderings are the same visible width so the \r
+    # redraw leaves no residue.
+    _wg_yes=$P_GOLD; _wg_no=$P_BAD; _wg_off=$C_MUTED; _wg_rst=$C_RST
+    if [ "$UI_COLOR" = 'none' ] && [ "$UI_TERM" != 'dumb' ]; then
+        _wg_yes=$(printf '\033[7m'); _wg_no=$_wg_yes; _wg_rst=$(printf '\033[0m')
+    fi
+    _wg_q=$(ui_text 'Would you like to install Dodaios?')
+    printf '\n     %s%s%s\n' "$C_MUTED" "$(ui_text '←/→ to choose · Enter to confirm · or press y / n')" "$C_RST" > /dev/tty
     while :; do
         if [ "$_sel" -eq 0 ]; then
-            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s%s ▸ Yes %s   %s   No  %s' \
-                "$GOLD" "$RST" "$BOLD" "$RST" "$GOLD" "$REV" "$RST" "$DIM" "$RST" > /dev/tty
+            printf '\r  %s?%s  %s%s%s   %s %s Yes %s   %s   No  %s' \
+                "$C_GOLD$C_BOLD" "$C_RST" "$C_BOLD" "$_wg_q" "$C_RST" "$_wg_yes" "$G_POINT" "$_wg_rst" "$_wg_off" "$_wg_rst" > /dev/tty
         else
-            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s   Yes %s   %s%s ▸ No  %s' \
-                "$GOLD" "$RST" "$BOLD" "$RST" "$DIM" "$RST" "$RED" "$REV" "$RST" > /dev/tty
+            printf '\r  %s?%s  %s%s%s   %s   Yes %s   %s %s No  %s' \
+                "$C_GOLD$C_BOLD" "$C_RST" "$C_BOLD" "$_wg_q" "$C_RST" "$_wg_off" "$_wg_rst" "$_wg_no" "$G_POINT" "$_wg_rst" > /dev/tty
         fi
         IFS= read -rsn1 _key < /dev/tty || return 0
         case "$_key" in
@@ -268,7 +512,7 @@ ask_welcome() {
     done
     printf '\n' > /dev/tty
     if [ "$_sel" -eq 1 ]; then
-        note 'No problem - nothing was installed. Run the same command any time.'
+        skip 'No problem: nothing was installed. Run the same command any time.'
         exit 0
     fi
 }
@@ -439,14 +683,14 @@ bootstrap_full_support_python() {
     _uv=$(command -v uv 2>/dev/null || true)
     [ -z "$_uv" ] && [ -x "$HOME/.local/bin/uv" ] && _uv="$HOME/.local/bin/uv"
     if [ -z "$_uv" ]; then
-        note "fetching a self-contained Python $(_bootstrap_target_version) (per-user, no sudo)"
-        run_spin 'downloading the uv Python manager' \
+        note "Fetching a self-contained Python $(_bootstrap_target_version) (per-user, no sudo)."
+        run_spin 'Downloading the uv Python manager' \
             sh -c 'curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh' || return 1
         _uv="$HOME/.local/bin/uv"
         [ -x "$_uv" ] || return 1
     fi
     _target=$(_bootstrap_target_version)
-    run_spin "downloading Python $_target (about 30 MB)" \
+    run_spin "Downloading Python $_target (about 30 MB)" \
         "$_uv" python install "$_target" || return 1
     _bp=$("$_uv" python find "$_target" 2>/dev/null) || return 1
     [ -x "$_bp" ] || return 1
@@ -469,7 +713,7 @@ refresh_prerequisite_state() {
         if bootstrap_full_support_python; then
             PYTHON_READY=1
             if [ "$_first_fetch" -eq 1 ]; then
-                ok "fetched self-contained Python $(_bootstrap_target_version) (per-user, no sudo)"
+                ok "Fetched a self-contained Python $(_bootstrap_target_version) (per-user, no sudo)" "${UI_LAST_SECONDS:-}"
             fi
         fi
     fi
@@ -477,10 +721,10 @@ refresh_prerequisite_state() {
     if [ "$PYTHON_READY" -eq 1 ] && [ -z "${JARVIS_PYTHON:-}" ] \
         && ! _py_full_support "$PYTHON_EXE"; then
         if bootstrap_full_support_python; then
-            ok "fetched self-contained Python $(_bootstrap_target_version) (local voice fully supported)"
+            ok "Fetched a self-contained Python $(_bootstrap_target_version) (local voice fully supported)" "${UI_LAST_SECONDS:-}"
         else
-            note 'no prebuilt local-voice packages for this Python yet - core works;'
-            note 'the speech pack needs Python 3.11-3.13 (3.12 on Intel Macs).'
+            note 'No prebuilt local-voice packages for this Python yet: the core works,'
+            note 'but the speech pack needs Python 3.11-3.13 (3.12 on Intel Macs).'
         fi
     fi
     if git_available; then GIT_READY=1; else GIT_READY=0; fi
@@ -495,7 +739,7 @@ write_prerequisite_state() {
     _show_missing="${1:-0}"
     if [ "$PYTHON_READY" -eq 1 ]; then
         _py_ver=$("$PYTHON_EXE" -c 'import sys; print("Python %d.%d.%d" % sys.version_info[:3])' 2>/dev/null || printf '%s' "$PYTHON_EXE")
-        ok "$_py_ver ($PYTHON_EXE)"
+        ok "$_py_ver" '' "$PYTHON_EXE"
     elif [ "$_show_missing" -eq 1 ]; then
         err 'Python 3.11+ not found.'
         if [ -n "$FOUND_TOO_OLD" ]; then
@@ -505,7 +749,8 @@ write_prerequisite_state() {
     fi
     if [ "$GIT_READY" -eq 1 ]; then
         _git_ver=$(git --version 2>/dev/null || printf 'git')
-        ok "$_git_ver"
+        _git_ver=${_git_ver#git version }
+        ok "Git $_git_ver"
     elif [ "$_show_missing" -eq 1 ]; then
         err 'git not found.'
     fi
@@ -785,12 +1030,12 @@ ensure_linux_desktop_tools() {
     [ "$(uname -s 2>/dev/null)" = "Linux" ] || return 0
     for _arg in "$@"; do
         if [ "$_arg" = "--headless" ]; then
-            note 'Desktop automation tools skipped (--headless).'
+            skip 'Desktop automation tools skipped (--headless).'
             return 0
         fi
     done
     if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
-        note 'No graphical session detected - skipping the desktop automation tools.'
+        skip 'No graphical session detected - skipping the desktop automation tools.'
         note 'On an X11 desktop, window control needs xdotool + wmctrl (e.g. apt install xdotool wmctrl).'
         return 0
     fi
@@ -813,7 +1058,7 @@ ensure_linux_desktop_tools() {
     fi
 
     if [ -z "$_missing_bins" ] && [ -z "$_missing_gi" ]; then
-        ok 'desktop automation tools present (xdotool, wmctrl, webview, accessibility)'
+        ok 'Desktop automation tools present (xdotool, wmctrl, webview, accessibility)'
         return 0
     fi
 
@@ -841,7 +1086,7 @@ ensure_linux_desktop_tools() {
             ;;
     esac
     if [ "$_consent" -eq 0 ]; then
-        note 'Skipped. Install later for window control, e.g.: sudo apt install xdotool wmctrl'
+        skip 'Window-control tools skipped; add them any time, e.g.: sudo apt install xdotool wmctrl'
         return 0
     fi
 
@@ -913,7 +1158,7 @@ for arg in "$@"; do
     if [ "$arg" = "--headless" ]; then skip_node=1; break; fi
 done
 if [ "$skip_node" -eq 1 ]; then
-    note 'Node.js check skipped (--headless): the cloud-only base install does not use it.'
+    skip 'Node.js check skipped (--headless): the cloud-only base install does not use it.'
 else
     node_ok=0
     if command -v node >/dev/null 2>&1; then
@@ -932,16 +1177,15 @@ else
     if [ "$node_ok" -eq 1 ]; then
         ok "Node.js $(node --version)"
     else
-        note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
+        skip 'Node.js 18+ not found: optional, Dodaios runs fine without it.'
         note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         note 'Install it any time ("brew install node" / https://nodejs.org/) and'
-        note 'add the worker later in-app.'
+        note 'add the worker later in the app.'
     fi
 fi
 
 # -------------------------------------------------------------- clone / update
-phase '2/6' 'Fetching Dodaios'
-note "$INSTALL_DIR"
+phase '2/6' 'Download'
 
 # On a terminal, git paints its own "Receiving objects: NN%" progress so a
 # slow download never looks hung (maintainer report 2026-07-15); a piped/CI
@@ -966,30 +1210,47 @@ export GIT_LFS_SKIP_SMUDGE
 # Restyle git's raw transfer chatter into the installer's visual grammar
 # (maintainer request 2026-07-18: phases 1-2 look polished, then raw
 # "Cloning into ... / remote: Enumerating ..." breaks the look). Pure
-# bookkeeping lines are dropped, live progress collapses into ONE
-# self-updating gutter line (percent + volume + speed stay visible), and
-# every error/unknown line still comes through - restyled, never swallowed.
+# bookkeeping lines are dropped, live progress becomes ONE self-redrawing
+# line with a bar (percent, volume and speed stay visible), and every
+# error/unknown line still comes through - restyled, never swallowed.
 git_stream_pretty() {
-    tr '\r' '\n' | awk -v gut="$GUT" -v dim="$DIM" -v gold="$GOLD" -v red="$RED" -v rst="$RST" '
-        function endlive() { if (live) { printf "\n"; live = 0 } }
-        function liveline(label, line,   pct, tail) {
-            pct = ""
-            if (match(line, /[0-9]+% \([0-9]+\/[0-9]+\)/)) pct = substr(line, RSTART, RLENGTH)
-            else if (match(line, /[0-9]+%/)) pct = substr(line, RSTART, RLENGTH)
-            tail = ""
-            if (match(line, /[0-9.]+ [KMGT]?iB \| [0-9.]+ [KMGT]?iB\/s/))
-                tail = "  " dim substr(line, RSTART, RLENGTH) rst
-            printf "\r%s    %s%s%s %s%s%s%s        ", gut, dim, label, rst, gold, pct, rst, tail
+    if [ "$UI_COLOR" = 'none' ]; then _git_track='-'; else _git_track=$G_BAR; fi
+    [ "$UI_GLYPHS" = 'full' ] && [ "$UI_COLOR" = 'none' ] && _git_track='─'
+    # Records end at a carriage return (git redraws its progress with \r) and
+    # each one is split on newlines here, in awk itself: a `tr` in front
+    # would hold the stream in its pipe buffer and the bar would stall.
+    awk -v RS='\r' -v gold="$C_GOLD" -v muted="$C_MUTED" -v bad="$C_BAD" -v rst="$C_RST" \
+        -v rail="$G_RAIL" -v fill="$G_BAR" -v track="$_git_track" -v frames="${UI_SPIN_FRAMES[*]}" '
+        BEGIN { nframes = split(frames, frame, " ") }
+        function endlive() { if (live) { printf "\r\033[K"; live = 0 } }
+        function liveline(label, line,   pct, extra, n, done_, i, bar, rest) {
+            pct = 0
+            if (match(line, /[0-9]+%/)) pct = substr(line, RSTART, RLENGTH - 1) + 0
+            extra = ""
+            if (match(line, /[0-9.]+ [KMGT]?iB \| [0-9.]+ [KMGT]?iB\/s/)) {
+                extra = substr(line, RSTART, RLENGTH)
+                sub(/ \| /, "  ", extra)
+            }
+            n = 24
+            done_ = int(pct * n / 100)
+            bar = ""; for (i = 0; i < done_; i++) bar = bar fill
+            rest = ""; for (i = done_; i < n; i++) rest = rest track
+            tick++
+            printf "\r\033[K     %s%s%s  %-13s %s%s%s%s%s  %3d%%  %s%s%s", gold, frame[(tick % nframes) + 1], rst, label, gold, bar, muted, rest, rst, pct, muted, extra, rst
             fflush(); live = 1
-            if (line ~ /done\.?$/) endlive()
         }
-        /^(Cloning into|remote: (Enumerating|Counting|Compressing|Total)|Checking connectivity)/ { next }
-        /^$/ { next }
-        /^Receiving objects:/ { liveline("downloading", $0); next }
-        /^Resolving deltas:/  { liveline("unpacking  ", $0); next }
-        /^Updating files:/    { liveline("writing    ", $0); next }
-        /^(error|fatal):/ { endlive(); printf "%s    %s%s%s\n", gut, red, $0, rst; fflush(); next }
-        { endlive(); printf "%s    %s%s%s\n", gut, dim, $0, rst; fflush() }
+        function one(line) {
+            if (line == "" || line ~ /^(Cloning into|remote: (Enumerating|Total)|Checking connectivity)/) return
+            if (line ~ /^remote: (Counting|Compressing) objects:/) { liveline("Preparing", line); return }
+            if (line ~ /^Receiving objects:/) { liveline("Downloading", line); return }
+            if (line ~ /^Resolving deltas:/) { liveline("Unpacking", line); return }
+            if (line ~ /^Updating files:/) { liveline("Writing files", line); return }
+            endlive()
+            if (line ~ /^(error|fatal):/) printf "     %s%s%s  %s\n", bad, rail, rst, line
+            else printf "        %s%s%s\n", muted, line, rst
+            fflush()
+        }
+        { n = split($0, part, "\n"); for (i = 1; i <= n; i++) one(part[i]) }
         END { endlive() }
     ' >&2
 }
@@ -1039,7 +1300,7 @@ ref_archive_path() {
 # --- install-ref end
 
 clone_with_retry() {
-    note 'downloading ~80 MB - a few minutes on slow connections'
+    note 'About 80 MB: a few minutes on a slow connection.'
     _attempt=1
     while :; do
         # Attempt 1 uses git's default transport; later attempts force
@@ -1054,11 +1315,11 @@ clone_with_retry() {
         fi
         rm -rf "$INSTALL_DIR" 2>/dev/null || true
         if [ "$_attempt" -ge 3 ]; then
-            note 'git could not finish the download on this network (3 attempts).'
+            warn 'git could not finish the download on this network (3 attempts).'
             return 1
         fi
         _attempt=$((_attempt + 1))
-        note "connection dropped mid-download - retrying ($_attempt/3, compatibility transfer mode) ..."
+        warn "The download did not finish: retrying ($_attempt/3, compatibility transfer mode)."
         sleep 3
     done
 }
@@ -1093,7 +1354,7 @@ tarball_fallback() {
         _snapshot_url="https://codeload.github.com/$_repo_path/tar.gz/$JARVIS_PAYLOAD_COMMIT"
     fi
     _tmp="${INSTALL_DIR%/}.payload.tar.gz"
-    note 'git transfer keeps stalling on this network - switching to a resumable archive download'
+    warn 'The git transfer keeps stalling on this network: switching to a resumable archive download.'
     _got=''
     for _asset_name in $_asset_names; do
         # A partial download of one archive must never be resumed as another.
@@ -1138,9 +1399,9 @@ fetch_payload() {
     if clone_with_retry || tarball_fallback; then
         return 0
     fi
-    err 'the download kept failing (connection dropped mid-transfer).'
-    note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the'
-    note 'installer - it is safe to re-run and picks up where it makes sense.'
+    err 'The download kept failing (the connection dropped mid-transfer).'
+    note 'Check your internet connection (Wi-Fi, VPN, proxy), then run the installer'
+    note 'again. It is safe to re-run and picks up where it makes sense.'
     return 1
 }
 
@@ -1174,7 +1435,7 @@ salvage_reclone() {
         esac
     fi
     if [ "$_reachable" -ne 1 ]; then
-        err 'cannot reach the download server right now - nothing was changed.'
+        err 'Cannot reach the download server right now; nothing was changed.'
         note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
         exit 1
     fi
@@ -1182,7 +1443,7 @@ salvage_reclone() {
     # --- salvage-guard end
     stale_backup="${INSTALL_DIR%/}.stale-$(date +%Y%m%d-%H%M%S)"
     if ! mv "$INSTALL_DIR" "$stale_backup"; then
-        err "cannot move the broken install dir aside ($INSTALL_DIR -> $stale_backup)."
+        err "Cannot move the broken install folder aside ($INSTALL_DIR -> $stale_backup)."
         note 'Close any program using that folder (or move it yourself), then re-run.'
         exit 1
     fi
@@ -1215,7 +1476,7 @@ salvage_reclone() {
         fi
     done
     # --- salvage-copy end
-    ok 'reinstalled fresh (previous state preserved in the backup dir)'
+    ok 'Reinstalled fresh (your previous state is kept in the backup folder)'
 }
 
 # A checkout cloned before the GitHub rename still stores the old origin. Git
@@ -1350,7 +1611,8 @@ migrate_install_dir() {
 }
 
 resolve_install_ref
-note "installing $BRANCH"
+note "Release $BRANCH into $INSTALL_DIR"
+_fetch_t0=$SECONDS
 
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
@@ -1363,7 +1625,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
         && migrate_install_dir \
         && git -C "$INSTALL_DIR" checkout --quiet --detach FETCH_HEAD \
         && git -C "$INSTALL_DIR" reset --quiet --hard FETCH_HEAD; then
-        ok 'updated existing checkout to latest'
+        ok "Updated the install to $BRANCH" $((SECONDS - ${_fetch_t0:-$SECONDS}))
     else
         note 'existing checkout would not update (broken git state) - reinstalling in place.'
         salvage_reclone
@@ -1373,7 +1635,7 @@ elif [ -e "$INSTALL_DIR" ]; then
     salvage_reclone
 else
     fetch_payload || exit 1
-    ok 'downloaded'
+    ok "Downloaded Dodaios $BRANCH" $((SECONDS - ${_fetch_t0:-$SECONDS}))
 fi
 
 # WAVE 5 — payload-commit pin (axis E, Wave-5 audit Finding 2).
@@ -1477,28 +1739,29 @@ if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
         fi
     fi
 fi
+UI_LAST_SECONDS=0
 if [ ! -x "$VENV_PYTHON" ]; then
     if [ "$(uname -s 2>/dev/null)" = "Linux" ] && [ "$_venv_isolated" -eq 0 ]; then
-        run_spin 'creating the virtual environment'             "$PYTHON_EXE" -m venv --system-site-packages "$VENV_PATH"
+        run_spin 'Virtual environment' "$PYTHON_EXE" -m venv --system-site-packages "$VENV_PATH"
     else
-        run_spin 'creating the virtual environment'             "$PYTHON_EXE" -m venv "$VENV_PATH"
+        run_spin 'Virtual environment' "$PYTHON_EXE" -m venv "$VENV_PATH"
     fi
 fi
-ok 'virtual environment ready'
+ok 'Virtual environment ready' "$UI_LAST_SECONDS"
 
-run_spin 'installing bootstrap dependencies (rich, packaging)' \
-    "$VENV_PYTHON" -m pip install --quiet --upgrade pip rich packaging
-ok 'bootstrap dependencies ready'
+# installer.py itself needs only the standard library and this checkout
+# until its own phase 4 has run; an up-to-date pip installs that phase.
+run_spin 'Installer tools (pip, packaging)' \
+    "$VENV_PYTHON" -m pip install --quiet --upgrade pip packaging
+ok 'Installer tools ready (pip, packaging)' "$UI_LAST_SECONDS"
 
 # -------------------------------------------------------------- hand off
 INSTALLER_PY="$INSTALL_DIR/install/installer.py"
 if [ ! -f "$INSTALLER_PY" ]; then
-    err "$INSTALLER_PY not found in the clone."
-    note 'The repo seems incomplete. File a bug.'
+    err "$INSTALLER_PY not found in the download."
+    note 'The download seems incomplete. Please file a bug.'
     exit 1
 fi
-
-note 'handing over to the Python installer (phases 4-6)'
 
 # The LFS skip is for this script's own git calls only. Drop it before the
 # hand-off so the app installer.py launches (and every git it runs in the
