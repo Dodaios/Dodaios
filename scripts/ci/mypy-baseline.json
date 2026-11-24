@@ -1,5 +1,4 @@
 {
-  "conductor": 7,
   "dodaios.admin": 24,
   "dodaios.agent_chat": 155,
   "dodaios.agent_runtimes": 45,
@@ -18,8 +17,7 @@
   "dodaios.realtime": 21,
   "dodaios.skills": 53,
   "dodaios.society": 57,
-  "dodaios.speech": 63,
-  "dodaios.ui": 645,
-  "dodaios.voice_engine": 16,
-  "ui": 21
+  "dodaios.speech": 50,
+  "dodaios.ui": 643,
+  "dodaios.voice_engine": 16
 }
