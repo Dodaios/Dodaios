@@ -70,3 +70,14 @@ request only when the person asked to see it before it merges.
 An agent never passes `--run-untrusted-code`. When `dev_preview.py` refuses a
 pull request, read its diff, say what it does and what you could not check,
 and leave running it to the person.
+
+## Smoke check of the loaded app
+
+After a preview is up, `python scripts/smoke_app.py` runs ten checks in the Dev
+window over its debugging port: the window loads, the lead chat takes a
+message, a thread opens, the Agentic IDE shows a pane, the dictation and voice
+status endpoints answer, and the Nodes, Settings, Plugins and Agents views
+open. Each check prints PASS, FAIL or SKIP (nothing to check, for example no
+thread yet). A FAIL saves a screenshot under `logs/smoke_app/<time>/`. The
+script only talks to the Dev app (`data-dev`); it exits 2 when none is
+running. `--only <text>` runs the checks whose name contains the text.

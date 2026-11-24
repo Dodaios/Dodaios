@@ -21,3 +21,7 @@ assets/demo/readme/dodaios-demo.gif
 # Built frontend bundle: rebuilt by the bot on main; the ONNX runtime and the
 # editor workers are large by nature.
 dodaios/ui/web/dist/*
+
+# Synthetic machine-voice clips (130 KB in total) the dictation replay benchmark feeds
+# through the real take; no personal recordings.
+scripts/bench/data/*.wav
