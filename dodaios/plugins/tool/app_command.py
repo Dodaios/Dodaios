@@ -293,17 +293,13 @@ class RegistryCommandTool:
         self.risk_tier: str = "ask" if command.dangerous else "monitor"
         narrowed = _ONLY_ASKS_FOR.get(command.id)
         note = (
-            f" Requires the user's spoken confirmation when {narrowed[0]} is "
+            f" Asks the user to confirm when {narrowed[0]} is "
             f"{' or '.join(sorted(narrowed[1]))}."
             if command.dangerous and narrowed
-            else " Requires the user's spoken confirmation before it runs."
+            else " Asks the user to confirm first."
             if command.dangerous else ""
         )
-        self.description: str = (
-            f"{command.description}{note} Executes the app's own validated "
-            f"endpoint ({command.method} {command.path}); report the result "
-            "the tool returns, never your assumption."
-        )
+        self.description: str = f"{command.description}{note}"
         self.schema: dict[str, Any] = command.params or {
             "type": "object", "properties": {},
         }

@@ -268,26 +268,13 @@ def _part2() -> tuple[AppCommand, ...]:
             id="agentic-ide-spawn-terminals",
             title="Open more Agentic-IDE terminals",
             description=(
-                "Open one or more additional coding terminals in the open "
-                "workspace, WITHOUT giving them work. Use this only when the "
-                "user asks for bare terminal panes ('spawn five new Claude Code "
-                "terminals', 'open two more Codex terminals') — that is a "
-                "request for workspace panes in the grid, never for a background "
-                "worker. A new coding AGENT, and any new agent that is meant to DO "
-                "something, is workspace-orchestrate create (with a prompt) instead: "
-                "it opens and briefs them in one step, as chat threads unless the "
-                "user asked for a terminal or the grid. Pass count, and agent only "
-                "when the user named one — "
-                "the accepted ids are listed on the parameter itself, and it is "
-                "the only list that is right for this install. Omitted, the new "
-                "panes run whatever the "
-                "last pane runs. Their call-signs are their positions in the "
-                "grid (T1, T2, …), assigned by the workspace — "
-                "the reply's names are the only way to address them, and calling "
-                "this again never produces a name you picked. "
-                "CHECK THE REPLY: 'capped' true means the workspace maximum cut "
-                "the request short — say how many actually opened and name them, "
-                "never report the full number as done."
+                "Open bare coding terminal panes in the open workspace, without work: only "
+                "when the user asks for terminals ('open two more Codex terminals'). A new "
+                "agent meant to do something is workspace-orchestrate create instead. Pass "
+                "count, and agent only when the user named one; omitted, the panes run what "
+                "the last pane runs. Call-signs (T1, T2, ...) are assigned by the workspace: "
+                "address the panes by the reply's names. If 'capped' is true the workspace "
+                "maximum cut the request short: say how many opened."
             ),
             method="POST",
             path="/api/agentic-ide/terminals/batch",
@@ -322,11 +309,8 @@ def _part2() -> tuple[AppCommand, ...]:
             id="agentic-ide-rename-terminal",
             title="Rename an Agentic-IDE terminal",
             description=(
-                "Give one running terminal another call-sign without restarting "
-                "its agent or losing its conversation. Use it when the user asks "
-                "to rename a pane, for example 'rename T1 to Frontend'. The old "
-                "call-sign must name a terminal that is already open, and the new "
-                "one must be unique inside that workspace."
+                "Rename one open terminal, keeping its agent and conversation ('rename T1 "
+                "to Frontend'). The new name must be unique in the workspace."
             ),
             method="PATCH",
             path="/api/agentic-ide/terminals/{terminal}",
@@ -358,15 +342,10 @@ def _part2() -> tuple[AppCommand, ...]:
             id="agentic-ide-move-terminal",
             title="Move an Agentic-IDE terminal in the grid",
             description=(
-                "Rearrange the open workspace: put one terminal at another "
-                "one's place. Nothing is started or stopped — the panes keep "
-                "their agents and their conversations, only where they are "
-                "drawn changes. Use it for 'swap Mika and Nova', 'put Mika "
-                "next to Nova', 'move Mika under Nova'. "
-                "'swap' exchanges the two panes and leaves the rest of the grid "
-                "alone; 'left'/'right' give the moved pane its own column beside "
-                "the target; 'above'/'below' stack it in the target's column. "
-                "Both names must be terminals that are already open."
+                "Rearrange the grid: put one open terminal at another's place; nothing "
+                "starts or stops ('swap Mika and Nova', 'move Mika under Nova'). swap "
+                "exchanges the panes; left/right give the moved pane its own column beside "
+                "the target; above/below stack it in the target's column."
             ),
             method="POST",
             path="/api/agentic-ide/terminals/{name}/move",
@@ -460,17 +439,11 @@ def _part2() -> tuple[AppCommand, ...]:
             id="agentic-ide-resume",
             title="Resume the last Agentic-IDE workspace",
             description=(
-                "Reopen the coding workspace that was last open: the same "
-                "folder, the same named terminals in the same grid positions, "
-                "running the same coding CLIs — and continuing the same "
-                "conversations wherever that CLI supports it. Use this when the "
-                "user asks for their terminals or their coding session back "
-                "after closing the window, restarting the app, or rebooting. "
-                "CHECK THE REPLY: 'resumable_count' is how many panes actually "
-                "continued their conversation and 'started_fresh' how many "
-                "reopened empty. Name the empty ones — an agent that lost its "
-                "history looks exactly like one that did not until it is asked "
-                "a follow-up question."
+                "Reopen the last coding workspace: same folder, named terminals, grid "
+                "positions and CLIs, continuing conversations where the CLI supports it. Use "
+                "when the user wants their terminals back after a close or restart. Check "
+                "the reply: 'resumable_count' continued, 'started_fresh' reopened empty; "
+                "name the empty ones."
             ),
             method="POST",
             path="/api/agentic-ide/resume",

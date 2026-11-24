@@ -77,12 +77,9 @@ class HomeAssistantRestTool:
     name: str = "home_assistant"
     risk_tier: str = "ask"
     description: str = (
-        "Control and read the user's Home Assistant smart home: list devices, "
-        "read the state of one device, or call a service to act on it. Use for "
-        "'turn the living room lights off', 'is the garage door still open', "
-        "'set the heating to 21 degrees', 'what is the temperature in the "
-        "bedroom'. Actions: list_entities, get_state, call_service. Requires "
-        "the Home Assistant plugin to be connected in the Plugins view."
+        "Control and read the user's Home Assistant smart home ('turn the living room lights "
+        "off', 'is the garage door open', 'set the heating to 21'). Actions: list_entities, "
+        "get_state, call_service. Needs the Home Assistant plugin connected."
     )
     schema: dict[str, Any] = {
         "type": "object",

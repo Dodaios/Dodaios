@@ -25,21 +25,17 @@ class WorkspaceGitTool:
     risk_tier = "monitor"
     is_action_tool = True
     description = (
-        "Git for a coding workspace. state: branch, ahead/behind and the changed files. "
-        "worktrees: its checkouts and the archived ones. pull_requests: the open pull "
-        "requests and the ones of its branches, with their checks, review and merge-queue "
-        "state (here marks the checked-out branch's). worktree_create: a new worktree on "
-        "branch (a new branch from base, or an existing one); only when the user asks for a "
-        "worktree. worktree_archive: put a worktree away (name it by branch or folder) with "
-        "its uncommitted work saved; the branch and its commits stay. Ignored files are not "
-        "saved: it refuses while there are any and names them; pass drop_ignored only "
-        "after the user agreed to lose them. worktree_restore: "
-        "bring an archived worktree back at its old path. commit: stage everything that is "
-        "not ignored and commit with message. push: the checked-out branch, or branch. "
-        "pull_request: push if needed and open one (title, draft). Name the workspace as in "
-        "workspace-orchestrate (workspace or workspace_id); without one the visible workspace "
-        "is used. A refusal carries git's own reason and changed nothing: pass it on. Say the "
-        "result in a sentence and never read out file lists unless the user asks."
+        "Git for a coding workspace. state: branch, ahead/behind, changed files. worktrees: "
+        "checkouts and archived ones. pull_requests: open pull requests of its branches with "
+        "checks, review and merge-queue state. worktree_create: a worktree on branch (new "
+        "from base, or existing); only when the user asks. worktree_archive: put a worktree "
+        "away (by branch or folder) with its uncommitted work saved; it refuses while "
+        "ignored files exist and names them: pass drop_ignored only after the user agreed to "
+        "lose them. worktree_restore: bring one back. commit: stage all non-ignored files "
+        "and commit with message. push: the checked-out branch, or branch. pull_request: "
+        "push if needed and open one (title, draft). Name the workspace as in "
+        "workspace-orchestrate, else the visible one is used. A refusal carries git's own "
+        "reason and changed nothing: pass it on. Answer in a sentence, no file lists unless asked."
     )
     schema = {
         "type": "object",
