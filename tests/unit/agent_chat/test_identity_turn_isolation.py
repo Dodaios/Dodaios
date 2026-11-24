@@ -19,10 +19,15 @@ from dodaios.core import runtime_refs
 @pytest.fixture(autouse=True)
 def _app(monkeypatch):
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
+    monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok"])
+    monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
     monkeypatch.setattr(runner_cli.codex, "read_codex_models", lambda **_: None)
+    monkeypatch.setattr(runner_cli, "read_codex_models", lambda **_: None)
     monkeypatch.setattr(runner_cli.base, "_registry_env", lambda agent, base: dict(base))
+    monkeypatch.setattr(runner_cli, "_registry_env", lambda agent, base: dict(base))
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     yield
@@ -144,6 +149,7 @@ def test_the_seats_without_a_flag_for_it_plan_no_unknown_options(
             f"{prefix}_argv_prefix",
             lambda p=prefix: [p],
         )
+        monkeypatch.setattr(runner_cli, f"{prefix}_argv_prefix", lambda p=prefix: [p])
     monkeypatch.setattr(
         runner_cli.dodaios_harness, "install_agy_jarvis_plugin", lambda *a, **k: None
     )

@@ -409,6 +409,7 @@ def test_claude_code_reads_the_catch_up_in_front_of_a_resumed_turn(monkeypatch, 
     from dodaios.agent_chat.dodaios_harness import Identity
 
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: None)
 
     def planned(identity, resume):

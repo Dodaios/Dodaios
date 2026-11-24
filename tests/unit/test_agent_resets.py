@@ -43,6 +43,7 @@ def rpc(monkeypatch):
     fake = FakeResetRpc(payload())
     monkeypatch.setattr(native_control, "GoalRpc", fake.factory)
     monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["fake-codex"])
+    monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["fake-codex"])
     return fake
 
 

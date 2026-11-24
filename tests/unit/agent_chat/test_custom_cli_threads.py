@@ -17,8 +17,11 @@ def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(custom_clis, "workspace_clis_dir", lambda: root)
     monkeypatch.setattr(custom_clis, "workspace_clis_path", lambda: root / "custom.json")
     monkeypatch.setattr(rc.base, "_which", lambda *names: f"/bin/{names[0]}")
+    monkeypatch.setattr(rc, "_which", lambda *names: f"/bin/{names[0]}")
     monkeypatch.setattr(rc.base, "_account_env", lambda platform: {"BASE": "1"})
+    monkeypatch.setattr(rc, "_account_env", lambda platform: {"BASE": "1"})
     monkeypatch.setattr(rc.base, "_registry_env", lambda agent, base: dict(base))
+    monkeypatch.setattr(rc, "_registry_env", lambda agent, base: dict(base))
     yield
 
 
@@ -83,6 +86,7 @@ def test_missing_entry_or_binary_is_unavailable(monkeypatch: pytest.MonkeyPatch)
         rc.plan_custom_cli(provider="custom-gone", prompt="x", cwd=Path("."))
     entry = custom_clis.create_custom_cli("Nope", "nope", headless_command="nope {prompt}")
     monkeypatch.setattr(rc.base, "_which", lambda *names: None)
+    monkeypatch.setattr(rc, "_which", lambda *names: None)
     with pytest.raises(rc.CliUnavailable):
         rc.plan_custom_cli(provider="custom-" + entry.id, prompt="x", cwd=Path("."))
 

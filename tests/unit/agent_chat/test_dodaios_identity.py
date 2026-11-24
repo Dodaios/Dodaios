@@ -128,6 +128,7 @@ def _identity(tmp_path: Path) -> dodaios_harness.Identity:
 
 def test_claude_takes_the_identity_as_a_file_and_names_the_session(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_claude(
@@ -150,6 +151,7 @@ def test_claude_takes_the_identity_as_a_file_and_names_the_session(monkeypatch, 
 
 def test_claude_without_identity_spawns_exactly_as_before(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_claude(
@@ -167,6 +169,7 @@ def test_a_coding_thread_may_spawn_sub_agents(monkeypatch, tmp_path: Path):
     Claude Code refuse the sub-agents the person had asked for (2026-11-02).
     """
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_claude(
@@ -186,6 +189,7 @@ def test_a_coding_thread_may_spawn_sub_agents(monkeypatch, tmp_path: Path):
 
 def test_an_identity_without_a_file_keeps_the_assistant_rule(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     ident = dodaios_harness.Identity(session_id="sess-1", text="x", compact="x", path=None)
@@ -204,7 +208,9 @@ def test_an_identity_without_a_file_keeps_the_assistant_rule(monkeypatch, tmp_pa
 
 def test_codex_gets_the_identity_on_stdin_and_the_session_header(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
+    monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli.codex, "read_codex_models", lambda: None)
+    monkeypatch.setattr(runner_cli, "read_codex_models", lambda: None)
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_codex(
@@ -235,6 +241,7 @@ def test_codex_gets_the_identity_on_stdin_and_the_session_header(monkeypatch, tm
 
 def test_grok_takes_the_compact_identity_on_argv(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok"])
+    monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
     plan = runner_cli.plan_grok(
         prompt="hi",
         cwd=tmp_path,
@@ -254,6 +261,7 @@ def test_grok_takes_the_compact_identity_on_argv(monkeypatch, tmp_path: Path):
 
 def test_grok_plan_mode_does_not_auto_approve(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok"])
+    monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
     plan = runner_cli.plan_grok(
         prompt="hi",
         cwd=tmp_path,
@@ -270,6 +278,7 @@ def test_grok_plan_mode_does_not_auto_approve(monkeypatch, tmp_path: Path):
 
 def test_grok_with_identity_writes_a_project_mcp_config(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok"])
+    monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     (tmp_path / ".grok").mkdir()
@@ -312,6 +321,7 @@ def test_grok_with_identity_writes_a_project_mcp_config(monkeypatch, tmp_path: P
 
 def test_agy_takes_the_identity_on_stdin(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.agy, "agy_argv_prefix", lambda: ["agy"])
+    monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli.agy, "_agy_catalog_cached", lambda: None)
     plan = runner_cli.plan_agy(
         prompt="hi",
@@ -327,6 +337,7 @@ def test_agy_takes_the_identity_on_stdin(monkeypatch, tmp_path: Path):
 
 def test_agy_with_identity_drops_a_workspace_plugin(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli.agy, "agy_argv_prefix", lambda: ["agy"])
+    monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli.agy, "_agy_catalog_cached", lambda: None)
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
