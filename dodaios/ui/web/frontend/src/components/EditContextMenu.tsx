@@ -241,13 +241,13 @@ export function EditContextMenu() {
       ))}
       {showEdit && groups.length > 0 && <MenuDivider />}
       {showEdit && <>
-      <MenuItem
+      {menu.snapshot.kind !== "terminal" && <MenuItem
         icon={Scissors}
         label={t("edit_menu.cut")}
         shortcut="Ctrl+X"
         disabled={!caps.canCut}
         onSelect={() => void run("cut")}
-      />
+      />}
       <MenuItem
         icon={Copy}
         label={t("edit_menu.copy")}
