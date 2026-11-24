@@ -619,6 +619,11 @@ async def _run_headless(args) -> int:
     # PID-sidecar in acquire_single_instance_lock.
     if _service_lock is None:
         _headless_lock = _claim_headless_primary_lock(args, port=_port)
+        if _headless_lock is not None:
+            from dodaios.ui import always_on
+
+            # A supervisor of "Always reachable" stands by while this serves.
+            always_on.claim_for_this_process(_port)
     else:
         _write_service_sidecar(_port, persistent=getattr(args, "persistent_server", False))
     _lx_mark("lock")
@@ -1010,11 +1015,12 @@ async def _run_headless(args) -> int:
                 _logging.getLogger(__name__).debug(
                     "headless sidecar cleanup failed on shutdown: %s", exc
                 )
+            from dodaios.ui import always_on
+
+            always_on.release()
             if _service_lock is not None:
-                from dodaios.ui import always_on
                 from dodaios.core.background_service import clear_marker
 
-                always_on.release()
                 clear_marker()
             try:
                 _headless_lock.release()
@@ -1140,8 +1146,8 @@ def _write_service_sidecar(port: int, *, persistent: bool = False) -> None:
     """The service's marker plus the instance sidecar a desktop launch reads."""
     from loguru import logger
 
-    from dodaios.ui import always_on
     from dodaios.core import background_service as bg
+    from dodaios.ui import always_on
 
     # Seen by daemonkit's supervisor: it stands by while this server runs.
     always_on.claim_for_this_process(port)
@@ -2000,15 +2006,39 @@ def _run_desktop(cfg, use_lock: bool) -> int:
     # boot marks the primary's in-flight missions as crash_recovery and kills
     # live work. The server reads JARVIS_PRIMARY_INSTANCE in _init_mission_stack.
     os.environ["JARVIS_PRIMARY_INSTANCE"] = "1" if lock is not None else "0"
+    if lock is not None:
+        _claim_for_always_on(cfg)
 
     try:
         return DesktopApp(cfg).run()
     finally:
         if lock is not None:
+            from dodaios.ui import always_on
+
+            always_on.release()
             try:
                 lock.release()
             except Exception:
                 pass
+
+
+def _claim_for_always_on(cfg) -> None:
+    """Hold daemonkit's lock while this window owns the agents.
+
+    With "Always reachable" installed (dodaios/ui/always_on.py) its supervisor
+    then stands by instead of starting servers that cannot get the app lock,
+    and takes over once this window is gone. A thread, so the boot does not
+    wait for it.
+    """
+    import threading
+
+    from dodaios.ui import always_on
+
+    ui = getattr(cfg, "ui", None)
+    port = int(getattr(ui, "admin_api_port", always_on.DEFAULT_PORT) or always_on.DEFAULT_PORT)
+    threading.Thread(
+        target=always_on.claim_for_this_process, args=(port,), name="always-on-claim", daemon=True
+    ).start()
 
 
 def _serve_bootstrap_with_retry(

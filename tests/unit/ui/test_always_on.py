@@ -255,3 +255,19 @@ def test_route_reports_an_os_refusal(
     response = _client(_cfg()).put("/api/settings/background", json={"always_on": True})
     assert response.status_code == 409
     assert "refused by the OS" in response.json()["detail"]
+
+
+def test_an_integrated_window_holds_the_lock_so_a_supervisor_waits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dodaios.ui.web import launcher
+
+    ports: list[int] = []
+    monkeypatch.setattr(always_on, "claim_for_this_process", ports.append)
+    launcher._claim_for_always_on(_cfg(port=47555))
+    import threading
+
+    for thread in threading.enumerate():
+        if thread.name == "always-on-claim":
+            thread.join(5)
+    assert ports == [47555]
