@@ -287,7 +287,7 @@ skill-disable
 Switch an installed skill OFF by name — it stops firing on its trigger phrase and schedule but stays installed. Use the exact skill name; list the skills first when unsure.
 
 skill-enable
-Switch an installed skill ON by name — this is how a draft the assistant just wrote (create-skill) or a disabled skill starts firing on its trigger phrase and schedule. Use the exact skill name; list the skills first when unsure.
+Switch an installed skill ON by name — this is how a draft the assistant just wrote (create-skill) or a disabled skill starts firing on its trigger phrase and schedule. Use the exact skill name; list the skills first when unsure. Asks the user to confirm first.
 
 skills-list
 List the installed skills with their state (active, draft, disabled) and what starts each one. Use this when the user asks which skills they have or which are drafts / switched off.

@@ -79,7 +79,10 @@ def test_text_matches_snapshot(name: str, request: pytest.FixtureRequest) -> Non
         pytest.fail(
             f"The text a model reads changed: {name}\n{diff}\n"
             f"If the change is deliberate, regenerate with:\n    {REGEN}\n"
-            "(or set DODAIOS_UPDATE_MODEL_TEXTS=1) and commit the snapshots.",
+            "(or set DODAIOS_UPDATE_MODEL_TEXTS=1) and commit the snapshots.
+"
+            "A PR that changes a tool description or prompt text regenerates these "
+            "snapshots in the same PR.",
             pytrace=False,
         )
 

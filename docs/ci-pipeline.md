@@ -200,6 +200,16 @@ runs every gate with `--update` daily and opens one bot pull request
 in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
 `except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
 
+### Model-text snapshots
+
+`tests/unit/model_texts/` renders every text a model reads (the lead's system
+prompt, the per-message lines, the agent-brief texts, the lead's tool
+descriptions and schemas) and compares it with `tests/snapshots/model_texts/`.
+A text that grows by more than 10 % against `summary.json` fails until the
+summary is regenerated. A PR that changes a tool description or prompt text
+regenerates these snapshots in the same PR:
+`python -m pytest tests/unit/model_texts --update-model-texts`.
+
 ### Flaky tests
 
 A file that fails inside its batch and passes when re-run alone is reported
