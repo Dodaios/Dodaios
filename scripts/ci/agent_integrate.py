@@ -51,6 +51,7 @@ import importlib.util
 import json
 import os
 import py_compile
+import re
 import shlex
 import shutil
 import subprocess
@@ -414,14 +415,14 @@ def carried_package_move(onto: str, cwd: Path = REPO_ROOT) -> str | None:
     return _move_commit(onto, cwd) or None
 
 
-def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
+def package_move(onto: str, cwd: Path = REPO_ROOT, head: str = "HEAD") -> tuple[str, str] | None:
     """``(last commit before the move, the move commit)`` when ``onto`` has
-    renamed the package directory and HEAD has not; ``None`` in every other
-    case - which is every case until that rename lands on main."""
+    renamed the package directory and ``head`` has not; ``None`` in every
+    other case - which is every case until that rename lands on main."""
     new_init = f"{NEW_PACKAGE}/__init__.py"
-    if not _in_tree(onto, new_init, cwd) or _in_tree("HEAD", new_init, cwd):
+    if not _in_tree(onto, new_init, cwd) or _in_tree(head, new_init, cwd):
         return None
-    if not _in_tree("HEAD", f"{OLD_PACKAGE}/__init__.py", cwd):
+    if not _in_tree(head, f"{OLD_PACKAGE}/__init__.py", cwd):
         return None
     move = _move_commit(onto, cwd)
     if not move or not _in_tree(move, RENAME_SCRIPT, cwd):
@@ -431,6 +432,23 @@ def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
     if not before or _in_tree(before, new_init, cwd):
         return None
     return before, move
+
+
+def update_base(head: str, main_sha: str, cwd: Path = REPO_ROOT) -> str:
+    """The commit of main that an update of ``head`` builds on in one tick.
+
+    That is ``main_sha``; for a branch from before the package move that does
+    not hold the last commit before that move yet, it is that commit (the
+    next tick replays the move, see ``merge_main_into``). Read from main's
+    history and the planned head alone, so the apply job can work out what an
+    update must contain without believing the job that prepared it.
+    """
+    moved = package_move(main_sha, cwd, head)
+    if moved:
+        held = git("merge-base", "--is-ancestor", moved[0], head, check=False, cwd=cwd)
+        if held.returncode != 0:
+            return moved[0]
+    return main_sha
 
 
 def _git_bytes(
@@ -718,9 +736,27 @@ def run_state(runs: list[dict]) -> tuple[str, int | None]:
     return "failure", run_id
 
 
+def own_runs(runs: list[dict], repo: str) -> list[dict]:
+    """The workflow runs that started from ``repo`` itself.
+
+    A listing by head commit also returns the runs of a fork's pull request
+    that points at the same commit. They say nothing about this repository's
+    pull request, and the train must neither read its verdict from them nor
+    approve or re-run them. A run that names no repository is not counted.
+    """
+    wanted = repo.casefold()
+    return [
+        run
+        for run in runs
+        if isinstance(run, dict)
+        and str((run.get("head_repository") or {}).get("full_name") or "").casefold() == wanted
+    ]
+
+
 def gate_runs(repo: str, sha: str) -> list[dict]:
     data = gh_json("api", f"repos/{repo}/actions/workflows/ci.yml/runs?head_sha={sha}&per_page=50")
-    return (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    runs = (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    return own_runs(runs, repo)
 
 
 def gate_state(repo: str, sha: str) -> tuple[str, int | None]:
@@ -752,7 +788,8 @@ def queue_group_runs(repo: str) -> list[dict]:
     data = gh_json(
         "api", f"repos/{repo}/actions/workflows/ci.yml/runs?event=merge_group&per_page=100"
     )
-    return (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    runs = (data or {}).get("workflow_runs", []) if isinstance(data, dict) else []
+    return own_runs(runs, repo)
 
 
 def queue_runs_by_pr(runs: list[dict]) -> dict[int, dict]:
@@ -1312,10 +1349,40 @@ def _save_state(root: Path, number: int, state: dict) -> None:
 
 
 def _load_state(root: Path, number: int) -> dict | None:
+    """What the integrate phase recorded for one pull request.
+
+    The apply job reads a file written on a machine that ran pull-request
+    code: anything but a JSON object counts as no state at all.
+    """
     path = _state_file(root, number)
-    if not path.exists():
+    if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return state if isinstance(state, dict) else None
+
+
+#: Names taken from the integrate job's state into a comment, at most.
+_MAX_NAMES = 50
+_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _names(value: object) -> list[str]:
+    """File names from the integrate job's state as plain text for a comment.
+
+    The train writes them into a pull-request comment with its own token, so
+    each is cut to a path's length and loses what would end the code span or
+    start a new line; anything that is not a string is dropped.
+    """
+    names: list[str] = []
+    for item in value[:_MAX_NAMES] if isinstance(value, list) else ():
+        if isinstance(item, str):
+            text = "".join(ch for ch in item if ch.isprintable() and ch != "`")[:200].strip()
+            if text:
+                names.append(text)
+    return names
 
 
 def _worktree(root: Path, number: int) -> Path:
@@ -1393,6 +1460,9 @@ def integrate_resolve(root: Path, data: dict, resolver_cmd: str) -> None:
             continue
         wt = _worktree(root, number)
         res = resolve_conflicts("theirs", resolver_cmd, wt)
+        # Record the resolutions now: the workflow saves git's rerere cache
+        # after this phase and before the next one runs pull-request code.
+        git("rerere", check=False, cwd=wt)
         state["resolved"] = sorted({*state.get("resolved", []), *res.resolved})
         state["ai_resolved"] = res.ai_resolved
         state["regen"] = sorted({*state.get("regen", []), *res.regenerate})
@@ -1519,6 +1589,10 @@ def _report_once(entry: dict, repo: str, body: str, dry_run: bool) -> None:
 def apply_update(
     root: Path, data: dict, entry: dict, dry_run: bool, checkout: Path = REPO_ROOT
 ) -> str:
+    """Push one prepared update. ``root`` holds the integrate job's ``state/``
+    and ``bundles/``: files from a machine that ran pull-request code. They
+    are read as data, and what an update must contain is worked out from the
+    plan (``update_base``), never taken from them."""
     number, branch, repo = entry["number"], entry["branch"], data["repo"]
     state = _load_state(root, number)
     if state is None:
@@ -1527,9 +1601,9 @@ def apply_update(
     if status == "up-to-date":
         return "already contains main; nothing to push"
     if status == "crashed":
-        return f"update crashed ({state.get('error')}); left for the next tick"
+        return f"update crashed ({' '.join(_names([state.get('error')]))}); left for the next tick"
     if status in ("conflict", "pending"):
-        unresolved = [str(f) for f in state.get("unresolved", [])]
+        unresolved = _names(state.get("unresolved"))
         files = "\n".join(f"- `{f}`" for f in unresolved)
         body = (
             "The merge train could not bring this branch up to date with `main`: "
@@ -1540,11 +1614,11 @@ def apply_update(
         )
         _report_once(entry, repo, body, dry_run)
         return "conflict - " + ", ".join(unresolved)
-    if status != "ready":
-        return f"update in unexpected state {status!r}; next tick"
+    sha = str(state.get("sha") or "")
+    if status != "ready" or not _COMMIT_SHA.fullmatch(sha):
+        return f"update in unexpected state {' '.join(_names([status]))!r}; next tick"
     if dry_run:
         return "would push update"
-    sha = str(state["sha"])
     ref = f"refs/train/pr-{number}"
     bundle = root / "bundles" / f"pr-{number}.bundle"
     git("fetch", "--quiet", "origin", "main", branch, check=False, cwd=checkout)
@@ -1555,11 +1629,13 @@ def apply_update(
     ):
         return "update bundle missing or unreadable; next tick"
     # A branch that predates the package move is first brought to the last
-    # commit before it - a commit of main's own history, never one the
-    # integrate job could make up.
-    onto = str(state.get("onto") or data["main"])
-    known = git("merge-base", "--is-ancestor", onto, data["main"], check=False, cwd=checkout)
-    if known.returncode != 0 or not _bundle_is_safe(sha, entry, onto, checkout):
+    # commit before it. Which commit an update stops at is worked out here,
+    # from main's own history and the planned head: the state only has to
+    # agree. An update that names another stopping point, or does not hold the
+    # planned head and that commit, is not pushed.
+    onto = update_base(str(entry["head"]), str(data["main"]), checkout)
+    claimed = state.get("onto")
+    if (claimed is not None and claimed != onto) or not _bundle_is_safe(sha, entry, onto, checkout):
         return "update bundle rejected (not the planned head plus main); next tick"
     push = git("push", "origin", f"{sha}:refs/heads/{branch}", check=False, cwd=checkout)
     if push.returncode != 0:
@@ -1570,7 +1646,7 @@ def apply_update(
             return "update needs the `workflows` permission (main changed .github/workflows)"
         return "update rejected (the branch moved); retry next tick"
     gh("pr", "edit", str(number), "--repo", repo, "--remove-label", "needs-rebase")
-    ai = [str(f) for f in state.get("ai_resolved") or []]
+    ai = _names(state.get("ai_resolved"))
     if ai:
         listing = ", ".join(f"`{f}`" for f in ai)
         gh(
@@ -1585,7 +1661,9 @@ def apply_update(
         )
     # A GITHUB_TOKEN push parks the pull_request run in action_required; the
     # next tick approves it (a dispatched run would never reach the PR).
-    return f"updated with main ({len(state.get('resolved', []))} conflicts auto-resolved)"
+    resolved = state.get("resolved")
+    count = len(resolved) if isinstance(resolved, list) else 0
+    return f"updated with main ({count} conflicts auto-resolved)"
 
 
 class _Labels:
@@ -1673,6 +1751,8 @@ def apply_housekeeping(data: dict, dry_run: bool, labels: _Labels) -> list[str]:
 
 
 def apply(root: Path, data: dict, dry_run: bool, token_is_bot: bool) -> int:
+    """Act on the plan ``data``. ``root`` holds the integrate job's ``state/``
+    and ``bundles/`` and is read only for the updates the plan names."""
     repo = data["repo"]
     summary: list[str] = []
     labels = _Labels(repo)
@@ -1814,6 +1894,14 @@ def main(argv: list[str] | None = None) -> int:
             )
     ap = sub.add_parser("apply")
     ap.add_argument("--dir", type=Path, required=True)
+    ap.add_argument(
+        "--updates-dir",
+        type=Path,
+        default=None,
+        help="folder with the integrate job's state/ and bundles/ (default: --dir). The "
+        "workflow keeps it apart from the plan's folder, so no file of that job can "
+        "stand in for plan.json.",
+    )
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--token-is-bot", action="store_true")
     args = parser.parse_args(argv)
@@ -1846,7 +1934,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "finish":
         integrate_finish(args.dir, data)
         return 0
-    return apply(args.dir, data, args.dry_run, args.token_is_bot)
+    return apply(args.updates_dir or args.dir, data, args.dry_run, args.token_is_bot)
 
 
 if __name__ == "__main__":

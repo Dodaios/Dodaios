@@ -54,7 +54,7 @@ def resolve_assistant_name(config: Any) -> str:
     phrase = (getattr(wake_word, "phrase", "") or "") if wake_word is not None else ""
     if phrase:
         try:
-            from dodaios.speech.wake_constants import phrase_core
+            from dodaios.core.wake_constants import phrase_core
 
             core = phrase_core(phrase)
         except Exception:  # noqa: BLE001 — never break name resolution on import/parse

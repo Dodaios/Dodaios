@@ -11,8 +11,9 @@ from types import ModuleType
 import pytest
 from PIL import Image
 
+from dodaios.core.pet_defaults import DEFAULT_PET_ID
 from dodaios.ui.pets.loader import COLOR_KEY, builtin_root, list_pets, load_pet
-from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_STATES
+from dodaios.ui.pets.states import PET_STATES
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 BUILD_SCRIPT = REPO_ROOT / "scripts" / "pets" / "build_pets.py"

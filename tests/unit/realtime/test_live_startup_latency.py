@@ -171,8 +171,8 @@ def test_timings_are_once_only_and_reject_untrusted_content(caplog):
 
 @pytest.mark.asyncio
 async def test_native_handoff_finishes_before_a_slow_provider_open(monkeypatch, tmp_path):
+    from dodaios.core.live_config import LiveConfig
     from dodaios.live import session as module
-    from dodaios.live.config import LiveConfig
 
     sent = []
     handoff = asyncio.Event()
@@ -258,8 +258,8 @@ async def test_invalid_answer_after_allocation_still_hangs_up(transport, monkeyp
 
 @pytest.mark.asyncio
 async def test_late_connection_closes_even_if_hangup_send_fails(monkeypatch, tmp_path):
+    from dodaios.core.live_config import LiveConfig
     from dodaios.live import session as module
-    from dodaios.live.config import LiveConfig
 
     opening = asyncio.Event()
     closes = []

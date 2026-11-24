@@ -26,7 +26,6 @@ from typing import Any
 import pytest
 
 from dodaios.brain.ack_brain import CircuitBreaker
-from dodaios.brain.ack_brain.config import AckBrainConfig
 from dodaios.brain.ack_brain.spawn_announcement import (
     _FALLBACK_ALREADY_RUNNING,
     _FALLBACK_SPAWN,
@@ -34,6 +33,7 @@ from dodaios.brain.ack_brain.spawn_announcement import (
     SpawnAnnouncementComposer,
     get_spawn_persona,
 )
+from dodaios.core.ack_brain_config import AckBrainConfig
 
 
 class _FakeProvider:

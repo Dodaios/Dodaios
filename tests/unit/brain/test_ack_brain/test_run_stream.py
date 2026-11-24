@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from dodaios.brain.ack_brain import AckGenerator, CircuitBreaker
-from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.core.ack_brain_config import AckBrainConfig
 
 
 def _gen(provider: object) -> AckGenerator:

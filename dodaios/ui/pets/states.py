@@ -71,9 +71,6 @@ STATE_FALLBACKS: dict[str, str] = {
 #: longer offered; the app draws the default pet when it finds it.
 NO_PET_ID: str = "none"
 
-#: The pet a fresh install shows.
-DEFAULT_PET_ID: str = "gigi"
-
 #: Manifest format tag written into every ``pet.json``.
 PET_FORMAT: str = "jarvis-pet/1"
 

@@ -2559,7 +2559,7 @@ def _read_doc(path: Path) -> tuple[TOMLDocument, bool]:
 
 def set_live_profile(values: dict, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Guided opt-in: back up the old configuration and atomically select Live."""
-    from dodaios.live.config import LiveConfig
+    from dodaios.core.live_config import LiveConfig
 
     profile = LiveConfig.model_validate(values)
     effective = profile.for_session()
@@ -2628,7 +2628,7 @@ def retire_voice_profile_under_live(*, path: Path = DEFAULT_CONFIG_FILE) -> bool
             return False
         # Imported only for the rare config that reaches this point: this
         # runs on every boot and must not pull the voice stack in by default.
-        from dodaios.live.config import LiveConfig
+        from dodaios.core.live_config import LiveConfig
 
         try:
             profile = LiveConfig.model_validate(
