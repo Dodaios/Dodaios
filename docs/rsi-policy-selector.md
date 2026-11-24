@@ -23,7 +23,7 @@ request: the runs of one request are averaged.
 
 | | |
 | --- | --- |
-| pass | 1 when the run ended `verified` and its merged work did not turn red within 72 hours, else 0 (`self_checked` is 0); a run the person took over is left out |
+| pass | 1 when the run ended `verified` and nothing the person or the repository did next took it back, else 0 (`self_checked` is 0). Taken back: merged work turned red (`leaked`), the person took the result over (`taken_over`) or asked again (`asked_again`), the pull request was closed without merging (`pr_closed`), the commit was reverted (`reverted`). A run the person took over counts, as not passed; a run a new order superseded is left out |
 | one-shot | passed with no follow-up order and without the person stepping in |
 | P | follow-up orders; a run that hit the limit counts the limit |
 | cost | USD plus 0.001 USD per second of turn time |

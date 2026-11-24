@@ -1,6 +1,6 @@
 /**
  * Derive the assistant's display name from a wake phrase — the TS mirror of
- * `dodaios.speech.wake_constants.phrase_core` + the title-casing in
+ * `dodaios.core.wake_constants.phrase_core` + the title-casing in
  * `dodaios.brain.assistant_name.resolve_assistant_name`. Used for the live
  * "Your assistant will be called: X" hint while the user sets the wake word.
  *

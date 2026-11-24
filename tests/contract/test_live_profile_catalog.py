@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.ui.web.provider_spec import PROVIDERS
 
 

@@ -23,6 +23,7 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/openExternal";
 import { artifactInlineUrl, type ArtifactSummary } from "@/hooks/useOutputs";
+import { isRemoteMedia, MarkdownPicture } from "@/components/agentchat/MediaPreview";
 import { CodeBlock } from "@/components/docs/CodeBlock";
 import { RenderedFence } from "@/components/outputs/RenderedFence";
 import { AsciiTableFence } from "@/components/outputs/AsciiTableFence";
@@ -192,6 +193,11 @@ export function MarkdownProse({
         const sibling = typeof src === "string" ? resolveSiblingPath(path, src) : null;
         const resolved =
           sibling && known.has(sibling) ? artifactInlineUrl(slug, sibling) : src;
+        // Opening a document must not make this window ask a host the
+        // document names: a remote picture is a link, as in a chat message.
+        if (typeof resolved === "string" && isRemoteMedia(resolved)) {
+          return <MarkdownPicture src={resolved} alt={alt} />;
+        }
         return <img src={resolved} alt={alt ?? ""} loading="lazy" {...rest} />;
       },
       table({ children }) {
