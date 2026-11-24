@@ -1010,7 +1010,7 @@
   "path_params": [
    "name"
   ],
-  "dangerous": false,
+  "dangerous": true,
   "worker_allowed": false,
   "ui_section": "skills",
   "description_sha256": "0279547d7a8ce54e6bcbd374651695e2de91d7fcecbbc6ee118983e86f1bd2a7",

@@ -497,7 +497,7 @@ Switch an installed skill ON by name — this is how a draft the assistant just 
 
 - **Endpoint:** `POST /api/skills/{name}/enable`
 - **Arguments:** `name` (string; required)
-- **Requires confirmation:** no
+- **Requires confirmation:** yes
 - **Desktop UI section:** `skills`
 - **Voice example (EN):** "enable the skill"
 
