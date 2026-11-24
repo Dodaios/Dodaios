@@ -63,11 +63,13 @@ def test_noticed_lists_repeats_with_progress_and_counts_one_offs(tmp_path: Path)
     assert (first["times"], first["days"], first["stage"]) == (3, 3, "ready")
     assert (second["times"], second["days"], second["stage"]) == (2, 2, "counting")
 
-    # A need that became a proposal points at it; a live build drops off the list.
+    assert "build_id" not in first  # nothing points at a card to approve
+    # A need that became a build drops off the list: the page shows the build.
     sig = store.cluster(first["id"]).signature
-    record = svc.ledger.open_case(Kind.SKILL, sig, "Check important mail")
-    proposed = client.get("/api/self-build/noticed").json()["needs"][0]
-    assert (proposed["stage"], proposed["build_id"]) == ("proposed", record.id)
+    svc.ledger.open_case(Kind.SKILL, sig, "Check important mail")
+    after = client.get("/api/self-build/noticed").json()["needs"]
+    assert [n["label"] for n in after] == ["what is on my calendar tomorrow morning"]
+    assert all(n["stage"] != "proposed" for n in after)
     store.close()
     svc.ledger.close()
 

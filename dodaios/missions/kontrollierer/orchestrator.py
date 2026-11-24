@@ -1117,7 +1117,7 @@ class Kontrollierer:
             except IllegalStateTransition:
                 # Already terminal — still cancel the zombie task below.
                 pass
-            except Exception:  # noqa: BLE001 — shutdown must never crash here
+            except Exception:  # broad-except: shutdown must never crash here
                 logger.exception(
                     "cancel_all_running: state flip failed for %s", mission_id
                 )
@@ -1134,7 +1134,7 @@ class Kontrollierer:
                             ),
                         )
                     )
-                except Exception:  # noqa: BLE001 — shutdown still kills the worker
+                except Exception:  # broad-except: shutdown still kills the worker
                     logger.exception(
                         "cancel_all_running: terminal event failed for %s",
                         mission_id,
@@ -1186,7 +1186,7 @@ class Kontrollierer:
         # first second, whether the process running this mission still exists.
         try:
             await self._manager.store.touch_heartbeat(mission_id, now_ms())
-        except Exception as hb_exc:  # noqa: BLE001 - ownership stamp is advisory; freshness guard still applies
+        except Exception as hb_exc:  # broad-except: ownership stamp is advisory; freshness guard
             logger.debug("Initial mission heartbeat failed (non-fatal): %s", hb_exc)
 
         # Decomposer: determine the plan.
@@ -2063,7 +2063,7 @@ class Kontrollierer:
                         "draft artifact snapshot returned no archive for %s",
                         worktree,
                     )
-            except Exception:  # noqa: BLE001 — snapshot is best-effort
+            except Exception:  # broad-except: snapshot is best-effort
                 logger.warning(
                     "draft artifact snapshot failed for %s",
                     worktree,
@@ -2416,7 +2416,7 @@ class Kontrollierer:
                 )
                 if issued_binding is not None:
                     broker_binding = issued_binding
-            except Exception:  # noqa: BLE001 - unavailable tools degrade honestly
+            except Exception:  # broad-except: unavailable tools degrade honestly
                 logger.exception(
                     "Mission %s worker %s: supervisor tool grant unavailable",
                     mission_id,
@@ -2435,7 +2435,7 @@ class Kontrollierer:
                 while not hb_stop.is_set():
                     try:
                         await self._manager.store.touch_heartbeat(mission_id, now_ms())
-                    except Exception as hb_exc:  # noqa: BLE001 - heartbeat must never kill the worker
+                    except Exception as hb_exc:  # broad-except: heartbeat must never kill the
                         logger.debug("Heartbeat write failed (non-fatal): %s", hb_exc)
                     try:
                         await asyncio.wait_for(
@@ -2553,7 +2553,7 @@ class Kontrollierer:
                                     tokens_so_far=tokens,
                                     cost_so_far=cost,
                                 )
-                            except Exception:  # noqa: BLE001 — progress is best-effort
+                            except Exception:  # broad-except: progress is best-effort
                                 logger.debug(
                                     "WorkerProgress publish failed (non-fatal)",
                                     exc_info=True,
@@ -2933,7 +2933,7 @@ class Kontrollierer:
         """
         try:
             commands = extract_verified_commands(stream_text)
-        except Exception as exc:  # noqa: BLE001 — evidence parse must not crash the loop
+        except Exception as exc:  # broad-except: evidence parse must not crash the loop
             logger.warning("command-evidence parse failed: %s", exc)
             return diff_text
         if not commands:
@@ -2974,7 +2974,7 @@ class Kontrollierer:
         """
         try:
             actions = extract_verified_desktop_actions(stream_text)
-        except Exception as exc:  # noqa: BLE001 — evidence parse must not crash the loop
+        except Exception as exc:  # broad-except: evidence parse must not crash the loop
             logger.warning("desktop-action-evidence parse failed: %s", exc)
             return diff_text
         if not actions:
@@ -3414,7 +3414,7 @@ class Kontrollierer:
             worker = await asyncio.to_thread(self._worker_factory, step)
         except WorkerCapacityUnavailable:  # still no capacity: stay parked, ask again next tick
             return False
-        except Exception:  # noqa: BLE001 - a broken probe means "not yet", logged
+        except Exception:  # broad-except: a broken probe means "not yet", logged
             logger.warning(
                 "Mission %s: capacity probe failed — staying parked", mission_id,
                 exc_info=True,
@@ -3437,7 +3437,7 @@ class Kontrollierer:
             return True
         try:
             return bool(probe())
-        except Exception:  # noqa: BLE001 - a broken probe means "not yet", logged
+        except Exception:  # broad-except: a broken probe means "not yet", logged
             logger.warning("critic capacity probe failed — staying parked", exc_info=True)
             return False
 
@@ -3551,7 +3551,7 @@ class Kontrollierer:
         plan_ids = {step.task_id for step in plan.steps}
         try:
             await self._manager.store.touch_heartbeat(mission_id, now_ms())
-        except Exception as hb_exc:  # noqa: BLE001 - ownership stamp is advisory
+        except Exception as hb_exc:  # broad-except: ownership stamp is advisory
             logger.debug("Resume heartbeat failed (non-fatal): %s", hb_exc)
         review_only: set[str] = set()
         review_failures: dict[str, int] = {}
@@ -3683,7 +3683,7 @@ class Kontrollierer:
         closed: an unreadable history counts as a spent automatic cap."""
         try:
             events = await self._manager.store.events_for_mission(mission_id)
-        except Exception:  # noqa: BLE001 - logged; the cap must not open on a read error
+        except Exception:  # broad-except: logged; the cap must not open on a read error
             logger.warning(
                 "Mission %s: paid-usage history unreadable — treating the "
                 "automatic cap as spent", mission_id, exc_info=True,
@@ -3944,7 +3944,7 @@ class Kontrollierer:
                         ),
                     )
                 )
-            except Exception:  # noqa: BLE001 - the log line above still records it
+            except Exception:  # broad-except: the log line above still records it
                 logger.exception("Mission %s: paid-usage event could not be stored", mission_id)
 
     def _drop_checkpoint(self, mission_id: str) -> None:
@@ -3991,7 +3991,7 @@ class Kontrollierer:
                     ),
                 )
             )
-        except Exception:  # noqa: BLE001 - the state flip already parked it
+        except Exception:  # broad-except: the state flip already parked it
             logger.exception("Mission %s: re-park event could not be stored", mission_id)
         logger.info("Mission %s parked again on %s (checkpoint kept)", mission_id, reason)
         return True
@@ -4008,7 +4008,7 @@ class Kontrollierer:
         if callable(family_fn):
             try:
                 return str(family_fn())
-            except Exception:  # noqa: BLE001 - a label only; logged
+            except Exception:  # broad-except: a label only; logged
                 logger.warning("critic family unreadable", exc_info=True)
         return "claude"
 
@@ -4306,7 +4306,7 @@ class Kontrollierer:
                 prompt=prompt,
                 expected_output=plan.expected_output,
             )
-        except Exception:  # noqa: BLE001 — report materialisation is never fatal
+        except Exception:  # broad-except: report materialisation is never fatal
             # Defense-in-depth: the function already swallows its own OSError and
             # returns None, so this outer catch is unreachable today — it guards
             # against a future change to the function's error handling ever
@@ -4326,7 +4326,7 @@ class Kontrollierer:
             delivered = deliver_to_user_folder(
                 mission_dir, mission_short_id=mission_id[:13]
             )
-        except Exception:  # noqa: BLE001 — delivery is never mission-fatal
+        except Exception:  # broad-except: delivery is never mission-fatal
             logger.warning(
                 "deliver_to_user_folder failed for %s", mission_id, exc_info=True
             )
@@ -4382,7 +4382,7 @@ class Kontrollierer:
         """The mission's dispatch language, English when it cannot be read."""
         try:
             view = await self._manager.store.get_mission_view(mission_id)
-        except Exception:  # noqa: BLE001 — the readback language is never mission-fatal
+        except Exception:  # broad-except: the readback language is never mission-fatal
             logger.warning(
                 "could not read the dispatch language of %s", mission_id, exc_info=True
             )
@@ -4595,7 +4595,7 @@ class Kontrollierer:
                 iteration=iteration,
                 ts_ms=now_ms(),
             )
-        except Exception:  # noqa: BLE001 — event remains authoritative
+        except Exception:  # broad-except: event remains authoritative
             logger.warning(
                 "critic verdict header update failed for %s iter-%d",
                 mission_id,

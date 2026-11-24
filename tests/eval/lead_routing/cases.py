@@ -1,16 +1,17 @@
 """The golden set: schema, loading and static validation."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "lead_routing"
+# One rule set: what a first move must be, and how a move is matched against it,
+# is the benchmark's own (the ``first_move`` domain); the eval reads it from there.
+from dodaios.rsi.bench.first_move import NO_TOOL, Expect
 
-#: The expected "first move" for a request that must not spawn or call anything.
-NO_TOOL = "none"
+FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "lead_routing"
 
 CATEGORIES: tuple[str, ...] = (
     "delegate_agent",
@@ -33,26 +34,6 @@ CATEGORIES: tuple[str, ...] = (
 LANGS: frozenset[str] = frozenset({"en", "de", "es", "pt"})
 _CASE_KEYS = frozenset({"id", "category", "lang", "utterance", "expect", "requires", "note"})
 _EXPECT_KEYS = frozenset({"tool", "tools", "also_accept", "args", "approval", "effect"})
-
-
-@dataclass(frozen=True, slots=True)
-class Expect:
-    """What the first move of the lead must be."""
-
-    tools: tuple[str, ...]  # accepted first tools; ("none",) = answer directly
-    also_accept: tuple[str, ...] = ()  # accepted when they exist, never required to exist
-    args: dict[str, Any] = field(default_factory=dict)
-    approval: bool = False  # the chosen tool must be an ask-tier tool in the catalog
-    effect: str = ""  # "read" or "action": the chosen tool must not contradict it
-
-    @property
-    def expects_tool(self) -> bool:
-        return self.tools != (NO_TOOL,)
-
-    def accepts(self, tool: str | None) -> bool:
-        if tool is None:
-            return not self.expects_tool
-        return tool in self.tools or tool in self.also_accept
 
 
 @dataclass(frozen=True, slots=True)

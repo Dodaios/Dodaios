@@ -816,6 +816,10 @@ class AgentChatStore:
                     (session_id,),
                 )
             self._conn.commit()
+        from dodaios.rsi import lead_turns
+
+        # The lead's recorded turns of this chat go with it (never raises).
+        lead_turns.forget_session(session_id)
         return cur.rowcount > 0
 
     # -------------------------------------------------------- thread owners

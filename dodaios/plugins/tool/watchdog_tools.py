@@ -53,7 +53,7 @@ async def _event_routing() -> dict[str, int]:
         service = wiring.get_service()
         view = await service.view() if service is not None else {}
         return dict(view.get("delivery") or {})
-    except Exception:  # noqa: BLE001 - a measurement never fails the status read
+    except Exception:  # broad-except: a measurement never fails the status read
         log.debug("watchdog_status: event routing unavailable", exc_info=True)
         return {}
 
@@ -77,11 +77,12 @@ class WatchdogStatusTool:
     risk_tier: str = "safe"
     is_action_tool: bool = False
     description: str = (
-        "What the watchdog found: work that looks stuck or is going in circles (silent "
-        "turns, jobs with no progress, repeated identical tool calls, tasks claimed and "
-        "never reported, routines that did not run, failing provider seats), what it "
-        "repaired on its own in the last 24 hours, and when the app was down. Read-only "
-        "and bounded. Use it when asked 'what is stuck?' or 'what did you repair today?'."
+        "Run one action a watchdog finding offers: 'id' is the finding id from the notice or "
+        "watchdog_status, 'action' one of those listed on it: nudge (ask a silent turn for "
+        "status), stop_turn, close_turn, requeue (run interrupted work again, once), "
+        "mark_interrupted, resume_project / rescope_project / close_project, dismiss. "
+        "set_judge / set_checks with 'enabled' switch the optional progress judge "
+        "(subscription or local models only, off by default) or the checks."
     )
     schema: dict[str, Any] = {"type": "object", "properties": {}}
 

@@ -6,12 +6,11 @@ need, which of the allowed kinds is the smallest thing that takes it off the
 person, and what exactly would be built. "Build nothing" is a valid and
 frequent answer, and the loop then leaves the need alone for a month.
 
-The answer is a proposal, never a decision: :func:`parse` keeps only an
+The answer is a draft, never the last word: :func:`parse` keeps only an
 allowed kind and a well-formed spec, the judge (:mod:`.judge`) proves the
-spec later, and :func:`dodaios.self_build.policy.admit` decides how far a
-build may go. Without a seat, :func:`fallback` writes a plain case from the
-counts alone, so the loop still proposes; it builds nothing until a model
-can write the spec.
+spec before anything goes live, and :func:`dodaios.self_build.policy.admit`
+decides whether the build may open now. Without a seat nothing is decided;
+the need comes back once a model can write the spec.
 """
 
 from __future__ import annotations
@@ -82,8 +81,6 @@ class Verdict:
     case: str = ""
     spec: dict[str, Any] = field(default_factory=dict)
     why: str = ""
-    #: True when no model was asked (no seat): the spec is empty.
-    deterministic: bool = False
 
 
 def quote(turn: TurnRow) -> dict[str, Any]:
@@ -179,39 +176,10 @@ def parse(text: str, allowed: tuple[Kind, ...]) -> Verdict:
     return Verdict(kind, title=title, case=case, spec=spec, why=why)
 
 
-def fallback_kind(need: Need, allowed: tuple[Kind, ...]) -> Kind | None:
-    """The rung the counts alone point at, for a proposal written without a model."""
-    if need.schedule and Kind.ROUTINE in allowed:
-        return Kind.ROUTINE
-    if "correction" in need.reasons and Kind.MEMORY in allowed:
-        return Kind.MEMORY
-    if Kind.SKILL in allowed and {"repeated", "sequence", "failure"} & set(need.reasons):
-        return Kind.SKILL
-    if Kind.AGENT in allowed and "domain" in need.reasons:
-        return Kind.AGENT
-    return allowed[0] if allowed else None
-
-
-def fallback(need: Need, allowed: tuple[Kind, ...], *, lang: str = "") -> Verdict:
-    """A proposal from the counts alone, in the person's language. No model."""
-    from dodaios.i18n.catalog import t
-
-    kind = fallback_kind(need, allowed)
-    if kind is None:
-        return Verdict(None, why="no kind allowed", deterministic=True)
-    language = lang or need.lang or "en"
-    sample = min((" ".join(x.text.split()) for x in need.turns), key=len, default="")
-    title = t(f"self_build.proposal.{kind.value}", language, request=sample[:80])
-    case = t("self_build.case.counted", language, count=need.occurrences, days=need.days)
-    return Verdict(kind, title=title, case=case, why="proposed from counts", deterministic=True)
-
-
 __all__ = [
     "DECIDE_MAX_TOKENS",
     "SYSTEM_PROMPT",
     "Verdict",
     "build_prompt",
-    "fallback",
-    "fallback_kind",
     "parse",
 ]

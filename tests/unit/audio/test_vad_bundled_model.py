@@ -33,7 +33,7 @@ from dodaios.core.protocols import AudioChunk
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
-PYINSTALLER_SPEC = REPO_ROOT / "dodaios.spec"
+PYINSTALLER_SPEC = REPO_ROOT / "packaging" / "dodaios.spec"
 UV_LOCK = REPO_ROOT / "uv.lock"
 
 
@@ -130,7 +130,7 @@ def test_pyinstaller_spec_collects_bundled_vad_asset(monkeypatch, platform) -> N
     globals_after_run = runpy.run_path(
         str(PYINSTALLER_SPEC),
         init_globals={
-            "SPECPATH": str(REPO_ROOT),
+            "SPECPATH": str(REPO_ROOT / "packaging"),
             "Analysis": _Analysis,
             "PYZ": lambda *_args, **_kwargs: SimpleNamespace(),
             "EXE": lambda *_args, **_kwargs: SimpleNamespace(),

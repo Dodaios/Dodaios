@@ -280,11 +280,11 @@ fi
 # spec bundles THAT file as-is, which is a privacy question the build cannot
 # answer for the maintainer, so it says so instead of quietly shipping it.
 if [ ! -f "${REPO_ROOT}/jarvis.toml" ]; then
-  [ -f "${REPO_ROOT}/dodaios.toml.example" ] \
+  [ -f "${REPO_ROOT}/docs/examples/dodaios.toml.example" ] \
     || die "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
   log "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
-  run cp "${REPO_ROOT}/dodaios.toml.example" "${REPO_ROOT}/jarvis.toml"
-elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/dodaios.toml.example"; then
+  run cp "${REPO_ROOT}/docs/examples/dodaios.toml.example" "${REPO_ROOT}/jarvis.toml"
+elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/docs/examples/dodaios.toml.example"; then
   log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the app, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 fi
 
@@ -301,7 +301,7 @@ run "${PYTHON}" "${REPO_ROOT}/scripts/prepare_browser_wheelhouse.py"
 log "running PyInstaller"
 (
   cd "${REPO_ROOT}"
-  run "${PYTHON}" -m PyInstaller dodaios.spec --noconfirm --clean
+  run "${PYTHON}" -m PyInstaller packaging/dodaios.spec --noconfirm --clean
 )
 
 if building; then

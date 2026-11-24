@@ -80,7 +80,10 @@ class GitWorkspace:
                 source = Path(index) if os.path.isabs(index) else Path(cwd) / index
                 if source.is_file():
                     # Start from the real index: its stat cache spares rehashing the tree.
-                    shutil.copyfile(source, temp_index)
+                    # Keep its time stamp: git re-reads every entry written in the same
+                    # second as the index ("racily clean"), and a copy with a later time
+                    # would hide a same-size edit made in that second.
+                    shutil.copy2(source, temp_index)
             env = {**os.environ, "GIT_INDEX_FILE": temp_index}
             if _git(cwd, "add", "-A", "--ignore-errors", env=env) is None:
                 return None

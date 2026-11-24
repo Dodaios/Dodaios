@@ -38,6 +38,7 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
@@ -237,6 +238,73 @@ SECRET_FIELD_LINE: Final[str] = (
     "goes through the secure field: call society_request_credential, then use it as $NAME "
     "in run_shell. Never ask for it in your reply or send them to a settings page."
 )
+
+
+def message_lines(
+    user_text: str, *, continuation: bool, brief: str, first_line: bool = True
+) -> str:
+    """The lines the assistant's own chat puts beside the person's message, in order.
+
+    The secure-field line only beside a message that names a secret; how much
+    the task needs before the lines that shape the reply; the line that takes
+    the task on unless the turn carries a running task on (or ``first_line`` is
+    off: a measured self-change may switch it off, ``dodaios/rsi/lines.py``);
+    then the reply's shape, ``brief`` (``brief_line()``, read by the caller) and
+    where a question goes. Pure: the same arguments give the same bytes.
+    """
+    from dodaios.agent_chat.secret_requests import SECRET_NOUN
+
+    lines = SECRET_FIELD_LINE if SECRET_NOUN.search(user_text) else ""
+    lines += EFFORT_LINE
+    if not continuation and first_line:
+        lines += FIRST_LINE
+    return lines + REPLY_SHAPE_LINE + brief + QUESTION_CARD_LINE
+
+
+def _switch(name: str) -> bool:
+    """A standing line's switch: on unless a measured self-change turned it off.
+
+    Read on every message, so inside a benchmark run the run's overlay decides.
+    A fault here never fails a turn: the line then stays, as shipped.
+    """
+    try:
+        from dodaios.rsi import params
+
+        return bool(params.get(name))
+    except Exception:  # broad-except: an unreadable switch keeps the shipped line
+        log.warning("agent chat: the switch %s is unreadable; the line stays", name, exc_info=True)
+        return True
+
+
+def lead_message(
+    user_text: str,
+    *,
+    continuation: bool,
+    output_language: str = "",
+    brief: Callable[[], str] | None = None,
+) -> str:
+    """The message of one lead turn as the CLI runner gets it.
+
+    The person's text, the :func:`message_lines` beside it (not beside a slash
+    command: a CLI runs one only as the message's first word, and a line after
+    it would be read as its argument) and the reply-language line (not after
+    ``/goal``). ``brief`` reads the person's brief wishes (default
+    :func:`brief_line`); it is only called when the lines go out.
+    """
+    from dodaios.agent_chat.runner_api import reply_language_line
+
+    text = user_text
+    if not user_text.lstrip().startswith("/"):
+        text += message_lines(
+            user_text,
+            continuation=continuation,
+            brief=(brief or brief_line)(),
+            first_line=_switch("lead.first_line"),
+        )
+    if output_language and not text.startswith("/goal"):
+        text += reply_language_line("jarvis", output_language)
+    return text
+
 
 #: How the assistant uses its browser: it does the web task itself instead of
 #: handing the person links, never asks for permission up front (the browser
@@ -1028,6 +1096,8 @@ __all__ = [
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
     "SECRET_FIELD_LINE",
+    "message_lines",
+    "lead_message",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
     "SPAN_HEADER_NAME",

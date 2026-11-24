@@ -2,7 +2,8 @@
  * One build, read top to bottom as its own case file: the sentence it exists
  * for, where it stands on its path, why it was built, what it noticed, how it
  * was checked, what it made, how it was used, what it cost, and every move it
- * made — with the one or two actions that apply to it right now.
+ * made — with Undo while there is something to take back. Nothing here asks
+ * the person to approve or keep it: its use decides that.
  */
 import type { ReactNode } from "react";
 import { Code2, ExternalLink, Loader2, X } from "lucide-react";
@@ -13,25 +14,21 @@ import { useSelfBuildDetail } from "@/hooks/useSelfBuild";
 import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
 import { reachedStep, trialProgress, type Build, type BuildOutcome } from "@/lib/selfBuildApi";
 import { KindIcon, LifecycleRail, formatUsd, relativeTime } from "./shared";
-import { BuildActions, type ActionHandler } from "./BuildActions";
+import { BuildActions, type UndoHandler } from "./BuildActions";
 
 const OUTCOMES: readonly BuildOutcome[] = ["accepted", "used", "corrected", "ignored"];
 
 export function BuildDetail({
   build,
   limits,
-  canBuild,
-  blockedTitle,
   busy,
-  onAction,
+  onUndo,
   onClose,
 }: {
   build: Build;
   limits: { trial_days: number; trial_uses: number } | undefined;
-  canBuild: boolean;
-  blockedTitle?: string;
   busy: boolean;
-  onAction: ActionHandler;
+  onUndo: UndoHandler;
   onClose: () => void;
 }) {
   const t = useT();
@@ -103,7 +100,7 @@ export function BuildDetail({
           </div>
         )}
         <div className="mt-5">
-          <BuildActions build={current} canBuild={canBuild} blockedTitle={blockedTitle} busy={busy} onAction={onAction} size="default" />
+          <BuildActions build={current} busy={busy} onUndo={onUndo} size="default" />
         </div>
       </header>
 

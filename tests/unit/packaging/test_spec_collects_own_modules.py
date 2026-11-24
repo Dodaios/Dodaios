@@ -15,7 +15,7 @@ from pathlib import Path
 from dodaios.nodes import kinds
 from dodaios.nodes.types import NODE_TYPES
 
-SPEC = Path(__file__).resolve().parents[3] / "dodaios.spec"
+SPEC = Path(__file__).resolve().parents[3] / "packaging" / "dodaios.spec"
 
 
 def test_the_spec_collects_the_whole_package() -> None:

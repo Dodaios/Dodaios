@@ -29,6 +29,12 @@
       "recall": {
         "name": "Memory",
         "about": "Does the right memory come up for a message, and nothing when none is needed?"
+      },
+      "first_move": {
+        "name": "First move",
+        "about": "Does the assistant reach for the right tool first, and say in one line what it takes on before it does?",
+        "building": "{n} test tasks from your own chats with the assistant so far. Measuring starts when there are enough to decide on: {need} in the part it decides on, which holds {have} now.",
+        "no_tasks": "There are no tasks from your chats for this area yet. They come from answers you let stand, and from answers the assistant got right after you corrected it."
       }
     },
     "area": {
@@ -78,7 +84,7 @@
       "values": "{before} → {after}",
       "since": "since {when}",
       "held": "held again on {n} tasks",
-      "kinds": "Two kinds of change: values it tuned and proved on tasks, and notes it wrote for itself, which are in effect but not measured yet.",
+      "kinds": "Three kinds of change: values it tuned and proved on tasks, how it steers coding agents, proved on half of your requests, and notes it wrote for itself, which are in effect but not measured yet.",
       "note_title": "A note it wrote for itself",
       "note_gone": "This note is gone from the memory.",
       "not_measured": "not measured yet"
@@ -119,7 +125,9 @@
     "author": {
       "tuner": "The tuner, which tries nearby values on practice tasks",
       "owner": "You",
-      "memory-learner": "The assistant, after a tool failed and a later call worked"
+      "memory-learner": "The assistant, after a tool failed and a later call worked",
+      "rsi-selector": "The steering learner, which tries one change at a time on half of your coding requests",
+      "lines": "The line learner, which tries your messages without one of their standing lines on practice tasks"
     },
     "nights": {
       "title": "The last nights",
@@ -173,6 +181,7 @@
       "models": "Building tasks asks a model at most {calls} times a night, on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "models_ramp": "Building tasks asks a model at most {calls} times a night ({ramp} in the first nights, while there are too few tasks to decide on), on the assistant's own subscription or a local model, never on a key that is billed per token.",
       "measure_no_model": "Measuring itself asks no model.",
+      "measure_first_move": "Measuring the first move replays your earlier requests on the assistant's own plan: at most {calls} times a night, never while a usage window is 80 % full, and never more than {share} % of a window in one night.",
       "privacy": "The memories and messages used for this go only to the provider the assistant already answers on. Memories marked sensitive are never sent."
     },
     "param": {
@@ -227,6 +236,10 @@
       "lessons_recall_limit": {
         "title": "Lessons per message",
         "about": "The most lessons one message may bring up."
+      },
+      "lead_first_line": {
+        "title": "Opening line before a tool",
+        "about": "Beside each of your messages: write one short line that takes the task on before using a tool."
       }
     },
     "daily": {
@@ -238,6 +251,50 @@
       "col_through": "Went through",
       "week_of": "from {date}",
       "unrated": "no figure"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "for {area} work with {model} in {harness}",
+      "default_model": "the default model",
+      "hold": "Waits for the checks and asks for fixes",
+      "release": "Stops waiting for the checks",
+      "no_fixes": "Asks for no fixes",
+      "fewer_fixes_one": "Asks for at most one fix",
+      "fewer_fixes_other": "Asks for at most {n} fixes",
+      "shorter_wait": "Waits at most {minutes} minutes for the checks",
+      "brief_line": "Adds a line to the first brief",
+      "other": "Changes how coding agents are steered",
+      "on_trial": "on trial on half of your requests since {when}",
+      "claim_pass": "kept only if clearly more requests pass",
+      "claim_cost": "kept only if it costs less and nothing gets worse",
+      "claim_p": "kept only if fewer fixes are needed and nothing gets worse",
+      "proof_pass": "Passed {with} of {n} requests, against {without} of {m} without it (at least {low} points)",
+      "proof_cost": "{diff} less per request in cost and time, on {n} requests against {m} without it (at least {low} less)",
+      "proof_p": "{diff} fewer fixes per request, on {n} requests against {m} without it (at least {low} fewer)",
+      "measured_on": "Measured on {n} of your requests with it and {m} without it, {when}.",
+      "about": "How Dodaios hands coding work to agents for this kind of work, this model and this coding tool: whether its answer waits for the checks, how many fixes it asks for, and what the first brief says. It was tried on half of your requests and compared with the other half.",
+      "probation": "On probation: the first run under it that weakens a check takes it back by itself."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "testing",
+      "database": "database",
+      "infra_ci": "infrastructure and CI",
+      "docs": "documentation",
+      "other": "other",
+      "refactoring": "refactoring",
+      "multi_repo": "multi-repository"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Dropped the line beside your messages that asks for a short opening line before the first tool.",
+        "on": "Put back the line beside your messages that asks for a short opening line before the first tool."
+      }
+    },
+    "value": {
+      "on": "on",
+      "off": "off"
     }
   }
 }

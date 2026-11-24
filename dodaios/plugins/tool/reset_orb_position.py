@@ -18,10 +18,13 @@ direct dependency on ``ui.orb``.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dodaios.core.events import OrbResetRequested
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 class ResetOrbPositionTool:
@@ -48,7 +51,8 @@ class ResetOrbPositionTool:
         del args, ctx  # tool is parameterless
         try:
             await self._bus.publish(OrbResetRequested(source="voice"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,

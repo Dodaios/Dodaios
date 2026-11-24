@@ -63,6 +63,9 @@ def build() -> tuple[AppCommand, ...]:
                 "required": ["name"],
             },
             path_params=("name",),
+            # Asks in Ask mode: a skill the assistant wrote itself must not switch
+            # itself on from a prompt-injected turn (security audit 2026-11).
+            dangerous=True,
             ui_section="skills",
             voice_aliases={
                 "de": ("aktiviere den skill", "schalte den skill ein"),  # i18n-allow: input vocab

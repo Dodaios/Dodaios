@@ -77,7 +77,7 @@ function Invoke-Checked {
 
 # --- Locate the repository -------------------------------------------------
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$SpecFile = Join-Path $RepoRoot "dodaios.spec"
+$SpecFile = Join-Path $RepoRoot "packaging/dodaios.spec"
 $BundleDir = Join-Path $RepoRoot "dist\Jarvis"
 $InstallerDir = Join-Path $RepoRoot "dist\installers"
 $FrontendDir = Join-Path $RepoRoot "dodaios\ui\web\frontend"
@@ -136,7 +136,7 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
 # they were written; this script did not, which is why the first CI run
 # produced a DMG and an AppImage and no .exe.
 $ConfigFile = Join-Path $RepoRoot "jarvis.toml"
-$ConfigExample = Join-Path $RepoRoot "dodaios.toml.example"
+$ConfigExample = Join-Path $RepoRoot "docs/examples/dodaios.toml.example"
 if (-not (Test-Path $ConfigFile)) {
     if (-not (Test-Path $ConfigExample)) {
         Stop-WithError "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
@@ -153,7 +153,7 @@ if ($SkipPyInstaller) {
 } else {
     Write-Step "2/3 freezing with PyInstaller"
     Invoke-Checked -Executable $Python `
-        -Arguments @("-m", "PyInstaller", "dodaios.spec", "--noconfirm", "--clean") `
+        -Arguments @("-m", "PyInstaller", "packaging/dodaios.spec", "--noconfirm", "--clean") `
         -WorkingDirectory $RepoRoot -What "pyinstaller"
 }
 

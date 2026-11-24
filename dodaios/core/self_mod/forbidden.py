@@ -44,8 +44,8 @@ FORBIDDEN_PATTERNS: tuple[str, ...] = (
     # Settings route (x-jarvis-dangerous) or an explicit CLI call may flip it,
     # never voice, chat, self-mod or an agent (dodaios/missions/capacity.py).
     "missions.paid_api_fallback",
-    # How far the self-building loop may go, and its kill switch: the person
-    # decides that in Settings, never the loop or an agent (docs/self-build.md).
+    # The self-building loop's limits and its kill switch: the person sets
+    # them, never the loop or an agent (docs/self-build.md).
     "self_build.*",
     # Whether delegated coding runs are recorded, and later how their output is
     # checked: a check the checked side could switch off is no check. The person

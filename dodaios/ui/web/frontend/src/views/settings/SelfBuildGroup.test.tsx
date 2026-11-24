@@ -1,7 +1,7 @@
 /**
- * Settings → Self-building: the switch, the level per kind and a cap each
- * write one PUT with only what changed; an out-of-range number is clamped to
- * the range the backend reported.
+ * Settings → Self-building: only the limits. There is no master switch and no
+ * stage per kind; a cap writes one PUT with only what changed, and an
+ * out-of-range number is clamped to the range the backend reported.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,13 +11,7 @@ import { SelfBuildGroup } from "@/views/settings/SelfBuildGroup";
 import { setUiLanguage } from "@/i18n";
 
 const SETTINGS = {
-  enabled: true,
   silent_days: 7,
-  memory: "trial",
-  skill: "suggest",
-  routine: "suggest",
-  agent: "suggest",
-  code: "suggest",
   trial_days: 14,
   trial_uses: 10,
   max_builds_per_day: 3,
@@ -33,7 +27,6 @@ function installFetch() {
   let current = { ...SETTINGS };
   const payload = () => ({
     settings: current,
-    levels: ["off", "suggest", "trial", "full"],
     bounds: { max_builds_per_day: { min: 0, max: 50 } },
   });
   (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -66,15 +59,25 @@ describe("SelfBuildGroup", () => {
     vi.restoreAllMocks();
   });
 
+  it("has no master switch and no stage per kind", async () => {
+    installFetch();
+    renderGroup();
+    await screen.findByTestId("self-build-limit-trial_days");
+    expect(screen.queryByTestId("self-build-enabled")).toBeNull();
+    for (const kind of ["memory", "skill", "routine", "agent", "code"]) {
+      expect(screen.queryByTestId(`self-build-autonomy-${kind}`)).toBeNull();
+    }
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
+  });
+
   it("writes only what changed", async () => {
     const puts = installFetch();
     renderGroup();
-    const skills = await screen.findByTestId("self-build-autonomy-skill");
-    fireEvent.click(within(skills).getByRole("radio", { name: "Trial" }));
-    await waitFor(() => expect(puts).toEqual([{ skill: "trial" }]));
-
-    fireEvent.click(within(screen.getByTestId("self-build-enabled")).getByRole("switch"));
-    await waitFor(() => expect(puts.at(-1)).toEqual({ enabled: false }));
+    const field = within(await screen.findByTestId("self-build-limit-trial_days")).getByRole("spinbutton");
+    fireEvent.change(field, { target: { value: "21" } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(puts).toEqual([{ trial_days: 21 }]));
   });
 
   it("clamps a cap to the range the backend reported", async () => {

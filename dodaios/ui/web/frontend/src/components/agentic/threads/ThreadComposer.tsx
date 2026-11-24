@@ -385,6 +385,7 @@ export function ThreadComposer({
   autoFocusNonce,
   strip,
   tray,
+  subagentModel = "",
   onScreen = true,
 }: {
   /** Which thread the box is typing for — the session id, or `draft:<project>`. */
@@ -397,6 +398,8 @@ export function ThreadComposer({
   strip?: ReactNode;
   /** The tray that sits on the card's top edge — the thread's sub-agents. */
   tray?: ReactNode;
+  /** The model of the sub-agent open on screen, shown in place of the main agent's pick. */
+  subagentModel?: string;
   /** False while the IDE section is hidden: its keys belong to whatever is on screen. */
   onScreen?: boolean;
 }) {
@@ -866,7 +869,7 @@ export function ThreadComposer({
         {/* The pickers keep their width: a narrow column (side by side) scrolls the row instead of stacking them. */}
         <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0">
         <AgentModelPicker providers={providers} liveModels={liveModels} draft={draft}
-          lockedProvider={started && activeSessionId ? draft.provider : null}
+          lockedProvider={started && activeSessionId ? draft.provider : null} subagentModel={subagentModel}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
         <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
           onPick={(effort) => void pick({ effort })} onPickSpeed={(speed) => void pick({ speed })} />

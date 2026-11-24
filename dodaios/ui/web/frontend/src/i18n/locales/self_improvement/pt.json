@@ -29,6 +29,12 @@
       "recall": {
         "name": "Memória",
         "about": "Surge a memória certa para uma mensagem, e nenhuma quando não é precisa?"
+      },
+      "first_move": {
+        "name": "Primeiro passo",
+        "about": "O assistente usa primeiro a ferramenta certa, e diz antes numa linha do que se encarrega?",
+        "building": "Até agora há {n} tarefas de teste das suas próprias conversas com o assistente. A medição começa quando houver suficientes para decidir: {need} na parte com que decide, que tem agora {have}.",
+        "no_tasks": "Ainda não há tarefas das suas conversas para esta área. Vêm de respostas que deixou ficar e de respostas que o assistente acertou depois de o corrigir."
       }
     },
     "area": {
@@ -78,7 +84,7 @@
       "values": "{before} → {after}",
       "since": "desde {when}",
       "held": "confirmado de novo em {n} tarefas",
-      "kinds": "Dois tipos de alteração: valores que afinou e provou em tarefas, e notas que escreveu para si próprio, que estão em vigor mas ainda não foram medidas.",
+      "kinds": "Três tipos de alteração: valores que afinou e provou em tarefas, a forma como orienta os agentes de código, provada em metade dos seus pedidos, e notas que escreveu para si próprio, que estão em vigor mas ainda não foram medidas.",
       "note_title": "Uma nota que escreveu para si próprio",
       "note_gone": "Esta nota já não está na memória.",
       "not_measured": "ainda não medido"
@@ -119,7 +125,9 @@
     "author": {
       "tuner": "O afinador, que experimenta valores próximos em tarefas de treino",
       "owner": "O utilizador",
-      "memory-learner": "O assistente, depois de uma ferramenta falhar e uma chamada posterior resultar"
+      "memory-learner": "O assistente, depois de uma ferramenta falhar e uma chamada posterior resultar",
+      "rsi-selector": "O aprendiz de orientação, que experimenta uma alteração de cada vez em metade dos seus pedidos de código",
+      "lines": "O aprendiz de linhas, que experimenta as suas mensagens sem uma das linhas fixas em tarefas de treino"
     },
     "nights": {
       "title": "As últimas noites",
@@ -173,6 +181,7 @@
       "models": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite, com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
       "models_ramp": "Para criar tarefas consulta um modelo no máximo {calls} vezes por noite ({ramp} nas primeiras noites, enquanto houver poucas tarefas para decidir), com a subscrição do próprio assistente ou um modelo local, nunca com uma chave cobrada por token.",
       "measure_no_model": "A medição em si não consulta nenhum modelo.",
+      "measure_first_move": "Para medir o primeiro passo repete pedidos anteriores com a subscrição do próprio assistente: no máximo {calls} vezes por noite, nunca enquanto uma janela de utilização estiver 80 % cheia, e nunca mais de {share} % de uma janela numa noite.",
       "privacy": "As memórias e mensagens usadas para isto vão apenas para o fornecedor com que o assistente já responde. As memórias marcadas como sensíveis nunca são enviadas."
     },
     "param": {
@@ -227,6 +236,10 @@
       "lessons_recall_limit": {
         "title": "Lições por mensagem",
         "about": "O máximo de lições que uma mensagem pode trazer."
+      },
+      "lead_first_line": {
+        "title": "Linha inicial antes de uma ferramenta",
+        "about": "Junto a cada uma das suas mensagens: escrever uma linha curta que assume a tarefa antes de usar uma ferramenta."
       }
     },
     "daily": {
@@ -238,6 +251,50 @@
       "col_through": "Seguiram",
       "week_of": "a partir de {date}",
       "unrated": "sem valor"
+    },
+    "policy": {
+      "sentence": "{what}, {where}",
+      "where": "para trabalho de {area} com {model} em {harness}",
+      "default_model": "o modelo predefinido",
+      "hold": "Espera pelas verificações e pede correções",
+      "release": "Deixa de esperar pelas verificações",
+      "no_fixes": "Não pede correções",
+      "fewer_fixes_one": "Pede no máximo uma correção",
+      "fewer_fixes_other": "Pede no máximo {n} correções",
+      "shorter_wait": "Espera no máximo {minutes} minutos pelas verificações",
+      "brief_line": "Acrescenta uma linha à primeira instrução",
+      "other": "Muda a forma como os agentes de código são orientados",
+      "on_trial": "à experiência em metade dos seus pedidos desde {when}",
+      "claim_pass": "fica só se claramente mais pedidos resultarem",
+      "claim_cost": "fica só se custar menos e nada piorar",
+      "claim_p": "fica só se forem precisas menos correções e nada piorar",
+      "proof_pass": "Resultaram {with} de {n} pedidos, contra {without} de {m} sem ela (pelo menos {low} pontos)",
+      "proof_cost": "{diff} a menos por pedido em custo e tempo, em {n} pedidos contra {m} sem ela (pelo menos {low} a menos)",
+      "proof_p": "{diff} correções a menos por pedido, em {n} pedidos contra {m} sem ela (pelo menos {low} a menos)",
+      "measured_on": "Medido em {n} dos seus pedidos com ela e {m} sem ela, {when}.",
+      "about": "Como o Dodaios entrega trabalho de código aos agentes para este tipo de trabalho, este modelo e esta ferramenta de código: se a resposta espera pelas verificações, quantas correções pede e o que diz a primeira instrução. Foi experimentada em metade dos seus pedidos e comparada com a outra metade.",
+      "probation": "À experiência: a primeira execução com ela que enfraqueça uma verificação retira-a por si só."
+    },
+    "coding_area": {
+      "backend": "backend",
+      "frontend": "frontend",
+      "testing": "testes",
+      "database": "base de dados",
+      "infra_ci": "infraestrutura e CI",
+      "docs": "documentação",
+      "other": "outro tipo",
+      "refactoring": "refatoração",
+      "multi_repo": "vários repositórios"
+    },
+    "line": {
+      "lead_first_line": {
+        "off": "Foi retirada a linha junto às suas mensagens que pede uma linha inicial curta antes da primeira ferramenta.",
+        "on": "Foi reposta a linha junto às suas mensagens que pede uma linha inicial curta antes da primeira ferramenta."
+      }
+    },
+    "value": {
+      "on": "ligada",
+      "off": "desligada"
     }
   }
 }

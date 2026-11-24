@@ -11,11 +11,14 @@ Risk tier: safe — pure read-only access to USER.md + people/*.md.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.memory.people import PersonStore
 from dodaios.memory.user_profile import UserProfile
+
+log = logging.getLogger(__name__)
 
 
 class WhoAmITool:
@@ -84,7 +87,8 @@ class WhoAmITool:
         try:
             meta = self._profile.meta
             text = self._render_summary(meta, detail_level)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,
@@ -276,7 +280,8 @@ class WhoAmITool:
             return ""
         try:
             people = self._people.list_all()
-        except Exception:  # noqa: BLE001
+        except Exception:  # broad-except: failed; carrying on with the fallback
+            log.warning("_people_phrase: failed; carrying on with the fallback", exc_info=True)
             return ""
         if not people:
             return ""

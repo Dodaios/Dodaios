@@ -42,7 +42,6 @@ class DescribeAppSettingsTool:
         "properties": {},
         "required": [],
         "additionalProperties": False,
-        "input_examples": [{}],
     }
 
     async def execute(

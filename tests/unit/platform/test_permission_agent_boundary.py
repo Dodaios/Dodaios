@@ -212,7 +212,7 @@ def test_the_web_server_attaches_the_bus_before_anything_else_in_start() -> None
 
 
 def test_the_desktop_app_attaches_the_bus_before_the_speech_task_can_ask() -> None:
-    tree = ast.parse((_JARVIS / "ui/desktop_app.py").read_text(encoding="utf-8"))
+    tree = ast.parse((_JARVIS / "ui/desktop_boot.py").read_text(encoding="utf-8"))
     attach = [c for c in _calls_in(tree) if _call_name(c) == "_attach_permission_bus"]
     speech = [c for c in _calls_in(tree) if _call_name(c) == "_start_speech_and_orb"]
 

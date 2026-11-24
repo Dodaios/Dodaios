@@ -150,11 +150,22 @@ def core_reasons(
 
 
 def _policy_text(after: str | None) -> str:
-    """The turn material a coding policy would add to briefs (decision 5.4: the owner's call)."""
+    """Text a coding policy would add to briefs beyond the fixed lines written in the code.
+
+    The miner's lines (``dodaios.rsi.mining.LINES``) are sentences in the code,
+    reviewed like it: a policy made of them goes on trial by itself and the
+    selector's gate decides whether it stays. Any other text for coding agents
+    is the owner's call.
+    """
     import json
 
     try:
         data = json.loads(after or "{}")
     except ValueError:  # not JSON: the gate's policy check blocks it anyway
         return ""
-    return str(data.get("domain_block") or "") if isinstance(data, dict) else ""
+    block = str(data.get("domain_block") or "") if isinstance(data, dict) else ""
+    if not block:
+        return ""
+    from dodaios.rsi.mining import LINES
+
+    return "\n".join(line for line in block.splitlines() if line.strip() and line not in LINES)

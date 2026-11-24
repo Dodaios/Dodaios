@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # Windows: switch stdout to UTF-8 so umlauts and Unicode symbols work.
 if sys.platform == "win32":
@@ -40,7 +43,8 @@ def _skill_roots() -> list[Path]:
     """List of skill root directories in search order."""
     try:
         from dodaios.core.config import PROJECT_ROOT
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.debug("_skill_roots: failed; carrying on with the fallback", exc_info=True)
         PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
     from dodaios.core.paths import user_skills_dir

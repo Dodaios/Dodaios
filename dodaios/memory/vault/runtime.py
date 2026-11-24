@@ -74,7 +74,7 @@ def set_active(vault: MemoryVault | None) -> None:
     if old is not None and old is not vault:
         try:
             old.close()
-        except Exception:  # noqa: BLE001 — closing an old handle never fails a swap
+        except Exception:  # broad-except: closing an old handle never fails a swap
             log.debug("memory vault: could not close the old handle", exc_info=True)
 
 
@@ -111,7 +111,7 @@ def prompt_block(*, compact: bool = False, vault: MemoryVault | None = None) -> 
             return cached[1]
     try:
         body = vault.profile_block(max_chars=_budgets["compact" if compact else "full"])
-    except Exception:  # noqa: BLE001 — a vault fault never breaks a prompt build
+    except Exception:  # broad-except: a vault fault never breaks a prompt build
         log.warning("memory vault: could not build the prompt block", exc_info=True)
         return ""
     block = f"{_HEADER}\n{body}" if body else ""
@@ -266,7 +266,7 @@ def turn_block(user_text: str, *, compact: bool = False, vault: MemoryVault | No
         return ""
     try:
         found = recall_for(vault, user_text, compact=compact)
-    except Exception:  # noqa: BLE001 — recall must never break a turn
+    except Exception:  # broad-except: recall must never break a turn
         log.warning("memory vault: per-message recall failed", exc_info=True)
         return ""
     if not found.lines:
@@ -274,7 +274,7 @@ def turn_block(user_text: str, *, compact: bool = False, vault: MemoryVault | No
     if not replay:
         try:
             vault.mark_used([m.id for m in found.chosen])
-        except Exception:  # noqa: BLE001 — a usage counter is not worth failing a turn over
+        except Exception:  # broad-except: a usage counter is not worth failing a turn over
             log.debug("memory vault: could not count recall use", exc_info=True)
     return _TURN_HEADER + "\n" + "\n".join(found.lines)
 
@@ -384,7 +384,7 @@ def learned_user_name() -> str | None:
         return None
     try:
         memories = vault.list(kind="profile")
-    except Exception:  # noqa: BLE001 — no learned name is the honest answer
+    except Exception:  # broad-except: no learned name is the honest answer
         log.debug("memory vault: profile unreadable for the name", exc_info=True)
         return None
     for memory in memories:
@@ -407,7 +407,7 @@ def dated_notes(*, days: int = 30) -> list[tuple[Any, str]]:
         return []
     try:
         memories = vault.upcoming(days=days)
-    except Exception:  # noqa: BLE001 — dates are grounding, never a turn breaker
+    except Exception:  # broad-except: dates are grounding, never a turn breaker
         log.debug("memory vault: upcoming read failed", exc_info=True)
         return []
     notes = []
@@ -432,7 +432,7 @@ def learning_paused() -> bool:
         return False
     try:
         return vault.learning_paused_until() is not None
-    except Exception:  # noqa: BLE001 — an unreadable flag must not stop learning silently
+    except Exception:  # broad-except: an unreadable flag must not stop learning silently
         log.warning("memory vault: pause flag unreadable", exc_info=True)
         return False
 
@@ -459,7 +459,7 @@ def agent_block(*, max_chars: int = AGENT_BLOCK_MAX_CHARS) -> str:
             # A memory the user marked private never reaches their agents.
             if m.sensitivity == "normal" and m.scope in ("global", "work")
         ]
-    except Exception:  # noqa: BLE001 — the agents work on without the user's preferences
+    except Exception:  # broad-except: the agents work on without the user's preferences
         log.debug("memory vault: agent block unavailable", exc_info=True)
         return ""
     memories.sort(key=lambda m: (not m.pinned, m.kind != "procedural", m.recorded_at))
@@ -491,6 +491,6 @@ def record_checkpoint(session: str, through_seq: int, summary: str) -> bool:
 
     try:
         return enqueue(vault, session, through_seq, summary)
-    except Exception:  # noqa: BLE001 — compaction must never fail over memory
+    except Exception:  # broad-except: compaction must never fail over memory
         log.warning("memory vault: could not queue a conversation checkpoint", exc_info=True)
         return False

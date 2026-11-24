@@ -14,11 +14,14 @@ the DDG path unchanged.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.plugins.tool.search_backends import run_search
+
+log = logging.getLogger(__name__)
 
 
 def _load_apifare_key() -> str:
@@ -29,7 +32,8 @@ def _load_apifare_key() -> str:
     """
     try:
         from dodaios.core.config import get_secret_any
-    except Exception:  # noqa: BLE001 — import-time config blip
+    except Exception:  # broad-except: import-time config blip
+        log.debug("_load_apifare_key: import-time config blip", exc_info=True)
         return ""
     try:
         return (
@@ -41,7 +45,8 @@ def _load_apifare_key() -> str:
             )
             or ""
         ).strip()
-    except Exception:  # noqa: BLE001 — keyring / env read must not block search
+    except Exception:  # broad-except: keyring / env read must not block search
+        log.warning("_load_apifare_key: keyring / env read must not block search", exc_info=True)
         return ""
 
 
@@ -109,7 +114,11 @@ def _answer_instruction_for(ctx: ExecutionContext) -> str:
     context without the key, keeps the historical spoken behaviour."""
     try:
         delivery = (ctx.config or {}).get("delivery")
-    except Exception:  # noqa: BLE001 — a foreign ctx shape must not break search
+    except Exception:  # broad-except: a foreign ctx shape must not break search
+        log.warning(
+            "_answer_instruction_for: a foreign ctx shape must not break search",
+            exc_info=True,
+        )
         delivery = None
     return _WRITTEN_ANSWER_INSTRUCTION if delivery == "written" else _ANSWER_INSTRUCTION
 
@@ -311,25 +320,13 @@ class SearchWebTool:
     # read it as an unwanted research spawn for a trivial question. Pinned by
     # tests/unit/brain/test_search_web_freshness_doctrine.py.
     description: str = (
-        "Web search via DuckDuckGo with a short summary — for FRESH, "
-        "time-critical facts. USE THIS TOOL only when the answer needs CURRENT "
-        "or volatile information that may have changed since your knowledge "
-        "cutoff: current news, today's prices/stock quotes, weather, sports "
-        "results, ongoing events, 'latest/current/today/right now' — OR when "
-        "the user EXPLICITLY asks you to search ('search for that', 'google "
-        "that', 'look it up'). "
-        "DO NOT USE for evergreen/general knowledge you can answer directly "
-        "yourself (geography, history, definitions, 'how does X work', general "
-        "procedures/processes like 'what do I need to consider when "
-        "emigrating', well-known concepts) — answer such questions directly "
-        "from your own knowledge, without searching. "
-        "For weather questions, put the location in the query (e.g. 'weather "
-        "Berlin tomorrow'). "
-        "For research questions, pass 2-3 DIFFERENT phrasings via 'queries' "
-        "in ONE call (fetched concurrently) instead of searching again in a "
-        "later round — one call should gather all the evidence you need. "
-        "DO NOT USE for actions on connected systems (use cli_* or MCP tools "
-        "for that) — 'my X' or 'start X' is NEVER search intent."
+        "Web search via DuckDuckGo with a short summary, for FRESH time-critical facts. Use "
+        "ONLY for current or volatile information (news, today's prices, weather, sports, "
+        "'latest/today/right now') or when the user explicitly asks to search ('google that', "
+        "'look it up'). Do NOT use for evergreen knowledge you can answer yourself (geography, "
+        "history, definitions, how things work) nor for actions on connected systems ('my X', "
+        "'start X' is never search intent; use cli_* or MCP tools). Weather: put the location "
+        "in the query. For research pass 2-3 different phrasings in 'queries' in ONE call."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -372,7 +369,8 @@ class SearchWebTool:
 
         try:
             import httpx
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"httpx not available: {exc}")
 
         # Weather fast-path: DDG instant answers have no weather data (every
@@ -386,7 +384,8 @@ class SearchWebTool:
                 async with asyncio.timeout(_TIMEOUT_S):
                     async with httpx.AsyncClient(timeout=_WEATHER_CALL_TIMEOUT_S) as client:
                         weather = await _weather_results(query, client)
-            except Exception:  # noqa: BLE001 — weather is best-effort (incl. TimeoutError)
+            except Exception:  # broad-except: weather is best-effort (incl. TimeoutError)
+                log.debug("execute: weather is best-effort (incl. TimeoutError)", exc_info=True)
                 weather = None
             if weather:
                 return ToolResult(
@@ -413,7 +412,8 @@ class SearchWebTool:
                         )
                         for variant in variants
                     ])
-        except Exception:  # noqa: BLE001 — incl. TimeoutError: never sink the turn
+        except Exception:  # broad-except: incl. TimeoutError: never sink the turn
+            log.warning("execute: incl. TimeoutError: never sink the turn", exc_info=True)
             return ToolResult(
                 success=True,
                 output={

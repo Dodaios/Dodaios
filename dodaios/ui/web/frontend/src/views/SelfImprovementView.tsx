@@ -38,12 +38,15 @@ import { AdvantageCurve } from "./selfImprovement/AdvantageCurve";
 import { ChangeDetail } from "./selfImprovement/ChangeDetail";
 import { DailyUseSection } from "./selfImprovement/DailyUse";
 import { NightsSection } from "./selfImprovement/Nights";
+import { claimWords, isPolicy, policyProof, policySentence } from "./selfImprovement/policy";
+import { PolicyLines } from "./selfImprovement/PolicyLines";
 import {
   DECIDE_MIN_TASKS,
   MODEL_FREE_DOMAINS,
   SAVING_HEADLINE_SHARE,
   areaAbout,
   areaName,
+  areaText,
   certainty,
   effectWords,
   fmtPercent,
@@ -51,6 +54,7 @@ import {
   fmtShare,
   fmtTokens,
   fmtValue,
+  lineSentence,
   paramTitle,
   promptSaving,
   wordFor,
@@ -339,9 +343,9 @@ function Area({ domain, points, locale }: { domain: DomainSummary; points: Advan
       ) : (
         <p className="rounded-md border border-border bg-card px-5 py-4 text-sm text-muted-foreground" data-testid="si-area-waiting">
           {domain.tasks_total === 0
-            ? t("self_improvement.area.no_tasks")
+            ? areaText(t, domain.domain, "no_tasks")
             : (domain.tasks.select ?? 0) < DECIDE_MIN_TASKS
-              ? fill(t("self_improvement.area.building"), {
+              ? fill(areaText(t, domain.domain, "building"), {
                   n: domain.tasks_total,
                   need: DECIDE_MIN_TASKS,
                   have: domain.tasks.select ?? 0,
@@ -506,19 +510,35 @@ function ChangeRow({
 }) {
   const t = useT();
   const note = isNote(change);
+  // How coding agents are steered: a sentence instead of a value, proved on requests.
+  const policy = isPolicy(change) ? change : null;
+  // A line beside the lead's messages that was switched reads as one sentence, not a value.
+  const sentence = note ? "" : lineSentence(t, change.target, change.after);
   const before = change.before ?? change.default;
-  const values = note ? "" : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
+  const values =
+    note || policy || sentence
+      ? ""
+      : fill(t("self_improvement.stack.values"), { before: fmtValue(before, locale), after: fmtValue(change.after, locale) });
   const when = relativeTime(change.since_ms, locale);
   // Two lines: where the change stands, then what proved it. The proof is the
   // line a person reads for, so it never shares its width with anything else.
   const standing = candidate
-    ? [fill(t("self_improvement.candidates.row"), { when })]
+    ? [fill(t(policy ? "self_improvement.policy.on_trial" : "self_improvement.candidates.row"), { when })]
     : [wordFor(t, "state_word", change.state), fill(t("self_improvement.stack.since"), { when })];
   if (!candidate && change.last_check && change.last_check.verdict === "accept") {
     standing.push(fill(t("self_improvement.stack.held"), { n: change.last_check.n }));
   }
   // A note it wrote for itself has no measurement: it says so instead of a proof.
-  const proof = candidate ? "" : note ? t("self_improvement.stack.not_measured") : effectWords(t, change.admitted, locale);
+  // A policy on trial says what it has to show; one in effect, what showed it.
+  const proof = policy
+    ? candidate
+      ? claimWords(t, policy.policy)
+      : policyProof(t, change.admitted, locale)
+    : candidate
+      ? ""
+      : note
+        ? t("self_improvement.stack.not_measured")
+        : effectWords(t, change.admitted, locale);
   return (
     <Row
       testId="si-change-row"
@@ -528,6 +548,14 @@ function ChangeRow({
       title={
         note ? (
           t("self_improvement.stack.note_title")
+        ) : policy ? (
+          <span className="whitespace-normal" data-testid="si-policy-sentence">
+            {policySentence(t, policy)}
+          </span>
+        ) : sentence ? (
+          <span className="whitespace-normal" data-testid="si-line-sentence">
+            {sentence}
+          </span>
         ) : (
           <>
             {paramTitle(t, change.target, change.doc)}
@@ -538,6 +566,7 @@ function ChangeRow({
       sub={
         <>
           {note && <NoteWords text={change.text ?? ""} />}
+          {policy && policy.policy.lines.length > 0 && <PolicyLines lines={policy.policy.lines} />}
           <span className="block truncate">{standing.join(" · ")}</span>
           {proof && (
             <span
@@ -608,6 +637,7 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
   const minutes = Math.round(limits.idle_after_s / 60);
   const hours = Math.round(limits.every_s / 3600);
   const modelFree = domains.every((d) => MODEL_FREE_DOMAINS.has(d.domain));
+  const replays = domains.some((d) => d.domain === "first_move");
   return (
     <section data-testid="si-foot" aria-labelledby="si-foot-title" className="mt-12 border-t border-border px-1 pt-6">
       <h2 id="si-foot-title" className="text-sm font-medium text-foreground">{t("self_improvement.how.title")}</h2>
@@ -632,6 +662,12 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
               })
             : fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
           {modelFree ? ` ${t("self_improvement.how.measure_no_model")}` : ""}
+          {replays
+            ? ` ${fill(t("self_improvement.how.measure_first_move"), {
+                calls: limits.first_move_calls ?? 40,
+                share: Math.round(limits.budget_share * 100),
+              })}`
+            : ""}
         </p>
         <p data-testid="si-privacy">{t("self_improvement.how.privacy")}</p>
       </div>

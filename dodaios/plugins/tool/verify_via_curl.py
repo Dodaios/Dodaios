@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 class VerifyViaCurlTool:
@@ -64,5 +67,6 @@ class VerifyViaCurlTool:
                 success=True,
                 output=f"HTTP 200 OK ({url})" + (f" — '{substring}' found" if substring else ""),
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.debug("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=f"Request failed: {exc}")

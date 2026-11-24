@@ -10,10 +10,13 @@ Risk tier: safe; both only touch the local vault file.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.rsi import overlay
+
+log = logging.getLogger(__name__)
 
 
 def _vault() -> Any:
@@ -27,7 +30,8 @@ def _conversation(query: str, limit: int) -> list[dict[str, Any]]:
         from dodaios.agent_chat.lead import search_conversation
 
         return search_conversation(query, limit=min(limit, 6))
-    except Exception:  # noqa: BLE001 — the conversation is extra; memory still answers
+    except Exception:  # broad-except: the conversation is extra; memory still answers
+        log.debug("_conversation: the conversation is extra; memory still answers", exc_info=True)
         return []
 
 

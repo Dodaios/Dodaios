@@ -126,6 +126,7 @@ logs/
 *.mkv
 *.avi
 *.wav
+!scripts/bench/data/*.wav
 *.flac
 *.blend
 *.blend1
@@ -184,6 +185,7 @@ ChatGPT Image *
 
 # Sub-Agent-Sandbox-Outputs (Research-/Demo-Drops, kein Projekt-Code)
 examples/
+!/sdk/examples/
 github-research/
 # The marketing website is its OWN git repo living in personaljarvisweb/, so one
 # folder holds both projects. Ignored on purpose: without this line git
@@ -489,7 +491,7 @@ scripts/ci/privacy_gate/references/secret-allowlist.tsv
 
 # Local validation scripts, runtime captures, and machine-specific telemetry.
 /scripts/_*.py
-/art/studies/*/evidence/
+/assets/art/studies/*/evidence/
 /desktop-ttu-latest.json
 
 # Figure build: fetched CC0 sources and generated sheets (scripts/figures/README.md)
@@ -503,5 +505,5 @@ eval-results/
 # had them keeps local leftovers (build output, caches, third-party content
 # whose licence forbids redistribution); none of it may ever be committed.
 /unreal/
-/art/verse/
+/assets/art/verse/
 /dodaios/ui/web/frontend/public/verse/

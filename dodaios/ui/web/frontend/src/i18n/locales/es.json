@@ -3680,25 +3680,8 @@
     },
     "self_build": {
       "title": "Autoconstrucción",
-      "description": "Hasta dónde puede llegar {name} cuando construye cosas para ti por su cuenta.",
+      "description": "Los límites que {name} respeta cuando construye ayudantes para ti. Nunca pregunta antes: solo construye lo que se puede deshacer y conserva lo que usas. Ponlo en pausa o deshaz un ayudante en Hecho para ti.",
       "open_view": "Abrir Hecho para ti",
-      "enabled_title": "Construir por su cuenta",
-      "enabled_description": "Notar lo que haces una y otra vez y construir lo que te lo quite de encima. Desactivado: no se nota ni se construye nada.",
-      "autonomy_title": "Hasta dónde, por tipo",
-      "autonomy_description": "Desactivado: nunca. Sugerir: una tarjeta pregunta primero. Prueba: construido, comprobado y activo, con deshacer en un clic. Completo: como prueba, y una prueba que se usó se conserva sola.",
-      "levels": {
-        "off": "Desactivado",
-        "suggest": "Sugerir",
-        "trial": "Prueba",
-        "full": "Completo"
-      },
-      "kinds": {
-        "memory": "Recuerdos",
-        "skill": "Habilidades",
-        "routine": "Rutinas",
-        "agent": "Agentes",
-        "code": "Cambios de código"
-      },
       "limits_title": "Límites",
       "limits_description": "Topes fijos que el ciclo nunca supera, decida lo que decida.",
       "limits": {
@@ -3708,7 +3691,7 @@
         "max_code_runs_per_day": "Ejecuciones de código por día",
         "trial_days": "Duración de la prueba en días",
         "trial_uses": "Duración de la prueba en usos",
-        "max_rejections": "Dejar de ofrecer tras tantos noes",
+        "max_rejections": "No volver a construirlo tras deshacerlo tantas veces",
         "silent_days": "Primeros días en silencio"
       },
       "save_error": "No se pudo guardar: {detail}",
@@ -5254,6 +5237,7 @@
     "approving": "Aprobando…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Instalado, desactivado",
     "install_failed": "La instalación falló",
     "title": "Buscador de habilidades",
     "subtitle": "Describe lo que necesitas: el miniagente busca en el catálogo y clasifica con IA.",
@@ -6728,6 +6712,7 @@
     "landed_title": "{title} instalado",
     "landed_plugin": "Ya está en Plugins. Conéctalo para poder usarlo.",
     "landed_skill": "Ya está en Skills y se puede usar enseguida.",
+    "landed_skill_off": "Está en Skills, desactivado. Léelo allí y actívalo para usarlo.",
     "landed_needs_connect": "Instalado, pero todavía no se puede usar: falta conectarlo.",
     "sends_data_to": "Una vez conectado, las peticiones y tu token de acceso van a:",
     "runs_command": "Una vez conectado, este comando se ejecuta en tu ordenador:",

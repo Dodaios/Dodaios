@@ -127,6 +127,29 @@ async def test_plugin_wire_catalog_rechecks_session_scope():
         server.CHAT_SESSION_REF.reset(token)
 
 
+@pytest.mark.asyncio
+async def test_the_tool_list_hash_follows_what_the_session_is_offered():
+    """A recorded lead turn keeps it: same list, same hash; any listed change moves it."""
+    assert await server.tool_list_digest("lead-1") == ""  # no gateway yet
+
+    class ScopedGateway(_Gateway):
+        description = "a tool"
+
+        async def session_catalog(self, session_id):
+            assert session_id == "lead-1"
+            return tuple(_Descriptor(n, description=self.description) for n in self.names)
+
+    gateway = ScopedGateway(names=("open-app", "wiki-recall"))
+    runtime_refs.set_supervisor_tool_gateway(gateway)
+    first = await server.tool_list_digest("lead-1")
+    assert len(first) == 64 and first == await server.tool_list_digest("lead-1")
+    assert server.CHAT_SESSION_REF.get() is None  # the session is set for the read only
+    gateway.description = "a tool, said otherwise"
+    assert await server.tool_list_digest("lead-1") != first
+    gateway.description, gateway.names = "a tool", ("open-app",)
+    assert await server.tool_list_digest("lead-1") != first
+
+
 def test_a_tool_result_becomes_text_the_model_can_read():
     assert server._render(_Result(success=True, output="plain")) == "plain"
     assert server._render(_Result(success=True, output={"a": 1})) == '{"a": 1}'

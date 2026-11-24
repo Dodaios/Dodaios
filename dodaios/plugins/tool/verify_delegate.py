@@ -215,7 +215,7 @@ class VerifyDelegateTool:
                     output={"job_id": job_id, "verdict": "unverified", "summary": record},
                 )
             verification = await asyncio.to_thread(verify_record, record)
-        except Exception as exc:  # noqa: BLE001 - a broken check is reported, never a crash
+        except Exception as exc:  # broad-except: a broken check is reported, never a crash
             log.warning("verify_delegate failed for %s", job_id, exc_info=True)
             return ToolResult(success=False, output=None, error=f"Verification failed: {exc}")
         return ToolResult(success=True, output=verification.to_dict())

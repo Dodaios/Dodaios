@@ -113,7 +113,7 @@ def _chain(vault: MemoryVault, memory: Memory) -> set[str]:
     """Ids of every version of ``memory`` (the counters follow the supersede chain)."""
     try:
         return {m.id for m in vault.history(memory.id)} | {memory.id}
-    except Exception:  # noqa: BLE001 - a broken chain must not stop a lookup
+    except Exception:  # broad-except: a broken chain must not stop a lookup
         log.warning("lessons: could not read a memory history", exc_info=True)
         return {memory.id}
 

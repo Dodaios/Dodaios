@@ -176,7 +176,8 @@ def _codex_oauth_available() -> bool:
 
         status = CodexAuthService().status()
         return bool(status.connected and status.mode == "chatgpt")
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        logger.debug("_codex_oauth_available: failed; carrying on with the fallback", exc_info=True)
         return False
 
 
@@ -527,7 +528,7 @@ class CodexDirectWorker:
             if issued_here and broker_binding is not None:
                 try:
                     broker_binding.close()
-                except Exception:  # noqa: BLE001 - cleanup must not mask cancellation
+                except Exception:  # broad-except: cleanup must not mask cancellation
                     logger.exception("CodexDirectWorker: broker binding cleanup failed")
 
     async def _spawn_bound(
@@ -939,7 +940,8 @@ class CodexDirectWorker:
                     from dodaios.missions import init as _missions_init
 
                     _claude_viable = _missions_init._claude_cli_auth_viable()
-                except Exception:  # noqa: BLE001 — unreadable probe => not viable
+                except Exception:  # broad-except: unreadable probe => not viable
+                    logger.debug("_spawn_bound: unreadable probe => not viable", exc_info=True)
                     _claude_viable = False
             if _claude_viable:
                 logger.warning(
