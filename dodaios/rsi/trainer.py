@@ -297,9 +297,9 @@ class Trainer:
         rows = [r for r in self._cell_runs(cell) if r.get("policy_id") == active.id]
         if len(rows) < selector.N_MIN:
             return "waiting for runs"
-        recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
         if not active.hold:
-            return self._propose_hold(cell, active, recorded, now)
+            return self._propose_hold(cell, active, rows, now)
+        recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
         claim = selector.Claim(cell, "B", "cost")
         for shape in GRID:
             # A candidate differs from the active policy in its steering only.
@@ -324,7 +324,7 @@ class Trainer:
         self,
         cell: str,
         active: Policy,
-        recorded: list[tuple[dict[str, Any], list[Any]]],
+        rows: list[dict[str, Any]],
         now: int,
     ) -> str:
         """Holding, with the factory's follow-up limits, as a candidate for a cell that does not."""
@@ -333,6 +333,7 @@ class Trainer:
         )
         if self._tried_lately(cell, candidate, now):
             return f"nothing proposed: holding was tried here less than {RETRY_AFTER_DAYS} days ago"
+        recorded = [(r, self._runs.steps(str(r["run_id"]))) for r in rows]
         branch, target = claim_for(active, candidate)
         outcome = replay_hold(selector.Claim(cell, branch, target), recorded, candidate)
         if outcome.answer == "reject":
