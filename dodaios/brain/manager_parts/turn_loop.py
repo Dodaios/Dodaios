@@ -943,11 +943,8 @@ class _TurnLoopMixin:
             if self._dead_providers:
                 log.warning(
                     "Provider chain empty (all dead/keyless) — spoken fallback. "
-                    "Diagnostic: %s",
-                    _m._format_provider_chain_error([
-                        (p, "", "missing_key", "no API key in this session")
-                        for p in self._dead_providers
-                    ]),
+                    "Diagnostic: providers without a credential this session: %s",
+                    ", ".join(str(p) for p in self._dead_providers),
                 )
             else:
                 log.warning("No brain providers available — spoken fallback used.")
