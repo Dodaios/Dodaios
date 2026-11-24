@@ -9,12 +9,49 @@ thread.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
 from dodaios.agentic_ide import agent_sessions, agent_transcript
+
+#: path -> (size, mtime, tool events): a record that has not grown is not read again.
+_parsed: dict[Path, tuple[int, int, list[dict[str, Any]]]] = {}
+_parsed_lock = threading.Lock()
+#: Enough of a result to tell whether a call succeeded and what it created.
+_HEAD, _TAIL = 600, 300
+
+
+def _lean(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Only the tool calls and results, results cut to their head and tail."""
+    kept = []
+    for event in events:
+        if event.get("kind") not in {"tool_call", "tool_result"}:
+            continue
+        payload = event.get("payload") or {}
+        output = payload.get("output")
+        if isinstance(output, str) and len(output) > _HEAD + _TAIL:
+            payload = {**payload, "output": output[:_HEAD] + " " + output[-_TAIL:]}
+            event = {**event, "payload": payload}
+        kept.append(event)
+    return kept
+
+
+def _read_file(path: Path, session: str, home: Path | None) -> list[dict[str, Any]]:
+    info = path.stat()
+    with _parsed_lock:
+        known = _parsed.get(path)
+    if known is not None and known[:2] == (info.st_size, info.st_mtime_ns):
+        return known[2]
+    log = agent_transcript._claude_events(session, home, False, path)
+    events = _lean(list(getattr(log, "events", [])))
+    with _parsed_lock:
+        if len(_parsed) >= 400:
+            _parsed.clear()
+        _parsed[path] = (info.st_size, info.st_mtime_ns, events)
+    return events
 
 
 def _files(session_id: str, home: Path | None) -> list[Path]:
@@ -51,23 +88,35 @@ def stamp(agent: str, session_id: str, *, home: Path | None = None) -> tuple[int
     )
 
 
-def read_events(
+def read_files(
     agent: str, session_id: str, *, home: Path | None = None
-) -> list[dict[str, Any]] | None:
-    """The tool events of every sub-agent the session spawned, oldest first.
+) -> list[tuple[Path, tuple[int, int], list[dict[str, Any]]]] | None:
+    """Each sub-agent record: its path, its (size, mtime) and its tool events.
 
-    ``[]`` when there are none; ``None`` when a record cannot be read now.
+    A record that has not grown since the last call is not read again. ``[]``
+    when there are none; ``None`` when a record cannot be read now.
     """
     session = _session(agent, session_id)
     if not session:
         return []
-    events: list[dict[str, Any]] = []
+    found = []
     try:
         for path in _files(session, home):
-            log = agent_transcript._claude_events(session, home, False, path)
-            events.extend(getattr(log, "events", []))
+            info = path.stat()
+            found.append((path, (info.st_size, info.st_mtime_ns), _read_file(path, session, home)))
     except OSError as exc:
         logger.warning("Sub-agent records of {} unreadable: {}", session, exc)
         return None
+    return found
+
+
+def read_events(
+    agent: str, session_id: str, *, home: Path | None = None
+) -> list[dict[str, Any]] | None:
+    """The tool events of every sub-agent the session spawned, oldest first."""
+    files = read_files(agent, session_id, home=home)
+    if files is None:
+        return None
+    events = [event for _, _, each in files for event in each]
     events.sort(key=lambda event: event.get("ts_ms") or 0)
     return events

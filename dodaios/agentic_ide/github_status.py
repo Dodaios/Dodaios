@@ -23,7 +23,11 @@ from loguru import logger
 
 from dodaios.agentic_ide import git_overview, github_link
 from dodaios.agentic_ide.github_checks import CheckStatus, checks
-from dodaios.agentic_ide.session_branches import PaneBranchRecord, pane_branches
+from dodaios.agentic_ide.session_branches import (
+    MAX_PANE_BRANCHES,
+    PaneBranchRecord,
+    ranked_branches,
+)
 
 _QUERY = """
 query($owner: String!, $name: String!, $branch: String!, $ref: String!, $prIds: [ID!]!) {
@@ -183,6 +187,8 @@ class BranchStatus:
     deletions: int = 0
     # The session's other branches, newest first; set on the one a header shows.
     others: list[BranchStatus] = field(default_factory=list)
+    # Branches of the session beyond the ones read from GitHub: the list is "N+".
+    more: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -396,7 +402,9 @@ def statuses(
     # Every step asks git or GitHub once per pane or branch and waits for the
     # answer. Asked one after another, a workspace with eight branches took
     # ten seconds; side by side it takes about as long as the slowest answer.
-    owned_by_pane = _each(_tolerant(pane_branches, [], "reading a pane's branches"), records)
+    # Every branch is known locally for free; only the first few are asked of GitHub.
+    ranked = _each(_tolerant(ranked_branches, [], "reading a pane's branches"), records)
+    owned_by_pane = [listed[:MAX_PANE_BRANCHES] for listed in ranked]
     keys = list(
         dict.fromkeys(
             (owned.folder, owned.branch, owned.created_at)
@@ -419,7 +427,7 @@ def statuses(
             )
         )
     now = time.time()
-    for record, owned_branches in zip(records, owned_by_pane, strict=True):
+    for record, owned_branches, every in zip(records, owned_by_pane, ranked, strict=True):
         listed: list[BranchStatus] = []
         for owned in owned_branches:
             target = targets[(owned.folder, owned.branch, owned.created_at)]
@@ -447,6 +455,7 @@ def statuses(
             continue
         shown = _foreground(listed)
         shown.others = [status for status in listed if status is not shown]
+        shown.more = max(0, len(every) - len(owned_branches))
         result[record.pane] = shown.to_dict()
     return result
 

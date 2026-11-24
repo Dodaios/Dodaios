@@ -114,6 +114,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
   const t = useT();
   const { status } = useThreadGitHub(sessionId);
   const requests = pullRequestsOf(status);
+  const more = (status?.more ?? 0) > 0;
   const anchor = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [position, setPosition] = useState<CardPosition | null>(null);
@@ -156,7 +157,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
       data-testid={`thread-prs-${sessionId}`} onMouseEnter={show} onMouseLeave={hide}
       className={cn("flex shrink-0 items-center gap-1 text-sm font-medium tabular-nums", lead.tone)}>
       <GitHubIcon name={lead.icon} width={16} height={16} className="shrink-0" />
-      {requests.length > 1 && <span>{requests.length}</span>}
+      {(requests.length > 1 || more) && <span>{requests.length}{more ? "+" : ""}</span>}
     </span>
     {position && createPortal(<div role="menu" aria-label={t("ide_threads.pull_requests")}
       data-testid={`thread-pr-card-${sessionId}`}
