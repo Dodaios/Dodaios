@@ -14,11 +14,20 @@ Run once per fresh clone / worktree:
 
 It does two things, both idempotent:
 
-1. Points ``core.hooksPath`` at the tracked ``.githooks/`` dir so the
-   versioned hooks actually run (a per-clone setting a fresh clone lacks).
+1. Points ``core.hooksPath`` at the tracked ``.githooks/`` dir of the PRIMARY
+   checkout, by absolute path, so the versioned hooks actually run (a
+   per-clone setting a fresh clone lacks). Written relative (``.githooks``),
+   git resolves the path against whichever tree is checked out, so a linked
+   worktree would run the hook files of the branch it holds, whoever wrote
+   that branch. The absolute path keeps one copy in charge. An absolute path
+   that already names an existing folder is never replaced.
 2. Removes a previously injected ``guard_no_raw_public_push`` block from a
    legacy ``.git/hooks/pre-push``, so old clones stop hard-blocking the now
    normal public push.
+
+The primary checkout itself still runs the hooks of the branch it has
+checked out: look at a branch from outside the repository in a linked
+worktree (``git worktree add``), never by switching the primary checkout.
 
 stdlib-only; resolves the hooks dir via ``git rev-parse`` so it works in
 linked worktrees too.
@@ -28,6 +37,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 MARKER_BEGIN = "# >>> guard_no_raw_public_push (managed by scripts/ci/install_git_hooks.py) >>>"
 MARKER_END = "# <<< guard_no_raw_public_push <<<"
@@ -39,17 +49,39 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
+def primary_hooks_dir() -> Path | None:
+    """The tracked ``.githooks`` folder of the primary checkout.
+
+    The primary checkout is the parent of the git common dir. Linked
+    worktrees share its configuration, so one absolute path serves them all.
+    A layout without such a checkout (a bare repository with worktrees) falls
+    back to the checkout this runs in.
+    """
+    common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir"))
+    roots = [common.parent] if common.name == ".git" else []
+    roots.append(Path(_git("rev-parse", "--show-toplevel")))
+    for root in roots:
+        if (root / ".githooks").is_dir():
+            return (root / ".githooks").resolve()
+    return None
+
+
 def _ensure_hookspath() -> None:
-    """If the repo ships a tracked ``.githooks/`` dir, point git at it."""
+    """If the repo ships a tracked ``.githooks/`` dir, point git at the primary
+    checkout's copy by absolute path; an absolute path already set is kept."""
     tracked = _git("ls-files", ".githooks/")
     if not tracked:
         return  # repo doesn't use a tracked hooks dir → leave default .git/hooks
     current = subprocess.run(
         ["git", "config", "--get", "core.hooksPath"], capture_output=True, text=True,
     ).stdout.strip()
-    if current != ".githooks":
-        _git("config", "core.hooksPath", ".githooks")
-        print("core.hooksPath set to .githooks (tracked hooks now active).")
+    if current and os.path.isabs(current) and os.path.isdir(current):
+        return  # never replace an absolute path with a weaker one
+    wanted = primary_hooks_dir()
+    if wanted is None:
+        return
+    _git("config", "core.hooksPath", wanted.as_posix())
+    print(f"core.hooksPath set to {wanted.as_posix()} (tracked hooks now active).")
 
 
 def _hooks_path() -> str:

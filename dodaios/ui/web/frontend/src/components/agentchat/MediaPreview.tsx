@@ -44,6 +44,25 @@ export function safeMediaUrl(raw: string): string | null {
   } catch { return null; }
 }
 
+/**
+ * Whether an address lies outside the app. Drawing a picture, a video or a
+ * sound from there makes this window ask a host the text chose, and the
+ * address itself can carry what the text wants to tell that host. So such an
+ * address is never loaded by drawing a message: it stays a link the reader
+ * opens. What the app serves itself and `data:` pictures are not remote.
+ *
+ * Decided on the address as the browser resolves it: `//host/x` and `/\host/x`
+ * begin like a path of the app and still lead to another host.
+ */
+export function isRemoteMedia(url: string): boolean {
+  if (/^data:/i.test(url)) return false;
+  try {
+    return new URL(url, window.location.href).origin !== window.location.origin;
+  } catch {
+    return true; // An address nobody can read is not one of the app's.
+  }
+}
+
 export function mediaKind(raw: string): MediaKind | null {
   if (!safeMediaUrl(raw)) return null;
   if (raw.startsWith("data:image/")) return "image";
@@ -85,6 +104,10 @@ export function MediaViewerContent({ src, label, kind = "image" }: { src: string
  * as files, an image is its download link alone. `thumb` draws the picture
  * as a small fixed tile, cropped to fill it, the way a sent picture stands
  * above the person's message; a click opens it in full.
+ *
+ * Only what the app serves itself (and a `data:` picture) is drawn. A remote
+ * address is the same link in every transcript, whatever its kind, and opens
+ * in the browser on a click (`isRemoteMedia`).
  */
 export function MediaPreview({ src, label, kind, bare = false, thumb = false }: { src: string; label: string; kind: MediaKind; bare?: boolean; thumb?: boolean }) {
   const t = useT();
@@ -107,7 +130,8 @@ export function MediaPreview({ src, label, kind, bare = false, thumb = false }: 
       }
     };
   }, [safe, kind, failed, revision]);
-  if ((kind === "image" || kind === "page") && display === "files" && safe) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind={kind} data-display="files">
+  const remote = safe !== null && isRemoteMedia(safe);
+  if (safe && (remote || ((kind === "image" || kind === "page") && display === "files"))) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind={kind} data-display="files" data-remote={remote || undefined}>
     <MediaDownloadLink href={safe} label={label} />
   </span>;
   // The page's figure brings its own margins, caption and download.
@@ -142,14 +166,40 @@ export function MediaPreview({ src, label, kind, bare = false, thumb = false }: 
   </span></Dialog.Root>;
 }
 
-/** A picture's or file's link under it: a file the chat stored downloads, any other address opens outside the app. */
+/**
+ * A picture in a Markdown text, drawn by the rule of a chat message
+ * (`MediaPreview`): what the app serves itself is shown, a remote address
+ * stays a link. For every Markdown renderer besides the chat's own that draws
+ * text the person did not write (a trace, the profile, a memory, a document
+ * an agent made): the plain `<img>` it would draw otherwise loads whatever
+ * address the text names.
+ */
+export function MarkdownPicture({ src, alt }: { src?: string; alt?: string }) {
+  const t = useT();
+  const address = src ?? "";
+  return <MediaPreview src={address} label={alt || t("chat_media.image_fallback")} kind={mediaKind(address) ?? "image"} />;
+}
+
+/** The `components` of a Markdown renderer that draws its pictures by that rule. */
+export const MARKDOWN_PICTURES = { img: MarkdownPicture };
+
+/** The address as the browser resolves it; as written when it cannot be read. */
+function absoluteAddress(href: string): string {
+  try { return new URL(href, window.location.href).href; } catch { return href; }
+}
+
+/**
+ * A picture's or file's link under it: a file the chat stored downloads, any other address opens outside the app.
+ * A remote address shows where it leads when the pointer rests on it: the link's words are the answer's own.
+ */
 function MediaDownloadLink({ href, label }: { href: string; label: string }) {
   const t = useT();
   return <a href={href} download={href.startsWith("/api/outputs/") ? true : undefined}
+    title={isRemoteMedia(href) ? absoluteAddress(href) : undefined}
     onClick={event => {
       if (!href.startsWith("/api/outputs/")) {
         event.preventDefault();
-        void openExternalUrl(new URL(href, window.location.href).href);
+        void openExternalUrl(absoluteAddress(href));
       }
     }} className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2">
     <Download aria-hidden className="h-3 w-3" />{t(href.startsWith("/api/outputs/") ? "chat_media.download" : "chat_media.open_file")} · {label}
