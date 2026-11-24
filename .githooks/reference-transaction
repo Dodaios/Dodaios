@@ -18,8 +18,9 @@
 # a repository with no remote main to mirror, and CI runners.
 # Fails OPEN when git cannot answer.
 #
-# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath=.githooks
-# (set by scripts/ci/install_git_hooks.py). It never sets that itself.
+# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath, the
+# absolute path of the primary checkout's .githooks (set by
+# scripts/ci/install_git_hooks.py). It never sets that itself.
 
 [ "$1" = "prepared" ] || exit 0
 [ "$GITHUB_ACTIONS" = "true" ] && exit 0

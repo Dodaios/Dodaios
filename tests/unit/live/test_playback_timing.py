@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.live.config import LiveConfig
+from dodaios.core.live_config import LiveConfig
 from dodaios.live.playback import AudioTimedFrame, SpeechTimingFrame, source_interval, utf16_length
 from dodaios.live.session import LiveVoiceSession
 from dodaios.live.state import LiveLedger

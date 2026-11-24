@@ -109,7 +109,7 @@ async def source_ref(source, delivery, monkeypatch, tmp_path, image_store=None):
     elif source == "voice":
         # A hotkey appshot supplied into a subscription voice call: the backend
         # sees the pixels for the whole call and must be able to forward them.
-        from dodaios.live.config import LiveConfig
+        from dodaios.core.live_config import LiveConfig
         from dodaios.live.subscription import SubscriptionLiveVoiceSession
         from tests.fakes.fake_subscription_session import (
             SubscriptionConnection,

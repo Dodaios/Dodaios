@@ -254,7 +254,7 @@ async def run_window_case(
     # Replicate the production bias-echo gate (2026-07-02): an exact-phrase
     # candidate on a primed model gets one unbiased confirm pass.
     if res.matched and getattr(stt, "bias_prompt", None):
-        from dodaios.speech.wake_constants import (
+        from dodaios.core.wake_constants import (
             STT_HALLUCINATION_RE,
             normalize_phrase_for_match,
         )
