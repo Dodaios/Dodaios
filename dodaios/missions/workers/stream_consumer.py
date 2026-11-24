@@ -374,7 +374,7 @@ async def read_ndjson_stream(
                 tee_handle.flush()
             try:
                 line = raw.decode("utf-8", errors="replace")
-            except Exception:  # noqa: BLE001 — defensiv
+            except (UnicodeError, AttributeError):  # an undecodable line is skipped
                 continue
             event = parser(line)
             if event is None:

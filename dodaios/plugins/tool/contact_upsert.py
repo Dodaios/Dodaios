@@ -140,7 +140,7 @@ class ContactUpsertTool:
         log.info("contact-upsert: writing %r (fields=%s)", name, sorted(fields))
         try:
             contact = store.upsert(name=name, **fields)
-        except Exception as exc:  # noqa: BLE001 — a store error must not crash the turn
+        except Exception as exc:  # broad-except: a store error must not crash the turn
             log.warning("contact-upsert: store.upsert raised %s", exc)
             return ToolResult(success=False, output="", error=f"could not save contact: {exc}")
 

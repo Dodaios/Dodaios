@@ -261,7 +261,7 @@ class UpdateProfileTool:
             profile.append_observation(
                 f"{cluster}.{field}", _short(value), evidence or "via update_profile tool"
             )
-        except Exception:  # noqa: BLE001 — the audit line must never block the write
+        except Exception:  # broad-except: the audit line must never block the write
             log.debug("update_profile: append_observation failed", exc_info=True)
 
         try:

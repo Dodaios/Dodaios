@@ -65,7 +65,7 @@ def _call_language(cfg: Any) -> str:
             "",
             default=ui_language if ui_language in _REFUSALS["failed"] else "en",
         )
-    except Exception:  # noqa: BLE001 - a refusal in English beats no refusal
+    except Exception:  # broad-except: a refusal in English beats no refusal
         log.debug("local voice: call language unresolved; refusing in English", exc_info=True)
         return "en"
 
@@ -195,7 +195,7 @@ def _ollama_root() -> str:
         from dodaios.brain.ollama_pull import server_root  # noqa: PLC0415 - plugin rule
 
         return server_root()
-    except Exception:  # noqa: BLE001 - an unreadable config keeps the vendor default
+    except Exception:  # broad-except: an unreadable config keeps the vendor default
         log.debug("local voice: Ollama root unresolved; using the default", exc_info=True)
         return "http://127.0.0.1:11434"
 
@@ -205,7 +205,7 @@ def _current_config() -> Any:
         from dodaios.core.config import load_config  # noqa: PLC0415 - plugin rule
 
         return load_config()
-    except Exception:  # noqa: BLE001 - defaults still describe a usable engine
+    except Exception:  # broad-except: defaults still describe a usable engine
         log.debug("local voice: config unreadable; using defaults", exc_info=True)
         return None
 

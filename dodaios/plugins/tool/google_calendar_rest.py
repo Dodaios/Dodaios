@@ -214,7 +214,8 @@ class GoogleCalendarRestTool:
                     refreshed = bool(await _default_refresher(token))
                 else:
                     refreshed = bool(await self._refresher())
-            except Exception:  # noqa: BLE001 — refresher must never crash the tool
+            except Exception:  # broad-except: refresher must never crash the tool
+                log.warning("_call: refresher must never crash the tool", exc_info=True)
                 refreshed = False
             if not refreshed:
                 return {"ok": False, "status": 401, "error": _NEEDS_RECONNECT}
@@ -363,7 +364,8 @@ class GoogleCalendarRestTool:
                 )
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
 
         if isinstance(out, dict) and out.get("ok"):

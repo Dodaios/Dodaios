@@ -40,6 +40,8 @@ from typing import Any, ClassVar
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
+log = logging.getLogger(__name__)
+
 _LOG = logging.getLogger(__name__)
 
 #: Bound on the free-text arguments the model may pass. A spoken description is
@@ -163,7 +165,8 @@ class CreateSkillTool:
             from dodaios.skills.skill_context import try_get_skill_context
 
             skill_ctx = try_get_skill_context()
-        except Exception:  # noqa: BLE001 — a broken skill subsystem is reported, not raised
+        except Exception:  # broad-except: a broken skill subsystem is reported, not raised
+            log.debug("execute: a broken skill subsystem is reported, not raised", exc_info=True)
             skill_ctx = None
         if skill_ctx is None:
             return ToolResult(
@@ -213,7 +216,7 @@ class CreateSkillTool:
                     "offer to try again in a moment"
                 ),
             )
-        except Exception as exc:  # noqa: BLE001 — surface the writer's own message
+        except Exception as exc:  # broad-except: surface the writer's own message
             _LOG.warning("create-skill failed: %s", exc, exc_info=True)
             return ToolResult(success=False, output=None, error=f"create_failed: {exc}")
 

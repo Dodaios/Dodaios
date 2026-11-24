@@ -25,11 +25,14 @@ door. A direct gated action, never a spawn (AP-5/AP-14).
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
+
+log = logging.getLogger(__name__)
 
 _API = "https://api.spotify.com/v1"
 
@@ -165,7 +168,8 @@ class SpotifyRestTool:
             from dodaios.core.music_service import compose_tool_description
 
             return compose_tool_description(self.name, self._BASE_DESCRIPTION)
-        except Exception:  # noqa: BLE001 — a description must not raise
+        except Exception:  # broad-except: a description must not raise
+            log.debug("description: a description must not raise", exc_info=True)
             return self._BASE_DESCRIPTION
 
     schema: dict[str, Any] = {
@@ -261,7 +265,8 @@ class SpotifyRestTool:
                 refreshed = bool(await _default_refresher(observed_token))
             else:
                 refreshed = bool(await self._refresher())
-        except Exception:  # noqa: BLE001 — refresher must never crash the tool
+        except Exception:  # broad-except: refresher must never crash the tool
+            log.warning("_with_auth_retry: refresher must never crash the tool", exc_info=True)
             refreshed = False
         if not refreshed:
             return {"error": _NEEDS_RECONNECT}
@@ -302,7 +307,7 @@ class SpotifyRestTool:
         player endpoints, and only sometimes, so every step is guarded."""
         try:
             payload = exc.response.json()
-        except Exception:  # noqa: BLE001 — a non-JSON error body is still an error
+        except (ValueError, AttributeError):  # a non-JSON error body is still an error
             return ""
         error = payload.get("error") if isinstance(payload, dict) else None
         if isinstance(error, dict):
@@ -548,7 +553,8 @@ class SpotifyRestTool:
                 out = await self.list_playlists()
             else:
                 return ToolResult(success=False, output=None, error=f"unknown action {action!r}")
-        except Exception as exc:  # noqa: BLE001 - every failure reaches the model via _explain()
+        except Exception as exc:  # broad-except: every failure reaches the model via _explain()
+            log.warning("execute: every failure reaches the model via _explain()", exc_info=True)
             return ToolResult(success=False, output=None, error=self._explain(exc))
 
         if isinstance(out, dict) and out.get("error"):

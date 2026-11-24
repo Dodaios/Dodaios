@@ -195,7 +195,7 @@ async def _post_captured(rows: list[dict[str, Any]]) -> None:
                 "items": rows,
             },
         )
-    except Exception:  # noqa: BLE001 — the items are saved; the card is extra
+    except Exception:  # broad-except: the items are saved; the card is extra
         log.warning("reminders: captured-list notice not posted", exc_info=True)
 
 

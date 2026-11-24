@@ -58,7 +58,7 @@ async def post_card(session_id: str, payload: dict[str, Any]) -> bool:
             return False
         await svc.post_notice(target, payload)
         return True
-    except Exception:  # noqa: BLE001 — the card is a projection; the work itself is done
+    except Exception:  # broad-except: the card is a projection; the work itself is done
         log.warning("result card not posted", exc_info=True)
         return False
 

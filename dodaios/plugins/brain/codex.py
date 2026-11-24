@@ -118,7 +118,7 @@ def _resolve_codex_binary() -> str | None:
         resolved = CodexAuthService()._resolve_binary()
         if resolved:
             return resolved
-    except Exception:  # noqa: BLE001 — fall back to the plain PATH probe
+    except Exception:  # broad-except: fall back to the plain PATH probe
         log.debug("Shared Codex binary resolution failed", exc_info=True)
     for name in ("codex", "codex.cmd", "codex.exe"):
         path = shutil.which(name)
@@ -162,7 +162,7 @@ async def _terminate_posix_process_group(pid: int, proc: Any) -> None:
     try:
         await asyncio.wait_for(proc.wait(), timeout=2.0)
         return
-    except Exception as exc:  # noqa: BLE001 — SIGTERM ignored, escalate
+    except Exception as exc:  # broad-except: SIGTERM ignored, escalate
         log.debug(
             "Codex CLI process group %s survived SIGTERM (%s); escalating",
             pgid,
@@ -182,7 +182,8 @@ def _codex_oauth_connected() -> bool:
 
         status = CodexAuthService().status()
         return bool(status.connected and status.mode == "chatgpt")
-    except Exception:  # noqa: BLE001
+    except Exception:  # broad-except: failed; carrying on with the fallback
+        log.debug("_codex_oauth_connected: failed; carrying on with the fallback", exc_info=True)
         return False
 
 
@@ -782,7 +783,7 @@ class CodexBrain:
                         emitted = True
                     yield delta
                 return
-            except Exception as exc:  # noqa: BLE001 — classified below, re-raised when not recoverable
+            except Exception as exc:  # broad-except: classified below, re-raised when not
                 status = getattr(exc, "status_code", None)
                 if status is None:
                     status = getattr(getattr(exc, "response", None), "status_code", None)

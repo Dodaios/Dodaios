@@ -772,7 +772,7 @@ async def _terminate_windows_tree(proc: asyncio.subprocess.Process) -> None:
         for process in alive:
             with contextlib_suppress(psutil.Error):
                 process.kill()
-    except Exception:  # noqa: BLE001 - final fallback below still runs
+    except Exception:  # broad-except: final fallback below still runs
         logger.debug("RunCommand psutil tree cleanup failed", exc_info=True)
     if proc.returncode is None:
         with contextlib_suppress(ProcessLookupError):
@@ -880,7 +880,7 @@ async def _run_command(
         if command_job is not None:
             try:
                 command_job.assign(proc.pid)
-            except Exception as exc:  # noqa: BLE001 - fail closed before target gate
+            except Exception as exc:  # broad-except: fail closed before target gate
                 await _terminate_windows_tree(proc)
                 raise CommandPolicyError(
                     "RunCommand is unavailable because strict Windows process-tree "

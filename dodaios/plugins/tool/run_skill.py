@@ -227,7 +227,8 @@ class RunSkillTool:
             skill_args = {}
         try:
             instructions = skill_ctx.runner.render_instructions(skill, args=skill_args)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(
                 success=False,
                 output=None,
@@ -310,7 +311,7 @@ class RunSkillTool:
                 ",".join(connected) or "none",
             )
             return sibling
-        except Exception as exc:  # noqa: BLE001 — a routing nicety must never break a turn
+        except Exception as exc:  # broad-except: a routing nicety must never break a turn
             log.debug("run-skill: music preference routing skipped: %s", exc)
             return skill
 
@@ -319,7 +320,8 @@ class RunSkillTool:
         """Comma-joined names of the invocable skills, for a recovery hint."""
         try:
             names = sorted(str(s.name) for s in registry.list_active())
-        except Exception:  # noqa: BLE001 — a hint must never mask the real error
+        except Exception:  # broad-except: a hint must never mask the real error
+            log.debug("_installed_names: a hint must never mask the real error", exc_info=True)
             return "(unavailable)"
         if not names:
             return "(none installed)"

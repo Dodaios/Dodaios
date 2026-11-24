@@ -6,12 +6,15 @@ app state change. Only a click would do that.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Any
 
 from dodaios.control.cursor_motion import glide_os_cursor
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.overlay.virtual_cursor import get_virtual_cursor
+
+log = logging.getLogger(__name__)
 
 
 def _move_windows(x: int, y: int) -> None:
@@ -32,8 +35,8 @@ def _move_windows(x: int, y: int) -> None:
         raise OSError(landing.detail)
     try:
         get_virtual_cursor().show_move(int(x), int(y))
-    except Exception:  # noqa: BLE001, S110 — overlay must never break a move
-        pass
+    except Exception:  # broad-except: overlay must never break a move
+        log.debug("_move_windows: overlay must never break a move", exc_info=True)
 
 
 class MoveMouseTool:
@@ -85,5 +88,6 @@ class MoveMouseTool:
             )
         except ActuationUnavailable as exc:
             return ToolResult(success=False, output=None, error=str(exc))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # broad-except: failed; carrying on with the fallback
+            log.warning("execute: failed; carrying on with the fallback", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))

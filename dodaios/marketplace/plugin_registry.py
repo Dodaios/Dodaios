@@ -104,7 +104,7 @@ def _connect_reauth_reason(message: str) -> str | None:
         reason = reauth_reason_for(message)
         if reason is not None:
             return reason
-    except Exception:  # noqa: BLE001 — classifier is best-effort
+    except Exception:  # broad-except: classifier is best-effort
         log.debug("connect reauth classifier unavailable", exc_info=True)
     m = message.lower()
     if "401" in m or "unauthorized" in m or "invalid_token" in m:
@@ -207,7 +207,7 @@ class PluginToolRegistry:
             plugins = list(self._catalog.plugins)
         try:
             await self.refresh_custom_apis()
-        except Exception:  # noqa: BLE001 - user definitions must not block shipped plugins
+        except Exception:  # broad-except: user definitions must not block shipped plugins
             log.warning("Custom API tools could not be loaded", exc_info=True)
         # Per-plugin lock + per-plugin publish: an early plugin's tools reach
         # the live brain IMMEDIATELY, even while a later plugin is still
@@ -380,7 +380,7 @@ class PluginToolRegistry:
             log.warning("plugin-registry: %s client stop timed out", plugin_id)
         except asyncio.CancelledError:
             log.debug("plugin-registry: %s client stop was cancelled", plugin_id)
-        except Exception as exc:  # noqa: BLE001 - cleanup stays best-effort
+        except Exception as exc:  # broad-except: cleanup stays best-effort
             log.debug("plugin-registry: %s stop failed: %s", plugin_id, exc)
 
         if pending_cancel is not None:
@@ -410,7 +410,7 @@ class PluginToolRegistry:
             return
         try:
             tokens = self._store.load(plugin.id)
-        except Exception as exc:  # noqa: BLE001 — corrupt token must not nuke the rest
+        except Exception as exc:  # broad-except: corrupt token must not nuke the rest
             log.warning("plugin-registry: token load failed for %s: %s", plugin.id, exc)
             return
         if tokens is None:
@@ -427,7 +427,7 @@ class PluginToolRegistry:
         server_spec, env_overrides = resolved
         try:
             client, tool_defs = await self._open_client(server_spec, env_overrides)
-        except Exception as exc:  # noqa: BLE001 - graceful per-plugin degrade
+        except Exception as exc:  # broad-except: graceful per-plugin degrade
             message = self._connect_error_message(exc)
             if not _connect_needs_reauth(message):
                 log.warning("plugin-registry: %s connect failed: %s", plugin.id, message)
@@ -471,7 +471,7 @@ class PluginToolRegistry:
                     return
                 server_spec, env_overrides = fresh_resolved
                 client, tool_defs = await self._open_client(server_spec, env_overrides)
-            except Exception as retry_exc:  # noqa: BLE001 - exactly one retry
+            except Exception as retry_exc:  # broad-except: exactly one retry
                 retry_message = self._connect_error_message(retry_exc)
                 log.warning(
                     "plugin-registry: %s connect retry after refresh failed: %s",
@@ -503,7 +503,7 @@ class PluginToolRegistry:
             _ctx = try_get_skill_context()
             if _ctx is not None:
                 _register_plugin_capability(_get_cap_registry(), plugin.id, _ctx.registry.list())
-        except Exception as exc:  # noqa: BLE001 — capability is best-effort
+        except Exception as exc:  # broad-except: capability is best-effort
             log.debug("paired cap register failed for %s: %s", plugin.id, exc)
 
     @staticmethod
@@ -551,7 +551,7 @@ class PluginToolRegistry:
                 reason,
                 message,
             )
-        except Exception as exc:  # noqa: BLE001 — marking is best-effort
+        except Exception as exc:  # broad-except: marking is best-effort
             log.debug(
                 "plugin-registry: needs_reauth save failed for %s: %s",
                 plugin_id,

@@ -469,7 +469,8 @@ class SpawnWorkerTool:
                 from dodaios.core.config import load_config
 
                 brand = _resolve_brand(load_config())
-            except Exception:  # noqa: BLE001 — schema rendering must not break wiring
+            except Exception:  # broad-except: schema rendering must not break wiring
+                log.debug("__init__: schema rendering must not break wiring", exc_info=True)
                 from dodaios.brain.assistant_name import agent_brand_from_name
 
                 brand = agent_brand_from_name("")

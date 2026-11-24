@@ -639,7 +639,7 @@ class _BrokerRequestHandler(BaseHTTPRequestHandler):
             future.cancel()
             self._send(504, {"error": "supervisor tool execution timed out"})
             return
-        except Exception as exc:  # noqa: BLE001 - fail closed at process boundary
+        except Exception as exc:  # broad-except: fail closed at process boundary
             logger.warning(
                 "Worker tool broker request failed: %s",
                 safe_preview(type(exc).__name__, max_chars=80),
@@ -719,7 +719,7 @@ class WorkerToolBroker:
                         approved.add(name)
                         break
             return frozenset(approved)
-        except Exception:  # noqa: BLE001 — pre-authorization must fail closed
+        except Exception:  # broad-except: pre-authorization must fail closed
             logger.debug("auto-approve set resolution failed (fail-closed)", exc_info=True)
             return frozenset()
 

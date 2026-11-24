@@ -141,7 +141,7 @@ async def _post_page_card(session_id: str, title: str, filename: str, *, since: 
             session_id,
             page_card(located.title or title, f"{located.slug}::{located.artifact_path}"),
         )
-    except Exception:  # noqa: BLE001 — the page exists either way; the card is a courtesy
+    except Exception:  # broad-except: the page exists either way; the card is a courtesy
         log.warning("create_artifact: page card not posted", exc_info=True)
         return False
 
@@ -347,7 +347,7 @@ class CreateArtifactTool:
                     target=brief.title,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — see comment above
+        except Exception as exc:  # broad-except: see comment above
             log.warning("create_artifact announce failed error=%s", exc)
 
         # The job exists before the mission does; its id goes into the result.
@@ -390,7 +390,7 @@ class CreateArtifactTool:
                         source_layer="brain.tool.create_artifact",
                     )
                 )
-            except Exception as exc:  # noqa: BLE001 — see comment above
+            except Exception as exc:  # broad-except: see comment above
                 log.warning("create_artifact navigate failed error=%s", exc)
 
         ack = (str(args.get("spoken_ack") or "").strip()) or action_phrase(
@@ -427,7 +427,7 @@ class CreateArtifactTool:
         if self._tools_resolver is not None:
             try:
                 tools = self._tools_resolver() or {}
-            except Exception as exc:  # noqa: BLE001 — a broken resolver reads as "no tools"
+            except Exception as exc:  # broad-except: a broken resolver reads as "no tools"
                 log.warning("create_artifact: tools resolver failed: %s", exc)
                 tools = {}
         if self._executor is None or not tools:
@@ -512,7 +512,7 @@ class CreateArtifactTool:
             log.info("create_artifact background dispatch cancelled (app shutdown)")
             mission_jobs.interrupted(job_id, "The dispatch was cancelled.")
             raise
-        except BaseException as exc:  # noqa: BLE001 — fire-and-forget task, see docstring
+        except BaseException as exc:  # broad-except: fire-and-forget task, see docstring
             log.exception("create_artifact background dispatch crashed")
             mission_jobs.failed(job_id, f"{type(exc).__name__}: {exc}")
             if not background:
@@ -529,7 +529,7 @@ class CreateArtifactTool:
                     duration_s=0.0,
                 )
             )
-        except Exception:  # noqa: BLE001 — dead bus at shutdown; leave a trace
+        except Exception:  # broad-except: dead bus at shutdown; leave a trace
             log.exception("create_artifact failure publish crashed")
 
 

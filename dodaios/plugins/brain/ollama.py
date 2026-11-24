@@ -191,7 +191,7 @@ def _declared_vision_support(model: str) -> bool:
         if not provider_has_modality_data("ollama"):
             return True
         return pick_vision_model("ollama") is not None
-    except Exception:  # noqa: BLE001 — a probe must never break construction
+    except Exception:  # broad-except: a probe must never break construction
         log.debug("ollama: vision capability probe failed — assuming capable")
         return True
 
@@ -427,7 +427,7 @@ class OllamaBrain:
 
             self._native_context[name] = native_context_length(shown.get("model_info"))
             self._declared_context[name] = _declared_num_ctx(shown.get("parameters"))
-        except Exception:  # noqa: BLE001 — retry unavailable metadata on the next turn
+        except Exception:  # broad-except: retry unavailable metadata on the next turn
             log.debug("ollama: capability lookup failed for %s", name, exc_info=True)
             caps_set = None
         if caps_set is not None:
@@ -626,7 +626,7 @@ class OllamaBrain:
                 yield delta
         except (asyncio.CancelledError, local_context.LocalContextError):
             raise
-        except Exception as exc:  # noqa: BLE001 — the first round's thoughts still stand
+        except Exception as exc:  # broad-except: the first round's thoughts still stand
             if spoke:
                 raise
             log.warning("ollama: the round without thinking failed (%s)", exc)
@@ -676,7 +676,7 @@ class OllamaBrain:
                 )
 
                 native = model_context_length("ollama", model)
-            except Exception:  # noqa: BLE001 — an unreadable catalog means "unknown"
+            except Exception:  # broad-except: an unreadable catalog means "unknown"
                 log.debug("ollama: cached context length unavailable for %s", model)
         return min(AUTOMATIC_CONTEXT_FLOOR, native) if native else AUTOMATIC_CONTEXT_FLOOR
 
@@ -704,7 +704,7 @@ class OllamaBrain:
             seen = local_context.known_window(self.name, root, self._model)
             reported = seen[0] if seen is not None and seen[1] == "server" else None
             self.context_window = min(planned, reported) if reported else planned
-        except Exception as exc:  # noqa: BLE001 — sizing must never cost the turn
+        except Exception as exc:  # broad-except: sizing must never cost the turn
             log.debug("ollama: could not settle the context window early: %s", exc)
 
     async def _planned_window(self, model: str) -> int:
@@ -748,7 +748,7 @@ class OllamaBrain:
                     size = int(row.get("size") or 0)
                     size_gb = size / (1024**3) if size > 0 else None
                     break
-        except Exception as exc:  # noqa: BLE001 — an unreadable size means the floor
+        except Exception as exc:  # broad-except: an unreadable size means the floor
             log.debug("ollama: size lookup for %s failed: %s", model, exc)
         if model not in self._native_context:
             await self._capabilities(model, root)
@@ -818,7 +818,7 @@ class OllamaBrain:
                         if isinstance(value, (int, float)) and value > 0:
                             running = int(value)
                         break
-            except Exception as exc:  # noqa: BLE001 — verification is best-effort
+            except Exception as exc:  # broad-except: verification is best-effort
                 log.debug("ollama: running-context check for %s failed: %s", call.run_model, exc)
                 return self._effective_window(call, root)
             _RUNNING_CONTEXT[key] = (running, time.monotonic())
@@ -850,7 +850,7 @@ class OllamaBrain:
         """
         try:
             provider = cfg.load_config().brain.providers.get("ollama")
-        except Exception as exc:  # noqa: BLE001 — a config glitch must not kill the turn
+        except Exception as exc:  # broad-except: a config glitch must not kill the turn
             log.warning("ollama: could not read per-model options: %s", exc)
             return None
         if provider is None:
@@ -924,7 +924,7 @@ class OllamaBrain:
                     )
                     created = True
                     _PROFILE_REFUSED.pop(refused_key, None)
-                except Exception as exc:  # noqa: BLE001 — degrade to the base model, say so
+                except Exception as exc:  # broad-except: degrade to the base model, say so
                     if self._requested_context_window is not None:
                         # The runtime already budgets against this window.
                         # Sending to the base model would silently serve a
@@ -983,7 +983,7 @@ class OllamaBrain:
             return await load_now(
                 self._resolve_root(), call.run_model, keep_alive, headers=self._native_headers()
             )
-        except Exception as exc:  # noqa: BLE001 — the turn loads the model itself then
+        except Exception as exc:  # broad-except: the turn loads the model itself then
             log.info("ollama preload skipped: %s: %s", type(exc).__name__, exc)
             return False
 

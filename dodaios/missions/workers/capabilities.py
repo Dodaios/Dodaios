@@ -11,8 +11,11 @@ actions, and configuration mutation remain absent (AP-5/AP-14).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # The personal memory vault stays with the assistant; workers get no memory tools.
 RESTRICTED_WORKER_KNOWLEDGE_TOOLS: tuple[str, ...] = ()
@@ -188,7 +191,11 @@ def restricted_worker_app_commands() -> tuple[str, ...]:
             for command in get_registry()
             if command.worker_allowed and not command.dangerous
         )
-    except Exception:  # noqa: BLE001 - registry drift must not break missions
+    except Exception:  # broad-except: registry drift must not break missions
+        log.debug(
+            "restricted_worker_app_commands: registry drift must not break missions",
+            exc_info=True,
+        )
         return ()
 
 
@@ -229,7 +236,11 @@ def worker_app_command_allowed(command_id: str) -> bool:
             and command.worker_allowed
             and not command.dangerous
         )
-    except Exception:  # noqa: BLE001 - no registry means no app-command grant
+    except Exception:  # broad-except: no registry means no app-command grant
+        log.debug(
+            "worker_app_command_allowed: no registry means no app-command grant",
+            exc_info=True,
+        )
         return False
 
 
