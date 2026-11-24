@@ -1,10 +1,10 @@
+import { usePanelWorkspace } from "@/store/ideChat";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CaseSensitive, ChevronDown, ChevronRight, Loader2, MoreHorizontal, Regex, Replace, WholeWord } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useCodeEditorStore, type EditorFile } from "@/store/codeEditor";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { replaceInFiles, searchWorkspace, type SearchQuery, type SearchResult } from "@/components/agentic/editor/editorApi";
 import { checkDisk } from "@/components/agentic/editor/editorModels";
@@ -54,7 +54,7 @@ function Toggle({ on, label, onClick, children }: { on: boolean; label: string; 
  */
 export function SearchPanel() {
   const t = useT();
-  const workspace = useIdeChatStore((state) => state.workspace);
+  const workspace = usePanelWorkspace();
   const workspaceId = workspace?.id ?? null;
   const [query, setQuery] = useState("");
   const [replacement, setReplacement] = useState("");

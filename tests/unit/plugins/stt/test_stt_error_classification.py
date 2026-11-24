@@ -43,11 +43,6 @@ from dodaios.plugins.stt.gemini_api import GeminiSTT
 from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 from dodaios.plugins.stt.openai_api import OpenAIWhisperAPI
 from dodaios.plugins.stt.openrouter_stt import OpenRouterSTT
-from dodaios.speech.pipeline import (
-    _is_transient_stt_error,
-    _stt_error_status,
-    _stt_retry_delay,
-)
 
 
 def _fake_pcm(seconds: float = 0.2, sample_rate: int = 16_000) -> bytes:
@@ -157,28 +152,6 @@ _RAISERS = {
 _TYPED = ("openai-api", "openrouter-stt", "gemini-api")
 
 
-@pytest.mark.parametrize("provider_id", sorted(_RAISERS))
-def test_a_429_is_classifiable_and_carries_the_retry_after(provider_id: str) -> None:
-    """The whole point of F1: all four, not just the one with httpx's error."""
-    exc = _RAISERS[provider_id](429, {"Retry-After": "7"})
-
-    assert _stt_error_status(exc) == 429
-    assert _is_transient_stt_error(exc) is True
-    assert _stt_retry_delay(exc, 0) == pytest.approx(2.0), (
-        "the pipeline must honour the server's delay (capped at its own ceiling), "
-        "not fall through to its 0.4 s first-attempt guess"
-    )
-
-
-@pytest.mark.parametrize("provider_id", sorted(_RAISERS))
-def test_a_401_is_not_transient_and_is_never_retried(provider_id: str) -> None:
-    """A dead key is not a blip. Retrying it only hammers the provider."""
-    exc = _RAISERS[provider_id](401)
-
-    assert _stt_error_status(exc) == 401
-    assert _is_transient_stt_error(exc) is False
-
-
 @pytest.mark.parametrize("provider_id", sorted(_TYPED))
 def test_the_typed_error_exposes_status_and_retry_after(provider_id: str) -> None:
     """The machine-readable facts, for a caller that wants them directly."""
@@ -203,7 +176,7 @@ def test_the_typed_error_is_still_a_runtime_error(provider_id: str) -> None:
     """
     exc = _RAISERS[provider_id](500)
     assert isinstance(exc, RuntimeError)
-    assert _is_transient_stt_error(exc) is True
+    assert exc.status == 500
 
 
 def test_groq_keeps_raising_the_httpx_error_it_always_raised() -> None:
@@ -217,8 +190,8 @@ def test_groq_keeps_raising_the_httpx_error_it_always_raised() -> None:
     exc = _raise_from_groq(429, {"Retry-After": "7"})
 
     assert isinstance(exc, httpx.HTTPStatusError)
-    assert _stt_error_status(exc) == 429
-    assert _stt_retry_delay(exc, 0) == pytest.approx(2.0)
+    assert exc.response.status_code == 429
+    assert exc.response.headers["Retry-After"] == "7"
 
 
 @pytest.mark.parametrize(
@@ -245,7 +218,7 @@ def test_gemini_keeps_its_own_message_and_a_status_less_failure_stays_plain() ->
         "a timeout has no HTTP status; claiming one would be a lie"
     )
     assert "Gemini STT request failed" in str(excinfo.value)
-    assert _stt_error_status(excinfo.value) is None
+    assert getattr(excinfo.value, "status", None) is None
 
 
 # ---------------------------------------------------------------------------

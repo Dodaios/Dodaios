@@ -8,7 +8,7 @@ order: 3
 diataxis: reference
 status: active
 owner: maintainers
-last_reviewed: 2026-07-21
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
 tags: [configuration, settings, defaults, environment, restart, reference]
@@ -141,9 +141,10 @@ The current product-owned groups are smaller than the full schema.
 | Group | Current controls |
 |---|---|
 | **Settings > Languages** | Interface language, voice-recognition language, and reply language |
-| Voice panels in **Settings** | Realtime or Pipeline mode, wake word, thinking pause, volume, audio devices, and Call or Hangup keybinds |
+| Voice panels in **Settings** | Wake word, thinking pause, volume, audio devices, and Call or Hangup keybinds |
 | App and personalization controls | Launch at login, operating-system permissions, Bar and Overlay behavior, System Prompt, and Agent Instructions |
-| **API Keys & Providers** | Brain, Voice Output, Voice Input, Realtime, Tool Model, Dodaios-Agent, and advanced Wiki or team-provider choices |
+| **API Keys & Providers** | Brain, Realtime voice provider and Read-aloud voice (**Live calls**), Tool Model, Dodaios-Agent, and advanced Wiki or team-provider choices |
+| **Voice > API Keys** | Voice Input (speech to text) and wording providers for dictation |
 | Feature-owned setup | Wiki location, Marketplace plugins, channels, telephony, and other integration-specific values |
 
 Safety, security, MCP server, harness, and review sections are protected from
@@ -173,7 +174,7 @@ Typical timing is:
 |---|---|
 | **Immediately when running** | Interface language, volume, thinking pause, sound effects, supported audio-device swaps, and several Bar controls |
 | **Next message** | Reply-language policy, System Prompt, and Agent Instructions |
-| **Next voice start or reconnect** | STT changes need a new Pipeline voice start; Realtime can reconnect; TTS can switch live when Pipeline voice is running |
+| **Next call or reconnect** | A realtime provider, model, or voice change reconnects an active call or applies to the next one; STT changes apply to the next dictation; the read-aloud voice can switch live when it is running |
 | **Next action or mission** | Tool Model and Dodaios-Agent provider choices are resolved for new work |
 | **After restart** | Environment overrides, route-reported restart changes, and values saved while their component was unavailable |
 
@@ -281,6 +282,7 @@ after restart. Restore the original value. Do not test a desktop-only setting.
 | Dodaios rejects the configuration on start | An advanced TOML or YAML edit has invalid syntax or a typed value is invalid | Restore your known-good copy; generic Control API writes roll back automatically when their reload test fails |
 | A desktop or audio setting persists but does nothing | The host lacks the required session, device, permission, or optional component | Check the operation's `available` or `supported` result and read [Platform Support](platform-support) |
 | A removed credential still appears configured | It comes from an operator environment, `.env`, or another external login | Remove it from the original source, restart, and follow [Credentials and Secrets](credentials-and-secrets) |
+| `[voice] mode` or `[voice] profile` from an older guide disappears from the file | Voice calls run only on realtime providers. Both keys are retired and removed at start; an old ChatGPT-plan voice moves to GPT-Live on the ChatGPT subscription | Pick the realtime provider under **API Keys & Providers > Live calls**; do not add the keys back |
 | A current API setting is missing from CLI help | The dynamic OpenAPI cache describes an older server | Run `dodaios refresh`, reconnect to the intended server, then open `dodaios api --help` again |
 
 ## Next Steps

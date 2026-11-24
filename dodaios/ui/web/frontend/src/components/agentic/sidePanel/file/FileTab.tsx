@@ -1,3 +1,4 @@
+import { usePanelWorkspace } from "@/store/ideChat";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { FileCode2, Loader2, RefreshCw } from "lucide-react";
 
@@ -10,7 +11,6 @@ import { DiffStat } from "@/components/agentic/threads/ThreadDiff";
 import { fill, useT } from "@/i18n";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { cn } from "@/lib/utils";
-import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { absoluteFilePath, useSideFileStore } from "@/store/sideFile";
 import { editHunks } from "./editHunks";
@@ -62,7 +62,7 @@ export function FileTab() {
   const t = useT();
   const file = useSideFileStore((state) => state.file);
   const nonce = useSideFileStore((state) => state.nonce);
-  const chatWorkspace = useIdeChatStore((state) => state.workspace?.id ?? null);
+  const chatWorkspace = usePanelWorkspace()?.id ?? null;
   const activeWorkspace = useIdeProjectsStore((state) => state.activeWorkspaceId);
   const workspaceId = chatWorkspace ?? activeWorkspace;
   const [view, setView] = useState<"file" | "change">("file");
@@ -114,6 +114,8 @@ export function FileTab() {
     </div>;
   }
 
+  // A path with no drive, no leading slash and no `~`: the answer named the file from some folder.
+  const named = Boolean(file.folder) && !/^(?:[a-z]:[\\/]|[\\/]|~(?:[\\/]|$))/i.test(file.path.trim());
   const clean = absolute.replace(/\\/g, "/");
   const cut = clean.lastIndexOf("/");
   const name = cut < 0 ? clean : clean.slice(cut + 1);
@@ -175,7 +177,10 @@ export function FileTab() {
                 version={loaded.version} encoding={loaded.encoding} eol={loaded.eol} line={file.line}
                 onSaved={saved} onReload={readAgain} />
             </Suspense>
-            : <Notice message={t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
+            : <Notice message={loaded.state === "unavailable" && named
+              // A bare name was looked for in the thread's folder and the home folder, and is in neither.
+              ? fill(t("ide_side_panel.file.not_found"), { file: name, folder: file.folder.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "" })
+              : t(`ide_side_panel.file.${loaded.state === "media" ? "unavailable" : loaded.state}`)}>
               {/* A file this panel cannot read (a program, an archive) opens on the computer. */}
               {loaded.state === "binary" && <OpenExternallyButton onClick={() => void openLocalPath(absolute)} />}
               {hasChange && <button type="button" onClick={() => setView("change")}

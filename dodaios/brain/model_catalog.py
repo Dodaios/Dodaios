@@ -572,11 +572,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
 # they target dedicated translation/transcription sessions, not the general
 # duplex voice-agent protocol implemented by this adapter.
 REALTIME_MODELS: dict[str, list[ModelInfo]] = {
-    # codex-subscription-realtime was REMOVED 2026-08-10 together with its
-    # adapter: Codex's experimental app-server realtime surface never held a
-    # dependable call. Subscription voice continues over the classic pipeline
-    # (voice.profile = "codex-subscription-voice"), which needs no realtime
-    # model catalog entry.
+    # codex-subscription-realtime: removed 2026-08-10 (now openai-live-subscription).
     # local-realtime: the served model is whatever its operator loaded, so the
     # only honest curated entry is "ask the server". The adapter resolves it
     # through /v1/models at connect time (same as the local brain card), and a
@@ -627,11 +623,10 @@ REALTIME_MODELS: dict[str, list[ModelInfo]] = {
             ),
         ]
     ),
-    # grok-realtime (xAI Voice Agent API) was REMOVED 2026-07-16: the xAI
-    # server drops the session contract after any response cancel, ignores
-    # the configured VAD silence window, swallows response.done, and spams
-    # stray auto-responses — four deaf-session variants in one morning
-    # (BUG-064 recurrences #1-#4). Maintainer decision: not shippable.
+    # xAI Voice Agent: latest tracks grok-voice-3.0 (2026-11-24); pin to hold it.
+    "grok-realtime": _curated(
+        [("grok-voice-latest", "Grok Voice Latest (default)"), ("grok-voice-3.0", "Grok Voice 3.0")]
+    ),
 }
 
 # Realtime voice catalogs — stable prebuilt-voice names (curated, not live).
@@ -698,6 +693,11 @@ REALTIME_VOICES: dict[str, list[ModelInfo]] = {
             "Sadaltager",
             "Sulafat",
         ]
+    ),
+    # xAI voices (GET /v1/tts/voices, 2026-11-24); eve is the Voice Agent default.
+    "grok-realtime": _ids(
+        "eve ara leo rex sal altair atlas carina castor celeste cosmo helios helix "
+        "iris kepler lumen luna lux naksh orion perseus rigel sirius ursa zagan zenith".split()
     ),
 }
 REALTIME_VOICES["vertex-live"] = REALTIME_VOICES["gemini-live"]

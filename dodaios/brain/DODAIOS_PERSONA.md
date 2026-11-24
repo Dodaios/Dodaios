@@ -53,7 +53,7 @@ section from its heading line to the end of the text.
   `brain.reply_language` pin; the reply-language directive is appended LAST in
   `_build_system_prompt`, so it wins over the LANGUAGE POLICY section above by recency.
 - Hangup matcher: `dodaios/speech/hangup.py` — `contains_end_signal` (`[[END_CALL]]`) +
-  `is_legacy_farewell` fallback; wired in `pipeline.py` and `telephony/session.py`.
+  `is_legacy_farewell` fallback; wired in `pipeline.py`.
 - Voice scrubber: `dodaios/brain/output_filter.py::scrub_for_voice` — regex only, strips
   Markdown, jargon, self-reference, "Sir", echo openers, filler openers, and em dashes.
 - Owner identity + assistant name: injected at runtime in `_build_system_prompt`; the

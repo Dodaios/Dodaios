@@ -8,10 +8,10 @@ order: 6
 diataxis: tutorial
 status: active
 owner: maintainers
-last_reviewed: 2026-10-02
+last_reviewed: 2026-11-24
 phase: "-"
 audience: end-user
-tags: [voice, microphone, wake-word, keyboard-shortcut, realtime, pipeline, dictation, tutorial]
+tags: [voice, microphone, wake-word, keyboard-shortcut, realtime, dictation, tutorial]
 related: [voice-conversations, audio-and-wake-word, dictation, languages-and-voices]
 ---
 
@@ -37,9 +37,9 @@ text without asking the Brain or speaking a reply.
 - On macOS, allow **Microphone** access. The Call shortcut also requires
   Input Monitoring access, which macOS asks for when you save a shortcut. Review
   [Permissions](permissions) if the app reports that access is missing.
-- Under **API Keys & Providers**, connect only what your voice engine needs:
-  one compatible live provider for Realtime, or usable Voice Input, Brain,
-  and Voice Output paths for Pipeline.
+- Under **API Keys & Providers > Live calls**, set up one realtime voice
+  provider, such as OpenAI GPT-Live, GPT-Live on your ChatGPT subscription,
+  Gemini Live, or xAI Grok Live. Every call runs on it.
 
 > [!warning] Never speak a password, API key, recovery code, or other secret.
 > Enter credentials only in **API Keys & Providers**.
@@ -89,24 +89,27 @@ The default conversation flow is:
 | **Error** | The voice path could not continue | End the call and follow the reported fix |
 
 After an answer, the normal setting returns to **Listening** for a follow-up.
-A quiet Pipeline call ends after about 30 seconds with the shipped settings;
-Realtime may stay connected longer.
 
-## Choose Realtime or Pipeline
+## Choose a Realtime Provider
 
-The setting chooses what to try; the runtime status shows what this call uses.
+Every call runs on one realtime provider: one live model listens and answers
+in the same audio stream. Pick it on its card under **API Keys & Providers >
+Live calls**; the status at the top of that tab shows what this call uses.
 
-| Engine | How it works | When to choose it |
-|---|---|---|
-| **Realtime** | One live model listens and answers in the same stream | Recommended for natural, low-delay conversation; some tools remain unavailable during the preview |
-| **Pipeline** | Voice Input creates text, the Brain handles it, and Voice Output speaks | Best for separate providers and broad feature support; speech can use connected or local options |
+| Provider | What it needs |
+|---|---|
+| **OpenAI GPT-Live** | An OpenAI API key |
+| **OpenAI GPT-Live (ChatGPT subscription)** | A ChatGPT sign-in (experimental) |
+| **Gemini Live** or **Vertex AI Live** | A Gemini or Vertex AI key |
+| **xAI Grok Live** | Your xAI API key, the same one the xAI Grok Brain uses; billed per minute on your xAI account |
 
-Wake detection stays local and separate. Installed local Pipeline speech
-input or output can work without a provider credential, while the Brain still
-needs a response path.
+Wake detection stays local and separate. Some tools remain unavailable in a
+live call; [Voice Conversations](voice-conversations) explains how actions are
+handed to the regular planner.
 
-If Realtime cannot open, the call can continue as **Pipeline**. Once an action
-has started, the call may end instead of replaying it twice.
+If the selected provider cannot open, another ready realtime provider can take
+the call. If none is ready, the call ends and says why. Once an action has
+started, the call may end instead of replaying it twice.
 
 ## Voice Conversation or Dictation?
 
@@ -131,13 +134,14 @@ its view if you started one. The sidebar returns to **Ready**.
 
 1. [Audio and Wake Word](audio-and-wake-word) supplies devices and optional
    local activation; Call or the Bar can open the same session.
-2. Realtime handles one live stream. Pipeline connects Voice Input, the Brain,
-   and Voice Output, with safe startup fallback between them.
+2. The selected realtime provider handles one live stream, with a startup
+   fallback to another ready realtime provider.
 3. One language choice controls the answer and voice. A pinned reply language
    wins; **Auto** keeps short interjections in context and can switch after a
    substantive turn. See [Languages and Voices](languages-and-voices).
-4. Dictation shares audio and recognition, but stops before the Brain and
-   spoken reply. If voice is unavailable, **Chats** remains available.
+4. Dictation shares the microphone and uses its own Voice Input provider, but
+   stops before the Brain and spoken reply. If voice is unavailable, **Chats**
+   remains available.
 
 ## Check That It Works
 
@@ -155,8 +159,8 @@ Ask a short question and watch the status move from **Listening** to
 | The wake phrase does nothing | Wake is off, its local model or language is wrong, or input is quiet | Run **Test wake word** and use Call or the Bar meanwhile |
 | The Call shortcut does nothing | The binding is cleared or global shortcuts are blocked | Review **Voice Keybinds**; check macOS permissions or use an in-app control on Wayland |
 | **Listening** captures nothing, or **Speaking** is silent | The selected device is wrong, muted, or quiet | Check both selectors and operating-system levels |
-| Realtime becomes **Pipeline** | Realtime could not open safely | Continue with Pipeline or test Realtime under **API Keys & Providers** |
-| Browser Realtime is unavailable | The page is not localhost/HTTPS, or microphone access is blocked | Use a secure address, grant access, and retry |
+| The call ends at once and says no realtime voice provider is ready | No realtime provider has a usable key or sign-in | Set up or test a provider under **API Keys & Providers > Live calls** |
+| Browser voice is unavailable | The page is not localhost/HTTPS, or microphone access is blocked | Use a secure address, grant access, and retry |
 
 ## Next Steps
 

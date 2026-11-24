@@ -46,6 +46,7 @@ def app(cfg: JarvisConfig, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     application.state.telephony_manager = TelephonyManager()
     application.state.bus = None
     monkeypatch.setattr(routes, "get_secret", lambda *a, **k: _AUTH_TOKEN)
+    monkeypatch.setattr(routes, "_phone_ready", lambda _cfg: True)
     return application
 
 

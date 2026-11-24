@@ -72,9 +72,9 @@ def _browser_call(request: Request, pipeline: Any) -> bool:
     True only on a host that will never run a speech pipeline of its own — no
     pipeline AND no desktop shell (a desktop app that is still booting has no
     pipeline yet, and a browser-held call there would be a second microphone
-    owner) — and whose ``/ws/audio`` would accept the call. Without a config
-    attached to the app the answer is False: it cannot be read, so it is not
-    offered.
+    owner). ``/ws/audio`` serves every such call on a realtime session.
+    Without a config attached to the app the answer is False: the voice setup
+    cannot be read, so it is not offered.
     """
     if pipeline is not None:
         return False
@@ -82,11 +82,7 @@ def _browser_call(request: Request, pipeline: Any) -> bool:
     if bool(getattr(state, "native_file_actions", False)):
         return False
     cfg = getattr(state, "config", None) or getattr(state, "cfg", None)
-    if cfg is None:
-        return False
-    from dodaios.browser_voice.route import browser_voice_enabled
-
-    return browser_voice_enabled(cfg)
+    return cfg is not None
 
 
 @router.get("/state")

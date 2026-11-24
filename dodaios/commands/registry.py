@@ -41,9 +41,6 @@ from dodaios.i18n.locales import SUPPORTED_LOCALES
 # tested against dodaios.brain.manager.SUPPORTED_REPLY_LANGUAGES.
 REPLY_LANGUAGES: tuple[str, ...] = ("auto", *SUPPORTED_LOCALES)
 
-VOICE_MODES: tuple[str, ...] = ("pipeline", "realtime")
-
-
 @dataclass(frozen=True)
 class AppCommand:
     """One user-facing app command, bound to exactly one REST endpoint."""

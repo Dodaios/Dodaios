@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 
 const fakes = vi.hoisted(() => ({
-  mode: "pipeline",
   realtimeAvailable: false,
   requiresWebRtcOffer: false,
   constructed: 0,
@@ -12,7 +11,6 @@ const fakes = vi.hoisted(() => ({
 
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: fakes.mode,
     realtimeAvailable: fakes.realtimeAvailable,
     requiresWebRtcOffer: fakes.requiresWebRtcOffer,
   }),
@@ -37,7 +35,6 @@ vi.mock("@/lib/realtimeTransportBroker", () => ({
 import { SubscriptionRealtimeTransportBroker } from "./SubscriptionRealtimeTransportBroker";
 
 beforeEach(() => {
-  fakes.mode = "pipeline";
   fakes.realtimeAvailable = false;
   fakes.requiresWebRtcOffer = false;
   fakes.constructed = 0;
@@ -55,13 +52,11 @@ afterEach(() => {
 
 describe("SubscriptionRealtimeTransportBroker", () => {
   it.each([
-    ["pipeline", true, true],
-    ["realtime", false, true],
-    ["realtime", true, false],
+    [false, true],
+    [true, false],
   ])(
-    "does not start for mode %s, availability %s, offer requirement %s",
-    (mode, available, requiresOffer) => {
-      fakes.mode = mode;
+    "does not start for availability %s, offer requirement %s",
+    (available, requiresOffer) => {
       fakes.realtimeAvailable = available;
       fakes.requiresWebRtcOffer = requiresOffer;
 
@@ -73,7 +68,6 @@ describe("SubscriptionRealtimeTransportBroker", () => {
   );
 
   it("runs only while subscription Realtime needs an offer", () => {
-    fakes.mode = "realtime";
     fakes.realtimeAvailable = true;
     fakes.requiresWebRtcOffer = true;
     const view = render(<SubscriptionRealtimeTransportBroker />);
@@ -88,7 +82,6 @@ describe("SubscriptionRealtimeTransportBroker", () => {
   });
 
   it("does not expose the passive peer to a normal authenticated browser", () => {
-    fakes.mode = "realtime";
     fakes.realtimeAvailable = true;
     fakes.requiresWebRtcOffer = true;
     delete (window as unknown as { pywebview?: unknown }).pywebview;
@@ -99,7 +92,6 @@ describe("SubscriptionRealtimeTransportBroker", () => {
   });
 
   it("requires the desktop-only process capability", () => {
-    fakes.mode = "realtime";
     fakes.realtimeAvailable = true;
     fakes.requiresWebRtcOffer = true;
     delete window.__JARVIS_REALTIME_BROKER_TOKEN;
@@ -110,7 +102,6 @@ describe("SubscriptionRealtimeTransportBroker", () => {
   });
 
   it("starts when the native host injects its capability after first render", () => {
-    fakes.mode = "realtime";
     fakes.realtimeAvailable = true;
     fakes.requiresWebRtcOffer = true;
     delete window.__JARVIS_REALTIME_BROKER_TOKEN;

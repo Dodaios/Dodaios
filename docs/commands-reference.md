@@ -163,7 +163,7 @@ Switch the active text-to-speech provider (live, no restart).
 
 ## `stt-switch` — Switch speech-recognition (STT) provider
 
-Switch the speech-to-text provider. Takes effect on the next voice-pipeline start (restart required).
+Switch the speech-to-text provider used for dictation. Takes effect on the next dictation.
 
 - **Endpoint:** `POST /api/stt/switch`
 - **Arguments:** `provider` (one of: faster-whisper, gemini-api, groq-api, nemotron-local, openai-api, openrouter-stt, parakeet-local, vertex-stt; required); `persist` (boolean; optional)
@@ -176,7 +176,7 @@ Switch the speech-to-text provider. Takes effect on the next voice-pipeline star
 Switch which realtime voice engine (speech-to-speech) is active, including subscription- and API-backed providers. Experimental transports require explicit acknowledgement.
 
 - **Endpoint:** `POST /api/realtime/switch`
-- **Arguments:** `provider` (one of: gemini-live, local-realtime, local-voice, openai-live, openai-live-subscription, vertex-live; required); `persist` (boolean; optional); `accept_experimental` (boolean; optional)
+- **Arguments:** `provider` (one of: gemini-live, grok-realtime, local-realtime, local-voice, openai-live, openai-live-subscription, vertex-live; required); `persist` (boolean; optional); `accept_experimental` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "switch the realtime model to gemini"
@@ -226,7 +226,7 @@ List all configured providers and which ones are active.
 Test connectivity and authentication for one provider.
 
 - **Endpoint:** `POST /api/providers/{provider_id}/test`
-- **Arguments:** `provider_id` (one of: antigravity, cartesia, claude-api, claude-cli, codex, deepseek, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-voice, groq-api, groq-polish, inworld, litellm, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, opencode, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, parakeet-local, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
+- **Arguments:** `provider_id` (one of: antigravity, cartesia, claude-api, claude-cli, codex, deepseek, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-realtime, grok-voice, groq-api, groq-polish, inworld, litellm, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, opencode, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, parakeet-local, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "test the openai provider"
@@ -240,16 +240,6 @@ Pin the language Dodaios answers in (auto follows the spoken language).
 - **Requires confirmation:** no
 - **Desktop UI section:** `languages`
 - **Voice example (EN):** "answer in german from now on"
-
-## `voice-mode-set` — Set voice mode (pipeline / realtime)
-
-Choose the voice engine: the classic STT-brain-TTS pipeline or a realtime speech-to-speech model.
-
-- **Endpoint:** `PUT /api/settings/voice-mode`
-- **Arguments:** `mode` (one of: pipeline, realtime; required); `persist` (boolean; optional)
-- **Requires confirmation:** no
-- **Desktop UI section:** `settings`
-- **Voice example (EN):** "switch to realtime mode"
 
 ## `wake-word-get` — Show wake word
 

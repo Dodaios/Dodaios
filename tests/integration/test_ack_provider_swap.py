@@ -22,12 +22,10 @@ from __future__ import annotations
 import logging
 import sys
 from types import ModuleType, SimpleNamespace
-from typing import Any
 
 import pytest
 
 from dodaios.brain.factory import build_ack_brain
-from dodaios.core.events import AnnouncementRequested
 from tests.unit.brain.test_ack_brain.conftest import (
     FakeAckProvider,
     build_ack_generator_with_fake,
@@ -167,27 +165,3 @@ def test_disabled_ack_brain_returns_none_from_factory() -> None:
     ack = build_ack_brain(jcfg)
     assert ack is None
 
-
-@pytest.mark.asyncio
-async def test_disabled_ack_brain_publishes_no_preamble_events() -> None:
-    """Even if a caller does invoke _spawn_flash_brain_ack while
-    ``self._ack_brain is None`` (defensive path), zero preamble events
-    must end up on the bus."""
-    from dodaios.speech.pipeline import SpeechPipeline
-
-    bus_events: list[Any] = []
-
-    async def _publish(event: Any) -> None:
-        bus_events.append(event)
-
-    stub = SimpleNamespace(
-        _ack_brain=None,  # feature disabled
-        _config=None,
-        _publish_event=_publish,
-    )
-    await SpeechPipeline._spawn_flash_brain_ack(stub, "Was war das?", "de")
-    preambles = [
-        e for e in bus_events
-        if isinstance(e, AnnouncementRequested) and e.kind == "preamble"
-    ]
-    assert preambles == []

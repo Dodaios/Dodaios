@@ -11,11 +11,10 @@ from dodaios.notify import urgent_call as uc
 from dodaios.notify.settings import NotifySettings, UrgentCallSettings
 from dodaios.notify.urgent_call import CallLedger, UrgentCaller, UrgentEvent
 from dodaios.telephony import decision_calls
-from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
+from tests.fakes.fake_phone_session import FakePhoneSession
 
 NOON = datetime(2026, 11, 11, 12, 0)
 NOW_MS = int(NOON.timestamp() * 1000)
-PCM = b"\x00\x00" * 160
 
 
 def _settings(**urgent) -> NotifySettings:
@@ -295,25 +294,65 @@ def test_classify_answer(said, expected):
     assert decision_calls.classify_answer(said) == expected
 
 
-def _session(stt_lines, call):
-    from dodaios.telephony.session import TelephonyCallSession
+class _Phone:
+    """A phone call bridged to a scripted realtime session (tests/fakes)."""
 
-    sent: list[dict] = []
+    def __init__(self, decision):
+        from dodaios.telephony.call import PhoneCall
 
-    async def send(msg):
-        sent.append(msg)
+        self.session = None
+        decision_calls.register("CAdecision", decision)
 
-    session = TelephonyCallSession(
-        call_sid="CAdecision",
-        stream_sid="MZ",
-        send=send,
-        stt=FakeSTT(stt_lines),
-        brain=FakeBrain("the brain must not answer"),
-        tts=FakeTTS(ms_per_char=1),
-        language_code="en-US",
-    )
-    decision_calls.register("CAdecision", call)
-    return session
+        async def send(_msg):
+            return None
+
+        async def hang_up():
+            return None
+
+        def build(*, send_binary, send_json, call_brief):
+            self.session = FakePhoneSession(
+                send_binary=send_binary, send_json=send_json, call_brief=call_brief
+            )
+            return self.session
+
+        self.call = PhoneCall(
+            call_sid="CAdecision",
+            stream_sid="MZ",
+            send=send,
+            hang_up=hang_up,
+            build_session=build,
+            direction="outbound",
+            opening="send the mail?",
+            language_code="en-US",
+            max_call_seconds=0,
+        )
+
+    async def start(self):
+        await self.call.start()
+        await self.settle()
+
+    async def settle(self):
+        for _ in range(50):
+            await asyncio.sleep(0)
+            pending = [t for t in self.call._tasks if not t.done()]
+            if not pending:
+                return
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    async def say(self, text):
+        await self.session.emit(
+            {"type": "transcript", "role": "user", "text": text, "is_final": True}
+        )
+        await self.settle()
+
+
+@pytest.fixture(autouse=True)
+def _fast_phone(monkeypatch):
+    from dodaios.telephony import call as call_mod
+
+    monkeypatch.setattr(call_mod, "_LINE_RETRY_S", 0.001)
+    monkeypatch.setattr(call_mod, "_REPLY_PLAYBACK_TIMEOUT_S", 0.01)
+    monkeypatch.setattr(call_mod, "_ANSWER_QUIET_S", 0.001)
 
 
 @pytest.mark.parametrize(("answer", "decision"), [("Yes, go ahead", "allow"), ("No", "deny")])
@@ -321,10 +360,11 @@ async def test_spoken_answer_settles_the_approval_card_and_ends_the_call(answer,
     from dodaios.notify.urgent_ring import decision_for
 
     service = FakeService()
-    session = _session([answer], decision_for(service, _approval("a1")))
-    await session._run_turn(PCM)
+    phone = _Phone(decision_for(service, _approval("a1")))
+    await phone.start()
+    await phone.say(answer)
     assert service.approvals == [("s1", "a1", decision)]
-    assert session.ended and session.end_reason.startswith("decision_")
+    assert phone.call.ended and phone.call.end_reason.startswith("decision_")
     assert decision_calls.get("CAdecision") is None
 
 
@@ -332,16 +372,18 @@ async def test_later_and_unclear_answers_leave_the_card_open():
     from dodaios.notify.urgent_ring import decision_for
 
     service = FakeService()
-    session = _session(["later"], decision_for(service, _approval("a1")))
-    await session._run_turn(PCM)
-    assert service.approvals == [] and session.ended
+    phone = _Phone(decision_for(service, _approval("a1")))
+    await phone.start()
+    await phone.say("later")
+    assert service.approvals == [] and phone.call.ended
 
     decision_calls.clear()
-    session = _session(["blorp", "blorp"], decision_for(service, _approval("a2")))
-    await session._run_turn(PCM)
-    assert not session.ended  # asked once more
-    await session._run_turn(PCM)
-    assert service.approvals == [] and session.ended
+    phone = _Phone(decision_for(service, _approval("a2")))
+    await phone.start()
+    await phone.say("blorp")
+    assert not phone.call.ended  # asked once more
+    await phone.say("blorp")
+    assert service.approvals == [] and phone.call.ended
 
 
 async def test_yes_to_a_question_needs_a_recommended_answer():
@@ -351,14 +393,16 @@ async def test_yes_to_a_question_needs_a_recommended_answer():
     asked = UrgentEvent(
         kind="question", ref_id="q1", session_id="s1", summary="Ship?", recommended="Ship"
     )
-    session = _session(["yes"], decision_for(service, asked))
-    await session._run_turn(PCM)
+    phone = _Phone(decision_for(service, asked))
+    await phone.start()
+    await phone.say("yes")
     assert service.questions == [("s1", "q1", 0)]
 
     decision_calls.clear()
     open_ended = UrgentEvent(kind="question", ref_id="q2", session_id="s1", summary="Which name?")
-    session = _session(["yes"], decision_for(service, open_ended))
-    await session._run_turn(PCM)
+    phone = _Phone(decision_for(service, open_ended))
+    await phone.start()
+    await phone.say("yes")
     assert service.questions == [("s1", "q1", 0)]  # nothing guessed
 
 
@@ -381,10 +425,32 @@ async def test_phone_ringer_places_the_call_with_the_opening_and_registers_it(mo
         },
     )
     monkeypatch.setattr("dodaios.telephony.outbound.place_call", fake_place_call)
+    monkeypatch.setattr("dodaios.plugins.tool.call_contact._default_phone_ready", lambda: True)
     ring = urgent_ring.phone_ringer(FakeService())
     assert await ring(_approval("a1"), "+4915112345678") is True
     assert placed["to"] == "+4915112345678" and "send the mail" in placed["opening"]
     assert decision_calls.get("CAplaced") is not None
+
+
+async def test_phone_ringer_without_a_phone_voice_does_not_call(monkeypatch):
+    from dodaios.notify import urgent_ring
+
+    placed: list[dict] = []
+    monkeypatch.setattr(
+        "dodaios.plugins.tool.call_contact._default_call_config",
+        lambda: {
+            "account_sid": "AC1",
+            "auth_token": "t",
+            "from_number": "+4930111",
+            "public_base_url": "https://x.example",
+        },
+    )
+    monkeypatch.setattr(
+        "dodaios.telephony.outbound.place_call", lambda **kw: placed.append(kw) or "CA"
+    )
+    monkeypatch.setattr("dodaios.plugins.tool.call_contact._default_phone_ready", lambda: False)
+    assert await urgent_ring.phone_ringer(FakeService())(_approval(), "+4915112345678") is False
+    assert placed == []
 
 
 async def test_phone_ringer_without_telephony_does_not_call(monkeypatch):

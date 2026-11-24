@@ -32,20 +32,20 @@
     "chars": 2877
   },
   "lead_persona": {
-    "approx_tokens": 1133,
-    "chars": 4533
+    "approx_tokens": 1126,
+    "chars": 4506
   },
   "lead_system_prompt": {
     "approx_tokens": 2994,
-    "chars": 11978
+    "chars": 11977
   },
   "lead_tool_descriptions": {
-    "approx_tokens": 12854,
-    "chars": 51414
+    "approx_tokens": 12822,
+    "chars": 51289
   },
   "lead_tool_schemas": {
-    "approx_tokens": 18810,
-    "chars": 75238
+    "approx_tokens": 18754,
+    "chars": 75016
   },
   "line_brief": {
     "approx_tokens": 372,

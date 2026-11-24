@@ -46,7 +46,6 @@ def _report(gate: Any, **overrides: Any) -> dict[str, Any]:
             "delegation": True,
             "detached_delegate_delivery": True,
             "provider_replacement": True,
-            "classic_delivery": True,
         },
     }
     report.update(overrides)

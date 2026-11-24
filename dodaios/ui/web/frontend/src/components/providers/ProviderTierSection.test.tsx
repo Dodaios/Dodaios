@@ -1215,12 +1215,12 @@ describe("managed local realtime model setup", () => {
     await waitFor(() => expect(calls.some((url) => url.endsWith("/setup"))).toBe(true));
     if (success) {
       await waitFor(() => expect(calls).toContain("/api/realtime/switch"));
-      await waitFor(() => expect(calls).toContain("/api/settings/voice-mode"));
+      // Calls always run on realtime: there is no engine mode left to write.
+      expect(calls).not.toContain("/api/settings/voice-mode");
       expect(calls.findIndex((url) => url.endsWith("/setup"))).toBeLessThan(calls.indexOf("/api/realtime/switch"));
     } else {
       await screen.findByText("Speech test failed");
       expect(calls).not.toContain("/api/realtime/switch");
-      expect(calls).not.toContain("/api/settings/voice-mode");
       expect(screen.queryByText(enLocale.apikeys_view.managed_setup_testing)).toBeNull();
     }
   });

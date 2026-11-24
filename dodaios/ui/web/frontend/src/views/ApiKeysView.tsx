@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LiveProfile } from "@/components/providers/LiveProfile";
+import {
+  makeProviderCategories,
+  ProviderCategory,
+  useTierHealth,
+} from "@/components/providers/ProviderTierSection";
 import { Button } from "@/components/ui/button";
 import { AgentsTab } from "@/views/apikeys/AgentsTab";
 import { KeyField } from "@/views/apikeys/KeyField";
 import { SettingsGroup } from "@/views/apikeys/settingsUi";
-import { PipelinePane, useVoiceEngineView, VoiceEngineSwitch } from "@/views/apikeys/VoiceEngine";
+import { VoiceCallStatus } from "@/views/apikeys/VoiceCallStatus";
 import { useProviders, useSectionHealth } from "@/hooks/useProviders";
 import { APIKEYS_TAB_EVENT, takeRequestedApiKeysTab } from "@/lib/apiKeysTab";
 import { useProviderFamilies } from "@/lib/providerFamilies";
@@ -50,10 +55,11 @@ function initialTab(): Tab {
  * API Keys, in two parts behind one centred switch, both as a provider list
  * beside the selected provider's settings:
  *
- * - Live calls: the live voice runs on OpenAI GPT-Live — paid with the
- *   ChatGPT subscription or one OpenAI key — with its voice and the thinking
- *   model that answers with tools; or, switched to Pipeline, as three steps
- *   (voice input, the brain, voice output) that can each run locally;
+ * - Live calls: calls run on a realtime speech-to-speech provider, picked
+ *   from the realtime cards. GPT-Live has its own settings (paid with the
+ *   ChatGPT subscription or one OpenAI key, its voice and the thinking model
+ *   that answers with tools). The voice that reads answers aloud and speaks
+ *   notices outside calls is picked below them;
  * - Agents: every company the assistant's agents can run on, any number of
  *   them on at once, each reached by its subscription or its API key.
  */
@@ -175,11 +181,10 @@ function TabSwitch({ value, onChange }: { value: Tab; onChange: (tab: Tab) => vo
 }
 
 /**
- * Live calls run on OpenAI GPT-Live by default: one live speech-to-speech
- * connection, so that half of the tab is that provider's settings pane — how
- * it is paid for, its voice and the thinking model that answers with tools.
- * The engine switch above it turns calls over to the Pipeline instead, whose
- * steps can run on this computer.
+ * Calls always run on a realtime speech-to-speech provider: the status of a
+ * running call, the realtime cards to pick one, GPT-Live's own settings, and
+ * the read-aloud voice (TTS) used outside calls. Speech-to-text for dictation
+ * lives in the Voice section's API Keys tab.
  */
 function VoiceTab({
   data,
@@ -188,30 +193,57 @@ function VoiceTab({
   data: ReturnType<typeof useProviderFamilies>;
   onSaved: () => void;
 }) {
+  const t = useT();
   const openai = data.families?.find((family) => family.id === "openai");
-  const engine = useVoiceEngineView();
+  const { providers, loading, error, refetch, setActiveOptimistic } = useProviders();
+  const health = useTierHealth(providers);
+  const categories = makeProviderCategories(t);
   return (
-    <div data-testid="apikeys-voice" className="mx-auto w-full max-w-3xl">
-      <VoiceEngineSwitch engine={engine} />
-      {engine.view === "pipeline" ? (
-        <PipelinePane />
-      ) : (
-        <SettingsGroup divided={false} className="p-4">
-          <LiveProfile
-            onSaved={onSaved}
-            keyField={
-              <KeyField
-                slot={openai?.key_slot ?? "openai_api_key"}
-                present={openai?.key_present ?? false}
-                providerLabel="OpenAI"
-                dashboardUrl={openai?.dashboard_url}
-                onChanged={() => void data.reload()}
-                testId="voice-key"
-              />
-            }
-          />
-        </SettingsGroup>
-      )}
+    <div data-testid="apikeys-voice" className="mx-auto flex w-full max-w-3xl flex-col gap-group">
+      <VoiceCallStatus />
+      <div data-testid="voice-realtime">
+        <ProviderCategory
+          meta={categories.realtime}
+          tier="realtime"
+          providers={providers}
+          loading={loading}
+          error={error}
+          onChanged={refetch}
+          onActivateOptimistic={setActiveOptimistic}
+          health={health.realtime}
+        />
+      </div>
+      <SettingsGroup divided={false} className="p-4">
+        <LiveProfile
+          onSaved={onSaved}
+          keyField={
+            <KeyField
+              slot={openai?.key_slot ?? "openai_api_key"}
+              present={openai?.key_present ?? false}
+              providerLabel="OpenAI"
+              dashboardUrl={openai?.dashboard_url}
+              onChanged={() => void data.reload()}
+              testId="voice-key"
+            />
+          }
+        />
+      </SettingsGroup>
+      <div data-testid="voice-read-aloud">
+        <ProviderCategory
+          meta={{
+            ...categories.tts,
+            title: t("providers_page.read_aloud_title"),
+            description: t("providers_page.read_aloud_desc"),
+          }}
+          tier="tts"
+          providers={providers}
+          loading={loading}
+          error={error}
+          onChanged={refetch}
+          onActivateOptimistic={setActiveOptimistic}
+          health={health.tts}
+        />
+      </div>
     </div>
   );
 }

@@ -21,12 +21,15 @@ def test_gemini_live_adapter_credentials_match_canonical_family() -> None:
     assert AUTH_PROVIDER_ALIASES["gemini-live"] == "gemini-live"
 
 
-def test_grok_realtime_stays_removed() -> None:
-    """grok-realtime was removed 2026-07-16 (BUG-064 deaf-session wedge):
-    the xAI server drops its session contract after any response cancel.
-    Neither the credential registry nor the auth alias map may resurrect it."""
-    assert "grok-realtime" not in PROVIDER_SECRET_CANDIDATES
-    assert "grok-realtime" not in AUTH_PROVIDER_ALIASES
+def test_grok_realtime_adapter_credentials_match_canonical_family() -> None:
+    """The one xAI key leads, so the Grok brain key also opens a Grok call."""
+    from dodaios.plugins.realtime.grok_realtime import GrokRealtimeProvider
+
+    assert GrokRealtimeProvider.credential_candidates == PROVIDER_SECRET_CANDIDATES[
+        "grok-realtime"
+    ]
+    assert PROVIDER_SECRET_CANDIDATES["grok-realtime"][0][0] == "grok_api_key"
+    assert AUTH_PROVIDER_ALIASES["grok-realtime"] == "grok-realtime"
 
 
 @pytest.mark.parametrize(

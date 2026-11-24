@@ -25,6 +25,7 @@ const PROVIDER_NAMES: Record<string, string> = {
   "openai-realtime": "OpenAI Realtime",
   "gemini-live": "Gemini Live",
   "vertex-live": "Vertex AI Live",
+  "grok-realtime": "Grok Live",
   unknown: "—",
 };
 

@@ -51,8 +51,8 @@ The phrase starts its ritual only inside its conditions. A click on "Run now" or
 assistant makes on request (`ritual-run`) always runs, and does not use up the phrase's one
 start of the day.
 
-- Spoken (classic voice path): the hook sits in `SpeechPipeline._handle_utterance_turn` after
-  fragments were joined and before the privacy phrases, the skills and the brain.
+- Spoken (in a call): while a ritual is on, the live voice model gets a `start_ritual` tool and
+  passes what was said; the same phrase match then decides (`dodaios/rituals/said.py`).
 - Typed: only in the assistant's own conversation and only as a bare sentence. The message is
   filed, the card is the answer, no turn is started.
 
