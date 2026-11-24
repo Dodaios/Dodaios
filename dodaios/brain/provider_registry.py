@@ -6,12 +6,16 @@ the error is recorded in the log.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+from dodaios.core import module_health
 from dodaios.core.entry_points import entry_points
 from dodaios.core.protocols import Brain
 
 PLUGIN_GROUP = "jarvis.brain"
+
+log = logging.getLogger(__name__)
 
 
 class BrainProviderRegistry:
@@ -30,8 +34,10 @@ class BrainProviderRegistry:
             try:
                 cls = ep.load()
                 self._classes[ep.name] = cls
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — broad-except: module boundary — brain plugin
                 self._failed[ep.name] = f"{type(exc).__name__}: {exc}"
+                log.warning("Brain provider '%s' load failed: %s", ep.name, exc)
+                module_health.report_failure(f"plugin:brain:{ep.name}", exc)
         self._loaded = True
 
     def available(self) -> list[str]:
