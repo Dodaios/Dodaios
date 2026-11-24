@@ -40,6 +40,7 @@ import { DailyUseSection } from "./selfImprovement/DailyUse";
 import { NightsSection } from "./selfImprovement/Nights";
 import { claimWords, isPolicy, policyProof, policySentence } from "./selfImprovement/policy";
 import { PolicyLines } from "./selfImprovement/PolicyLines";
+import { trackPhrase } from "./selfImprovement/noteTrack";
 import {
   DECIDE_MIN_TASKS,
   MODEL_FREE_DOMAINS,
@@ -537,7 +538,7 @@ function ChangeRow({
     : candidate
       ? ""
       : note
-        ? t("self_improvement.stack.not_measured")
+        ? [t("self_improvement.stack.not_measured"), trackPhrase(t, change.track, locale)].filter(Boolean).join(" · ")
         : effectWords(t, change.admitted, locale);
   return (
     <Row

@@ -16,6 +16,7 @@ import type {
   AdvantagePoint,
   LearnedChange,
   Measurement,
+  NoteTrack,
   Night,
   SelfImprovementOverview,
 } from "@/lib/selfImprovementApi";
@@ -581,6 +582,68 @@ describe("SelfImprovementView, notes it wrote for itself", () => {
     fireEvent.click(within(detail).getByTestId("si-detail-undo"));
     await waitFor(() => expect(screen.getAllByTestId("si-change-row")).toHaveLength(3));
     expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-improvement/changes/n1/undo")).toBe(true);
+  });
+
+  const SINCE = Date.UTC(2026, 10, 24, 12);
+  const track = (over: Partial<NoteTrack> = {}): NoteTrack => ({
+    since_ms: SINCE,
+    shown: 34,
+    shown_through: 31,
+    shown_share: 31 / 34,
+    other: 140,
+    other_through: 118,
+    other_share: 118 / 140,
+    min_requests: 30,
+    ...over,
+  });
+
+  async function openNote(found: NoteTrack | null) {
+    const data = withNotes();
+    data.stack[0] = { ...data.stack[0], track: found };
+    installFetch(data);
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    const proof = within(rows[0]).getByTestId("si-change-proof").textContent;
+    fireEvent.click(rows[0]);
+    return { proof, detail: await screen.findByTestId("si-change-detail") };
+  }
+
+  it("says where a note was shown and how those requests went, beside the others, as no proof", async () => {
+    const { proof, detail } = await openNote(track());
+    expect(proof).toBe("not measured yet · shown in 34 of your requests");
+    expect(within(detail).getByTestId("si-detail-track").textContent).toBe(
+      "Shown in 34 of your requests since Nov 24: 31 went through (91%); without it 84% of 140.",
+    );
+    expect(detail.textContent).toContain("not what caused it");
+    expect(within(detail).getByTestId("si-detail-unmeasured").textContent).toContain("Not measured yet");
+    expect(detail.textContent).not.toMatch(/null|undefined|NaN/);
+  });
+
+  it("gives no share below the minimum, and says so", async () => {
+    const few = track({ shown: 12, shown_through: null, shown_share: null });
+    const { proof, detail } = await openNote(few);
+    expect(proof).toBe("not measured yet · shown in 12 of your requests");
+    const sentence = within(detail).getByTestId("si-detail-track").textContent ?? "";
+    expect(sentence).toBe("Shown in 12 of your requests since Nov 24. How they went shows from 30 requests on.");
+    expect(sentence).not.toMatch(/%/);
+    cleanup();
+    const alone = track({ other: 9, other_through: null, other_share: null });
+    const second = await openNote(alone);
+    expect(within(second.detail).getByTestId("si-detail-track").textContent).toBe(
+      "Shown in 34 of your requests since Nov 24: 31 went through (91%); too few without it to compare (9).",
+    );
+  });
+
+  it("shows nothing of a track a note does not have, and says when it was not shown yet", async () => {
+    const none = await openNote(null);
+    expect(none.proof).toBe("not measured yet");
+    expect(within(none.detail).queryByTestId("si-detail-track")).toBeNull();
+    cleanup();
+    const unseen = await openNote(track({ shown: 0, shown_through: null, shown_share: null }));
+    expect(unseen.proof).toBe("not measured yet");
+    expect(within(unseen.detail).getByTestId("si-detail-track").textContent).toBe(
+      "Not shown in any of your requests since Nov 24.",
+    );
   });
 });
 

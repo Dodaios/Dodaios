@@ -266,6 +266,15 @@
       "week_of": "ab {date}",
       "unrated": "keine Zahl"
     },
+    "track": {
+      "title": "In deinen Anfragen",
+      "none": "Seit {date} in keiner deiner Anfragen gezeigt.",
+      "few": "Seit {date} in {n} deiner Anfragen gezeigt. Wie sie ausgingen, zeigt sich ab {min} Anfragen.",
+      "shown": "Seit {date} in {n} deiner Anfragen gezeigt: {through} gingen durch ({pct}); ohne sie {other_pct} von {m}.",
+      "shown_alone": "Seit {date} in {n} deiner Anfragen gezeigt: {through} gingen durch ({pct}); ohne sie zu wenige für einen Vergleich ({m}).",
+      "caveat": "Das zeigt, was geschehen ist, nicht, was es verursacht hat: Eine Notiz kommt, wenn es in einer Anfrage um ihr Thema geht, darum sind diese Anfragen nicht wie die anderen, und nichts wird danach entschieden.",
+      "row": "in {n} deiner Anfragen gezeigt"
+    },
     "policy": {
       "sentence": "{what}, {where}",
       "where": "im Bereich {area}, mit {model} in {harness}",

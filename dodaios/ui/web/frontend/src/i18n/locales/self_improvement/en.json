@@ -266,6 +266,15 @@
       "week_of": "from {date}",
       "unrated": "no figure"
     },
+    "track": {
+      "title": "In your requests",
+      "none": "Not shown in any of your requests since {date}.",
+      "few": "Shown in {n} of your requests since {date}. How they went shows from {min} requests on.",
+      "shown": "Shown in {n} of your requests since {date}: {through} went through ({pct}); without it {other_pct} of {m}.",
+      "shown_alone": "Shown in {n} of your requests since {date}: {through} went through ({pct}); too few without it to compare ({m}).",
+      "caveat": "This shows what happened, not what caused it: a note comes up when a request is about its subject, so those requests are not like the others, and nothing is decided on it.",
+      "row": "shown in {n} of your requests"
+    },
     "policy": {
       "sentence": "{what}, {where}",
       "where": "for {area} work with {model} in {harness}",
