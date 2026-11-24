@@ -9543,7 +9543,14 @@
       "unavailable": "Diese Datei lässt sich nicht lesen. Vielleicht wurde sie verschoben oder gelöscht.",
       "no_workspace": "Öffne ein Projekt, um hier Dateien zu lesen.",
       "show_change": "Änderung anzeigen",
-      "change_truncated": "{count} weitere Zeilen werden nicht angezeigt."
+      "change_truncated": "{count} weitere Zeilen werden nicht angezeigt.",
+      "unsaved": "Nicht gespeicherte Änderungen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "conflict": "Die Datei hat sich auf dem Datenträger geändert, seit du sie geöffnet hast.",
+      "overwrite": "Überschreiben",
+      "discard": "Meine Änderungen verwerfen",
+      "save_failed": "Speichern fehlgeschlagen: {error}"
     }
   },
   "appshots": {

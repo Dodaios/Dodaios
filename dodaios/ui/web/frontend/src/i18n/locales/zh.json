@@ -9543,7 +9543,14 @@
       "unavailable": "无法读取此文件，它可能已被移动或删除。",
       "no_workspace": "打开一个项目即可在此阅读文件。",
       "show_change": "显示更改",
-      "change_truncated": "还有 {count} 行未显示。"
+      "change_truncated": "还有 {count} 行未显示。",
+      "unsaved": "有未保存的更改",
+      "save": "保存",
+      "saving": "正在保存…",
+      "conflict": "自你打开以来，该文件在磁盘上已被更改。",
+      "overwrite": "覆盖",
+      "discard": "放弃我的更改",
+      "save_failed": "无法保存：{error}"
     }
   },
   "appshots": {

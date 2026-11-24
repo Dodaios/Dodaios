@@ -9543,7 +9543,14 @@
       "unavailable": "Não é possível ler este arquivo. Ele pode ter sido movido ou excluído.",
       "no_workspace": "Abra um projeto para ler arquivos aqui.",
       "show_change": "Mostrar a alteração",
-      "change_truncated": "Mais {count} linhas não são mostradas."
+      "change_truncated": "Mais {count} linhas não são mostradas.",
+      "unsaved": "Alterações não guardadas",
+      "save": "Guardar",
+      "saving": "A guardar…",
+      "conflict": "O ficheiro mudou no disco desde que o abriu.",
+      "overwrite": "Substituir",
+      "discard": "Descartar as minhas alterações",
+      "save_failed": "Não foi possível guardar: {error}"
     }
   },
   "appshots": {
