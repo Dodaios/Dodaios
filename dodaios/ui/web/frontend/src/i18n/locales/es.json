@@ -10682,6 +10682,20 @@
     "signin_not_yet": "— instalarlo todavía no conecta nada."
   },
   "ide_threads": {
+    "flags": {
+      "heading": "Bandera",
+      "set": "Marcado",
+      "mark": "Bandera: {name}",
+      "name_flags": "Nombrar banderas…",
+      "names_title": "Nombra tus banderas",
+      "names_body": "El nombre aparece al dejar el puntero sobre una bandera. Deja un campo vacío para el nombre predeterminado.",
+      "default_red": "Importante",
+      "default_orange": "Seguimiento",
+      "default_blue": "Más tarde",
+      "name_red": "Nombre de la bandera roja",
+      "name_orange": "Nombre de la bandera naranja",
+      "name_blue": "Nombre de la bandera azul"
+    },
     "remove_project": "Quitar proyecto",
     "remove_project_title": "¿Quitar {project} de la barra lateral?",
     "remove_project_body_none": "La carpeta en el disco no se toca; añádela de nuevo para recuperar el proyecto.",
