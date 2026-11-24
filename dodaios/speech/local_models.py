@@ -563,6 +563,13 @@ class SherpaBundle:
     archive_url: str | None = None
     #: A HuggingFace repo whose ``required_files`` are fetched individually.
     hf_repo: str | None = None
+    #: SHA-256 of the archive behind ``archive_url``; the download is refused
+    #: when it differs. Empty means not pinned. Only an archive whose digest a
+    #: second source confirms is pinned (see ``_PIPER_ARCHIVE_SHA256``): the
+    #: upstream project replaces these release files in place now and then, so
+    #: a pin holds until the next upload and then stops that download until it
+    #: is renewed.
+    sha256: str = ""
     #: Voice bundles only: the language it speaks and the voice's gender, so the
     #: per-turn voice pick can stay consistent across a language switch (a voice
     #: that changes sex mid-conversation is BUG-086's shape).
@@ -642,6 +649,20 @@ _PARAKEET_ARCHIVE = (
 #: Where the sherpa-onnx project publishes its converted TTS voices.
 _PIPER_RELEASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/"
 
+#: SHA-256 of the voice archives that are pinned. These two are the archives
+#: the voice engine's model store pins as well (``dodaios/voice_engine/models.py``;
+#: a test keeps the digests equal), and the upstream release reports the same
+#: digest for them (checked 2026-11-23). A voice missing here is downloaded
+#: unpinned.
+_PIPER_ARCHIVE_SHA256: dict[str, str] = {
+    "vits-piper-de_DE-thorsten-medium": (
+        "50487d9c95fdf2191f31d2588569381063ba1591dcd4c7d4bdd30f12b2191714"
+    ),
+    "vits-piper-en_US-ryan-medium": (
+        "c546af78b6395b4e7c4ce1ed899438b64426a362f5d4ec5fecd090ded9ad7505"
+    ),
+}
+
 
 def _piper_bundle(name: str, *, label: str, language: str, gender: str) -> SherpaBundle:
     """One Piper voice, named the way the upstream release names it.
@@ -658,6 +679,7 @@ def _piper_bundle(name: str, *, label: str, language: str, gender: str) -> Sherp
         archive_url=f"{_PIPER_RELEASE}{name}.tar.bz2",
         language=language,
         gender=gender,
+        sha256=_PIPER_ARCHIVE_SHA256.get(name, ""),
     )
 
 

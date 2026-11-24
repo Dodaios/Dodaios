@@ -5254,6 +5254,7 @@
     "approving": "Wird freigegeben…"
   },
   "skill_finder_dialog": {
+    "installed_off": "Installiert, aus",
     "install_failed": "Installation fehlgeschlagen",
     "title": "Skill-Finder",
     "subtitle": "Beschreibe, was du brauchst — der Mini-Agent sucht im Katalog und rankt per KI.",
@@ -6728,6 +6729,7 @@
     "landed_title": "{title} installiert",
     "landed_plugin": "Liegt jetzt unter Plugins. Verbinde es, dann kannst du es nutzen.",
     "landed_skill": "Liegt jetzt unter Skills und ist sofort einsatzbereit.",
+    "landed_skill_off": "Liegt ausgeschaltet unter Skills. Erst dort lesen, dann einschalten.",
     "landed_needs_connect": "Installiert, aber noch nicht nutzbar: es muss noch verbunden werden.",
     "sends_data_to": "Sobald verbunden, gehen Anfragen und dein Zugriffstoken an:",
     "runs_command": "Sobald verbunden, läuft dieser Befehl auf deinem Rechner:",

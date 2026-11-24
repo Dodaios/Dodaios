@@ -25,11 +25,13 @@ not drag a downloader dependency into an install that only wants to speak.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from dodaios.speech.local_models import sherpa_model_dir
 
@@ -58,6 +60,60 @@ def _download_file(url: str, target: Path, *, timeout_s: float = 60.0) -> None:
                 fh.write(chunk)
 
 
+def _sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(_CHUNK_BYTES):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _require_checksum(path: Path, expected: str, label: str) -> None:
+    """Refuse a download that is not the file the bundle was pinned to."""
+    actual = _sha256_of(path)
+    if actual != expected:
+        log.warning(
+            "Download of %s has SHA-256 %s, expected %s; not installed.", label, actual, expected
+        )
+        raise RuntimeError(
+            f"The download of {label} is not the file Dodaios expects (checksum "
+            "mismatch), so it was not installed. Try again; if it stays the same, "
+            "the file changed at its source and needs an update of Dodaios."
+        )
+
+
+def _extract_checked(archive: Any, dest: Path) -> None:
+    """Unpack *archive* on an interpreter whose ``tarfile`` has no filters.
+
+    CPython before 3.11.4 knows no extraction filter, and its plain
+    ``extractall`` writes wherever a member's name points. This does by hand
+    what the ``data`` filter guarantees, and a little more strictly: only plain
+    files and directories are written, and only below *dest*. A link, a device
+    file or a name that leaves *dest* refuses the whole archive; the caller
+    removes the staging directory, so nothing of it stays behind.
+    """
+    root = dest.resolve()
+    for member in archive:
+        target = (root / member.name).resolve()
+        if target != root and root not in target.parents:
+            raise RuntimeError(
+                "The model archive names a path outside its own folder; it was not unpacked."
+            )
+        if member.isdir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        if not member.isfile():
+            raise RuntimeError(
+                "The model archive holds a link or a device file; it was not unpacked."
+            )
+        source = archive.extractfile(member)
+        if source is None:
+            raise RuntimeError("The model archive could not be read; it was not unpacked.")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with source, target.open("wb") as out:
+            shutil.copyfileobj(source, out, _CHUNK_BYTES)
+
+
 def _extract_archive(archive: Path, staging: Path) -> None:
     """Unpack a tar.bz2 into *staging*, stripping its single top-level directory.
 
@@ -73,10 +129,13 @@ def _extract_archive(archive: Path, staging: Path) -> None:
         # 'data' rejects absolute paths, parent traversal, links pointing out of
         # the tree and device files — a downloaded archive is untrusted input,
         # and without the filter a crafted one could write anywhere on disk.
-        try:
+        # An interpreter without filters gets the same guarantee by hand; it is
+        # asked for the feature, because a TypeError from inside an extraction
+        # must never be read as "no filter here, unpack without one".
+        if hasattr(tarfile, "data_filter"):
             tf.extractall(unpacked, filter="data")
-        except TypeError:  # pragma: no cover — Python without the filter arg
-            tf.extractall(unpacked)  # noqa: S202
+        else:
+            _extract_checked(tf, unpacked)
     entries = [p for p in unpacked.iterdir() if not p.name.startswith(".")]
     root = entries[0] if len(entries) == 1 and entries[0].is_dir() else unpacked
     for item in list(root.iterdir()):
@@ -122,6 +181,9 @@ def download_sherpa_model(
                 progress(f"Downloading {bundle.label}…")
             archive = staging / "bundle.tar.bz2"
             _download_file(bundle.archive_url, archive)
+            if bundle.sha256:
+                # Before a single member is unpacked.
+                _require_checksum(archive, bundle.sha256, bundle.label)
             if progress is not None:
                 progress(f"Unpacking {bundle.label}…")
             _extract_archive(archive, staging)
