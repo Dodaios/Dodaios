@@ -16,8 +16,11 @@ export interface BackgroundAgentsConfig {
   running_as_service: boolean;
   /** False on a dev instance: it stops with its window, by design. */
   supported: boolean;
-  /** The work a quit would hand to the background service right now. */
-  work: { routines: number; running: number; channels: string[] };
+  /**
+   * The work a quit would hand to the background service right now.
+   * ``learning``: the self-improvement loop runs and the person has not stopped it.
+   */
+  work: { routines: number; running: number; channels: string[]; learning?: boolean };
 }
 
 export type BackgroundAgentsPatch = Partial<
