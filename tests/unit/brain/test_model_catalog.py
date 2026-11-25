@@ -690,6 +690,8 @@ class TestListModels:
         ids = {m.id for m in result.models}
         assert any("fable" in i for i in ids)
         assert "claude-fable-5-2" in ids
+        assert "claude-sonnet-5-5" in ids
+        assert "claude-haiku-5-5" in ids
         assert any("opus" in i for i in ids)
         assert any("sonnet" in i for i in ids)
         assert any("haiku" in i for i in ids)
@@ -754,6 +756,9 @@ class TestModelClassification:
         assert is_starred_model("claude-fable-5") is True
         assert is_starred_model("claude-fable-5-2") is True
         assert is_starred_model("anthropic/claude-fable-5.2") is True
+        assert is_starred_model("claude-sonnet-5-5") is True
+        assert is_starred_model("openai/gpt-6.2-sol") is True
+        assert is_starred_model("google/gemini-4-hydrogen") is True
         assert is_starred_model("openai/gpt-5.5") is True
         assert is_starred_model("gemini-3.5-flash") is True
         assert is_starred_model("z-ai/glm-5.2") is True

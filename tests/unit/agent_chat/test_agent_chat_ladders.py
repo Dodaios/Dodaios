@@ -460,7 +460,7 @@ def test_agy_model_catalog_folds_suffixed_ids():
     assert by_id["claude-sonnet-4-6"]["efforts"] == []
     assert by_id["gpt-oss-120b"]["efforts"] == ["medium"]
     # No list at all -> the fallback table.
-    assert agy_model_catalog(None)[0]["id"] == "gemini-3.7-flash"
+    assert agy_model_catalog(None)[0]["id"] == "gemini-4-hydrogen"
 
 
 # ------------------------------------------------------------ agy translation
@@ -662,7 +662,7 @@ def test_catalog_rows_carry_per_model_efforts_for_cli_runners():
     agy = provider_row("antigravity")
     assert agy is not None
     models = agy.to_dict()["curated_models"]
-    assert models[0]["id"] == "gemini-3.7-flash" and models[0]["efforts"] == [
+    assert models[0]["id"] == "gemini-4-hydrogen" and models[0]["efforts"] == [
         "low",
         "medium",
         "high",

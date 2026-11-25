@@ -70,6 +70,8 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-opus-5": (5.0, 25.0),
     # Opus 5.5 / Fable 5.1 (OpenRouter feed, 2026-09-28).
     "claude-opus-5-5": (4.0, 20.0),
+    "claude-sonnet-5-5": (2.0, 10.0),
+    "claude-haiku-5-5": (0.10, 0.50),
     "claude-fable-5-1": (10.0, 50.0),
     # Fable 5.2: no published rate at the time of writing; the Fable line's
     # rate is assumed until the feed carries one.
@@ -107,6 +109,11 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "gemini-3.6-flash": (0.75, 3.75),
     "gemini-3.7-flash": (0.75, 3.75),
     "gemini-3.8-flash": (0.75, 3.75),  # OpenRouter feed, 2026-09-28
+    # Gemini 4 generation (OpenRouter feed, 2026-11-25).
+    "gemini-4-neon": (3.0, 15.0),
+    "gemini-4-hydrogen": (1.50, 7.50),
+    "gemini-4-carbon": (2.0, 10.0),
+    "gemini-4-argon": (2.0, 10.0),
     # Live API models — TEXT rates; audio rates live in
     # REALTIME_AUDIO_PRICING_USD_PER_MTOK below.
     "gemini-3.1-flash-live-preview": (0.75, 4.50),
@@ -130,6 +137,15 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "gpt-6-astra-pro": (10.0, 50.0),
     "gpt-6-luna": (0.10, 0.50),
     "gpt-6-luna-pro": (0.10, 0.50),
+    # GPT-6.1 / 6.2 generation (OpenRouter feed, 2026-11-25).
+    "gpt-6.1-terra": (1.0, 5.0),
+    "gpt-6.1-terra-pro": (1.0, 5.0),
+    "gpt-6.1-sol": (2.0, 10.0),
+    "gpt-6.1-sol-pro": (2.0, 10.0),
+    "gpt-6.2-sol": (2.0, 10.0),
+    "gpt-6.2-sol-pro": (2.0, 10.0),
+    "gpt-6.2-astra": (8.0, 40.0),
+    "gpt-6.2-astra-pro": (8.0, 40.0),
     # Not a vendor model: Codex's review pass, which runs on the session's own
     # model. Tracks gpt-5.6-sol, the default that pass runs on.
     "codex-auto-review": (2.0, 10.0),

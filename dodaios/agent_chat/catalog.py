@@ -175,6 +175,8 @@ def _agy_fallback_models() -> tuple[tuple[str, str, tuple[str, ...]], ...]:
 CLAUDE_CODE_MODELS: Final[tuple[CuratedModel, ...]] = (
     CuratedModel("claude-fable-5-2", "Claude Fable 5.2"),
     CuratedModel("claude-opus-5-5", "Claude Opus 5.5", fast=True),
+    CuratedModel("claude-sonnet-5-5", "Claude Sonnet 5.5"),
+    CuratedModel("claude-haiku-5-5", "Claude Haiku 5.5"),
     CuratedModel("claude-fable-5-1", "Claude Fable 5.1"),
     CuratedModel("claude-fable-5", "Claude Fable 5"),
     CuratedModel("claude-opus-5", "Claude Opus 5", fast=True),
@@ -233,6 +235,17 @@ def claude_code_models() -> tuple[CuratedModel, ...]:
 #: for a box where ``models_cache.json`` cannot be read. The route prefers the
 #: account's live list.
 CODEX_FALLBACK_MODELS: Final[tuple[CuratedModel, ...]] = (
+    CuratedModel("gpt-6.2-sol", "GPT-6.2 Sol", ("low", "medium", "high", "xhigh", "max", "ultra")),
+    CuratedModel(
+        "gpt-6.2-astra", "GPT-6.2 Astra", ("low", "medium", "high", "xhigh", "max", "ultra")
+    ),
+    CuratedModel(
+        "gpt-6.1-terra", "GPT-6.1 Terra", ("low", "medium", "high", "xhigh", "max", "ultra")
+    ),
+    CuratedModel("gpt-6.1-sol", "GPT-6.1 Sol", ("low", "medium", "high", "xhigh", "max", "ultra")),
+    CuratedModel("gpt-6-sol", "GPT-6 Sol", ("low", "medium", "high", "xhigh", "max", "ultra")),
+    CuratedModel("gpt-6-astra", "GPT-6 Astra", ("low", "medium", "high", "xhigh", "max", "ultra")),
+    CuratedModel("gpt-6-luna", "GPT-6 Luna", ("low", "medium", "high", "xhigh", "max")),
     CuratedModel("gpt-5.6-sol", "GPT-5.6 Sol", ("low", "medium", "high", "xhigh", "max", "ultra")),
     CuratedModel(
         "gpt-5.6-terra", "GPT-5.6 Terra", ("low", "medium", "high", "xhigh", "max", "ultra")
