@@ -372,7 +372,7 @@ def _grep(
         return "pattern is required", True
     try:
         rx = re.compile(pattern)
-    except re.error as exc:
+    except re.error as exc:  # a bad expression is the answer itself, as in the tool
         return f"Invalid regular expression: {exc}", True
     name_glob = str(args.get("glob") or "").strip() or None
     limit = min(int(args.get("max_results") or app._GREP_MAX_RESULTS), app._GREP_MAX_RESULTS)  # noqa: SLF001
