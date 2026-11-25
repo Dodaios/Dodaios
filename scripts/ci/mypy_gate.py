@@ -148,13 +148,26 @@ _FULL_CHECK_FILES = frozenset(
 
 def touched_packages(base: str) -> set[str] | None:
     """Packages with a changed file since ``base``; ``None`` means judge everything."""
-    proc = subprocess.run(
-        ["git", "diff", "--name-only", "--no-renames", base, "HEAD"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    def diff() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "diff", "--name-only", "--no-renames", base, "HEAD"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    proc = diff()
+    if proc.returncode != 0:
+        # A shallow CI checkout may lack the base commit: fetch just that commit.
+        subprocess.run(
+            ["git", "fetch", "--no-tags", "--depth=1", "origin", base],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        proc = diff()
     if proc.returncode != 0:
         print(f"note: git diff against {base!r} failed; judging every package.")
         return None

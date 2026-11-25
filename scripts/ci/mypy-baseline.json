@@ -1,10 +1,11 @@
 {
+  "conductor": 7,
   "dodaios.admin": 24,
-  "dodaios.agent_chat": 155,
+  "dodaios.agent_chat": 488,
   "dodaios.agent_runtimes": 45,
   "dodaios.agentic_ide": 81,
   "dodaios.appshot": 80,
-  "dodaios.brain": 94,
+  "dodaios.brain": 365,
   "dodaios.cu": 21,
   "dodaios.live": 20,
   "dodaios.marketplace": 21,
@@ -18,6 +19,7 @@
   "dodaios.skills": 53,
   "dodaios.society": 57,
   "dodaios.speech": 50,
-  "dodaios.ui": 643,
-  "dodaios.voice_engine": 16
+  "dodaios.ui": 974,
+  "dodaios.voice_engine": 16,
+  "ui": 21
 }
