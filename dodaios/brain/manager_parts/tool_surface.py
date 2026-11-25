@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from dodaios.brain import manager as _m
 from dodaios.brain.local_action_gate import is_open_app_intent
@@ -33,8 +33,13 @@ from dodaios.brain.tool_shortlist import (
 )
 from dodaios.core.protocols import BrainMessage, Tool
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _ToolSurfaceMixin:
+
+class _ToolSurfaceMixin(_HostBase):
     """Per-turn tool hiding, shortlisting and plugin relevance."""
 
     def _smalltalk_tool_override(self) -> dict[str, Tool]:
