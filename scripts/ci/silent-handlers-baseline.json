@@ -11,10 +11,6 @@
     "dodaios/admin/unix_socket.py": 4,
     "dodaios/agent_chat/runner_api.py": 2,
     "dodaios/agent_chat/runner_brain.py": 2,
-    "dodaios/agent_chat/runner_cli/agy.py": 1,
-    "dodaios/agent_chat/runner_cli/cursor.py": 1,
-    "dodaios/agent_chat/runner_cli/drive.py": 4,
-    "dodaios/agent_chat/runner_cli/kimi.py": 1,
     "dodaios/agent_chat/store.py": 1,
     "dodaios/agent_chat/tools.py": 8,
     "dodaios/agent_cli_probe.py": 1,
@@ -345,6 +341,10 @@
     "dodaios/workflows/scheduler.py": 4,
     "dodaios/workflows/store.py": 1,
     "dodaios/workspace/agents.py": 2,
-    "dodaios/workspace/trust.py": 1
+    "dodaios/workspace/trust.py": 1,
+    "dodaios/agent_chat/runner_cli/agy.py": 1,
+    "dodaios/agent_chat/runner_cli/cursor.py": 1,
+    "dodaios/agent_chat/runner_cli/drive.py": 4,
+    "dodaios/agent_chat/runner_cli/kimi.py": 1
   }
 }
