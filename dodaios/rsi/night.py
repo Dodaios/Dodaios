@@ -55,6 +55,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import dodaios
+from dodaios.core.process_utils import background_children
 from dodaios.learners.lines import LineLearner
 from dodaios.learners.tuner import Proposal, Trial, Tuner
 from dodaios.rsi import lines as standing
@@ -127,9 +128,12 @@ class NightReport:
     measured: list[dict[str, Any]] = field(default_factory=list)
     #: Model calls per domain that asks a model: made, allowed, and why they stopped.
     calls: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: Why the round stopped before its end ("" when it ran through): the person came
+    #: back, or the backend let go. What it measured is kept; the rest comes next round.
+    parked: str = ""
 
     def public(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "paused": self.paused,
             "updated_from": self.updated_from,
             "tasks": self.tasks,
@@ -140,6 +144,9 @@ class NightReport:
             "measured": self.measured,
             "calls": self.calls,
         }
+        if self.parked:
+            out["parked"] = self.parked
+        return out
 
     @property
     def idle(self) -> bool:
@@ -155,6 +162,8 @@ class NightReport:
         if self.paused:
             return ["The loop is stopped; nothing was done."]
         out: list[str] = []
+        if self.parked:
+            out.append(f"Stopped early ({self.parked}); the rest comes in the next round.")
         if self.updated_from:
             out.append(f"The app was updated ({self.updated_from} -> {self.app}): "
                        "everything learned was checked again.")
@@ -211,8 +220,12 @@ class Night:
         learners: Sequence[str] = (TUNER, LINES),
         prepare: Callable[[], dict[str, Any]] | None = None,
         finish: Callable[[], None] | None = None,
+        held: Callable[[], str] | None = None,
     ) -> None:
         self.registry = registry
+        #: Why the round may not start more heavy work right now ("" while it may):
+        #: the person came back, the backend let go. Asked between the steps.
+        self._held = held
         #: Runs first in a night: copies the memory, builds tasks. Returns what it made.
         self._prepare = prepare
         #: Runs last: lets go of what ``prepare`` opened.
@@ -410,19 +423,9 @@ class Night:
         if before and before != dodaios.__version__:
             report.updated_from = before
         try:
-            if self._prepare is not None:
-                report.made = self._prepare()
-            report.tasks = self.bench.counts()
-            report.settled = [d.public() for d in self._settle(bool(report.updated_from))]
-            for domain in self._domains():
-                proposed = self._propose(domain)
-                if proposed is not None:
-                    report.proposed.append(proposed)
-            report.decided = [d.public() for d in self.gate.consider_all()]
-            for domain in self._domains():
-                point = self._advantage(domain, now_ms)
-                if point is not None:
-                    report.measured.append(point)
+            # Every git process and CLI this round starts yields the CPU to the person.
+            with background_children():
+                self._steps(report, now_ms)
             shared: dict[int, list[str]] = {}
             budgets: dict[int, Any] = {}
             for name, world in self._worlds().items():
@@ -439,10 +442,45 @@ class Night:
         if report.measured:
             self.bench.add_series(report.measured)
         self.bench.add_night(dodaios.__version__, report.public())
-        self.bench.set_meta(
-            _LOOP_KEY, {**state, "app": dodaios.__version__, "last_ms": now_ms}
-        )
+        # A round that stopped early is not a round done: the next one may start as
+        # soon as the person is away again, and it reuses every result kept so far.
+        done = {"last_ms": now_ms} if not report.parked else {}
+        self.bench.set_meta(_LOOP_KEY, {**state, "app": dodaios.__version__, **done})
         return report
+
+    def _parks(self, report: NightReport) -> bool:
+        """Whether the round stops here (and why, on the report): no more heavy work starts."""
+        why = self._held() if self._held is not None else ""
+        if why and not report.parked:
+            report.parked = why
+            log.info("self-improvement: the round stops early: %s", why)
+        return bool(report.parked)
+
+    def _steps(self, report: NightReport, now_ms: int) -> None:
+        """The round's work, step by step; each heavy step starts only while the round may go on."""
+        if self._parks(report):
+            return
+        if self._prepare is not None:
+            report.made = self._prepare()
+        report.tasks = self.bench.counts()
+        if self._parks(report):
+            return
+        report.settled = [d.public() for d in self._settle(bool(report.updated_from))]
+        for domain in self._domains():
+            if self._parks(report):
+                return
+            proposed = self._propose(domain)
+            if proposed is not None:
+                report.proposed.append(proposed)
+        if self._parks(report):
+            return
+        report.decided = [d.public() for d in self.gate.consider_all()]
+        for domain in self._domains():
+            if self._parks(report):
+                return
+            point = self._advantage(domain, now_ms)
+            if point is not None:
+                report.measured.append(point)
 
 
 # ------------------------------------------------------------- in the app
@@ -754,11 +792,16 @@ def install(
 
     tonight: dict[str, Any] = {}
 
+    def held() -> str:
+        return _held(halt)
+
     def prepare() -> dict[str, Any]:
         clones: list[str] = []
         made = _past_work(bench, folders=clones)
+        if held():
+            return made
         made.update(_lead(bench, home, loop, tonight, clones, halted=halt.is_set))
-        if not world.refresh():
+        if held() or not world.refresh():
             return made
         from dodaios.rsi import adopt
 
@@ -777,25 +820,20 @@ def install(
         return {**world.worlds(), **tonight}
 
     def finish() -> None:
-        _close_brief(tonight)
         tonight.clear()
         world.close()
 
-    night = Night(registry, bench, worlds, prepare=prepare, finish=finish)
+    night = Night(registry, bench, worlds, prepare=prepare, finish=finish, held=held)
     return NightService(night, _person_idle, chat_db=home / "agent_chat.db", halt=halt)
 
 
-def _close_brief(tonight: dict[str, Any]) -> None:
-    """Remove tonight's scratch clones of the brief replay. Never fails a night."""
-    from dodaios.rsi.bench import brief_replay
-
-    world = tonight.get(brief_replay.WORLD)
-    close = getattr(getattr(world, "checkout", None), "close", None)
-    if callable(close):
-        try:
-            close()
-        except OSError:  # a file still held open stays until the next night removes the folder
-            log.info("self-improvement: a scratch clone was not removed", exc_info=True)
+def _held(halt: threading.Event) -> str:
+    """Why a round may not start more heavy work now ("" while it may)."""
+    if halt.is_set():
+        return "the backend let go of the round"
+    if not _person_idle():
+        return "the person came back"
+    return ""
 
 
 def _lead(

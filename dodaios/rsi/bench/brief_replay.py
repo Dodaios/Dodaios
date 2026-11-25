@@ -11,7 +11,8 @@ brief line says "look first"), which in the app only reads the repository and
 sends nothing; sometimes it searches the repository with its own folder tools
 (``Grep``, ``Read``, ``Glob``, ``Ls``). So a replay answers exactly these calls
 that only read, as the app would, from the repository as it was when the work
-started (``base``; :mod:`dodaios.rsi.bench.brief_world`): the kit once, built
+started (``base``; read from git's objects, nothing checked out or written:
+:mod:`dodaios.rsi.bench.at_commit`, :mod:`dodaios.rsi.bench.brief_world`): the kit once, built
 for the lead's own wording, and up to ``lead_cli.MAX_SERVED`` calls in all.
 The first call that is not answered is the move. When it hands the work over
 (``delegate``), its text is the brief, scored by
@@ -44,11 +45,13 @@ reads. A run that ends without a brief costs as much as the dearest brief the
 domain expects (:data:`NO_BRIEF_TOKENS`): failing to hand the work over must
 never look cheaper than handing it over.
 
-**What it spends.** One replay is one CLI run: one call against the night's
-cap, and one more for every answered call (each answer makes the CLI ask the
-model again). The cap is the one the first_move domain uses
-(:mod:`dodaios.rsi.budget`). A run the cap cuts in the middle is void as cut
-by the budget, and the comparison carries on the next night.
+**What it spends.** One replay is one CLI run: one call against the round's
+budget, and one more for every answered call (each answer makes the CLI ask the
+model again). The budget is the one the first_move domain uses
+(:mod:`dodaios.rsi.budget`). It is asked before anything is read from the
+repository, so once the round has to stop (the person is back, the backend let
+go, the calls are spent) a task costs no git process either: it is void as
+held by the budget, and the comparison carries on in the next round.
 
 What a replay cannot see: a look-up that is not a folder tool (the shell, the
 person's memory, the web), the brief check that may send a brief back once
@@ -69,6 +72,7 @@ from dodaios.rsi import lines
 from dodaios.rsi.budget import Budget
 
 from . import brief, replay_tools
+from .at_commit import CommitFiles
 from .first_move import Move
 from .lead_replay import LeadInput, Platform, same_model
 from .model import Measured, Task
@@ -151,15 +155,14 @@ def lead_input(template: Template, said: str) -> LeadInput | str:
     return LeadInput(template.system, message)
 
 
-#: The folder of a repository at a commit (a scratch checkout), or why there is none.
-Checkout = Callable[[str, str], "Path | str"]
-#: The text the app's kit request answers with: the task, the folder at its
+#: A repository at a commit, read in place (repository id, commit), or why there is none.
+CommitOf = Callable[[str, str], "CommitFiles | str"]
+#: The text the app's kit request answers with: the task, the repository at its
 #: commit, and the arguments of the lead's call.
-KitAnswer = Callable[[Task, Path, Mapping[str, Any]], str]
-#: What a read-only folder tool answers in the repository at a commit: the folder
-#: there, the person's clone the lead names, the tool and its arguments; the text
-#: and whether it is an error, or ``None`` when the call reaches outside the repository.
-LookAnswer = Callable[[Path, Path, str, Mapping[str, Any]], "tuple[str, bool] | None"]
+KitAnswer = Callable[[Task, CommitFiles, Mapping[str, Any]], str]
+#: What a read-only folder tool answers in the repository at a commit: the text and
+#: whether it is an error, or ``None`` when the call reaches outside the repository.
+LookAnswer = Callable[[CommitFiles, str, Mapping[str, Any]], "tuple[str, bool] | None"]
 #: Replays one turn, answering the calls ``serve`` answers (``lead_cli.ClaudeReplay``).
 BriefDriver = Callable[..., Move]
 
@@ -175,7 +178,7 @@ class BriefWorld:
     template: Template
     #: Repository id -> the person's clone of it on this machine.
     clones: Mapping[str, Path]
-    checkout: Checkout
+    commit: CommitOf
     kit: KitAnswer
     look: LookAnswer
 
@@ -199,8 +202,8 @@ def _brief_text(args: Mapping[str, Any]) -> str:
 class _Reads:
     """The calls one replay answers, each paid for before it is answered."""
 
-    def __init__(self, task: Task, world: BriefWorld, at: Path, clone: Path) -> None:
-        self._task, self._world, self._at, self._clone = task, world, at, clone
+    def __init__(self, task: Task, world: BriefWorld, files: CommitFiles) -> None:
+        self._task, self._world, self._files = task, world, files
         self.kits = 0
         self.looks = 0
         #: A look-up reached outside the repository (it was not answered).
@@ -216,7 +219,7 @@ class _Reads:
         if kit:
             found = None
         elif tool in replay_tools.LOOKUPS:
-            found = self._world.look(self._at, self._clone, tool, args)
+            found = self._world.look(self._files, tool, args)
             if found is None:
                 self.outside = tool
                 return None  # outside the repository: the move
@@ -228,7 +231,7 @@ class _Reads:
             return None
         if kit:
             self.kits += 1
-            return self._world.kit(self._task, self._at, args)
+            return self._world.kit(self._task, self._files, args)
         self.looks += 1
         return found
 
@@ -244,13 +247,16 @@ class _Ready:
     """What a replay of one task starts from."""
 
     lead: LeadInput
-    #: The person's clone the lead is told about, and the repository at the task's commit.
-    clone: Path
-    at: Path
+    #: The repository at the task's commit, read in place.
+    files: CommitFiles
 
 
 def _ready(task: Task, world: BriefWorld) -> _Ready | Measured:
-    """What the replay needs, or the void result that says why it cannot run. Spends nothing."""
+    """What the replay needs, or the void result that says why it cannot run. Spends nothing.
+
+    The budget is asked before the repository is: a round that has to stop
+    starts no git process for a task it will not replay.
+    """
     payload = task.payload
     repo = str(payload.get("repo") or "")
     base = str(payload.get("base") or "")
@@ -269,10 +275,13 @@ def _ready(task: Task, world: BriefWorld) -> _Ready | Measured:
     found = lead_input(world.template, request + REPOSITORY_LINE.format(repo=repo, folder=clone))
     if isinstance(found, str):
         return Measured(0.0, 0, found, void=found)
-    at = world.checkout(repo, base)
-    if isinstance(at, str):
-        return Measured(0.0, 0, at, void=at)
-    return _Ready(found, clone, at)
+    held = world.budget.held()
+    if held:
+        return Measured(0.0, 0, held, void=f"budget: {held}")
+    files = world.commit(repo, base)
+    if isinstance(files, str):
+        return Measured(0.0, 0, files, void=files)
+    return _Ready(found, files)
 
 
 def _not_a_brief(move: Move, reads: _Reads) -> tuple[str, str] | None:
@@ -324,9 +333,12 @@ def run(task: Task, world: BriefWorld) -> Measured:
     ready = _ready(task, world)
     if isinstance(ready, Measured):
         return ready
-    refused = world.budget.take()
-    if refused:
-        return Measured(0.0, 0, refused, void=f"budget: {refused}")
-    reads = _Reads(task, world, ready.at, ready.clone)
-    move = world.driver(ready.lead, world.platform, reads)
-    return _scored(task, world, ready, move, reads)
+    try:
+        refused = world.budget.take()
+        if refused:
+            return Measured(0.0, 0, refused, void=f"budget: {refused}")
+        reads = _Reads(task, world, ready.files)
+        move = world.driver(ready.lead, world.platform, reads)
+        return _scored(task, world, ready, move, reads)
+    finally:
+        ready.files.close()

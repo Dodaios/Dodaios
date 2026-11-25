@@ -262,10 +262,13 @@ class ClaudeReplay:
             claude_stream_input,
             translate_claude_line,
         )
+        from dodaios.core.process_utils import child_argv, child_creationflags
 
-        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        # A replay runs while the person is away; it yields the CPU when they need it,
+        # and the CLI's own children (its tool server) inherit the lower priority.
+        flags = child_creationflags(background=True)
         proc = subprocess.Popen(  # noqa: S603 - the CLI's own argv, built above
-            argv,
+            child_argv(argv, background=True),
             cwd=work,
             env=self.env,
             stdin=subprocess.PIPE,
