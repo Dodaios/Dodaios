@@ -30,7 +30,7 @@ from typing import Any
 
 from loguru import logger
 
-from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import child_argv, child_creationflags
 
 _GIT_TIMEOUT_S = 8.0
 #: A status answer this young is shared instead of read again (N panes, one repository).
@@ -81,9 +81,11 @@ def run_git(
     env["GIT_TERMINAL_PROMPT"] = "0"
     # Reading must never take the index lock away from the person's own git.
     env["GIT_OPTIONAL_LOCKS"] = "0"
+    # Work that runs while the person is away (a learning round) starts git at
+    # low priority (``process_utils.background_children``); everyone else as before.
     try:
         return subprocess.run(
-            ["git", "-c", "core.quotePath=false", *args],
+            child_argv(["git", "-c", "core.quotePath=false", *args]),
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -93,7 +95,7 @@ def run_git(
             check=False,
             env=env,
             input=stdin,
-            creationflags=NO_WINDOW_CREATIONFLAGS,
+            creationflags=child_creationflags(),
         )
     except FileNotFoundError:  # git not installed: callers report it as unavailable
         return None

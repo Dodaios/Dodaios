@@ -37,6 +37,7 @@ import re
 import shutil
 import subprocess
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -639,8 +640,22 @@ def _git_paths(base: Path) -> list[str] | None:
     return [p for p in proc.stdout.decode("utf-8", errors="replace").split("\0") if p]
 
 
-def _index_from_git(base: Path, paths: list[str]) -> FileIndex:
-    """The index built from git's file list, under the walk's own rules."""
+def index_from_listing(root: str | Path, sizes: Mapping[str, int]) -> FileIndex:
+    """The index of a listing whose sizes are known (one commit of a repository).
+
+    The same rules as a checkout's index; nothing on disk is read. A benchmark
+    replay reads a repository at a commit this way, without checking it out.
+    """
+    return _index_from_git(Path(root), list(sizes), sizes=sizes)
+
+
+def _index_from_git(
+    base: Path, paths: list[str], *, sizes: Mapping[str, int] | None = None
+) -> FileIndex:
+    """The index built from git's file list, under the walk's own rules.
+
+    ``sizes``: the size of each path, when known; else each kept file is looked at.
+    """
     index = FileIndex(root=str(base))
     for raw in paths:
         if len(index.entries) >= _MAX_FILES:
@@ -660,10 +675,13 @@ def _index_from_git(base: Path, paths: list[str]) -> FileIndex:
             for part in dirs
         ):
             continue
-        try:
-            size = (base / rel).stat().st_size
-        except OSError:
-            continue  # deleted since git listed it
+        if sizes is not None:
+            size = int(sizes.get(raw, sizes.get(rel, 0)))
+        else:
+            try:
+                size = (base / rel).stat().st_size
+            except OSError:
+                continue  # deleted since git listed it
         index.entries.append(_make_entry(rel, name, size))
     return index
 
@@ -797,6 +815,7 @@ __all__ = [
     "build_index",
     "cached_index",
     "forget_index",
+    "index_from_listing",
     "prime_index",
     "reset_cache",
     "tokenize",

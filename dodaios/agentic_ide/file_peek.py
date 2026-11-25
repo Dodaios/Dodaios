@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
@@ -215,12 +215,14 @@ def peek(
     kind: str,
     *,
     deadline_s: float = PEEK_DEADLINE_S,
+    read: Callable[[str], str] | None = None,
 ) -> Peek:
     """Look inside ``candidates`` for ``instruction``. Blocking; never raises.
 
     Run it in a worker thread. ``candidates`` arrive name-ranked from the file
     index; the result keeps that order as a prior and lets content decide
-    between files the names could not separate.
+    between files the names could not separate. ``read`` gives a file's text
+    instead of the folder on disk (a commit of the repository).
     """
     plan = plan_for(kind)
     pool = list(dict.fromkeys(candidates))[: plan.pool]
@@ -235,7 +237,7 @@ def peek(
         if time.monotonic() >= stop_at:
             break
         try:
-            source = read_source(root, rel)
+            source = read(rel) if read is not None else read_source(root, rel)
         except Exception:  # noqa: BLE001 - a broken file costs its excerpt only
             source = ""
         if not source:

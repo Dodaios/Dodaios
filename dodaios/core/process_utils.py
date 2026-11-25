@@ -32,14 +32,16 @@ parameter is silently ignored by the subprocess machinery.
 
 from __future__ import annotations
 
+import contextlib
 import errno
 import logging
 import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -388,10 +390,61 @@ def wait_procs(procs: Sequence[Any], timeout: float) -> tuple[list[Any], list[An
     return gone, alive
 
 
+#: ``nice`` level of a child that yields the CPU (Unix).
+_BACKGROUND_NICE = 10
+_background = threading.local()
+
+
+@contextlib.contextmanager
+def background_children() -> Iterator[None]:
+    """Children started in this thread meanwhile yield the CPU to the person's own work.
+
+    Inside it, :func:`child_creationflags` adds Windows' below-normal priority
+    class and :func:`child_argv` puts ``nice`` in front on Unix, for every child a
+    caller starts through them (``agentic_ide.git_local.run_git`` does). Used by
+    work that runs while the person is away, such as a self-improvement round.
+    """
+    before = getattr(_background, "on", False)
+    _background.on = True
+    try:
+        yield
+    finally:
+        _background.on = before
+
+
+def in_background() -> bool:
+    """Whether this thread is inside :func:`background_children`."""
+    return bool(getattr(_background, "on", False))
+
+
+def child_creationflags(*, background: bool | None = None) -> int:
+    """``NO_WINDOW_CREATIONFLAGS``, plus below-normal priority for a background child.
+
+    ``background`` defaults to :func:`in_background`.
+    """
+    low = in_background() if background is None else background
+    if low and sys.platform == "win32":
+        return NO_WINDOW_CREATIONFLAGS | _BELOW_NORMAL_PRIORITY_CLASS
+    return NO_WINDOW_CREATIONFLAGS
+
+
+def child_argv(argv: Sequence[str], *, background: bool | None = None) -> list[str]:
+    """``argv``, with ``nice`` in front for a background child on Unix (when ``nice`` exists)."""
+    low = in_background() if background is None else background
+    if not low or sys.platform == "win32":
+        return list(argv)
+    nice = shutil.which("nice")
+    return [nice, "-n", str(_BACKGROUND_NICE), *argv] if nice else list(argv)
+
+
 __all__ = [
     "NO_WINDOW_CREATIONFLAGS",
+    "background_children",
+    "child_argv",
+    "child_creationflags",
     "disable_windows_app_ghosting",
     "ensure_normal_process_priority",
+    "in_background",
     "ensure_standard_streams",
     "resolve_executable",
     "thread_message_loop_wake_supported",

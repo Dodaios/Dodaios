@@ -18,6 +18,11 @@ everything here is read from disk:
 All of it is blocking file work bounded by a deadline: callers run
 :func:`lookup` in a worker thread. A fault never fails a hand-off: the facts
 come back emptier.
+
+Everything is read through a :class:`RepoFiles`: in the app the folder on
+disk (:class:`DiskFiles`, the default), and in a benchmark replay one commit of
+the repository read from git's objects (``dodaios.rsi.bench.at_commit``), so
+that measuring the kit at a past commit writes no file.
 """
 
 from __future__ import annotations
@@ -27,12 +32,14 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from dodaios.rsi import domains
 
 __all__ = [
+    "DiskFiles",
     "RepoFacts",
+    "RepoFiles",
     "StartingPoint",
     "house_checks",
     "lookup",
@@ -114,14 +121,76 @@ def _read(path: Path, limit: int) -> str:
         return ""
 
 
-def house_checks(folder: str | Path) -> list[str]:
+class RepoFiles(Protocol):
+    """Where a look-up reads a repository, by paths relative to its root."""
+
+    #: The folder the facts are about.
+    root: Path
+
+    def is_file(self, rel: str) -> bool: ...
+
+    def is_dir(self, rel: str) -> bool: ...
+
+    def read(self, rel: str, limit: int = 200_000) -> str:
+        """The text of a file, at most ``limit`` characters; "" when there is none."""
+        ...
+
+    def names(self, rel: str) -> list[str]:
+        """The names in a folder."""
+        ...
+
+    def source(self, rel: str) -> str:
+        """A file's text within the code outline's bounds (``code_skeleton.read_source``)."""
+        ...
+
+    def index(self, wait_s: float) -> Any:
+        """The file index (``file_index.FileIndex``), waited for at most ``wait_s``; or None."""
+        ...
+
+    def files_with(self, word: str, stop_at: float) -> list[str] | None:
+        """The files that contain ``word``, any case; None when this cannot be answered."""
+        ...
+
+
+class DiskFiles:
+    """A repository's folder on disk: what the app reads, as it always did."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def is_file(self, rel: str) -> bool:
+        return (self.root / rel).is_file()
+
+    def is_dir(self, rel: str) -> bool:
+        return (self.root / rel).is_dir()
+
+    def read(self, rel: str, limit: int = 200_000) -> str:
+        return _read(self.root / rel, limit)
+
+    def names(self, rel: str) -> list[str]:
+        return [p.name for p in (self.root / rel).iterdir()]
+
+    def source(self, rel: str) -> str:
+        from dodaios.agentic_ide.code_skeleton import read_source
+
+        return read_source(str(self.root), rel)
+
+    def index(self, wait_s: float) -> Any:
+        return _index_within(self.root, wait_s)
+
+    def files_with(self, word: str, stop_at: float) -> list[str] | None:
+        return _files_with(self.root, word, stop_at)
+
+
+def house_checks(folder: str | Path, *, files: RepoFiles | None = None) -> list[str]:
     """The commands a project's own files call the check of a change.
 
     First what its instruction files say in a sentence about being done,
     landing or testing, then the test commands its manifests define. Read
-    only; no command is run.
+    only; no command is run. ``files``: read there instead of the folder on disk.
     """
     root = Path(folder).expanduser()
+    files = files if files is not None else DiskFiles(root)
     found: list[str] = []
 
     def add(command: str) -> None:
@@ -130,7 +199,7 @@ def house_checks(folder: str | Path) -> list[str]:
             found.append(command)
 
     for name in _INSTRUCTION_FILES:
-        for line in _read(root / name, _INSTRUCTION_CHARS).splitlines():
+        for line in files.read(name, _INSTRUCTION_CHARS).splitlines():
             if not _CHECK_LINE.search(line):
                 continue
             for snippet in _BACKTICK.findall(line):
@@ -139,14 +208,14 @@ def house_checks(folder: str | Path) -> list[str]:
     try:
         from dodaios.self_build.code import commands
 
-        for argv in commands.detect(root).get("test") or []:
+        for argv in commands.detect(root, files=files).get("test") or []:
             add(commands.shown(list(argv)))
     except Exception:  # noqa: BLE001 - no detectable test command is an answer too
         log.debug("brief facts: test command detection failed for %s", root, exc_info=True)
     return found
 
 
-def _node_checks(root: Path, paths: frozenset[str]) -> tuple[list[str], list[str]]:
+def _node_checks(files: RepoFiles, paths: frozenset[str]) -> tuple[list[str], list[str]]:
     """``(commands, frontend roots)`` from the package manifests below the root."""
     import json
 
@@ -158,7 +227,7 @@ def _node_checks(root: Path, paths: frozenset[str]) -> tuple[list[str], list[str
     )
     for rel in manifests[:_MAX_MANIFESTS]:
         try:
-            package = json.loads(_read(root / rel, 200_000) or "{}")
+            package = json.loads(files.read(rel, 200_000) or "{}")
         except ValueError:  # a broken manifest names no scripts
             continue
         scripts = package.get("scripts") if isinstance(package, dict) else None
@@ -191,8 +260,8 @@ _SCAN_FILES: Final[int] = 1_500
 _SCAN_BYTES: Final[int] = 200_000
 
 
-def _files_with(root: Path, word: str, paths: frozenset[str], stop_at: float) -> list[str] | None:
-    """The indexed files that contain ``word``; ``None`` when ``git grep`` cannot answer."""
+def _files_with(root: Path, word: str, stop_at: float) -> list[str] | None:
+    """The files that contain ``word``; ``None`` when ``git grep`` cannot answer."""
     import subprocess
 
     left = stop_at - time.monotonic()
@@ -207,11 +276,11 @@ def _files_with(root: Path, word: str, paths: frozenset[str], stop_at: float) ->
         return None
     if got.returncode not in (0, 1):  # 1 means no match; anything else, not a repository
         return None
-    return [line for line in got.stdout.splitlines() if line in paths]
+    return got.stdout.splitlines()
 
 
 def _scan_for(
-    root: Path, words: list[str], paths: frozenset[str], stop_at: float
+    files: RepoFiles, words: list[str], paths: frozenset[str], stop_at: float
 ) -> dict[str, list[str]]:
     """``word -> files`` by reading the files themselves, for a folder without git."""
     found: dict[str, list[str]] = {word: [] for word in words}
@@ -221,7 +290,7 @@ def _scan_for(
             break
         if Path(rel).suffix.lower() not in _SEARCHED_SUFFIXES:
             continue
-        body = _read(root / rel, _SCAN_BYTES).lower()
+        body = files.read(rel, _SCAN_BYTES).lower()
         for word, low in lowered:
             if low in body:
                 found[word].append(rel)
@@ -229,7 +298,7 @@ def _scan_for(
 
 
 def _content_candidates(
-    root: Path, text: str, paths: frozenset[str], *, deadline_s: float
+    files: RepoFiles, text: str, paths: frozenset[str], *, deadline_s: float
 ) -> list[str]:
     """Files whose contents share the request's words, the most telling first.
 
@@ -247,11 +316,12 @@ def _content_candidates(
     stop_at = time.monotonic() + deadline_s
     hits: dict[str, list[str]] = {}
     for word in words:
-        files = _files_with(root, word, paths, stop_at)
-        if files is None:
-            hits = _scan_for(root, words, paths, stop_at)
+        left = stop_at - time.monotonic()
+        found = files.files_with(word, stop_at) if left > 0.05 else []
+        if found is None:
+            hits = _scan_for(files, words, paths, stop_at)
             break
-        hits[word] = files
+        hits[word] = [rel for rel in found if rel in paths]
     scores: dict[str, float] = {}
     matched: dict[str, int] = {}
     for word, files in hits.items():
@@ -355,26 +425,30 @@ def lookup(
     kind: str = "",
     extra_words: str = "",
     deadline_s: float = 4.0,
+    files: RepoFiles | None = None,
 ) -> RepoFacts:
     """Read ``folder`` for a request and return what fits it.
 
     ``text`` is the request (the person's words and, when there is one, the
     draft); ``extra_words`` are further search words such as what a glossary
-    entry stands for. Blocking: run it off the event loop.
+    entry stands for. ``files`` reads the repository there instead of the
+    folder on disk (one commit of it). Blocking: run it off the event loop.
     """
     started = time.monotonic()
     facts = RepoFacts(folder=str(folder or ""))
     if not facts.folder:
         return facts
     root = Path(facts.folder).expanduser()
-    try:
-        if not root.is_dir():
+    if files is None:
+        try:
+            if not root.is_dir():
+                return facts
+        except OSError:  # a folder that cannot be asked about is an unknown folder
             return facts
-    except OSError:  # a folder that cannot be asked about is an unknown folder
-        return facts
+        files = DiskFiles(root)
     # What the project's own files say about checking a change needs no index.
-    facts.checks = house_checks(root)
-    index = _index_within(root, min(_INDEX_WAIT_S, deadline_s * 0.6))
+    facts.checks = house_checks(root, files=files)
+    index = files.index(min(_INDEX_WAIT_S, deadline_s * 0.6))
     if index is None:
         # A very large folder, or a machine under load: the brief is checked on
         # its wording this time, and the index is ready for the next one.
@@ -382,7 +456,7 @@ def lookup(
     facts.known = True
     facts.paths = frozenset(entry.rel for entry in index.entries)
     facts.files = len(facts.paths)
-    node_commands, facts.frontend_roots = _node_checks(root, facts.paths)
+    node_commands, facts.frontend_roots = _node_checks(files, facts.paths)
     for command in node_commands:
         if command not in facts.checks and len(facts.checks) < _MAX_CHECKS:
             facts.checks.append(command)
@@ -395,7 +469,7 @@ def lookup(
         by_name = []
     # A request rarely uses a file's name; it uses the words that stand in it.
     by_content = _content_candidates(
-        root, words, facts.paths, deadline_s=max(0.0, deadline_s * 0.5)
+        files, words, facts.paths, deadline_s=max(0.0, deadline_s * 0.5)
     )
     candidates = list(dict.fromkeys([*by_content, *by_name]))[: MAX_STARTING_POINTS * 3]
     if not candidates:
@@ -406,7 +480,9 @@ def lookup(
         try:
             from dodaios.agentic_ide import file_peek
 
-            peeked = file_peek.peek(str(root), words, candidates, kind, deadline_s=left)
+            peeked = file_peek.peek(
+                str(root), words, candidates, kind, deadline_s=left, read=files.source
+            )
             ranked, excerpts = list(peeked.ranked) or ranked, dict(peeked.excerpts)
         except Exception:  # noqa: BLE001 - names alone are still starting points
             log.debug("brief facts: peek failed for %s", root, exc_info=True)
