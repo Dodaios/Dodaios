@@ -25,7 +25,13 @@ if TYPE_CHECKING:
     from dodaios.speech.pipeline import _ChunkSource, _SessionInputBuffer
 
 
-class WakeMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class WakeMixin(_HostBase):
     """Wake pre-roll hand-off, the wake loop and parallel wake verification."""
 
     # ------------------------------------------------------------------

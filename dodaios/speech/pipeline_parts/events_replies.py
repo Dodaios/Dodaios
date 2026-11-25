@@ -20,7 +20,13 @@ if TYPE_CHECKING:
     from dodaios.core.events import AnnouncementRequested
 
 
-class EventsAndRepliesMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class EventsAndRepliesMixin(_HostBase):
     """Event publishing and the agent-reply floor around live calls."""
 
     async def _emit_wake(self, keyword: str, confidence: float = 0.0) -> None:

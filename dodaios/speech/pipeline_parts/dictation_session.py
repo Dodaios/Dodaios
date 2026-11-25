@@ -19,7 +19,13 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-class DictationSessionMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class DictationSessionMixin(_HostBase):
     """One dictation session, its finish step and insertion."""
 
     async def _dictation_session(self) -> None:

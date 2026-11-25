@@ -17,7 +17,13 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-class CallLifecycleMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class CallLifecycleMixin(_HostBase):
     """Voice session requests, engine mode and hangup."""
 
     def request_voice_session(

@@ -18,7 +18,13 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-class DictationControlMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class DictationControlMixin(_HostBase):
     """Dictation start/stop, microphone hand-over and recognizer resolution."""
 
     # ------------------------------------------------------------------

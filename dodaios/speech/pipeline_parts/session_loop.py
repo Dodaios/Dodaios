@@ -23,7 +23,13 @@ if TYPE_CHECKING:
     from dodaios.speech.pipeline import _SessionInputBuffer
 
 
-class SessionLoopMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class SessionLoopMixin(_HostBase):
     """State loop, earcons and active sessions."""
 
     # ------------------------------------------------------------------

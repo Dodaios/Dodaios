@@ -19,7 +19,13 @@ if TYPE_CHECKING:
     from dodaios.core.protocols import AudioChunk
 
 
-class BootWarmupMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class BootWarmupMixin(_HostBase):
     """Pipeline run loop, boot status and warm-up phases."""
 
     # ------------------------------------------------------------------
