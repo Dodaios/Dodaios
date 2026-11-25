@@ -90,6 +90,24 @@ export type ChangeState = "proposed" | "trial" | "live" | "reverted" | "blocked"
 /** A how-to note the assistant wrote for itself after a tool failed and a later call worked. */
 export const NOTE_SURFACE = "lesson";
 
+/**
+ * Where a note was shown in the person's own requests and how those went
+ * (`track` in dodaios/rsi/credit.py). Observed, never measured: it decides nothing.
+ * Shares and "went through" counts are null below `min_requests`.
+ */
+export interface NoteTrack {
+  /** Start of the period counted: when the note came into effect, or the oldest record. */
+  since_ms: number;
+  shown: number;
+  shown_through: number | null;
+  shown_share: number | null;
+  /** Requests of the same period it was not shown in. */
+  other: number;
+  other_through: number | null;
+  other_share: number | null;
+  min_requests: number;
+}
+
 export interface LearnedChange {
   id: string;
   surface: string;
@@ -105,6 +123,8 @@ export interface LearnedChange {
   text?: string;
   /** False when nothing can tell yet whether the change helps (a note it wrote for itself). */
   measured?: boolean;
+  /** A note's track in the person's own requests; null for anything else and for a forgotten note. */
+  track?: NoteTrack | null;
   since_ms: number;
   /** The value before the change; null means the shipped default was in effect. */
   before: unknown;
@@ -203,6 +223,21 @@ export interface NightMade {
   deferred?: boolean;
   /** New tasks stored from the person's past coding work (no model asked). */
   past_work?: number;
+  /** Percent points of one usage window the building used. */
+  share?: number;
+  /** Whether the plan's usage could be read (false: the fixed caps held). */
+  usage_read?: boolean | null;
+  /** Why building stopped: enough, material, budget, no_model, dry. */
+  until?: string;
+}
+
+/** The replays' spending in one round, per group of domains sharing one budget. */
+export interface NightCalls {
+  calls: number;
+  cap?: number;
+  stopped?: string;
+  share?: number;
+  usage_read?: boolean | null;
 }
 
 export interface Night {
@@ -218,6 +253,8 @@ export interface Night {
   measured: AdvantagePoint[];
   /** May be `{}`, or missing on nights recorded before tasks were built at night. */
   made?: NightMade;
+  /** Replays of the lead's turns, keyed by the domains that shared a budget. */
+  calls?: Record<string, NightCalls>;
 }
 
 export interface RestingValue {
@@ -237,17 +274,32 @@ export interface SelfImprovementStatus {
   next_night_ms: number;
   decides_on: string[];
   own_tasks: boolean;
+  /** What the newest round spent (absent on an older backend, null before the first round). */
+  last_round?: LastRound | null;
+}
+
+/** The newest learning round's model calls, and the most of one usage window it used. */
+export interface LastRound {
+  ts_ms: number;
+  calls: number;
+  /** Percent points of one window; null when no window could be read in that round. */
+  share: number | null;
 }
 
 export interface SelfImprovementLimits {
   idle_after_s: number;
   every_s: number;
+  /** The most of one usage window a round may use (0..1). */
   budget_share: number;
-  /** The most model calls a night may make to build tasks. */
+  /** No call starts while a usage window is this full, in percent (absent on an older backend). */
+  full_percent?: number;
+  /** Calls of one kind a round never goes past (absent on an older backend). */
+  ceiling_calls?: number;
+  /** The fixed cap of building tasks while the plan's usage cannot be read. */
   max_model_calls: number;
-  /** The most while too few tasks exist to decide on (absent on an older backend). */
+  /** The same while too few tasks exist to decide on (absent on an older backend). */
   ramp_model_calls?: number;
-  /** The most replays of the lead's turns a night may make (absent on an older backend). */
+  /** The fixed cap of replaying the lead's turns while the usage cannot be read. */
   first_move_calls?: number;
 }
 

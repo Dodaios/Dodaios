@@ -17,7 +17,9 @@ user message from stdin (``stdin.jsonl``), then plays a turn:
   file in the server's answers folder (``kit.txt``). Then it hands the work over
   with a brief that names ``dodaios/x.py``;
 * ``look``: like ``brief``, but it searches the repository with ``Grep`` first
-  (``look.txt`` gets the answer) instead of asking for the kit.
+  (``look.txt`` gets the answer) instead of asking for the kit;
+* ``hang``: starts, then thinks for 30 s without a move; if nobody stopped it,
+  writes ``ran-on.txt``.
 """
 
 from __future__ import annotations
@@ -59,6 +61,10 @@ def main() -> int:
     )
     if mode in ("brief", "look"):
         return brief(args, out, model, look=mode == "look")
+    if mode == "hang":
+        time.sleep(30)
+        (out / "ran-on.txt").write_text("nobody stopped the replay", encoding="utf-8")
+        return 0
     if mode == "text":
         emit(
             {

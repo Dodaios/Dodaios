@@ -58,3 +58,16 @@ it("offers a real restart instead of silently saving to a backend without server
   expect(restart).toHaveBeenCalledOnce();
   expect(fetcher.mock.calls.every((args) => args.length < 2)).toBe(true);
 });
+
+it("names the self-improvement learning among what closing keeps", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({
+    supported: true, keep_agents_running: true, persistent_server: false, server_url: "",
+    running_as_server: false, autostart_enabled: false, running_as_service: false,
+    background_only_at_login: false,
+    work: { routines: 1, running: 0, channels: ["telegram"], learning: true },
+  }) })));
+  render(<AppSettingsGroup />);
+  expect(
+    await screen.findByText("Closing now keeps: 1 routine(s), Telegram, self-improvement learning."),
+  ).toBeTruthy();
+});

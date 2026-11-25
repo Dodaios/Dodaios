@@ -23,6 +23,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 _WEB = _REPO / "dodaios" / "ui" / "web"
 _SERVER = _WEB / "server.py"
+_SERVER_PARTS = _WEB / "server_parts"
 
 # Route modules that are intentionally NOT mounted from server.py. Add a stem
 # here only with a written reason; the gate stays fail-closed otherwise.
@@ -46,12 +47,15 @@ def route_modules() -> list[str]:
 def unmounted_modules() -> list[str]:
     """Route module stems that server.py does not import (hence never mounts)."""
     server_src = _SERVER.read_text(encoding="utf-8")
+    for part in sorted(_SERVER_PARTS.glob("*.py")):
+        server_src += "\n" + part.read_text(encoding="utf-8")
     missing: list[str] = []
     for stem in route_modules():
         if stem in _ALLOWLIST:
             continue
         # server.py mounts a router by importing it: `from .<stem> import ...`.
-        if f"from .{stem} import" not in server_src:
+        # The mounting code lives in server_parts/, one package level deeper.
+        if f"from .{stem} import" not in server_src and f"from ..{stem} import" not in server_src:
             missing.append(stem)
     return missing
 

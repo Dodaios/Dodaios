@@ -36,6 +36,9 @@ ROUTE_MODULES = (
     "dodaios/ui/web/antigravity_routes.py",
     "dodaios/ui/web/claude_routes.py",
     "dodaios/ui/web/server.py",
+    "dodaios/ui/web/server_parts/app_setup.py",
+    "dodaios/ui/web/server_parts/rest_routes.py",
+    "dodaios/ui/web/server_parts/websocket.py",
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]

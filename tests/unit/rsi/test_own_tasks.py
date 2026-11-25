@@ -18,9 +18,10 @@ from dodaios.rsi import night as nights
 from dodaios.rsi import overlay, params
 from dodaios.rsi.bench.model import Domain, Source, Split
 from dodaios.rsi.bench.own import chat, messages, questions
-from dodaios.rsi.bench.own.maker import OwnRecallMaker
+from dodaios.rsi.bench.own.maker import DRY_BATCHES, OwnRecallMaker
 from dodaios.rsi.bench.own.world import LIVE_WORLD, LiveWorld, take_snapshot
 from dodaios.rsi.bench.store import BenchStore
+from dodaios.rsi.budget import BUDGET_SHARE, CEILING_CALLS, Budget
 from dodaios.self_change import SelfChangeRegistry
 
 # Mostly things that happened: those are not in the always-on block, so a search has to
@@ -247,7 +248,7 @@ def test_a_night_makes_tasks_within_its_budget_and_never_sends_a_sensitive_memor
     model = Model()
     maker = OwnRecallMaker(home.bench, home.world, home.chat, model)
     assert home.world.refresh()
-    report = maker.run(max_calls=8)
+    report = maker.run(8)
     assert report["calls"] == len(model.prompts) <= 8 and not report["deferred"]
     assert report["questions"] == len(FACTS) and report["messages"] >= 6
     assert all(HIDDEN_FACT not in prompt for _, prompt in model.prompts)
@@ -278,10 +279,10 @@ def test_without_a_model_nothing_is_made_and_nothing_is_marked_as_done(home) -> 
 
 def test_a_small_budget_makes_less_and_the_next_night_goes_on(home) -> None:
     assert home.world.refresh()
-    first = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(max_calls=1)
+    first = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(1)
     assert first["calls"] == 1 and first["questions"] == len(FACTS)
     labelled = first["messages"]  # only messages no memory was found for cost nothing
-    second = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(max_calls=8)
+    second = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(8)
     assert second["messages"] > 0 and second["questions"] == 0
     assert labelled + second["messages"] >= 6
 
@@ -313,6 +314,98 @@ def test_forgetting_a_memory_erases_the_tasks_about_it(home) -> None:
     ).fetchall()
     raw.close()
     assert rows == [("{}", "{}", rows[0][2])] and rows[0][2] > 0  # the text is gone
+
+
+# ------------------------------------------------- as many calls as needed
+
+
+def _more_facts(home, count: int) -> None:
+    """Memories enough for several batches of questions."""
+    for n in range(count):
+        home.vault.remember(f"Fact number {n} names the orchard harvest of {1900 + n}.", "episode")
+
+
+def _own(home) -> int:
+    return len(home.bench.tasks(Domain.RECALL, source=Source.MADE))
+
+
+def test_a_round_builds_while_the_gate_lacks_tasks_and_stops_when_it_has_enough(home) -> None:
+    _more_facts(home, 60)
+    assert home.world.refresh()
+    model = Model()
+    wants = lambda: "" if _own(home) >= 30 else f"{_own(home)} of 30"  # noqa: E731
+    report = OwnRecallMaker(home.bench, home.world, home.chat, model).run(
+        Budget(CEILING_CALLS), wants
+    )
+    assert report["until"] == "enough" and _own(home) >= 30
+    first_calls = report["calls"]
+    assert first_calls == len(model.prompts) < 8  # not the whole material: the gate had enough
+    # The gate lacks tasks again (a decision used them up): the next round builds on.
+    again = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(
+        Budget(CEILING_CALLS), lambda: "the select tasks are used up until new ones arrive"
+    )
+    assert again["until"] == "material" and again["calls"] > 0 and again["questions"] > 0
+    assert again["usage_read"] is False  # no window to read: the fixed cap held instead
+
+
+def test_more_is_built_than_the_old_fixed_count_while_the_plan_allows_it(home) -> None:
+    _more_facts(home, 200)  # 17 batches of questions
+    assert home.world.refresh()
+    window = {"session": 10.0}
+    report = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(
+        Budget(CEILING_CALLS, fallback=nights.RAMP_MODEL_CALLS, usage=lambda: dict(window)),
+        lambda: "the gate still lacks tasks",
+    )
+    assert report["calls"] > nights.MAX_MODEL_CALLS and report["until"] == "material"
+    assert report["usage_read"] is True and report["share"] == 0.0
+
+
+def test_the_usage_rule_stops_building(home) -> None:
+    _more_facts(home, 200)
+    assert home.world.refresh()
+    full = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(
+        Budget(CEILING_CALLS, usage=lambda: {"session": 85.0}), lambda: "more"
+    )
+    assert full["calls"] == 0 and full["until"] == "budget" and _own(home) == 0
+    window = {"session": 30.0}
+    model = Model()
+
+    def moving() -> dict[str, float]:
+        window["session"] = 30.0 + 5.0 * len(model.prompts)  # each call costs 5 % of the window
+        return dict(window)
+
+    report = OwnRecallMaker(home.bench, home.world, home.chat, model).run(
+        Budget(CEILING_CALLS, usage=moving), lambda: "more"
+    )
+    assert report["until"] == "budget" and report["calls"] == 4
+    assert report["share"] == BUDGET_SHARE * 100
+
+
+def test_without_a_usage_reading_the_old_fixed_caps_apply(home) -> None:
+    _more_facts(home, 200)
+    assert home.world.refresh()
+    report = OwnRecallMaker(home.bench, home.world, home.chat, Model()).run(
+        Budget(CEILING_CALLS, fallback=nights.MAX_MODEL_CALLS, usage=lambda: None),
+        lambda: "more",
+    )
+    assert report["calls"] == nights.MAX_MODEL_CALLS and report["until"] == "budget"
+    assert report["usage_read"] is False
+
+
+def test_answers_that_add_no_task_stop_the_building(home) -> None:
+    _more_facts(home, 120)
+    assert home.world.refresh()
+    junk = Model()
+
+    def model(system: str, prompt: str) -> str:
+        junk.prompts.append((system, prompt))
+        return "I would rather not."
+
+    report = OwnRecallMaker(home.bench, home.world, home.chat, model).run(
+        Budget(CEILING_CALLS, usage=lambda: {"session": 1.0}), lambda: "more"
+    )
+    assert report["until"] == "dry" and report["questions"] == 0
+    assert report["calls"] == len(junk.prompts) <= 1 + 2 + DRY_BATCHES
 
 
 # -------------------------------------------------------- in the night
@@ -350,7 +443,8 @@ def test_the_installations_night_builds_its_tasks_and_measures_on_them(home) -> 
         registry.close()
 
 
-def test_the_app_wiring_stays_quiet_when_no_model_may_be_asked(tmp_path: Path) -> None:
+def test_the_app_wiring_stays_quiet_when_no_model_may_be_asked(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(nights, "_person_idle", lambda: True)
     _vault(tmp_path / "memory" / "vault.db").close()
     config = SimpleNamespace(
         memory=SimpleNamespace(
