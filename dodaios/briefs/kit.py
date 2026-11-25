@@ -93,6 +93,7 @@ def build(
     auto_effort: bool = True,
     with_draft: bool = True,
     count_words: bool = True,
+    files: repo_facts.RepoFiles | None = None,
 ) -> Kit:
     """Gather the kit for ``order``. Blocking file work: run it off the event loop.
 
@@ -101,7 +102,8 @@ def build(
     written brief; a request for the kit alone carries only what the person
     wants, and an open point is then never counted as settled by it.
     ``count_words`` raises the use counters of the glossary entries found; a
-    benchmark replay (``dodaios.rsi.bench.brief_world``) reads without it.
+    benchmark replay (``dodaios.rsi.bench.brief_world``) reads without it, and
+    passes ``files``: the repository at one commit, read from git, not the folder.
     """
     kit = Kit(kind=kind_of(order))
     kit.profiles = list(profiles) or [
@@ -122,7 +124,7 @@ def build(
     # code. Of the person's own words only the names they spelled out join it.
     names = " ".join(f"`{name}`" for name in terms.spelled_out(said))
     search = "\n".join(part for part in (order.draft.task.strip(), means, names) if part)
-    kit.facts = repo_facts.lookup(folder, search, kind=kit.kind)
+    kit.facts = repo_facts.lookup(folder, search, kind=kit.kind, files=files)
 
     named = domains.paths_in_text(draft) or [p.path for p in kit.facts.starting_points[:3]]
     kit.lenses = lenses.pick(

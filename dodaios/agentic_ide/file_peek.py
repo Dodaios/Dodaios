@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
@@ -208,6 +208,13 @@ def _excerpt(rel: str, source: str, wanted: set[str], plan: PeekPlan, budget: in
     return (outline + hits_block).strip()[:cap]
 
 
+def _reader(root: str, read: Callable[[str], str] | None) -> Callable[[str], str]:
+    """How a file's text is read: ``read`` when given, else from ``root`` on disk."""
+    if read is not None:
+        return read
+    return lambda rel: read_source(root, rel)
+
+
 def peek(
     root: str,
     instruction: str,
@@ -215,12 +222,14 @@ def peek(
     kind: str,
     *,
     deadline_s: float = PEEK_DEADLINE_S,
+    read_text: Callable[[str], str] | None = None,
 ) -> Peek:
     """Look inside ``candidates`` for ``instruction``. Blocking; never raises.
 
     Run it in a worker thread. ``candidates`` arrive name-ranked from the file
     index; the result keeps that order as a prior and lets content decide
-    between files the names could not separate.
+    between files the names could not separate. ``read_text`` gives a file's text
+    instead of the folder on disk (a commit of the repository).
     """
     plan = plan_for(kind)
     pool = list(dict.fromkeys(candidates))[: plan.pool]
@@ -228,6 +237,7 @@ def peek(
         return Peek()
     wanted = tokenize(instruction)
     stop_at = time.monotonic() + max(deadline_s, 0.0)
+    reader = _reader(root, read_text)
 
     sources: dict[str, str] = {}
     present: dict[str, set[str]] = {}
@@ -235,7 +245,7 @@ def peek(
         if time.monotonic() >= stop_at:
             break
         try:
-            source = read_source(root, rel)
+            source = reader(rel)
         except Exception:  # noqa: BLE001 - a broken file costs its excerpt only
             source = ""
         if not source:

@@ -62,6 +62,17 @@ def _task(i: int = 0, *, repo: str = REPO, files: Mapping[str, int] | None = Non
     )
 
 
+class Reader:
+    """A stand-in for one commit of a repository: it only counts that it was let go of."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.closed = 0
+
+    def close(self) -> None:
+        self.closed += 1
+
+
 def _world(
     driver: Any, tmp_path: Path, *, budget: Budget | None = None, clones: dict | None = None
 ) -> BriefWorld:
@@ -71,9 +82,9 @@ def _world(
         budget=budget or Budget(10_000),
         template=_template(),
         clones=clones if clones is not None else {REPO: tmp_path},
-        checkout=lambda repo, base: tmp_path,
-        kit=lambda task, folder, args: f"KIT for {args.get('task')}",
-        look=lambda at, clone, tool, args: (f"{tool} found nothing", False),
+        commit=lambda repo, base: Reader(tmp_path),  # type: ignore[arg-type, return-value]
+        kit=lambda task, files, args: f"KIT for {args.get('task')}",
+        look=lambda files, tool, args: (f"{tool} found nothing", False),
     )
 
 
@@ -313,7 +324,7 @@ def test_a_task_whose_repository_or_commit_is_missing_is_void_and_costs_nothing(
     found = brief_replay.run(_task(), world)
     assert found.void == f"the repository {REPO} is not on this machine"
     world = _world(lead, tmp_path, budget=budget)
-    world.checkout = lambda repo, base: "the commit the work started from is not in the local clone"
+    world.commit = lambda repo, base: "the commit the work started from is not in the local clone"
     assert brief_replay.run(_task(), world).void.startswith("the commit")
     pictured = Task(
         id="brief-p",
@@ -372,7 +383,7 @@ def test_the_leads_own_look_into_the_repository_is_answered_there(tmp_path: Path
     assert found.detail.startswith("without the kit, after 2 look-ups")
     # A look outside the repository is not answered: the run is void, not a failure.
     world = _world(Briefs(Move(tool="delegate", args={}), looks=({"pattern": "x"},)), tmp_path)
-    world.look = lambda at, clone, tool, args: None
+    world.look = lambda files, tool, args: None
     outside = brief_replay.run(_task(), world)
     assert outside.void == "it read outside the repository"
     # A tool that does more than read the code ends the run, void.
@@ -382,52 +393,25 @@ def test_the_leads_own_look_into_the_repository_is_answered_there(tmp_path: Path
     assert shell.void == "used a tool a replay cannot answer" and "run_shell" in shell.detail
 
 
-def test_the_look_is_the_apps_folder_tool_on_the_repository_at_the_commit(
-    tmp_path: Path,
+def test_a_replay_on_the_cli_answers_the_leads_search_at_the_commit(
+    tmp_path: Path, clone: tuple[Path, str, str]
 ) -> None:
     from dodaios.rsi.bench import brief_world
-
-    clone = tmp_path / "Personal Clone"
-    at = tmp_path / "scratch"
-    for root, text in ((clone, "TODAY = 'flicker fixed'"), (at, "THEN = 'flicker'")):
-        (root / "app").mkdir(parents=True)
-        (root / "app" / "view.py").write_text(text + "\n", encoding="utf-8")
-    (tmp_path / "secret.txt").write_text("flicker outside\n", encoding="utf-8")
-    text, error = brief_world.look_answer(
-        at, clone, "Grep", {"pattern": "flicker", "path": str(clone)}
-    )
-    assert not error and "THEN" in text and "TODAY" not in text  # read where the work started
-    text, _ = brief_world.look_answer(at, clone, "Read", {"file_path": "app/view.py"})
-    assert "THEN" in text
-    named = brief_world.look_answer(
-        at, clone, "Read", {"file_path": str(clone / "app" / "view.py")}
-    )
-    assert named is not None and "THEN" in named[0] and str(at) not in named[0]
-    for outside in (str(tmp_path / "secret.txt"), "../secret.txt", str(tmp_path)):
-        assert brief_world.look_answer(at, clone, "Grep", {"pattern": "x", "path": outside}) is None
-    assert brief_world.look_answer(at, clone, "RunCommand", {"command": "dir"}) is None
-    missing = brief_world.look_answer(at, clone, "Read", {"file_path": "app/gone.py"})
-    assert missing is not None and missing[1]  # the tool's own error, as an error
-
-
-def test_a_replay_on_the_cli_answers_the_leads_search_in_the_repository(tmp_path: Path) -> None:
-    from dodaios.rsi.bench import brief_world
+    from dodaios.rsi.bench.at_commit import CommitFiles
 
     driver, out = _driver(tmp_path, "look")
-    clone, at = tmp_path / "person", tmp_path / "at"
-    for root, text in ((clone, "TODAY = 'flicker fixed'"), (at, "THEN = 'flicker'")):
-        (root / "dodaios").mkdir(parents=True)
-        (root / "dodaios" / "x.py").write_text(text + "\n", encoding="utf-8")
-    (out / "clone.txt").write_text(str(clone), encoding="utf-8")
-    world = _world(driver, tmp_path, clones={REPO: clone})
-    world.checkout = lambda repo, base: at
+    source, base, _ = clone
+    (out / "clone.txt").write_text(str(source), encoding="utf-8")
+    world = _world(driver, tmp_path, clones={REPO: source})
+    world.commit = lambda repo, at: CommitFiles(source, base)
     world.look = brief_world.look_answer
-    found = brief_replay.run(_task(files={"dodaios/x.py": 10}), world)
-    assert found.score == 1.0 and found.detail.startswith("without the kit, after 1 look-up")
+    found = brief_replay.run(_task(files={"app/flicker.py": 10}), world)
+    assert found.score == 0.0 and found.detail.startswith("without the kit, after 1 look-up")
     answer = json.loads((out / "answer.json").read_text())["response"]["response"]
     assert answer["behavior"] == "allow"
     seen = (out / "look.txt").read_text(encoding="utf-8")
-    assert "THEN" in seen and "TODAY" not in seen
+    # Read where the work started: the old line, not today's commit or the person's edit.
+    assert "OLD = 'flicker'" in seen and "NEW" not in seen and "THEIRS" not in seen
 
 
 # --------------------------------------------------------- the shared budget
@@ -620,16 +604,18 @@ def clone(tmp_path: Path) -> tuple[Path, str, str]:
     _git(folder, "config", "user.name", "T")
     _git(folder, "remote", "add", "origin", "git@github.com:Acme/App.git")
     (folder / "app").mkdir()
-    (folder / "app" / "flicker.py").write_text("OLD = 1\n", encoding="utf-8")
+    (folder / "app" / "flicker.py").write_text("OLD = 'flicker'\n", encoding="utf-8")
+    (folder / "AGENTS.md").write_text("Before you push, run `pytest -q`.\n", encoding="utf-8")
     _git(folder, "add", ".")
     _git(folder, "commit", "-q", "-m", "first")
     base = _git(folder, "rev-parse", "HEAD")
-    (folder / "app" / "flicker.py").write_text("NEW = 2\n", encoding="utf-8")
-    (folder / "app" / "added.py").write_text("ADDED = 3\n", encoding="utf-8")
+    (folder / "app" / "flicker.py").write_text("NEW = 'flicker fixed'\n", encoding="utf-8")
+    (folder / "app" / "added.py").write_text("ADDED = 'flicker'\n", encoding="utf-8")
     _git(folder, "add", ".")
     _git(folder, "commit", "-q", "-m", "second")
     head = _git(folder, "rev-parse", "HEAD")
-    (folder / "app" / "flicker.py").write_text("THEIRS = 9\n", encoding="utf-8")  # uncommitted
+    # The person's own uncommitted edit.
+    (folder / "app" / "flicker.py").write_text("THEIRS = 'flicker mine'\n", encoding="utf-8")
     return folder, base, head
 
 
@@ -642,33 +628,116 @@ def _state(source: Path) -> tuple[str, ...]:
     )
 
 
-def test_the_repository_is_read_at_the_tasks_commit_and_the_persons_clone_is_untouched(
+def _files(root: Path) -> dict[str, tuple[int, int]]:
+    """Every file below ``root`` (its .git included): path -> (size, modified ns)."""
+    return {
+        str(path.relative_to(root)): (path.stat().st_size, path.stat().st_mtime_ns)
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
+
+def test_the_repository_is_read_at_the_commit_and_nothing_is_written(
     tmp_path: Path, clone: tuple[Path, str, str]
 ) -> None:
     from dodaios.rsi.bench import brief_world
-    from dodaios.rsi.repo_identity import repo_id
 
     source, base, head = clone
-    before = _state(source)
+    before = _state(source)  # git status itself may refresh the clone's index
+    written = _files(source)
     clones = brief_world._clones([source, tmp_path / "gone"])  # noqa: SLF001
     assert clones == {"github.com/acme/app": source}
-    root = tmp_path / "data" / "rsi" / "brief"
-    checkouts = brief_world.Checkouts(root, clones)
-    at = checkouts("github.com/acme/app", base)
-    assert isinstance(at, Path)
-    assert (at / "app" / "flicker.py").read_text(encoding="utf-8") == "OLD = 1\n"
-    assert not (at / "app" / "added.py").exists()  # the merged work is not there yet
-    again = checkouts("github.com/acme/app", head)
-    assert again == at and (at / "app" / "added.py").exists()  # one scratch clone, reused
-    assert repo_id(at) == "github.com/acme/app"  # the project's glossary applies to it
-    missing = checkouts("github.com/acme/app", "0" * 40)
+    at_base = brief_world.commit_files(clones, "github.com/acme/app", base)
+    assert not isinstance(at_base, str)
+    assert at_base.read("app/flicker.py") == "OLD = 'flicker'\n"
+    assert not at_base.is_file("app/added.py")  # the merged work is not there yet
+    assert at_base.is_dir("app") and sorted(at_base.names("")) == ["AGENTS.md", "app"]
+    assert at_base.files_with("FLICKER", float("inf")) == ["app/flicker.py"]
+    at_head = brief_world.commit_files(clones, "github.com/acme/app", head)
+    assert not isinstance(at_head, str) and at_head.is_file("app/added.py")
+    missing = brief_world.commit_files(clones, "github.com/acme/app", "0" * 40)
     assert isinstance(missing, str) and missing.startswith("the commit")
-    other = checkouts("github.com/acme/other", base)
+    other = brief_world.commit_files(clones, "github.com/acme/other", base)
     assert isinstance(other, str) and other.endswith("not on this machine")
+    at_base.close()
+    at_head.close()
+    # The person's clone is as it was, to the byte: nothing checked out, nothing written.
+    assert _files(source) == written
     assert _state(source) == before
-    assert (source / "app" / "flicker.py").read_text(encoding="utf-8") == "THEIRS = 9\n"
-    checkouts.close()
-    assert not root.exists()
+
+
+def test_a_comparison_writes_no_file(tmp_path: Path, clone: tuple[Path, str, str]) -> None:
+    """Both arms of a comparison on tasks at two commits: kit and look-ups run, nothing is written.
+
+    The earlier version moved one scratch checkout per task: on 34 tasks of this
+    repository's own history that wrote 52,871 to 92,678 files per comparison.
+    """
+    from dodaios.rsi.bench import brief_world
+
+    source, base, head = clone
+    clones = {REPO: source}
+    home = tmp_path / "data"
+    home.mkdir()
+
+    class Looks:
+        calls: list[str] = []
+
+        def __call__(self, lead: LeadInput, platform: Platform, serve: Any = None) -> Move:
+            assert serve is not None
+            looked = serve("Grep", {"pattern": "flicker", "path": str(source)})
+            kit = serve(
+                "delegate",
+                {"target": "coding_agent", "task": "the flicker", "options": {"prepare": True}},
+            )
+            self.calls.append(f"{looked[0] if looked else ''}|{kit}")
+            return Move(tool="delegate", args={"task": "Fix app/flicker.py"}, model="opus")
+
+    lead = Looks()
+    world = BriefWorld(
+        platform=Platform("claude-cli", "opus", tools="t1"),
+        driver=lead,
+        budget=Budget(10_000),
+        template=_template(),
+        clones=clones,
+        commit=lambda repo, at: brief_world.commit_files(clones, repo, at),
+        kit=brief_world.kit_answer,
+        look=brief_world.look_answer,
+    )
+    tasks = [
+        Task(
+            id=task_id(Domain.BRIEF, Source.MADE, f"c{i}"),
+            domain=Domain.BRIEF,
+            source=Source.MADE,
+            group=f"g{i}",
+            payload={"repo": REPO, "base": (base, head)[i % 2], "request": f"Fix the flicker {i}."},
+            check={"files": {"app/flicker.py": 10}},
+        )
+        for i in range(4)
+    ]
+    before, folders = _files(source), sorted(p.name for p in tmp_path.iterdir())
+    worlds = {brief_replay.WORLD: world}
+    for arm in (LIVE, overlays.Overlay(params={WORDING: 1})):
+        results = run.measure(tasks, arm, worlds)
+        assert all(r.counts and r.score == 1.0 for r in results), results
+    assert len(lead.calls) == 8
+    # The kit and the look-up were answered at each task's own commit.
+    assert sum("OLD = 'flicker'" in c for c in lead.calls) == 4
+    assert sum("NEW = 'flicker fixed'" in c for c in lead.calls) == 4
+    assert all("THEIRS" not in c for c in lead.calls)
+    assert all('"state": "prepared"' in c for c in lead.calls)
+    assert _files(source) == before  # not one file written in the person's clone
+    assert sorted(p.name for p in tmp_path.iterdir()) == folders  # and no scratch folder
+    assert not list(home.rglob("*"))
+
+
+def test_an_earlier_versions_scratch_checkouts_are_removed(tmp_path: Path) -> None:
+    from dodaios.rsi.bench import brief_world
+
+    old = tmp_path / "rsi" / "brief" / "a273315d3773" / "app"
+    old.mkdir(parents=True)
+    (old / "x.py").write_text("left behind\n", encoding="utf-8")
+    brief_world._remove_old_scratch(tmp_path)  # noqa: SLF001
+    assert not (tmp_path / "rsi" / "brief").exists() and (tmp_path / "rsi").is_dir()
 
 
 class Turns:
@@ -727,16 +796,15 @@ def test_the_input_a_request_is_put_into_stays_pinned_while_its_turn_exists() ->
     assert isinstance(none, str)
 
 
-def test_the_kit_is_the_apps_answer_for_the_repository_at_the_commit_and_writes_nothing(
-    tmp_path: Path, clone: tuple[Path, str, str], monkeypatch: pytest.MonkeyPatch
+def test_the_kit_is_the_apps_answer_at_the_commit_and_writes_nothing(
+    clone: tuple[Path, str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from dodaios.briefs import glossary
     from dodaios.rsi.bench import brief_world
 
     source, base, _ = clone
-    checkouts = brief_world.Checkouts(tmp_path / "scratch", {"github.com/acme/app": source})
-    at = checkouts("github.com/acme/app", base)
-    assert isinstance(at, Path)
+    files = brief_world.commit_files({"github.com/acme/app": source}, "github.com/acme/app", base)
+    assert not isinstance(files, str)
     counted: list[bool] = []
     real = glossary.lookup
 
@@ -746,8 +814,12 @@ def test_the_kit_is_the_apps_answer_for_the_repository_at_the_commit_and_writes_
 
     monkeypatch.setattr(glossary, "lookup", lookup)
     call = {"target": "coding_agent", "task": "Stop the flicker", "options": {"prepare": True}}
-    found = json.loads(brief_world.kit_answer(_task(), at, call))
+    found = json.loads(brief_world.kit_answer(_task(), files, call))
+    files.close()
     assert found["state"] == "prepared" and found["detail"]["nothing_sent"] is True
-    assert "brief_kit" in found["detail"] and "without options.prepare" in found["next_step"]
+    kit = found["detail"]["brief_kit"]
+    assert "without options.prepare" in found["next_step"]
+    # Read at the commit: the file of then, and the project's own check of then.
+    assert [p["path"] for p in kit["starting_points"]] == ["app/flicker.py"]
+    assert "pytest -q" in kit["project_checks"]
     assert counted == [False]  # the glossary was read without raising a use counter
-    checkouts.close()

@@ -179,6 +179,21 @@ class Budget:
                 return f"this round used {BUDGET_SHARE:.0%} of the {name} window"
         return ""
 
+    def held(self) -> str:
+        """Why no call may start now ("" while one may), without counting one.
+
+        Asked before work that only a call makes worth doing (reading a
+        repository for a replay), so that nothing heavy starts once the round
+        has to stop.
+        """
+        with self._lock:
+            if self.stopped:
+                return self.stopped
+            why = self._why_not()
+            if why:
+                self.stopped = why
+            return why
+
     def take(self, calls: int = 1) -> str:
         """Ask for ``calls`` calls at once. ``""``: go ahead (they are counted); else why not.
 

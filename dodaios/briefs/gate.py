@@ -359,11 +359,13 @@ def kit_answer(
     profiles: Sequence[Profile] = (),
     auto_effort: bool = True,
     count_words: bool = True,
+    files: Any = None,
 ) -> dict[str, Any]:
     """What a request for the kit answers, built and nothing else. Blocking.
 
     :func:`prepare` is this plus the note that the writer looked first; a
-    benchmark replay calls it with ``count_words`` off, so it writes nothing.
+    benchmark replay calls it with ``count_words`` off, so it writes nothing, and
+    with ``files``: the repository at a commit (``repo_facts.RepoFiles``).
     """
     families = list(profiles) or [profile_for(order.recipient.cli, order.recipient.model)]
     try:
@@ -373,6 +375,7 @@ def kit_answer(
             auto_effort=auto_effort,
             with_draft=False,
             count_words=count_words,
+            files=files,
         )
     except Exception:  # noqa: BLE001 - without a kit the writer briefs as before
         log.warning("brief gate: the kit could not be gathered", exc_info=True)

@@ -4,6 +4,11 @@ The test command is the judge of a loop-made change, so it comes from the
 project as it was BEFORE the coding agent touched it, never from the agent.
 Detection is deterministic and conservative: a project whose tests cannot be
 found is not worked on (triage refuses it), rather than shipped untested.
+
+:func:`detect` reads the folder on disk, or any object that answers the same
+questions about a project's files (``files``: ``is_file``, ``is_dir``,
+``read``, ``names``, ``root``), such as one commit of a repository read from
+git (``dodaios.rsi.bench.at_commit``).
 """
 
 from __future__ import annotations
@@ -32,30 +37,48 @@ def _read(path: Path, limit: int = 200_000) -> str:
         return ""
 
 
-def _python(folder: Path) -> str:
+class _Disk:
+    """A project's folder on disk, asked about by paths relative to it."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def is_file(self, rel: str) -> bool:
+        return (self.root / rel).is_file()
+
+    def is_dir(self, rel: str) -> bool:
+        return (self.root / rel).is_dir()
+
+    def read(self, rel: str, limit: int = 200_000) -> str:
+        return _read(self.root / rel, limit)
+
+    def names(self, rel: str) -> list[str]:
+        return [p.name for p in (self.root / rel).iterdir()]
+
+
+def _python(files: Any) -> str:
     """The project's own interpreter when it has a virtual environment."""
     for name in _VENVS:
         for rel in ("Scripts/python.exe", "bin/python"):
-            candidate = folder / name / rel
-            if candidate.is_file():
-                return str(candidate)
+            if files.is_file(f"{name}/{rel}"):
+                return str(Path(files.root) / name / rel)
     return "python"
 
 
-def _python_tests(folder: Path) -> bool:
-    has_tests = any((folder / name).is_dir() for name in ("tests", "test"))
-    if (folder / "pytest.ini").is_file() or (folder / "conftest.py").is_file():
+def _python_tests(files: Any) -> bool:
+    has_tests = any(files.is_dir(name) for name in ("tests", "test"))
+    if files.is_file("pytest.ini") or files.is_file("conftest.py"):
         return True
-    if "[tool.pytest" in _read(folder / "pyproject.toml"):
+    if "[tool.pytest" in files.read("pyproject.toml", 200_000):
         return True
-    if "[tool:pytest]" in _read(folder / "setup.cfg"):
+    if "[tool:pytest]" in files.read("setup.cfg", 200_000):
         return True
     markers = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "tox.ini")
-    return has_tests and any((folder / m).is_file() for m in markers)
+    return has_tests and any(files.is_file(m) for m in markers)
 
 
-def _node(folder: Path) -> tuple[list[list[str]], list[list[str]]]:
-    raw = _read(folder / "package.json")
+def _node(files: Any) -> tuple[list[list[str]], list[list[str]]]:
+    raw = files.read("package.json", 200_000)
     if not raw:
         return [], []
     try:
@@ -66,65 +89,71 @@ def _node(folder: Path) -> tuple[list[list[str]], list[list[str]]]:
     test = str((scripts or {}).get("test") or "") if isinstance(scripts, dict) else ""
     if not test or "no test specified" in test:
         return [], []
-    if (folder / "pnpm-lock.yaml").is_file():
+    if files.is_file("pnpm-lock.yaml"):
         return [["pnpm", "install", "--frozen-lockfile"]], [["pnpm", "test"]]
-    if (folder / "yarn.lock").is_file():
+    if files.is_file("yarn.lock"):
         return [["yarn", "install", "--frozen-lockfile"]], [["yarn", "test"]]
-    setup = [["npm", "ci"]] if (folder / "package-lock.json").is_file() else [["npm", "install"]]
+    setup = [["npm", "ci"]] if files.is_file("package-lock.json") else [["npm", "install"]]
     return setup, [["npm", "test", "--silent"]]
 
 
-def _makefile_test(folder: Path) -> bool:
-    text = _read(folder / "Makefile")
+def _makefile_test(files: Any) -> bool:
+    text = files.read("Makefile", 200_000)
     return bool(re.search(r"^test\s*:", text, re.MULTILINE))
 
 
-def ci_lines(folder: Path, limit: int = 8) -> list[str]:
+def ci_lines(folder: Path, limit: int = 8, *, files: Any = None) -> list[str]:
     """The workflow files and the test lines they run (for the brief only)."""
-    workflows = folder / ".github" / "workflows"
-    if not workflows.is_dir():
+    files = files if files is not None else _Disk(Path(folder))
+    where = ".github/workflows"
+    if not files.is_dir(where):
         return []
     lines: list[str] = []
     try:
-        files = sorted(p for p in workflows.iterdir() if p.suffix in (".yml", ".yaml"))
+        names = sorted(n for n in files.names(where) if Path(n).suffix in (".yml", ".yaml"))
     except OSError:  # unreadable workflows only leave the brief without CI lines
         return []
-    for path in files[:12]:
+    for name in names[:12]:
+        text = files.read(f"{where}/{name}", 60_000)
         runs = [
             match.group(1).strip()
-            for match in map(_WORKFLOW_RUN.match, _read(path, 60_000).splitlines())
+            for match in map(_WORKFLOW_RUN.match, text.splitlines())
             if match and _TESTY.search(match.group(1))
         ]
-        lines.append(f"{path.name}: " + ("; ".join(runs[:3]) if runs else "(no test step)"))
+        lines.append(f"{name}: " + ("; ".join(runs[:3]) if runs else "(no test step)"))
         if len(lines) >= limit:
             break
     return lines
 
 
-def detect(folder: str | Path) -> dict[str, Any]:
-    """``{"label", "setup", "test", "ci"}``: argv lists, empty when unknown."""
+def detect(folder: str | Path, *, files: Any = None) -> dict[str, Any]:
+    """``{"label", "setup", "test", "ci"}``: argv lists, empty when unknown.
+
+    ``files`` answers for the project instead of its folder on disk (see the module text).
+    """
     root = Path(folder)
+    files = files if files is not None else _Disk(root)
     setup: list[list[str]] = []
     test: list[list[str]] = []
     label = ""
-    if _python_tests(root):
-        test.append([_python(root), "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"])
+    if _python_tests(files):
+        test.append([_python(files), "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"])
         label = "pytest"
-    node_setup, node_test = _node(root)
+    node_setup, node_test = _node(files)
     if node_test:
         setup += node_setup
         test += node_test
         label = label or node_test[0][0]
-    if (root / "Cargo.toml").is_file():
+    if files.is_file("Cargo.toml"):
         test.append(["cargo", "test", "--quiet"])
         label = label or "cargo"
-    if (root / "go.mod").is_file():
+    if files.is_file("go.mod"):
         test.append(["go", "test", "./..."])
         label = label or "go"
-    if not test and _makefile_test(root):
+    if not test and _makefile_test(files):
         test.append(["make", "test"])
         label = "make"
-    return {"label": label, "setup": setup, "test": test, "ci": ci_lines(root)}
+    return {"label": label, "setup": setup, "test": test, "ci": ci_lines(root, files=files)}
 
 
 def runnable(argv: list[str]) -> str:

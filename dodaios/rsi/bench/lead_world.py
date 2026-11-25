@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import child_argv, child_creationflags
 from dodaios.rsi.budget import CEILING_CALLS, REPLAY_CALLS, Budget, Usage, plan_usage
 
 from . import brief_world
@@ -80,7 +80,7 @@ def _cooling() -> bool:
 def _version(prefix: list[str], env: dict[str, str]) -> str:
     try:
         done = subprocess.run(  # noqa: S603 - the CLI's own argv
-            [*prefix, "--version"],
+            child_argv([*prefix, "--version"], background=True),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -88,7 +88,7 @@ def _version(prefix: list[str], env: dict[str, str]) -> str:
             timeout=30,
             env=env,
             check=False,
-            creationflags=NO_WINDOW_CREATIONFLAGS,
+            creationflags=child_creationflags(background=True),
         )
     except (OSError, subprocess.SubprocessError):  # a version we cannot read is named as such
         return "unknown"
