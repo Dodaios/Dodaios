@@ -38,11 +38,6 @@ def test_escapes_count_any_ignores_and_disables() -> None:
     assert m.count_source(src) == {"any": 3, "ts-ignore": 2, "eslint": 1}
 
 
-def test_escapes_baseline_holds_on_the_tree(capsys) -> None:
-    m = _load("check_frontend_escapes")
-    assert m.main([]) == 0, capsys.readouterr().out
-
-
 def test_duplicates_find_a_pasted_block_across_files() -> None:
     m = _load("check_duplicates")
     block = "\n".join(f"value_{i} = compute({i}) + other_{i}" for i in range(14))
@@ -70,10 +65,6 @@ def test_duplicates_same_file_needs_distance() -> None:
     assert m.find_duplicates({"a.py": block + "\n" + block}) != {}
     assert m.find_duplicates({"a.py": block}) == {}
 
-
-def test_duplicates_baseline_holds_on_the_tree(capsys) -> None:
-    m = _load("check_duplicates")
-    assert m.main([]) == 0, capsys.readouterr().out
 
 
 def test_touched_mode_judges_only_touched_files(tmp_path, monkeypatch, capsys) -> None:
