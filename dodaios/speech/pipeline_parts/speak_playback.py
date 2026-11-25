@@ -25,7 +25,13 @@ if TYPE_CHECKING:
     from dodaios.speech.echo_guard import SelfEchoGuard
 
 
-class SpeakPlaybackMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class SpeakPlaybackMixin(_HostBase):
     """Session input stream, echo guards, speech output, playback and the barge-in monitor."""
 
     async def _session_input_stream(

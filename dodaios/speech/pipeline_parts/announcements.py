@@ -19,7 +19,13 @@ if TYPE_CHECKING:
     from dodaios.core.events import AnnouncementRequested
 
 
-class AnnouncementsMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class AnnouncementsMixin(_HostBase):
     """Spoken announcements and delegation results."""
 
     async def _on_announcement(

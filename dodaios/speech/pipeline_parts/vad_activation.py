@@ -22,7 +22,13 @@ if TYPE_CHECKING:
     )
 
 
-class VadActivationMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class VadActivationMixin(_HostBase):
     """Probe STT selection, vision toggles, permission and activation gates, mute."""
 
     def _select_probe_stt(self, utterance: Any) -> Any:

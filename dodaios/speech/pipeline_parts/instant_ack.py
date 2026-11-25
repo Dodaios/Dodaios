@@ -22,7 +22,13 @@ if TYPE_CHECKING:
     )
 
 
-class InstantAckMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class InstantAckMixin(_HostBase):
     """Background completion and spawn watchdogs."""
 
     # ------------------------------------------------------------------

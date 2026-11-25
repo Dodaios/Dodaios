@@ -17,7 +17,13 @@ if TYPE_CHECKING:
     from dodaios.trigger.hotkey import HotkeyTrigger
 
 
-class HotkeyDispatchMixin:
+if TYPE_CHECKING:
+    from dodaios.speech.pipeline_parts._host_state import SpeechPipelineHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class HotkeyDispatchMixin(_HostBase):
     """Hotkey loop and dictate key handlers."""
 
     # ------------------------------------------------------------------
