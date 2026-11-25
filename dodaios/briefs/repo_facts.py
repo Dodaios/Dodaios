@@ -417,6 +417,18 @@ def nearest(facts: RepoFacts, token: str, *, limit: int = 3) -> list[str]:
     return [names[name] for name in close]
 
 
+def _files_for(root: Path, files: RepoFiles | None) -> RepoFiles | None:
+    """``files`` when given, else the folder on disk; None when there is no such folder."""
+    if files is not None:
+        return files
+    try:
+        if not root.is_dir():
+            return None
+    except OSError:  # a folder that cannot be asked about is an unknown folder
+        return None
+    return DiskFiles(root)
+
+
 def lookup(
     folder: str | Path,
     text: str,
@@ -438,13 +450,9 @@ def lookup(
     if not facts.folder:
         return facts
     root = Path(facts.folder).expanduser()
+    files = _files_for(root, files)
     if files is None:
-        try:
-            if not root.is_dir():
-                return facts
-        except OSError:  # a folder that cannot be asked about is an unknown folder
-            return facts
-        files = DiskFiles(root)
+        return facts
     # What the project's own files say about checking a change needs no index.
     facts.checks = house_checks(root, files=files)
     index = files.index(min(_INDEX_WAIT_S, deadline_s * 0.6))
