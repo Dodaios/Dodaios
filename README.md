@@ -9,7 +9,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise: word for word everywhere (docs/positioning.md) -->
-<p><b>The meta-agent that sits above all your coding agents. Talk to one orchestrator in a single chat while Dodaios automatically dispatches, monitors, and syncs complex engineering tasks across every CLI, IDE, and local agent in your stack.</b></p>
+<p><b>One self-improving AI agent that manages them all.</b></p>
 
 <p>
   <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Latest release" /></a>
