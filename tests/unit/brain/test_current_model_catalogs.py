@@ -69,6 +69,15 @@ def test_live_openrouter_response_keeps_every_gpt_5_6_text_model() -> None:
 
 
 def test_direct_openai_and_codex_catalogs_offer_current_gpt_models() -> None:
+    assert {
+        "gpt-6.2-sol",
+        "gpt-6.2-astra",
+        "gpt-6.1-terra",
+        "gpt-6.1-sol",
+        "gpt-6-sol",
+        "gpt-6-astra",
+        "gpt-6-luna",
+    } <= _ids(CURATED_MODELS["openai"])
     assert {"gpt-5.6", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"} <= _ids(
         CURATED_MODELS["openai"]
     )
@@ -97,6 +106,11 @@ def test_gemini_fallback_uses_current_non_media_models() -> None:
     ids = _ids(CURATED_MODELS["gemini"])
 
     assert {
+        "gemini-4-neon",
+        "gemini-4-hydrogen",
+        "gemini-4-carbon",
+        "gemini-4-argon",
+        "gemini-3.8-flash",
         "gemini-3.5-flash",
         "gemini-3.1-pro-preview",
         "gemini-3-flash-preview",

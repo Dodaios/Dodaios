@@ -51,6 +51,9 @@ def agy_argv_prefix() -> list[str]:
 #: agy's own model ids as of 1.1.19, for a box where ``agy models`` cannot be
 #: read (the live list is account-dependent and wins whenever it answers).
 AGY_FALLBACK_MODELS: Final[tuple[tuple[str, str, tuple[str, ...]], ...]] = (
+    ("gemini-4-hydrogen", "Gemini 4 Hydrogen", ("low", "medium", "high")),
+    ("gemini-4-hydrogen-xhigh", "Gemini 4 Hydrogen (XHigh)", ()),
+    ("gemini-3.8-flash", "Gemini 3.8 Flash", ("low", "medium", "high")),
     ("gemini-3.7-flash", "Gemini 3.7 Flash", ("low", "medium", "high")),
     ("gemini-3.6-flash", "Gemini 3.6 Flash", ("low", "medium", "high")),
     ("gemini-3.5-flash", "Gemini 3.5 Flash", ("low", "medium", "high")),
