@@ -5,7 +5,7 @@ import asyncio
 import base64
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from dodaios.brain import manager as _m
@@ -41,8 +41,13 @@ from dodaios.core.turn_language import TURN_LANGUAGE
 from dodaios.i18n import catalog as i18n_catalog
 from dodaios.i18n.locales import is_known_language
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _TurnLoopMixin:
+
+class _TurnLoopMixin(_HostBase):
     """The untagged generate loop: one full brain turn with tool rounds."""
 
     async def _generate_untagged(

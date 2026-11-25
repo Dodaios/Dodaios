@@ -67,7 +67,7 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
                 "approval_id": approval_id,
                 "name": _text(payload.get("name"), 120),
                 "text": _text(
-                    preview.get("compact") or payload.get("brief") or payload.get("summary"), 600
+                    preview.get("compact") or payload.get("brief") or payload.get("summary"), 600  # type: ignore[union-attr]
                 ),
                 "ts_ms": ts,
                 "decision": None,
@@ -76,7 +76,7 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
             rows.append(row)
         elif kind == "approval_resolved":
             approval_id = str(payload.get("approval_id") or "")
-            row = open_approvals.pop(approval_id, None)
+            row = open_approvals.pop(approval_id, None)  # type: ignore[arg-type]
             if row is not None:
                 row["decision"] = str(payload.get("decision") or "decided")
         elif kind == "question_required":
@@ -95,7 +95,7 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
                 open_questions[question_id] = row
             rows.append(row)
         elif kind == "question_resolved":
-            row = open_questions.pop(str(payload.get("question_id") or ""), None)
+            row = open_questions.pop(str(payload.get("question_id") or ""), None)  # type: ignore[arg-type]
             if row is not None:
                 row["answered"] = True
         elif kind == "notice":

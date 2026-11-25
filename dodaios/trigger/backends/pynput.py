@@ -311,10 +311,10 @@ class PynputBackend:
         if display is False:
             return None
         try:
-            for keycode, index in display.keysym_to_keycodes(vk):  # type: ignore[union-attr]
+            for keycode, index in display.keysym_to_keycodes(vk):
                 if index % 2 == 0:  # an unshifted level: this IS a base key
                     continue
-                base = display.keycode_to_keysym(keycode, index - 1)  # type: ignore[union-attr]
+                base = display.keycode_to_keysym(keycode, index - 1)
                 # Latin-1 keysyms equal their code point; only printable ASCII maps.
                 if 0x20 < base < 0x7F:
                     return chr(base).lower()
@@ -366,7 +366,7 @@ class PynputBackend:
         if not self._needs_mouse or self._mouse_listener is not None:
             return
         try:
-            from pynput import mouse  # type: ignore[import-untyped]  # lazy (HN-7)
+            from pynput import mouse  # lazy (HN-7)
 
             listener = mouse.Listener(on_click=self._on_click)
             listener.start()
@@ -458,7 +458,7 @@ class PynputBackend:
             )
             return
         try:
-            from pynput import keyboard  # type: ignore[import-untyped]  # lazy (HN-7)
+            from pynput import keyboard  # lazy (HN-7)
         except Exception as exc:  # noqa: BLE001 — optional [desktop] extra
             log.warning(
                 "pynput unavailable (%s) — hotkeys disabled; voice still works "

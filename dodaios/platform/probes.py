@@ -72,7 +72,7 @@ def ax_permission_granted() -> bool | None:
         return True  # UIA needs no permission grant.
     if plat == "darwin":
         try:
-            from ApplicationServices import (  # type: ignore[import-not-found]
+            from ApplicationServices import (
                 AXIsProcessTrusted,
             )
         except (ImportError, ModuleNotFoundError):

@@ -692,7 +692,7 @@ def _win32_modifier_snapshot() -> frozenset[str] | None:
 def _darwin_modifier_snapshot() -> frozenset[str] | None:
     """Shift/Ctrl/Option/Command via CGEventSourceFlagsState. ``None`` if Quartz is missing."""
     try:
-        import Quartz  # type: ignore[import-not-found,import-untyped]  # lazy (HN-7)
+        import Quartz  # lazy (HN-7)
     except Exception:  # noqa: BLE001 — optional [desktop-macos] extra
         return None
     try:
@@ -1109,7 +1109,7 @@ class HotkeyTrigger:
                 await asyncio.sleep(_LIVENESS_POLL_S)
                 if self._closing or self._backend is not backend:
                     return
-                if not await asyncio.to_thread(backend.report_if_deaf):
+                if not await asyncio.to_thread(backend.report_if_deaf):  # type: ignore[attr-defined]
                     return
         except asyncio.CancelledError:
             raise

@@ -124,7 +124,7 @@ def build_server(rows: list[dict[str, Any]], answers: Path | None = None) -> Any
 
     server: Any = Server(MCP_TOOLS_SERVER_NAME)
 
-    @server.list_tools()  # type: ignore[misc, no-untyped-call]
+    @server.list_tools()
     async def _list_tools() -> list[Any]:
         tools: list[Any] = []
         for row in rows:
@@ -146,7 +146,7 @@ def build_server(rows: list[dict[str, Any]], answers: Path | None = None) -> Any
             )
         return tools
 
-    @server.call_tool()  # type: ignore[misc, no-untyped-call]
+    @server.call_tool()
     async def _call_tool(name: str, arguments: dict[str, Any] | None) -> Any:
         if answers is not None and served(name, arguments):
             found = await asyncio.to_thread(_answer, answers, name, arguments)

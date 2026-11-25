@@ -294,7 +294,7 @@ def _evidence(tool: Any, args: dict[str, Any], result: Any, cfg: dict[str, Any])
     if callable(own):
         found = own(args, result, cfg)
         if found is not None:
-            return found  # type: ignore[no-any-return]
+            return found
     name = str(getattr(tool, "name", "") or "")
     fn = _EXTRACTORS.get(_key(name))
     if fn is not None:

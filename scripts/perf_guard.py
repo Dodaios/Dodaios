@@ -62,8 +62,6 @@ PYTEST_FAST = [
     "tests/unit/speech/test_voice_chunk_latency_budget.py",
     "tests/unit/speech/test_wake_latency.py",
     "tests/unit/speech/test_warmup_timings.py",
-    "tests/unit/speech/test_latency_phase_marks.py",
-    "tests/unit/speech/test_brain_stall_guard.py",
     "tests/unit/runs/test_list_performance.py",
 ]
 PYTEST_FULL = [
@@ -202,6 +200,16 @@ def _run_pytest_group(guards: list[Guard], log) -> list[Result]:
     """One pytest process for many files; per-file rows come from the JUnit XML."""
     if not guards:
         return []
+    # A listed guard whose file is gone is a failure of its own, never a silent pass.
+    missing = [g for g in guards if not (REPO / str(g.pytest_file)).exists()]
+    missing_results = [
+        Result(g.name, "FAIL", 0.0, f"guard file is missing: {g.pytest_file}") for g in missing
+    ]
+    for r in missing_results:
+        log.write(f"\n[{r.name}] {r.detail}\n")
+    guards = [g for g in guards if g not in missing]
+    if not guards:
+        return missing_results
     xml_path = OUT_DIR / f"junit_{guards[0].tier}.xml"
     files = [g.pytest_file for g in guards]
     argv = [
@@ -254,7 +262,7 @@ def _run_pytest_group(guards: list[Guard], log) -> list[Result]:
                 f"{n - row['skip']} tests" + (f", {row['skip']} skipped" if row["skip"] else ""),
             )
         results.append(Result(g.name, status, row["seconds"], detail, row["tests"]))
-    return results
+    return missing_results + results
 
 
 def _run_command_guard(g: Guard, log) -> Result:

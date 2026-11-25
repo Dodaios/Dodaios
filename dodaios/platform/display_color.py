@@ -231,7 +231,7 @@ def _windows(device_name: str | None) -> DisplayColor:
         bits = 8
         info2 = AdvancedColor2()
         if ask(info2, _GET_ADVANCED_COLOR_INFO_2, adapter, target):
-            mode = {1: "wcg", 2: "hdr"}.get(info2.mode, "sdr")
+            mode = {1: "wcg", 2: "hdr"}.get(info2.mode, "sdr")  # type: ignore[assignment]
             bits = int(info2.bits) or 8
         else:  # before Windows 11 24H2: advanced colour on means HDR
             info = AdvancedColor()

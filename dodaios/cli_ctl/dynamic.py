@@ -48,7 +48,7 @@ def _option_for(param: dict[str, Any]) -> click.Option:
     if schema.get("enum"):
         ptype: click.ParamType = click.Choice([str(v) for v in schema["enum"]])
     else:
-        ptype = _CLICK_TYPE.get(schema.get("type", "string"), click.STRING)
+        ptype = _CLICK_TYPE.get(schema.get("type", "string"), click.STRING)  # type: ignore[assignment]
     return click.Option(
         [f"--{param['name']}"],
         type=ptype,

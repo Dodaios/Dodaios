@@ -146,7 +146,7 @@ def no_feedback_startupinfo() -> Any:
     """
     if sys.platform != "win32":
         return None
-    info = subprocess.STARTUPINFO()  # type: ignore[attr-defined]  # Windows only
+    info = subprocess.STARTUPINFO()  # Windows only
     info.dwFlags |= _STARTF_FORCEOFFFEEDBACK
     return info
 

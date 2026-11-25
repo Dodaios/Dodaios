@@ -161,7 +161,7 @@ class History:
         changes: dict[int, MergedChange] = {}
         for number in wanted:
             head = self._heads[number]
-            rows = touched.get(head.commit)
+            rows = touched.get(head.commit)  # type: ignore[assignment]
             if rows is None:
                 continue  # git did not answer for it: unknown, not empty
             changes[number] = MergedChange(
@@ -171,9 +171,9 @@ class History:
                 parent=head.parent,
                 merged_ms=head.merged_ms,
                 subject=head.subject,
-                files=tuple(path for path, _ in rows),
+                files=tuple(path for path, _ in rows),  # type: ignore[str-unpack]
                 reverted=number in self._reverted,
-                lines=tuple(count for _, count in rows),
+                lines=tuple(count for _, count in rows),  # type: ignore[misc, str-unpack]
             )
         return changes
 

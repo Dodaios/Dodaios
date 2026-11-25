@@ -283,11 +283,11 @@ def region_bbox_around(
 
 def _mss_grab(bbox: dict[str, int]) -> tuple[tuple[int, int], bytes]:
     """Default grabber: capture an arbitrary screen rectangle via mss."""
-    import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+    import mss  # noqa: PLC0415
 
     with per_monitor_dpi_context(), mss.mss() as sct:
         raw = sct.grab(bbox)
-    return (tuple(raw.size), raw.rgb)
+    return (tuple(raw.size), raw.rgb)  # type: ignore[return-value]
 
 
 def capture_region(
@@ -462,7 +462,7 @@ class ScreenshotSource:
         # Late import, so the module stays importable even without mss
         # (contract tests run this way even when the dep is missing).
         try:
-            import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+            import mss  # noqa: PLC0415
         except ImportError as exc:
             raise RuntimeError(
                 "mss is not installed — dependency from pyproject.toml is missing"
@@ -529,7 +529,7 @@ class ScreenshotSource:
         from dodaios.platform import screen_access  # noqa: PLC0415
 
         screen_access.verify_frame_is_real(
-            tuple(raw.size),
+            tuple(raw.size),  # type: ignore[arg-type]
             raw.rgb,
             feature="computer_use",
             interactive=False,

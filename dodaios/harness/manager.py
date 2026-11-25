@@ -101,7 +101,7 @@ class HarnessManager:
         last: HarnessResult | None = None
         stream = harness.invoke(task)
         try:
-            async for result in stream:
+            async for result in stream:  # type: ignore[attr-defined]
                 last = result
                 if self._bus is not None and not result.is_final:
                     await self._bus.publish(
@@ -116,7 +116,7 @@ class HarnessManager:
             # the screen indicator (CUControlEnded) there. Without this,
             # cleanup would wait on the async-generator GC finalizer with no
             # timing guarantee.
-            await stream.aclose()
+            await stream.aclose()  # type: ignore[attr-defined]
 
         if self._bus is not None and last is not None and last.is_final:
             await self._bus.publish(HarnessCompleted(harness=name, result=last))

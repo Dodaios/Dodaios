@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from dodaios.brain.local_action_gate import is_open_app_intent, requires_external_integration
@@ -44,8 +44,13 @@ from dodaios.voice.action_phrases import (
 )
 from dodaios.voice.contextual_readback import render_readback
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _SpawnMixin:
+
+class _SpawnMixin(_HostBase):
     """Force-spawn decisions and recovery of leaked spawn/tool calls."""
 
     def _is_explicit_heavy_request(self, user_text: str) -> bool:

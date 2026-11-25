@@ -89,7 +89,7 @@ class DirectMessageStore:
             (str(friend_id), int(limit)),
         ) as cur:
             rows = await cur.fetchall()
-        rows = list(reversed(rows))
+        rows = list(reversed(rows))  # type: ignore[call-overload]
         return [
             DirectMessage(
                 id=UUID(r["id"]),

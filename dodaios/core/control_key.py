@@ -184,7 +184,7 @@ def _macos_app_identity_token() -> str | None:
     if sys.platform != "darwin":
         return None
     try:
-        from Foundation import NSBundle  # type: ignore[import-not-found, import-untyped]
+        from Foundation import NSBundle
 
         bundle = NSBundle.mainBundle()
         bundle_id = str(bundle.bundleIdentifier() or "")

@@ -509,6 +509,10 @@ jobs:
       - name: mypy (report-only backlog)
         continue-on-error: true
         run: python -m mypy dodaios/
+      - name: mypy gate (clean packages blocking, backlog may only shrink)
+        env:
+          RATCHET_BASE: ${{ needs.detect.outputs.base }}
+        run: python scripts/ci/mypy_gate.py
 
   tests-linux:
     needs: detect

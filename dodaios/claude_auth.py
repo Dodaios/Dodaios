@@ -611,7 +611,7 @@ class ClaudeAuthService:
             "child" if env is not None else "",
         )
         now = time.monotonic()
-        cached = _AUTH_STATUS_CACHE.get(cache_key)
+        cached = _AUTH_STATUS_CACHE.get(cache_key)  # type: ignore[arg-type]
         if cached is not None and now - cached[0] < _AUTH_STATUS_TTL_S:
             return cached[1]
         try:
@@ -630,7 +630,7 @@ class ClaudeAuthService:
                 snapshot = _parse_cli_auth_status(proc.stderr or "")
         except (OSError, subprocess.SubprocessError):
             snapshot = None
-        _AUTH_STATUS_CACHE[cache_key] = (now, snapshot)
+        _AUTH_STATUS_CACHE[cache_key] = (now, snapshot)  # type: ignore[index]
         return snapshot
 
     def _auth_login_help(self, binary: str) -> str | None:

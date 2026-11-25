@@ -91,7 +91,7 @@ class PrepareSettings:
             return cls()
         raw = data.get("kinds") if isinstance(data.get("kinds"), dict) else {}
         return cls(
-            kinds={k: raw.get(k) is True for k in KINDS},
+            kinds={k: raw.get(k) is True for k in KINDS},  # type: ignore[union-attr]
             expire_days=_positive(data.get("expire_days"), DEFAULT_EXPIRE_DAYS),
             ci_budget_s=_positive(data.get("ci_budget_s"), DEFAULT_CI_BUDGET_S),
         )
@@ -344,13 +344,13 @@ class Preparer:
         reply = _clip((data or {}).get("reply"), MAX_DRAFT_CHARS)
         if not reply:
             return self._silent(event, "meeting_invite", policy_id, "no_draft")
-        stance = str(data.get("stance") or "").lower()
+        stance = str(data.get("stance") or "").lower()  # type: ignore[union-attr]
         if stance not in ("accept", "decline", "propose") or (
             conflicts and stance == "accept"
         ):
             stance = "propose" if conflicts else "accept"
         body = {
-            "stance": stance, "reply": reply, "note": _clip(data.get("note"), 240),
+            "stance": stance, "reply": reply, "note": _clip(data.get("note"), 240),  # type: ignore[union-attr]
             "conflicts": [{"title": c.title, "start": c.start, "end": c.end} for c in conflicts],
             "invite": {"title": facts.invite.title, "start": facts.invite.start,
                        "end": facts.invite.end, "organizer": event.sender},

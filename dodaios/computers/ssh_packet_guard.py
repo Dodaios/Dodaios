@@ -57,7 +57,7 @@ def guarded_client_factory(base_type: Any = None) -> Any:
     """Preserve authentication callbacks while installing the guard before traffic."""
     import asyncssh
 
-    class GuardedClient(base_type or asyncssh.SSHClient):
+    class GuardedClient(base_type or asyncssh.SSHClient):  # type: ignore[misc]
         def connection_made(self, connection: Any) -> None:
             try:
                 install_channel_guard(connection)

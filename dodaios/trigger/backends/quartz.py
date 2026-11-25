@@ -160,7 +160,7 @@ def _seconds_since_last_key_event() -> float | None:
     "unknown" and the caller then never claims a deaf tap.
     """
     try:
-        import Quartz  # type: ignore[import-untyped]  # noqa: PLC0415 - lazy (HN-7)
+        import Quartz  # noqa: PLC0415 - lazy (HN-7)
 
         return float(
             Quartz.CGEventSourceSecondsSinceLastEventType(
@@ -506,7 +506,7 @@ class QuartzHotkeyBackend:
         self._waiting_for_permission = False
 
         try:
-            import Quartz  # type: ignore[import-untyped]  # lazy (HN-7)
+            import Quartz  # lazy (HN-7)
         except Exception as exc:  # noqa: BLE001 — optional [desktop-macos] extra
             log.warning(
                 "pyobjc Quartz unavailable (%s) — hotkeys disabled; voice "
@@ -683,9 +683,9 @@ class QuartzHotkeyBackend:
         runloop = self._runloop
         if tap is not None or runloop is not None:
             try:
-                import Quartz  # type: ignore[import-untyped]
+                import Quartz
             except Exception:  # noqa: BLE001 — teardown must never propagate
-                Quartz = None  # type: ignore[assignment,misc]
+                Quartz = None
                 log.debug("Quartz teardown import failed (non-fatal)", exc_info=True)
             if Quartz is not None:
                 # Re-arm used to call only CFRunLoopStop. A sleeping run loop

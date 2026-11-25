@@ -534,7 +534,7 @@ def _decode(raw: bytes) -> str:
     """Text from bytes, trying the encodings that actually occur in the wild."""
     encodings = ("utf-8", "utf-8-sig", "cp1252", "latin-1")
     if raw[:2] in _UTF16_BOMS:
-        encodings = ("utf-16", *encodings)
+        encodings = ("utf-16", *encodings)  # type: ignore[assignment]
     for encoding in encodings:
         try:
             return raw.decode(encoding)

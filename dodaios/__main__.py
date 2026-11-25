@@ -772,7 +772,7 @@ def _windows_console(stream: object) -> bool:
 
         handle = msvcrt.get_osfhandle(stream.fileno())  # type: ignore[attr-defined]
         mode = wintypes.DWORD()
-        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        kernel32 = ctypes.windll.kernel32
         return bool(kernel32.GetConsoleMode(wintypes.HANDLE(handle), ctypes.byref(mode)))
     except (AttributeError, ImportError, OSError, ValueError):  # no console API: not a console
         return False

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from dodaios.brain import manager as _m
@@ -15,8 +15,13 @@ from dodaios.brain.manager import (
 )
 from dodaios.brain.turn_planner import is_contextual_follow_up, plan_turn
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _SkillsMixin:
+
+class _SkillsMixin(_HostBase):
     """Skill matching, injection and mission dispatch for a turn."""
 
     def note_skill_trigger(

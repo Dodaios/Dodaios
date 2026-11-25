@@ -353,7 +353,7 @@ class GlobalHotkeysBackend:
     def register(self, bindings, on_event=None) -> None:
         """Arm ``bindings``; degrade to a no-op (``_gh=None``) on any failure."""
         try:
-            import global_hotkeys as gh  # type: ignore[import-untyped]
+            import global_hotkeys as gh
         except Exception as exc:  # noqa: BLE001 — optional [desktop] extra
             log.warning(
                 "global_hotkeys unavailable (%s) — hotkeys disabled; voice "
@@ -568,7 +568,7 @@ def _virtual_key_for(token: str) -> int | None:
     parsed the same way the library parses it.
     """
     try:
-        from global_hotkeys.hotkey_checker import _to_virtualkey  # type: ignore[import-untyped]
+        from global_hotkeys.hotkey_checker import _to_virtualkey
     except Exception:  # noqa: BLE001 — no package, no answer
         return None
     try:
@@ -585,7 +585,7 @@ def _async_key_is_down(vk: int) -> bool | None:
     Windows), which the caller treats as "cannot tell".
     """
     try:
-        import win32api  # type: ignore[import-untyped]  # lazy (HN-7)
+        import win32api  # lazy (HN-7)
     except Exception:  # noqa: BLE001 — not Windows / pywin32 missing
         return None
     try:

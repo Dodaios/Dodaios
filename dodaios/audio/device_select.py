@@ -73,6 +73,6 @@ def _get(obj: Any, key: str, default: Any) -> Any:
     """Read ``key`` from a sounddevice mapping-like object (dict or DeviceList
     entry), falling back to ``default`` when absent."""
     try:
-        return obj.get(key, default)  # type: ignore[no-any-return]
+        return obj.get(key, default)
     except AttributeError:
         return getattr(obj, key, default)

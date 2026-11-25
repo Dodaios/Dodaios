@@ -11,14 +11,18 @@ from loguru import logger
 
 from dodaios.core.config import resolve_config_path
 
-
 if TYPE_CHECKING:
     pass
 
 from ._srv import server_module
 
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
 
-class BootStacksMixin:
+
+class BootStacksMixin(_HostBase):
     """The boot-time service stacks (missions, tasks, sessions, channels, society, chat)."""
 
     async def _init_screenshot_retention(self) -> None:

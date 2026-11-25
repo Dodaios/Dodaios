@@ -1061,7 +1061,7 @@ class ToolExecutor:
             duration_ms=duration_ms,
             error=result.error,
             output_preview=safe_preview(result.output),
-            **self._receipt_fields(result),
+            **self._receipt_fields(result),  # type: ignore[arg-type]
         ))
         return result
 
@@ -1135,7 +1135,7 @@ class ToolExecutor:
             duration_ms=duration_ms,
             error=result.error,
             output_preview=safe_preview(result.output),
-            **self._receipt_fields(result),
+            **self._receipt_fields(result),  # type: ignore[arg-type]
         ))
         self._audit(tool, args, trace_id, config_snapshot, result, trail, t_start)
         return result

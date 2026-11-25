@@ -925,7 +925,7 @@ class Renderer(QObject):
             max(1.0, fh * g.height()),
         )
         dst = self._card_local_rect(card)
-        flight = _FlyWindow(screen, src, dst, thumb, lambda _w, c=card: self._land(c))
+        flight = _FlyWindow(screen, src, dst, thumb, lambda _w, c=card: self._land(c))  # type: ignore[misc]
         self._flights[item_id] = (flight, card)
         flight.start()
 

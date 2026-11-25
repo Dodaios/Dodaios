@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class CancelMixin:
+
+class CancelMixin(_HostBase):
     """Cancelling turns and waiting for them to end."""
 
     def signal_cancel(self, session_id: str, *, expected_turn_id: str | None = None) -> bool:

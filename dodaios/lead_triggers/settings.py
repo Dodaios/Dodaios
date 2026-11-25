@@ -154,12 +154,12 @@ class TriggerSettings:
                 policies.append(policy)
         return cls(
             accept=accept if accept in ACCEPT_MODES else DEFAULT_ACCEPT,
-            sources={s: SourceRule.from_dict(raw_sources.get(s)) for s in SOURCES},
+            sources={s: SourceRule.from_dict(raw_sources.get(s)) for s in SOURCES},  # type: ignore[union-attr]
             policies=tuple(policies[:MAX_POLICIES]),
             self_senders=_strings(data.get("self_senders")),
             rate_per_minute=_positive(data.get("rate_per_minute"), DEFAULT_RATE_PER_MINUTE),
             dedupe_window_s=_positive(data.get("dedupe_window_s"), DEFAULT_DEDUPE_WINDOW_S),
-            producers={p: raw_producers.get(p) is not False for p in PRODUCERS},
+            producers={p: raw_producers.get(p) is not False for p in PRODUCERS},  # type: ignore[union-attr]
             poll_interval_s=min(
                 MAX_POLL_INTERVAL_S,
                 max(MIN_POLL_INTERVAL_S,

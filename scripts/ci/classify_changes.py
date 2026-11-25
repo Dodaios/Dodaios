@@ -153,6 +153,7 @@ _MACOS_PREFIXES = (
     "dodaios/platform/",
     "dodaios/screen_context/",
     "dodaios/setup/",
+    "dodaios/speech/pipeline_parts/",
     "dodaios/trigger/",
     "dodaios/vision/",
     "dodaios/ui/desktop",

@@ -1989,7 +1989,7 @@ class MicrophoneCapture:
             result = _legacy_gate_result(False)
         else:
             try:
-                result = await self._read_revoke_result()
+                result = await self._read_revoke_result()  # type: ignore[assignment]
             except Exception:  # noqa: BLE001 - an injected gate that raises must not end the watchdog
                 # The real service never raises, but a custom PermissionGate may.
                 # Treat the tick as "not revoked" so stall recovery and the next

@@ -1096,7 +1096,7 @@ class AudioPlayer:
             # Skip rates this device already refused with -9997 — but never
             # filter down to nothing: a device whose refusals covered every
             # candidate still deserves the full walk (hot-swap edge).
-            known_bad = getattr(self, "_device_rate_failed", set())
+            known_bad = getattr(self, "_device_rate_failed", set())  # type: ignore[var-annotated]
             filtered = [
                 rate
                 for rate in candidates
@@ -1168,7 +1168,7 @@ class AudioPlayer:
                 # Remember the refusal so no later walk in this player's life
                 # retries it (the per-turn "@ 24000Hz failed" log storm).
                 getattr(self, "_device_rate_failed", set()).add(
-                    (self._device, target_rate)
+                    (self._device, target_rate)  # type: ignore[arg-type]
                 )
                 log.warning(
                     "OutputStream @ %dHz failed (%s) — trying next rate "

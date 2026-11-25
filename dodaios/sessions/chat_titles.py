@@ -513,10 +513,10 @@ class ChatTitler:
             return False
         if unnamed:
             return entry is None or entry.attempts < MODEL_ATTEMPTS_PER_ITEM
-        if entry.writer == WRITER_USER or entry.seed != req.seed:
+        if entry.writer == WRITER_USER or entry.seed != req.seed:  # type: ignore[union-attr]
             return False
         grown = req.message_count >= max(
-            entry.messages_at * 2, entry.messages_at + MODEL_REGROW_MESSAGES
+            entry.messages_at * 2, entry.messages_at + MODEL_REGROW_MESSAGES  # type: ignore[union-attr]
         )
         return req.kind == KIND_TYPED and grown
 

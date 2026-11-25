@@ -201,7 +201,7 @@ def _force_foreground(window: Any) -> None:
     try:
         import ctypes
 
-        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        user32 = ctypes.windll.user32
         title = str(getattr(window, "title", "") or "")
         if not title:
             return

@@ -15,7 +15,13 @@ if TYPE_CHECKING:
     from dodaios.agent_chat.service import Subscriber
 
 
-class EventsMixin:
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class EventsMixin(_HostBase):
     """Subscribers, notices and the persist-then-fan-out event path."""
 
     # ----------------------------------------------------------- subscribe

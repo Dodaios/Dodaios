@@ -129,7 +129,7 @@ def _window_full(platform: str) -> bool:
     try:
         from dodaios import agent_accounts, agent_usage
 
-        account = agent_accounts.active_account(platform)  # type: ignore[arg-type]
+        account = agent_accounts.active_account(platform)
         usage = agent_usage.read_usage(account)
     except Exception:  # noqa: BLE001 - no reading is not a full window
         logger.opt(exception=True).debug("self-build code: usage unreadable for {}", platform)

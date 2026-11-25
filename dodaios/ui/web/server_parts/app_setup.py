@@ -9,15 +9,18 @@ from typing import TYPE_CHECKING, Any
 from fastapi import FastAPI
 from loguru import logger
 
-
-
 if TYPE_CHECKING:
     pass
 
 from ._srv import server_module
 
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
 
-class AppSetupMixin:
+
+class AppSetupMixin(_HostBase):
     """App assembly: the route graph hand-off and the registries mounted on the app."""
 
     def _finish_app_setup(self, app: FastAPI) -> None:

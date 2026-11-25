@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from dodaios.brain.assistant_name import resolve_assistant_name
@@ -23,8 +23,13 @@ from dodaios.brain.manager import (
 )
 from dodaios.voice.action_phrases import action_phrase
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _AgenticIdeMixin:
+
+class _AgenticIdeMixin(_HostBase):
     """Agentic IDE fast paths: spawn, prompt delivery, close and briefing."""
 
     async def _run_navigation_fast_path(

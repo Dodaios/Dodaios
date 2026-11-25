@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat.plan_review import PlanReview
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class ApprovalsMixin:
+
+class ApprovalsMixin(_HostBase):
     """Approval cards, standing rules and their persistence."""
 
     # ------------------------------------------------------------ approvals

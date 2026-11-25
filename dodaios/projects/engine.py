@@ -409,7 +409,7 @@ class ProjectEngine:
             live.append(f"{sub.id}:{state}:{stamp}")
             if state != sub.state or (state != "done" and why != sub.note):
                 moved = moved or state != sub.state
-                sub.state, sub.note, sub.updated_ms = state, why, now
+                sub.state, sub.note, sub.updated_ms = state, why, now  # type: ignore[assignment]
                 if state == "done":
                     sub.proof, sub.done_ms = summary, now
         fp = "|".join(live)

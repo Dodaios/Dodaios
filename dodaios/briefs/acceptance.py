@@ -637,7 +637,7 @@ def with_done_when(job_id: str, recorded: Any = None) -> Any:
         open_points = sum(1 for c in checks if c.ok is None)
         verdict = "unverified"
         text = f"{open_points} of {len(checks)} done-when point(s) could not be confirmed."
-    return Verification(job_id, "coding", verdict, text, [*earlier, *checks])
+    return Verification(job_id, "coding", verdict, text, [*earlier, *checks])  # type: ignore[arg-type]
 
 
 def summary(results: Sequence[Result], *, continues: bool = False) -> str:
