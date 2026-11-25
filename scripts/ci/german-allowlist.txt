@@ -277,6 +277,7 @@ tests/unit/safety/test_workspace_send_intent.py
 #     (Whole-file scope mirrors the existing core-file entries; a future pass can
 #     narrow to inline i18n-allow markers when the tree is not contested.) ---
 dodaios/brain/manager.py
+dodaios/brain/manager_parts/*
 dodaios/core/config.py
 
 # --- CU informational/read-goal classifier tests: the German voice utterances

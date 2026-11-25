@@ -1,7 +1,7 @@
-"""The replay worlds of an installation's night: what replays the lead's turns tonight.
+"""The replay worlds of an installation's round: what replays the lead's turns in it.
 
-Built once at the start of a night (:func:`build`) and dropped at its end, so
-the night's :class:`~dodaios.rsi.budget.Budget` is one per night. It is built
+Built once at the start of a learning round (:func:`build`) and dropped at its
+end, so the round's :class:`~dodaios.rsi.budget.Budget` is one per round. It is built
 only when everything a replay needs is there and paid for the right way:
 
 * a recorded lead turn: the newest one names the lead's CLI, model and effort
@@ -16,7 +16,7 @@ Without any of these there is no world, the first_move tasks wait, and nothing
 is spent. The night's report says why (``reason``).
 
 The brief world (:mod:`dodaios.rsi.bench.brief_world`) is built on the same
-platform, driver and budget, so the two domains share one night's cap; it
+platform, driver and budget, so the two domains share one round's budget; it
 needs a pinned lead input and the person's clones besides (``brief_reason``
 says why there is none).
 """
@@ -27,7 +27,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import subprocess
 import sys
 from collections.abc import Callable, Iterable
@@ -35,7 +34,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.rsi.budget import REPLAY_CALLS, Budget, Usage
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.rsi.budget import CEILING_CALLS, REPLAY_CALLS, Budget, Usage, plan_usage
 
 from . import brief_world
 from .brief_replay import BriefWorld
@@ -62,18 +62,8 @@ class Built:
 
 
 def _usage() -> Usage | None:
-    """How full the plan's windows are, read at most once a minute; ``None``: unreadable."""
-    try:
-        from dodaios import agent_accounts, agent_usage
-
-        account = agent_accounts.active_account("claude")
-        found = agent_usage.collect([account]).get(account.id)
-    except Exception:  # broad-except: no reading: the night's cap alone applies
-        log.debug("self-improvement: the plan's usage could not be read", exc_info=True)
-        return None
-    if found is None or found.status != "ok" or not found.windows:
-        return None
-    return {f"{w.kind}:{w.scope_label or w.raw_label or ''}": w.percent for w in found.windows}
+    """How full the lead's plan windows are (``budget.plan_usage``); ``None``: unreadable."""
+    return plan_usage("claude")
 
 
 def _cooling() -> bool:
@@ -93,10 +83,12 @@ def _version(prefix: list[str], env: dict[str, str]) -> str:
             [*prefix, "--version"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             env=env,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
         )
     except (OSError, subprocess.SubprocessError):  # a version we cannot read is named as such
         return "unknown"
@@ -121,11 +113,16 @@ def build(
     cap: int = REPLAY_CALLS,
     bench: Any = None,
     folders: Iterable[str | Path] = (),
+    halted: Callable[[], bool] | None = None,
 ) -> Built:
-    """The worlds for tonight, or why there are none. Blocking; call it off the event loop.
+    """The worlds for this round, or why there are none. Blocking; call it off the event loop.
 
     ``bench`` keeps the brief world's pinned input; ``folders`` are the
-    person's clones the night's intake of past coding work read.
+    person's clones the round's intake of past coding work read. ``halted``
+    answers true once the backend lets go of the round: the budget starts no
+    call after that, and the driver cuts the replay in flight. The replays go
+    on while comparisons are open, up to the round's ceiling while the plan's
+    windows can be read, and up to ``cap`` while they cannot.
     """
     newest = turns.turns(limit=1)
     if not newest:
@@ -179,11 +176,12 @@ def build(
         env=env,
         argv_prefix=prefix,
         session_id=lead.session_id,
+        halted=halted,
     )
     world = FirstMoveWorld(
         platform=platform,
         driver=driver,
-        budget=Budget(cap, usage=_usage, idle=idle),
+        budget=Budget(CEILING_CALLS, fallback=cap, usage=_usage, idle=idle, halted=halted),
         offered=frozenset(str(row["name"]) for row in rows),
         recorded=turns.turn,
     )

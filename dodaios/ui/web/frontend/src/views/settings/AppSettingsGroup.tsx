@@ -246,13 +246,16 @@ function AutostartRow() {
   );
 }
 
-const CHANNEL_LABELS: Record<string, string> = { telegram: "Telegram", discord: "Discord", slack: "Slack" };
+const CHANNEL_LABELS: Record<string, string> = {
+  telegram: "Telegram", discord: "Discord", slack: "Slack", whatsapp: "WhatsApp",
+};
 
 /**
- * "Keep agents running after closing": on quit the app hands routines and chat
- * channels to a windowless background service, which hands them back when the
- * app opens again. The second row makes the login entry start only that
- * service. The line under the first says what a quit would keep right now.
+ * "Keep agents running after closing": on quit the app hands routines, chat
+ * channels and the self-improvement learning to a windowless background
+ * service, which hands them back when the app opens again. The second row
+ * makes the login entry start only that service. The line under the first
+ * says what a quit would keep right now.
  */
 function BackgroundAgentsRows() {
   const t = useT();
@@ -283,6 +286,7 @@ function BackgroundAgentsRows() {
     parts.push(fill(t("settings_view.background_agents.routines"), { count: work.routines }));
   }
   for (const channel of work?.channels ?? []) parts.push(CHANNEL_LABELS[channel] ?? channel);
+  if (work?.learning) parts.push(t("settings_view.background_agents.learning"));
 
   return (
     <>

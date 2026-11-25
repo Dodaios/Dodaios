@@ -1158,33 +1158,6 @@ def _start_background_service_duties(state, stop_event, *, persistent: bool = Fa
     return task, tray
 
 
-async def _drain_running_routines(state, *, drain_s: float, poll_s: float) -> None:
-    """Let routine runs already in flight finish (bounded) before stopping.
-
-    Stopping cancels their token; a long agent run would otherwise be lost
-    just because the user opened the window. The desktop waits longer than
-    this budget before it stops the service itself.
-    """
-    from loguru import logger
-
-    from dodaios.core import background_service as bg
-
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + drain_s
-    running = bg.work_from_state(state).running
-    if running:
-        logger.info(
-            "background: {} routine run(s) still in flight — up to {:.0f}s to finish",
-            running,
-            drain_s,
-        )
-    while running and loop.time() < deadline:
-        await asyncio.sleep(poll_s)
-        running = bg.work_from_state(state).running
-    if running:
-        logger.warning("background: {} run(s) still going — they stop with the service", running)
-
-
 async def _watch_background_service(
     state,
     stop_event,
@@ -1194,7 +1167,8 @@ async def _watch_background_service(
     idle_strikes: int | None = None,
 ) -> None:
     """End the service when the desktop asks for the app back, or when the
-    work it was started for is gone (no armed routine, no channel, no run)."""
+    work it was started for is gone (no armed routine, no channel, no run, no
+    learning the person keeps running)."""
     from loguru import logger
 
     from dodaios.core import background_service as bg
@@ -1208,7 +1182,7 @@ async def _watch_background_service(
     while not stop_event.is_set():
         await asyncio.sleep(poll)
         if bg.handover_requested():
-            await _drain_running_routines(state, drain_s=bg.HANDOVER_DRAIN_S, poll_s=poll)
+            await bg.hand_back(state, drain_s=bg.HANDOVER_DRAIN_S, poll_s=poll)
             logger.info("background: the desktop app is opening — handing the agents back")
             stop_event.set()
             return
@@ -1220,7 +1194,7 @@ async def _watch_background_service(
             continue
         strikes += 1
         if strikes >= strikes_needed:
-            logger.info("background: no routines, channels or runs left — service exits")
+            logger.info("background: no routines, channels, runs or learning left — service exits")
             stop_event.set()
             return
 

@@ -16,7 +16,7 @@ Quality comes first. Between two versions that are equally good, the cheaper
 one is better.
 
 The number a person sees is the **learned advantage**: the assistant as it is
-now against the assistant as it ships, in the same night, on the same tasks,
+now against the assistant as it ships, in the same round, on the same tasks,
 with the same model. A change of the model or of a coding CLI moves both sides
 alike, so it cannot pass as learning.
 
@@ -34,7 +34,7 @@ alike, so it cannot pass as learning.
  benchmark     tasks, splits, results          tuner      parameters
  gate          paired test, evidence           reflector  lessons
  registry      candidate, trial, live, undo    skill reviser, brief shadow
- night cycle   idle time, budget               coding policy, meta level
+ round cycle   idle time, budget               coding policy, meta level
 ```
 
 The kernel is `dodaios/rsi/` and `dodaios/self_change/`. Both are core paths:
@@ -110,8 +110,8 @@ message brings up (`recall_for` in `dodaios/memory/vault/runtime.py`).
 ### Tasks from your own memory and messages
 
 What the assistant should be good at is this person, not an invented one. So
-an installation builds its own recall tasks, at night
-(`dodaios/rsi/bench/own/`), on a copy of the memory taken that night:
+an installation builds its own recall tasks, in every learning round
+(`dodaios/rsi/bench/own/`), on a copy of the memory taken in that round:
 
 - **Questions.** For a memory, a model writes two messages the person might
   send that need exactly that memory, in the person's own language and tone
@@ -131,10 +131,21 @@ with learned ones, so the tasks are not shaped by what they are meant to judge.
 The memories and messages go to the provider the person's assistant already
 answers on, on its subscription or a local model, and to no one else. Memories
 marked sensitive are never sent. A key that bills per token is never used:
-without a subscription or a local model no tasks are made and the nights stay
-quiet. A night makes at most eight such calls, however much there is to do; while
-there are fewer than 30 of the person's own tasks in the select split (too few for
-the gate to decide), at most 24, so the first decision comes in one or two nights.
+without a subscription or a local model no tasks are made and the rounds stay
+quiet.
+
+How many calls a round makes is the work's to decide (`night.tasks_wanted`).
+Building goes on while the gate still lacks tasks: fewer than 30 in the select
+split (too few to decide on a candidate), fewer than 15 in the guard split (too
+few to check a change in effect), or a select split whose error budget is spent
+until it has grown. It stops when the gate has enough, when every memory and
+message was used, or when three batches in a row added no task. Every call
+asks the round's budget first ("What a round may spend"), on the plan the
+assistant's seat bills. While that plan's usage cannot be read (a local model,
+a CLI whose usage this build cannot read), the fixed caps of before hold: at
+most eight calls a round, or 24 while there are fewer than 30 of the person's
+own tasks in the select split, so the first decision comes in one or two
+rounds.
 
 Forgetting reaches the tasks: when a memory is forgotten or replaced, every
 task that names it is retired and its text erased.
@@ -143,13 +154,13 @@ On the maintainer's installation one run of three calls gave 24 question
 tasks from 12 memories and 6 message tasks from 8 messages, 5 of which need no
 memory; the two askings disagreed on the other 2, which were left out.
 
-Five whole nights on a copy of the maintainer's memory and messages
-(2026-11-24, 27 model calls, eight per night before the ramp-up above existed):
-the nights built 197 tasks, 107 of them real messages that need no memory.
-Nothing could be decided in the first two nights (15 and 28 select tasks). In
-night 3 the tuner proposed `recall.min_score` 0 -> 4 and the gate let it in
-(as good on 44 tasks and 33 % cheaper); night 4 checked it again on 26 new
-guard tasks, kept it, and let in 4 -> 8 the same way. Night 5 turned down
+Five whole rounds on a copy of the maintainer's memory and messages
+(2026-11-24, 27 model calls, eight per round before the ramp-up above existed):
+the rounds built 197 tasks, 107 of them real messages that need no memory.
+Nothing could be decided in the first two rounds (15 and 28 select tasks). In
+round 3 the tuner proposed `recall.min_score` 0 -> 4 and the gate let it in
+(as good on 44 tasks and 33 % cheaper); round 4 checked it again on 26 new
+guard tasks, kept it, and let in 4 -> 8 the same way. Round 5 turned down
 `recall.entity_boost` 1.5 -> 1.9 (no gain, 14 % dearer). The learned advantage
 on 36 sealed tasks went from 0 to +11.1 points (0.583 as shipped, 0.694 now),
 and the memories a message brings into the prompt from 112 to 43 tokens on
@@ -215,13 +226,13 @@ The repository is read in two steps: one walk over the subjects of the default
 branch, then the paths and line counts of only the pull requests that are
 asked about.
 
-Every night does this intake first (`night._past_work`), before its records
+Every round does this intake first (`night._past_work`), before its records
 are gone. The repositories are the ones the recorded sessions ran in, one per
 repository however many worktrees it has (`intake.session_folders`). It calls
 no model; a record or clone that cannot be read is logged and costs nothing
-else of the night. The night's report says how many tasks it stored. Measured
+else of the round. The round's report says how many tasks it stored. Measured
 on 2026-11-23 on the maintainer's machine: 154 sessions in 2 repositories, 261
-tasks stored in 48 seconds the first night, 31 seconds on later nights with
+tasks stored in 48 seconds the first round, 31 seconds on later rounds with
 nothing new. The `brief` tasks are measured by the brief replay (see "Replaying
 a lead turn up to its brief"); no runner is registered for `coding` yet, so those
 tasks are kept, not measured.
@@ -298,11 +309,11 @@ cheaper than handing over. Anything else (the shell, the person's memory, a
 look outside the repository, the kit asked for again, a fifth look) is void
 with what it was.
 
-**The repository as it was.** For each repository a night makes one scratch
+**The repository as it was.** For each repository a round makes one scratch
 clone under `rsi/brief` in the data folder (`git clone --shared --no-checkout`
 from the person's clone: it borrows the objects and never touches that clone,
 its index, its branches or its worktrees) and moves it to each task's commit,
-hooks and large-file downloads off. It is removed at the end of the night. A
+hooks and large-file downloads off. It is removed at the end of the round. A
 task whose repository is not on this machine, whose commit is not in the
 clone, or whose request showed a picture is void with the reason, before
 anything is spent.
@@ -314,7 +325,7 @@ request and one fixed line, *"(Have a coding agent do this, in the repository
 <id>, local folder <folder>.)"*. The standing lines are applied as the run's
 overlay says. Both arms of every comparison get the same template and the same
 line. The pin keeps a result reusable and a comparison the budget cut short
-comparable on the next night; the newest turn changes with every message.
+comparable on the next round; the newest turn changes with every message.
 
 What the fixed line costs in fidelity: the person typed the request into a
 coding agent, so it never reached the lead. The line says what that choice
@@ -339,12 +350,12 @@ an installed copy of the app.
 
 **Cost and budget.** A task's cost is the lead's message and the brief, in
 tokens: the line under test rides in every message, the brief is what the
-agent then reads. A brief replay counts one call against the night's replay
+agent then reads. A brief replay counts one call against the round's replay
 limit, and one more for each call it answers (each makes the CLI ask the model
 again). The limit is the one first_move uses: one `Budget` object serves both
-worlds of a night (see "What a night's replays may spend"). A run the limit
+worlds of a round (see "What a round may spend"). A run the limit
 cuts in the middle is void as cut by the budget, and the comparison carries on
-the next night.
+the next round.
 
 **What it cannot see.** Whether the brief said what the person had to add
 afterwards; whether the brief check that may send a brief back once would
@@ -395,7 +406,7 @@ too new to know, and one whose record does not say which tool it called (an
 older row that kept the schema load `ToolSearch` instead of the call after it).
 A task holds no words of the person's, only the row it replays and the tool of
 the right move; when the row is gone (the chat was deleted, the row aged out),
-the task is retired. Every night takes these in first (`bench/own/lead.py`). No
+the task is retired. Every round takes these in first (`bench/own/lead.py`). No
 model is called for it.
 
 ### Replaying a lead turn
@@ -417,7 +428,7 @@ denied. The stream is read with the live chat's own parser; at the first tool
 call (a schema load is not one) or the end of a text answer, the CLI and what
 it started are stopped.
 
-What answers is fixed for a night: CLI and its version, model, effort and tool
+What answers is fixed for a round: CLI and its version, model, effort and tool
 list. It is part of the result's fingerprint, with the switches the domain
 reads and nothing else that is learned, so an unchanged arm is never paid for
 twice: a counted result of the same task content under the same arm, from the
@@ -430,29 +441,53 @@ record names it, it is not part of the input), so a replay starts a fresh
 conversation with the recorded system prompt and message. Only Claude Code has a
 replay today; the domain's tasks wait on another lead CLI.
 
-### What a night's replays may spend
+### What a round may spend
 
-Fixed in `dodaios/rsi/budget.py` and asked before every call:
+A round makes as many model calls as its work needs: task building goes on
+while the gate lacks tasks (see "Tasks from your own memory and messages"),
+and replays go on while comparisons are open (a result is reused per arm, so
+a finished comparison asks nothing). What it may make is fixed in
+`dodaios/rsi/budget.py`, not in a setting, and asked before every single call
+(one `Budget` per kind and round: one for task building, one shared by the
+first_move and brief replays):
 
-- only on the lead's plan: Claude Code signed in, no API key in its
-  environment (it would bill that key per token), not cooling down after a
+- only on a subscription or a local model, never a key billed per token. For
+  the replays that means the lead's plan: Claude Code signed in, no API key in
+  its environment (it would bill that key per token), not cooling down after a
   limit. Without that, no replay is built and the tasks wait;
-- only while the person is away; a call is not started once they are back;
-- at most **40 replay calls a night**, for first_move and brief together (one
-  `Budget` object serves both; a brief replay takes one call and one more for
-  each call it answers). A lead call carries the lead's system prompt,
-  about 50 000 characters (some 12 500 tokens), plus the CLI's own prompt and
-  the tool list; 40 calls are roughly half a million input tokens, most of them
-  read from the provider's cache because the system prompt repeats. That is
-  about one long working session of the person's, and it finishes one
-  comparison of a candidate on 30 tasks (60 calls) in two nights;
-- the plan's usage windows (`agent_usage`, read at most once a minute): no
-  call while any window is 80 % full, and no more than 20 % of a window spent
-  in one night (`night.BUDGET_SHARE`). When they cannot be read, the cap
-  alone applies.
+- only while the person is away; a call is not started once they are back,
+  nor once the backend lets go of the round (the app opens over the
+  background service, or the backend stops);
+- while the plan's usage windows can be read (`budget.plan_usage`, through
+  `agent_usage`, at most once a minute; a reading counts only when it is live
+  or at most 15 minutes old, because a snapshot that does not move could never
+  stop a round): no call while any window is 80 % full, and no more than 20 %
+  of a window spent in one round (`budget.BUDGET_SHARE`, measured from where
+  the window stood at the round's first call);
+- while they cannot be read: the fixed caps of before, 8 calls to build tasks
+  (24 while too few tasks exist to decide on) and **40 replays**;
+- and never more than **200 calls of one kind** in a round
+  (`budget.CEILING_CALLS`), whatever the plan says. This is a guard against a
+  fault, not the limit in practice: the first decision on the person's own
+  recall tasks needs about 120 tasks, 12 to 20 calls; a comparison of a
+  candidate on 30 replayed tasks is 60 calls, and a round that checks a
+  change, decides on one and measures the advantage makes about three. A
+  usage reading that stays live but stops moving, or a model whose answers
+  add nothing, still ends there at a known cost: 200 lead calls are about 2.5
+  million input tokens, most of them read from the provider's cache, about
+  what five long working sessions of the person send.
+
+A lead call carries the lead's system prompt, about 50 000 characters (some
+12 500 tokens), plus the CLI's own prompt and the tool list. A first_move
+replay is one call; a brief replay one, and one more for each call it answers.
+
+The round's report keeps, per budget, the calls, why it stopped, whether the
+windows could be read, and the most of one window it used (`share`, in
+percent points). The page shows that per round, and the newest round's in its
+foot (`status.last_round` in `GET /api/self-improvement`).
 
 A comparison the budget cuts short is not decided "no clear difference": its
-results are kept, the next night measures the rest, and the error budget is
+results are kept, the next round measures the rest, and the error budget is
 spent only when it is decided. A verdict that is already clear on the tasks
 measured so far stands, because the interval holds at every look. The learned
 advantage is measured only when something learned changes what a replay
@@ -552,7 +587,7 @@ Today the memory recall reads thirteen parameters (how strongly a pinned or a
 fresh memory is preferred, how many memories and lessons a message may bring
 up, how many characters they may take, and how well a memory must match to be
 shown at all). Their defaults are the constants the code had; the last one is
-new and ships switched off (0), so nothing changes until a night proves a
+new and ships switched off (0), so nothing changes until a round proves a
 value for it.
 
 ## Notes the assistant wrote for itself
@@ -564,13 +599,53 @@ comparison. A how-to is different: the assistant watched a tool fail and a
 later call work, and wrote itself a note that rides in later prompts. That is
 the assistant changing its own behaviour.
 
-Each night every current how-to note gets an entry of the surface `lesson` in
+Each round every current how-to note gets an entry of the surface `lesson` in
 the registry (`dodaios/rsi/adopt.py`). So it shows in the list of what the
 assistant changed in itself, the person can take it back with one click (the
 note is ended in the memory), and a run of the assistant as it ships does not
 see it. The entry holds the memory's id and none of its words: a note the
 person forgot leaves nothing behind. A how-to is not measured yet; the list
 says so.
+
+### A note's track in your requests
+
+A how-to note is not measured, but the record says where it went. For each
+note in effect the page shows in how many of the person's requests the lead had
+it in front of it, how many of those went through, and the same share for the
+requests of the same period it was not shown in (`dodaios/rsi/credit.py`). The
+period starts when the note was written into the memory (it rode in prompts
+from then on, before a night took it into the registry), or with the oldest
+turn on record if that is later.
+
+- **Shown.** The memory blocks of a recorded turn (`lead_turns.db`) carry no
+  memory ids: a memory is one line, `- <text>`, a recalled one with
+  ` (since <date>)` after it. The memory keeps a note's text on one line and
+  never changes its words under the same id. So a turn showed a note when one
+  line of its system prompt or message is exactly the note's line. A note that
+  reached the model reworded or cut short is not counted.
+- **Went through.** The turn ended done, no undo call followed, and the
+  person's next message within 30 minutes did not correct it, ask the same
+  again or ask to undo it (`follow_up_kind`; the first_move tasks use the same
+  rule). A request still too new to know, a turn that carried a running task
+  on, and a recorded turn the chat record holds no request for are not counted.
+- **The minimum.** A share, and the count that went through, is given only on
+  30 requests or more; below that the page says only how often the note was
+  shown. 30 is the gate's own minimum (rule 1 in "The gate's answer"), and near
+  the usual 85 % the 95 % range of a share on 30 requests is still about 13
+  points either way (22 on 10).
+
+This is what happened, not what caused it: a note comes up when a request is
+about its subject, so the requests it was shown in are not like the others. The
+page says so in one sentence, and nothing decides on it. It calls no model,
+reads `lead_turns.db` and `agent_chat.db` at most every ten minutes, off the
+event loop, and gives the page counts, never words. A note the person forgot
+has no track. Other learned changes (parameters, standing lines) act on every
+turn once they apply, so the same period has no turns without them to set
+beside; they get no track.
+
+On a copy of the maintainer's records (2026-11-24, the day recording began): 7
+lead turns on record, 6 with a known outcome; the three how-to notes were shown
+in 6, 6 and 3 of them. No share yet.
 
 ## How coding agents are steered
 
@@ -646,7 +721,7 @@ only to about 10 points either way, and rule 4 needs 5, which takes about 120.
 it is with the assistant without that change. It stays (a change on trial
 becomes live) when it shows no harm. It is taken back when the whole interval
 is below zero, or when it is negative on the guard tasks and no longer
-positive on the select tasks measured again. Each night checks what is on
+positive on the select tasks measured again. Each round checks what is on
 trial and the newest live changes, newest first.
 
 ### The error budget
@@ -663,7 +738,7 @@ This bounds each single decision, and it means at most 0.6 wrongly admitted
 changes per budget on average. It does not promise that none slips in. That is
 what the second measurement is for: every admitted change has to hold again on
 the guard tasks, which no candidate was ever decided on, and it is checked
-there again in later nights.
+there again in later rounds.
 
 The order in which a comparison walks its tasks follows the question alone
 (the target and the version of the change), never the results. So the same
@@ -675,9 +750,12 @@ An installation decides on tasks built from the person's own work. The seed
 suite decides only in a sandbox. Without tasks of its own, an installation
 measures nothing and applies nothing: candidates wait.
 
-## The night
+## The learning round
 
-While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
+While the person is away the kernel runs one learning round
+(`dodaios/rsi/night.py`). The code calls a round a "night" (`Night`,
+`NightService`, the `nights` table); it has nothing to do with the time of
+day, and nothing the person reads says "night":
 
 1. It checks what is in effect: every change on trial and the newest live
    ones, each against the assistant without it. What no longer pays is taken
@@ -691,28 +769,42 @@ While the person is away the kernel runs one round (`dodaios/rsi/night.py`):
 5. It writes down what it did (`nights` and `series` in `bench.db`; schema step
    3 added the `parts` column, older points read as having none).
 
-Before all of this a night copies the memory and builds new tasks from the
+Before all of this a round copies the memory and builds new tasks from the
 person's own memory and messages (see above), and erases tasks about memories
 that are gone.
 
-Nothing is announced: no notice, no sound, no voice. The app looks every ten
-minutes whether a night is due: the person must have been away for 15 minutes,
-and there is at most one night in 20 hours. Measuring the recall asks no
-model; building tasks does, at most eight small calls a night (24 while too few
-tasks exist to decide on). Measuring the first move and the briefs replays lead
-turns, at most 40 calls a night for both together (see "What a night's replays
-may spend"). The limits are fixed in the code, not in a setting: only while the person is away, on the
-assistant's subscription or a local model, never a key that bills per token,
-and no more than 20 % of a plan's usage window in one night. The person's stop
-(`Night.pause`) is kept in `bench.db` and
-survives a restart; while it is set nothing is proposed, measured or changed.
+Nothing is announced: no notice, no sound, no voice. The backend looks every
+ten minutes whether a round is due: the person must have been away for 15
+minutes, and there is at most one round in 20 hours, at any time of day.
+
+The backend is the desktop app while its window is open, and the windowless
+background service while it is closed ([background-service.md](background-service.md)).
+While the person has not stopped the loop, the learning is work that service
+keeps: quitting the app hands it over, and the service stays for as long as
+the computer runs. Both read and write the same `bench.db`, registry and
+parameter files, so the page shows what the service did when the app opens
+again. When the app opens over the service, a running round is halted
+(`NightService.halt`): no model call starts, the call in flight is cut, and
+the round writes its report without further calls, as when the person comes
+back. The service waits for that at most 30 s; a round still running then
+stops with it, writes no report, and runs again later.
+
+Measuring the recall asks no model; building tasks does, and measuring the
+first move and the briefs replays lead turns, each as often as the work needs
+and within the round's budget (see "What a round may spend"): only while the
+person is away, on the assistant's subscription or a local model, never a key
+that bills per token, never above 80 % of a usage window and no more than
+20 % of a window in one round, the fixed caps of before while the windows
+cannot be read, and never more than 200 calls of one kind. The person's stop
+(`Night.pause`) is kept in `bench.db` and survives a restart; while it is set
+nothing is proposed, measured or changed.
 
 ### The tuner
 
 The first learner (`dodaios/learners/tuner.py`) needs no model. For every
 parameter a domain measures it tries values 1, 2, 4 and 8 steps below and above
 the value in effect, each alone, on the practice tasks, and proposes at most
-one move per night: the one with the largest gain, or else the cheapest one
+one move per round: the one with the largest gain, or else the cheapest one
 that scores no worse. It may be as greedy as it likes; the gate decides on
 other tasks. It does not ask again for a value the gate turned down in the
 last 30 days.
@@ -755,13 +847,13 @@ python -m dodaios.rsi.night --sandbox --plant recall.relative_floor=0.9 --nights
 ```
 
 `--sandbox` builds a throwaway installation that decides on the seed suite and
-prints what each night did. `--plant` puts a value in effect first, as if an
-earlier night had learned it. With the shipped values the tuner's proposals
+prints what each round did. `--plant` puts a value in effect first, as if an
+earlier round had learned it. With the shipped values the tuner's proposals
 are turned down ("no clear difference on 84 tasks"): the seed suite is too
 small to prove an effect of one or two points. With `--plant
-recall.min_score=12`, a value that looks up almost nothing, the first night
+recall.min_score=12`, a value that looks up almost nothing, the first round
 lets in `recall.min_score = 8.0` as "better on 84 tasks" (+0.12, between +0.02
-and +0.21), and the second night confirms it on the guard tasks. The step
+and +0.21), and the second round confirms it on the guard tasks. The step
 after that (4.0, +0.11) is not proven on 84 tasks and stays out: a small suite
 proves large effects only.
 
@@ -783,7 +875,7 @@ The app is updated often, and nothing learned may be lost by an update.
 - A task keeps its id when its content is corrected; results belong to the
   content hash they were measured on, so only those go stale.
 - The fingerprint holds the app version. After an update the assistant as it
-  ships is measured again, and the curve marks the update. The first night
+  ships is measured again, and the curve marks the update. The first round
   after an update checks everything that was learned, not only the newest.
 
 This is tested against frozen states. `tests/fixtures/rsi/upgrade/v1/` is what
@@ -791,7 +883,7 @@ an installation had learned under the version that introduced the kernel: its
 three files as SQL text and a manifest. `tests/unit/rsi/test_upgrade.py` opens
 every such folder with today's code and requires that what was learned still
 applies, that every change and its evidence are readable, that no task moved
-to another split, and that a night carries on from there and can still take a
+to another split, and that a round carries on from there and can still take a
 change back to the exact earlier value. A release that changes a kernel schema
 adds a new folder (`python -m tests.unit.rsi.upgrade_fixture v2`); an old one
 is never regenerated.
@@ -803,24 +895,32 @@ The Self-improvement page (Workspace, after "Built for you";
 `GET /api/self-improvement` (`dodaios/rsi/overview.py`; the shape is pinned in
 `tests/unit/ui/web/test_self_improvement_routes.py`). Top to bottom:
 
-- the state in words (running or stopped, the last night, when the next one
-  may come) and one button: Stop, or Resume while stopped;
+- the state in words (running or stopped, the last round, when the next one
+  may come) and one button: Stop, or Resume while stopped. The page speaks of
+  learning rounds (German "Lernrunde"), never of nights, in every language;
 - per measured area the learned advantage in points, with the two scores and
   the prompt cost behind it. A difference whose range includes zero is called
   "not certain yet", whatever its sign;
-- the advantage night by night with its range, a mark where the app version
+- the advantage round by round with its range, a mark where the app version
   changed, and a table of the same numbers;
 - what is in effect, each change with the measurement that let it in and the
   one that checked it again, and a one-click "Take back"; a change opens into a
   sheet with the stored reasons as they are;
-- the last nights (three shown, the rest folded), then what waits to be
-  measured and what rests after an update, when there is any.
+- the last rounds (three shown, the rest folded), each with what it did and
+  what it spent ("Model calls: 62, about 4.3 % of a usage window", or "within
+  the fixed limits" when the plan's usage could not be read), then what waits
+  to be measured and what rests after an update, when there is any;
+- at the foot, how it works: when a round runs (away 15 minutes, at most once
+  in 20 hours, at any time of day, also while the window is closed), and the
+  budget in plain words (as many calls as the work needs, never at 80 % of a
+  window, at most 20 % of a window per round, the fixed limits without a
+  usage reading, the ceiling), with what the newest round spent.
 
 Until the person's own tasks exist it measures nothing, and the page says so
 in two sentences instead of drawing anything. The page words everything from
 its own strings (`locales/self_improvement/`); the only backend text it shows
 as it is are the stored reasons, in the sheet. It repaints on
-`SelfChangeChanged` and polls every five minutes for a night's new point.
+`SelfChangeChanged` and polls every five minutes for a round's new point.
 There is no other control on purpose: the person only stops or undoes
 (`POST /api/self-improvement/pause`, `POST /api/self-improvement/changes/{id}/undo`).
 
@@ -833,13 +933,14 @@ There is no other control on purpose: the person only stops or undoes
 | Kernel and evidence paths refused by the registry | built |
 | Parameters with limits, read by the memory recall; learned values survive updates | built |
 | A recall that can be replayed without leaving a trace (no use count, no cache) | built |
-| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | stored every night; `brief` measured by its replay, `coding` not yet |
+| Tasks from past coding work (`brief`, `coding`), read from CLI records and merged pull requests | stored every round; `brief` measured by its replay, `coding` not yet |
 | The brief domain's check: does a brief point at where the work turned out to be | built; the brief comes from the replay below |
 | The paired test whose bounds stay valid at every look (`dodaios/rsi/sequential.py`) | built |
 | `bench.db`, the seed suite, the recall domain, runs under overlays | built |
 | The measured gate: rules, error budget, decisions on candidates and on changes in effect | built |
-| The tuner, the night cycle, automatic rollback, the sandbox | built |
-| Recall tasks from the person's own memory and messages, made at night | built |
+| The tuner, the round cycle, automatic rollback, the sandbox | built |
+| Rounds while the window is closed: the background service keeps the learning; a hand-back halts a running round and waits for its report | built |
+| Recall tasks from the person's own memory and messages, made in every round | built |
 | The lead's model input as one function (`lead_model_input`), its message bytes pinned by a test | built |
 | Lead turns on record (`lead_turns.db`): what the lead was given and its first move | built; replayed by the first_move domain |
 | The page that shows it | built |
@@ -847,13 +948,15 @@ There is no other control on purpose: the person only stops or undoes
 | A mined line for the first brief goes on trial by itself; nothing waits for the owner | built |
 | Coding policy changes in `GET /api/self-improvement`, with the measurement that let them in | built |
 | The first_move domain's check, shared with the routing eval; its 226 seed tasks packaged and pinned to the YAML | built |
-| first_move tasks from the person's lead turns: corrected-then-accepted (can show a gain), accepted (guards) | built; taken in every night |
+| first_move tasks from the person's lead turns: corrected-then-accepted (can show a gain), accepted (guards) | built; taken in every round |
 | The replay of a lead turn on Claude Code: tools offered, none run, stopped at the first move; results reused per arm | built; other lead CLIs wait |
-| The budget of a night's replays: 40 calls, 20 % of a usage window, never above 80 %, only on the plan, only while away | built |
+| The budget of a round: as many calls as the work needs, 20 % of a usage window, never above 80 %, the old caps (8/24 to build, 40 replays) without a usage reading, a ceiling of 200 calls of one kind, only on the plan, only while away | built |
 | The line learner, and `FIRST_LINE` as the one learnable standing line | built |
 | The brief replay: a mined request in the pinned lead input, the kit and the folder look-ups answered from the repository at the task's commit, the hand-off scored | built |
-| One night's 40 replay calls shared by first_move and brief | built |
+| One round's replay budget shared by first_move and brief | built |
 | `BRIEF_LINE` learnable as one of three fixed wordings, measured by the brief domain | built |
 | A brief replay asks in the default mode and has none of the CLI's own file or shell tools; only the app's own server is answered | built |
+| A learned note's track in the person's requests: shown in how many, how many went through, beside the requests without it; a share from 30 on | built; observed, decides nothing |
+| The track on the page: a phrase in the note's row, the sentence and its caveat in the note's sheet | built |
 | Whether a brief said what the person had to add afterwards (a judge) | later |
 | Always-on recording of work, the other domains, lessons, the jury | later |

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -124,3 +125,20 @@ def test_a_view_of_an_unconnected_folder_is_not_found(client: TestClient, tmp_pa
         client.get("/api/agentic-ide/git/scm/status", params={"workspace_id": view}).status_code
         == 404
     )
+
+
+def test_a_worktree_outside_the_project_folder_is_read(
+    project: Path, tmp_path: Path, monkeypatch
+) -> None:
+    """An agent's worktree may sit beside the repository, not inside it."""
+    worktree = tmp_path / "mit-feature"
+    _git(["worktree", "add", "-q", "-b", "feature", str(worktree)], project)
+    monkeypatch.setattr(thread_folders, "_known_roots", lambda: [project.resolve()])
+    monkeypatch.setattr(
+        folder_view.library,
+        "list_projects",
+        lambda include_archived=False: [SimpleNamespace(path=str(project))],
+    )
+    monkeypatch.setattr(folder_view, "_worktree_answers", {})
+
+    assert folder_view.folder_of(folder_view.view_id(worktree)) == worktree
