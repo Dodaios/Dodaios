@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.cli_catalog import catalog_key
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     _PREPARED_MODELS,
     CLI_BINARIES,
@@ -42,7 +42,7 @@ def agy_argv_prefix() -> list[str]:
         cli = None
     if cli is not None and cli.kind == "agy":
         return list(cli.argv_prefix)
-    binary = _rc_base._which(*CLI_BINARIES["agy-cli"])
+    binary = _rc._which(*CLI_BINARIES["agy-cli"])
     if not binary:
         raise CliUnavailable("Antigravity CLI (agy) is not installed or not on PATH.")
     return [binary]
@@ -118,7 +118,7 @@ def _strip_effort_label(label: str) -> str:
 
 def _agy_catalog_is_live() -> bool:
     """The cached catalog is what ``agy models`` answered, not the fallback table."""
-    return bool(_AGY_CATALOG.get("live")) and _agy_catalog_cached() is not None
+    return bool(_rc._AGY_CATALOG.get("live")) and _rc._agy_catalog_cached() is not None
 
 
 def agy_model_args(
@@ -206,7 +206,7 @@ def plan_agy(
         # actually sees Jarvis' tools (gmail, linear, the rest of the gateway).
         dodaios_harness.install_agy_jarvis_plugin(work, identity.session_id)
     argv = [
-        *agy_argv_prefix(),
+        *_rc.agy_argv_prefix(),
         "--output-format",
         "stream-json",
         "--add-dir",
@@ -225,10 +225,10 @@ def plan_agy(
         argv += ["--dangerously-skip-permissions"]
         if mode == "accept-edits":
             argv += ["--mode", "accept-edits"]
-    argv += agy_model_args(model, effort, _agy_catalog_cached(), live=_agy_catalog_is_live())
+    argv += agy_model_args(model, effort, _rc._agy_catalog_cached(), live=_agy_catalog_is_live())
     if resume:
         argv += ["--conversation", resume]
-    env = dodaios_harness.apply_env(_rc_base._account_env("antigravity"))
+    env = dodaios_harness.apply_env(_rc._account_env("antigravity"))
     env.setdefault("AGY_CLI_HIDE_LOGO", "1")
     env.setdefault("PYTHONIOENCODING", "utf-8")
     # Prompt on stdin: no argv length limit, and no ``-p`` that could swallow
@@ -245,8 +245,8 @@ def _agy_catalog_cached() -> list[dict[str, Any]] | None:
     prepared = _PREPARED_MODELS.get()
     if prepared is not None and "agy-cli" in prepared:
         return prepared["agy-cli"]
-    key = catalog_key(agy_argv_prefix(), _rc_base._account_env("antigravity"), _catalog_cwd())
-    rows = _AGY_CATALOG.get("rows") if _AGY_CATALOG.get("key") == key else None
+    key = catalog_key(_rc.agy_argv_prefix(), _rc._account_env("antigravity"), _catalog_cwd())
+    rows = _rc._AGY_CATALOG.get("rows") if _rc._AGY_CATALOG.get("key") == key else None
     return rows if isinstance(rows, list) else None
 
 
@@ -277,14 +277,14 @@ def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list
     """
     import subprocess
 
-    env = _rc_base._account_env("antigravity")
-    argv = agy_argv_prefix()
+    env = _rc._account_env("antigravity")
+    argv = _rc.agy_argv_prefix()
     cwd = _catalog_cwd()
     key = catalog_key(argv, env, cwd)
     now = time.monotonic()
-    cached = _agy_catalog_cached()
+    cached = _rc._agy_catalog_cached()
     model_known = not required_model or any(row["id"] == required_model for row in cached or [])
-    if cached is not None and model_known and now - _AGY_CATALOG["at"] < _AGY_CATALOG_TTL_S:
+    if cached is not None and model_known and now - _rc._AGY_CATALOG["at"] < _AGY_CATALOG_TTL_S:
         _remember_models("agy-cli", cached)
         return list(cached)
     raw: list[dict[str, Any]] | None = None
@@ -314,7 +314,7 @@ def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list
     except (CliUnavailable, OSError, ValueError, subprocess.SubprocessError) as exc:
         log.debug("agent chat: agy models unavailable: %s", exc)
     rows = agy_model_catalog(raw)
-    _AGY_CATALOG.update(rows=rows, at=now, key=key, live=raw is not None)
+    _rc._AGY_CATALOG.update(rows=rows, at=now, key=key, live=raw is not None)
     _remember_models("agy-cli", rows)
     return list(rows)
 
@@ -510,7 +510,7 @@ def translate_agy_line(obj: dict[str, Any], st: _AgyState) -> list[dict[str, Any
 def _agy_model_ladder(model: str) -> list[str] | None:
     """agy's effort levels for ``model`` from the cached catalog (``None`` = unknown)."""
     try:
-        rows = _agy_catalog_cached()
+        rows = _rc._agy_catalog_cached()
     except CliUnavailable:  # agy is missing: the planner reports that right after this
         return None
     for row in rows or []:
@@ -522,7 +522,7 @@ def _agy_model_ladder(model: str) -> list[str] | None:
 def _agy_effective_effort(model: str, effort: str) -> str:
     """The ``--effort`` value agy is launched with for ``model`` + ``effort``."""
     try:
-        rows = _agy_catalog_cached()
+        rows = _rc._agy_catalog_cached()
     except CliUnavailable:  # agy is missing: the planner reports that right after this
         rows = None
     args = agy_model_args(model, effort, rows)

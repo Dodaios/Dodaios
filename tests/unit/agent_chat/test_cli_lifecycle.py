@@ -196,7 +196,7 @@ _RESULT_LINE = json.dumps(
 
 async def test_a_long_silent_turn_is_not_cut_off(tmp_path: Path, monkeypatch):
     """Silent work before the final answer is never stopped by a clock."""
-    monkeypatch.setattr(runner_cli.plans, "_ACP_WATCH_TICK_S", 0.05)
+    monkeypatch.setattr(runner_cli, "_ACP_WATCH_TICK_S", 0.05)
     source = f"import time\ntime.sleep(1.5)\nprint({_RESULT_LINE!r}, flush=True)\n"
     outcome, _proc = await _drive_fake_claude(tmp_path, source)
     assert outcome.status == "done", outcome.error
@@ -217,7 +217,7 @@ async def test_a_cli_lingering_after_its_answer_ends_the_turn_promptly(
 ):
     """The answer is in: the turn ends within about a second, as done, and the
     lingering process is killed in the background after a short grace."""
-    monkeypatch.setattr(runner_cli.drive, "_REAP_GRACE_S", 0.3)
+    monkeypatch.setattr(runner_cli, "_REAP_GRACE_S", 0.3)
     source = f"import os, time\nprint({_RESULT_LINE!r}, flush=True)\n{ending}\n"
     t0 = time.monotonic()
     outcome, proc = await _drive_fake_claude(tmp_path, source, reap=False)
@@ -310,7 +310,7 @@ async def test_a_late_answer_after_a_background_task_is_part_of_the_turn(
 async def test_a_cli_still_writing_after_its_answer_is_not_killed(tmp_path: Path, monkeypatch):
     """Post-answer work (a SessionEnd hook, a flush) that still prints is no
     stall: the silence limit restarts with every line, there is no clock."""
-    monkeypatch.setattr(runner_cli.drive, "_REAP_GRACE_S", 0.5)
+    monkeypatch.setattr(runner_cli, "_REAP_GRACE_S", 0.5)
     source = (
         "import sys, time\n"
         f"print({_RESULT_LINE!r}, flush=True)\n"
@@ -353,7 +353,7 @@ async def test_a_handed_over_cli_is_never_reaped():
 async def test_the_drain_never_cuts_a_line_still_being_handled(monkeypatch):
     """A pump busy with a line (a slow emit, a stalled loop) is not cut off by
     the drain window, and a line still buffered is read first."""
-    monkeypatch.setattr(runner_cli.drive, "_PIPE_DRAIN_S", 0.05)
+    monkeypatch.setattr(runner_cli, "_PIPE_DRAIN_S", 0.05)
     stdout = asyncio.StreamReader()
     for line in (b"one\n", b"result\n"):
         stdout.feed_data(line)
@@ -391,7 +391,7 @@ async def test_open_background_tasks_keep_the_turn_open_without_a_clock(
     tmp_path: Path, monkeypatch
 ):
     """A result with an open task is not the end: the CLI wakes and answers again."""
-    monkeypatch.setattr(runner_cli.drive, "_RESULT_EXIT_GRACE_S", 0.1)
+    monkeypatch.setattr(runner_cli, "_RESULT_EXIT_GRACE_S", 0.1)
     started = json.dumps(
         {"type": "system", "subtype": "task_started", "task_id": "b1", "description": "pytest"}
     )
@@ -558,7 +558,7 @@ async def test_an_idle_grok_turn_says_it_waits_on_background_work(
 ):
     """Grok holds its result while background work runs; its stream may never
     say what. A turn that went quiet after its message says it waits."""
-    monkeypatch.setattr(runner_cli.drive, "_GROK_IDLE_HINT_S", 0.2)
+    monkeypatch.setattr(runner_cli, "_GROK_IDLE_HINT_S", 0.2)
     end_turn = json.dumps(
         {
             "type": "stream_event",
@@ -768,7 +768,7 @@ async def test_a_message_reaches_an_agent_that_waits_for_a_background_task(tmp_p
 async def test_a_steered_answer_does_not_end_a_turn_that_still_waits(tmp_path: Path, monkeypatch):
     """The agent answered the message; its background task still runs, so the
     turn stays open and says again what it waits for."""
-    monkeypatch.setattr(runner_cli.drive, "_RESULT_EXIT_GRACE_S", 0.1)
+    monkeypatch.setattr(runner_cli, "_RESULT_EXIT_GRACE_S", 0.1)
     source = (
         "import sys, time\n"
         "sys.stdin.readline()\n"
@@ -799,7 +799,7 @@ async def test_a_steered_answer_does_not_end_a_turn_that_still_waits(tmp_path: P
 async def test_a_wake_that_never_comes_does_not_hold_the_cli_open(tmp_path: Path, monkeypatch):
     """Every task ended and the CLI says nothing more: stdin is closed after a
     while, so a CLI with nothing left to do ends by itself."""
-    monkeypatch.setattr(runner_cli.drive, "_WAKE_GRACE_S", 0.4)
+    monkeypatch.setattr(runner_cli, "_WAKE_GRACE_S", 0.4)
     source = (
         "import sys\n"
         "sys.stdin.readline()\n"

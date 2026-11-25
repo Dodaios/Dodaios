@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 
 log = logging.getLogger("dodaios.agent_chat.runner_cli")
 
@@ -80,7 +81,7 @@ def cli_installed(runner: str) -> bool:
         from dodaios.workspace.cursor_cli import resolve_cursor_binary
 
         return resolve_cursor_binary() is not None
-    return _which(*CLI_BINARIES.get(runner, ())) is not None
+    return _rc._which(*CLI_BINARIES.get(runner, ())) is not None
 
 
 def _is_batch(binary: str) -> bool:
@@ -97,7 +98,7 @@ def _behind_shim(binary: str, agent: str) -> list[str]:
     instead; an install laid out differently keeps the shim, and
     :func:`_argv_prompt` keeps the whole message on one line for it.
     """
-    if not _is_batch(binary):
+    if not _rc._is_batch(binary):
         return [binary]
     try:
         from dodaios.workspace import agents as workspace_agents
@@ -121,7 +122,7 @@ def _json_flag_value(prefix: list[str], payload: str) -> str:
     named by its content (one file per distinct payload, rewritten never) and
     the path travels instead.
     """
-    if not (prefix and _is_batch(prefix[0])):
+    if not (prefix and _rc._is_batch(prefix[0])):
         return payload
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
     try:
@@ -148,7 +149,7 @@ def _argv_prompt(prefix: list[str], prompt: str) -> str:
     line after the first, so the lines are joined with spaces instead: the
     agent loses the layout, never the words.
     """
-    if prefix and _is_batch(prefix[0]):
+    if prefix and _rc._is_batch(prefix[0]):
         return " ".join(line.strip() for line in prompt.splitlines() if line.strip())
     return prompt
 

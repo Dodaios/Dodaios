@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
-from dodaios.agent_chat.cli_catalog import CatalogCache, catalog_key, discover_codex_models
+from dodaios.agent_chat import runner_cli as _rc
+from dodaios.agent_chat.cli_catalog import CatalogCache, catalog_key
 from dodaios.agent_chat.effort import (
     snap_to_ladder,
 )
@@ -24,7 +25,6 @@ from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
 from dodaios.agent_chat.runner_api import TurnHandle
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     _PLAN_PREAMBLE,
     _PREPARED_MODELS,
@@ -48,7 +48,7 @@ def codex_argv_prefix() -> list[str]:
         prefix = []
     if prefix:
         return list(prefix)
-    binary = _rc_base._which(*CLI_BINARIES["codex-cli"])
+    binary = _rc._which(*CLI_BINARIES["codex-cli"])
     if not binary:
         raise CliUnavailable("Codex CLI (codex) is not installed or not on PATH.")
     return [binary]
@@ -63,12 +63,12 @@ def read_codex_models(*, required_model: str = "") -> list[dict[str, Any]] | Non
     Config-isolation flags belong to ``codex exec`` and are not accepted by
     ``codex app-server``. Discovery only reads model/list; it starts no turn.
     """
-    env = _rc_base._account_env("codex")
-    argv = codex_argv_prefix()
+    env = _rc._account_env("codex")
+    argv = _rc.codex_argv_prefix()
     cwd = _catalog_cwd()
-    rows = _CODEX_CATALOG.read(
+    rows = _rc._CODEX_CATALOG.read(
         catalog_key(argv, env, cwd),
-        lambda: discover_codex_models(argv, env, cwd),
+        lambda: _rc.discover_codex_models(argv, env, cwd),
         required_model=required_model,
     )
     _remember_models("codex-cli", rows)
@@ -91,7 +91,7 @@ def plan_codex(
     # ``model_instructions_file`` REPLACES the CLI's own instructions rather
     # than adding to them, so it is not used here.)
     prompt = _identity_message("codex-cli", prompt, identity, resume)
-    base = codex_argv_prefix()
+    base = _rc.codex_argv_prefix()
     if resume:
         argv = [*base, "exec", "resume", resume, "--json"]
     else:
@@ -155,7 +155,7 @@ def plan_codex(
         models = (
             prepared.get("codex-cli")
             if prepared is not None and "codex-cli" in prepared
-            else read_codex_models()
+            else _rc.read_codex_models()
         )
         for row in models or []:
             if row.get("id") == model and "efforts" in row:
@@ -170,7 +170,7 @@ def plan_codex(
     argv += ["-"]  # prompt on stdin
     text = _PLAN_PREAMBLE + prompt if mode == "plan" else prompt
     return CliPlan(
-        argv, dodaios_harness.apply_env(_rc_base._account_env("codex")), text, "codex", resume
+        argv, dodaios_harness.apply_env(_rc._account_env("codex")), text, "codex", resume
     )
 
 

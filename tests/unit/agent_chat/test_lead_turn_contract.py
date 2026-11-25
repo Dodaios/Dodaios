@@ -374,7 +374,7 @@ async def test_a_coding_agent_is_told_which_language_the_person_reads(monkeypatc
     async def deny(*_args):
         return "deny"
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     handle = TurnHandle(
         session=SimpleNamespace(
             surface="agent", session_id="thread-1", vendor_session=None, account_id="",

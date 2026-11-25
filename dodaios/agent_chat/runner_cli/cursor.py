@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     CliPlan,
     CliUnavailable,
@@ -54,7 +54,7 @@ def plan_cursor(
     mode = normalize_permission("cursor-cli", permission_mode)
     prompt = _identity_message("cursor-cli", prompt, identity, resume)
     argv = [
-        *cursor_argv_prefix(),
+        *_rc.cursor_argv_prefix(),
         "-p",
         "--output-format",
         "stream-json",
@@ -70,7 +70,7 @@ def plan_cursor(
     if resume:
         argv += ["--resume", resume]
     argv.append(_argv_prompt(argv, prompt))
-    env = _rc_base._registry_env("cursor", _rc_base._account_env("cursor"))
+    env = _rc._registry_env("cursor", _rc._account_env("cursor"))
     return CliPlan(argv, env, None, "cursor", resume)
 
 

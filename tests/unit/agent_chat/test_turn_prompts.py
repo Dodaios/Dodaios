@@ -273,7 +273,7 @@ def _prompt_seen(
             status="done", error=None, usage={}, cost_usd=None, vendor_session=None
         )
 
-    monkeypatch.setattr(rc.drive, "_run_cli_once", once)
+    monkeypatch.setattr(rc, "_run_cli_once", once)
 
     async def emit(_ev: dict[str, Any]) -> None:
         return None
@@ -599,7 +599,6 @@ def test_a_multi_line_prompt_skips_the_batch_shim(
     # cmd.exe ends a command at the first line break: through ``opencode.cmd``
     # the task after the protocol paragraph never reached the agent.
     cmd = _npm_layout(tmp_path, "opencode", "opencode-ai", "bin", "opencode.exe")
-    monkeypatch.setattr(rc.base, "_which", lambda *names: str(cmd))
     monkeypatch.setattr(rc, "_which", lambda *names: str(cmd))
     prefix = rc.opencode_argv_prefix()
     assert prefix == [str(tmp_path / "node_modules" / "opencode-ai" / "bin" / "opencode.exe")]
@@ -613,7 +612,6 @@ def test_a_multi_line_prompt_skips_the_batch_shim(
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: "node-bin")
     kimi = _npm_layout(tmp_path, "kimi", "@moonshot-ai", "kimi-code", "dist", "main.mjs")
-    monkeypatch.setattr(rc.base, "_which", lambda *names: str(kimi))
     monkeypatch.setattr(rc, "_which", lambda *names: str(kimi))
     assert rc.kimi_argv_prefix() == [
         "node-bin",
@@ -626,7 +624,6 @@ def test_a_shim_that_stays_gets_the_prompt_on_one_line(
 ) -> None:
     lonely = tmp_path / "dsh.cmd"
     lonely.write_text("@echo off\r\n", encoding="utf-8")
-    monkeypatch.setattr(rc.base, "_which", lambda *names: str(lonely))
     monkeypatch.setattr(rc, "_which", lambda *names: str(lonely))
     assert rc.dsh_argv_prefix() == [str(lonely)]  # no package beside it: the shim stays
     plan = rc.plan_dsh(

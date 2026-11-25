@@ -81,9 +81,9 @@ async def _message_today(monkeypatch: pytest.MonkeyPatch, case: str) -> str:
     async def deny(*_args: Any) -> str:
         return "deny"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", no_briefing)
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_briefing)
     monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     monkeypatch.setattr("dodaios.core.brief_wishes.wishes_line", lambda: _WISHES)
     handle = TurnHandle(
         session=SimpleNamespace(
@@ -186,11 +186,7 @@ def test_lead_model_input_is_what_the_planner_hands_the_cli(
 ) -> None:
     from dodaios.agent_chat import dodaios_harness, runner_cli
 
-    argv = lambda: [runner.removesuffix("-cli")]  # noqa: E731
-    monkeypatch.setattr(runner_cli, prefix, argv)
-    for module in (runner_cli.claude, runner_cli.codex, runner_cli.grok, runner_cli.agy, runner_cli.opencode, runner_cli.kimi, runner_cli.custom, runner_cli.cursor):
-        if hasattr(module, prefix):
-            monkeypatch.setattr(module, prefix, argv)
+    monkeypatch.setattr(runner_cli, prefix, lambda: [runner.removesuffix("-cli")])
     monkeypatch.setattr(dodaios_harness, "mcp_config_json", lambda *_a: '{"mcpServers": {}}')
     identity = _identity(tmp_path)
     plan = runner_cli._PLANNERS[runner](  # noqa: SLF001
@@ -235,7 +231,7 @@ def test_without_the_tool_server_claude_code_gets_no_system_prompt(
 ) -> None:
     from dodaios.agent_chat import dodaios_harness, runner_cli
 
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(dodaios_harness, "mcp_config_json", lambda *_a: None)
     identity = _identity(tmp_path)
     plan = runner_cli.plan_claude(

@@ -233,8 +233,8 @@ def test_runtime_refusals_are_classified():
 
 @pytest.fixture
 def quick_retries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    monkeypatch.setattr(rc.turn, "_RUNTIME_READY_FIRST_DELAY_S", 0.05)
-    monkeypatch.setattr(rc.turn, "_RUNTIME_READY_MAX_DELAY_S", 0.1)
+    monkeypatch.setattr(rc, "_RUNTIME_READY_FIRST_DELAY_S", 0.05)
+    monkeypatch.setattr(rc, "_RUNTIME_READY_MAX_DELAY_S", 0.1)
     counter = tmp_path / "refusals.txt"
     monkeypatch.setenv("FAKE_ACP_REFUSALS_FILE", str(counter))
     return counter
@@ -254,7 +254,7 @@ def test_a_message_refused_while_the_runtime_starts_is_sent_again(
 def test_a_runtime_that_stays_not_ready_ends_the_turn_after_the_bound(
     monkeypatch, tmp_path, quick_retries
 ):
-    monkeypatch.setattr(rc.turn, "_RUNTIME_READY_WAIT_S", 0.4)
+    monkeypatch.setattr(rc, "_RUNTIME_READY_WAIT_S", 0.4)
     monkeypatch.setenv("FAKE_ACP_REFUSALS", "1000")
     _, events, _, resumes = _turn(monkeypatch, tmp_path, "NOTREADY hello")
     finished = _finished(events)

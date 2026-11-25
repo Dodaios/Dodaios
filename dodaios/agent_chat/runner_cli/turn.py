@@ -7,18 +7,16 @@ import copy
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.approval_bridge import approval_ref
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.runner_api import TurnHandle, reply_language_line
-from dodaios.agent_chat.runner_cli import drive as _rc_drive
 from dodaios.agent_chat.runner_cli.base import (
     _CLAUDE_CODE_RUNNERS,
-    _LEAD_RECORD,
     _SEAT_CONVERSATIONS,
     _TURN_SEATS,
     ACCOUNT_OVERRIDE,
@@ -27,7 +25,7 @@ from dodaios.agent_chat.runner_cli.base import (
     log,
 )
 from dodaios.agent_chat.runner_cli.claude import bridge_stance
-from dodaios.agent_chat.runner_cli.drive import _SHAPES, _TURN_TIMEOUT_S, _drive_cli, _Outcome
+from dodaios.agent_chat.runner_cli.drive import _SHAPES, _TURN_TIMEOUT_S, _Outcome
 from dodaios.agent_chat.runner_cli.kimi import _kimi_session_after
 from dodaios.agent_chat.tool_context import register_turn, unregister_turn
 from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
@@ -91,8 +89,8 @@ async def _send_again_when_runtime_ready(
     if not supports_runner(runner):
         return outcome
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + _RUNTIME_READY_WAIT_S
-    delay = _RUNTIME_READY_FIRST_DELAY_S
+    deadline = loop.time() + _rc._RUNTIME_READY_WAIT_S
+    delay = _rc._RUNTIME_READY_FIRST_DELAY_S
     repairs = 0
     while outcome.status == "error" and not recovery.had_tool_calls and not handle.cancel.is_set():
         kind = not_ready_kind(outcome.error)
@@ -108,7 +106,7 @@ async def _send_again_when_runtime_ready(
                 "agent chat %s: %s still not ready after %.0f s",
                 handle.turn_id,
                 runner,
-                _RUNTIME_READY_WAIT_S,
+                _rc._RUNTIME_READY_WAIT_S,
             )
             break
         log.info(
@@ -123,7 +121,7 @@ async def _send_again_when_runtime_ready(
             await asyncio.wait_for(handle.cancel.wait(), timeout=min(delay, left))
         if handle.cancel.is_set():
             break
-        delay = min(delay * 2, _RUNTIME_READY_MAX_DELAY_S)
+        delay = min(delay * 2, _rc._RUNTIME_READY_MAX_DELAY_S)
         outcome = await send()
     return outcome
 
@@ -323,11 +321,11 @@ def _on_model(handle: TurnHandle, model: str) -> TurnHandle:
     """``handle`` for a run on ``model``; the thread itself is not changed yet."""
     session = handle.session
     try:
-        moved = replace(session, model=model)
+        moved = _rc.replace(session, model=model)
     except TypeError:  # not a session record (a test double): a copy with the field set
         moved = copy.copy(session)
         moved.model = model
-    return replace(handle, session=moved)
+    return _rc.replace(handle, session=moved)
 
 
 async def _switch_thread_model(handle: TurnHandle, model: str) -> TurnHandle:
@@ -468,7 +466,7 @@ async def _continue_on_fallback_model(
     await handle.emit(
         make_event("notice", {**mf.exhausted_notice(spent), "turn_id": handle.turn_id})
     )
-    return replace(outcome, error=mf.exhausted_error(spent), tool_error=False), original
+    return _rc.replace(outcome, error=mf.exhausted_error(spent), tool_error=False), original
 
 
 async def _surface_identity(session: Any) -> str | None:
@@ -540,7 +538,7 @@ async def run_cli_turn(
     original_ask = handle.request_approval
     # A lead turn is kept with what the CLI was handed and its first move,
     # for the replay benchmark (``dodaios.rsi.lead_turns``).
-    lead_record = _lead_record(handle, user_text) if identity else None
+    lead_record = _rc._lead_record(handle, user_text) if identity else None
 
     async def observe(event: dict[str, Any]) -> None:
         recovery.observe(event)
@@ -560,7 +558,7 @@ async def run_cli_turn(
         handle.output_language = await resolve_agent_reply_language(
             session.session_id, user_text, getattr(handle, "output_language", "")
         )
-    handle = replace(handle, emit=observe, request_approval=ask)
+    handle = _rc.replace(handle, emit=observe, request_approval=ask)
     if identity and session.surface == "jarvis":
         # The assistant's own chat: the reply's shape and where a question goes
         # are said beside the message, not only in the system prompt. One
@@ -576,7 +574,7 @@ async def run_cli_turn(
     ref = approval_ref(session.session_id)
     # A society agent's seat: its own briefing is the identity (not Jarvis'
     # layers), and its pinned subscription account is the seat's login.
-    prompt_override = await _surface_identity(session) if identity else None
+    prompt_override = await _rc._surface_identity(session) if identity else None
     if prompt_override and getattr(handle, "output_language", ""):
         # Only a seat with a briefing of its own takes the line there. The lead
         # has none: an override made of this line alone would stand in for its
@@ -639,9 +637,9 @@ async def run_cli_turn(
         # prompt reads the rules for them once, at the start of its conversation.
         user_text = standing.for_first_message(user_text, handle, new_conversation=resume is None)
     tool_context = register_turn(session.session_id) if identity else None
-    record_token = _LEAD_RECORD.set(lead_record)
+    record_token = _rc._LEAD_RECORD.set(lead_record)
     try:
-        outcome = await _rc_drive._run_cli_once(
+        outcome = await _rc._run_cli_once(
             handle, user_text, runner, resume, identity=ident, bridge=bridge
         )
         # agy answers a lost conversation id with a NEW conversation and exit 0
@@ -673,7 +671,7 @@ async def run_cli_turn(
 
                 # The fresh conversation remembers nothing, its work-order rules included.
                 user_text = standing.for_first_message(user_text, handle, new_conversation=True)
-            outcome = await _rc_drive._run_cli_once(
+            outcome = await _rc._run_cli_once(
                 handle, user_text, runner, None, identity=ident, bridge=bridge
             )
             resume = None
@@ -682,7 +680,7 @@ async def run_cli_turn(
                 handle,
                 outcome,
                 runner,
-                lambda: _rc_drive._run_cli_once(
+                lambda: _rc._run_cli_once(
                     handle, user_text, runner, resume, identity=ident, bridge=bridge
                 ),
                 recovery,
@@ -707,7 +705,7 @@ async def run_cli_turn(
                 handle.turn_id,
                 (outcome.error or "")[:180],
             )
-            recovered = await _rc_drive._run_cli_once(
+            recovered = await _rc._run_cli_once(
                 handle,
                 _keep_going_prompt(user_text, outcome.error, receipt_hint=receipt_hint),
                 runner,
@@ -723,7 +721,7 @@ async def run_cli_turn(
                 runner,
                 turn_seats,
                 started_work=recovery.had_tool_calls,
-                run_again=lambda prompt, conversation: _rc_drive._run_cli_once(
+                run_again=lambda prompt, conversation: _rc._run_cli_once(
                     handle, prompt, runner, conversation, identity=ident, bridge=bridge
                 ),
                 user_text=user_text,
@@ -736,14 +734,14 @@ async def run_cli_turn(
                 runner,
                 turn_seats,
                 started_work=lambda: recovery.had_tool_calls,
-                run_again=lambda moved, prompt, conversation: _rc_drive._run_cli_once(
+                run_again=lambda moved, prompt, conversation: _rc._run_cli_once(
                     moved, prompt, runner, conversation, identity=ident, bridge=bridge
                 ),
                 user_text=user_text,
                 resume=resume,
             )
     finally:
-        _LEAD_RECORD.reset(record_token)
+        _rc._LEAD_RECORD.reset(record_token)
         _TURN_SEATS.reset(seats_token)
         unregister_turn(session.session_id, tool_context)
         ACCOUNT_OVERRIDE.reset(account_token)
@@ -822,7 +820,7 @@ async def resume_hosted_cli_turn(handle: TurnHandle, proc: Any) -> str | None:
         runner,
         elapsed,
     )
-    outcome = await _drive_cli(
+    outcome = await _rc._drive_cli(
         handle,
         proc,
         plan,

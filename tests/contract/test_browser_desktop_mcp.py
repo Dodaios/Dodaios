@@ -198,9 +198,7 @@ def test_jarvis_codex_seat_uses_owned_browser_not_inherited_plugins(
 ):
     from dodaios.agent_chat import dodaios_harness, runner_cli
 
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(runner_cli.base, "_account_env", lambda _: {})
     monkeypatch.setattr(runner_cli, "_account_env", lambda _: {})
     monkeypatch.setattr(
         dodaios_harness, "endpoint", lambda: "http://127.0.0.1:47821/api/control/mcp/"

@@ -9,11 +9,12 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.approval_bridge import approval_ref
 from dodaios.agent_chat.effort import (
     effort_for_model,
@@ -40,10 +41,6 @@ from dodaios.agent_chat.questions import (
     recommended_answer,
 )
 from dodaios.agent_chat.runner_api import TurnHandle
-from dodaios.agent_chat.runner_cli import agy as _rc_agy
-from dodaios.agent_chat.runner_cli import claude as _rc_claude
-from dodaios.agent_chat.runner_cli import codex as _rc_codex
-from dodaios.agent_chat.runner_cli import plans as _rc_plans
 from dodaios.agent_chat.runner_cli.agy import (
     _agy_effective_effort,
     _agy_model_ladder,
@@ -52,7 +49,6 @@ from dodaios.agent_chat.runner_cli.agy import (
 )
 from dodaios.agent_chat.runner_cli.base import (
     _CLAUDE_CODE_RUNNERS,
-    _LEAD_RECORD,
     _REMOTE_PLANNING,
     CLI_BINARIES,
     CliPlan,
@@ -210,7 +206,7 @@ def _note_lead_input(
     resume: str | None,
 ) -> None:
     """Hand the current lead turn's record what its CLI is given (:func:`lead_model_input`)."""
-    record = _LEAD_RECORD.get()
+    record = _rc._LEAD_RECORD.get()
     if record is None or record.session_id != session_id:
         return  # not a lead turn, or another chat's run started from inside one
     try:
@@ -283,7 +279,7 @@ async def _run_cli_once(
         ):
             if runner == "codex-cli" and placement is None:
                 models = await asyncio.to_thread(
-                    _rc_codex.read_codex_models, required_model=session.model
+                    _rc.read_codex_models, required_model=session.model
                 )
                 if session.model and (
                     models is None or not any(row["id"] == session.model for row in models)
@@ -310,7 +306,7 @@ async def _run_cli_once(
                 # A chat can start before the model picker has loaded its catalog.
                 # Resolve the installed CLI's effort ladder off the event loop so
                 # newly available models keep the required model/effort pairing.
-                await asyncio.to_thread(_rc_agy.read_agy_models, required_model=session.model)
+                await asyncio.to_thread(_rc.read_agy_models, required_model=session.model)
             plan: CliPlan
             if planner is None:
                 from dodaios.agent_chat.runner_acp import plan_runtime_turn
@@ -349,7 +345,7 @@ async def _run_cli_once(
                             + planned_prompt
                         )
                 if runner in _CLAUDE_CODE_RUNNERS:
-                    await asyncio.to_thread(_rc_claude.warm_claude_capabilities)
+                    await asyncio.to_thread(_rc.warm_claude_capabilities)
                 custom_kwargs: dict[str, Any] = (
                     {"provider": session.provider, "session_id": session.session_id}
                     if runner == "custom-cli"
@@ -406,7 +402,7 @@ async def _run_cli_once(
         _REMOTE_PLANNING.reset(remote_token)
 
     if planner is not None:
-        _note_lead_input(
+        _rc._note_lead_input(
             plan,
             session_id=session.session_id,
             runner=runner,
@@ -510,10 +506,10 @@ async def _run_cli_once(
         if hosted is not None:
             proc = hosted
         else:
-            proc = await _spawn_child(plan, cwd, tree, runner)
+            proc = await _rc._spawn_child(plan, cwd, tree, runner)
             if isinstance(proc, _Outcome):
                 return proc
-    outcome = await _drive_cli(
+    outcome = await _rc._drive_cli(
         handle,
         proc,
         plan,
@@ -599,7 +595,7 @@ async def _spawn_child(
             stderr=asyncio.subprocess.PIPE,
             creationflags=NO_WINDOW_CREATIONFLAGS,
             start_new_session=tree is not None and os.name != "nt",
-            limit=_READLINE_LIMIT,
+            limit=_rc._READLINE_LIMIT,
         )
         if tree is not None:
             tree.assign(proc.pid)
@@ -736,7 +732,7 @@ async def _drive_cli(
                 status = "error"
                 error_text = (
                     f"{runner} sent a message larger than "
-                    f"{_READLINE_LIMIT // (1024 * 1024)} MB; the turn was stopped."
+                    f"{_rc._READLINE_LIMIT // (1024 * 1024)} MB; the turn was stopped."
                 )
                 _kill(proc)
                 return
@@ -789,7 +785,7 @@ async def _drive_cli(
                     _close_stdin()
                     if grace_kill is None:
                         grace_kill = asyncio.get_running_loop().call_later(
-                            _rc_plans._ACP_EXIT_GRACE_S, _kill, proc
+                            _rc._ACP_EXIT_GRACE_S, _kill, proc
                         )
                     _note_settled()
                 continue
@@ -1052,7 +1048,7 @@ async def _drive_cli(
             await handle.emit(make_event("session_updated", {"permission_mode": build}))
         if getattr(now, "permission_mode", "") != build:
             try:
-                now = replace(now, permission_mode=build)
+                now = _rc.replace(now, permission_mode=build)
             except TypeError:  # not a session record (a test double): the mode alone is lost
                 log.debug("agent chat %s: turn keeps its start mode", handle.turn_id)
         session = now
@@ -1107,7 +1103,7 @@ async def _drive_cli(
         from dodaios.agent_runtimes.acp import frame_line
 
         await _write_stdin(frame_line(frame))
-        deadline = time.monotonic() + _rc_plans._ACP_CANCEL_GRACE_S
+        deadline = time.monotonic() + _rc._ACP_CANCEL_GRACE_S
         while time.monotonic() < deadline:
             if plan.acp.saw_result or proc.returncode is not None:
                 return
@@ -1142,7 +1138,7 @@ async def _drive_cli(
         started = time.monotonic()
         reason = ""
         while not acp.saw_result and proc.returncode is None:
-            await asyncio.sleep(_rc_plans._ACP_WATCH_TICK_S)
+            await asyncio.sleep(_rc._ACP_WATCH_TICK_S)
             now = time.monotonic()
             if (
                 approval_pending[0]
@@ -1152,20 +1148,20 @@ async def _drive_cli(
                 activity[0] = now  # a person, a tool or the model sets this pace
                 continue
             if not acp.handshaken:
-                if now - started > _rc_plans._ACP_HANDSHAKE_TIMEOUT_S:
+                if now - started > _rc._ACP_HANDSHAKE_TIMEOUT_S:
                     from dodaios.agent_chat.turn_errors import handshake_reason
 
-                    reason = handshake_reason(runner, _rc_plans._ACP_HANDSHAKE_TIMEOUT_S)
+                    reason = handshake_reason(runner, _rc._ACP_HANDSHAKE_TIMEOUT_S)
                     break
                 continue
-            if now - activity[0] > _rc_plans._ACP_IDLE_TIMEOUT_S:
+            if now - activity[0] > _rc._ACP_IDLE_TIMEOUT_S:
                 from dodaios.agent_chat.turn_errors import stall_reason
 
                 # The runtime's display name, and a hint when a local model is
                 # the likely cause (busy, slow, or queued behind another one).
                 reason = stall_reason(
                     runner,
-                    _rc_plans._ACP_IDLE_TIMEOUT_S,
+                    _rc._ACP_IDLE_TIMEOUT_S,
                     provider=str(handle.session.provider or ""),
                 )
                 break
@@ -1232,12 +1228,12 @@ async def _drive_cli(
         if not stdin_outlives_result:
             return
         while proc.returncode is None:
-            await asyncio.sleep(min(1.0, _WAKE_GRACE_S / 4))
+            await asyncio.sleep(min(1.0, _rc._WAKE_GRACE_S / 4))
             if (
                 getattr(state, "saw_result", False)
                 and getattr(state, "idle", False)
                 and not _claude_outstanding(state)
-                and time.monotonic() - activity[0] >= _WAKE_GRACE_S
+                and time.monotonic() - activity[0] >= _rc._WAKE_GRACE_S
             ):
                 _close_stdin()
                 return
@@ -1247,8 +1243,8 @@ async def _drive_cli(
         if not getattr(state, "grok", False):
             return
         while True:
-            await asyncio.sleep(min(_rc_plans._ACP_WATCH_TICK_S, _GROK_IDLE_HINT_S / 2))
-            if time.monotonic() - activity[0] < _GROK_IDLE_HINT_S:
+            await asyncio.sleep(min(_rc._ACP_WATCH_TICK_S, _rc._GROK_IDLE_HINT_S / 2))
+            if time.monotonic() - activity[0] < _rc._GROK_IDLE_HINT_S:
                 continue
             for ev in grok_idle_wait(state):
                 await handle.emit(ev)
@@ -1631,7 +1627,7 @@ async def _natural_end(
         pending = {t for t in (pump, drain, feeder) if not t.done()}
         if not pending:
             return
-        quiet = await _pipes_went_quiet(pending, lines_read, _PIPE_DRAIN_S)
+        quiet = await _pipes_went_quiet(pending, lines_read, _rc._PIPE_DRAIN_S)
         if quiet and not _unread(proc) and not handling():
             return
 
@@ -1655,7 +1651,7 @@ async def _until_end_or_answer(
             return False
         # The answer is in: most CLIs exit within a moment, keeping their
         # real exit code; one that takes longer is not waited for.
-        finished, _ = await asyncio.wait({natural}, timeout=_RESULT_EXIT_GRACE_S)
+        finished, _ = await asyncio.wait({natural}, timeout=_rc._RESULT_EXIT_GRACE_S)
         if finished:
             natural.result()
             return False
@@ -1755,7 +1751,7 @@ async def _reap_after_answer(
         while not exit_task.done():
             if getattr(proc, "handed_over", False) or getattr(proc, "detached", False):
                 return  # another app process owns it now
-            limit = _REAP_HURRY_S if hurry.is_set() else _REAP_GRACE_S
+            limit = _REAP_HURRY_S if hurry.is_set() else _rc._REAP_GRACE_S
             seen = lines[0]
             waits: set[asyncio.Future[Any]] = {exit_task}
             hurried = None if hurry.is_set() else asyncio.ensure_future(hurry.wait())

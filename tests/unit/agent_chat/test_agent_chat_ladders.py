@@ -36,7 +36,6 @@ async def test_agy_cold_chat_resolves_catalog_before_building_command(tmp_path, 
         assert kwargs["effort"] == "high"
         raise runner_cli.CliUnavailable("stop before process launch")
 
-    monkeypatch.setattr(runner_cli.agy, "read_agy_models", catalog)
     monkeypatch.setattr(runner_cli, "read_agy_models", catalog)
     monkeypatch.setitem(runner_cli._PLANNERS, "agy-cli", planner)
     handle = SimpleNamespace(
@@ -66,7 +65,6 @@ def test_agy_refreshes_a_cached_fallback_missing_the_scheduled_model(monkeypatch
             "rows": [{"id": "old-model", "efforts": []}],
         },
     )
-    monkeypatch.setattr(runner_cli.agy, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
     calls = []
 
@@ -202,7 +200,6 @@ def test_the_jarvis_ladder_is_the_three_stances_and_plan():
 
 
 def test_claude_planner_passes_the_cli_mode_through(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     plan = plan_claude(
         prompt="hi", cwd=tmp_path, model="opus", effort="xhigh", permission_mode="plan", resume=None
@@ -223,7 +220,6 @@ def test_claude_planner_passes_the_cli_mode_through(monkeypatch, tmp_path: Path)
 
 def test_claude_planner_turns_ultracode_into_xhigh_plus_the_setting(monkeypatch, tmp_path: Path):
     """Ultracode is no ``--effort`` value: xhigh plus the ``ultracode`` setting."""
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
 
     def argv_for(effort: str, mode: str) -> list[str]:
@@ -259,9 +255,7 @@ def test_claude_planner_asks_for_thinking_summaries(monkeypatch, tmp_path: Path)
     """Print mode leaves thinking blocks empty; summaries are the thread's reasoning."""
     from dodaios import claude_auth
 
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda _name, env: env)
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
     monkeypatch.setitem(claude_auth._THINKING_DISPLAY_CACHE, ("claude",), True)
     args = dict(
@@ -284,7 +278,6 @@ def test_claude_planner_opens_the_control_protocol(monkeypatch, tmp_path: Path):
     this frame every tool call ran straight through, so "Ask before acting"
     behaved exactly like "Auto-accept edits" (maintainer report 2026-08-24).
     """
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     plan = plan_claude(
         prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="default", resume=None
@@ -298,9 +291,7 @@ def test_claude_planner_opens_the_control_protocol(monkeypatch, tmp_path: Path):
 
 
 def test_codex_planner_maps_the_presets(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(runner_cli.codex, "read_codex_models", lambda: None)
     monkeypatch.setattr(runner_cli, "read_codex_models", lambda: None)
 
     def argv_for(mode: str, effort: str = "high", model: str = "") -> list[str]:
@@ -327,20 +318,17 @@ def test_codex_planner_maps_the_presets(monkeypatch, tmp_path: Path):
     assert "model_reasoning_summary=auto" in argv_for("auto")
     # Effort is snapped to the model's own ladder when the catalog knows it.
     monkeypatch.setattr(
-        runner_cli.codex,
+        runner_cli,
         "read_codex_models",
         lambda: [
             {"id": "gpt-5.5", "label": "GPT-5.5", "efforts": ["low", "medium", "high", "xhigh"]}
         ],
     )
-    monkeypatch.setattr(runner_cli, "read_codex_models", runner_cli.codex.read_codex_models)
     assert "model_reasoning_effort=xhigh" in argv_for("auto", effort="ultra", model="gpt-5.5")
 
 
 def test_codex_resume_uses_the_resume_subcommand(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(runner_cli.codex, "read_codex_models", lambda: None)
     monkeypatch.setattr(runner_cli, "read_codex_models", lambda: None)
     argv = plan_codex(
         prompt="p", cwd=tmp_path, model="", effort="", permission_mode="auto", resume="thread-1"
@@ -351,9 +339,8 @@ def test_codex_resume_uses_the_resume_subcommand(monkeypatch, tmp_path: Path):
 
 
 def test_agy_planner_speaks_agy(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.agy, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
-    monkeypatch.setattr(runner_cli.agy, "_agy_catalog_cached", lambda: None)
+    monkeypatch.setattr(runner_cli, "_agy_catalog_cached", lambda: None)
     plan = plan_agy(
         prompt="do it",
         cwd=tmp_path,
@@ -397,9 +384,8 @@ def test_agy_planner_speaks_agy(monkeypatch, tmp_path: Path):
 
 
 def test_agy_planner_resolves_a_relative_cwd(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.agy, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
-    monkeypatch.setattr(runner_cli.agy, "_agy_catalog_cached", lambda: None)
+    monkeypatch.setattr(runner_cli, "_agy_catalog_cached", lambda: None)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data" / "society" / "test" / "workspace").mkdir(parents=True)
     plan = plan_agy(
@@ -605,9 +591,7 @@ def test_read_codex_models_uses_the_executing_cli_not_a_foreign_cache(monkeypatc
         json.dumps({"client_version": "future", "models": [{"slug": "unavailable"}]}),
         encoding="utf-8",
     )
-    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {"CODEX_HOME": str(home)})
     monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {"CODEX_HOME": str(home)})
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex-test"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex-test"])
     calls = []
 
@@ -615,7 +599,7 @@ def test_read_codex_models_uses_the_executing_cli_not_a_foreign_cache(monkeypatc
         calls.append((argv, env))
         return [{"id": "future-supported-model", "label": "Future", "efforts": ["high"]}]
 
-    monkeypatch.setattr(runner_cli.codex, "discover_codex_models", discover)
+    monkeypatch.setattr(runner_cli, "discover_codex_models", discover)
     rows = runner_cli.read_codex_models()
     assert [row["id"] for row in rows] == ["future-supported-model"]
     assert calls == [(["codex-test"], {"CODEX_HOME": str(home)})]
@@ -662,7 +646,6 @@ def test_read_grok_models_reads_the_account_cache(monkeypatch, tmp_path: Path):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {"GROK_HOME": str(home)})
     monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {"GROK_HOME": str(home)})
     rows = runner_cli.read_grok_models()
     assert rows is not None
@@ -671,7 +654,6 @@ def test_read_grok_models_reads_the_account_cache(monkeypatch, tmp_path: Path):
     assert rows[0]["efforts"] == ["", "low", "high", "xhigh"]
     assert rows[0]["note"] == "SpaceXAI's latest frontier model"
     assert rows[1]["note"] == "Fast variant. 2x the price."
-    monkeypatch.setattr(runner_cli.base, "_account_env", lambda platform: {"GROK_HOME": str(tmp_path)})
     monkeypatch.setattr(runner_cli, "_account_env", lambda platform: {"GROK_HOME": str(tmp_path)})
     assert runner_cli.read_grok_models() is None
 
@@ -722,9 +704,7 @@ def test_anthropic_adapter_effort_and_temperature_rules():
 
 def test_claude_planner_asks_for_tool_summaries(monkeypatch, tmp_path: Path):
     """Claude Code titles each run of tool calls; GLM's endpoint is never asked."""
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda _name, env: env)
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
     monkeypatch.delenv("CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES", raising=False)
     args = dict(
@@ -745,9 +725,7 @@ def test_an_assistants_chat_turns_off_claude_codes_silent_turn_reminder(
     """
     from dodaios.agent_chat import dodaios_harness
 
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda _name, env: env)
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
     monkeypatch.delenv(runner_cli.SILENT_TURN_REMINDER_ENV, raising=False)
     identity = dodaios_harness.Identity(session_id="s", text="x", compact="x", path=None)
@@ -775,7 +753,7 @@ async def test_a_slash_command_stays_the_first_word_of_the_message(
         prompts.append(kwargs["prompt"])
         raise runner_cli.CliUnavailable("stop before process launch")
 
-    monkeypatch.setattr(runner_cli.claude, "warm_claude_capabilities", lambda: None)
+    monkeypatch.setattr(runner_cli, "warm_claude_capabilities", lambda: None)
     monkeypatch.setitem(runner_cli._PLANNERS, "claude-cli", planner)
     handle = SimpleNamespace(
         session=SimpleNamespace(

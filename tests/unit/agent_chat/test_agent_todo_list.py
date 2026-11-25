@@ -31,9 +31,7 @@ def _plan_args(tmp_path: Path) -> dict:
 
 def test_a_coding_thread_gets_claude_codes_list_tools(monkeypatch, tmp_path: Path):
     """Claude Code withholds its list tools from its newer models unless the host asks."""
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda _name, env: env)
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
     monkeypatch.delenv(runner_cli.TODO_TOOLS_ENV, raising=False)
     for plan in (plan_claude, runner_cli.plan_glm):
@@ -42,9 +40,7 @@ def test_a_coding_thread_gets_claude_codes_list_tools(monkeypatch, tmp_path: Pat
 
 def test_an_assistants_chat_keeps_claude_codes_default(monkeypatch, tmp_path: Path):
     """The lead and a society seat answer in a chat; only a coding thread plans with a list."""
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.base, "_registry_env", lambda _name, env: env)
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
     monkeypatch.delenv(runner_cli.TODO_TOOLS_ENV, raising=False)
     identity = dodaios_harness.Identity(session_id="s", text="x", compact="x", path=None)
@@ -53,7 +49,6 @@ def test_an_assistants_chat_keeps_claude_codes_default(monkeypatch, tmp_path: Pa
 
 
 def test_a_person_who_set_the_switch_keeps_their_choice(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setenv(runner_cli.TODO_TOOLS_ENV, "false")
     assert plan_claude(**_plan_args(tmp_path)).env[runner_cli.TODO_TOOLS_ENV] == "false"

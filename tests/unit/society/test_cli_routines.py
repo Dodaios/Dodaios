@@ -229,7 +229,6 @@ def test_context_cleanup_and_isolation():
 def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
     from dodaios.agent_chat import dodaios_harness, runner_cli
 
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(dodaios_harness, "control_key", lambda: "test-key")
     monkeypatch.setattr(

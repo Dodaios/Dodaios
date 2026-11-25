@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.effort import (
     ORDER,
 )
 from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     CLI_BINARIES,
     CliPlan,
@@ -29,7 +29,7 @@ from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
 
 
 def grok_argv_prefix() -> list[str]:
-    binary = _rc_base._which(*CLI_BINARIES["grok-cli"])
+    binary = _rc._which(*CLI_BINARIES["grok-cli"])
     if not binary:
         raise CliUnavailable("Grok Build (grok) is not installed or not on PATH.")
     return [binary]
@@ -55,7 +55,7 @@ def plan_grok(
         # print-mode actually sees Jarvis' tools (gmail, calendar, the rest).
         dodaios_harness.install_grok_jarvis_mcp(work, identity.session_id)
     argv = [
-        *grok_argv_prefix(),
+        *_rc.grok_argv_prefix(),
         "--no-auto-update",
         "--no-alt-screen",
         "--output-format",
@@ -87,7 +87,7 @@ def plan_grok(
         sid = str(uuid.uuid4())
         argv += ["--session-id", sid]
     argv += ["-p", _argv_prompt(argv, prompt)]
-    env = dodaios_harness.apply_env(_rc_base._account_env("grok-build"))
+    env = dodaios_harness.apply_env(_rc._account_env("grok-build"))
     env.setdefault("PYTHONIOENCODING", "utf-8")
     return CliPlan(argv, env, None, "claude", sid)
 
@@ -101,7 +101,7 @@ def read_grok_models() -> list[dict[str, Any]] | None:
     when the file is missing or unreadable — the caller keeps
     ``GROK_BUILD_MODELS``.
     """
-    env = _rc_base._account_env("grok-build")
+    env = _rc._account_env("grok-build")
     home = Path(env.get("GROK_HOME") or Path.home() / ".grok")
     path = home / "models_cache.json"
     try:

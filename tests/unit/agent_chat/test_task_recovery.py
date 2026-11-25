@@ -145,7 +145,7 @@ def turn(monkeypatch):
     async def language(*args):
         return "en"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", briefing)
+    monkeypatch.setattr(runner_cli, "_surface_identity", briefing)
     monkeypatch.setattr(dodaios_harness, "build_identity", identity)
     monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
     handle = TurnHandle(
@@ -203,7 +203,7 @@ async def test_successful_cli_exit_with_unfinished_tool_gets_one_same_turn_conti
             )
         return runner_cli._Outcome("done", None, {"output_tokens": 3}, None, "resumed")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     result = await runner_cli.run_cli_turn(handle, origin.user_text, runner, identity=True)
     assert result == "resumed" and len(attempts) == 2
     assert attempts[1][1] == "resumed" and attempts[0][2] is attempts[1][2]
@@ -221,7 +221,7 @@ async def test_user_denial_never_starts_a_second_attempt(turn, monkeypatch):
         assert await handle.request_approval("c", "send", {}, "Send") == "deny"
         return runner_cli._Outcome("error", "User cancelled the execution of tool", {}, None, "s")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "claude-cli", identity=True)
     assert len(attempts) == 1
 
@@ -238,7 +238,7 @@ async def test_rate_limit_after_unfinished_tools_never_starts_automatic_recovery
         )
         return runner_cli._Outcome("error", "HTTP 429 (rate limit).", {}, None, "existing")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "hermes-cli", identity=True)
     assert len(attempts) == 1
     assert events[-1]["payload"]["status"] == "error"
@@ -250,7 +250,7 @@ async def test_resolved_language_remains_visible_to_the_caller(turn, monkeypatch
     async def once(*args, **kwargs):
         return runner_cli._Outcome("done", None, {}, None, "s")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "claude-cli", identity=True)
     assert handle.output_language == "en"
 
@@ -281,7 +281,7 @@ async def test_missing_file_after_progress_does_not_restart_a_fresh_conversation
         assert "without repeating completed actions" in prompt
         return runner_cli._Outcome("done", None, {}, None, "existing")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "claude-cli", identity=True)
     assert resumes == ["existing", "existing"]
 
@@ -304,7 +304,7 @@ async def test_persistent_failure_is_bounded_and_stopping_wins(
             handle.cancel.set()
         return runner_cli._Outcome("done", None, {}, None, "s")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "claude-cli", identity=True)
     assert len(attempts) == (1 if cancelled or disabled else 2)
 

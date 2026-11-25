@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.cli_catalog import catalog_key
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     CLI_BINARIES,
     CliPlan,
@@ -31,7 +31,7 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 def opencode_argv_prefix() -> list[str]:
-    binary = _rc_base._which(*CLI_BINARIES["opencode-cli"])
+    binary = _rc._which(*CLI_BINARIES["opencode-cli"])
     if not binary:
         raise CliUnavailable("OpenCode (opencode) is not installed or not on PATH.")
     return _behind_shim(binary, "opencode")
@@ -55,17 +55,17 @@ def read_opencode_models(timeout_s: float = 20.0) -> list[dict[str, Any]]:
     """
     import subprocess
 
-    env = _rc_base._registry_env("opencode", _rc_base._account_env("opencode"))
-    prefix = opencode_argv_prefix()
+    env = _rc._registry_env("opencode", _rc._account_env("opencode"))
+    prefix = _rc.opencode_argv_prefix()
     cwd = _catalog_cwd()
     key = catalog_key(prefix, env, cwd)
     now = time.monotonic()
     if (
-        _OPENCODE_CATALOG.get("key") == key
-        and _OPENCODE_CATALOG["rows"] is not None
-        and now - _OPENCODE_CATALOG["at"] < _OPENCODE_CATALOG_TTL_S
+        _rc._OPENCODE_CATALOG.get("key") == key
+        and _rc._OPENCODE_CATALOG["rows"] is not None
+        and now - _rc._OPENCODE_CATALOG["at"] < _OPENCODE_CATALOG_TTL_S
     ):
-        return list(_OPENCODE_CATALOG["rows"])
+        return list(_rc._OPENCODE_CATALOG["rows"])
     rows: list[dict[str, Any]] = []
     try:
         argv = [*prefix, "models"]
@@ -85,7 +85,7 @@ def read_opencode_models(timeout_s: float = 20.0) -> list[dict[str, Any]]:
             rows.append({"id": mid, "label": model, "note": provider})
     except (CliUnavailable, OSError, ValueError, subprocess.SubprocessError) as exc:
         log.debug("agent chat: opencode models unavailable: %s", exc)
-    _OPENCODE_CATALOG.update(rows=rows, at=now, key=key)
+    _rc._OPENCODE_CATALOG.update(rows=rows, at=now, key=key)
     return list(rows)
 
 
@@ -104,7 +104,7 @@ def plan_opencode(
     # a sentence that starts with a dash is a sentence and not a flag; the
     # identity rides in front of it on a fresh conversation.
     prompt = _identity_message("opencode-cli", prompt, identity, resume)
-    argv = [*opencode_argv_prefix(), "run", "--format", "json", "--thinking"]
+    argv = [*_rc.opencode_argv_prefix(), "run", "--format", "json", "--thinking"]
     if mode == "auto":
         argv += ["--auto"]
     elif mode == "plan":
@@ -117,7 +117,7 @@ def plan_opencode(
     if resume:
         argv += ["--session", resume]
     argv += ["--", _argv_prompt(argv, prompt)]
-    env = _rc_base._registry_env("opencode", _rc_base._account_env("opencode"))
+    env = _rc._registry_env("opencode", _rc._account_env("opencode"))
     return CliPlan(argv, env, None, "opencode", resume)
 
 

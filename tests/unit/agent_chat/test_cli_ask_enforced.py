@@ -32,7 +32,6 @@ _MCP = f"mcp__{MCP_TOOLS_SERVER_NAME}__"
 
 
 def _plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: str) -> list[str]:
-    monkeypatch.setattr(rc.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
     return rc.plan_claude(
         prompt="hi", cwd=tmp_path, model="", effort="", permission_mode=mode, resume=None
@@ -54,9 +53,7 @@ def test_other_modes_behave_as_before(monkeypatch, tmp_path, mode):
 
 
 def test_glm_adds_no_forced_rules_either(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(rc.base, "_registry_env", lambda agent, base: dict(base))
     monkeypatch.setattr(rc, "_registry_env", lambda agent, base: dict(base))
     argv = rc.plan_glm(
         prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="default", resume=None

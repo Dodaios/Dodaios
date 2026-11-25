@@ -49,7 +49,6 @@ def cli(monkeypatch):
     state = SimpleNamespace(
         events=[], calls=[], closed=0, selected_home=Path("/selected-account").resolve()
     )
-    monkeypatch.setattr(runner_cli.grok, "grok_argv_prefix", lambda: ["grok-test"])
     monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok-test"])
     monkeypatch.setattr(
         runner_cli,

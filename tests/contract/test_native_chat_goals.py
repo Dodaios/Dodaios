@@ -72,15 +72,13 @@ def test_native_goal_preserves_final_output_and_maps_real_wire_statuses(
 
     monkeypatch.setattr("platform.system", lambda: platform)
     monkeypatch.setattr("dodaios.agent_chat.native_control.GoalRpc", RpcFixture)
-    monkeypatch.setattr(runner_cli.codex, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(runner_cli.base, "_account_env", lambda _: {})
     monkeypatch.setattr(runner_cli, "_account_env", lambda _: {})
 
     async def identity(_: Any) -> None:
         return None
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", identity)
+    monkeypatch.setattr(runner_cli, "_surface_identity", identity)
     RpcFixture.calls, RpcFixture.closed, RpcFixture.status = [], False, native_status
 
     async def scenario() -> None:

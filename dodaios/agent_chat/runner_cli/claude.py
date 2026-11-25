@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.permissions import (
     ladder_key,
     mode_after_plan,
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     _CLAUDE_CODE_RUNNERS,
     CLI_BINARIES,
@@ -31,7 +31,7 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 def claude_argv_prefix() -> list[str]:
-    binary = _rc_base._which(*CLI_BINARIES["claude-cli"])
+    binary = _rc._which(*CLI_BINARIES["claude-cli"])
     if not binary:
         raise CliUnavailable("Claude Code (claude) is not installed or not on PATH.")
     from dodaios.claude_auth import claude_cli_argv_prefix
@@ -47,7 +47,7 @@ def warm_claude_capabilities() -> None:
     )
 
     try:
-        prefix = claude_argv_prefix()
+        prefix = _rc.claude_argv_prefix()
     except CliUnavailable:
         return  # planning reports the missing CLI itself
     claude_cli_supports_thinking_display(prefix)
@@ -127,11 +127,11 @@ def read_claude_commands(runner: str, cwd: Path | str | None) -> list[Any] | Non
 
     try:
         if runner == "glm-cli":
-            env = _rc_base._registry_env("glm", dict(os.environ))
+            env = _rc._registry_env("glm", dict(os.environ))
         else:
-            env = _rc_base._account_env("claude")
+            env = _rc._account_env("claude")
         argv = [
-            *claude_argv_prefix(),
+            *_rc.claude_argv_prefix(),
             "--print",
             "--output-format",
             "stream-json",
@@ -342,10 +342,10 @@ def allow_bypass_after_plan(argv: list[str], runner: str, session: Any) -> None:
     )
     if normalize_permission(runner, build) != "bypassPermissions":
         return
-    if _claude_refuses_bypass_here():
+    if _rc._claude_refuses_bypass_here():
         return
     try:
-        known = claude_cli_allow_bypass_known(claude_argv_prefix())
+        known = claude_cli_allow_bypass_known(_rc.claude_argv_prefix())
     except CliUnavailable:  # planning reports the missing CLI itself
         return
     if known:
@@ -512,7 +512,7 @@ def plan_claude(
         permission_mode=permission_mode,
         resume=resume,
         identity=identity,
-        env=dodaios_harness.apply_env(_rc_base._account_env("claude")),
+        env=dodaios_harness.apply_env(_rc._account_env("claude")),
         thinking_summaries=True,
         tool_summaries=True,
     )
@@ -547,7 +547,7 @@ def plan_glm(
         permission_mode=permission_mode,
         resume=resume,
         identity=identity,
-        env=dodaios_harness.apply_env(_rc_base._registry_env("glm", dict(os.environ))),
+        env=dodaios_harness.apply_env(_rc._registry_env("glm", dict(os.environ))),
         ladder="glm-cli",
     )
 
@@ -596,7 +596,7 @@ def _plan_claude_code(
         # nobody asked for (seven in one evening, 2026-11-12). The chat shows
         # that it works; the reply style says when to write.
         env = {**env, SILENT_TURN_REMINDER_ENV: "0"}
-    prefix = claude_argv_prefix()
+    prefix = _rc.claude_argv_prefix()
     argv = [
         *prefix,
         "--print",

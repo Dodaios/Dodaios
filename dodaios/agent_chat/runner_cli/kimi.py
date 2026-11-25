@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from dodaios.agent_chat import dodaios_harness
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import (
     normalize_permission,
 )
-from dodaios.agent_chat.runner_cli import base as _rc_base
 from dodaios.agent_chat.runner_cli.base import (
     _PLAN_PREAMBLE,
     CLI_BINARIES,
@@ -30,7 +30,7 @@ from dodaios.agent_chat.runner_cli.claude_stream import _content_text
 
 
 def kimi_argv_prefix() -> list[str]:
-    binary = _rc_base._which(*CLI_BINARIES["kimi-cli"])
+    binary = _rc._which(*CLI_BINARIES["kimi-cli"])
     if not binary:
         raise CliUnavailable("Kimi Code (kimi) is not installed or not on PATH.")
     return _behind_shim(binary, "kimi")
@@ -67,7 +67,7 @@ def plan_kimi(
 ) -> CliPlan:
     mode = normalize_permission("kimi-cli", permission_mode)
     prompt = _identity_message("kimi-cli", prompt, identity, resume)
-    argv = [*kimi_argv_prefix(), "--output-format", "stream-json"]
+    argv = [*_rc.kimi_argv_prefix(), "--output-format", "stream-json"]
     if model:
         argv += ["--model", model]
     # Print mode is autonomous by Kimi's own design (a headless run has nobody
@@ -80,7 +80,7 @@ def plan_kimi(
         argv += ["--session", resume]
     text = _PLAN_PREAMBLE + prompt if mode == "plan" else prompt
     argv += ["--prompt", _argv_prompt(argv, text)]
-    env = _rc_base._registry_env("kimi", _rc_base._account_env("kimi"))
+    env = _rc._registry_env("kimi", _rc._account_env("kimi"))
     return CliPlan(
         argv, env, None, "kimi", resume, discover=None if resume else _kimi_session_after
     )

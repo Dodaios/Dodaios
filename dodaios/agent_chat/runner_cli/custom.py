@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from dodaios.agent_chat import dodaios_harness
-from dodaios.agent_chat.runner_cli import base as _rc_base
+from dodaios.agent_chat import runner_cli as _rc
 from dodaios.agent_chat.runner_cli.base import (
     CLI_BINARIES,
     CliPlan,
@@ -18,7 +18,7 @@ from dodaios.agent_chat.runner_cli.base import (
 
 
 def dsh_argv_prefix() -> list[str]:
-    binary = _rc_base._which(*CLI_BINARIES["dsh-cli"])
+    binary = _rc._which(*CLI_BINARIES["dsh-cli"])
     if not binary:
         raise CliUnavailable("DeepSeek Harness (dsh) is not installed or not on PATH.")
     return _behind_shim(binary, "deepseek-harness")
@@ -41,9 +41,9 @@ def plan_dsh(
     back is text, and the chat shows it as the answer.
     """
     prompt = _identity_message("dsh-cli", prompt, identity, resume)
-    prefix = dsh_argv_prefix()
+    prefix = _rc.dsh_argv_prefix()
     argv = [*prefix, "--profile", "headless", _argv_prompt(prefix, prompt)]
-    env = _rc_base._registry_env("deepseek-harness", _rc_base._account_env("deepseek-harness"))
+    env = _rc._registry_env("deepseek-harness", _rc._account_env("deepseek-harness"))
     return CliPlan(argv, env, None, "text", None)
 
 
@@ -91,10 +91,10 @@ def plan_custom_cli(
         overrides[name] = value
     if not argv:
         raise CliUnavailable("The headless command of this CLI is empty.")
-    binary = _rc_base._which(argv[0])
+    binary = _rc._which(argv[0])
     if binary is None:
         raise CliUnavailable(f"{entry.display_name} ({argv[0]}) is not installed or not on PATH.")
     argv[0] = binary
-    env = _rc_base._registry_env(entry.id, _rc_base._account_env(entry.id))
+    env = _rc._registry_env(entry.id, _rc._account_env(entry.id))
     env.update(overrides)
     return CliPlan(argv, env, prompt if on_stdin else None, "text", chosen or None)

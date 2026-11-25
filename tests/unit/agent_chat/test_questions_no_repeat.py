@@ -144,7 +144,7 @@ def turn(monkeypatch: pytest.MonkeyPatch):
     async def language(*_args: Any) -> str:
         return "en"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", briefing)
+    monkeypatch.setattr(runner_cli, "_surface_identity", briefing)
     monkeypatch.setattr(dodaios_harness, "build_identity", identity)
     monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
     handle = TurnHandle(
@@ -177,7 +177,7 @@ async def test_an_answered_question_never_restarts_the_turn(turn, monkeypatch, r
             )
         return runner_cli._Outcome("done", None, {}, None, "v")
 
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, runner, identity=True)
     assert len(attempts) == 1
     assert [e["payload"]["status"] for e in events if e["kind"] == "turn_finished"] == ["done"]

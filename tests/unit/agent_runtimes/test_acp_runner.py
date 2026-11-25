@@ -223,7 +223,7 @@ def test_plan_mode_refuses_the_runtimes_permission_without_a_card(monkeypatch, t
 
 
 def test_a_runtime_that_keeps_running_after_its_answer_is_ended(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_EXIT_GRACE_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_EXIT_GRACE_S", 0.5)
     released: list[int] = []
     _, events, _, _ = _turn(monkeypatch, tmp_path, "HANG after this", released=released)
     finished = _finished(events)
@@ -478,7 +478,7 @@ def test_stop_asks_the_runtime_to_cancel_before_killing_it(monkeypatch, tmp_path
 
 
 def test_a_runtime_that_ignores_cancel_is_still_ended(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_CANCEL_GRACE_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_CANCEL_GRACE_S", 0.5)
     events, frames = _run_live(
         monkeypatch, tmp_path, "SLOW", env={"FAKE_ACP_IGNORE_CANCEL": "1"}, cancel_after=1.0
     )
@@ -487,8 +487,8 @@ def test_a_runtime_that_ignores_cancel_is_still_ended(monkeypatch, tmp_path):
 
 
 def test_a_runtime_that_never_opens_its_session_is_stopped(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_HANDSHAKE_TIMEOUT_S", 1.0)
-    monkeypatch.setattr(rc.plans, "_ACP_WATCH_TICK_S", 0.2)
+    monkeypatch.setattr(rc, "_ACP_HANDSHAKE_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.2)
     events, _ = _run_live(monkeypatch, tmp_path, "hi", env={"FAKE_ACP_MODE": "hang-after-init"})
     finished = _finished(events)
     assert finished["status"] == "error"
@@ -496,8 +496,8 @@ def test_a_runtime_that_never_opens_its_session_is_stopped(monkeypatch, tmp_path
 
 
 def test_a_silent_model_is_stopped_with_a_plain_reason(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_IDLE_TIMEOUT_S", 1.0)
-    monkeypatch.setattr(rc.plans, "_ACP_WATCH_TICK_S", 0.2)
+    monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.2)
     events, frames = _run_live(monkeypatch, tmp_path, "SLOW")
     finished = _finished(events)
     assert finished["status"] == "error"
@@ -507,8 +507,8 @@ def test_a_silent_model_is_stopped_with_a_plain_reason(monkeypatch, tmp_path):
 
 
 def test_a_long_tool_call_is_not_a_stall(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_IDLE_TIMEOUT_S", 0.5)
-    monkeypatch.setattr(rc.plans, "_ACP_WATCH_TICK_S", 0.1)
+    monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.1)
     events, _ = _run_live(monkeypatch, tmp_path, "TOOLWAIT", cancel_after=2.5)
     # Ended by the person after 2.5 s, not by the 0.5 s watchdog.
     assert _finished(events)["status"] == "cancelled"
@@ -519,8 +519,8 @@ def test_a_model_call_still_open_at_the_gateway_is_not_a_stall(monkeypatch, tmp_
     # minutes while the gateway still serves its call (#978).
     from dodaios.agent_runtimes import gateway
 
-    monkeypatch.setattr(rc.plans, "_ACP_IDLE_TIMEOUT_S", 0.5)
-    monkeypatch.setattr(rc.plans, "_ACP_WATCH_TICK_S", 0.1)
+    monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.1)
     monkeypatch.setattr(gateway, "model_call_open", lambda signal: True)
     events, _ = _run_live(monkeypatch, tmp_path, "SLOW", cancel_after=2.5)
     # Ended by the person after 2.5 s, not by the 0.5 s watchdog.
@@ -528,15 +528,15 @@ def test_a_model_call_still_open_at_the_gateway_is_not_a_stall(monkeypatch, tmp_
 
 
 def test_an_open_approval_card_is_not_a_stall(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.plans, "_ACP_IDLE_TIMEOUT_S", 0.5)
-    monkeypatch.setattr(rc.plans, "_ACP_WATCH_TICK_S", 0.1)
+    monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.1)
     events, _ = _run_live(monkeypatch, tmp_path, "ASK now", mode="ask", ask_delay=2.0)
     assert _finished(events)["status"] == "done"
     assert _texts(events) == ["permission: yes"]
 
 
 def test_an_oversized_frame_ends_the_turn_cleanly(monkeypatch, tmp_path):
-    monkeypatch.setattr(rc.drive, "_READLINE_LIMIT", 64 * 1024)
+    monkeypatch.setattr(rc, "_READLINE_LIMIT", 64 * 1024)
     events, _ = _run_live(monkeypatch, tmp_path, "BIG", env={"FAKE_ACP_BIG_BYTES": "200000"})
     finished = _finished(events)
     assert finished["status"] == "error"

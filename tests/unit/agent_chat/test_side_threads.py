@@ -408,7 +408,6 @@ def test_claude_code_reads_the_catch_up_in_front_of_a_resumed_turn(monkeypatch, 
     from dodaios.agent_chat import runner_cli
     from dodaios.agent_chat.dodaios_harness import Identity
 
-    monkeypatch.setattr(runner_cli.claude, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: None)
 
@@ -471,9 +470,9 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
     async def deny(*_args):
         return "deny"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", surface_identity)
+    monkeypatch.setattr(runner_cli, "_surface_identity", surface_identity)
     monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
     session_id = "society:scout" if surface == "society" else "lead-1"
     handle = TurnHandle(
@@ -540,9 +539,9 @@ async def test_a_slash_command_of_the_lead_goes_out_without_the_question_card_li
     async def deny(*_args):
         return "deny"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", no_briefing)
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_briefing)
     monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     handle = TurnHandle(
         session=SimpleNamespace(
             surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
@@ -644,9 +643,9 @@ async def test_a_lead_message_about_a_secret_names_the_secure_field(monkeypatch,
     async def deny(*_args):
         return "deny"
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", no_briefing)
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_briefing)
     monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     handle = TurnHandle(
         session=SimpleNamespace(
             surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
@@ -695,9 +694,9 @@ async def test_the_lead_is_told_beside_the_message_to_take_the_task_on_first(
     async def no_identity(_session):
         return None
 
-    monkeypatch.setattr(runner_cli.turn, "_surface_identity", no_identity)
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_identity)
     monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
-    monkeypatch.setattr(runner_cli.drive, "_run_cli_once", once)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     handle = TurnHandle(
         session=SimpleNamespace(
             surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
