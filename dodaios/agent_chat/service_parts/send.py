@@ -7,7 +7,7 @@ import json
 import re
 import time
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat.runner_api import TurnHandle
@@ -16,8 +16,13 @@ from dodaios.agent_chat.store import (
 )
 from dodaios.society.delivery import IncomingMessage
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class SendMixin:
+
+class SendMixin(_HostBase):
     """Receiving a message and dispatching it as a turn."""
 
     # ---------------------------------------------------------------- turns

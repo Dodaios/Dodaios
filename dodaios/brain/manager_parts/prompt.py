@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from dodaios.brain import manager as _m
@@ -39,8 +40,13 @@ from dodaios.core.turn_language import (
 from dodaios.i18n import catalog as i18n_catalog
 from dodaios.i18n.locales import is_known_language, language_name
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _PromptMixin:
+
+class _PromptMixin(_HostBase):
     """Reply-language handling and system-prompt assembly."""
 
     @property

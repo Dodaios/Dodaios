@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat import (
@@ -15,8 +15,13 @@ from dodaios.agent_chat.questions import (
     QuestionAnswer,
 )
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class TurnPromptsMixin:
+
+class TurnPromptsMixin(_HostBase):
     """End-of-turn question and plan cards."""
 
     # ------------------------------------------------------------ end-of-turn cards

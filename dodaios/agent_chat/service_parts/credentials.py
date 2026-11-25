@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat.credential_requests import (
@@ -12,8 +12,13 @@ from dodaios.agent_chat.credential_requests import (
     CredentialSpec,
 )
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class CredentialsMixin:
+
+class CredentialsMixin(_HostBase):
     """Credential requests that park a turn until the person connects."""
 
     # ------------------------------------------------------------ credentials
