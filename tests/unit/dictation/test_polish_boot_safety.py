@@ -32,6 +32,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PIPELINE = _REPO_ROOT / "dodaios" / "speech" / "pipeline.py"
+_PIPELINE_FILES = [_PIPELINE, *sorted((_PIPELINE.parent / "pipeline_parts").glob("*.py"))]
 _OUTPUT_FILTER = _REPO_ROOT / "dodaios" / "brain" / "output_filter.py"
 _BRAIN_DIR = _REPO_ROOT / "dodaios" / "brain"
 
@@ -138,14 +139,15 @@ def test_any_polish_import_in_the_speech_pipeline_is_inside_a_function() -> None
     """
     assert _PIPELINE.exists(), f"missing: {_PIPELINE}"
     module_scope: list[str] = []
-    for number, line in enumerate(
-        _PIPELINE.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
-    ):
-        if "dodaios.dictation.polish" not in line:
-            continue
-        stripped = line.lstrip()
-        if not stripped.startswith(("import ", "from ")):
-            continue
-        if line[: len(line) - len(stripped)] == "":
-            module_scope.append(f"{_PIPELINE.name}:{number}: {stripped}")
+    for path in _PIPELINE_FILES:
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
+        ):
+            if "dodaios.dictation.polish" not in line:
+                continue
+            stripped = line.lstrip()
+            if not stripped.startswith(("import ", "from ")):
+                continue
+            if line[: len(line) - len(stripped)] == "":
+                module_scope.append(f"{path.name}:{number}: {stripped}")
     assert module_scope == [], module_scope

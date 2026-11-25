@@ -60,9 +60,9 @@ def _windows_idle_s() -> float | None:
 
     info = LastInput()
     info.cbSize = ctypes.sizeof(LastInput)
-    if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):  # type: ignore[attr-defined]
+    if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):
         return None
-    ticks = ctypes.windll.kernel32.GetTickCount() & 0xFFFFFFFF  # type: ignore[attr-defined]
+    ticks = ctypes.windll.kernel32.GetTickCount() & 0xFFFFFFFF
     return ((ticks - info.dwTime) & 0xFFFFFFFF) / 1000.0
 
 

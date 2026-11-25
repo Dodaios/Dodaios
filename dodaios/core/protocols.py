@@ -576,10 +576,10 @@ class ChannelAdapter(Protocol):
 
     async def start(self) -> None: ...
     async def stop(self) -> None: ...
-    async def send_message(self, msg: ChannelMessage) -> None: ...  # noqa: F821
-    async def broadcast_event(self, event: Event) -> None: ...  # noqa: F821
-    async def messages(self) -> AsyncIterator[ChannelMessage]: ...  # noqa: F821
-    async def sessions(self) -> list[ChannelSession]: ...  # noqa: F821
+    async def send_message(self, msg: ChannelMessage) -> None: ...  # type: ignore[name-defined]  # noqa: F821
+    async def broadcast_event(self, event: Event) -> None: ...  # type: ignore[name-defined]  # noqa: F821
+    async def messages(self) -> AsyncIterator[ChannelMessage]: ...  # type: ignore[name-defined]  # noqa: F821
+    async def sessions(self) -> list[ChannelSession]: ...  # type: ignore[name-defined]  # noqa: F821
 
 
 # ----------------------------------------------------------------------

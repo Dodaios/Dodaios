@@ -262,7 +262,7 @@ class AXTreeSource:
         on-screen overlap filter conservative, which is acceptable.
         """
         try:
-            from Quartz import (  # type: ignore[import-not-found] # noqa: PLC0415
+            from Quartz import (  # noqa: PLC0415
                 CGDisplayBounds,
                 CGMainDisplayID,
             )
@@ -292,10 +292,10 @@ class AXTreeSource:
         an exception — so the pipeline stays robust (mirrors the Windows source).
         """
         try:
-            from AppKit import (  # type: ignore[import-not-found] # noqa: PLC0415
+            from AppKit import (  # noqa: PLC0415
                 NSWorkspace,
             )
-            from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+            from ApplicationServices import (  # noqa: PLC0415
                 AXUIElementCreateApplication,
             )
         except (ImportError, ModuleNotFoundError):
@@ -322,7 +322,7 @@ class AXTreeSource:
         # busy app could blow straight through the walk's 1.2 s wall-clock
         # budget (the deadline is only checked BETWEEN calls). Best-effort.
         try:
-            from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+            from ApplicationServices import (  # noqa: PLC0415
                 AXUIElementSetMessagingTimeout,
             )
 
@@ -432,7 +432,7 @@ def _ax_copy_attr(element: Any, attribute: str) -> Any:
         except Exception:  # noqa: BLE001
             return None
     try:
-        from HIServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from HIServices import (  # noqa: PLC0415
             AXUIElementCopyAttributeValue,
         )
     except (ImportError, ModuleNotFoundError):

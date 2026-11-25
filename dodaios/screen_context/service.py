@@ -549,7 +549,7 @@ class ScreenContextService:
                     status="refused",
                     verdict=verdict,
                     reason_kind="technical",
-                    reason_code=reason_code,
+                    reason_code=reason_code,  # type: ignore[arg-type]
                     message=permission_message,
                 )
 
@@ -729,7 +729,7 @@ class ScreenContextService:
                     if not master:
                         master_image = None
                 elif master:
-                    size, rgb, master_image = await self._grab_with_master(target)
+                    size, rgb, master_image = await self._grab_with_master(target)  # type: ignore[assignment]
                 else:
                     size, rgb = await self._grab(target)
                 # macOS hands back the wallpaper, not an error, for a capture it
@@ -1039,7 +1039,7 @@ class ScreenContextService:
         else:
             try:
                 text, text_source, nodes, text_degradations = await asyncio.wait_for(
-                    uitext.read_ui_text(
+                    uitext.read_ui_text(  # type: ignore[arg-type]
                         self.ui_text_reader,
                         target_rect=target.bbox,
                         max_chars=self._settings.max_text_chars,
@@ -1116,7 +1116,7 @@ class ScreenContextService:
                     ocr_result.regions,
                     patterns=self._patterns,
                 )
-                image, ocr_region_hits = redaction.apply_image_redactions(
+                image, ocr_region_hits = redaction.apply_image_redactions(  # type: ignore[assignment]
                     image,
                     ocr_regions,
                 )

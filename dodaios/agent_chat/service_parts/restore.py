@@ -12,7 +12,13 @@ if TYPE_CHECKING:
     from dodaios.agent_chat.service import _Running
 
 
-class RestoreMixin:
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class RestoreMixin(_HostBase):
     """Boot-time recovery: seal, reattach and resume the turns a restart cut off."""
 
     def start_restart_recovery(self) -> None:

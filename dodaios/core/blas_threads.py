@@ -76,7 +76,7 @@ def _load_library(path: str) -> None:
 
     # Never freed: the handle keeps the library, and so its thread pool, alive
     # until the package's own extension modules bind to it.
-    ctypes.WinDLL(path)  # type: ignore[attr-defined]
+    ctypes.WinDLL(path)
 
 
 def preload(package: str, *, load: Callable[[str], Any] | None = None) -> bool:

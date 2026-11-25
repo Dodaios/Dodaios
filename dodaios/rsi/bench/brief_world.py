@@ -109,7 +109,7 @@ def _git(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
         timeout=_GIT_TIMEOUT_S,
         env=env,
         check=False,
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,  # type: ignore[attr-defined]
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
 
 

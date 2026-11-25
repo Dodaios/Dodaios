@@ -113,7 +113,7 @@ class CliAuthManager:
         spec: CliSpec,
         *,
         job_id: str,
-        on_line: callable | None = None,  # type: ignore[type-arg]
+        on_line: callable | None = None,  # type: ignore[valid-type]
     ) -> OAuthLoginHandle | None:
         if spec.auth.type != "oauth_cli" or not spec.auth.login_command:
             return None
@@ -162,7 +162,7 @@ class CliAuthManager:
         self,
         spec: CliSpec,
         *,
-        on_line: callable | None,  # type: ignore[type-arg]
+        on_line: callable | None,  # type: ignore[valid-type]
     ) -> Literal["connected", "timeout", "cancelled", "error"]:
         assert spec.auth.login_command, "precondition: login_command must be set"
         try:

@@ -50,7 +50,7 @@ def _is_changed_com_apartment(exc: Exception) -> bool:
     if hresult is None and exc.args:
         hresult = exc.args[0]
     try:
-        return int(hresult) & 0xFFFFFFFF == _RPC_E_CHANGED_MODE
+        return int(hresult) & 0xFFFFFFFF == _RPC_E_CHANGED_MODE  # type: ignore[arg-type]
     except (TypeError, ValueError):  # A non-numeric HRESULT is simply not this case.
         return False
 
@@ -67,7 +67,7 @@ def _run_traverser_with_com(
         with per_monitor_dpi_context():
             return traverser(max_depth, window_title_filter)
     try:
-        import pythoncom  # type: ignore[import-not-found]  # noqa: PLC0415
+        import pythoncom  # noqa: PLC0415
     except ImportError:
         logger.warning("pythoncom is unavailable — UIA tree disabled")
         return ("", 0, [])

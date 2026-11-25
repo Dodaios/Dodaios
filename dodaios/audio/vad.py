@@ -290,8 +290,8 @@ class SileroEndpointer:
             )
             # Recurrent state + 64-sample context, mirroring
             # silero_vad.OnnxWrapper.
-            self._vad_state = np.zeros((2, 1, 128), dtype=np.float32)
-            self._vad_context = np.zeros((1, 64), dtype=np.float32)
+            self._vad_state = np.zeros((2, 1, 128), dtype=np.float32)  # type: ignore[assignment]
+            self._vad_context = np.zeros((1, 64), dtype=np.float32)  # type: ignore[assignment]
         except Exception as exc:
             self._enable_degraded_fallback(exc)
 
@@ -338,7 +338,7 @@ class SileroEndpointer:
         try:
             samples = np.asarray(frame, dtype=np.float32).reshape(-1)
             buf = _float32_to_int16_bytes(samples[:_WEBRTC_FRAME_SAMPLES])
-            return 1.0 if self._webrtc.is_speech(buf, VAD_SAMPLE_RATE) else 0.0
+            return 1.0 if self._webrtc.is_speech(buf, VAD_SAMPLE_RATE) else 0.0  # type: ignore[attr-defined]
         except Exception as exc:
             self._enable_energy_fallback(exc)
             return self._energy_prob(frame)

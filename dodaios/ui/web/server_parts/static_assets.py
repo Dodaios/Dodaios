@@ -13,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.routing import Match
 from starlette.types import Scope
 
-
 from ..fast_bootstrap import ASSET_SUFFIXES
 from ..spa_build import (
     build_is_complete,
@@ -49,7 +48,13 @@ class _SpaFallbackRoute(APIRoute):
         return super().matches(scope)
 
 
-class StaticAssetsMixin:
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class StaticAssetsMixin(_HostBase):
     """Static assets and the SPA fallback (the built frontend under ``dist/``)."""
 
     def _register_static_or_spa(self, app: FastAPI) -> None:

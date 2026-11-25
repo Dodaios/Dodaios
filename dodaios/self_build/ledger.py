@@ -89,6 +89,11 @@ _COLUMNS: Final[str] = (
 ChangeHook = Callable[[BuildRecord], None]
 
 
+# The class below defines a method called ``list``, which would shadow the builtin
+# inside its annotations; ``_List`` is the builtin for those.
+_List = list
+
+
 def now_ms() -> int:
     return int(time.time() * 1000)
 
@@ -157,10 +162,10 @@ class BuildLedger:
         states: Iterable[State] | None = None,
         kinds: Iterable[Kind] | None = None,
         limit: int = 200,
-    ) -> list[BuildRecord]:
+    ) -> _List[BuildRecord]:
         sql = f"SELECT {_COLUMNS} FROM builds"  # noqa: S608 — fixed identifiers, bound values
-        where: list[str] = []
-        args: list[Any] = []
+        where: _List[str] = []
+        args: _List[Any] = []
         if states is not None:
             values = [State(s).value for s in states]
             where.append(f"state IN ({','.join('?' * len(values))})" if values else "0")
@@ -188,7 +193,7 @@ class BuildLedger:
             ).fetchone()
         return _row(row) if row else None
 
-    def ever_for(self, signature: str) -> list[BuildRecord]:
+    def ever_for(self, signature: str) -> _List[BuildRecord]:
         with self._lock:
             rows = self._conn.execute(
                 f"SELECT {_COLUMNS} FROM builds WHERE signature = ? ORDER BY created_ms",  # noqa: S608 — fixed identifiers, bound values
@@ -206,7 +211,7 @@ class BuildLedger:
         version was replaced (archived without ever being on trial).
         """
         sql = "SELECT COUNT(*) FROM builds WHERE created_ms >= ?"
-        args: list[Any] = [since_ms]
+        args: _List[Any] = [since_ms]
         if kind is not None:
             sql += " AND kind = ?"
             args.append(Kind(kind).value)
@@ -223,14 +228,14 @@ class BuildLedger:
         if not values:
             return 0
         sql = f"SELECT COUNT(*) FROM builds WHERE state IN ({','.join('?' * len(values))})"  # noqa: S608 — fixed identifiers, bound values
-        args: list[Any] = list(values)
+        args: _List[Any] = list(values)
         if kind is not None:
             sql += " AND kind = ?"
             args.append(Kind(kind).value)
         with self._lock:
             return int(self._conn.execute(sql, args).fetchone()[0])
 
-    def history(self, build_id: str) -> list[dict[str, Any]]:
+    def history(self, build_id: str) -> _List[dict[str, Any]]:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT ts_ms, src, dst, note FROM history WHERE build_id = ? ORDER BY seq",

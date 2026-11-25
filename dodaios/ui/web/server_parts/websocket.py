@@ -37,8 +37,13 @@ if TYPE_CHECKING:
 
 from ._srv import server_module
 
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
 
-class WebSocketMixin:
+
+class WebSocketMixin(_HostBase):
     """The ``/ws`` hub: client bookkeeping, level frames, and inbound frame routing."""
 
     def _register_ws_route(self, app: FastAPI) -> None:

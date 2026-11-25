@@ -61,6 +61,8 @@ def _gates(base: str) -> list[Gate]:
         Gate("broad-except", ((PY, ci + "check_broad_except.py"),)),
         Gate("type-ignore", ((PY, ci + "check_type_ignore.py"),)),
         Gate("source-text-tests", ((PY, ci + "check_source_text_tests.py"),)),
+        Gate("frontend-escapes", ((PY, ci + "check_frontend_escapes.py"),)),
+        Gate("duplicates", ((PY, ci + "check_duplicates.py"),)),
         Gate("layers", ((PY, ci + "check_layers.py"),)),
         Gate("webgl-contexts", ((PY, ci + "check_webgl_contexts_released.py"),)),
         Gate("plugin-auth-contract", ((PY, ci + "check_plugin_auth_contract.py"),)),

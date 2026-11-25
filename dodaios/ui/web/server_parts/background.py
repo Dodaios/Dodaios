@@ -12,7 +12,6 @@ from dodaios.core.events import (
     VoiceBootStatus,
 )
 
-
 if TYPE_CHECKING:
     pass
 
@@ -30,7 +29,13 @@ def _follow_main_saved() -> bool:
         return False
 
 
-class BackgroundServicesMixin:
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class BackgroundServicesMixin(_HostBase):
     """Background services the boot starts and the shutdown stops, plus health watchdogs."""
 
 

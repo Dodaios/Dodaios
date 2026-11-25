@@ -30,8 +30,8 @@ from .search import DocSearch, SearchResult
 
 # watchdog is optional — same pattern as SkillRegistry
 try:
-    from watchdog.events import FileSystemEventHandler  # type: ignore
-    from watchdog.observers import Observer  # type: ignore
+    from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
 
     _HAVE_WATCHDOG = True
 except Exception:  # pragma: no cover
@@ -48,6 +48,11 @@ log = logging.getLogger(__name__)
 #: ``modified`` because the access time moved, and that case is filtered by
 #: comparing mtime and size instead.
 _READ_ONLY_EVENTS = frozenset({"opened", "closed_no_write"})
+
+
+# The class below defines a method called ``list``, which would shadow the builtin
+# inside its annotations; ``_List`` is the builtin for those.
+_List = list
 
 
 def _watch_key(path: str) -> str:
@@ -73,7 +78,7 @@ class DocRegistry:
 
     def __init__(
         self,
-        roots: list[Path],
+        roots: _List[Path],
         index_db: Path | None,
         bus: Any | None = None,
         debounce_ms: int = 500,
@@ -85,7 +90,7 @@ class DocRegistry:
         self._async_lock = asyncio.Lock()
         self._thread_lock = threading.Lock()
         self._loaded = threading.Event()
-        self._observers: list[Any] = []
+        self._observers: _List[Any] = []
         self._pending_reload: float | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         # mtime_ns and size, keyed by ``_watch_key``. A matching signature is a
@@ -100,7 +105,7 @@ class DocRegistry:
     def get(self, slug: str) -> Doc | None:
         return self._docs.get(slug)
 
-    def list(self) -> list[Doc]:
+    def list(self) -> _List[Doc]:
         return list(self._docs.values())
 
     @property
@@ -113,11 +118,11 @@ class DocRegistry:
         diataxis: DocDiataxis | None = None,
         status: DocStatus | None = None,
         phase: str | None = None,
-        tags: list[str] | None = None,
-    ) -> list[Doc]:
+        tags: _List[str] | None = None,
+    ) -> _List[Doc]:
         """Server-side filter — hand-rolled instead of SQL because the list
         is small (~50-100 entries) and is already sorted in memory."""
-        out: list[Doc] = []
+        out: _List[Doc] = []
         tags_set = set(tags or [])
         for d in self._docs.values():
             fm = d.frontmatter
@@ -132,11 +137,11 @@ class DocRegistry:
             out.append(d)
         return out
 
-    def grouped_by_diataxis(self) -> dict[DocDiataxis, list[Doc]]:
+    def grouped_by_diataxis(self) -> dict[DocDiataxis, _List[Doc]]:
         """Returns docs grouped by quadrant — template for the UI sidebar
         (group headers). Order: Tutorial -> How-To -> Concept -> Reference
         -> Troubleshooting -> ADR -> Unclassified."""
-        groups: dict[DocDiataxis, list[Doc]] = defaultdict(list)
+        groups: dict[DocDiataxis, _List[Doc]] = defaultdict(list)
         for d in self._docs.values():
             groups[d.frontmatter.diataxis].append(d)
         for k in groups:
@@ -148,7 +153,7 @@ class DocRegistry:
         q: str,
         diataxis: DocDiataxis | None = None,
         limit: int = 20,
-    ) -> list[SearchResult]:
+    ) -> _List[SearchResult]:
         return self.search.query(
             q,
             diataxis=diataxis.value if diataxis else None,
@@ -237,7 +242,7 @@ class DocRegistry:
 
         registry_self = self
 
-        class _Handler(FileSystemEventHandler):  # type: ignore[misc]
+        class _Handler(FileSystemEventHandler):
             def on_any_event(self, event: Any) -> None:  # noqa: D401
                 if getattr(event, "is_directory", False):
                     return
@@ -255,7 +260,7 @@ class DocRegistry:
             if not root.exists():
                 continue
             try:
-                observer = Observer()  # type: ignore[operator]
+                observer = Observer()
                 observer.schedule(_Handler(), str(root), recursive=True)
                 observer.daemon = True
                 observer.start()

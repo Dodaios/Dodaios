@@ -35,7 +35,7 @@ def open_file(path: Path) -> bool:
     plat = detect_platform()
     try:
         if plat == "win32":
-            os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
+            os.startfile(str(path))  # noqa: S606
             return True
         # The argv list never goes through a shell. A relative path that
         # starts with "-" is anchored with "./" so it is never read as an option.
@@ -295,7 +295,7 @@ def _open_url_windows(url: str) -> bool:
     # no classic exe — but it is also the path that silently opens nothing for a
     # dead/hijacked association, so we cannot verify it actually opened a browser.
     try:
-        os.startfile(url)  # type: ignore[attr-defined]  # noqa: S606
+        os.startfile(url)  # noqa: S606
         log.warning(
             "open_url: no browser exe found; handed off to ShellExecute "
             "(cannot verify it opened) for %s", host,

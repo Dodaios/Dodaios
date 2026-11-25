@@ -111,7 +111,7 @@ class _KeyringBackend:
             self._kr = keyring
             self._available = True
         except ImportError:
-            self._kr = None
+            self._kr = None  # type: ignore[assignment]
             self._available = False
 
     def get_password(self, service: str, key: str) -> str | None:

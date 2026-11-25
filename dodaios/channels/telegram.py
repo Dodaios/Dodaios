@@ -332,7 +332,7 @@ class TelegramChannel:
         try:
             updater = getattr(app, "updater", None)
             if getattr(updater, "running", False):
-                await updater.stop()
+                await updater.stop()  # type: ignore[union-attr]
             if getattr(app, "running", False):
                 await app.stop()
             shutdown = getattr(app, "shutdown", None)

@@ -466,7 +466,7 @@ class CostMeter:
         for token, _holder in self._kill_switch.active_tokens():
             token.cancel(reason)
 
-    def _publish(self, event) -> None:  # type: ignore[no-untyped-def]
+    def _publish(self, event) -> None:
         """H11 fix: only publish the event when a loop is running in the current
         thread. Silently discard in the fallback — events are telemetry;
         the budget gate itself already blocks via CancelToken.

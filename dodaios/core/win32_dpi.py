@@ -71,7 +71,7 @@ def _current_awareness_tier(windll) -> str:
         get_awareness = windll.user32.GetAwarenessFromDpiAwarenessContext
         get_awareness.argtypes = [ctypes.c_void_p]
         get_awareness.restype = ctypes.c_int
-        awareness = int(get_awareness(ctypes.c_void_p(context)))
+        awareness = int(get_awareness(ctypes.c_void_p(context)))  # type: ignore[assignment]
         if awareness == 2:
             return "per_monitor"
         if awareness == 1:

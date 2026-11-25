@@ -299,6 +299,9 @@ tests/unit/harness/test_cu_read_informational_goal.py
 #     markers / English rewrites when the tree is not being edited in parallel.
 #     The test files are German voice fixtures (content under test). ---
 dodaios/speech/pipeline.py
+# pipeline_parts/* holds methods moved verbatim out of pipeline.py (same German logs
+# and comments, same rationale).
+dodaios/speech/pipeline_parts/*
 dodaios/speech/completion.py
 dodaios/speech/continuation_buffer.py
 dodaios/brain/provider_test.py

@@ -161,7 +161,7 @@ class DiscordChannel:
 
         channel = self
 
-        class _JarvisDiscordClient(discord.Client):  # type: ignore[misc, valid-type]
+        class _JarvisDiscordClient(discord.Client):
             async def on_ready(self) -> None:  # noqa: D401
                 channel._handle_ready(getattr(self, "user", None))
 
@@ -401,7 +401,7 @@ class DiscordChannel:
         if user_id is None:
             return None
         existing = await self._friends.find_friend_by_channel(
-            "discord", str(user_id)
+            "discord", str(user_id)  # type: ignore[arg-type]
         )
         if existing is not None:
             return existing
@@ -413,7 +413,7 @@ class DiscordChannel:
         await self._friends.link_channel(
             FriendChannel(
                 friend_id=friend.id,
-                channel="discord",
+                channel="discord",  # type: ignore[arg-type]
                 handle=str(user_id),
                 is_primary=True,
             )

@@ -102,7 +102,7 @@ def permission_problem() -> str:
 def list_monitors() -> list[dict]:
     """mss-shaped monitor list (``[0]`` virtual desktop), ``[]`` when none."""
     try:
-        import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+        import mss  # noqa: PLC0415
 
         with input_space(), mss.mss() as sct:
             return [dict(m) for m in sct.monitors]
@@ -148,7 +148,7 @@ def grab_rect(bbox: Rect) -> Frame:
     if width <= 0 or height <= 0:
         raise CaptureError("The area to capture has no size.")
     try:
-        import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+        import mss  # noqa: PLC0415
     except ImportError as exc:
         raise CaptureError(
             "Screen capture needs the 'mss' package, which is not installed."

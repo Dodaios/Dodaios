@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from dodaios.brain import manager as _m
@@ -33,8 +33,13 @@ from dodaios.voice.action_phrases import (
 )
 from dodaios.voice.contextual_readback import render_readback
 
+if TYPE_CHECKING:
+    from dodaios.brain.manager_parts._host_state import BrainHostState as _HostBase
+else:
+    _HostBase = object
 
-class _LocalActionMixin:
+
+class _LocalActionMixin(_HostBase):
     """Local-action fast path, computer-use background runs and pending confirmations."""
 
     async def _run_local_action_fast_path(

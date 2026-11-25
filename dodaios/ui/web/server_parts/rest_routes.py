@@ -18,7 +18,6 @@ from dodaios.core.events import (
 from dodaios.core.registry import list_all_plugins
 from dodaios.terminal import discover_shells
 
-
 if TYPE_CHECKING:
     pass
 
@@ -35,7 +34,13 @@ class MemoryFactBody(BaseModel):
     category: str = "general"
 
 
-class RestRoutesMixin:
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
+
+
+class RestRoutesMixin(_HostBase):
     """The REST routes registered inline on the app."""
 
     def _register_rest_routes(self, app: FastAPI) -> None:

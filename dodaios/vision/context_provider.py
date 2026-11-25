@@ -137,7 +137,7 @@ class VisionContextProvider:
                 # propagate None so the caller can decide (e.g. skip vision context).
                 return None  # type: ignore[return-value]
             return self._latest
-        return self._latest
+        return self._latest  # type: ignore[return-value]
 
     def pause(self) -> None:
         """Privacy toggle: the loop stops refreshing, current() raises VisionPaused."""

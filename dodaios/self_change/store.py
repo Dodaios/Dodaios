@@ -105,6 +105,11 @@ _ADDED_COLUMNS: Final[dict[str, str]] = {
 }
 
 
+# The class below defines a method called ``list``, which would shadow the builtin
+# inside its annotations; ``_List`` is the builtin for those.
+_List = list
+
+
 @dataclass(slots=True)
 class Change:
     id: str
@@ -119,7 +124,7 @@ class Change:
     reason: str
     state: State
     core: bool
-    core_reasons: list[str]
+    core_reasons: _List[str]
     gate: dict[str, Any]
     note: str
     ref: str
@@ -223,7 +228,7 @@ class ChangeStore:
         reason: str,
         state: State,
         core: bool,
-        core_reasons: list[str],
+        core_reasons: _List[str],
         gate: dict[str, Any],
         ref: str = "",
         waits: str = "",
@@ -332,7 +337,7 @@ class ChangeStore:
 
     # -------------------------------------------------------------- reads
 
-    def evidence(self, change_id: str) -> list[dict[str, Any]]:
+    def evidence(self, change_id: str) -> _List[dict[str, Any]]:
         """Every measurement recorded for a change, oldest first."""
         with self._lock:
             rows = (
@@ -384,18 +389,18 @@ class ChangeStore:
 
     def list(
         self, *, since_ms: int = 0, states: tuple[State, ...] = (), limit: int = 200
-    ) -> list[Change]:
+    ) -> _List[Change]:
         sql, args = "SELECT * FROM changes WHERE created_ms >= ?", [since_ms]
         if states:
             sql += f" AND state IN ({','.join('?' for _ in states)})"  # noqa: S608
-            args += [s.value for s in states]
+            args += [s.value for s in states]  # type: ignore[misc]
         sql += " ORDER BY seq DESC LIMIT ?"
         args.append(limit)
         with self._lock:
             rows = self._db().execute(sql, args).fetchall()
         return [self._change(r) for r in rows]
 
-    def history(self, change_id: str) -> list[dict[str, Any]]:
+    def history(self, change_id: str) -> _List[dict[str, Any]]:
         with self._lock:
             rows = (
                 self._db()
@@ -410,7 +415,7 @@ class ChangeStore:
 
     def evaluations(
         self, change_id: str = "", suite: str = "", limit: int = 100
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         sql, args = "SELECT * FROM evaluations WHERE 1=1", []
         if change_id:
             sql += " AND change_id=?"
@@ -419,7 +424,7 @@ class ChangeStore:
             sql += " AND suite=?"
             args.append(suite)
         sql += " ORDER BY seq DESC LIMIT ?"
-        args.append(limit)
+        args.append(limit)  # type: ignore[arg-type]
         with self._lock:
             rows = self._db().execute(sql, args).fetchall()
         return [dict(r) for r in rows]

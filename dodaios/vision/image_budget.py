@@ -57,12 +57,12 @@ def cap_image_b64(
         img = Image.open(io.BytesIO(raw))
         img.load()
         if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
+            img = img.convert("RGB")  # type: ignore[assignment]
         w, h = img.size
         longest = max(w, h)
         if max_dimension > 0 and longest > max_dimension:
             scale = max_dimension / longest
-            img = img.resize(
+            img = img.resize(  # type: ignore[assignment]
                 (max(1, round(w * scale)), max(1, round(h * scale))),
                 resample=Image.Resampling.LANCZOS,
             )

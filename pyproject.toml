@@ -1065,6 +1065,9 @@ ignore = ["S101", "S603", "S607"]
 # "tok_real_secret") that bandit flags as hardcoded passwords — a false
 # positive in a test context, same carve-out as the telephony tests above.
 "tests/unit/plugins/tool/test_call_contact.py" = ["S105", "S106"]
+# pipeline.py owns and re-exports every name the pipeline_parts mixins read through
+# `_pl` at call time (and that tests patch); some imports look unused there.
+"dodaios/speech/pipeline.py" = ["F401"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -1101,3 +1104,10 @@ cryptography = { index = "native-crypto" }
 name = "sherpa-onnx"
 version = "1.13.4"
 requires-dist = ["sherpa-onnx-core==1.13.4"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+platform = "win32"
+disable_error_code = ["import-untyped"]

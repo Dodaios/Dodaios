@@ -28,7 +28,7 @@ def _manual_axvalue_pair(
 ) -> tuple[float, float] | None:
     """Decode with PyObjC's crash-safe manual wrapper, never raw ``ctypes``."""
     try:
-        import HIServices  # type: ignore[import-not-found] # noqa: PLC0415
+        import HIServices  # noqa: PLC0415
 
         value_type = next(
             getattr(HIServices, name)

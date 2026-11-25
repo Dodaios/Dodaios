@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import stat
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 _PRIVATE_DIRECTORY_ERROR = (
     "The private directory is unavailable or does not meet owner-only "
@@ -191,7 +191,7 @@ def _ensure_windows_owner_only_directory(path: Path, *, create: bool) -> None:
         if handle and not kernel32.CloseHandle(handle):
             _fail()
 
-    def local_free(pointer: object) -> None:
+    def local_free(pointer: Any) -> None:
         if pointer:
             kernel32.LocalFree(ctypes.cast(pointer, wintypes.LPVOID))
 
@@ -238,7 +238,7 @@ def _ensure_windows_owner_only_directory(path: Path, *, create: bool) -> None:
             finally:
                 local_free(sid_text)
         finally:
-            close_handle(token.value)
+            close_handle(token.value)  # type: ignore[arg-type]
 
     def descriptor_from_sddl(sddl: str) -> wintypes.LPVOID:
         descriptor = wintypes.LPVOID()

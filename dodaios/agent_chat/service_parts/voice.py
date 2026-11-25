@@ -5,15 +5,20 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat.store import (
     AgentChatSession,
 )
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class VoiceMixin:
+
+class VoiceMixin(_HostBase):
     """Voice-call chats: binding, history and turn import."""
 
     # ------------------------------------------------------------ voice chat

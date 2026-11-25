@@ -5282,7 +5282,7 @@ def start_codex_subscription_login(
             _invalidate_subscription_snapshot_locked()
             _subscription_state_changed.notify_all()
         raise
-    return process
+    return process  # type: ignore[return-value]
 
 
 def _delete_codex_subscription_auth_locked() -> tuple[bool, str | None]:

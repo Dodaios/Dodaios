@@ -6,7 +6,7 @@ import asyncio
 import sqlite3
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dodaios.agent_chat import service as _s
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
@@ -17,8 +17,13 @@ from dodaios.agent_chat.store import (
     AgentChatSession,
 )
 
+if TYPE_CHECKING:
+    from dodaios.agent_chat.service_parts._host_state import AgentChatHostState as _HostBase
+else:
+    _HostBase = object
 
-class SessionsMixin:
+
+class SessionsMixin(_HostBase):
     """Session creation, steering and the running-turn queries."""
 
     # ------------------------------------------------------------ sessions

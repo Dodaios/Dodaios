@@ -447,8 +447,8 @@ def local_login_file(agent: str) -> Path | None:
     try:
         from dodaios import agent_accounts
 
-        account = agent_accounts.active_account(agent)  # type: ignore[arg-type]
-        overrides = agent_accounts.env_overrides(agent, account.id)  # type: ignore[arg-type]
+        account = agent_accounts.active_account(agent)
+        overrides = agent_accounts.env_overrides(agent, account.id)
         folder = overrides.get(_ACCOUNT_DIR_VARS[agent])
         if folder:
             candidates.append(Path(folder) / Path(rel).name)

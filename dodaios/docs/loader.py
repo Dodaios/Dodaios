@@ -16,17 +16,17 @@ import re
 from pathlib import Path
 
 try:  # optional dep — same pattern as skills/loader.py
-    import frontmatter as _frontmatter  # type: ignore
+    import frontmatter as _frontmatter
     _HAVE_FRONTMATTER = True
 except Exception:  # pragma: no cover
-    _frontmatter = None  # type: ignore
+    _frontmatter = None
     _HAVE_FRONTMATTER = False
 
 try:
     import yaml
     _HAVE_YAML = True
 except Exception:  # pragma: no cover
-    yaml = None  # type: ignore
+    yaml = None
     _HAVE_YAML = False
 
 from pydantic import ValidationError
@@ -80,7 +80,7 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     to a manual split otherwise.
     """
     if _HAVE_FRONTMATTER:
-        post = _frontmatter.loads(text)  # type: ignore[union-attr]
+        post = _frontmatter.loads(text)
         meta = dict(post.metadata)
         # python-frontmatter strips a trailing newline from ``.content``; when a
         # doc has NO frontmatter, return the body unchanged so this path agrees

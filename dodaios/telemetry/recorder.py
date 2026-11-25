@@ -43,7 +43,7 @@ def _json_default(value: Any) -> Any:
     if isinstance(value, bytes):
         return {"__bytes__": base64.b64encode(value).decode("ascii")}
     if dataclasses.is_dataclass(value):
-        return dataclasses.asdict(value)
+        return dataclasses.asdict(value)  # type: ignore[arg-type]
     if hasattr(value, "model_dump"):       # Pydantic
         return value.model_dump(mode="json")
     raise TypeError(f"Not JSON-serializable: {type(value).__name__}")

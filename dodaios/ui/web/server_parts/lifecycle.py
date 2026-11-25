@@ -12,14 +12,18 @@ from loguru import logger
 
 from dodaios.core import module_health
 
-
 if TYPE_CHECKING:
     pass
 
 from ._srv import server_module
 
+if TYPE_CHECKING:
+    from dodaios.ui.web.server_parts._host_state import WebServerHostState as _HostBase
+else:
+    _HostBase = object
 
-class LifecycleMixin:
+
+class LifecycleMixin(_HostBase):
     """``start()`` and ``stop()``: the boot order and the shutdown order."""
 
     async def start(

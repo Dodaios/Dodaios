@@ -602,7 +602,7 @@ class AtomicConfigWriter:
                     # fsync can fail on some filesystems (e.g. tmpfs in CI)
                     # but is not critical enough to block the write.
                     _LOG.debug("fsync failed — ignoring", exc_info=True)
-            self._replace_keep_readonly(tmp_path, self._config_path)
+            self._replace_keep_readonly(tmp_path, self._config_path)  # type: ignore[arg-type]
             tmp_path = None  # replace succeeded — no cleanup needed
         except Exception:
             if tmp_path is not None:
