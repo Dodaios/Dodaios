@@ -200,6 +200,14 @@ runs every gate with `--update` daily and opens one bot pull request
 in the commit. A broad catch that is right gets `# broad-except: <reason>` on its
 `except` line and does not count. The shared core is `scripts/ci/_ratchet.py`.
 
+Two more gates follow the same rules. `frontend-escapes` counts explicit `any`,
+`@ts-ignore`/`@ts-expect-error` without a description and `eslint-disable` without
+a `-- reason` per frontend source file (the frontend has no ESLint, so it is a text
+scan). `duplicates` finds copy-pasted blocks of 12+ identical normalized lines across
+`dodaios/` Python and frontend TS/TSX (about 4 s); `check_duplicates.py --clusters`
+lists the biggest pairs. The frontend keeps `strict` on; `noUncheckedIndexedAccess`
+is off because it reports about 4,200 errors.
+
 ### Model-text snapshots
 
 `tests/unit/model_texts/` renders every text a model reads (the lead's system

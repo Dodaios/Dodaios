@@ -48,7 +48,7 @@ jobs:
       - name: Re-baseline every ratchet
         run: |
           set -euo pipefail
-          for gate in file_size function_size broad_except type_ignore source_text_tests; do
+          for gate in file_size function_size broad_except type_ignore source_text_tests frontend_escapes duplicates; do
             python "scripts/ci/check_${gate}.py" --update
           done
 
