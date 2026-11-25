@@ -92,7 +92,7 @@ def parse(
         if not isinstance(item, dict):
             continue
         try:
-            index = int(item.get("event"))
+            index = int(item.get("event"))  # type: ignore[arg-type]
         except (TypeError, ValueError):  # a malformed item is skipped; its event stays ignore
             continue
         if not 1 <= index <= len(events) or index in chosen:

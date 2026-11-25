@@ -85,7 +85,7 @@ class AudioEffectsService:
                 player = await asyncio.to_thread(self._make_player, config)
                 self._owned_player = player
             await asyncio.wait_for(
-                player.play_pcm(SCREEN_CAPTURE_PCM, sample_rate=CHIME_SAMPLE_RATE),
+                player.play_pcm(SCREEN_CAPTURE_PCM, sample_rate=CHIME_SAMPLE_RATE),  # type: ignore[union-attr]
                 timeout=_PLAYBACK_TIMEOUT_S,
             )
         except TimeoutError:

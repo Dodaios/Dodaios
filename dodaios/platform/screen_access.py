@@ -129,10 +129,10 @@ def screen_recording_state(gate: Any | None = None, *, deep: bool = True) -> Per
     state = gate.check(PermissionId.SCREEN_RECORDING)
     if not deep or state not in _DEEP_RETRY_STATES:
         return state
-    deep = getattr(gate, "check_deep", None)
+    deep = getattr(gate, "check_deep", None)  # type: ignore[assignment]
     if not callable(deep):
         return state
-    return deep(PermissionId.SCREEN_RECORDING)
+    return deep(PermissionId.SCREEN_RECORDING)  # type: ignore[misc]
 
 
 def state_allows_capture(state: PermissionState) -> bool:
@@ -292,7 +292,7 @@ def _default_window_evidence() -> tuple[int, int] | None:
     UNVERIFIED on a real Mac. ``None`` when the native bridge is missing.
     """
     try:
-        import Quartz  # type: ignore[import-not-found]  # noqa: PLC0415
+        import Quartz  # noqa: PLC0415
 
         windows = Quartz.CGWindowListCopyWindowInfo(
             Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
@@ -397,7 +397,7 @@ def _unusable_grant_refusal(feature: str, gate: Any, *, interactive: bool) -> Sc
     if interactive and callable(report):
         result = report(PermissionId.SCREEN_RECORDING, feature=feature)
         _failed_use_reported.add(feature)
-        if not getattr(result, "granted", True) and getattr(result, "reason", ""):
+        if not getattr(result, "granted", True) and getattr(result, "reason", ""):  # type: ignore[arg-type]
             return _refusal_from_result(result)
     return refusal_for_state(PermissionState.NOT_GRANTED)
 

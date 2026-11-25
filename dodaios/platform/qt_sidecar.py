@@ -41,7 +41,7 @@ def hide_from_dock() -> None:
     if sys.platform != "darwin":
         return
     try:
-        from AppKit import NSApplication  # type: ignore[import-not-found]  # noqa: PLC0415
+        from AppKit import NSApplication  # noqa: PLC0415
 
         # 1 = NSApplicationActivationPolicyAccessory: windows allowed, no Dock
         # icon, no menu bar takeover.

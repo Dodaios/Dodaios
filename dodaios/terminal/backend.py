@@ -146,7 +146,7 @@ class WinptyBackend:
         env: Mapping[str, str] | None = None,
     ) -> PtyHandle:
         try:
-            from winpty import PtyProcess  # type: ignore[import-not-found]
+            from winpty import PtyProcess
         except ImportError as exc:
             # Preserve the exact degrade message from pty_manager.py:72-75.
             raise RuntimeError(
@@ -249,7 +249,7 @@ class UnixPtyBackend:
         env: Mapping[str, str] | None = None,
     ) -> PtyHandle:
         try:
-            import ptyprocess  # type: ignore[import-not-found]
+            import ptyprocess
         except ImportError as exc:
             raise RuntimeError(
                 "ptyprocess not installed — `pip install ptyprocess` "

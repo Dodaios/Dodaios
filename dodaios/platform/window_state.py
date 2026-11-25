@@ -424,7 +424,7 @@ def _macos_window_pid(entry: dict) -> int:
 
 def _macos_ax_attr(element: object, attribute: str) -> object | None:
     try:
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementCopyAttributeValue,
         )
 
@@ -536,7 +536,7 @@ def _macos_bound_ax_messaging(
     ignored — the call sequence then simply keeps the OS default.
     """
     try:
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementSetMessagingTimeout,
         )
 
@@ -611,12 +611,12 @@ def _find_and_focus_macos(title_contains: str) -> tuple[bool, str]:
         return False, "The matching macOS window has no owning process identifier."
 
     try:
-        from AppKit import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from AppKit import (  # noqa: PLC0415
             NSApplicationActivateAllWindows,
             NSApplicationActivateIgnoringOtherApps,
             NSRunningApplication,
         )
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementCreateApplication,
             AXUIElementPerformAction,
             AXUIElementSetAttributeValue,
@@ -647,7 +647,7 @@ def _find_and_focus_macos(title_contains: str) -> tuple[bool, str]:
 
     root = AXUIElementCreateApplication(pid)
     _macos_bound_ax_messaging(root)
-    windows = list(_macos_ax_attr(root, "AXWindows") or [])
+    windows = list(_macos_ax_attr(root, "AXWindows") or [])  # type: ignore[call-overload]
     owner_name = str(matched_entry.get("kCGWindowOwnerName") or "")
     target_title = _macos_window_title(matched_entry)
     target = _select_macos_ax_window(
@@ -706,7 +706,7 @@ def _list_windows_macos() -> list[WindowInfo]:
 
     minimized_by_number: dict[int, bool] = {}
     try:
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementCreateApplication,
         )
 
@@ -721,7 +721,7 @@ def _list_windows_macos() -> list[WindowInfo]:
                     continue
                 if pid not in ax_windows_by_pid:
                     root = AXUIElementCreateApplication(pid)
-                    ax_windows_by_pid[pid] = list(
+                    ax_windows_by_pid[pid] = list(  # type: ignore[call-overload]
                         _macos_ax_attr(root, "AXWindows") or [],
                     )
                 ax_windows = ax_windows_by_pid[pid]
@@ -757,7 +757,7 @@ def _list_windows_macos() -> list[WindowInfo]:
 
 def _foreground_title_macos() -> str:
     try:
-        from AppKit import NSWorkspace  # type: ignore[import-not-found] # noqa: PLC0415
+        from AppKit import NSWorkspace  # noqa: PLC0415
 
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
         if app is None:
@@ -1347,7 +1347,7 @@ def _quartz_window_list(*, on_screen_only: bool = True) -> list:
     use the same global point space as Quartz input and mss capture rects.
     """
     try:
-        import Quartz  # type: ignore[import-not-found] # noqa: PLC0415
+        import Quartz  # noqa: PLC0415
     except Exception:  # noqa: BLE001 — pyobjc not installed
         return []
     try:
@@ -1377,7 +1377,7 @@ def _foreground_window_macos() -> WindowInfo | None:
     """
     front_pid = 0
     try:
-        from AppKit import NSWorkspace  # type: ignore[import-not-found] # noqa: PLC0415
+        from AppKit import NSWorkspace  # noqa: PLC0415
 
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
         front_pid = int(app.processIdentifier()) if app is not None else 0
@@ -1783,7 +1783,7 @@ def _trim_gtk_frame_extents(
     rect as it is.
     """
     try:
-        from Xlib import X, display  # type: ignore[import-not-found]  # noqa: PLC0415
+        from Xlib import X, display  # noqa: PLC0415
     except ImportError:  # python-xlib is optional; without it the rect stays as it is
         return rect
     conn = None
@@ -1812,8 +1812,8 @@ def _trim_gtk_frame_extents(
 def _resolve_macos_ax_window(win: WindowInfo) -> tuple[object | None, str]:
     """Resolve a Quartz ``WindowInfo`` to its owning native AX window."""
     try:
-        from AppKit import NSWorkspace  # type: ignore[import-not-found] # noqa: PLC0415
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from AppKit import NSWorkspace  # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementCreateApplication,
         )
     except (ImportError, ModuleNotFoundError) as exc:
@@ -1848,7 +1848,7 @@ def _resolve_macos_ax_window(win: WindowInfo) -> tuple[object | None, str]:
         return None, "The macOS window has no owning process identifier."
 
     root = AXUIElementCreateApplication(pid)
-    windows = list(_macos_ax_attr(root, "AXWindows") or [])
+    windows = list(_macos_ax_attr(root, "AXWindows") or [])  # type: ignore[call-overload]
     target = (
         _select_macos_ax_window(
             windows,
@@ -1921,7 +1921,7 @@ def _maximize_window_macos(win: WindowInfo) -> tuple[bool, str]:
         return False, denied
 
     try:
-        from ApplicationServices import (  # type: ignore[import-not-found] # noqa: PLC0415
+        from ApplicationServices import (  # noqa: PLC0415
             AXUIElementSetAttributeValue,
         )
     except (ImportError, ModuleNotFoundError) as exc:

@@ -217,8 +217,8 @@ def _row_to_item(row: tuple[Any, ...]) -> Item:
     mode = row[2] if row[2] in ("region", "window", "fullscreen") else "region"
     return Item(
         id=str(row[0]),
-        kind=kind,
-        mode=mode,
+        kind=kind,  # type: ignore[arg-type]
+        mode=mode,  # type: ignore[arg-type]
         created_at=str(row[3]),
         width=int(row[4]),
         height=int(row[5]),

@@ -114,7 +114,7 @@ def _whisper_cached(name: str) -> bool:
     network. Any failure (not cached, lib missing, odd cache layout) reads as
     "not present".
     """
-    from faster_whisper.utils import download_model  # type: ignore[import-not-found,import-untyped]
+    from faster_whisper.utils import download_model
 
     download_model(name, local_files_only=True)
     return True

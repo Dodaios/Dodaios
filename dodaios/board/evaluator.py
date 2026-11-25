@@ -246,7 +246,7 @@ class AchievementEvaluator:
         """Stops the bus subscription (the connection stays open for queries)."""
         if self._bus is not None and self._subscribed:
             try:
-                self._bus._wildcard_subscribers.remove(self._on_event)  # type: ignore[attr-defined]
+                self._bus._wildcard_subscribers.remove(self._on_event)
             except (AttributeError, ValueError):
                 pass
         self._subscribed = False

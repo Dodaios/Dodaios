@@ -32,7 +32,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from dodaios.dodaiosx.geometry import Rect, even_size
 
@@ -98,7 +98,7 @@ class MssFrameSource:
     """
 
     def __init__(self, bbox: Rect) -> None:
-        import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+        import mss  # noqa: PLC0415
 
         from dodaios.dodaiosx.capture import input_space  # noqa: PLC0415
 
@@ -113,7 +113,7 @@ class MssFrameSource:
         shot = self._sct.grab(self._area)
         # ``raw`` is already a fresh BGRA buffer; copying 33 MB per 4K frame
         # would cost a frame of its own.
-        return int(shot.size[0]), int(shot.size[1]), shot.raw
+        return int(shot.size[0]), int(shot.size[1]), cast(bytes, shot.raw)
 
     def close(self) -> None:
         try:

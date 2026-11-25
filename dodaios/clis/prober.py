@@ -169,7 +169,7 @@ class CliStatusProber:
         try:
             await asyncio.wait(tasks, timeout=PROBE_ALL_TIMEOUT_S)
         except asyncio.CancelledError:
-            await _cancel_probes(tasks)
+            await _cancel_probes(tasks)  # type: ignore[arg-type]
             raise
 
         out: dict[str, CliStatus] = {}

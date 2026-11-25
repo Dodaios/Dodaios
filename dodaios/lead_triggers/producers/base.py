@@ -106,7 +106,7 @@ class Api:
             log.debug("lead triggers: token store unreadable", exc_info=True)
             return False
         usable = tokens is not None and not getattr(tokens, "needs_reauth", False)
-        return usable and bool(tokens.access)
+        return usable and bool(tokens.access)  # type: ignore[union-attr]
 
     async def _headers(self, extra: dict[str, str] | None) -> tuple[dict[str, str], str]:
         tokens = await self._tokens()

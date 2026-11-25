@@ -579,7 +579,7 @@ class DesktopDuplication:
                 texture = _Com(resource.value).query(_IID_TEXTURE2D)
                 try:
                     self._context.call(
-                        _CTX_COPY_RESOURCE, ctypes.c_void_p(self._desktop.ptr),
+                        _CTX_COPY_RESOURCE, ctypes.c_void_p(self._desktop.ptr),  # type: ignore[union-attr]
                         ctypes.c_void_p(texture.ptr), restype=None,
                     )
                 finally:
@@ -616,7 +616,7 @@ class DesktopDuplication:
         try:
             self._context.call(
                 _CTX_COPY_RESOURCE, ctypes.c_void_p(staging.ptr),
-                ctypes.c_void_p(self._desktop.ptr), restype=None,
+                ctypes.c_void_p(self._desktop.ptr), restype=None,  # type: ignore[union-attr]
             )
             return self._read_back(staging, self.size, np.float16, 4)
         finally:
@@ -660,11 +660,11 @@ class DesktopDuplication:
             None, ctypes.byref(params), ctypes.c_uint(0), ctypes.c_uint(0), restype=None,
         )
         pointer_srv = self._pointer_srv.ptr if self._pointer_srv is not None else None
-        srvs = (ctypes.c_void_p * 2)(self._desktop_srv.ptr, pointer_srv)
+        srvs = (ctypes.c_void_p * 2)(self._desktop_srv.ptr, pointer_srv)  # type: ignore[union-attr]
         uavs = (ctypes.c_void_p * 2)(planes["y_uav"].ptr, planes["uv_uav"].ptr)
         samplers = (ctypes.c_void_p * 1)(planes["sampler"].ptr)
         buffers = (ctypes.c_void_p * 1)(planes["cbuffer"].ptr)
-        ctx.call(_CTX_CS_SHADER, ctypes.c_void_p(self._shader.ptr), None, ctypes.c_uint(0),
+        ctx.call(_CTX_CS_SHADER, ctypes.c_void_p(self._shader.ptr), None, ctypes.c_uint(0),  # type: ignore[union-attr]
                  restype=None)
         ctx.call(_CTX_CS_SRV, ctypes.c_uint(0), ctypes.c_uint(2), srvs, restype=None)
         ctx.call(_CTX_CS_UAV, ctypes.c_uint(0), ctypes.c_uint(2), uavs, None, restype=None)
@@ -768,7 +768,7 @@ class DesktopDuplication:
         buffer = (ctypes.c_ubyte * size)()
         required = ctypes.c_uint()
         shape = _PointerShapeInfo()
-        hr = self._dup.call(
+        hr = self._dup.call(  # type: ignore[union-attr]
             _DUP_POINTER_SHAPE, ctypes.c_uint(size), buffer,
             ctypes.byref(required), ctypes.byref(shape),
         )

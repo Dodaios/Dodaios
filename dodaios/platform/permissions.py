@@ -401,7 +401,7 @@ def _default_screen_capture_live_check() -> bool | None:
     and never contradicts the preflight.
     """
     try:
-        import Quartz  # type: ignore[import-not-found]
+        import Quartz
 
         windows = Quartz.CGWindowListCopyWindowInfo(
             Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
@@ -704,7 +704,7 @@ class SystemPermissionPort:
             return True
         foundation = self._load("Foundation")
         try:
-            value = foundation.NSBundle.mainBundle().objectForInfoDictionaryKey_(key)
+            value = foundation.NSBundle.mainBundle().objectForInfoDictionaryKey_(key)  # type: ignore[union-attr]
         except Exception:  # noqa: BLE001 - an unreadable bundle must not look present
             log.debug("Could not read %s from the main bundle.", key, exc_info=True)
             return False
@@ -1061,7 +1061,7 @@ class SystemPermissionPort:
             # The call returns nothing: the status read beforehand is the only
             # way to tell a dialog (not determined) from a silent no-op.
             before = self._microphone_state()
-            request(av.AVMediaTypeAudio, lambda _granted: None)
+            request(av.AVMediaTypeAudio, lambda _granted: None)  # type: ignore[union-attr]
             return "dialog_shown" if before is PermissionState.NOT_DETERMINED else "no_dialog"
         if permission_id is PermissionId.ACCESSIBILITY:
             app_services = self._load("ApplicationServices")
@@ -1084,7 +1084,7 @@ class SystemPermissionPort:
             # Asked through the request calls only, never by creating an event
             # tap (BUG-058 class). The tri-state read beforehand tells a dialog
             # (not determined) from a decision already on file.
-            before = self._iohid_state(_IOHID_REQUEST_LISTEN_EVENT)
+            before = self._iohid_state(_IOHID_REQUEST_LISTEN_EVENT)  # type: ignore[assignment]
             quartz = self._load("Quartz")
             request = getattr(quartz, "CGRequestListenEventAccess", None)
             if callable(request):

@@ -452,7 +452,7 @@ async def state() -> dict[str, Any]:
         today = _today(cfg.timezone)
         await refresh(today, cfg)
         out["items"] = [i.to_dict() for i in ledger().list_open(today, cfg.kinds_on())]
-    task_store = runtime.task_services()[0]
+    task_store = runtime.task_services()[0]  # type: ignore[union-attr]
     row = await _digest_row(task_store) if task_store is not None else None
     if row is not None:
         out["digest"] = {
@@ -503,7 +503,7 @@ async def apply_settings(new: LifeAdminSettings) -> dict[str, Any]:
                 "timezone": new.timezone,
                 "weekdays": [DAYS.index(new.digest_day)],
             },
-            **await _seat_for_checks(runtime, lead),
+            **await _seat_for_checks(runtime, lead),  # type: ignore[arg-type]
         )
         spec = spec.model_copy(update={"tags": (*spec.tags, DIGEST_TAG, QUIET_TAG)})
         await create_routine(task_store, scheduler, spec)

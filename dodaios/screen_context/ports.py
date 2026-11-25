@@ -121,9 +121,9 @@ class PlatformCursorLocator:
             if self._backend is None:
                 from dodaios.platform.mouse import make_cursor_backend  # noqa: PLC0415
 
-                self._backend = make_cursor_backend()
+                self._backend = make_cursor_backend()  # type: ignore[assignment]
             with _input_space():
-                return self._backend.position()
+                return self._backend.position()  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001 — the seam must never raise
             log.debug("cursor position probe failed", exc_info=True)
             return None
@@ -200,7 +200,7 @@ class MssDisplayEnumerator:
             )
             return []
         try:
-            import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+            import mss  # noqa: PLC0415
 
             with _input_space(), mss.mss() as sct:
                 return [dict(m) for m in sct.monitors]
@@ -468,7 +468,7 @@ class NativeSurfaceCapturer:
                     "Sign in with an X11 session (\"GNOME on Xorg\" or "
                     "\"Plasma (X11)\" on the login screen)."
                 )
-            import mss  # type: ignore[import-not-found]  # noqa: PLC0415
+            import mss  # noqa: PLC0415
         except ImportError as exc:
             raise CaptureUnavailable(
                 "Screen capture is not available because the 'mss' package is "
@@ -539,7 +539,7 @@ class AccessibilityTextReader:
                 self._source = make_ui_tree_source()
             if type(self._source).__name__ == "NullUITreeSource":
                 return None
-            return await self._source.observe(window_title_filter=window_title_filter)
+            return await self._source.observe(window_title_filter=window_title_filter)  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001 — UIA/AX/AT-SPI raise a wide variety
             log.debug("accessibility text read failed", exc_info=True)
             return None

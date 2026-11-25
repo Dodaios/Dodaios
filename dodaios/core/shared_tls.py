@@ -90,12 +90,12 @@ def _pin_alpn(ctx: ssl.SSLContext, protocols: list[str]) -> None:
             original(requested)
 
     # Instance attribute: shadows the method for this one context only.
-    ctx.set_alpn_protocols = set_alpn_protocols  # type: ignore[method-assign]
+    ctx.set_alpn_protocols = set_alpn_protocols  # type: ignore[assignment, method-assign]
 
 
 def _patch_transport(cls: type) -> bool:
     """Route ``cls``'s default ``verify=True`` to the shared context."""
-    init = cls.__init__
+    init = cls.__init__  # type: ignore[misc]
     if getattr(init, _PATCHED_MARK, False):
         return True
     import inspect  # lazy: this module is imported with the bare ``jarvis`` package
@@ -119,7 +119,7 @@ def _patch_transport(cls: type) -> bool:
         init(self, *args, **kwargs)
 
     setattr(__init__, _PATCHED_MARK, True)
-    cls.__init__ = __init__  # type: ignore[method-assign]
+    cls.__init__ = __init__  # type: ignore[misc]
     return True
 
 

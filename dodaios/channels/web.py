@@ -115,7 +115,7 @@ class WebChannel:
                 kind = "text"
             msg = ChannelMessage(
                 session_id=session_id,
-                kind=kind,  # type: ignore[arg-type]
+                kind=kind,
                 content=str(raw.get("content", "")),
                 metadata={k: v for k, v in raw.items() if k not in {"kind", "content"}},
             )

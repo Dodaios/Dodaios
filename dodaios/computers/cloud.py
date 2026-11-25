@@ -136,7 +136,7 @@ class CloudServer:
 def provider(provider_id: str) -> CloudProvider:
     if provider_id not in PROVIDERS:
         raise CloudError(f"Unknown provider: {provider_id}")
-    return PROVIDERS[provider_id]  # type: ignore[index]
+    return PROVIDERS[provider_id]
 
 
 def token(provider_id: str) -> str | None:

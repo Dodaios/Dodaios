@@ -96,7 +96,7 @@ class ComputerUsePlannerSelector:
         self, *, images_attached: bool,
     ) -> Iterator[tuple[int, str, str | None, Any]]:
         """Yield provider candidates that are usable for this CU brain call."""
-        dead_providers = getattr(self.manager, "_dead_providers", set())
+        dead_providers = getattr(self.manager, "_dead_providers", set())  # type: ignore[var-annotated]
         rate_tracker = getattr(self.manager, "_rate_tracker", None)
         is_available = getattr(rate_tracker, "is_available", None)
 

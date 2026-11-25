@@ -55,7 +55,7 @@ def build_connect_stream_twiml(
         "opening": opening,
     }
     try:
-        from twilio.twiml.voice_response import (  # type: ignore[import-untyped]
+        from twilio.twiml.voice_response import (
             Connect,
             Stream,
             VoiceResponse,

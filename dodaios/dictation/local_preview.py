@@ -545,7 +545,7 @@ class LocalPreviewTranscriber:
 
             ensure_cuda_libraries_findable()
             with inference_only_import_shield():
-                import ctranslate2  # type: ignore[import-untyped]
+                import ctranslate2
 
             supported = set(ctranslate2.get_supported_compute_types("cuda"))
             # Plain half precision first: on the one GPU measured so far the

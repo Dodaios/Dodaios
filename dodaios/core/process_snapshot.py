@@ -86,7 +86,7 @@ class _SystemProcessInformation(ctypes.Structure):
 
 
 def _read_windows() -> list[ProcessRow]:
-    ntdll = ctypes.WinDLL("ntdll")  # type: ignore[attr-defined]
+    ntdll = ctypes.WinDLL("ntdll")
     query = ntdll.NtQuerySystemInformation
     query.argtypes = [ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
     query.restype = ctypes.c_ulong
@@ -163,9 +163,9 @@ def read_processes() -> list[ProcessRow]:
 
 
 def _command_line_windows(pid: int) -> tuple[str, ...]:
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
-    ntdll = ctypes.WinDLL("ntdll")  # type: ignore[attr-defined]
-    shell32 = ctypes.WinDLL("shell32")  # type: ignore[attr-defined]
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    ntdll = ctypes.WinDLL("ntdll")
+    shell32 = ctypes.WinDLL("shell32")
     kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
     kernel32.OpenProcess.restype = ctypes.c_void_p
     kernel32.CloseHandle.argtypes = [ctypes.c_void_p]

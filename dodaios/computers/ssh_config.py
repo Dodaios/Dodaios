@@ -218,7 +218,7 @@ def resolve(blocks: list[_Block], alias: str, home: Path) -> SshConfigHost:
     host = (options.get("hostname") or [alias])[0].replace("%h", alias)
     port_text = (options.get("port") or ["22"])[0]
     port = int(port_text) if _PORT_RE.match(port_text) and 0 < int(port_text) < 65536 else 22
-    user = (options.get("user") or [None])[0]
+    user = (options.get("user") or [None])[0]  # type: ignore[list-item]
     files = tuple(
         path
         for path in (

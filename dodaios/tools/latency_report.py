@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     # to UTF-8 or stick to ASCII. The report uses → and · so UTF-8 is needed.
     # ``reconfigure`` is a no-op on POSIX where stdout is already utf-8.
     with contextlib.suppress(AttributeError, ValueError):
-        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     args = _parse_args(argv)
     path = Path(args.path)
     if not path.exists():

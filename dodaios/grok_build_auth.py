@@ -154,7 +154,7 @@ def _derive_auth(auth: dict[str, Any] | None) -> tuple[bool, str]:
         return False, "unknown"
     tokens = auth.get("tokens")
     if isinstance(tokens, dict) and any(
-        isinstance(tokens.get(k), str) and tokens.get(k).strip()
+        isinstance(tokens.get(k), str) and tokens.get(k).strip()  # type: ignore[union-attr]
         for k in ("access_token", "id_token", "refresh_token", "session_token")
     ):
         return True, "subscription"

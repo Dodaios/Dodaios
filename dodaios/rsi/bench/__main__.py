@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
                               "set": candidate, "splits": {}}
     rows = [("split", "tasks", "score", "tokens/task")]
     if candidate:
-        rows = [("split", "tasks", "shipped", "with --set", "difference", "low", "high",
+        rows = [("split", "tasks", "shipped", "with --set", "difference", "low", "high",  # type: ignore[list-item]
                  "tokens/task")]
     for split in Split:
         chosen = run.shuffled(by_split[split], f"cli:{split.value}")
@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
             entry.update(candidate=round(paired.candidate_mean, 4), diff=round(found.mean, 4),
                          low=round(found.low, 4), high=round(found.high, 4),
                          candidate_tokens=round(paired.candidate_tokens, 1))
-            rows.append((split.value, str(n), f"{mean:.3f}", f"{paired.candidate_mean:.3f}",
+            rows.append((split.value, str(n), f"{mean:.3f}", f"{paired.candidate_mean:.3f}",  # type: ignore[arg-type]
                          f"{found.mean:+.3f}", f"{found.low:+.3f}", f"{found.high:+.3f}",
                          f"{tokens:.0f} -> {paired.candidate_tokens:.0f}"))
         else:
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"Seed suite, recall: {len(tasks)} tasks. A score is the share of messages for "
               "which the model got the memory it needed (or nothing, when it needed none).")
-        print(_table(rows))
+        print(_table(rows))  # type: ignore[arg-type]
         if candidate:
             print("low/high: bounds of the mean difference per task that stay valid at every "
                   "look (5 % per side).")

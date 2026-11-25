@@ -276,7 +276,7 @@ def _remove_shell_launcher(path: Path) -> str | None:
 def read_windows_shortcut_target(lnk: Path) -> str | None:
     """The program a ``.lnk`` starts, or ``None`` when it cannot be read."""
     try:
-        from win32com.client import Dispatch  # type: ignore[import-not-found]
+        from win32com.client import Dispatch
     except Exception:  # noqa: BLE001 - no pywin32: the shortcut stays
         return None
     try:

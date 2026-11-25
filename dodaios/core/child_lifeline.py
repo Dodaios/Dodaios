@@ -26,7 +26,7 @@ from collections.abc import Sequence
 
 def _kill_process_group() -> None:
     try:
-        os.killpg(os.getpgrp(), signal.SIGKILL)
+        os.killpg(os.getpgrp(), signal.SIGKILL)  # type: ignore[attr-defined]
     except (AttributeError, OSError):  # Hard exit is the containment fallback on this host.
         os._exit(137)
 

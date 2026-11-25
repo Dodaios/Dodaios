@@ -56,6 +56,11 @@ CREATE TABLE tasks_new (
 """
 
 
+# The class below defines a method called ``list``, which would shadow the builtin
+# inside its annotations; ``_List`` is the builtin for those.
+_List = list
+
+
 class TaskStore:
     """CRUD store for tasks + steps on the shared memory DB.
 
@@ -366,7 +371,7 @@ class TaskStore:
         conn = self._require_conn()
         now_ns = time.time_ns()
         sets = ["state = ?"]
-        params: list[Any] = [state]
+        params: _List[Any] = [state]
 
         if state == "running":
             sets.append("started_at_ns = ?")
@@ -429,11 +434,11 @@ class TaskStore:
 
     async def list(
         self,
-        state_filter: str | list[str] | None = None,
+        state_filter: str | _List[str] | None = None,
         *,
         limit: int = 100,
         before: tuple[int, str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """Returns a list of task rows (without steps), newest first, filtered by state.
 
         ``before`` is a ``(created_at_ns, id)`` keyset position: only rows
@@ -461,7 +466,7 @@ class TaskStore:
         await cur.close()
         return [dict(r) for r in rows]
 
-    async def count(self, state_filter: str | list[str] | None = None) -> int:
+    async def count(self, state_filter: str | _List[str] | None = None) -> int:
         """How many tasks the state filter matches."""
         conn = self._require_conn()
         where, params = self._state_where(state_filter)
@@ -474,7 +479,7 @@ class TaskStore:
         return int(row[0]) if row else 0
 
     @staticmethod
-    def _state_where(state_filter: str | list[str] | None) -> tuple[list[str], list[Any]]:
+    def _state_where(state_filter: str | _List[str] | None) -> tuple[_List[str], _List[Any]]:
         if state_filter is None:
             return [], []
         if isinstance(state_filter, str):
@@ -529,7 +534,7 @@ class TaskStore:
             "  GROUP BY task_id"
             ") latest ON latest.task_id = s.task_id AND latest.seq = s.seq"
         )
-        params: list[Any] = []
+        params: _List[Any] = []
         if task_ids is not None:
             if not task_ids:
                 return {}
@@ -566,7 +571,7 @@ class TaskStore:
         await cur.close()
         return rowcount > 0
 
-    async def all_pending_scheduled(self) -> builtins.list[dict[str, Any]]:
+    async def all_pending_scheduled(self) -> builtins._List[dict[str, Any]]:  # type: ignore[name-defined]
         """For scheduler hydration: all tasks in state ``scheduled``."""
         return await self.list(state_filter="scheduled", limit=10_000)
 

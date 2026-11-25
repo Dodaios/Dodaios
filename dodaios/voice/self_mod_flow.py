@@ -228,7 +228,7 @@ class SelfModFlowController:
         voice_payload = _voice_confirmation_payload(transcript, confidence)
         try:
             self._audit.record(
-                AuditEvent(
+                AuditEvent(  # type: ignore[call-arg]
                     source=AuditSource.VOICE,
                     requested_by=AuditActor.USER,
                     path=session.pending.path,
@@ -343,4 +343,4 @@ __all__ = [
 
 # Suppress lint: `field` import is reserved for future FrozenSet defaults
 _ = field
-_ = UUID
+_ = UUID  # type: ignore[assignment]

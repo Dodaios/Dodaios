@@ -1277,7 +1277,7 @@ def _grok_build_usage(account: AgentAccount) -> AccountUsage:
         minutes = {
             "USAGE_PERIOD_TYPE_WEEKLY": WEEKLY_WINDOW_MINUTES,
             "USAGE_PERIOD_TYPE_MONTHLY": MONTHLY_WINDOW_MINUTES,
-        }.get(period.get("type"))
+        }.get(period.get("type"))  # type: ignore[arg-type]
         if percent is not None:
             return AccountUsage(
                 account.id,

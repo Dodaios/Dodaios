@@ -182,7 +182,7 @@ class JarvisXService:
         log.info("jarvisx: %s screenshot %dx%d saved", mode, item.width, item.height)
         return Result(True, "Saved.", item)
 
-    def _grab(self, mode: str, bbox: Any, handle: int | None) -> capture.Frame:
+    def _grab(self, mode: str, bbox: Any, handle: int | None) -> capture.Frame:  # type: ignore[name-defined]
         with self.overlay.cards_hidden():
             if mode == "window":
                 return capture.grab_window(bbox, handle)
@@ -207,7 +207,7 @@ class JarvisXService:
         await asyncio.sleep(_AFTER_SELECTION_S)
         return monitor, bbox, list(selection.rect)
 
-    def _save_image(self, mode: str, frame: capture.Frame, save_dir: str) -> tuple[Item, bytes]:
+    def _save_image(self, mode: str, frame: capture.Frame, save_dir: str) -> tuple[Item, bytes]:  # type: ignore[name-defined]
         png = capture.encode_png(frame)
         when = _now()
         folder = paths.resolve_save_dir(save_dir)
@@ -461,7 +461,7 @@ class JarvisXService:
             return Result(False, "Only screenshots can be copied as a picture.")
         source = item.edited_path if edited and item.has_edited() else item.path
         try:
-            png = await asyncio.to_thread(Path(source).read_bytes)
+            png = await asyncio.to_thread(Path(source).read_bytes)  # type: ignore[arg-type]
         except OSError as exc:  # The file read error becomes a visible failure result.
             return Result(False, f"The file could not be read ({exc.strerror or exc}).")
         ok, message = await self._copy_bytes(png)

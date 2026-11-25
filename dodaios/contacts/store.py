@@ -285,15 +285,15 @@ class ContactStore:
         """
         if not slug or any(sep in slug for sep in ("/", "\\", ":", "\x00")):
             raise UnsafePathError(f"not a contact slug: {slug!r}")
-        path = contained_path(self.base_dir, f"{slug}.md")
-        if path.parent != contained_path(self.base_dir, "."):
+        path = contained_path(self.base_dir, f"{slug}.md")  # type: ignore[arg-type]
+        if path.parent != contained_path(self.base_dir, "."):  # type: ignore[arg-type]
             raise UnsafePathError(f"not a contact slug: {slug!r}")
         return path
 
     def _iter_paths(self) -> list[Path]:
-        if not self.base_dir.exists():
+        if not self.base_dir.exists():  # type: ignore[union-attr]
             return []
-        return sorted(p for p in self.base_dir.glob("*.md") if p.is_file())
+        return sorted(p for p in self.base_dir.glob("*.md") if p.is_file())  # type: ignore[union-attr]
 
     def _unique_slug(self, name: str) -> str:
         base = person_slug(name)
@@ -307,7 +307,7 @@ class ContactStore:
     def _write(self, slug: str, meta: dict[str, Any], body: str) -> None:
         """Atomic write: tempfile in the contacts dir → ``os.replace``."""
         path = self._path(slug)
-        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir.mkdir(parents=True, exist_ok=True)  # type: ignore[union-attr]
         text = write_frontmatter(meta, body)
         fd, tmp_path = tempfile.mkstemp(
             prefix=f".{path.name}.", suffix=".tmp", dir=str(self.base_dir)

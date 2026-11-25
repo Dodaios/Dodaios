@@ -234,7 +234,7 @@ def build_root_command(argv: list[str] | None = None) -> click.Group:
     """
     if argv is None:
         argv = sys.argv[1:]
-    root: click.Group = typer.main.get_command(app)
+    root: click.Group = typer.main.get_command(app)  # type: ignore[assignment]
     try:
         options, command = _root_options(root, argv)
         wants_api = not _in_completion() and not options.get("help") and command == "api"

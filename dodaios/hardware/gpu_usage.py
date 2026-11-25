@@ -92,7 +92,7 @@ class _WindowsCounters:
     }
 
     def __init__(self) -> None:
-        self._pdh = ctypes.WinDLL("pdh")  # type: ignore[attr-defined]
+        self._pdh = ctypes.WinDLL("pdh")
         self._pdh.PdhOpenQueryW.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p, ctypes.c_void_p]
         self._pdh.PdhAddEnglishCounterW.argtypes = [
             ctypes.c_void_p,

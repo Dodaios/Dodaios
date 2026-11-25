@@ -109,7 +109,7 @@ def _hostapi_name(dev: dict[str, Any], hostapis: list[Any]) -> str:
 def _default_index(value: object) -> int | None:
     """Normalize a sounddevice device index, including non-int scalar types."""
     try:
-        index = int(value)  # type: ignore[arg-type]
+        index = int(value)  # type: ignore[call-overload]
     except (TypeError, ValueError, OverflowError):
         return None
     return index if index >= 0 else None
@@ -222,7 +222,7 @@ def is_virtual_device(name: object) -> bool:
     not tell (only macOS does): "not known to be virtual", never "real".
     """
     known = _virtual_device_names
-    return bool(known) and _device_name_key(name) in known
+    return bool(known) and _device_name_key(name) in known  # type: ignore[operator]
 
 
 def _forget_virtual_devices() -> None:

@@ -127,8 +127,8 @@ def _windows_vt(stream: TextIO) -> bool:
         import ctypes  # noqa: PLC0415 - Windows only
         import msvcrt  # noqa: PLC0415 - Windows only
 
-        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
-        handle = msvcrt.get_osfhandle(stream.fileno())  # type: ignore[attr-defined]
+        kernel32 = ctypes.windll.kernel32
+        handle = msvcrt.get_osfhandle(stream.fileno())
         mode = ctypes.c_uint32()
         if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
             return False

@@ -390,7 +390,7 @@ def _link(source: Path, target: Path) -> str | None:
         try:
             import _winapi  # noqa: PLC0415 - CPython-internal, Windows-only
 
-            _winapi.CreateJunction(str(source), str(target))  # type: ignore[attr-defined]
+            _winapi.CreateJunction(str(source), str(target))
             return "junction"
         except (OSError, AttributeError, ImportError) as exc:
             logger.debug("Agent setup: junction {} -> {} failed ({})", target, source, exc)

@@ -69,8 +69,8 @@ class EventBus:
 
     def unsubscribe(self, event_type: type[E], handler: Callable[[E], Awaitable[None]]) -> None:
         handlers = self._subscribers.get(event_type)
-        if handlers and handler in handlers:  # type: ignore[operator]
-            handlers.remove(handler)  # type: ignore[arg-type]
+        if handlers and handler in handlers:
+            handlers.remove(handler)
 
     async def publish(self, event: Event) -> None:
         """Deliver an event in parallel to all matching subscribers.

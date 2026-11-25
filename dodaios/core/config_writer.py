@@ -3493,7 +3493,7 @@ def _sync_tts_provider_drift_soll(applied: dict[str, str]) -> None:  # i18n-allo
     provider (the single value a stale boot override could revert).
     """
     try:
-        _update_config_soll_section("tts", applied)  # i18n-allow
+        _update_config_soll_section("tts", applied)  # type: ignore[arg-type]  # i18n-allow
     except Exception as exc:  # noqa: BLE001 — best-effort, must not propagate
         log.warning("Could not sync tts.* to config-soll.json: %s", exc)  # i18n-allow
 

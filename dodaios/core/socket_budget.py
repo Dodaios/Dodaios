@@ -282,13 +282,13 @@ def _probe_fd_limit() -> int | None:
     except ImportError:
         return None  # Windows — no such limit, and none worth inventing.
     try:
-        soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)  # type: ignore[attr-defined]
     except Exception as exc:  # noqa: BLE001 - an exotic host without the limit
         from loguru import logger
 
         logger.debug("Socket budget: RLIMIT_NOFILE unreadable ({}).", exc)
         return None
-    if soft == resource.RLIM_INFINITY:
+    if soft == resource.RLIM_INFINITY:  # type: ignore[attr-defined]
         return None
     return int(soft)
 

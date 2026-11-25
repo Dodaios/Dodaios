@@ -342,7 +342,7 @@ def _parse_account(raw: Any) -> AgentAccount | None:
         return None
     return AgentAccount(
         id=account_id,
-        platform=platform,  # type: ignore[arg-type]  # narrowed by the check above
+        platform=platform,  # narrowed by the check above
         label=label.strip()[:MAX_LABEL_CHARS],
         config_dir=directory,
         builtin=False,
@@ -596,7 +596,7 @@ def set_auto_switch(*, enabled: bool | None = None, at_percent: float | None = N
     with _WRITE_LOCK:
         state = _read_store()
         current = state.get("auto_switch") if isinstance(state.get("auto_switch"), dict) else {}
-        merged = dict(current)
+        merged = dict(current)  # type: ignore[arg-type]
         if enabled is not None:
             merged["enabled"] = bool(enabled)
         if at_percent is not None:
