@@ -364,6 +364,22 @@ def _glob(
     return "\n".join(hits), False
 
 
+def _named(name: str, shown: str, name_glob: str | None) -> bool:
+    """Whether the file passes the tool's ``glob`` (on its name or its shown path)."""
+    if not name_glob:
+        return True
+    return fnmatch.fnmatch(name, name_glob) or fnmatch.fnmatch(shown, name_glob)
+
+
+def _scan(text: str, rx: re.Pattern[str], shown: str, hits: list[str], limit: int) -> None:
+    """The tool's own line-by-line search of one file, up to ``limit`` hits in all."""
+    for no, line in enumerate(io.StringIO(text), start=1):
+        if rx.search(line):
+            hits.append(f"{shown}:{no}:{line.rstrip()[:300]}")
+            if len(hits) >= limit:
+                return
+
+
 def _grep(
     files: CommitFiles, app: Any, path: Path, rel: str, args: Mapping[str, Any]
 ) -> tuple[str, bool]:
@@ -386,17 +402,8 @@ def _grep(
     for each in found:
         name = PurePosixPath(each).name
         shown = name if single else _below(each, rel)
-        if name_glob and not (
-            fnmatch.fnmatch(name, name_glob) or fnmatch.fnmatch(shown, name_glob)
-        ):
-            continue
-        if keep is not None and each not in keep:
-            continue
-        for no, line in enumerate(io.StringIO(files.read(each, _WHOLE)), start=1):
-            if rx.search(line):
-                hits.append(f"{shown}:{no}:{line.rstrip()[:300]}")
-                if len(hits) >= limit:
-                    break
+        if _named(name, shown, name_glob) and (keep is None or each in keep):
+            _scan(files.read(each, _WHOLE), rx, shown, hits, limit)
         if len(hits) >= limit:
             break
     if not hits:

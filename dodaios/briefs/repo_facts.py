@@ -316,12 +316,11 @@ def _content_candidates(
     stop_at = time.monotonic() + deadline_s
     hits: dict[str, list[str]] = {}
     for word in words:
-        left = stop_at - time.monotonic()
-        found = files.files_with(word, stop_at) if left > 0.05 else []
+        found = files.files_with(word, stop_at)
         if found is None:
             hits = _scan_for(files, words, paths, stop_at)
             break
-        hits[word] = [rel for rel in found if rel in paths]
+        hits[word] = list(filter(paths.__contains__, found))
     scores: dict[str, float] = {}
     matched: dict[str, int] = {}
     for word, files in hits.items():

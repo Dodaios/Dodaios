@@ -208,6 +208,13 @@ def _excerpt(rel: str, source: str, wanted: set[str], plan: PeekPlan, budget: in
     return (outline + hits_block).strip()[:cap]
 
 
+def _reader(root: str, read: Callable[[str], str] | None) -> Callable[[str], str]:
+    """How a file's text is read: ``read`` when given, else from ``root`` on disk."""
+    if read is not None:
+        return read
+    return lambda rel: read_source(root, rel)
+
+
 def peek(
     root: str,
     instruction: str,
@@ -230,6 +237,7 @@ def peek(
         return Peek()
     wanted = tokenize(instruction)
     stop_at = time.monotonic() + max(deadline_s, 0.0)
+    reader = _reader(root, read)
 
     sources: dict[str, str] = {}
     present: dict[str, set[str]] = {}
@@ -237,7 +245,7 @@ def peek(
         if time.monotonic() >= stop_at:
             break
         try:
-            source = read(rel) if read is not None else read_source(root, rel)
+            source = reader(rel)
         except Exception:  # noqa: BLE001 - a broken file costs its excerpt only
             source = ""
         if not source:

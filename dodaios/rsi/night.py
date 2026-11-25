@@ -157,16 +157,21 @@ class NightReport:
         )
         return not (made or self.settled or self.proposed or self.decided or self.measured)
 
-    def lines(self) -> list[str]:
-        """The night in plain words."""
-        if self.paused:
-            return ["The loop is stopped; nothing was done."]
+    def _opening(self) -> list[str]:
+        """Why the round stopped early, and whether the app was updated before it."""
         out: list[str] = []
         if self.parked:
             out.append(f"Stopped early ({self.parked}); the rest comes in the next round.")
         if self.updated_from:
             out.append(f"The app was updated ({self.updated_from} -> {self.app}): "
                        "everything learned was checked again.")
+        return out
+
+    def lines(self) -> list[str]:
+        """The night in plain words."""
+        if self.paused:
+            return ["The loop is stopped; nothing was done."]
+        out = self._opening()
         new_tasks = int(self.made.get("questions") or 0) + int(self.made.get("messages") or 0)
         if new_tasks:
             out.append(
