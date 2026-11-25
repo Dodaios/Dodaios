@@ -114,13 +114,13 @@ _DRAGDROP_FILES = {
 
 _BROWSER_PREFIXES = (
     "dodaios/society/browser/",
+    "dodaios/agent_chat/runner_cli/",
     "tests/contract/test_browser",
     "tests/unit/society/test_browser",
 )
 _BROWSER_FILES = {
     "dodaios/ui/web/society_browser_routes.py",
     "dodaios/ui/web/mcp_server_routes.py",
-    "dodaios/agent_chat/runner_cli.py",
     "dodaios/brain/tool_gateway.py",
     "dodaios/society/approvals.py",
 }

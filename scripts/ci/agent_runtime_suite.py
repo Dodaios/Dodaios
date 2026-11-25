@@ -50,12 +50,12 @@ PREFIXES: tuple[str, ...] = (
     "dodaios/agent_runtimes/",
     "dodaios/agent_chat/service_parts/",
     "tests/unit/agent_runtimes/",
+    "dodaios/agent_chat/runner_cli/",
     "scripts/spikes/agent_runtimes_",
 )
 FILES: frozenset[str] = frozenset(
     {
         "dodaios/agent_chat/runner_acp.py",
-        "dodaios/agent_chat/runner_cli.py",
         "dodaios/agent_chat/service.py",
         "dodaios/agent_chat/send_queue.py",
         "dodaios/agent_chat/control.py",

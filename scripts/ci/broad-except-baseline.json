@@ -48,7 +48,6 @@
     "dodaios/agent_chat/runner_acp.py": 4,
     "dodaios/agent_chat/runner_api.py": 3,
     "dodaios/agent_chat/runner_brain.py": 16,
-    "dodaios/agent_chat/runner_cli.py": 23,
     "dodaios/agent_chat/screen_reference.py": 4,
     "dodaios/agent_chat/seat_outcomes.py": 2,
     "dodaios/agent_chat/send_queue.py": 9,
@@ -930,6 +929,13 @@
     "dodaios/workspace/agents.py": 8,
     "dodaios/workspace/cursor_cli.py": 1,
     "dodaios/workspace/custom_clis.py": 2,
-    "dodaios/workspace/trust.py": 2
+    "dodaios/workspace/trust.py": 2,
+    "dodaios/agent_chat/runner_cli/agy.py": 1,
+    "dodaios/agent_chat/runner_cli/base.py": 8,
+    "dodaios/agent_chat/runner_cli/claude.py": 3,
+    "dodaios/agent_chat/runner_cli/codex.py": 1,
+    "dodaios/agent_chat/runner_cli/drive.py": 4,
+    "dodaios/agent_chat/runner_cli/kimi.py": 1,
+    "dodaios/agent_chat/runner_cli/turn.py": 5
   }
 }

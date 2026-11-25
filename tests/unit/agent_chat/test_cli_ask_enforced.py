@@ -1,4 +1,4 @@
-"""Ask is binding on a Claude Code seat (dodaios/agent_chat/runner_cli.py).
+"""Ask is binding on a Claude Code seat (dodaios/agent_chat/runner_cli/).
 
 Claude Code loads the person's own settings files, whose allow list can name
 ``Edit``, ``Write`` or ``PowerShell``; without more, an agent in Ask wrote

@@ -72,7 +72,7 @@ fails when the seats drift.
 The vendor's own tools run outside the trust layer: no risk tier, no approval card, no
 origin ledger, no audit record. On an identity turn (the lead and society seats) the
 planned argv takes them away where the CLI has a flag (`identity_turn_flags` in
-`dodaios/agent_chat/runner_cli.py`):
+`dodaios/agent_chat/runner_cli/`):
 
 | Seat | Connectors / user MCP | Web | Shell | Sub-agents |
 | --- | --- | --- | --- | --- |

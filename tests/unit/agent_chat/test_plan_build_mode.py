@@ -668,10 +668,10 @@ def test_root_outside_a_sandbox_is_where_claude_code_refuses_bypass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("IS_SANDBOX", raising=False)
-    monkeypatch.setattr(rc.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(rc.claude.os, "geteuid", lambda: 0, raising=False)
     assert rc._claude_refuses_bypass_here() is True
     monkeypatch.setenv("IS_SANDBOX", "1")
     assert rc._claude_refuses_bypass_here() is False
     monkeypatch.delenv("IS_SANDBOX")
-    monkeypatch.setattr(rc.os, "geteuid", lambda: 501, raising=False)
+    monkeypatch.setattr(rc.claude.os, "geteuid", lambda: 501, raising=False)
     assert rc._claude_refuses_bypass_here() is False

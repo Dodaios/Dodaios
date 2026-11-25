@@ -78,7 +78,7 @@ conversation and plain chats keep their prompts.
 
 | Part | File |
 |------|------|
-| The guide and its delivery | `dodaios/agent_chat/thread_visuals.py`, `dodaios/agent_chat/runner_cli.py` |
+| The guide and its delivery | `dodaios/agent_chat/thread_visuals.py`, `dodaios/agent_chat/runner_cli/` |
 | Storing shown files, temp folders, pages | `dodaios/agent_chat/media.py`, `dodaios/agent_chat/service.py` |
 | The figure, the frame and its policy | `dodaios/ui/web/frontend/src/components/outputs/RenderedFence.tsx` |
 | Diagrams | `components/outputs/MermaidFence.tsx`, `lib/mermaidRender.ts` |
