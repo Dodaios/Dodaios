@@ -222,13 +222,13 @@ def peek(
     kind: str,
     *,
     deadline_s: float = PEEK_DEADLINE_S,
-    read: Callable[[str], str] | None = None,
+    read_text: Callable[[str], str] | None = None,
 ) -> Peek:
     """Look inside ``candidates`` for ``instruction``. Blocking; never raises.
 
     Run it in a worker thread. ``candidates`` arrive name-ranked from the file
     index; the result keeps that order as a prior and lets content decide
-    between files the names could not separate. ``read`` gives a file's text
+    between files the names could not separate. ``read_text`` gives a file's text
     instead of the folder on disk (a commit of the repository).
     """
     plan = plan_for(kind)
@@ -237,7 +237,7 @@ def peek(
         return Peek()
     wanted = tokenize(instruction)
     stop_at = time.monotonic() + max(deadline_s, 0.0)
-    reader = _reader(root, read)
+    reader = _reader(root, read_text)
 
     sources: dict[str, str] = {}
     present: dict[str, set[str]] = {}

@@ -323,8 +323,8 @@ def _content_candidates(
         hits[word] = list(filter(paths.__contains__, found))
     scores: dict[str, float] = {}
     matched: dict[str, int] = {}
-    for word, files in hits.items():
-        kept = [f for f in files if Path(f).suffix.lower() in _SEARCHED_SUFFIXES]
+    for word, holding in hits.items():
+        kept = [f for f in holding if Path(f).suffix.lower() in _SEARCHED_SUFFIXES]
         if not kept or len(kept) > _COMMON_WORD_FILES:
             continue
         spelled_out = any(mark in word for mark in "_./") or word != word.lower()
@@ -488,7 +488,7 @@ def lookup(
             from dodaios.agentic_ide import file_peek
 
             peeked = file_peek.peek(
-                str(root), words, candidates, kind, deadline_s=left, read=files.source
+                str(root), words, candidates, kind, deadline_s=left, read_text=files.source
             )
             ranked, excerpts = list(peeked.ranked) or ranked, dict(peeked.excerpts)
         except Exception:  # noqa: BLE001 - names alone are still starting points
