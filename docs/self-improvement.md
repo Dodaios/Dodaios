@@ -296,9 +296,11 @@ the repository, and nothing else:
   from the repository as it was when the work started (`base`), and rendered
   as the app's tool server renders it. It writes nothing: the glossary's use
   counters stay as they are;
-- the app's read-only folder tools (`Read`, `Grep`, `Glob`, `Ls`), run by the
-  app's own code in that repository: a path in the person's clone is read at
-  the same place there, a path outside the repository is not answered;
+- the app's read-only folder tools (`Read`, `Grep`, `Glob`, `Ls`), answered at
+  that commit as the tools answer on a checkout of it (the same messages,
+  limits and walk order, pinned by a test against the tools themselves): a path
+  in the person's clone is read at the same place in the commit, a path outside
+  the repository is not answered;
 - at most four answered calls in all.
 
 The first call that is not answered is the move. A hand-off (`delegate`) is
@@ -309,12 +311,31 @@ cheaper than handing over. Anything else (the shell, the person's memory, a
 look outside the repository, the kit asked for again, a fifth look) is void
 with what it was.
 
-**The repository as it was.** For each repository a round makes one scratch
-clone under `rsi/brief` in the data folder (`git clone --shared --no-checkout`
-from the person's clone: it borrows the objects and never touches that clone,
-its index, its branches or its worktrees) and moves it to each task's commit,
-hooks and large-file downloads off. It is removed at the end of the round. A
-task whose repository is not on this machine, whose commit is not in the
+**The repository as it was, read in place.** Nothing is checked out and no
+file is written (`dodaios/rsi/bench/at_commit.py`). The commit is read from the
+person's clone's own git objects: the paths and sizes from `git ls-tree`, a
+file's text from one `git cat-file --batch` process, a search from
+`git grep <commit>`. Every git process runs at low priority and without a lock,
+and the clone's working tree, index, branches and worktrees stay as they are.
+The brief kit reads through the same seam the app uses (`repo_facts.RepoFiles`:
+in the app the folder on disk, here the commit), so it builds the same starting
+points and checks it would build on a checkout of that commit. What differs
+from a checkout: only the files the commit tracks exist (no ignored or
+untracked files, no `.git`), and a `Grep` first asks `git grep -P` which files
+can match before the tool's own expression runs on them.
+
+The first version moved one scratch checkout to each task's commit. Between two
+tasks of a comparison in the gate's shuffled order that rewrote 52 to 2,391
+files (measured on 34 tasks of this repository's own history, the pull requests
+merged 2026-11-02 to 2026-11-24), and a comparison measures every task twice:
+52,871 to 92,678 files written per comparison, each scanned by the virus
+scanner. The person's first real round (2026-11-24) saturated the disk and
+stalled the app for up to 443 s. Running the tasks in commit order with both
+arms per checkout would still have written about 12,000 (9,253 of them the first
+checkout); reading in place writes none. A scratch folder an earlier version
+left behind (`rsi/brief` in the data folder) is removed when the world is built.
+
+A task whose repository is not on this machine, whose commit is not in the
 clone, or whose request showed a picture is void with the reason, before
 anything is spent.
 
@@ -346,16 +367,18 @@ the default mode, and also goes without the CLI's own reading tools: they would
 read the person's clone as it is today, merged change included. Only a call of
 the app's own server is ever answered; everything else stays refused and
 unrun. The replay's tool server runs the replay's own code (`PYTHONPATH`), not
-an installed copy of the app.
+an installed copy of the app. The CLI starts at low priority, and its tool
+server inherits it.
 
 **Cost and budget.** A task's cost is the lead's message and the brief, in
 tokens: the line under test rides in every message, the brief is what the
 agent then reads. A brief replay counts one call against the round's replay
 limit, and one more for each call it answers (each makes the CLI ask the model
 again). The limit is the one first_move uses: one `Budget` object serves both
-worlds of a round (see "What a round may spend"). A run the limit
-cuts in the middle is void as cut by the budget, and the comparison carries on
-the next round.
+worlds of a round (see "What a round may spend"). The budget is
+asked before anything is read from the repository, so once the round has to
+stop a task starts no git process either. A run the limit cuts in the middle
+is void as cut by the budget, and the comparison carries on the next round.
 
 **What it cannot see.** Whether the brief said what the person had to add
 afterwards; whether the brief check that may send a brief back once would
@@ -777,6 +800,19 @@ Nothing is announced: no notice, no sound, no voice. The backend looks every
 ten minutes whether a round is due: the person must have been away for 15
 minutes, and there is at most one round in 20 hours, at any time of day.
 
+**A round stays light.** Every process a round starts (git, the replayed CLI
+and its tool server) runs at low priority: below normal on Windows, under
+`nice` on Unix (`process_utils.background_children`; the shared git helper
+honours it inside a round and nowhere else). Before each heavy step (the
+replay world, the memory copy and task building, every check, proposal,
+decision and advantage measurement) the round asks whether it may go on. Once
+the person is back (input again) or the backend lets go, it starts nothing
+more: a replay and a task-building call are refused by the budget, and the
+round writes its report with why it stopped. Such a round does not count as
+done, so the next one starts as soon as the person is away again and reuses
+every result already kept. What is not covered: the model calls that build
+tasks go through the app's own provider, which starts its processes itself.
+
 The backend is the desktop app while its window is open, and the windowless
 background service while it is closed ([background-service.md](background-service.md)).
 While the person has not stopped the loop, the learning is work that service
@@ -956,6 +992,8 @@ There is no other control on purpose: the person only stops or undoes
 | One round's replay budget shared by first_move and brief | built |
 | `BRIEF_LINE` learnable as one of three fixed wordings, measured by the brief domain | built |
 | A brief replay asks in the default mode and has none of the CLI's own file or shell tools; only the app's own server is answered | built |
+| A brief replay reads the repository at the task's commit from git's objects: nothing checked out, no file written | built |
+| A round's children at low priority; a round stops starting heavy work when the person comes back, and carries on next time | built |
 | A learned note's track in the person's requests: shown in how many, how many went through, beside the requests without it; a share from 30 on | built; observed, decides nothing |
 | The track on the page: a phrase in the note's row, the sentence and its caveat in the note's sheet | built |
 | Whether a brief said what the person had to add afterwards (a judge) | later |
