@@ -72,6 +72,10 @@ log = logging.getLogger(__name__)
 RUNNERS: Final[frozenset[str]] = frozenset({"claude-cli"})
 #: A replay that has not made its first move by then is a failed run.
 TIMEOUT_S: Final[float] = 180.0
+#: How often a running replay looks whether the night was halted.
+HALT_POLL_S: Final[float] = 0.5
+#: Why a replay cut by a halt has no move (a void result, never kept for reuse).
+HALTED: Final = "stopped: the backend let go of the round"
 _TEXT_KEEP: Final = 400
 #: Calls one replay answers at most (look-ups and the brief kit together).
 MAX_SERVED: Final[int] = 4
@@ -90,12 +94,16 @@ def _stop(proc: subprocess.Popen[bytes]) -> None:
         return
     if os.name == "nt":
         # A ``.cmd`` shim's child outlives the shim: the whole tree goes.
+        from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+
         with contextlib.suppress(OSError, subprocess.SubprocessError):
+            # No console flashes up: the night may run in the windowless service.
             subprocess.run(  # noqa: S603 - fixed argv, our own child's pid
                 ["taskkill", "/T", "/F", "/PID", str(proc.pid)],  # noqa: S607
                 capture_output=True,
                 timeout=15,
                 check=False,
+                creationflags=NO_WINDOW_CREATIONFLAGS,
             )
     with contextlib.suppress(OSError):
         proc.kill()
@@ -132,6 +140,7 @@ class ClaudeReplay:
         server: Sequence[str] | None = None,
         timeout_s: float = TIMEOUT_S,
         session_id: str = "",
+        halted: Callable[[], bool] | None = None,
     ) -> None:
         #: The lead's tool list as :mod:`replay_tools` reads it.
         self.tools_file = Path(tools_file)
@@ -143,6 +152,8 @@ class ClaudeReplay:
         self.timeout_s = timeout_s
         #: The lead chat the identity flags are built for (never a society seat's).
         self.session_id = session_id or "rsi-replay"
+        #: True once the night is halted: a running replay is stopped at once.
+        self.halted = halted
 
     def _flags(self, identity: Any, *, serving: bool = False) -> list[str]:
         """The lead's identity flags with the replay's own denials and permission mode.
@@ -274,12 +285,14 @@ class ClaudeReplay:
             proc.stdin.flush()
             deadline = time.monotonic() + self.timeout_s
             while found.move is None:
+                if self.halted is not None and self.halted():
+                    return Move(error=HALTED)
                 left = deadline - time.monotonic()
                 if left <= 0:
                     return Move(error=f"no first move within {self.timeout_s:.0f} s")
                 try:
-                    raw = out.get(timeout=left)
-                except queue.Empty:  # nothing new yet: look at the deadline again
+                    raw = out.get(timeout=min(left, HALT_POLL_S))
+                except queue.Empty:  # nothing new yet: look at the halt and the deadline again
                     continue
                 if raw is None:
                     return found.ended(proc.poll())

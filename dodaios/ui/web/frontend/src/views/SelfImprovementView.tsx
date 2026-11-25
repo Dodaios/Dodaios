@@ -1,6 +1,7 @@
 /**
  * Self-improvement: is the assistant getting better, what did it change in
- * itself, what proved each change, what did the last nights do — and the two
+ * itself, what proved each change, what did the last learning rounds do (the
+ * code and the API call a round a "night"; the page never does) — and the two
  * controls the person has: stop (or resume), and take one change back.
  *
  * A measuring instrument, not a celebration: one headline number per measured
@@ -24,6 +25,7 @@ import {
   SelfImprovementApiError,
   type AdvantagePoint,
   type DomainSummary,
+  type LastRound,
   type LearnedChange,
   type Night,
   type RestingValue,
@@ -40,6 +42,7 @@ import { DailyUseSection } from "./selfImprovement/DailyUse";
 import { NightsSection } from "./selfImprovement/Nights";
 import { claimWords, isPolicy, policyProof, policySentence } from "./selfImprovement/policy";
 import { PolicyLines } from "./selfImprovement/PolicyLines";
+import { trackPhrase } from "./selfImprovement/noteTrack";
 import {
   DECIDE_MIN_TASKS,
   MODEL_FREE_DOMAINS,
@@ -54,6 +57,7 @@ import {
   fmtShare,
   fmtTokens,
   fmtValue,
+  fmtWindowShare,
   lineSentence,
   paramTitle,
   promptSaving,
@@ -183,7 +187,7 @@ export function SelfImprovementView() {
                 <EmptyCard />
                 {/* Daily use comes from the chat record, not from the benchmark, so it can exist already. */}
                 <DailyUseSection daily={data.daily_use} locale={locale} />
-                {/* A night that tried to build tasks says what came of it, even before anything exists. */}
+                {/* A round that tried to build tasks says what came of it, even before anything exists. */}
                 {data.nights.some(nightDidSomething) && <NightsSection nights={data.nights} locale={locale} />}
               </>
             ) : (
@@ -255,7 +259,7 @@ export function SelfImprovementView() {
               </>
             )}
 
-            <Foot limits={data.limits} domains={data.domains} />
+            <Foot limits={data.limits} domains={data.domains} lastRound={data.status.last_round ?? null} locale={locale} />
           </>
         )}
       </div>
@@ -537,7 +541,7 @@ function ChangeRow({
     : candidate
       ? ""
       : note
-        ? t("self_improvement.stack.not_measured")
+        ? [t("self_improvement.stack.not_measured"), trackPhrase(t, change.track, locale)].filter(Boolean).join(" · ")
         : effectWords(t, change.admitted, locale);
   return (
     <Row
@@ -632,13 +636,24 @@ function EmptyCard() {
 
 const STEPS = ["practise", "decide", "check"] as const;
 
-function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: DomainSummary[] }) {
+function Foot({
+  limits,
+  domains,
+  lastRound,
+  locale,
+}: {
+  limits: SelfImprovementLimits;
+  domains: DomainSummary[];
+  lastRound: LastRound | null;
+  locale: string;
+}) {
   const t = useT();
   const minutes = Math.round(limits.idle_after_s / 60);
   const hours = Math.round(limits.every_s / 3600);
   const modelFree = domains.every((d) => MODEL_FREE_DOMAINS.has(d.domain));
-  // The first move and the briefs replay lead turns on one shared nightly limit.
+  // The first move and the briefs replay lead turns on one shared budget per round.
   const replays = domains.some((d) => d.domain === "first_move" || d.domain === "brief");
+  const calls = limits.max_model_calls ?? 8;
   return (
     <section data-testid="si-foot" aria-labelledby="si-foot-title" className="mt-12 border-t border-border px-1 pt-6">
       <h2 id="si-foot-title" className="text-sm font-medium text-foreground">{t("self_improvement.how.title")}</h2>
@@ -655,19 +670,30 @@ function Foot({ limits, domains }: { limits: SelfImprovementLimits; domains: Dom
       </ol>
       <div className="mt-5 space-y-2 text-sm leading-relaxed text-muted-foreground">
         <p data-testid="si-limits">
-          {fill(t("self_improvement.how.limits"), { minutes, hours })}{" "}
-          {limits.ramp_model_calls && limits.ramp_model_calls > (limits.max_model_calls ?? 8)
-            ? fill(t("self_improvement.how.models_ramp"), {
-                calls: limits.max_model_calls ?? 8,
-                ramp: limits.ramp_model_calls,
-              })
-            : fill(t("self_improvement.how.models"), { calls: limits.max_model_calls ?? 8 })}
+          {fill(t("self_improvement.how.limits"), { minutes, hours })} {t("self_improvement.how.models")}
           {modelFree ? ` ${t("self_improvement.how.measure_no_model")}` : ""}
-          {replays
-            ? ` ${fill(t("self_improvement.how.measure_first_move"), {
-                calls: limits.first_move_calls ?? 40,
-                share: Math.round(limits.budget_share * 100),
-              })}`
+          {replays ? ` ${t("self_improvement.how.measure_first_move")}` : ""}
+        </p>
+        <p data-testid="si-budget">
+          {fill(t("self_improvement.how.budget"), {
+            full: limits.full_percent ?? 80,
+            share: Math.round(limits.budget_share * 100),
+          })}{" "}
+          {fill(t("self_improvement.how.fallback"), {
+            calls,
+            ramp: Math.max(calls, limits.ramp_model_calls ?? calls),
+            replays: limits.first_move_calls ?? 40,
+            ceiling: limits.ceiling_calls ?? 200,
+          })}
+          {lastRound && lastRound.calls > 0
+            ? ` ${
+                lastRound.share === null
+                  ? fill(t("self_improvement.how.last_round_unread"), { calls: lastRound.calls })
+                  : fill(t("self_improvement.how.last_round"), {
+                      calls: lastRound.calls,
+                      share: fmtWindowShare(lastRound.share, locale),
+                    })
+              }`
             : ""}
         </p>
         <p data-testid="si-privacy">{t("self_improvement.how.privacy")}</p>

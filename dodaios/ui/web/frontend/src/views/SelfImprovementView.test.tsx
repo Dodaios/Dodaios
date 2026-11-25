@@ -16,6 +16,7 @@ import type {
   AdvantagePoint,
   LearnedChange,
   Measurement,
+  NoteTrack,
   Night,
   SelfImprovementOverview,
 } from "@/lib/selfImprovementApi";
@@ -221,22 +222,45 @@ describe("SelfImprovementView", () => {
     expect(screen.getByTestId("si-state").dataset.state).toBe("running");
     expect(screen.getByTestId("si-state").textContent).toContain("15 minutes");
     expect(screen.getByTestId("si-stop")).toBeTruthy();
-    expect(screen.getByTestId("si-limits").textContent).toContain("at most 8 times a night");
-    expect(screen.getByTestId("si-limits").textContent).toContain("never on a key that is billed per token");
-    expect(screen.getByTestId("si-limits").textContent).toContain("Measuring itself asks no model.");
-    expect(screen.getByTestId("si-limits").textContent).not.toContain("Today it asks no model");
+    const limits = screen.getByTestId("si-limits").textContent ?? "";
+    expect(limits).toContain("away from the computer for 15 minutes, at most once in 20 hours, at any time of day");
+    expect(limits).toContain("while the app's window is closed");
+    expect(limits).toContain("only while the measurements still lack tasks");
+    expect(limits).toContain("Measuring itself asks no model.");
+    expect(limits).not.toContain("Today it asks no model");
+    expect(screen.getByTestId("si-budget").textContent).toContain("never on a key that is billed per token");
     expect(screen.getByTestId("si-privacy").textContent).toContain("Memories marked sensitive are never sent");
   });
 
-  it("names the larger allowance of the first nights when the backend reports one", async () => {
+  it("explains the budget in plain words: the plan's windows, the fixed limits, the ceiling", async () => {
     const data = emptyOverview();
-    data.limits = { ...data.limits, ramp_model_calls: 24 };
+    data.limits = { ...data.limits, ramp_model_calls: 24, first_move_calls: 40, full_percent: 80, ceiling_calls: 200 };
     installFetch(data);
     renderView();
     await screen.findByTestId("si-empty");
-    const limits = screen.getByTestId("si-limits").textContent ?? "";
-    expect(limits).toContain("at most 8 times a night (24 in the first nights, while there are too few tasks to decide on)");
-    expect(limits).toContain("never on a key that is billed per token");
+    const budget = screen.getByTestId("si-budget").textContent ?? "";
+    expect(budget).toContain("No call starts while a usage window of your plan is 80 % full, and one round uses at most 20 % of a window.");
+    expect(budget).toContain("fixed limits apply instead: 8 calls a round to build tasks (24 in the first rounds) and 40 replays.");
+    expect(budget).toContain("No round ever makes more than 200 calls of one kind.");
+    expect(budget).not.toContain("Model calls in the last round"); // no round has run yet
+  });
+
+  it("says what the last round spent: its model calls and the share of a usage window", async () => {
+    const data = emptyOverview();
+    data.status = { ...data.status, last_round: { ts_ms: NOW - DAY, calls: 37, share: 6.4 } };
+    installFetch(data);
+    renderView();
+    await screen.findByTestId("si-empty");
+    expect(screen.getByTestId("si-budget").textContent).toContain(
+      "Model calls in the last round: 37, about 6.4 % of a usage window.",
+    );
+  });
+
+  it("never speaks of nights, in any language it ships", async () => {
+    installFetch(fullOverview());
+    renderView();
+    await screen.findAllByTestId("si-night");
+    expect(document.body.textContent ?? "").not.toMatch(/night/i);
   });
 
   it("splits the scores into tasks that need a memory and tasks that need none", async () => {
@@ -350,8 +374,9 @@ describe("SelfImprovementView", () => {
     expect(nights[0].textContent).toContain("Measured Minimum match for a memory: let in on trial, +11.9 points on 84 tasks");
     expect(nights[1].textContent).toContain("found nothing to measure yet");
     expect(nights[2].textContent).toContain("Stopped: nothing was done.");
+    expect(screen.getByRole("heading", { name: "The last rounds" })).toBeTruthy();
     const toggle = screen.getByTestId("si-nights-toggle");
-    expect(toggle.textContent).toContain("Show 2 earlier nights");
+    expect(toggle.textContent).toContain("Show 2 earlier rounds");
     fireEvent.click(toggle);
     expect(screen.getAllByTestId("si-night")).toHaveLength(5);
   });
@@ -361,7 +386,7 @@ describe("SelfImprovementView", () => {
     one.series = one.series.slice(-1);
     installFetch(one);
     renderView();
-    expect((await screen.findByTestId("si-curve-few")).textContent).toContain("second night");
+    expect((await screen.findByTestId("si-curve-few")).textContent).toContain("second round");
     expect(screen.queryByTestId("si-curve")).toBeNull();
   });
 
@@ -421,6 +446,22 @@ describe("SelfImprovementView, before and while tasks are built", () => {
     expect(screen.queryByTestId("si-empty")).toBeNull();
     expect(screen.queryByTestId("si-curve")).toBeNull();
     expect(screen.getAllByTestId("si-night")[0].textContent).toContain("Built 36 test tasks from your own memory and messages.");
+  });
+
+  it("says what each round spent, with the share of a window or within the fixed limits", async () => {
+    const data = fullOverview();
+    data.nights = [
+      night(1, {
+        made: { questions: 30, messages: 10, forgotten: 0, calls: 12, deferred: false, share: 1.5, usage_read: true, until: "enough" },
+        calls: { "first_move+brief": { calls: 50, share: 4.25, usage_read: true } },
+      }),
+      night(2, { made: { questions: 8, messages: 0, forgotten: 0, calls: 8, deferred: false, usage_read: false, until: "budget" } }),
+    ];
+    installFetch(data);
+    renderView();
+    const rounds = await screen.findAllByTestId("si-night");
+    expect(rounds[0].textContent).toContain("Model calls: 62, about 4.3 % of a usage window.");
+    expect(rounds[1].textContent).toContain("Model calls: 8, within the fixed limits (the plan's usage could not be read).");
   });
 
   it("lists what the nights built, stored, erased, or could not build", async () => {
@@ -582,6 +623,68 @@ describe("SelfImprovementView, notes it wrote for itself", () => {
     await waitFor(() => expect(screen.getAllByTestId("si-change-row")).toHaveLength(3));
     expect(calls.some((c) => c.method === "POST" && c.url === "/api/self-improvement/changes/n1/undo")).toBe(true);
   });
+
+  const SINCE = Date.UTC(2026, 10, 24, 12);
+  const track = (over: Partial<NoteTrack> = {}): NoteTrack => ({
+    since_ms: SINCE,
+    shown: 34,
+    shown_through: 31,
+    shown_share: 31 / 34,
+    other: 140,
+    other_through: 118,
+    other_share: 118 / 140,
+    min_requests: 30,
+    ...over,
+  });
+
+  async function openNote(found: NoteTrack | null) {
+    const data = withNotes();
+    data.stack[0] = { ...data.stack[0], track: found };
+    installFetch(data);
+    renderView();
+    const rows = await screen.findAllByTestId("si-change-row");
+    const proof = within(rows[0]).getByTestId("si-change-proof").textContent;
+    fireEvent.click(rows[0]);
+    return { proof, detail: await screen.findByTestId("si-change-detail") };
+  }
+
+  it("says where a note was shown and how those requests went, beside the others, as no proof", async () => {
+    const { proof, detail } = await openNote(track());
+    expect(proof).toBe("not measured yet · shown in 34 of your requests");
+    expect(within(detail).getByTestId("si-detail-track").textContent).toBe(
+      "Shown in 34 of your requests since Nov 24: 31 went through (91%); without it 84% of 140.",
+    );
+    expect(detail.textContent).toContain("not what caused it");
+    expect(within(detail).getByTestId("si-detail-unmeasured").textContent).toContain("Not measured yet");
+    expect(detail.textContent).not.toMatch(/null|undefined|NaN/);
+  });
+
+  it("gives no share below the minimum, and says so", async () => {
+    const few = track({ shown: 12, shown_through: null, shown_share: null });
+    const { proof, detail } = await openNote(few);
+    expect(proof).toBe("not measured yet · shown in 12 of your requests");
+    const sentence = within(detail).getByTestId("si-detail-track").textContent ?? "";
+    expect(sentence).toBe("Shown in 12 of your requests since Nov 24. How they went shows from 30 requests on.");
+    expect(sentence).not.toMatch(/%/);
+    cleanup();
+    const alone = track({ other: 9, other_through: null, other_share: null });
+    const second = await openNote(alone);
+    expect(within(second.detail).getByTestId("si-detail-track").textContent).toBe(
+      "Shown in 34 of your requests since Nov 24: 31 went through (91%); too few without it to compare (9).",
+    );
+  });
+
+  it("shows nothing of a track a note does not have, and says when it was not shown yet", async () => {
+    const none = await openNote(null);
+    expect(none.proof).toBe("not measured yet");
+    expect(within(none.detail).queryByTestId("si-detail-track")).toBeNull();
+    cleanup();
+    const unseen = await openNote(track({ shown: 0, shown_through: null, shown_share: null }));
+    expect(unseen.proof).toBe("not measured yet");
+    expect(within(unseen.detail).getByTestId("si-detail-track").textContent).toBe(
+      "Not shown in any of your requests since Nov 24.",
+    );
+  });
 });
 
 describe("SelfImprovementView, the lead's first move", () => {
@@ -628,9 +731,9 @@ describe("SelfImprovementView, the lead's first move", () => {
     expect(lead?.textContent).toContain("reach for the right tool first");
     expect(lead?.textContent).toContain("answers the assistant got right after you corrected it");
     const limits = screen.getByTestId("si-limits").textContent ?? "";
-    expect(limits).toContain("at most 40 model calls a night for both together");
-    expect(limits).toContain("never more than 20 % of a window in one night");
+    expect(limits).toContain("replays your earlier requests on the assistant's own plan, until the round's comparisons are done");
     expect(limits).not.toContain("Measuring itself asks no model.");
+    expect(screen.getByTestId("si-budget").textContent).toContain("and 40 replays");
   });
 
   it("reads a dropped line as one plain sentence in what it changed, with no values", async () => {

@@ -61,8 +61,10 @@ describe("self-improvement: the first move's words", () => {
     for (const chunk of [en, de, es, pt, zh]) {
       const text = String(at(chunk, "self_improvement.domain.first_move.building"));
       for (const slot of ["{n}", "{need}", "{have}"]) expect(text).toContain(slot);
-      const how = String(at(chunk, "self_improvement.how.measure_first_move"));
-      for (const slot of ["{calls}", "{share}"]) expect(how).toContain(slot);
+      const budget = String(at(chunk, "self_improvement.how.budget"));
+      for (const slot of ["{full}", "{share}"]) expect(budget).toContain(slot);
+      const fallback = String(at(chunk, "self_improvement.how.fallback"));
+      for (const slot of ["{calls}", "{ramp}", "{replays}", "{ceiling}"]) expect(fallback).toContain(slot);
     }
   });
 });

@@ -11,7 +11,7 @@
  * whatever its sign.
  */
 import { fill } from "@/i18n";
-import type { Measurement } from "@/lib/selfImprovementApi";
+import type { Measurement, Night } from "@/lib/selfImprovementApi";
 
 type T = (key: string) => string;
 
@@ -64,6 +64,22 @@ export function fmtShare(score: number, locale: string): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(score);
+}
+
+type Spent = { calls?: number; share?: number; usage_read?: boolean | null };
+
+/** Percent points of a usage window: one decimal below ten, whole numbers above. */
+export function fmtWindowShare(share: number, locale: string): string {
+  return share.toLocaleString(locale, { maximumFractionDigits: share < 10 ? 1 : 0 });
+}
+
+/** What one round spent: its model calls, and the most of one window it used (null: none read). */
+export function roundSpend(night: Pick<Night, "made" | "calls">): { calls: number; share: number | null } {
+  const parts: Spent[] = [night.made ?? {}, ...Object.values(night.calls ?? {})];
+  const calls = parts.reduce((sum, part) => sum + (part.calls ?? 0), 0);
+  const read = parts.filter((part) => part.usage_read);
+  const share = read.length ? Math.max(...read.map((part) => part.share ?? 0)) : null;
+  return { calls, share };
 }
 
 export function fmtTokens(tokens: number, locale: string): string {

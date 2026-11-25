@@ -15,15 +15,15 @@
       "running": "Läuft",
       "stopped": "Angehalten",
       "readonly": "Nur lesen",
-      "running_first": "Bisher lief noch keine Nacht. Die erste beginnt, wenn du {minutes} Minuten weg warst.",
-      "running_body": "Die letzte Nacht war {when}. Die nächste kommt nach {next}, sobald du {minutes} Minuten weg warst.",
-      "running_due": "Die letzte Nacht war {when}. Die nächste kommt, wenn du das nächste Mal {minutes} Minuten weg bist.",
+      "running_first": "Es ist noch keine Lernrunde gelaufen. Die erste beginnt, wenn du {minutes} Minuten weg warst.",
+      "running_body": "Die letzte Lernrunde war {when}. Die nächste kommt nach {next}, sobald du {minutes} Minuten weg warst.",
+      "running_due": "Die letzte Lernrunde war {when}. Die nächste kommt, wenn du das nächste Mal {minutes} Minuten weg bist.",
       "stopped_body": "Bis du fortsetzt, wird nichts ausprobiert, gemessen oder geändert. Was er schon gelernt hat, bleibt in Kraft.",
       "readonly_body": "Eine neuere Version der App hat diese Aufzeichnungen geschrieben. Diese Version zeigt sie nur an und ändert nichts."
     },
     "empty": {
       "title": "Noch ist nichts gemessen",
-      "body": "Um sich selbst zu messen, baut der Assistent nachts zuerst Testaufgaben aus deinem eigenen Gedächtnis und deinen Nachrichten. Sobald es genug sind, prüft er sich daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
+      "body": "Um sich selbst zu messen, baut der Assistent zuerst Testaufgaben aus deinem eigenen Gedächtnis und deinen Nachrichten, während du weg bist. Sobald es genug sind, prüft er sich daran, und diese Seite zeigt, ob er besser wurde, was er geändert hat und was jede Änderung belegt."
     },
     "domain": {
       "recall": {
@@ -65,7 +65,7 @@
       "cost_label": "Prompt pro Nachricht",
       "cost": "{before} → {after} Tokens",
       "cost_same": "{after} Tokens, wie ausgeliefert",
-      "waiting": "{n} Aufgaben aus deiner Arbeit sind bereit. Die erste Messung kommt mit der nächsten Nacht.",
+      "waiting": "{n} Aufgaben aus deiner Arbeit sind bereit. Die erste Messung kommt mit der nächsten Lernrunde.",
       "no_tasks": "Für diesen Bereich gibt es noch keine Aufgaben aus deiner Arbeit, deshalb wird hier nichts gemessen.",
       "quality_label": "Gelöste Aufgaben",
       "shorter": "kürzer",
@@ -73,12 +73,12 @@
       "building": "Bisher gibt es {n} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten. Gemessen wird, sobald es genug für eine Entscheidung sind: {need} im Teil, auf dem er entscheidet; dort sind es jetzt {have}."
     },
     "curve": {
-      "title": "Vorsprung, Nacht für Nacht",
+      "title": "Vorsprung, Lernrunde für Lernrunde",
       "caption": "Punkte, mit dem Bereich, in dem der wahre Wert liegt",
-      "few": "Die Kurve erscheint nach der zweiten Nacht, die diesen Bereich misst.",
+      "few": "Die Kurve erscheint nach der zweiten Lernrunde, die diesen Bereich misst.",
       "update": "Update auf {version}",
       "range_value": "zwischen {low} und {high}",
-      "col_night": "Nacht",
+      "col_night": "Lernrunde",
       "col_advantage": "Punkte",
       "col_range": "Bereich",
       "col_tasks": "Aufgaben",
@@ -121,7 +121,7 @@
       "what": "Was er einstellt",
       "admitted": "Warum er aufgenommen wurde",
       "checked": "Erneut geprüft",
-      "not_checked": "Noch nicht erneut geprüft. Das macht die nächste Nacht.",
+      "not_checked": "Noch nicht erneut geprüft. Das macht die nächste Lernrunde.",
       "admitted_on": "Gemessen auf {n} Aufgaben, die für Entscheidungen zurückgelegt sind, {when}.",
       "checked_on": "Gemessen auf {n} Aufgaben, auf denen nie über eine Änderung entschieden wurde, {when}.",
       "proposed_by": "Vorgeschlagen von",
@@ -140,7 +140,7 @@
       "lines": "Der Zeilen-Lerner, der deine Nachrichten an Übungsaufgaben ohne eine ihrer festen Zeilen ausprobiert"
     },
     "nights": {
-      "title": "Die letzten Nächte",
+      "title": "Die letzten Lernrunden",
       "paused": "Angehalten: Es wurde nichts getan.",
       "updated": "Die App wurde von {from} auf {to} aktualisiert. Alles Gelernte wurde erneut geprüft.",
       "checked": "{title} geprüft: {outcome}, {effect}.",
@@ -152,8 +152,8 @@
       "decided_bare": "{title} gemessen: {outcome}.",
       "measured": "Vorsprung ({area}): {points} Punkte auf {n} Aufgaben.",
       "idle": "Nachgesehen und noch nichts zu messen gefunden.",
-      "show_one": "1 frühere Nacht zeigen",
-      "show_other": "{count} frühere Nächte zeigen",
+      "show_one": "1 frühere Lernrunde zeigen",
+      "show_other": "{count} frühere Lernrunden zeigen",
       "hide": "Weniger zeigen",
       "built_one": "1 Testaufgabe aus deinem Gedächtnis und deinen Nachrichten gebaut.",
       "built_other": "{count} Testaufgaben aus deinem Gedächtnis und deinen Nachrichten gebaut.",
@@ -161,7 +161,9 @@
       "erased_other": "{count} Aufgaben zu Erinnerungen gelöscht, die es nicht mehr gibt.",
       "stored_one": "1 Aufgabe aus deiner früheren Coding-Arbeit gespeichert.",
       "stored_other": "{count} Aufgaben aus deiner früheren Coding-Arbeit gespeichert.",
-      "deferred": "Es konnte kein Modell gefragt werden, deshalb wurden keine Aufgaben gebaut."
+      "deferred": "Es konnte kein Modell gefragt werden, deshalb wurden keine Aufgaben gebaut.",
+      "spent": "Modellaufrufe: {calls}, etwa {share} % eines Nutzungsfensters.",
+      "spent_unread": "Modellaufrufe: {calls}, innerhalb der festen Grenzen (die Nutzung des Abos ließ sich nicht lesen)."
     },
     "outcome": {
       "admitted": "auf Probe aufgenommen",
@@ -186,13 +188,16 @@
       "decide_title": "Entscheiden",
       "decide_body": "Eine Änderung kommt nur hinein, wenn sie sich an Aufgaben bewährt, an denen er nie geübt hat.",
       "check_title": "Weiter prüfen",
-      "check_body": "Spätere Nächte prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
-      "limits": "Er arbeitet nur, nachdem du {minutes} Minuten weg warst, und höchstens eine Nacht in {hours} Stunden.",
-      "models": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht, über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
-      "models_ramp": "Zum Bauen der Aufgaben fragt er ein Modell höchstens {calls}-mal pro Nacht ({ramp}-mal in den ersten Nächten, solange es zu wenige Aufgaben zum Entscheiden gibt), über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird.",
+      "check_body": "Spätere Lernrunden prüfen jede Änderung erneut an anderen Aufgaben und nehmen zurück, was nicht mehr hilft.",
+      "limits": "Eine Lernrunde läuft, wenn du {minutes} Minuten nicht am Computer warst, höchstens einmal in {hours} Stunden und zu jeder Tageszeit. Sie läuft auch, während das Fenster der App geschlossen ist, solange in den Einstellungen \"Agenten nach dem Schließen weiterlaufen lassen\" an ist.",
+      "models": "Zum Bauen der Testaufgaben fragt er ein Modell nur, solange den Messungen noch Aufgaben fehlen: bis genug zum Entscheiden da sind oder nichts Neues mehr übrig ist, woraus er sie bauen kann.",
       "measure_no_model": "Das Messen selbst fragt kein Modell.",
-      "measure_first_move": "Den ersten Schritt und die Aufträge misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt: höchstens {calls} Modellaufrufe pro Nacht für beides zusammen, nie, solange ein Nutzungsfenster zu 80 % voll ist, und nie mehr als {share} % eines Fensters in einer Nacht.",
-      "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet."
+      "measure_first_move": "Den ersten Schritt und die Aufträge misst er, indem er frühere Anfragen über das eigene Abo des Assistenten noch einmal durchspielt, bis die Vergleiche der Lernrunde fertig sind.",
+      "privacy": "Die Erinnerungen und Nachrichten, die dafür genutzt werden, gehen nur an den Anbieter, über den der Assistent ohnehin antwortet. Als sensibel markierte Erinnerungen werden nie gesendet.",
+      "budget": "Jeder Aufruf läuft über das eigene Abo des Assistenten oder ein lokales Modell, nie über einen Schlüssel, der pro Token abgerechnet wird. Kein Aufruf startet, solange ein Nutzungsfenster deines Abos zu {full} % voll ist, und eine Lernrunde nutzt höchstens {share} % eines Fensters.",
+      "fallback": "Lässt sich die Nutzung des Abos nicht lesen, etwa bei einem lokalen Modell, gelten stattdessen feste Grenzen: {calls} Aufrufe pro Lernrunde zum Bauen der Aufgaben ({ramp} in den ersten Lernrunden) und {replays} Wiederholungen früherer Anfragen. Keine Lernrunde macht je mehr als {ceiling} Aufrufe einer Art.",
+      "last_round": "Modellaufrufe in der letzten Lernrunde: {calls}, etwa {share} % eines Nutzungsfensters.",
+      "last_round_unread": "Modellaufrufe in der letzten Lernrunde: {calls}. Die Nutzung des Abos ließ sich nicht lesen, deshalb galten die festen Grenzen."
     },
     "param": {
       "recall_entity_boost": {
@@ -265,6 +270,15 @@
       "col_through": "Durchgegangen",
       "week_of": "ab {date}",
       "unrated": "keine Zahl"
+    },
+    "track": {
+      "title": "In deinen Anfragen",
+      "none": "Seit {date} in keiner deiner Anfragen gezeigt.",
+      "few": "Seit {date} in {n} deiner Anfragen gezeigt. Wie sie ausgingen, zeigt sich ab {min} Anfragen.",
+      "shown": "Seit {date} in {n} deiner Anfragen gezeigt: {through} gingen durch ({pct}); ohne sie {other_pct} von {m}.",
+      "shown_alone": "Seit {date} in {n} deiner Anfragen gezeigt: {through} gingen durch ({pct}); ohne sie zu wenige für einen Vergleich ({m}).",
+      "caveat": "Das zeigt, was geschehen ist, nicht, was es verursacht hat: Eine Notiz kommt, wenn es in einer Anfrage um ihr Thema geht, darum sind diese Anfragen nicht wie die anderen, und nichts wird danach entschieden.",
+      "row": "in {n} deiner Anfragen gezeigt"
     },
     "policy": {
       "sentence": "{what}, {where}",

@@ -48,6 +48,7 @@ _COMMIT = re.compile(r"[0-9a-f]{40}")
 #: Code whose change can break an agent on Hermes or OpenClaw.
 PREFIXES: tuple[str, ...] = (
     "dodaios/agent_runtimes/",
+    "dodaios/agent_chat/service_parts/",
     "tests/unit/agent_runtimes/",
     "dodaios/agent_chat/runner_cli/",
     "scripts/spikes/agent_runtimes_",

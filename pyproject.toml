@@ -1053,6 +1053,9 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "A"]
 ignore = ["S101", "S603", "S607"]
 
 [tool.ruff.lint.per-file-ignores]
+# The mixins in agent_chat/service_parts read these names through this module
+# at call time (so tests can patch them here); the imports look unused to ruff.
+"dodaios/agent_chat/service.py" = ["F401"]
 # Telephony tests parse our OWN generated TwiML (trusted input, not untrusted
 # network data) and use the literal word "secret" / fake fixture tokens that
 # bandit flags as hardcoded passwords. Both are false positives in a test

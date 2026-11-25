@@ -41,10 +41,59 @@ class _Channels:
         return self._names
 
 
-def _state(*, armed: int = 0, running: int = 0, channels: tuple[str, ...] = ()) -> SimpleNamespace:
+def _state(
+    *,
+    armed: int = 0,
+    running: int = 0,
+    channels: tuple[str, ...] = (),
+    learning: object = None,
+) -> SimpleNamespace:
     return SimpleNamespace(
-        task_scheduler=_Scheduler(armed, running), channel_manager=_Channels(*channels)
+        task_scheduler=_Scheduler(armed, running),
+        channel_manager=_Channels(*channels),
+        self_improvement=learning,
     )
+
+
+class _Night:
+    """A stand-in for ``rsi.night.Night``: the person's stop, and a night that runs
+    until its model call is cut by the backend letting go (or until ``release``)."""
+
+    def __init__(self, *, paused: bool = False, obeys_halt: bool = True) -> None:
+        import threading
+
+        self._paused = paused
+        self.bench = SimpleNamespace(readonly=False)
+        self.obeys_halt = obeys_halt
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.reports: list[str] = []
+        self.service = None
+
+    def paused(self) -> bool:
+        return self._paused
+
+    def due(self) -> bool:
+        return not self._paused
+
+    def run(self):
+        from dodaios.rsi.night import NightReport
+
+        self.started.set()
+        while not self.release.wait(0.01):
+            if self.obeys_halt and self.service is not None and self.service.halted:
+                break  # the call in flight is cut; the rest runs without a model
+        self.reports.append("written")
+        return NightReport(ts_ms=1, app="test")
+
+
+def _learning(*, paused: bool = False, obeys_halt: bool = True):
+    from dodaios.rsi.night import NightService
+
+    night = _Night(paused=paused, obeys_halt=obeys_halt)
+    service = NightService(night, lambda: True)  # type: ignore[arg-type]
+    night.service = service
+    return service
 
 
 def _cfg(*, keep: bool = True) -> SimpleNamespace:
@@ -62,6 +111,25 @@ def test_work_counts_routines_runs_and_channels() -> None:
     assert work
     assert "2 armed routine(s)" in work.describe()
     assert "telegram" in work.describe()
+
+
+def test_learning_the_person_keeps_running_is_work() -> None:
+    work = bg.work_from_state(_state(learning=_learning()))
+    assert work.learning is True and bool(work) is True
+    assert work.describe() == "self-improvement learning"
+
+
+def test_learning_the_person_stopped_is_no_work() -> None:
+    work = bg.work_from_state(_state(learning=_learning(paused=True)))
+    assert work.learning is False and not work
+
+
+def test_an_unreadable_learning_state_is_no_work() -> None:
+    class _Broken:
+        def learning(self) -> bool:
+            raise RuntimeError("bench.db is locked")
+
+    assert bg.work_from_state(_state(learning=_Broken())).learning is False
 
 
 def test_a_channel_still_being_retried_is_kept() -> None:
@@ -210,6 +278,27 @@ def test_quit_without_work_starts_nothing(spawned) -> None:
 
 def test_quit_with_setting_off_starts_nothing(spawned) -> None:
     assert bg.hand_off_on_quit(_state(channels=("telegram",)), _cfg(keep=False)) is False
+    assert spawned == []
+
+
+def test_quit_with_learning_as_the_only_work_starts_the_service(spawned) -> None:
+    assert bg.hand_off_on_quit(_state(learning=_learning()), _cfg(), pid=4321) is True
+    assert spawned == [4321]
+
+
+def test_quit_with_learning_stopped_by_the_person_starts_nothing(spawned) -> None:
+    assert bg.hand_off_on_quit(_state(learning=_learning(paused=True)), _cfg()) is False
+    assert spawned == []
+
+
+def test_quit_with_learning_and_the_setting_off_starts_nothing(spawned) -> None:
+    assert bg.hand_off_on_quit(_state(learning=_learning()), _cfg(keep=False)) is False
+    assert spawned == []
+
+
+def test_dev_instance_with_learning_never_hands_off(monkeypatch, spawned) -> None:
+    monkeypatch.setenv("JARVIS_INSTANCE", "dev")
+    assert bg.hand_off_on_quit(_state(learning=_learning()), _cfg()) is False
     assert spawned == []
 
 
@@ -376,6 +465,68 @@ def test_watch_keeps_running_while_there_is_work() -> None:
     assert _run_watch(_state(channels=("telegram",)), idle_check_s=0.01, idle_strikes=1) is False
 
 
+def test_watch_keeps_running_while_learning_is_work() -> None:
+    state = _state(learning=_learning())
+    assert _run_watch(state, idle_check_s=0.01, idle_strikes=1) is False
+
+
+def test_watch_exits_once_the_person_stops_the_learning() -> None:
+    state = _state(learning=_learning(paused=True))
+    assert _run_watch(state, idle_check_s=0.01, idle_strikes=2) is True
+
+
+def _round_in_flight(service) -> object:
+    import threading
+
+    worker = threading.Thread(target=service.tick, daemon=True)
+    worker.start()
+    assert service.night.started.wait(5) and service.busy
+    return worker
+
+
+def test_hand_back_during_a_learning_round_halts_it_and_waits_for_its_report() -> None:
+    import time
+
+    service = _learning()
+    worker = _round_in_flight(service)
+    bg.request_handover()
+    started = time.monotonic()
+    assert _run_watch(_state(learning=service), idle_check_s=60.0) is True
+    assert time.monotonic() - started < 1.0  # it ended as soon as its call was cut
+    worker.join(5)  # type: ignore[attr-defined]
+    assert service.halted and not service.busy
+    assert service.night.reports == ["written"]  # the round wrote its report before letting go
+    assert service.tick() is None  # and no new round starts in the service
+
+
+def test_hand_back_waits_only_a_bounded_time_for_a_round_that_does_not_end(monkeypatch) -> None:
+    import time
+
+    from dodaios.ui.web import launcher
+
+    service = _learning(obeys_halt=False)
+    worker = _round_in_flight(service)
+    monkeypatch.setattr(bg, "HANDOVER_DRAIN_S", 0.2)
+
+    async def scenario() -> bool:
+        stop = asyncio.Event()
+        bg.request_handover()
+        await asyncio.wait_for(
+            launcher._watch_background_service(
+                _state(learning=service), stop, poll_s=0.01, idle_check_s=60.0
+            ),
+            5.0,
+        )
+        return stop.is_set()
+
+    started = time.monotonic()
+    assert asyncio.run(scenario()) is True
+    assert time.monotonic() - started < 2.0
+    assert service.halted and service.busy  # it stops with the service, unfinished
+    service.night.release.set()
+    worker.join(5)  # type: ignore[attr-defined]
+
+
 def test_scheduler_reports_pending_work() -> None:
     from dodaios.tasks.scheduler import TaskScheduler
 
@@ -458,11 +609,17 @@ def test_settings_route_reports_and_persists(monkeypatch) -> None:
     )
     app.state.task_scheduler = _Scheduler(armed=2)
     app.state.channel_manager = _Channels("telegram")
+    app.state.self_improvement = _learning()
     client = TestClient(app)
 
     body = client.get("/api/settings/background").json()
     assert body["keep_agents_running"] is True
-    assert body["work"] == {"routines": 2, "running": 0, "channels": ["telegram"]}
+    assert body["work"] == {
+        "routines": 2,
+        "running": 0,
+        "channels": ["telegram"],
+        "learning": True,
+    }
     assert body["supported"] is True
 
     body = client.put("/api/settings/background", json={"keep_agents_running": False}).json()
@@ -490,8 +647,6 @@ def test_service_is_findable_the_moment_it_holds_the_lock(monkeypatch) -> None:
 
 
 def test_hand_back_lets_running_routines_finish_first() -> None:
-    from dodaios.ui.web import launcher
-
     class _Draining:
         def __init__(self) -> None:
             self.calls = 0
@@ -502,19 +657,15 @@ def test_hand_back_lets_running_routines_finish_first() -> None:
 
     scheduler = _Draining()
     state = SimpleNamespace(task_scheduler=scheduler, channel_manager=_Channels())
-    asyncio.run(launcher._drain_running_routines(state, drain_s=5.0, poll_s=0.01))
+    asyncio.run(bg.drain_running_routines(state, drain_s=5.0, poll_s=0.01))
     assert scheduler.calls == 4
 
 
 def test_drain_is_bounded() -> None:
-    from dodaios.ui.web import launcher
-
     state = _state(running=1)
 
     async def scenario() -> None:
-        await asyncio.wait_for(
-            launcher._drain_running_routines(state, drain_s=0.05, poll_s=0.01), 1.0
-        )
+        await asyncio.wait_for(bg.drain_running_routines(state, drain_s=0.05, poll_s=0.01), 1.0)
 
     asyncio.run(scenario())
 

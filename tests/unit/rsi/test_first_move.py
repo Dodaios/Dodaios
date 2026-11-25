@@ -29,7 +29,7 @@ from dodaios.rsi.bench.lead_replay import FirstMoveWorld, LeadInput, Platform
 from dodaios.rsi.bench.model import Domain, Result, Role, Source, Split, Task, task_id
 from dodaios.rsi.bench.own import lead as own_lead
 from dodaios.rsi.bench.store import BenchStore
-from dodaios.rsi.budget import BUDGET_SHARE, FIRST_MOVE_CALLS, Budget
+from dodaios.rsi.budget import BUDGET_SHARE, CEILING_CALLS, FIRST_MOVE_CALLS, Budget
 from dodaios.rsi.gate.alpha import AlphaLedger
 from dodaios.rsi.gate.decide import LIVE
 from dodaios.self_change import Draft, State, Surface
@@ -196,7 +196,54 @@ def test_the_budget_stops_when_the_person_comes_back() -> None:
     assert budget.take() == "the person is back"
 
 
-def test_the_cap_per_night_is_forty() -> None:
+def test_the_budget_starts_no_call_once_the_backend_lets_go() -> None:
+    gone = {"now": False}
+    budget = Budget(40, halted=lambda: gone["now"])
+    assert budget.take() == ""
+    gone["now"] = True
+    assert budget.take() == "the backend let go of the round" and budget.calls == 1
+
+
+def test_the_fixed_cap_holds_only_while_the_windows_cannot_be_read() -> None:
+    reading: dict[str, float] | None = None
+    budget = Budget(CEILING_CALLS, fallback=FIRST_MOVE_CALLS, usage=lambda: reading)
+    assert all(budget.take() == "" for _ in range(FIRST_MOVE_CALLS - 1))
+    reading = {"session": 10.0}  # the window can be read: the work decides, up to the ceiling
+    assert all(budget.take() == "" for _ in range(50))
+    assert budget.calls == FIRST_MOVE_CALLS - 1 + 50 and budget.read is True
+    reading = None  # unreadable again: past the fixed cap, nothing more
+    assert "40 model calls" in budget.take() and budget.read is False
+
+
+def test_the_ceiling_holds_when_the_window_never_moves() -> None:
+    budget = Budget(CEILING_CALLS, fallback=FIRST_MOVE_CALLS, usage=lambda: {"session": 10.0})
+    assert all(budget.take() == "" for _ in range(CEILING_CALLS))
+    assert "ceiling of 200" in budget.take() and budget.calls == CEILING_CALLS
+    assert CEILING_CALLS == 200
+
+
+def test_an_old_usage_snapshot_counts_as_unreadable(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from dodaios import agent_accounts, agent_usage
+    from dodaios.rsi import budget as budgets
+
+    window = SimpleNamespace(kind="session", percent=12.0, scope_label=None, raw_label=None)
+    found = SimpleNamespace(status="ok", windows=(window,), source="cached", as_of=1000.0)
+    account = SimpleNamespace(id="a1")
+    monkeypatch.setattr(agent_usage, "supports_usage", lambda platform: True)
+    monkeypatch.setattr(agent_accounts, "active_account", lambda platform: account)
+    monkeypatch.setattr(agent_usage, "collect", lambda accounts: {"a1": found})
+    assert budgets.plan_usage("claude", now=lambda: 1000.0 + 60) == {"session:": 12.0}
+    assert budgets.plan_usage("claude", now=lambda: 1000.0 + budgets.USAGE_FRESH_S + 1) is None
+    live = SimpleNamespace(status="ok", windows=(window,), source="live", as_of=None)
+    monkeypatch.setattr(agent_usage, "collect", lambda accounts: {"a1": live})
+    assert budgets.plan_usage("claude") == {"session:": 12.0}
+    monkeypatch.setattr(agent_usage, "supports_usage", lambda platform: False)
+    assert budgets.plan_usage("local") is None
+
+
+def test_the_fixed_replay_cap_is_forty() -> None:
     assert FIRST_MOVE_CALLS == 40
 
 
@@ -251,6 +298,25 @@ def test_the_replay_takes_the_first_move_and_stops_the_cli(tmp_path: Path) -> No
     # The run's own folder is removed; every replay works in the same empty folder.
     assert [p.name for p in (tmp_path / "scratch").iterdir()] == ["cwd"]
     assert not list((tmp_path / "scratch" / "cwd").iterdir())
+
+
+def test_a_halt_cuts_the_replay_in_flight_and_stops_the_cli(tmp_path: Path) -> None:
+    import threading
+
+    from dodaios.rsi.bench.lead_cli import HALTED
+
+    driver, out = _driver(tmp_path, "hang")
+    gone = threading.Event()
+    driver.halted = gone.is_set
+    threading.Timer(1.0, gone.set).start()
+    started = time.monotonic()
+    move = driver(
+        LeadInput("SYSTEM PROMPT", "Let Scout compare note apps"), Platform("claude-cli", "opus")
+    )
+    assert time.monotonic() - started < 10  # not the CLI's 30 s, not the replay's own limit
+    assert move.error == HALTED and move.tool is None
+    time.sleep(1.0)
+    assert not (out / "ran-on.txt").exists()  # the CLI was stopped, not left behind
 
 
 def test_the_replay_offers_the_lead_tools_through_a_server_that_runs_none(tmp_path: Path) -> None:

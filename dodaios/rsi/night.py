@@ -1,6 +1,10 @@
-"""The night cycle: one round of the assistant improving itself.
+"""The learning round: one round of the assistant improving itself.
 
-While the person is away the kernel does, in this order:
+The code calls a round a "night"; it has nothing to do with the time of day.
+A round runs when the person has been away from the computer for
+:data:`IDLE_AFTER_S`, at most once in :data:`EVERY_S`, in whichever backend
+runs (the desktop app, or the background service while the window is closed).
+In it the kernel does, in this order:
 
 1. **checks what is in effect.** Every change on trial, and the newest live
    ones, are compared with the assistant without them. What no longer pays is
@@ -14,7 +18,7 @@ While the person is away the kernel does, in this order:
    assistant as it ships, on the sealed tasks: the number the person sees.
 5. **writes down what it did**, in ``bench.db`` (``nights``, ``series``).
 
-Nothing is announced. The night is quiet: no notice, no sound, no voice.
+Nothing is announced. A round is quiet: no notice, no sound, no voice.
 
     python -m dodaios.rsi.night --sandbox                # try it on the seed suite
     python -m dodaios.rsi.night --sandbox --plant recall.relative_floor=0.9 --nights 3
@@ -22,22 +26,28 @@ Nothing is announced. The night is quiet: no notice, no sound, no voice.
 ``--sandbox`` builds a throwaway installation that decides on the seed suite
 and prints what each night did. It reads and changes nothing of a real one.
 
-**What a night may spend.** Measuring the recall asks no model. The
-``first_move`` and ``brief`` domains replay lead turns (one model call for a
-first move, two for a brief); their limits are fixed in
-:mod:`dodaios.rsi.budget`, not in a setting, shared by the two domains, and
-asked before every call: only while the person is away (:data:`IDLE_AFTER_S`),
-at most ``REPLAY_CALLS`` calls and :data:`BUDGET_SHARE` of a plan's usage
-window a night, never above 80 % of a window, never on a key that bills per
-token.
+**What a round may spend.** Measuring the recall asks no model. Building
+tasks asks the assistant's own provider, and the ``first_move`` and ``brief``
+domains replay lead turns (one model call for a first move, more for a brief).
+How many calls a round makes is the work's to decide: building goes on while
+the gate still lacks tasks (:func:`tasks_wanted`), replays while comparisons
+are open. What it may make is fixed in :mod:`dodaios.rsi.budget`, not in a
+setting, and asked before every call: only while the person is away, on a
+subscription or a local model and never a key that bills per token, never
+above 80 % of a usage window and at most :data:`BUDGET_SHARE` of a window per
+round, never more than ``CEILING_CALLS`` calls of one kind; and while the
+plan's windows cannot be read, the fixed caps of before
+(:data:`MAX_MODEL_CALLS`, :data:`RAMP_MODEL_CALLS`, ``REPLAY_CALLS``).
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import logging
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -54,7 +64,7 @@ from dodaios.rsi.bench import run, seedsuite
 from dodaios.rsi.bench.model import NEEDS_MODEL, Domain, Role, Source, Split, Task
 from dodaios.rsi.bench.recall import RecallWorld
 from dodaios.rsi.bench.store import DB_NAME, BenchStore, PracticeView
-from dodaios.rsi.budget import BUDGET_SHARE
+from dodaios.rsi.budget import BUDGET_SHARE, CEILING_CALLS, Budget, Usage, plan_usage
 from dodaios.rsi.gate.decide import LIVE, Decision, MeasuredGate
 from dodaios.rsi.sequential import interval_of
 from dodaios.self_change import Draft, SelfChangeRegistry, State, Surface
@@ -72,6 +82,7 @@ __all__ = [
     "NightService",
     "install",
     "sandbox",
+    "tasks_wanted",
 ]
 
 log = logging.getLogger(__name__)
@@ -80,11 +91,13 @@ log = logging.getLogger(__name__)
 IDLE_AFTER_S: Final[float] = 15 * 60
 #: At most one night in this time.
 EVERY_S: Final[float] = 20 * 3600
-#: Model calls one night may make to build tasks. Fixed.
+#: Model calls one round may make to build tasks while the plan's usage windows
+#: cannot be read (a local model, a CLI without a usage read). Fixed. While
+#: they can be read, the gate's need, the windows and the round's ceiling decide.
 MAX_MODEL_CALLS: Final[int] = 8
 #: The same while the person's own tasks are too few for the gate to decide on
-#: (fewer than ``MIN_PAIRS`` in the select split): the first nights build more,
-#: so the first decision comes in one or two nights instead of three or four.
+#: (fewer than ``MIN_PAIRS`` in the select split): the first rounds build more,
+#: so the first decision comes in one or two rounds instead of three or four.
 RAMP_MODEL_CALLS: Final[int] = 24
 #: For how long a value the gate turned down is not proposed again.
 _SKIP_MS: Final[int] = 30 * 24 * 3600 * 1000
@@ -419,12 +432,7 @@ class Night:
                     budgets[id(budget)] = budget
             for key, names in shared.items():
                 # Domains on one budget share its calls: they are reported once.
-                budget = budgets[key]
-                report.calls["+".join(names)] = {
-                    "calls": budget.calls,
-                    "cap": budget.cap,
-                    "stopped": budget.stopped,
-                }
+                report.calls["+".join(names)] = budgets[key].public()
         finally:
             if self._finish is not None:
                 self._finish()
@@ -441,26 +449,94 @@ class Night:
 
 
 class NightService:
-    """Runs the installation's nights while the app is open and the person is away."""
+    """Runs the installation's nights while a backend runs and the person is away.
+
+    The backend is the desktop app while its window is open, and the windowless
+    background service while it is closed (``dodaios.core.background_service``
+    keeps the service for as long as :meth:`learning` holds). Both read and
+    write the same ``bench.db``, registry and parameter files, so the app sees
+    what the service did when it opens again.
+    """
 
     #: How often the app looks whether a night is due.
     LOOK_EVERY_S: Final[float] = 10 * 60
 
     def __init__(
-        self, night: Night, idle: Callable[[], bool], *, chat_db: Path | None = None
+        self,
+        night: Night,
+        idle: Callable[[], bool],
+        *,
+        chat_db: Path | None = None,
+        halt: threading.Event | None = None,
     ) -> None:
         self.night = night
         #: The person's chat record, for the page's "in daily use" part. Read-only.
         self.chat_db = chat_db
         self._idle = idle
         self._task: Any = None
+        #: Set when the backend lets go (the app opens, the backend stops). The
+        #: night's model calls read it: none starts after it, one in flight is cut.
+        self._halt = halt if halt is not None else threading.Event()
+        self._busy = threading.Event()
         self.last: NightReport | None = None
+
+    # ---------------------------------------------------------------- state
+
+    def learning(self) -> bool:
+        """Nights are to come: the person has not stopped the loop and this app may write.
+
+        An older app that meets a newer ``bench.db`` only watches (``readonly``):
+        it has nothing to learn, so nothing to keep running for.
+        """
+        return not self.night.paused() and not self.night.bench.readonly
+
+    @property
+    def busy(self) -> bool:
+        """A night is running right now."""
+        return self._busy.is_set()
+
+    @property
+    def halted(self) -> bool:
+        return self._halt.is_set()
+
+    def halt(self) -> None:
+        """Let go: no night starts any more, and a running one makes no more model calls.
+
+        The running night's call in flight is cut (its result is void and not kept),
+        every later step runs without a model, and the night ends by writing its
+        report as usual, as when the person comes back (``budget``). Never blocks.
+        """
+        if not self._halt.is_set():
+            self._halt.set()
+            if self.busy:
+                log.info("self-improvement: the running night stops its model calls")
+
+    async def wind_down(self, within_s: float, *, poll_s: float = 0.25) -> bool:
+        """:meth:`halt`, then wait at most ``within_s`` for a running night to end.
+
+        ``True`` when no night is running any more.
+        """
+        import asyncio
+
+        self.halt()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(0.0, within_s)
+        # The flag is cleared by the night's worker thread, so it is polled.
+        while self.busy and loop.time() < deadline:  # noqa: ASYNC110
+            await asyncio.sleep(poll_s)
+        return not self.busy
+
+    # ------------------------------------------------------------------ run
 
     def tick(self) -> NightReport | None:
         """Run a night when one is due and the person is away. Blocking; call it off the loop."""
-        if not self.night.due() or not self._idle():
+        if self.halted or not self.night.due() or not self._idle():
             return None
-        self.last = self.night.run()
+        self._busy.set()
+        try:
+            self.last = self.night.run()
+        finally:
+            self._busy.clear()
         # One line in the log per night: names and numbers only, never a memory's words.
         log.info("self-improvement night: %s", " | ".join(self.last.lines()))
         return self.last
@@ -468,12 +544,17 @@ class NightService:
     async def _watch(self) -> None:
         import asyncio
 
-        while True:
-            await asyncio.sleep(self.LOOK_EVERY_S)
-            try:
-                await asyncio.to_thread(self.tick)
-            except Exception:  # noqa: BLE001 — a failed night never takes the app down
-                log.warning("self-improvement: the night failed", exc_info=True)
+        try:
+            while True:
+                await asyncio.sleep(self.LOOK_EVERY_S)
+                try:
+                    await asyncio.to_thread(self.tick)
+                except Exception:  # noqa: BLE001 — a failed night never takes the app down
+                    log.warning("self-improvement: the night failed", exc_info=True)
+        finally:
+            # The backend's loop ends (its tasks are cancelled before it waits for
+            # its worker threads): a running night winds down instead of holding it.
+            self.halt()
 
     def start(self) -> None:
         import asyncio
@@ -482,6 +563,8 @@ class NightService:
             self._task = asyncio.get_running_loop().create_task(self._watch())
 
     def stop(self) -> None:
+        """The backend shuts down: no more looks, and a running night winds down (:meth:`halt`)."""
+        self.halt()
         if self._task is not None:
             self._task.cancel()
             self._task = None
@@ -493,11 +576,21 @@ def _person_idle() -> bool:
     return person_idle(IDLE_AFTER_S)
 
 
-def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
+#: How long one task-building call may take.
+_ASK_TIMEOUT_S: Final[float] = 240.0
+#: How often a waiting call looks whether the night was halted.
+_HALT_POLL_S: Final[float] = 0.5
+
+
+def _model_ask(
+    config: Any, loop: Any, halted: Callable[[], bool] | None = None
+) -> Callable[[str, str], str | None]:
     """Ask the assistant's own provider, on its subscription or a local model, from a thread.
 
     Never a key that bills per token (``allow_metered=False``): without a
     subscription or a local model the answer is ``None`` and no tasks are made.
+    Once ``halted`` answers true no call starts, and a call in flight is cancelled
+    and answers ``None``: the maker then makes nothing more this night.
     """
 
     def ask(system: str, prompt: str) -> str | None:
@@ -505,7 +598,7 @@ def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
 
         from dodaios.memory.learning.review import ModelReviewer
 
-        if loop is None or loop.is_closed():
+        if loop is None or loop.is_closed() or (halted is not None and halted()):
             return None
         reviewer = ModelReviewer(
             config,
@@ -515,18 +608,101 @@ def _model_ask(config: Any, loop: Any) -> Callable[[str, str], str | None]:
             caller="rsi_tasks",
             allow_metered=False,
         )
-        answer = asyncio.run_coroutine_threadsafe(reviewer(prompt), loop).result(timeout=240)
-        return str(answer) if answer else None
+        future = asyncio.run_coroutine_threadsafe(reviewer(prompt), loop)
+        return _wait_for(future, halted)
 
     return ask
 
 
+def _wait_for(
+    future: concurrent.futures.Future[Any],
+    halted: Callable[[], bool] | None,
+    *,
+    timeout_s: float = _ASK_TIMEOUT_S,
+    poll_s: float = _HALT_POLL_S,
+) -> str | None:
+    """The call's answer, or ``None`` once the night is halted or the call ran out of time."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            answer = future.result(timeout=poll_s)
+        except concurrent.futures.TimeoutError:  # still waiting: look at the halt and the clock
+            if (halted is not None and halted()) or time.monotonic() >= deadline:
+                future.cancel()
+                return None
+            continue
+        return str(answer) if answer else None
+
+
 def calls_tonight(bench: BenchStore) -> int:
-    """How many model calls tonight's task building may make (``RAMP_MODEL_CALLS`` early on)."""
+    """The fixed cap of a round's task building while the plan's windows cannot be read.
+
+    ``RAMP_MODEL_CALLS`` while the select split is too small to decide on, else
+    ``MAX_MODEL_CALLS``.
+    """
     from dodaios.rsi.gate.rules import MIN_PAIRS
 
     own = bench.tasks(Domain.RECALL, splits=(Split.SELECT,), source=Source.MADE)
     return RAMP_MODEL_CALLS if len(own) < MIN_PAIRS else MAX_MODEL_CALLS
+
+
+def tasks_wanted(gate: MeasuredGate, domain: Domain = Domain.RECALL) -> str:
+    """Why the gate still lacks tasks of ``domain`` to work with (``""``: it has enough).
+
+    The gate decides a candidate on the select split (at least ``MIN_PAIRS``
+    tasks), checks a change in effect on the guard split (at least
+    ``MIN_GUARD_PAIRS``), and once the select split's error budget is spent it
+    decides nothing more until the split has grown (``gate.alpha``). Task
+    building goes on while one of these holds, and not longer.
+    """
+    from dodaios.rsi.gate.rules import MIN_GUARD_PAIRS, MIN_PAIRS
+
+    select = len(gate.tasks(domain, Split.SELECT))
+    if select < MIN_PAIRS:
+        return f"{select} of the {MIN_PAIRS} select tasks a decision needs"
+    guard = len(gate.tasks(domain, Split.GUARD))
+    if guard < MIN_GUARD_PAIRS:
+        return f"{guard} of the {MIN_GUARD_PAIRS} guard tasks a check needs"
+    if not gate.can_decide(domain):
+        return "the select tasks are used up until new ones arrive"
+    return ""
+
+
+#: Thread runner -> the account platform whose plan usage ``agent_usage`` reads.
+_USAGE_PLATFORMS: Final[dict[str, str]] = {
+    "claude-cli": "claude",
+    "codex-cli": "codex",
+    "grok-cli": "grok-build",
+}
+
+
+def _seat_usage(config: Any) -> Callable[[], Usage | None]:
+    """The usage windows of the plan the task builder's calls bill, read before every call.
+
+    The seat is the one the builder asks first (``review.seat_choices`` without
+    per-token keys). A local model, a per-token key the person named for the
+    learning, or a CLI whose usage this build cannot read has no windows: the
+    fixed caps apply then. Resolved once per round, on the first call.
+    """
+    platform: list[str | None] = []
+
+    def usage() -> Usage | None:
+        if not platform:
+            platform.append(_seat_platform(config))
+        return plan_usage(platform[0]) if platform[0] else None
+
+    return usage
+
+
+def _seat_platform(config: Any) -> str | None:
+    try:
+        from dodaios.memory.learning.review import BILLING_SUBSCRIPTION, seat_choices
+
+        choices = [c for c in seat_choices(config) if c.billing == BILLING_SUBSCRIPTION]
+    except Exception:  # broad-except: no seat to read means no windows; the fixed caps apply
+        log.debug("self-improvement: the task builder's seat could not be read", exc_info=True)
+        return None
+    return _USAGE_PLATFORMS.get(str(choices[0].seat.runner)) if choices else None
 
 
 def _past_work(
@@ -568,24 +744,34 @@ def install(
 
     home = Path(data_dir)
     bench = BenchStore(home / DB_NAME)
+    halt = threading.Event()
     if config is None:
-        return NightService(Night(registry, bench, lambda: {}), _person_idle)
+        return NightService(Night(registry, bench, lambda: {}), _person_idle, halt=halt)
     world = LiveWorld(vault_runtime.vault_path(config), home / "rsi")
-    maker = OwnRecallMaker(bench, world, home / "agent_chat.db", _model_ask(config, loop))
+    maker = OwnRecallMaker(
+        bench, world, home / "agent_chat.db", _model_ask(config, loop, halt.is_set)
+    )
 
     tonight: dict[str, Any] = {}
 
     def prepare() -> dict[str, Any]:
         clones: list[str] = []
         made = _past_work(bench, folders=clones)
-        made.update(_lead(bench, home, loop, tonight, clones))
+        made.update(_lead(bench, home, loop, tonight, clones, halted=halt.is_set))
         if not world.refresh():
             return made
         from dodaios.rsi import adopt
 
         if world.vault is not None:
             adopt.how_tos(registry, world.vault)
-        return {**maker.run(calls_tonight(bench)), **made}
+        allowance = Budget(
+            CEILING_CALLS,
+            fallback=calls_tonight(bench),
+            usage=_seat_usage(config),  # the seat may have changed since the last round
+            idle=_person_idle,
+            halted=halt.is_set,
+        )
+        return {**maker.run(allowance, lambda: tasks_wanted(night.gate)), **made}
 
     def worlds() -> run.Worlds:
         return {**world.worlds(), **tonight}
@@ -596,7 +782,7 @@ def install(
         world.close()
 
     night = Night(registry, bench, worlds, prepare=prepare, finish=finish)
-    return NightService(night, _person_idle, chat_db=home / "agent_chat.db")
+    return NightService(night, _person_idle, chat_db=home / "agent_chat.db", halt=halt)
 
 
 def _close_brief(tonight: dict[str, Any]) -> None:
@@ -618,6 +804,8 @@ def _lead(
     loop: Any,
     tonight: dict[str, Any],
     clones: Sequence[str] = (),
+    *,
+    halted: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """first_move tasks from the lead's recorded turns, and tonight's replays. No model call here.
 
@@ -625,6 +813,7 @@ def _lead(
     night's, one for both) and only on the lead's plan
     (:mod:`dodaios.rsi.bench.lead_world`). ``clones`` are the person's clones
     the intake of past coding work read: a brief replay works on them.
+    ``halted`` stops the replays' calls when the backend lets go.
     """
     from dodaios.rsi import lead_turns
     from dodaios.rsi.bench import brief_replay, lead_replay, lead_world
@@ -638,7 +827,13 @@ def _lead(
         rows, chat = own_lead.read(turns, home / "agent_chat.db")
         made = own_lead.take_in(bench, rows, chat, now_ms=int(time.time() * 1000))
         built = lead_world.build(
-            home=home, turns=turns, loop=loop, idle=_person_idle, bench=bench, folders=clones
+            home=home,
+            turns=turns,
+            loop=loop,
+            idle=_person_idle,
+            bench=bench,
+            folders=clones,
+            halted=halted,
         )
     except Exception:  # broad-except: an unreadable record costs the domain this night, no more
         log.warning("self-improvement: the lead's turns could not be read", exc_info=True)
