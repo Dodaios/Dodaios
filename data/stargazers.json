@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
   "count": 459,
-  "forks": 162,
+  "forks": 163,
   "placed": 99,
   "stated": 118,
-  "generatedAt": "2026-11-25T17:27:06.690Z",
+  "generatedAt": "2026-11-26T01:52:16.728Z",
   "clusters": [
     {
       "lat": 22.687,
@@ -224,13 +224,6 @@
       "count": 1
     },
     {
-      "lat": 44.65,
-      "lon": -63.6,
-      "label": "Halifax",
-      "country": "Canada",
-      "count": 1
-    },
-    {
       "lat": 39.752,
       "lon": -86.172,
       "label": "Indianapolis",
@@ -361,6 +354,13 @@
       "lon": -73.982,
       "label": "New York",
       "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 44.65,
+      "lon": -63.6,
+      "label": "Nova Scotia",
+      "country": "Canada",
       "count": 1
     },
     {
