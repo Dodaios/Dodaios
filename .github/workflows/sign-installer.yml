@@ -29,7 +29,9 @@
 #      the base64-subjects produced by `sign`. The generator runs in an
 #      ISOLATED job — its OIDC token is never exposed to user-controlled
 #      steps in the `sign` job — and produces a Sigstore-signed in-toto v1.0
-#      provenance file `personal-jarvis.intoto.jsonl`.
+#      provenance file `dodaios.intoto.jsonl` (the `release` job attaches a
+#      byte-identical copy under the earlier name
+#      `personal-jarvis.intoto.jsonl`).
 #      It produces a workflow artifact and never changes release visibility.
 #   3. Job `release`:
 #      Downloads the signed bundle and provenance, checks the complete asset
@@ -827,7 +829,7 @@ jobs:
   #
   # Calls the slsa-framework/slsa-github-generator reusable workflow at a
   # 40-char commit SHA pin. Produces a Sigstore-signed in-toto v1.0
-  # provenance file `personal-jarvis.intoto.jsonl` listing the five
+  # provenance file `dodaios.intoto.jsonl` listing the five
   # install/* artifacts and their SHA-256s as subjects, with the builder
   # identity bound to this workflow.
   #
@@ -880,7 +882,7 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.sign.outputs.hashes }}
-      provenance-name: "personal-jarvis.intoto.jsonl"
+      provenance-name: "dodaios.intoto.jsonl"
       # Generate an immutable workflow artifact only. The release job uploads
       # it with the same no-replacement policy as the signed installer bundle.
       upload-assets: false
@@ -932,8 +934,18 @@ jobs:
       - name: Download the completed provenance artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: personal-jarvis.intoto.jsonl
+          name: dodaios.intoto.jsonl
           path: bundle/out
+
+      - name: Publish the provenance under its earlier release name too
+        # install-verify.sh / install-verify.ps1 of every release before the
+        # alias look the provenance up as personal-jarvis.intoto.jsonl, so the
+        # release carries a byte-identical copy under that name next to
+        # dodaios.intoto.jsonl (scripts/ci/release_assets.py requires both
+        # while PUBLISH_EARLIER_INSTALLER_NAMES is on; once it is off the copy
+        # is simply not staged). New verifiers try the current name first and
+        # fall back to the earlier one.
+        run: cp bundle/out/dodaios.intoto.jsonl bundle/out/personal-jarvis.intoto.jsonl
 
       - name: Upload signatures and provenance without replacing published files
         env:

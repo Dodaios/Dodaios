@@ -17,7 +17,7 @@ remaining mentions is in [old-name-leftovers.md](old-name-leftovers.md).
 | CLI command | `dodaios`, `jarvis` and `personal-jarvis` all start the app (`[project.scripts]` in `pyproject.toml`) | shell history, scripts, desktop launchers, docs |
 | Control CLI | `dodaiosctl`, `jarvisctl`, `jctl` | scripts and other agents |
 | Config file | `jarvis.toml` | every install |
-| Other sources | `personal-jarvis-src.tar.gz` (next to `dodaios-src.tar.gz`), `personal-jarvis.intoto.jsonl`; the `.deb` is `dodaios_<version>_amd64.deb` after 4.1.2 | install scripts, provenance checks |
+| Other sources | `personal-jarvis-src.tar.gz` (next to `dodaios-src.tar.gz`), `personal-jarvis.intoto.jsonl` (next to `dodaios.intoto.jsonl`); the `.deb` is `dodaios_<version>_amd64.deb` after 4.1.2 | install scripts, provenance checks |
 | Windows setup identity | After 4.1.2 built and signed as `Dodaios-Setup-x64.exe`, product name `Dodaios` (`docs/code-signing-policy.md`) | SmartScreen, file properties |
 | Environment variables | Write `DODAIOS_<NAME>` (`DODAIOS__<SECTION>__<KEY>`, `DODAIOSCTL_<NAME>`); the old `JARVIS_*`, `JARVIS__*` and `JARVISCTL_*` names keep working, and the code reads them internally (`dodaios/core/env_prefix.py`) | scripts, service units, CI, `.env` files |
 
@@ -40,10 +40,12 @@ remaining mentions is in [old-name-leftovers.md](old-name-leftovers.md).
      `release-cut.yml`, which other work is changing; retire it with the
      installer copies.
    * `personal-jarvis.intoto.jsonl`: `install/install-verify.sh` and `.ps1`
-     of every published release look the provenance up under this name. A
-     rename needs a release that publishes both names first (a change to
-     `sign-installer.yml` and both verify scripts), then the old name can go
-     with the installer copies.
+     of every published release look the provenance up under this name.
+     `sign-installer.yml` now publishes `dodaios.intoto.jsonl` with a
+     byte-identical copy under the earlier name, and new verify scripts try
+     the current name first and fall back to the earlier one, so the old
+     name can go with the installer copies on the same switch
+     (`PUBLISH_EARLIER_INSTALLER_NAMES` in `scripts/ci/release_assets.py`).
 5. **Sunset (proposal for the maintainer):** stop publishing the
    `PersonalJarvis-*` copies after two more minor releases or on 2027-01-31,
    whichever comes later, and only once the download counts of step 4.5 show
