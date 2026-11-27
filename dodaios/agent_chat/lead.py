@@ -153,6 +153,15 @@ def lead_session(svc: Any, *, create: bool = True, provider_hint: str = "") -> A
         return session
 
 
+#: Said when the provider is picked while a turn runs: that turn would write
+#: its own CLI's conversation id onto the new provider.
+SEAT_BUSY = "Stop the running turn before switching the agent"
+
+
+class SeatBusy(RuntimeError):
+    """The conversation cannot change its provider while a turn runs."""
+
+
 def adopt_seat(svc: Any, seat: dict[str, Any]) -> Any | None:
     """Put the person's new chat pick on the lead's conversation.
 
@@ -184,6 +193,8 @@ def adopt_seat(svc: Any, seat: dict[str, Any]) -> Any | None:
         if value is not None and value != getattr(session, key, None):
             fields[key] = value
     if "provider" in fields:
+        if svc.is_running(session.session_id):
+            raise SeatBusy(SEAT_BUSY)
         fields["vendor_session"] = ""
     if not fields:
         return session
@@ -661,7 +672,9 @@ def _archive() -> Any | None:
 
 
 __all__ = [
+    "SEAT_BUSY",
     "SURFACE",
+    "SeatBusy",
     "adopt_seat",
     "LeadCard",
     "LeadReport",

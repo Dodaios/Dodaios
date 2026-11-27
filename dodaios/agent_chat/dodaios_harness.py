@@ -778,7 +778,7 @@ async def identity_prompt(
         # A society agent's seat: ITS briefing is the identity. Jarvis' own
         # layers stay out so the CLI does not answer as Jarvis.
         parts.append(prompt_override.strip())
-        if resume is None and history:
+        if not resume and history:
             transcript = render_transcript(history)
             if transcript:
                 parts.append("## This conversation so far\n\n" + transcript)
@@ -799,7 +799,7 @@ async def identity_prompt(
                 parts.append(turn_context.strip())
         except Exception:  # noqa: BLE001 — the addendum alone is still a working chat
             log.warning("agent chat: Dodaios' prompt layers unavailable this turn", exc_info=True)
-    if resume is None and history:
+    if not resume and history:
         transcript = _fresh_history_block(session_id, history)
         if transcript:
             parts.append("## This conversation so far\n\n" + transcript)

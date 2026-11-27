@@ -1037,3 +1037,37 @@ describe("the mode Build returns to", () => {
     expect(store.getState().draft).toMatchObject({ permissionMode: "default", buildMode: "default" });
   });
 });
+
+describe("a pick the session refuses", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal("WebSocket", FakeSocket);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("puts the composer back on what the thread runs and says why", async () => {
+    const row = session("busy1", "agent");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string, init?: RequestInit) =>
+        init?.method === "PATCH"
+          ? new Response(JSON.stringify({ detail: "Stop the running turn before switching the agent" }), { status: 409 })
+          : new Response(null, { status: 404 }),
+      ),
+    );
+    const store = createAgentChatStore("agent", "refused-pick");
+    store.setState({
+      activeSessionId: row.session_id,
+      activeSession: row,
+      sessions: [row],
+      draft: { ...store.getState().draft, provider: row.provider, model: row.model },
+    });
+
+    await store.getState().setDraft({ provider: "openai-codex", model: "" });
+
+    expect(store.getState().draft.provider).toBe("claude-api");
+    expect(store.getState().lastError).toContain("Stop the running turn");
+  });
+});

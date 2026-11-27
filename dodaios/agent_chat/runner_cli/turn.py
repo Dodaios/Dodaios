@@ -489,6 +489,11 @@ async def _surface_identity(session: Any) -> str | None:
     return text or None
 
 
+def _held_conversation(session: Any) -> str | None:
+    """The vendor conversation to resume: a provider switch stores ``""``, which is none."""
+    return session.vendor_session or None
+
+
 async def run_cli_turn(
     handle: TurnHandle,
     user_text: str,
@@ -512,7 +517,7 @@ async def run_cli_turn(
     """
     t0 = time.perf_counter()
     session = handle.session
-    resume = session.vendor_session
+    resume = _held_conversation(session)
     if (
         resume
         and identity

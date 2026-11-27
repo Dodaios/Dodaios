@@ -220,6 +220,20 @@ async def get_context_window(
     }
 
 
+async def _leave_provider(svc: Any, session_id: str) -> None:
+    """Clear the way for a provider change, or refuse it while a turn runs.
+
+    That turn would write its own CLI's conversation id onto the new provider.
+    """
+    from dodaios.agent_chat.lead import SEAT_BUSY
+
+    await svc._await_finishing(session_id)  # noqa: SLF001 — same package boundary
+    if not svc.is_running(session_id):
+        await svc.controls._clear_saved_native(session_id)
+    if svc.is_running(session_id):  # one that ran, or arrived while that waited
+        raise HTTPException(status_code=409, detail=SEAT_BUSY)
+
+
 @router.patch("/sessions/{session_id}")
 async def patch_session(
     session_id: str, body: PatchSessionBody, request: Request
@@ -233,6 +247,7 @@ async def patch_session(
     if existing.surface == "society" and svc.is_running(session_id):
         raise HTTPException(status_code=409, detail="Agent chat is working")
     fields: dict[str, Any] = {}
+    provider_moves = False
     if body.title is not None:
         fields["title"] = body.title.strip()[:120]
     if body.provider is not None:
@@ -243,11 +258,12 @@ async def patch_session(
                 detail=f"provider {picked!r} is not offered on the {existing.surface!r} chat",
             )
         fields["provider"] = picked
-        if picked != existing.provider:
+        provider_moves = picked != existing.provider
+        if provider_moves:
             fields["account_id"] = ""
-        # A provider change resets the vendor conversation: the new CLI cannot
-        # resume the old one's id.
-        fields["vendor_session"] = ""
+            # A provider change resets the vendor conversation: the new CLI
+            # cannot resume the old one's id.
+            fields["vendor_session"] = ""
     if body.model is not None:
         fields["model"] = body.model.strip()
     if body.effort is not None:
@@ -332,8 +348,9 @@ async def patch_session(
             or fields.get("permission_mode") == "plan"
         ):
             await svc.controls.pause(session_id, "Model or permission settings changed")
-        if "provider" in fields or "account_id" in fields:
-            await svc.controls._clear_saved_native(session_id)
+    if provider_moves:
+        # After the pause above, which stops a goal's turn.
+        await _leave_provider(svc, session_id)
     if current.surface == "society" and svc.is_running(session_id):
         raise HTTPException(status_code=409, detail="Agent chat is working")
     session = svc.store.update_session(session_id, **fields)
