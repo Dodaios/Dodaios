@@ -100,3 +100,50 @@ def test_resync_on_token_refresh(tmp_path):
     os.utime(creds, (new_mtime, new_mtime))
     _iso(real, dest)
     assert json.loads(mirrored.read_text())["access_token"] == "v2"
+
+
+# -- macOS login Keychain under the redirected HOME (review of PR #1529) ------
+
+
+def test_macos_links_the_login_keychains_into_the_home(tmp_path, monkeypatch):
+    """With HOME redirected, `security` finds no default keychain (exit 44), so
+    agy's Keychain login is invisible to a real turn unless the home links it."""
+    import dodaios.google_cli.isolated_home as iso_mod
+
+    real_keychains = tmp_path / "real-home" / "Library" / "Keychains"
+    real_keychains.mkdir(parents=True)
+    monkeypatch.setattr(iso_mod.sys, "platform", "darwin")
+    monkeypatch.setattr(iso_mod, "real_keychains_dir", lambda: str(real_keychains))
+    real = tmp_path / "real" / ".gemini"
+    real.mkdir(parents=True)
+    dest = tmp_path / "iso"
+    assert _iso(real, dest) == str(dest)
+    link = dest / "Library" / "Keychains"
+    # realpath, not readlink: Windows CI reports the link with a \\?\ prefix.
+    assert link.is_symlink() and os.path.realpath(link) == os.path.realpath(real_keychains)
+    assert _iso(real, dest) == str(dest)  # a rebuild keeps the same link
+    assert os.path.realpath(link) == os.path.realpath(real_keychains)
+
+
+def test_a_foreign_keychains_entry_is_left_alone(tmp_path, monkeypatch):
+    import dodaios.google_cli.isolated_home as iso_mod
+
+    monkeypatch.setattr(iso_mod.sys, "platform", "darwin")
+    monkeypatch.setattr(iso_mod, "real_keychains_dir", lambda: str(tmp_path / "kc"))
+    dest = tmp_path / "iso"
+    (dest / "Library" / "Keychains").mkdir(parents=True)
+    real = tmp_path / "real" / ".gemini"
+    real.mkdir(parents=True)
+    assert _iso(real, dest) == str(dest)
+    assert not (dest / "Library" / "Keychains").is_symlink()
+
+
+def test_other_platforms_get_no_keychain_link(tmp_path, monkeypatch):
+    import dodaios.google_cli.isolated_home as iso_mod
+
+    monkeypatch.setattr(iso_mod.sys, "platform", "linux")
+    real = tmp_path / "real" / ".gemini"
+    real.mkdir(parents=True)
+    dest = tmp_path / "iso"
+    _iso(real, dest)
+    assert not (dest / "Library").exists()
