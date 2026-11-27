@@ -252,11 +252,11 @@ async def _run_cli_once(
     # A society agent placed on another computer runs its CLI there over SSH.
     placement = await placement_for_session(session)
     remote_token = _REMOTE_PLANNING.set(placement is not None)
-    from dodaios.agent_chat import plain_chat
+    from dodaios.agent_chat import plain_chat, thread_handoff
 
-    # A plain chat's instructions open every conversation the CLI starts,
-    # the one a lost resume falls back to included.
-    planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
+    # A plain chat's instructions, and a coding thread's history, open every conversation
+    # the CLI starts, the one a lost resume falls back to included.
+    planned_prompt = thread_handoff.opening_prompt(handle, runner, user_text, resume, identity)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
     is_thread = getattr(session, "surface", "agent") != "society"

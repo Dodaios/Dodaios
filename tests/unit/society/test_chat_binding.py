@@ -49,6 +49,9 @@ class FakeService:
     def is_running(self, session_id: str) -> bool:
         return session_id in self.busy
 
+    async def _await_finishing(self, session_id: str) -> None:
+        return None
+
     async def send(self, session_id: str, text: str, attachments=None, *, incoming=None) -> str:
         self.sent.append((session_id, text))
         return "turn-1"

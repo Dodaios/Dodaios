@@ -216,7 +216,7 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
     if body.surface == "jarvis":
         # Dodaios keeps ONE endless conversation: "new chat" returns it with
         # the picked model on its seat instead of opening a second chat.
-        from dodaios.agent_chat.lead import adopt_seat
+        from dodaios.agent_chat.lead import SeatBusy, adopt_seat
 
         try:
             lead = adopt_seat(
@@ -228,6 +228,8 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
                     "account_id": body.account_id,
                 },
             )
+        except SeatBusy as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if lead is not None:

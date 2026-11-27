@@ -1172,9 +1172,9 @@ export function createAgentChatStore(
               };
             });
             if (reconciledDraft) writeDraft(DRAFT_KEY, reconciledDraft);
-          } catch (err) {
+          } catch (err) { // A refused pick goes back to what the thread runs.
             if (get().activeSessionId === sid && patchRevisions.get(sid) === revision) {
-              set({ lastError: errorText(err) });
+              set((s) => ({ lastError: errorText(err), draft: s.activeSession ? draftFromSession(s.activeSession) : s.draft }));
             }
           } finally {
             if (patchRevisions.get(sid) === revision) {
